@@ -5,7 +5,7 @@
 
 import { spawn } from "node:child_process";
 
-export function invokeCodex({ prompt, model = "gpt-5.5", timeoutMs = 120_000, codexBin = "codex" }) {
+export function invokeCodex({ prompt, model = "gpt-5.5", timeoutMs = 300_000, codexBin = "codex" }) {
   return new Promise((resolve, reject) => {
     const child = spawn(
       codexBin,
@@ -15,11 +15,38 @@ export function invokeCodex({ prompt, model = "gpt-5.5", timeoutMs = 120_000, co
 
     let stdout = "";
     let stderr = "";
-    const timer = setTimeout(() => {
+    let settled = false;
+
+    // First-run discovery: codex ignores SIGTERM mid-turn (observed 712s + 985s
+    // hangs past a 240s SIGTERM in the ADR-100 first run). SIGKILL + explicit
+    // stdio destroy is required to actually release the script. The `settled`
+    // guard prevents double-settle if `close` fires after the timer.
+    const settleReject = (err) => {
+      if (settled) return;
+      settled = true;
       try {
-        child.kill("SIGTERM");
+        child.kill("SIGKILL");
       } catch {}
-      reject(new Error(`codex timed out after ${timeoutMs}ms`));
+      try {
+        child.stdout.destroy();
+      } catch {}
+      try {
+        child.stderr.destroy();
+      } catch {}
+      try {
+        child.stdin.destroy();
+      } catch {}
+      reject(err);
+    };
+
+    const settleResolve = (val) => {
+      if (settled) return;
+      settled = true;
+      resolve(val);
+    };
+
+    const timer = setTimeout(() => {
+      settleReject(new Error(`codex timed out after ${timeoutMs}ms (stdout=${stdout.length}B, stderr=${stderr.length}B captured before SIGKILL)`));
     }, timeoutMs);
 
     child.stdout.on("data", (c) => {
@@ -30,15 +57,20 @@ export function invokeCodex({ prompt, model = "gpt-5.5", timeoutMs = 120_000, co
     });
     child.on("close", (code) => {
       clearTimeout(timer);
+      if (settled) return;
       if (code !== 0) {
-        reject(new Error(`codex exited ${code}: ${stderr.slice(0, 500)}`));
+        settleReject(new Error(`codex exited ${code}: ${stderr.slice(0, 500)}`));
         return;
       }
       try {
-        resolve(parseCodexJsonl(stdout));
+        settleResolve(parseCodexJsonl(stdout));
       } catch (err) {
-        reject(err);
+        settleReject(err);
       }
+    });
+    child.on("error", (err) => {
+      clearTimeout(timer);
+      settleReject(err);
     });
     child.stdin.write(prompt);
     child.stdin.end();

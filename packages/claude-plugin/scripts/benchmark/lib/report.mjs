@@ -48,7 +48,15 @@ export function renderReport({ fixtures, runs, meta }) {
   }
   lines.push("");
 
-  if (meta.arms.length === 2) {
+  // If every fixture errored on at least one arm, there's no signal to compute
+  // a recall delta on. Surface the situation and skip the decision-rule line.
+  const anyArmAllErrored = meta.arms.some((arm) =>
+    fixtures.every((f) => runs[arm][f.name]?.error),
+  );
+  if (anyArmAllErrored) {
+    lines.push("> **No comparable data — at least one arm errored on every fixture.** See per-fixture sections below for individual error messages.");
+    lines.push("");
+  } else if (meta.arms.length === 2) {
     const [armA, armB] = meta.arms;
     const recallDelta = aggregate[armB].recall - aggregate[armA].recall;
     const extraDelta = aggregate[armB].extra - aggregate[armA].extra;
@@ -71,6 +79,12 @@ export function renderReport({ fixtures, runs, meta }) {
       const run = runs[arm][fixture.name];
       if (!run) {
         lines.push(`### Arm \`${arm}\`: (no run data)`);
+        lines.push("");
+        continue;
+      }
+      if (run.error) {
+        lines.push(`### Arm \`${arm}\`: FAILED — ${run.error}`);
+        lines.push(`*Duration: ${(run.durationMs / 1000).toFixed(1)}s*`);
         lines.push("");
         continue;
       }
