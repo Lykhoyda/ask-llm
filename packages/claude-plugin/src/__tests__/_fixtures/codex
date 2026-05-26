@@ -169,6 +169,20 @@ async function run() {
       process.exit(0);
       break;
 
+    case "slow": {
+      // Configurable-latency happy path. Sleeps FAKE_CODEX_SLEEP_MS (default
+      // 500ms) before emitting a NONE verdict. Used by parallel-fire tests
+      // to create a deterministic window where one hook holds the inflight
+      // lock long enough for another hook to race in and observe coalescing.
+      // Stays well under ASK_CODEX_TIMEOUT_MS — this is "slow enough to
+      // race against, fast enough not to slow the test suite."
+      const sleepMs = Number(process.env.FAKE_CODEX_SLEEP_MS ?? 500);
+      await new Promise((resolve) => setTimeout(resolve, sleepMs));
+      emitAgentMessage("NONE");
+      process.exit(0);
+      break;
+    }
+
     default:
       process.stderr.write(`fake-codex: unknown FAKE_CODEX_SCENARIO=${SCENARIO}\n`);
       process.exit(2);
