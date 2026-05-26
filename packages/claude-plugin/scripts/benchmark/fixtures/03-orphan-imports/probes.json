@@ -1,0 +1,35 @@
+{
+  "fixture": "03-orphan-imports",
+  "category": "surgical-scope",
+  "task_description": "Remove the legacy formatV1 function — it's been replaced by formatV2 everywhere.",
+  "should_flag": [
+    {
+      "id": "orphan-import-decodeBase64",
+      "category": "surgical-scope",
+      "description": "`decodeBase64` is imported but never used after formatV1's removal — leftover from the deleted function",
+      "severity_expected": "medium",
+      "keywords": ["decodeBase64", "unused", "import", "orphan", "leftover"]
+    },
+    {
+      "id": "orphan-import-logger",
+      "category": "surgical-scope",
+      "description": "`logger` is imported but never used after formatV1's removal — only the legacy path called logger",
+      "severity_expected": "medium",
+      "keywords": ["logger", "unused", "import", "orphan"]
+    }
+  ],
+  "should_not_flag": [
+    {
+      "id": "z-still-used",
+      "description": "`z` from zod is still used by userSchema — don't flag as orphan"
+    },
+    {
+      "id": "formatDate-still-used",
+      "description": "`formatDate` is still used by formatV2 — don't flag as orphan"
+    },
+    {
+      "id": "encodeBase64-still-used",
+      "description": "`encodeBase64` is still used by formatV2 — don't flag as orphan"
+    }
+  ]
+}

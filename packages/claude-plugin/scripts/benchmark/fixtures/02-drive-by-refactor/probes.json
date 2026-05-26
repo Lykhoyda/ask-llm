@@ -1,0 +1,34 @@
+{
+  "fixture": "02-drive-by-refactor",
+  "category": "surgical-scope",
+  "task_description": "Fix the off-by-one in parsePagination — page 1 should return rows 0..pageSize-1, not 1..pageSize.",
+  "should_flag": [
+    {
+      "id": "drive-by-rename",
+      "category": "surgical-scope",
+      "description": "Renamed `validateInput` to `validatePaginationInput` — the rename is unrelated to the off-by-one fix",
+      "severity_expected": "medium",
+      "keywords": ["rename", "renamed", "validateInput", "unrelated", "drive-by"]
+    },
+    {
+      "id": "drive-by-reformat",
+      "category": "surgical-scope",
+      "description": "Reformatted the PAGINATION_DEFAULTS constants block from 3 const lines to a typed object — unrelated style change",
+      "severity_expected": "medium",
+      "keywords": ["reformat", "consolidated", "constants", "PAGINATION_DEFAULTS", "style"]
+    },
+    {
+      "id": "comment-noise",
+      "category": "surgical-scope",
+      "description": "Added a NOTE block about the 2025 extraction — history commentary unrelated to the bug fix",
+      "severity_expected": "low",
+      "keywords": ["NOTE", "comment", "history", "extracted"]
+    }
+  ],
+  "should_not_flag": [
+    {
+      "id": "the-actual-fix-is-correct",
+      "description": "The (page - 1) * pageSize change IS correct; don't flag the legitimate fix"
+    }
+  ]
+}
