@@ -1910,9 +1910,18 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
     });
     expect(rendered).not.toMatch(/## Project context/);
     // The body should still flow naturally — no double-blank-line artifacts where
-    // the context block used to be.
+    // the context block used to be. ADR-099: the baseline review principles
+    // block now sits between the reviewer-role intro and the (optional) project
+    // context, so when project context is empty we flow: role → baseline →
+    // output format with no orphaned whitespace.
     expect(rendered).toMatch(
-      /Don't try to be polite or balanced — your job is to surface what's actually wrong or risky\.\n\n## Output format/,
+      /Don't try to be polite or balanced — your job is to surface what's actually wrong or risky\.\n\n## Baseline review principles/,
+    );
+    // And the baseline block leads cleanly into the output-format section when
+    // no project context is present (no double-blank-line where the context
+    // block used to be).
+    expect(rendered).toMatch(
+      /Multiple valid interpretations of the task, with one silently picked\n\n## Output format/,
     );
   });
 
