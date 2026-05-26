@@ -1,0 +1,41 @@
+{
+  "fixture": "01-overcomplication",
+  "category": "simplicity",
+  "task_description": "Add a function that returns the user's full name from first and last name fields.",
+  "should_flag": [
+    {
+      "id": "single-use-interface",
+      "category": "simplicity",
+      "description": "NameFormatter interface has exactly one implementation and is not exported — premature abstraction for single-use code",
+      "severity_expected": "medium",
+      "keywords": ["interface", "single", "abstraction", "premature", "overengineer", "unnecessary"]
+    },
+    {
+      "id": "factory-for-one-class",
+      "category": "simplicity",
+      "description": "NameFormatterFactory wraps one class with one method — factory pattern not needed; just instantiate directly (or skip the class entirely)",
+      "severity_expected": "medium",
+      "keywords": ["factory", "wrapper", "single", "instantiate"]
+    },
+    {
+      "id": "configurability-not-requested",
+      "category": "simplicity",
+      "description": "`separator` constructor param and `locale` factory param are configurability never asked for and never exercised",
+      "severity_expected": "medium",
+      "keywords": ["separator", "locale", "configurable", "parameter", "unused", "flexibility"]
+    },
+    {
+      "id": "impossible-runtime-check",
+      "category": "simplicity",
+      "description": "TypeScript types already enforce string non-null on the parameters; runtime null check + TypeError throw are dead code for impossible scenarios",
+      "severity_expected": "low",
+      "keywords": ["null", "typeof", "TypeError", "runtime check", "impossible"]
+    }
+  ],
+  "should_not_flag": [
+    {
+      "id": "no-missing-features",
+      "description": "The function correctly returns 'firstName lastName' — don't manufacture missing-functionality concerns"
+    }
+  ]
+}
