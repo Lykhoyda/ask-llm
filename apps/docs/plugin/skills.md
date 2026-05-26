@@ -122,35 +122,42 @@ If you're reviewing a code diff → use `/multi-review` instead.
 
 ## Background Continuous Review
 
-### `codex-pair` (not a slash command — a PostToolUse hook)
+### `codex-pair` — PostToolUse hook + `/codex-pair` dashboard
 
-Unlike the skills above, `codex-pair` isn't something you invoke. It's a **continuous reviewer** that fires automatically after every `Edit` / `Write` / `MultiEdit`, but only when a project marker file is present. HIGH and MED concerns appear to Claude as a system reminder on the next turn; LOW concerns are logged but suppressed from surfacing.
+`codex-pair` has two surfaces:
 
-> This is the "hidden" surface of the plugin: it ships in every install but is disabled by default. The full mechanism, opt-in steps, env vars, and cost characteristics live in [Hooks → PostToolUse Hook: codex-pair](/plugin/hooks#posttooluse-hook-codex-pair-opt-in-continuous-review).
+- **The PostToolUse hook** — fires automatically after every `Edit` / `Write` / `MultiEdit` whenever a project has opted in via a `.codex-pair/context.md` marker. HIGH and MED concerns appear to Claude as a system reminder on the next turn; LOW concerns are logged. This is the workhorse — the actual review surface.
+- **`/codex-pair`** — a user-invocable slash command that shows current status (active / paused / not configured) and runs interactive setup on first use. Use this when you want to enable codex-pair on a new project (auto-detects context from your README + manifests, drafts the marker, asks you to confirm) or check whether it's currently running. Pairs with `/codex-pair-pause` and `/codex-pair-resume` (the imperative toggles).
 
-**Quick enable:**
+> This is the "hidden" surface of the plugin: the hook ships in every install but is disabled by default until a project opts in. The full mechanism, env vars, and cost characteristics live in [Hooks → PostToolUse Hook: codex-pair](/plugin/hooks#posttooluse-hook-codex-pair-opt-in-continuous-review).
+
+**Quick enable** — either run `/codex-pair` (recommended; it auto-detects your project and asks before writing) or create the marker manually:
 
 ```bash
 mkdir -p .codex-pair
 cat > .codex-pair/context.md <<'EOF'
 # .codex-pair/context.md
 
-This is a payment-processing service. Currency must use integer cents.
-Concurrent requests are real. URL inputs are untrusted.
+<one-paragraph project-purpose summary>
 
-[Add domain invariants Codex can't infer from one file — e.g.
-"all routes check user.role", "handler must be idempotent under retry".]
+## Domain invariants Codex can't infer from a single file
+
+- <invariant 1 — something the model can't see by reading one file>
+- <invariant 2 — a written spec or protocol your code implements>
+- <invariant 3 — a concurrency or state-coordination rule>
 EOF
 ```
 
 Once the marker exists at the project root, every file edit triggers a Codex review with the marker's content as project context. `rm -rf .codex-pair/` to disable.
 
-**How it differs from `/codex-review`** — in the [ADR-077](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md) four-task benchmark: Claude alone caught **2 of 10** probes; Claude + `/codex-review` caught **7 of 10**; Claude + `codex-pair` caught **10 of 10**. The three probes `/codex-review` missed (float-money precision, validation bypass, edge-case clamping) are the "domain-wrong but won't crash" class its ≥80-confidence filter structurally suppresses. The two surfaces are complementary, not competing.
+**How it differs from `/codex-review`** — in the [ADR-077](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md) four-task benchmark (four structurally different task types — CRUD, URL parsing, RFC-spec implementation, stateful business logic — picked so the result would generalize across domains): Claude alone caught **2 of 10** probes; Claude + `/codex-review` caught **7 of 10**; Claude + `codex-pair` caught **10 of 10**. The three probes `/codex-review` missed exemplified the "looks fine, runs wrong" class its ≥80-confidence filter structurally suppresses — code that compiles and type-checks but produces wrong results at runtime. **The recall improvement is task-agnostic**; the two surfaces are complementary, not competing.
+
+The decision about when to use the hook is about **code characteristics**, not project domain:
 
 | Use `/codex-review` (precision-first) | Use `codex-pair` (recall-first) |
 |---|---|
-| Routine PR review | Money / billing code |
-| Glue code, CRUD, refactors | Security-sensitive paths |
-| You want one comprehensive report | Implementing a written spec (RFC, protocol) |
-| You're cost-sensitive (~$0.04 per review) | Concurrency-heavy state management |
-| Default for everything | Cost (~$0.04–0.07 per file reviewed) is acceptable |
+| Routine PR review | Code with hidden invariants the model can't infer from one file |
+| Glue code, simple CRUD, refactors | Code where latent bugs cost more than per-edit review (~$0.04–0.07) |
+| You want one comprehensive report | Code evolving fast under written constraints (spec, protocol, ADR) |
+| You're cost-sensitive (~$0.04 per review) | State coordination, concurrency, anything order-sensitive |
+| Default for everything | The "looks fine, runs wrong" failure mode would be expensive to catch later |

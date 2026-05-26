@@ -57,7 +57,7 @@ claude mcp add --scope user ollama -- npx -y ask-ollama-mcp
 
 ## Enabling codex-pair mode
 
-`codex-pair` is a **PostToolUse hook**, not a slash command — it runs continuously after every file edit when opted in, and is the recall-first complement to `/codex-review`. In the four-task benchmark from [ADR-077](../../docs/DECISIONS.md): Claude alone caught **2 of 10** probes; Claude + `/codex-review` caught **7 of 10**; Claude + `codex-pair` caught **10 of 10**. The three probes `/codex-review` missed (float-money precision, validation bypass, edge-case clamping) are exactly the "domain-wrong but won't crash" class its ≥80-confidence precision filter structurally suppresses.
+`codex-pair` has two surfaces: a **PostToolUse hook** that runs continuously after every file edit when opted in (the workhorse), and a **`/codex-pair` slash command** for setup-and-status (the human-facing dashboard). The hook is the recall-first complement to `/codex-review`. In the four-task benchmark from [ADR-077](../../docs/DECISIONS.md) (four structurally different task types — CRUD endpoint, URL shortener, RFC-spec implementation, stateful business logic — chosen so the result would generalize, not be a fluke of one domain): Claude alone caught **2 of 10** probes; Claude + `/codex-review` caught **7 of 10**; Claude + `codex-pair` caught **10 of 10**. The three probes `/codex-review` missed exemplified the "looks fine, runs wrong" class its ≥80-confidence precision filter structurally suppresses — code that compiles and type-checks but produces wrong results at runtime because of an implicit invariant the model couldn't infer from a single file. **The recall improvement is task-agnostic**; it reproduced across all four task types, not just the headline one. Subsequent lived-experience audit in [ADR-095](../../docs/DECISIONS.md) confirms the benchmark holds in real flow.
 
 The hook is loaded by default but **self-gates on a marker file**. Without the marker, every edit triggers one `fs.access()` call and exits — zero codex calls, zero cost.
 
@@ -91,7 +91,7 @@ To disable:
 
 **Cost characteristics**: ~$0.04–0.07 per file reviewed (gpt-5.5), ~13–50s per file. Files >20KB skipped (override with `CODEX_PAIR_MAX_FILE_BYTES`). node_modules/dist/lockfiles/images skipped automatically.
 
-**When to enable**: money handling, security-sensitive paths, code implementing a written spec, concurrent state management. **When NOT to enable**: routine refactors, glue code, simple CRUD — `/codex-review` is sufficient at 1/4 the cost. The four-task benchmark in ADR-077 has the full evidence trail.
+**When to enable**: any project where missed correctness issues cost more than the per-edit review (~$0.04–0.07). The decision is about *code characteristics*, not domain — codex-pair catches bugs earlier wherever a project has implicit invariants the model can't infer from one file in isolation (which most projects do, somewhere). **When NOT to enable**: routine refactors, glue code, simple CRUD where `/codex-review` at PR time is sufficient (~1/4 the cost). The four-task benchmark in ADR-077 has the full task-agnostic evidence trail; ADR-095 is the lived-experience replication on this very repo.
 
 ## Requirements
 

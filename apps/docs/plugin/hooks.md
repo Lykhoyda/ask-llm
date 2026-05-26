@@ -24,19 +24,19 @@ Hooks are automated actions that trigger on specific Claude Code events. The plu
 
 > No marker file → the hook exits silently after one `fs.access()` call. **Zero codex calls, zero cost.** This is by design: the hook ships in every plugin install, but does nothing until a project opts in.
 
-**Why this exists** — in the four-task benchmark from [ADR-077](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md): Claude alone caught **2 of 10** probes; Claude + `/codex-review` caught **7 of 10**; Claude + `codex-pair` caught **10 of 10**. The three probes `/codex-review` missed — float-money precision, validation bypass, edge-case clamping — are exactly the "domain-wrong but won't crash" class its ≥80-confidence precision filter structurally suppresses. `codex-pair`'s recall-first HIGH/MED/LOW grading catches that class. The two surfaces are **complementary, not competing**.
+**Why this exists** — in the four-task benchmark from [ADR-077](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md) (four structurally different task types — CRUD endpoint, URL shortener, RFC-spec implementation, stateful business logic — chosen so the result would generalize across domains): Claude alone caught **2 of 10** probes; Claude + `/codex-review` caught **7 of 10**; Claude + `codex-pair` caught **10 of 10**. The three probes `/codex-review` missed exemplified the **"looks fine, runs wrong"** class — code that compiles, lints, and type-checks but produces wrong results because of an implicit invariant the model couldn't infer from a single file. `codex-pair`'s recall-first HIGH/MED/LOW grading catches that class. **The improvement is task-agnostic** — reproduced across all four tasks, not just the headline one. The two surfaces are **complementary, not competing**. (Subsequent lived-experience audit in [ADR-095](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md) confirms the benchmark holds in real flow on this very repo.)
 
 ### When to enable it
 
-Decide BEFORE you opt in — the hook costs real money per edit, and the value is highest on code where missed concerns have outsized blast radius.
+Decide BEFORE you opt in — the hook costs real money per edit, and the value is highest on code where missed concerns have outsized blast radius. The decision is about **code characteristics**, not project domain: any project has both kinds of code, and codex-pair earns its keep wherever there's a category of "looks fine, runs wrong" failure mode.
 
 | Use the hook (recall-first) | Stick with `/codex-review` only (precision-first) |
 |---|---|
-| Money / billing code | Routine PR review |
-| Security-sensitive paths (auth, untrusted input) | Glue code, CRUD, refactors |
-| Implementing a written spec (RFC, protocol) | Cost-sensitive sessions |
-| Concurrency-heavy state management | One comprehensive report is enough |
-| Cost (~$0.04–0.07 per file reviewed) is acceptable | |
+| Code with hidden invariants the model can't infer from one file | Routine PR review |
+| Code where latent bugs cost more than per-edit review (~$0.04–0.07) | Glue code, simple CRUD, refactors |
+| Code evolving fast under written constraints (spec, protocol, ADR) | Cost-sensitive sessions |
+| State coordination, concurrency, anything order-sensitive | One comprehensive report is enough |
+| The "looks fine, runs wrong" failure mode would be expensive to catch later | |
 
 ### Enable it
 
