@@ -1,4 +1,4 @@
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
@@ -3659,5 +3659,294 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
     for (const call of verdictCalls) {
       expect(call).toMatch(/repeatedIgnoredCount/);
     }
+  });
+});
+
+// Parallel-fire fixtures — closes the test gap the deep-investigation surfaced:
+// 313 existing tests, zero MultiEdit fixtures and zero concurrent-fire fixtures.
+// These tests pin behavior the simple single-fire trace doesn't reach:
+//   - MultiEdit payload shape acceptance (tool_input.file_path singular, edits[])
+//   - Cache participation across tool_name values (key is content-derived)
+//   - Cross-file concurrent fires → independent shards / caches / log entries
+//   - Same-file concurrent fires → ADR-087 inflight-lock coalescing (silent skip)
+//   - MultiEdit + ignore gate (no tool_name-specific bypass of the ignore list)
+describe("scripts/codex-pair-watch.mjs — MultiEdit + parallel-fire fixtures", () => {
+  let tempDir: string;
+  const FIXTURE_DIR = path.join(PLUGIN_ROOT, "src", "__tests__", "_fixtures");
+
+  beforeEach(() => {
+    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "codex-pair-parallel-"));
+  });
+
+  afterEach(() => {
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  });
+
+  function setupMarker(dir: string, content = "# test context") {
+    fs.mkdirSync(path.join(dir, ".codex-pair"), { recursive: true });
+    fs.writeFileSync(path.join(dir, ".codex-pair/context.md"), content);
+  }
+
+  function runHookSyncWithFakeCodex(
+    payload: string,
+    cwd: string,
+    scenario: string,
+    extraEnv: Record<string, string> = {},
+  ) {
+    return spawnSync("node", [HOOK_PATH], {
+      input: payload,
+      cwd,
+      env: {
+        ...process.env,
+        PATH: `${FIXTURE_DIR}:${process.env.PATH}`,
+        FAKE_CODEX_SCENARIO: scenario,
+        ASK_CODEX_TIMEOUT_MS: extraEnv.ASK_CODEX_TIMEOUT_MS ?? "30000",
+        ...extraEnv,
+      },
+      encoding: "utf-8",
+      timeout: 10_000,
+    });
+  }
+
+  // Async variant — needed for parallel fires. spawnSync blocks; spawn returns
+  // immediately and we collect output via stream events. Multiple of these can
+  // be in flight via Promise.all to exercise the concurrent-process path.
+  function runHookAsyncWithFakeCodex(
+    payload: string,
+    cwd: string,
+    scenario: string,
+    extraEnv: Record<string, string> = {},
+  ): Promise<{ status: number | null; stdout: string; stderr: string }> {
+    return new Promise((resolve) => {
+      const child = spawn("node", [HOOK_PATH], {
+        cwd,
+        env: {
+          ...process.env,
+          PATH: `${FIXTURE_DIR}:${process.env.PATH}`,
+          FAKE_CODEX_SCENARIO: scenario,
+          ASK_CODEX_TIMEOUT_MS: extraEnv.ASK_CODEX_TIMEOUT_MS ?? "30000",
+          ...extraEnv,
+        },
+        stdio: ["pipe", "pipe", "pipe"],
+      });
+      let stdout = "";
+      let stderr = "";
+      child.stdout.on("data", (c) => {
+        stdout += c.toString();
+      });
+      child.stderr.on("data", (c) => {
+        stderr += c.toString();
+      });
+      child.on("close", (code) => resolve({ status: code, stdout, stderr }));
+      child.stdin.write(payload);
+      child.stdin.end();
+    });
+  }
+
+  function readLog(dir: string): Array<Record<string, unknown>> {
+    const logPath = path.join(dir, ".codex-pair/log.jsonl");
+    if (!fs.existsSync(logPath)) return [];
+    return fs
+      .readFileSync(logPath, "utf-8")
+      .trim()
+      .split("\n")
+      .filter((l) => l.length > 0)
+      .map((l) => JSON.parse(l));
+  }
+
+  it("MultiEdit: payload with {file_path, edits[]} is accepted and reviewed (closes 313→0 MultiEdit fixture gap)", () => {
+    // The hook reads payload.tool_input.file_path (singular) at codex-pair-
+    // watch.mjs:809. MultiEdit's actual Claude Code schema is {file_path,
+    // edits: [{old_string, new_string, replace_all?}, ...]} — singular file,
+    // multiple inline edits. This test pins that the singular-read is correct
+    // for MultiEdit's actual payload shape.
+    setupMarker(tempDir, "# ctx");
+    const filePath = path.join(tempDir, "src.ts");
+    fs.writeFileSync(filePath, "export const x = 1;");
+    const payload = JSON.stringify({
+      tool_name: "MultiEdit",
+      tool_input: {
+        file_path: filePath,
+        edits: [
+          { old_string: "x = 1", new_string: "x = 2" },
+          { old_string: "x = 2", new_string: "x = 3" },
+        ],
+      },
+    });
+    const result = runHookSyncWithFakeCodex(payload, tempDir, "none");
+    expect(result.status).toBe(0);
+    const lines = readLog(tempDir);
+    const reviewEntry = lines.find((l) => l.verdict === "none");
+    expect(reviewEntry).toBeTruthy();
+    expect(reviewEntry?.tool).toBe("MultiEdit");
+    expect(reviewEntry?.file).toBe(filePath);
+  });
+
+  it("Cache participation: MultiEdit twice on identical content → second fire is a cache hit", () => {
+    // Cache key = sha256(model | prompt | fileContent | surfaceThreshold).
+    // tool_name flows into `prompt` (rendered into the review prompt body),
+    // so MultiEdit→MultiEdit on identical content reuses the cache.
+    // This pins that MultiEdit participates in the cache the same way Edit
+    // does — no tool_name-specific bypass.
+    setupMarker(tempDir, "# ctx");
+    const filePath = path.join(tempDir, "src.ts");
+    fs.writeFileSync(filePath, "export const x = 1;");
+    const payload = JSON.stringify({
+      tool_name: "MultiEdit",
+      tool_input: {
+        file_path: filePath,
+        edits: [{ old_string: "x = 1", new_string: "x = 1" }],
+      },
+    });
+    const first = runHookSyncWithFakeCodex(payload, tempDir, "none");
+    expect(first.status).toBe(0);
+    const second = runHookSyncWithFakeCodex(payload, tempDir, "none");
+    expect(second.status).toBe(0);
+    const lines = readLog(tempDir);
+    expect(lines.find((l) => l.verdict === "none")).toBeTruthy();
+    expect(lines.find((l) => l.verdict === "cached")).toBeTruthy();
+  });
+
+  it("Cross-file parallel fires: 3 hooks on different files all complete; each gets its own cache + repetition shard (ADR-097 sharded path eliminates cross-file contention)", async () => {
+    // Deep-investigation finding: when Claude dispatches Edit on 3 different
+    // files in one turn, Claude Code spawns 3 separate hook processes
+    // concurrently. ADR-097's per-file shard layout means each fire writes
+    // to a disjoint shard path, no contention. Verify all 3 reviews complete
+    // with no lost increments.
+    setupMarker(tempDir, "# ctx");
+    const files = ["a.ts", "b.ts", "c.ts"].map((f) => path.join(tempDir, f));
+    for (const [i, f] of files.entries()) {
+      fs.writeFileSync(f, `export const f${i} = ${i};`);
+    }
+    const payloads = files.map((f) => JSON.stringify({ tool_name: "Edit", tool_input: { file_path: f } }));
+    const results = await Promise.all(payloads.map((p) => runHookAsyncWithFakeCodex(p, tempDir, "concerns-labeled")));
+    for (const r of results) expect(r.status).toBe(0);
+
+    // All 3 reviews landed in the log with distinct file paths.
+    const lines = readLog(tempDir);
+    const reviewedFiles = new Set(lines.filter((l) => l.verdict === "concerns").map((l) => l.file as string));
+    expect(reviewedFiles.size).toBe(3);
+    for (const f of files) expect(reviewedFiles.has(f)).toBe(true);
+
+    // Each file got its own cache entry (3 entries total across all buckets).
+    const cacheDir = path.join(tempDir, ".codex-pair/cache");
+    let cacheCount = 0;
+    if (fs.existsSync(cacheDir)) {
+      for (const prefix of fs.readdirSync(cacheDir)) {
+        const bucketPath = path.join(cacheDir, prefix);
+        if (fs.statSync(bucketPath).isDirectory()) {
+          cacheCount += fs.readdirSync(bucketPath).filter((f) => f.endsWith(".json")).length;
+        }
+      }
+    }
+    expect(cacheCount).toBe(3);
+
+    // Each file got its own repetition shard at the ADR-097 path.
+    const repDir = path.join(tempDir, ".codex-pair/state/repetitions");
+    expect(fs.existsSync(repDir)).toBe(true);
+    const shards = fs.readdirSync(repDir).filter((f) => f.endsWith(".json"));
+    expect(shards.length).toBe(3);
+  });
+
+  it("Same-file in-flight coalescing: hook B fires on same file while hook A is mid-codex → B logs coalesced and exits silently (ADR-087)", async () => {
+    // Deep-investigation finding: same-file edit bursts coalesce via the
+    // inflight lock — hook A holds the lock for the full review duration;
+    // hook B sees EEXIST + fresh mtime → coalesce-skip with no codex spawn
+    // and no systemMessage. This is intentional cost-control behavior; the
+    // trade-off is that intermediate edits don't get their own review.
+    setupMarker(tempDir, "# ctx");
+    const filePath = path.join(tempDir, "src.ts");
+    fs.writeFileSync(filePath, "export const x = 1;");
+    const payload = JSON.stringify({
+      tool_name: "Edit",
+      tool_input: { file_path: filePath },
+    });
+
+    // Hook A: slow scenario gives a ~1500ms window where the lock is held.
+    const aPromise = runHookAsyncWithFakeCodex(payload, tempDir, "slow", {
+      FAKE_CODEX_SLEEP_MS: "1500",
+    });
+
+    // Wait long enough for Hook A to acquire the inflight lock (which it
+    // does within the first ~50ms of main() — after marker walk, ignore
+    // gate, cache miss, but before codex spawn). 250ms is comfortably past
+    // lock acquisition while still well inside the 1500ms codex sleep.
+    await new Promise((r) => setTimeout(r, 250));
+
+    // Hook B fires on the same file. Should observe the existing inflight
+    // lock and coalesce-exit silently.
+    const b = await runHookAsyncWithFakeCodex(payload, tempDir, "concerns-labeled");
+    expect(b.status).toBe(0);
+    // Coalesced fires emit no systemMessage (silent skip).
+    expect(b.stdout).toBe("");
+
+    // Now drain Hook A.
+    const a = await aPromise;
+    expect(a.status).toBe(0);
+
+    // Log should contain exactly: 1 coalesced skip (from B) + 1 review (from A).
+    const lines = readLog(tempDir);
+    const coalesced = lines.filter((l) => l.verdict === "skipped" && /coalesced/.test((l.reason as string) ?? ""));
+    expect(coalesced.length).toBe(1);
+    const reviews = lines.filter((l) => l.verdict === "none" || l.verdict === "concerns");
+    expect(reviews.length).toBe(1);
+    // The review that DID happen was Hook A's (the slow one → none verdict).
+    expect(reviews[0].verdict).toBe("none");
+  });
+
+  it("MultiEdit + ignore gate: ignored file is skipped before codex spawn (no tool_name-specific bypass)", () => {
+    // Guards against a regression class: someone adds a tool_name-specific
+    // branch BEFORE the ignore-list check (e.g. "always review MultiEdits
+    // because they touch multiple things") and accidentally bypasses opt-out.
+    // The ignore check at codex-pair-watch.mjs:888 must fire regardless of
+    // tool_name.
+    setupMarker(tempDir, "# ctx");
+    fs.writeFileSync(path.join(tempDir, ".codex-pair/ignore"), "src/skip-me.ts\n");
+    const filePath = path.join(tempDir, "src/skip-me.ts");
+    fs.mkdirSync(path.dirname(filePath), { recursive: true });
+    fs.writeFileSync(filePath, "export const x = 1;");
+    const payload = JSON.stringify({
+      tool_name: "MultiEdit",
+      tool_input: {
+        file_path: filePath,
+        edits: [{ old_string: "x = 1", new_string: "x = 2" }],
+      },
+    });
+    const result = runHookSyncWithFakeCodex(payload, tempDir, "concerns-labeled");
+    expect(result.status).toBe(0);
+    const lines = readLog(tempDir);
+    const skip = lines.find((l) => l.verdict === "skipped");
+    expect(skip).toBeTruthy();
+    expect(skip?.reason).toMatch(/matched \.codex-pair\/ignore/);
+    expect(skip?.file).toBe(filePath);
+    expect(skip?.tool).toBe("MultiEdit");
+    // No codex spawn → no review verdict landed.
+    expect(lines.find((l) => l.verdict === "concerns")).toBeUndefined();
+    expect(lines.find((l) => l.verdict === "none")).toBeUndefined();
+  });
+
+  it("fake-codex slow scenario: sleeps for FAKE_CODEX_SLEEP_MS then emits NONE (fixture self-test)", () => {
+    // Sanity-pin the new slow scenario the parallel-fire tests rely on. If
+    // someone breaks this fixture, the dependent tests would race-flake
+    // confusingly; this gives a direct test failure pointing at the cause.
+    setupMarker(tempDir, "# ctx");
+    const filePath = path.join(tempDir, "src.ts");
+    fs.writeFileSync(filePath, "export const x = 1;");
+    const payload = JSON.stringify({
+      tool_name: "Edit",
+      tool_input: { file_path: filePath },
+    });
+    const startedAt = Date.now();
+    const result = runHookSyncWithFakeCodex(payload, tempDir, "slow", {
+      FAKE_CODEX_SLEEP_MS: "300",
+    });
+    const elapsedMs = Date.now() - startedAt;
+    expect(result.status).toBe(0);
+    // Wall-clock at least 300ms (the configured sleep) plus normal hook
+    // overhead. Upper bound is generous to avoid CI flakes.
+    expect(elapsedMs).toBeGreaterThanOrEqual(300);
+    expect(elapsedMs).toBeLessThan(5000);
+    const lines = readLog(tempDir);
+    expect(lines.find((l) => l.verdict === "none")).toBeTruthy();
   });
 });
