@@ -1,0 +1,27 @@
+{
+  "fixture": "04-hidden-assumption",
+  "category": "hidden-assumptions",
+  "task_description": "Add a function `firstAvailableSlot(slots)` that returns the earliest unbooked slot from a list of {startMinute, booked} entries.",
+  "should_flag": [
+    {
+      "id": "sort-order-assumption",
+      "category": "hidden-assumptions",
+      "description": "The function returns the FIRST unbooked slot in array order, but the task asked for the EARLIEST unbooked slot. Behavior depends on the caller having pre-sorted by startMinute — an unstated invariant. Either sort internally or document the requirement.",
+      "severity_expected": "high",
+      "keywords": ["sort", "earliest", "order", "assumption", "startMinute", "unsorted"]
+    },
+    {
+      "id": "interpretation-ambiguity",
+      "category": "hidden-assumptions",
+      "description": "Multiple valid interpretations of 'first' / 'earliest' (array order vs time order) and the code silently picked array order without documenting it",
+      "severity_expected": "medium",
+      "keywords": ["earliest", "interpretation", "ambiguity", "first", "documented"]
+    }
+  ],
+  "should_not_flag": [
+    {
+      "id": "loop-style",
+      "description": "The for-loop is a fine way to do this; don't flag as 'could use .find()' style nit unless asked"
+    }
+  ]
+}
