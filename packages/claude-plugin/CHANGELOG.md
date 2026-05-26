@@ -1,5 +1,303 @@
 # @ask-llm/plugin
 
+## 0.7.2
+
+### Patch Changes
+
+- [#113](https://github.com/Lykhoyda/ask-llm/pull/113) [`c28c90c`](https://github.com/Lykhoyda/ask-llm/commit/c28c90c0cbfce994c99618244dcab3215e78e297) Thanks [@Lykhoyda](https://github.com/Lykhoyda)! - # ADR-098 — codex-pair task-agnostic re-positioning + `/codex-pair` user-invocable dashboard
+
+  Two coupled documentation + UX changes for the codex-pair surface:
+
+  ## 1. Task-agnostic re-framing across 5 documentation surfaces
+
+  Every place that described codex-pair's value via the ADR-077 four-task
+  benchmark's specific probe domains ("float-money precision, validation
+  bypass, edge-case clamping") in sentences like "Use codex-pair when handling
+  money / security-sensitive code" caused LLMs reading the ask-llm codebase
+  as project context to hallucinate that ask-llm itself has money handling
+  and auth paths. ask-llm is a CLI bridge between MCP clients and LLM CLIs
+  with none of that code.
+
+  The rewrite replaces domain-specific framing with code-characteristic
+  language ("code with hidden invariants the model can't infer from one
+  file", "code where latent bugs cost more than per-edit review", the
+  "looks fine, runs wrong" failure-mode class). The recall improvement is
+  explicitly attributed as task-agnostic — measured across four
+  structurally different fixtures (todo CRUD, URL shortener, RFC-spec
+  implementation, stateful business logic), not just one. Each surface
+  that lives in the LLM-readable corpus now includes an explicit "ask-llm
+  itself is a CLI/MCP bridge with none of these properties; codex-pair
+  runs here for dogfooding" disclaimer. Empirical numbers (2/10 → 7/10
+  → 10/10) are preserved verbatim — only surrounding framing changes.
+
+  Surfaces touched: `packages/claude-plugin/skills/codex-pair/SKILL.md`,
+  `packages/claude-plugin/README.md`, `apps/docs/plugin/hooks.md`,
+  `apps/docs/plugin/skills.md`, `apps/docs/plugin/overview.md`.
+
+  ## 2. `/codex-pair` user-invocable dashboard
+
+  `codex-pair/SKILL.md` flips from `user_invocable: false` to `true` with
+  a Phase 1–5 orchestration block at the top:
+
+  - **Phase 1**: Detect state (marker walk, pause sentinel check, recent
+    log tail)
+  - **Phase 2**: Branch on detected state
+  - **Phase 3** (no marker → setup): Auto-detect project context by
+    reading `README.md` + `package.json` + alternative manifests; draft a
+    `.codex-pair/context.md` with project-purpose summary + 3-5 inferred
+    domain invariants; use `AskUserQuestion` with the draft as the
+    recommended option's `preview` field so the user sees content before
+    deciding; ASK before modifying `.gitignore`
+  - **Phase 4** (paused): Structured status table with paused-since
+    timestamp + resume instruction
+  - **Phase 5** (active): Structured status table with marker
+    model + surface threshold + cost-per-review estimate + last 5 reviews
+    summary + active ignore/include patterns + pause instruction
+
+  The existing hook reference documentation (when-to-use, cost
+  characteristics, output format, configuration knobs, empirical
+  justification) moves below the orchestration block but is unchanged
+  in substance — it serves as Claude's reference for explaining hook
+  behavior to users mid-orchestration.
+
+  Zero new code under `scripts/` — the entire orchestration uses Claude's
+  existing tool surface (Bash, Read, AskUserQuestion). Plugin test count
+  unchanged at 313 (no new code to test; the orchestration is natural-
+  language phase instructions, structural pinning would over-couple).
+  Lint clean across 6 workspaces.
+
+- [#120](https://github.com/Lykhoyda/ask-llm/pull/120) [`daeec3d`](https://github.com/Lykhoyda/ask-llm/commit/daeec3dd989e6bc70616cc37bdb612dd05812823) Thanks [@Lykhoyda](https://github.com/Lykhoyda)! - # ADR-099 — codex-pair Karpathy baseline principles in review prompt
+
+  Adds a new `## Baseline review principles` section to the codex-pair
+  review prompt template at `packages/claude-plugin/prompts/review.txt`,
+  adapting three diff-evaluable rules from the Karpathy CLAUDE.md
+  (https://github.com/multica-ai/andrej-karpathy-skills/blob/main/CLAUDE.md):
+
+  1. **Simplicity** — flag features beyond what was asked, single-use
+     abstractions, unrequested configurability, impossible-scenario error
+     handling, 200-line code that could be 50.
+
+  2. **Surgical scope** — flag drive-by refactors of unrelated adjacent
+     code, style refactors mixed with substantive logic edits, orphan
+     imports/variables/functions, style drift from the file's existing
+     conventions.
+
+  3. **Hidden assumptions** — flag behavior depending on unstated
+     invariants the next reader can't see, simpler alternatives the diff
+     didn't consider when obvious, multiple valid interpretations of the
+     task with one silently picked.
+
+  The fourth Karpathy rule (Goal-Driven Execution) was intentionally
+  excluded — it's a metaprocess rule about how to approach a task with
+  no concrete evaluation target on a code diff. Tracked as a candidate
+  for separate CLAUDE.md inclusion in a follow-on.
+
+  ## Why universal (Option A) over project-scoped opt-in
+
+  The baseline is intentionally on for every opted-in project: same
+  review criteria everywhere, regardless of whether the project supplied
+  a marker. Project-specific invariants in `.codex-pair/context.md`
+  take precedence per the section's framing ("Treat violations as MED or
+  HIGH findings unless a project-context rule below explicitly overrides
+  them"), so projects retain the ability to override baseline behavior
+  without removing it.
+
+  ## Cost + cache impact
+
+  - ~360 tokens per review of prompt overhead (~$0.0015 at current
+    codex pricing — negligible vs the $0.04–0.07 per-review codex spend)
+  - Cache invalidation is one-time per project on the first edit after
+    upgrade because the prompt content change → cache key change. Each
+    opted-in project pays one extra codex spawn per file on the first
+    post-upgrade edit, then back to normal cache-hit rates.
+
+  ## What's unchanged
+
+  The hook source (`codex-pair-watch.mjs`) is byte-identical. This is a
+  prompt-only change. ADR-077 silent-on-error, ADR-082 cache key shape,
+  ADR-087 inflight lock, ADR-089 golden-fixture contract — all unchanged
+  in mechanism (the golden fixture content is updated to match the new
+  template, preserving the byte-identical pin).
+
+  Plugin test count unchanged at 313; lint clean across 6 workspaces.
+
+  ## Reversibility
+
+  Two file edits + one test-assertion update if empirical follow-on
+  shows the baseline doesn't earn its keep. ADR-099 documents the
+  reversal cost up front.
+
+- [#121](https://github.com/Lykhoyda/ask-llm/pull/121) [`5bb4dff`](https://github.com/Lykhoyda/ask-llm/commit/5bb4dff1793939c26303239c93b8f0b271cdeef3) Thanks [@Lykhoyda](https://github.com/Lykhoyda)! - # ADR-100 — codex-pair prompt A/B benchmark harness
+
+  Scaffolds an empirical validation harness for prompt-template changes
+  at `packages/claude-plugin/scripts/benchmark/`. Built initially to
+  validate ADR-099 (Karpathy baseline principles), but reusable for any
+  future prompt change.
+
+  ## What's in the harness
+
+  ```
+  packages/claude-plugin/scripts/benchmark/
+  ├── README.md                       # usage + decision rule
+  ├── prompt-ab.mjs                   # driver
+  ├── lib/
+  │   ├── render-prompt.mjs           # mirrors lib/prompt.mjs substitution
+  │   ├── invoke-codex.mjs            # spawns codex exec --json, parses JSONL
+  │   ├── score.mjs                   # keyword-based probe matching
+  │   └── report.mjs                  # markdown report generator
+  ├── fixtures/
+  │   ├── README.md
+  │   ├── 01-overcomplication/        # Simplicity rule
+  │   ├── 02-drive-by-refactor/       # Surgical scope rule
+  │   ├── 03-orphan-imports/          # Surgical scope rule
+  │   └── 04-hidden-assumption/       # Hidden assumptions rule
+  └── templates/
+      ├── pre-baseline.txt            # main's prompt as of ADR-098
+      └── baseline.txt                # ADR-099's prompt with Karpathy block
+  ```
+
+  ## Methodology
+
+  1. Each fixture has three files: `code.ts` (sent to codex), `context.md`
+     (marker context), `probes.json` (ground-truth `should_flag` entries).
+  2. The driver renders each fixture against both templates, invokes real
+     `codex exec --json`, scores findings against probes via keyword
+     match (≥2 keyword hits per probe), emits a markdown comparison.
+  3. Decision rule for ADR-099 validation: ship if recall delta ≥ +10 pp
+     AND extra-finding delta ≤ +1/fixture; otherwise execute ADR-099's
+     documented two-file rollback.
+
+  ## Cost
+
+  ~$0.40 per full benchmark run (4 fixtures × 2 arms × ~$0.05/review).
+
+  ## What this is NOT
+
+  - NOT a runtime change — the harness is standalone tooling under
+    `scripts/benchmark/` with no imports from the runtime layer
+  - NOT auto-run on PRs — manual invocation only until variance data
+    justifies a CI gate
+  - NOT tested by vitest — one-off maintainer scripts, exercised
+    manually when run; lint covers syntax via Biome
+
+  Plugin test count unchanged at 313; lint clean across 6 workspaces.
+
+  ## Forward use
+
+  Future prompt changes (severity-vs-urgency, structured-output tweaks,
+  baseline rule extensions) can vendor a new template snapshot into
+  `templates/` and re-run against the same fixtures + decision rule.
+  The harness itself is the durable artifact; ADR-099 is the first
+  use-case.
+
+  Run with:
+
+  ```bash
+  node packages/claude-plugin/scripts/benchmark/prompt-ab.mjs \
+    --out benchmark-report.md
+  ```
+
+- [#122](https://github.com/Lykhoyda/ask-llm/pull/122) [`971ddf7`](https://github.com/Lykhoyda/ask-llm/commit/971ddf7d1e96bbab7d98eebae7d9ef065598e6e0) Thanks [@Lykhoyda](https://github.com/Lykhoyda)! - # Benchmark harness fixes — SIGKILL timeout respect + graceful error-state report rendering
+
+  Two defects in the ADR-100 prompt A/B benchmark harness (`packages/claude-plugin/scripts/benchmark/`) discovered during the first real run validating ADR-099. Both fixes are isolated to maintainer tooling — no runtime impact, no test-suite changes needed.
+
+  ## Fix 1: `lib/invoke-codex.mjs` — SIGKILL respect + settled guard
+
+  **Defect**: codex ignored `SIGTERM` when mid-turn. The first benchmark run recorded fixture durations of **712s / 985s / 908s** past a 240-second `SIGTERM` — codex held the script open until its own internal lifecycle decided to exit. The promise-rejection from the timer fired, but the child process kept the Node script alive via its still-open stdio pipes.
+
+  **Fix**:
+
+  - Switch from `SIGTERM` to `SIGKILL` — codex respects the latter immediately
+  - Explicit `child.stdout.destroy()` + `child.stderr.destroy()` + `child.stdin.destroy()` to release stdio backpressure when killing
+  - `settled` guard variable prevents the `close` handler from double-settling the promise if it fires after the timer
+  - `child.on("error", ...)` handler added so spawn-failure (ENOENT, EACCES) routes through the same settle path instead of crashing the driver
+  - Default `timeoutMs` bumped 120s → 300s; codex with reasoning tokens occasionally needs >2 min for complex fixtures
+  - Timeout error message now includes captured stdout/stderr byte counts for diagnostic visibility
+
+  ## Fix 2: `lib/report.mjs` — error-state rendering without crashing
+
+  **Defect**: when ANY fixture errored on EITHER arm, `report.mjs` crashed with `Cannot read properties of undefined (reading 'recall')` because per-fixture iteration accessed `run.score.recall` without checking whether `run` had an `error` instead.
+
+  **Fix**:
+
+  - Per-fixture loop now branches on `run.error` and renders a `FAILED — <message>` section with the duration, instead of trying to render score data that doesn't exist
+  - Aggregate section now detects "at least one arm errored on every fixture" and surfaces that explicitly instead of computing a nonsensical recall delta on empty data
+
+  ## Why these matter
+
+  The harness will be re-run for every future prompt change (severity-vs-urgency refactor, structured-output tweaks, additional baseline rules). Without these fixes, a single codex non-determinism event would cost 12+ minutes of wall-clock per hung fixture, and the report would crash trying to render the result. The fixes turn the harness from "works when codex is cooperative" into "works regardless of codex's mood."
+
+  ## What's unchanged
+
+  Hook source, broker, cache, lock, parser, prompt rendering — none of these touch runtime code. Pure maintainer-tooling fix.
+
+  Plugin test count unchanged at 313; lint clean across 6 workspaces.
+
+- [#119](https://github.com/Lykhoyda/ask-llm/pull/119) [`0f67df2`](https://github.com/Lykhoyda/ask-llm/commit/0f67df285fa8b892dc31c5b8e3bc68388431d36a) Thanks [@Lykhoyda](https://github.com/Lykhoyda)! - # Parallel-fire test fixtures — closes the MultiEdit + concurrent-hook test gap
+
+  Adds 6 new tests + a `slow` scenario to the fake-codex fixture, closing
+  the empirical gap surfaced by the deep-investigation tracing: the 313
+  pre-existing plugin tests used `tool_name: "Edit"` exclusively, with
+  zero MultiEdit payloads and zero concurrent-hook scenarios. The actual
+  codex-pair workload — agentic Claude making multiple Edit/Write/Multi-
+  Edit tool calls per turn — wasn't exercised by any test.
+
+  ## New tests (`packages/claude-plugin/src/__tests__/codex-pair-watch.test.ts`)
+
+  1. **MultiEdit payload acceptance** — pins that `{tool_name: "MultiEdit",
+tool_input: {file_path, edits: [...]}}` reaches the codex-spawn path
+     and logs a review entry with `tool: "MultiEdit"`. Guards against
+     silent payload-shape drift if Claude Code's MultiEdit schema ever
+     changes.
+
+  2. **Cache participation (MultiEdit→MultiEdit)** — pins that the cache
+     key is content-derived (not tool-name-derived) so identical-content
+     MultiEdit re-fires hit the cache. Closes a regression class: a
+     tool_name-specific cache bypass.
+
+  3. **Cross-file parallel fires (3 concurrent processes)** — fires 3
+     hooks concurrently via `Promise.all` on 3 different files. Verifies:
+
+     - All 3 exit 0
+     - 3 distinct review log entries with distinct file paths
+     - 3 separate cache entries across cache buckets
+     - 3 separate per-file repetition shards under `state/repetitions/`
+     - No cross-file contention (ADR-097 sharded layout invariant)
+
+  4. **Same-file in-flight coalescing (ADR-087)** — fires hook A with the
+     `slow` codex scenario, waits 250ms (past lock acquisition), fires
+     hook B on the same file. Verifies hook B logs `verdict: "skipped"`
+     with `coalesced` in the reason, emits no systemMessage, and that
+     only ONE review verdict (from hook A) lands in the log.
+
+  5. **MultiEdit + ignore gate** — verifies an ignored file matched by
+     `.codex-pair/ignore` is skipped pre-codex even when the tool is
+     MultiEdit. Guards against a tool_name-specific gate bypass.
+
+  6. **Slow-scenario fixture self-test** — sanity-pins that the new
+     `slow` scenario actually sleeps for `FAKE_CODEX_SLEEP_MS` before
+     emitting NONE. If someone breaks the fixture, this gives a direct
+     failure pointing at the cause rather than confusing race-flakes
+     in the dependent coalescing test.
+
+  ## New fake-codex `slow` scenario (`_fixtures/codex`)
+
+  Adds a configurable-latency scenario: sleeps `FAKE_CODEX_SLEEP_MS`
+  (default 500ms) then emits a NONE verdict. Enables deterministic
+  race-window control for the in-flight coalescing test without the
+  30-second `timeout` scenario's wall-clock penalty.
+
+  ## Test count and wall-clock impact
+
+  - Test count: 313 → 319 (+6).
+  - Wall-clock: 4.2s → 7.1s (+2.9s), dominated by the 1.5s slow-scenario
+    hold-time in the coalescing test plus ~500ms for 3 concurrent
+    codex spawns in the cross-file test. Acceptable.
+  - Lint clean across 6 workspaces.
+
+  No production code changes. The fixture file (`_fixtures/codex`) is
+  test-only and not shipped to npm consumers.
+
 ## 0.7.1
 
 ### Patch Changes
