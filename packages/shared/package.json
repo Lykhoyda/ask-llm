@@ -1,6 +1,6 @@
 {
   "name": "@ask-llm/shared",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "mcpName": "io.github.Lykhoyda/ask-llm-shared",
   "description": "Shared utilities for ask-llm-mcp: provider-agnostic registry, executor, change-mode parser, chunk cache, and diagnostics used by ask-gemini-mcp, ask-codex-mcp, ask-ollama-mcp, and ask-llm-mcp",
   "type": "module",
