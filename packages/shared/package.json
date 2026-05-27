@@ -1,7 +1,8 @@
 {
   "name": "@ask-llm/shared",
   "version": "0.3.1",
-  "private": true,
+  "mcpName": "io.github.Lykhoyda/ask-llm-shared",
+  "description": "Shared utilities for ask-llm-mcp: provider-agnostic registry, executor, change-mode parser, chunk cache, and diagnostics used by ask-gemini-mcp, ask-codex-mcp, ask-ollama-mcp, and ask-llm-mcp",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -19,6 +20,31 @@
     "test": "vitest run",
     "lint": "biome check src/ && tsc --noEmit"
   },
+  "keywords": [
+    "mcp",
+    "ask-llm",
+    "shared",
+    "internal"
+  ],
+  "author": "Lykhoyda",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Lykhoyda/ask-llm.git",
+    "directory": "packages/shared"
+  },
+  "bugs": {
+    "url": "https://github.com/Lykhoyda/ask-llm/issues"
+  },
+  "homepage": "https://github.com/Lykhoyda/ask-llm#readme",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "files": [
+    "dist/",
+    "README.md",
+    "LICENSE"
+  ],
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.27.1",
     "zod": "^4.3.6"
@@ -28,5 +54,8 @@
     "@types/node": "^22.19.13",
     "typescript": "^5.0.0",
     "vitest": "^4.0.18"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }

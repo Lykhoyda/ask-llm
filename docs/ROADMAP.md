@@ -16,7 +16,51 @@ Original plan reference: [`docs/plans/2026-05-18-codex-plugin-cc-adoption-roadma
 - **ADR-100 benchmark harness**: surfaced its own SIGKILL bug on first run (cost: $0 because runs hung before producing tokens), got fixed before being trusted — the meta-pattern that test infrastructure only proves itself by running.
 - **Release workflow hardening**: motivated by 6 days of silent npm publish failures across PRs #109/#112/#118 → fix landed as PR #123 the same session the issue was empirically reproduced.
 
-### Candidate next directions (no committed sequencing yet)
+### Open issue backlog (2026-05-27, sorted by signal-to-effort)
+
+GitHub triage: 19 open issues. Of those, **14 are entries in the recurring upstream-CLI audit series** (#24/25/27/28/35/37/38/39/52/54/57/59/75/102/114/116/117) — the audit cadence has stabilized at every 2 days, and as of #117 (2026-05-25) the bottleneck is explicitly _"no longer detection, it's the missing PR"_. The 5 non-audit issues are listed below in priority order.
+
+#### ~~Tier A — distribution-critical~~ FIXED 2026-05-27 (pending publish)
+
+- [x] **#115 — `npx ask-llm-mcp` / `npm install -g ask-llm-mcp` broken on Node 26**. After reproducing the bug exactly (Node 26.0.0 + npm 11.12.1), the actual root cause turned out to be **npm 11's global install + `bundledDependencies` interaction** (not zod packaging as initially hypothesized). The bundled workspace packages extract correctly but their declared transitive deps that aren't bundled get 78 empty placeholder directories. Fix landed in PR (this branch): publish `@ask-llm/shared` as a public npm package, remove `bundledDependencies` + `prepack`/`postpack` from all four MCP packages, delete the custom bundling scripts. Yarn 4 handles `workspace:* → fixed-version` rewriting automatically. Tarballs shrink 6x. See ADR-106 for the full rationale and verification methodology. **Once the changeset publishes, this is resolved end-to-end** — the install path becomes byte-identical between local and global on all Node versions.
+
+#### Tier B — parser defensiveness (single PR closes the audit loop)
+
+- [ ] **Combined codex + gemini parser defensiveness** — cited by #114 §3.1/§3.2, #116 §3.2, and reconfirmed by #117 §3 as the **single highest-value PR**. Three additive ~5-line changes in one PR:
+  - `packages/codex-mcp/src/utils/codexExecutor.ts:92-121` — add a `turn.failed` branch that extracts `parsed.error?.message` so codex's structured-failure events (added in `rust-v0.131.0`) stop falling through to the "No agent_message found" path and silently shipping the raw JSONL dump as the response.
+  - Same file — prefer `parsed.message` over `JSON.stringify(parsed)` for the `error` event branch so `isQuotaError()` matches against the actual upstream message instead of the JSON envelope.
+  - `packages/gemini-mcp/src/utils/geminiExecutor.ts:273-340` — add a `default` branch with `Logger.debug` for unrecognized stream-json event types so future upstream variant additions don't slip through silently.
+  - **Test fixtures** — `packages/codex-mcp/src/utils/__tests__/codexExecutor.test.ts` gains a synthetic `turn.failed` JSONL fixture asserting a clean `Error` propagates. ~10 LOC code + ~50 LOC test. Closes #114, supersedes #116/#117. Pin upstream CLI versions in `scripts/smoke-test.sh` (`rust-v0.133.0`, `v0.43.0`) at the same time per #75/#102/#116 §5.
+
+#### Tier C — codex-pair UX bugs surfaced by external use
+
+- [ ] **#96 Bug 1 — "next-turn surface" never fires.** External user enabled codex-pair against a non-trivial repo (TS MCP + native iOS/Android), got HIGH/MED findings in 3 reviews, but **never saw a `[codex-pair] <file>` system reminder on the next turn** — had to `cat .codex-pair-log.jsonl` directly. This is the headline UX promise of ADR-077's recall-first hook; without it the model can't react and the 5x recall gain delivers near-zero value. Investigate whether the systemMessage emission is being buffered, swallowed, or attached to the wrong PostToolUse event. Cross-reference against the ADR-095 calibration that already documented "consumption discipline" as load-bearing. Repro is precise enough to follow verbatim from the issue body.
+- [ ] **#96 Bug 2 — reviews fire on intermediate file states (probably resolved by Tier-2 debounce in v0.7.0).** Verify the ADR-087/088 debounce-coalesce changes actually fix this; if so, comment-close #96 Bug 2 with the version that ships the fix. If not, the per-file 15–30s timer the reporter proposes is the right shape.
+- [ ] **#96 Enhancement Idea 2 — compact verdict-count header in the system reminder** (`[codex-pair] reviewed <file> in 11.0s — 0H / 0M / 1L → see .codex-pair/log.jsonl`). Gates on Bug 1 being fixed first (no point grading the message if it never reaches the model). Small change to `buildVerdictMessage`.
+
+#### Tier D — audit-backlog carry-overs (concrete, no upstream dep)
+
+All confirmed actionable across #59/#75/#102/#114/#116/#117; ordered by ROI:
+
+- [ ] **`ask-codex-edit` via codex `--output-schema`** (#102 §3.1, top priority across all audits, 5+ days stable). Mirrors the existing `ask-gemini-edit` shape; the changeMode parser/chunker in `@ask-llm/shared` can be reused once codex emits structured edits. Highest single-feature unblock.
+- [ ] **Codex `--add-dir` parity with gemini's `--include-directories`** (#59 §3.4) — monorepo support symmetry.
+- [ ] **Gemini `--ignore-env` / `ignoreLocalEnv` opt-out** (#59 §3.6) — symmetric with the existing `ASK_CODEX_LOAD_USER_CONFIG` escape hatch. ~10 LOC, no upstream dep.
+- [ ] **"Run `codex doctor`" hint in the codex fallback-failure path** (`packages/codex-mcp/src/utils/codexExecutor.ts:212-214`, #102 §3.2). One-line improvement to the user-facing error.
+- [ ] **Surface codex `reasoning` / `error` item types in output** (#59 §3.5) — richer context for `/multi-review` and `/brainstorm`.
+- [ ] **Snapshot test asserting `buildArgs()` always includes `-m <model>`** (#75 §3) — defensive regression gate.
+- [ ] **Bump documented minimum codex version to `rust-v0.133.0`** in `packages/codex-mcp/README.md` (trivial, do alongside the Tier-B PR).
+
+#### Tier E — known limitation, no-fix expected
+
+- **#74 — codex-pair hook not auto-invoked after v0.6.0 install** in pre-existing sessions. Root cause is a Claude Code session-state limitation: hook registration loads at session start. Workaround is a full Claude Code restart after install/upgrade. Already mitigated by `/codex-pair` dashboard (ADR-098) which makes the "did this actually wire up?" check trivial. Close once we've added a one-liner to the plugin's install instructions noting the restart requirement.
+
+#### Recurring upstream-CLI audit cadence — meta-observation
+
+The audit series (every ~2 days since 2026-04-21, 14 issues filed by the maintainer-as-auditor agent) has settled into a stable rhythm: each round confirms _"no breakages, same backlog"_ until the Tier-B PR lands. **Recommend: stop opening a new audit issue if the previous one's backlog is unchanged for ≥48h** — the cost (issue noise, false impression of activity) now exceeds the benefit (drift detection, since drift is empirically zero). The audit pipeline itself is working; the consumption pipeline isn't. Tier B is the unblock.
+
+### Candidate next directions (no committed sequencing, no signal yet)
+
+These are speculative — listed for completeness, not for immediate scheduling:
 
 - **LLM-judge scoring mode for ADR-100 harness** (currently keyword-matching is the floor; semantic match via gemini-judge would improve probe coverage for nuanced rule wording) — defer until 2–3 manual runs of operating experience surface a real false-negative.
 - **CI-gated benchmark on `prompts/review.txt` changes** — defer until 8–10 fixtures exist and run-to-run variance bounds are measured (flake tolerance requires baseline data).
@@ -25,9 +69,11 @@ Original plan reference: [`docs/plans/2026-05-18-codex-plugin-cc-adoption-roadma
 - **Severity-vs-urgency prompt refactor** — breaking change to grading prompt + parser; gated on cross-validating with ADR-100's harness before merging.
 - **OIDC trusted-publishing migration** — eliminate `NODE_AUTH_TOKEN` dependency entirely; the 2026-05-27 npm 2FA debugging showed the token path has multiple failure modes (404, EOTP, account-wide enforcement). OIDC removes the token.
 
-**ADRs to author when these land:** ADR-101 (LLM-judge mode), ADR-102 (CI benchmark gating), ADR-103 (CLAUDE.md Karpathy rule 4 integration), ADR-104 (severity-vs-urgency refactor), ADR-105 (OIDC publishing).
+**ADRs to author when these land:** ADR-101 (LLM-judge mode), ADR-102 (CI benchmark gating), ADR-103 (CLAUDE.md Karpathy rule 4 integration), ADR-104 (severity-vs-urgency refactor), ADR-105 (OIDC publishing), ADR-106 (zod resolution / publish-tarball hardening, gated on #115 root cause), ADR-107 (codex-pair next-turn surface fix, gated on #96 Bug 1 repro).
 
 ### Recently shipped (post-Tier 2 follow-ons)
+
+- **ADR-106 — Publish `@ask-llm/shared` as public, remove `bundledDependencies`** (PR on `fix/115-publish-shared-remove-bundling`, 2026-05-27). Fixes external user bug #115 (`npx ask-llm-mcp` crashes with `ERR_MODULE_NOT_FOUND` on Node 26 global install). The actual root cause — reproduced exactly on Node 26.0.0 + npm 11.12.1 — is an npm 11 global install bug where `bundledDependencies` packages extract correctly but their declared transitive deps that aren't bundled get empty placeholder directories (78 packages affected: zod, sdk, express, hono, jose, cors, ajv, etc.). The same exact tarball installs correctly when used via `npm install ask-llm-mcp` to a project directory, isolating the bug to global install. The fix eliminates the bundling mechanism that triggered the bug class entirely: shared becomes a public npm package, all four MCP packages drop `bundledDependencies` + `prepack`/`postpack`, and `scripts/prepack-bundle.mjs` + `scripts/postpack-restore.mjs` get deleted (yarn 4's built-in publish behavior handles the `workspace:* → fixed-version` rewrite more precisely than our custom script — exact version vs `*` wildcard). Tarballs shrink dramatically: orchestrator drops from 202 files (~80KB) to 31 files (~17KB) because shared/gemini/codex/ollama dist trees are no longer inlined. Trade-off: one more public npm package to maintain, mitigated by the fact that changesets already versions shared via `privatePackages: { version: true }` — the only mechanical change is that it now publishes too. ADR-052's mechanism is historical; ADR-106 preserves its motivation (npm 9 manifest parseability) by relying on yarn 4's automatic rewrite instead of a custom script. All 184 tests still pass post-fix; verification methodology documented in the ADR.
 
 - **v0.7.0 family release shipped to npm (2026-05-27)**. After a 6-day delay caused by npm publish-pipeline failures (404 on stale token → EOTP on 2FA-required tokens → resolved by flipping npm account 2FA level from "Authorization and writes" → "Authorization only"), all four MCP packages published cleanly: `ask-gemini-mcp@1.6.5`, `ask-codex-mcp@0.3.7`, `ask-ollama-mcp@0.3.2`, `ask-llm-mcp@0.3.8`. Plugin distributed via marketplace at `@ask-llm/plugin@0.7.2`. Unified GitHub Release v1.6.5 created with auto-generated notes. MCP Registry sync fired for all four servers. The release bundle includes all work from ADR-092 through ADR-100 plus the harness-fix and release-hardening patches (combined CHANGELOG narrative spans Tier 3 broker, layout consolidation, codex-pair UX, lived-experience lessons, repetition detector, /codex-pair dashboard, Karpathy baseline, and the validation harness that empirically gated ADR-099).
 
