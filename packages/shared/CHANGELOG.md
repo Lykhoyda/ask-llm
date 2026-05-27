@@ -1,6 +1,6 @@
-# ask-llm-mcp
+# @ask-llm/shared
 
-## 0.3.9
+## 0.3.2
 
 ### Patch Changes
 
@@ -71,36 +71,3 @@ ask-llm-mcp` to a project directory) — the bug is specifically in
   - The Claude Code plugin (`@ask-llm/plugin` is unaffected — it's
     distributed via marketplace, not npm)
   - Any user-facing behavior other than "global install actually works"
-
-- Updated dependencies [[`53c0708`](https://github.com/Lykhoyda/ask-llm/commit/53c07080f7e62355d18a4d423bf76a65ab473dc7)]:
-  - @ask-llm/shared@0.3.2
-  - ask-gemini-mcp@1.6.6
-  - ask-codex-mcp@0.3.8
-  - ask-ollama-mcp@0.3.3
-
-## 0.3.8
-
-### Patch Changes
-
-- [#111](https://github.com/Lykhoyda/ask-llm/pull/111) [`ab40290`](https://github.com/Lykhoyda/ask-llm/commit/ab40290fecdbabec75436579d06152f6218251d6) Thanks [@Lykhoyda](https://github.com/Lykhoyda)! - # v0.7.0 family sync — synchronized MCP-package patch bump
-
-  The MCP server packages (`ask-gemini-mcp`, `ask-codex-mcp`, `ask-ollama-mcp`,
-  `ask-llm-mcp`) are unchanged in code since the prior release (v1.6.4 / v0.3.x —
-  `git diff v1.6.4..main -- packages/shared packages/gemini-mcp packages/codex-mcp
-packages/ollama-mcp packages/llm-mcp` returns empty). They are patch-bumped here
-  to keep the gemini-codex-ollama-llm family aligned on the same SHA-stamped release
-  moment that ships the v0.7.0 plugin work (Tier 3 broker + ADR-092/094/095/096/097
-  codex-pair improvements — all inside the private `@ask-llm/plugin` package).
-
-  This preserves the unified-tag convention from the original gemini-mcp-tool fork
-  (legacy v1.5.x..v1.6.x URLs still resolve at `v<gemini_version>`) and gives npm
-  consumers a single discoverable release moment instead of a v0.7.0 plugin-only
-  event with no npm-visible artifact.
-
-  No functional changes in these packages. Tests, type contracts, executor
-  behavior, MCP tool surface — all byte-identical to the prior release.
-
-- Updated dependencies [[`ab40290`](https://github.com/Lykhoyda/ask-llm/commit/ab40290fecdbabec75436579d06152f6218251d6)]:
-  - ask-gemini-mcp@1.6.5
-  - ask-codex-mcp@0.3.7
-  - ask-ollama-mcp@0.3.2
