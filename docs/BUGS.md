@@ -2,7 +2,19 @@
 
 ## Open
 
-### ~~#115 — `npx ask-llm-mcp doctor` ERR_MODULE_NOT_FOUND on `zod/index.js` (Node 26, global install)~~ FIXED pending publish
+### #96 — codex-pair "next-turn surface" never fires for HIGH/MED findings
+- **Severity:** High (silently neutralizes ADR-077's 5x recall promise)
+- **Upstream issue:** [#96](https://github.com/Lykhoyda/ask-llm/issues/96)
+- **Reporter:** Lykhoyda (dogfooding against a non-trivial repo)
+- **Affected versions:** ask-llm plugin 0.6.2 (likely still present in 0.7.x — needs verification)
+- **Symptom:** After enabling codex-pair with a marker file and producing 3 reviews that contained HIGH/MED concerns (verified via `.codex-pair-log.jsonl`), no `[codex-pair] <file>` system reminder appeared on the subsequent turn. The reviewer is working — findings land in the log — but the documented surfacing path to Claude is silent.
+- **Repro:** (1) enable codex-pair with a marker; (2) write a file containing a clear HIGH (e.g. `new RegExp(\`${userInput}\`)`); (3) wait for verdict `concerns` in the log; (4) make any other tool call; (5) observe no `[codex-pair]` system reminder visible to the model.
+- **Suspected root cause:** The systemMessage emission might be buffered/swallowed at the PostToolUse-hook boundary, or the surface might be attached to the wrong event sequence. ADR-095 already documented "consumption discipline" as load-bearing — without the surface firing, that discipline can't run.
+- **Status:** Tracked in ROADMAP Tier C; needs repro against current `main` to confirm whether v0.7.0 hardening incidentally fixed it.
+
+## Fixed (pending publish)
+
+### ~~#115 — `npx ask-llm-mcp doctor` ERR_MODULE_NOT_FOUND on `zod/index.js` (Node 26, global install)~~ FIXED in PR #126
 - **Severity:** Critical (blocked any Node 26 user of `ask-llm-mcp` via global install)
 - **Upstream issue:** [#115](https://github.com/Lykhoyda/ask-llm/issues/115)
 - **Reporter:** twardoch (external)
@@ -19,18 +31,8 @@
   ```
 - **Actual root cause** (after reproducing exactly on Node 26.0.0 + npm 11.12.1): npm 11's **global install** + `bundledDependencies` interaction. The bundled workspace packages (`@ask-llm/shared`, `ask-gemini-mcp`, `ask-codex-mcp`, `ask-ollama-mcp`) are extracted correctly from the tarball, but their declared transitive deps that *aren't* bundled get empty placeholder directories instead of real installs. In the reproduced install, **78 packages were empty stubs** including `zod`, `@modelcontextprotocol/sdk`, `express`, `hono`, `jose`, `cors`, `ajv`, `cookie`, `cross-spawn`, `which`, `ms`, etc. Node's ESM resolver finds the empty `zod/` directory, can't find an `exports` field (no `package.json` at all), falls into `legacyMainResolve`, tries `index.js`, fails. The initial guess that this was a zod packaging bug or a Node 26 resolver-strictness change was wrong — the same exact tarball installs perfectly via `npm install ask-llm-mcp` to a project directory on the same Node 26 binary. The bug is **specifically in npm 11's global install path** when `bundledDependencies` is present.
 - **Fix (ADR-106):** Publish `@ask-llm/shared` as a public npm package and remove the entire `bundledDependencies` mechanism from all four MCP packages. Since shared was the only `private: true` workspace package and the sole reason `bundledDependencies` existed (ADR-052), making it public eliminates the bundling code path entirely. Concrete changes: (1) `@ask-llm/shared` gets `"publishConfig": { "access": "public" }` + publishable metadata; (2) all four MCP packages drop `bundledDependencies` + the `prepack`/`postpack` scripts; (3) `scripts/prepack-bundle.mjs` + `scripts/postpack-restore.mjs` deleted — yarn 4 handles `workspace:* → fixed-version` rewriting automatically (more precisely than our custom script, which used `*`). Tarballs shrink dramatically (orchestrator 202 → 31 files). Once published, `npm install -g ask-llm-mcp@<next>` and `npx -y ask-llm-mcp` both fetch shared from npm as a normal dep — no bundling, no npm 11 bug exposure.
-- **Verification:** (1) Reproduced exactly on Node 26.0.0 + npm 11.12.1. (2) Inspected broken layout, counted empty dirs. (3) Confirmed local install works on same Node 26 (isolating the bug to global install). (4) Manually populated missing deps in broken install, verified doctor works. (5) Tested architectural fix via `yarn pack`, confirmed correct tarball shape (no `node_modules/`, workspace deps rewritten to exact versions). (6) Full test suite green post-fix.
-- **Status:** Fixed in PR (pending merge + next release). Will be fully resolved once `@ask-llm/shared@0.3.2` + the four MCPs publish to npm via changesets.
-
-### #96 — codex-pair "next-turn surface" never fires for HIGH/MED findings
-- **Severity:** High (silently neutralizes ADR-077's 5x recall promise)
-- **Upstream issue:** [#96](https://github.com/Lykhoyda/ask-llm/issues/96)
-- **Reporter:** Lykhoyda (dogfooding against a non-trivial repo)
-- **Affected versions:** ask-llm plugin 0.6.2 (likely still present in 0.7.x — needs verification)
-- **Symptom:** After enabling codex-pair with a marker file and producing 3 reviews that contained HIGH/MED concerns (verified via `.codex-pair-log.jsonl`), no `[codex-pair] <file>` system reminder appeared on the subsequent turn. The reviewer is working — findings land in the log — but the documented surfacing path to Claude is silent.
-- **Repro:** (1) enable codex-pair with a marker; (2) write a file containing a clear HIGH (e.g. `new RegExp(\`${userInput}\`)`); (3) wait for verdict `concerns` in the log; (4) make any other tool call; (5) observe no `[codex-pair]` system reminder visible to the model.
-- **Suspected root cause:** The systemMessage emission might be buffered/swallowed at the PostToolUse-hook boundary, or the surface might be attached to the wrong event sequence. ADR-095 already documented "consumption discipline" as load-bearing — without the surface firing, that discipline can't run.
-- **Status:** Tracked in ROADMAP Tier C; needs repro against current `main` to confirm whether v0.7.0 hardening incidentally fixed it.
+- **Pre-merge verification:** (1) Reproduced exactly on Node 26.0.0 + npm 11.12.1. (2) Inspected broken layout, counted empty dirs. (3) Confirmed local install works on same Node 26 (isolating the bug to global install). (4) Manually populated missing deps in broken install, verified doctor works. (5) Tested architectural fix via `yarn pack`, confirmed correct tarball shape (no `node_modules/`, workspace deps rewritten to exact versions). (6) Full test suite green post-fix. (7) Confirmed `@ask-llm/shared` returns 404 from npm — no prior publish, so `0.3.2` will be the first ever public release.
+- **Status:** Fixed in [PR #126](https://github.com/Lykhoyda/ask-llm/pull/126) (CI green, awaiting merge + release). Will be fully resolved once `@ask-llm/shared@0.3.2` + the four MCPs publish to npm via changesets.
 
 ## Known Bugs (inherited from upstream)
 
