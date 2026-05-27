@@ -124,3 +124,62 @@ jobs:
             git push origin "$TAG"
             gh release create "$TAG" --generate-notes --title "$TAG"
           fi
+
+      # Loud-on-failure: open a tracking issue (or comment on an existing one)
+      # when the publish step fails. Lived-experience trigger: PR #112's release
+      # run sat with a red X for 5 days without anyone noticing because there
+      # was no notification channel. A fresh issue with a label appears in
+      # everyone's inbox.
+      #
+      # Safety note: this step uses `actions/github-script` with the `github`
+      # octokit (no shell-evaluation of user input). All `context.*` values
+      # (sha, runId, serverUrl, repo) are GitHub-runtime trusted; nothing from
+      # an external PR body, commit message, or issue title is interpolated.
+      - name: Open tracking issue on release failure
+        if: failure() && steps.changesets.outcome == 'failure'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const sha7 = context.sha.slice(0, 7);
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            // Don't spam: comment on an existing open release-broken issue instead of opening N.
+            const existing = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: "open",
+              labels: "release-broken",
+              per_page: 5,
+            });
+            if (existing.data.length > 0) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: existing.data[0].number,
+                body: `Another release run failed: ${runUrl} (commit ${sha7})`,
+              });
+              return;
+            }
+            const body = [
+              `The release workflow failed at the publish step.`,
+              ``,
+              `**Run:** ${runUrl}`,
+              `**Commit:** ${context.sha}`,
+              ``,
+              `Likely causes:`,
+              `- NODE_AUTH_TOKEN expired, revoked, or wrong type (must be Classic "Automation" or 2FA-bypass Granular)`,
+              `- Package permission changed on npm (token no longer covers ask-gemini-mcp / ask-codex-mcp / ask-ollama-mcp / ask-llm-mcp)`,
+              `- npm registry outage`,
+              ``,
+              `**Fix path:**`,
+              `1. Regenerate token at https://www.npmjs.com/settings/lykhoyda/tokens (Classic Automation or 2FA-bypass Granular)`,
+              `2. Update NODE_AUTH_TOKEN at https://github.com/${context.repo.owner}/${context.repo.repo}/settings/secrets/actions`,
+              `3. Re-trigger: gh workflow run release.yml`,
+              `4. Close this issue once a release run succeeds.`,
+            ].join("\n");
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `Release workflow failed on ${sha7} — publish blocked`,
+              body,
+              labels: ["release-broken", "urgent"],
+            });
