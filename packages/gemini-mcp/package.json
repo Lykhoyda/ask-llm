@@ -19,9 +19,7 @@
     "start": "node dist/cli.js",
     "dev": "tsc -b && node dist/cli.js",
     "test": "vitest run",
-    "lint": "biome check src/ && tsc --noEmit",
-    "prepack": "node ../../scripts/prepack-bundle.mjs shared",
-    "postpack": "node ../../scripts/postpack-restore.mjs shared"
+    "lint": "biome check src/ && tsc --noEmit"
   },
   "keywords": [
     "mcp",
@@ -69,8 +67,5 @@
   },
   "publishConfig": {
     "access": "public"
-  },
-  "bundledDependencies": [
-    "@ask-llm/shared"
-  ]
+  }
 }

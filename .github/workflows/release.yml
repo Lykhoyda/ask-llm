@@ -41,9 +41,9 @@ jobs:
 
       # When pending changesets exist on main: opens/updates the Version Packages PR.
       # When this push IS the merged Version Packages PR: runs `yarn changeset:publish`
-      # which builds + npm-publishes any packages whose version is ahead of the registry.
-      # The prepack-bundle.mjs lifecycle (workspace:* → versioned, shared bundling) still
-      # fires inside each `npm publish` call, so the bundled-tarball shape is preserved.
+      # which builds + publishes any packages whose version is ahead of the registry.
+      # Yarn 4 auto-rewrites workspace:* → the actual workspace version on publish (ADR-106
+      # removed the custom prepack-bundle.mjs rewrite and the bundledDependencies mechanism).
       - name: Create Release PR or Publish
         id: changesets
         uses: changesets/action@v1
