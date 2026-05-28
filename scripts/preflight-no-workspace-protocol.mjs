@@ -13,18 +13,25 @@
  * `EUNSUPPORTEDPROTOCOL: Unsupported URL Type "workspace:"` for any
  * downstream user.
  *
- * This gate runs `npm pack --dry-run --json` in each publishable package
- * — which fires the restored `prepack-bundle.mjs` lifecycle — then parses
- * the manifest that would have been published and fails the workflow if
- * any `workspace:` literal is found in dependencies, peerDependencies,
- * or optionalDependencies. The gate runs BEFORE the changesets publish
- * step, so a regression is caught locally and in CI before any tarball
- * reaches the registry.
+ * HOW THIS WORKS — for each publishable workspace package, the gate
+ * invokes `npm run prepack --if-present` (which fires the restored
+ * `prepack-bundle.mjs` lifecycle in MCP packages), snapshots the
+ * rewritten `package.json` mid-flight, scans for `workspace:` literals
+ * in dependencies / peerDependencies / optionalDependencies + nested
+ * bundled-package manifests, then runs `npm run postpack --if-present`
+ * to clean up. Exits 1 if any literal survived. The gate runs BEFORE the
+ * changesets publish step, so a regression is caught locally and in CI
+ * before any tarball reaches the registry.
+ *
+ * We intentionally invoke `npm run prepack` directly rather than
+ * `npm pack --dry-run`. Both fire the same lifecycle hooks, but the
+ * direct approach lets us snapshot the rewritten manifest between
+ * prepack and postpack without parsing tarballs.
  *
  * Run locally with: node scripts/preflight-no-workspace-protocol.mjs
  *
  * The script is non-zero on any of:
- *   - `npm pack --dry-run` fails for any package
+ *   - `npm run prepack` fails for any package
  *   - any dependency value contains the string `workspace:`
  *   - any expected package directory is missing
  */
@@ -36,14 +43,35 @@ import { fileURLToPath } from "node:url";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "..");
 
-// Packages that are actually published to npm. Keep this in sync with the
-// publishable workspaces under `packages/`. The plugin and shared packages
-// are intentionally excluded — they're either marked `private: true` or
-// distributed outside npm.
-const PUBLISHABLE_PACKAGES = ["gemini-mcp", "codex-mcp", "ollama-mcp", "llm-mcp"];
-
 const DEPS_FIELDS = ["dependencies", "peerDependencies", "optionalDependencies"];
 const WORKSPACE_PROTOCOL = "workspace:";
+
+/**
+ * Derive publishable packages dynamically from the workspace config.
+ * Walks `packages/*` and includes any package whose package.json does NOT
+ * have `"private": true`. This means a future fifth MCP package gets
+ * scanned automatically — no manual list to update.
+ *
+ * Returns array of package directory names under `packages/`.
+ */
+function findPublishablePackages() {
+  const packagesDir = path.join(REPO_ROOT, "packages");
+  if (!fs.existsSync(packagesDir)) {
+    console.error(`[preflight] ERROR: packages directory not found: ${packagesDir}`);
+    process.exit(1);
+  }
+
+  const publishable = [];
+  for (const entry of fs.readdirSync(packagesDir, { withFileTypes: true })) {
+    if (!entry.isDirectory()) continue;
+    const pkgJsonPath = path.join(packagesDir, entry.name, "package.json");
+    if (!fs.existsSync(pkgJsonPath)) continue;
+    const pkg = JSON.parse(fs.readFileSync(pkgJsonPath, "utf8"));
+    if (pkg.private === true) continue;
+    publishable.push(entry.name);
+  }
+  return publishable.sort();
+}
 
 function findWorkspaceLiterals(manifest) {
   const findings = [];
@@ -59,6 +87,26 @@ function findWorkspaceLiterals(manifest) {
   return findings;
 }
 
+/**
+ * Forcibly clean up bundled node_modules/<dep> directories that
+ * prepack-bundle.mjs creates. Called when postpack throws — the normal
+ * postpack-restore.mjs would have done this, but if it failed we need
+ * to do it manually so the next preflight run starts from a clean state.
+ */
+function cleanupBundledDirs(pkgDir, bundledDeps) {
+  for (const dep of bundledDeps) {
+    const bundledPath = path.join(pkgDir, "node_modules", dep);
+    if (fs.existsSync(bundledPath) && fs.lstatSync(bundledPath).isDirectory()) {
+      fs.rmSync(bundledPath, { recursive: true, force: true });
+    }
+  }
+  // Also clean up the package.json.bak left by prepack if postpack didn't.
+  const bakPath = path.join(pkgDir, "package.json.bak");
+  if (fs.existsSync(bakPath)) {
+    fs.unlinkSync(bakPath);
+  }
+}
+
 function checkPackage(pkgName) {
   const pkgDir = path.join(REPO_ROOT, "packages", pkgName);
   if (!fs.existsSync(pkgDir)) {
@@ -66,28 +114,20 @@ function checkPackage(pkgName) {
     process.exit(1);
   }
 
-  console.log(`[preflight] packing ${pkgName} (dry-run)...`);
-
-  // `npm pack --dry-run --json` runs prepack/postpack lifecycle hooks but does
-  // NOT write a tarball. The JSON output contains `files[]` and crucially
-  // `name`/`version` from the manifest as npm would publish it. We re-read
-  // package.json AFTER `npm pack` runs because the prepack-bundle.mjs script
-  // rewrites it in place (the postpack restores it after); we have to capture
-  // the rewritten state. Easiest: snapshot package.json content right after
-  // prepack runs but before postpack restores it.
-  //
-  // Strategy: run `npm pack --dry-run --json --pack-destination=<tmp>`, which
-  // is enough to fire prepack. Read package.json mid-flight is racy — instead
-  // we invoke `prepack` directly, snapshot, then invoke `postpack`. This
-  // mirrors the actual publish lifecycle byte-for-byte.
+  console.log(`[preflight] checking ${pkgName}...`);
 
   const pkgJsonPath = path.join(pkgDir, "package.json");
   const originalPkgJson = fs.readFileSync(pkgJsonPath, "utf8");
+  const originalPkg = JSON.parse(originalPkgJson);
 
-  // Run prepack directly so we can inspect the rewritten manifest.
-  // We catch errors so postpack always runs (cleanup must happen).
+  // Capture the bundledDependencies list from the ORIGINAL manifest before
+  // prepack runs — we need it for cleanup whether prepack succeeds or fails.
+  const bundledDeps = originalPkg.bundledDependencies || [];
+
   let manifestFindings = [];
   let prepackError = null;
+  let postpackError = null;
+
   try {
     execFileSync("npm", ["run", "--silent", "prepack", "--if-present"], {
       cwd: pkgDir,
@@ -97,9 +137,10 @@ function checkPackage(pkgName) {
     const rewrittenPkg = JSON.parse(fs.readFileSync(pkgJsonPath, "utf8"));
     manifestFindings = findWorkspaceLiterals(rewrittenPkg);
 
-    // Also scan any bundled nested package.json files — those go into the
-    // tarball too and were the OTHER manifest surface that broke in the
-    // 2026-05-27 incident (the bundled `@ask-llm/shared/package.json` etc.).
+    // Also scan nested manifests under bundled dependencies — those go into
+    // the published tarball too and were the OTHER manifest surface that
+    // broke in the 2026-05-27 incident (the bundled `@ask-llm/shared/package.json`,
+    // `ask-gemini-mcp/package.json`, etc., which each also list workspace deps).
     const bundled = rewrittenPkg.bundledDependencies || [];
     for (const dep of bundled) {
       const nestedPath = path.join(pkgDir, "node_modules", dep, "package.json");
@@ -120,12 +161,20 @@ function checkPackage(pkgName) {
         cwd: pkgDir,
         stdio: ["ignore", "pipe", "pipe"],
       });
-    } catch (postpackErr) {
-      console.error(`[preflight] WARNING: postpack failed for ${pkgName}:`, postpackErr.message);
-      // Fall back: restore from our snapshot so the working tree isn't left
-      // with a rewritten manifest.
-      fs.writeFileSync(pkgJsonPath, originalPkgJson);
+    } catch (err) {
+      postpackError = err;
     }
+  }
+
+  // Postpack-failure fallback: restore the original package.json AND clean up
+  // any bundled node_modules dirs that prepack created. Skipping the cleanup
+  // would leave the working tree with physical copies of bundled deps that
+  // break the next preflight run (the prepack backup guard would skip
+  // re-backing-up because `package.json.bak` already exists).
+  if (postpackError) {
+    console.error(`[preflight] WARNING: postpack failed for ${pkgName}: ${postpackError.message}`);
+    fs.writeFileSync(pkgJsonPath, originalPkgJson);
+    cleanupBundledDirs(pkgDir, bundledDeps);
   }
 
   if (prepackError) {
@@ -148,8 +197,18 @@ function checkPackage(pkgName) {
   return true;
 }
 
+const publishable = findPublishablePackages();
+if (publishable.length === 0) {
+  console.error("[preflight] ERROR: no publishable packages found under packages/");
+  console.error("[preflight] expected at least one package with `private: false` (or no private field)");
+  process.exit(1);
+}
+
+console.log(`[preflight] scanning ${publishable.length} publishable package(s): ${publishable.join(", ")}`);
+console.log("");
+
 let allPassed = true;
-for (const pkg of PUBLISHABLE_PACKAGES) {
+for (const pkg of publishable) {
   if (!checkPackage(pkg)) {
     allPassed = false;
   }
