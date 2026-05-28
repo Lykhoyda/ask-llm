@@ -1,6 +1,6 @@
 {
   "name": "ask-gemini-mcp",
-  "version": "1.6.6",
+  "version": "1.6.7",
   "mcpName": "io.github.Lykhoyda/ask-gemini",
   "description": "MCP server for Gemini CLI integration - for Claude IDE and other IDEs",
   "type": "module",
@@ -19,7 +19,9 @@
     "start": "node dist/cli.js",
     "dev": "tsc -b && node dist/cli.js",
     "test": "vitest run",
-    "lint": "biome check src/ && tsc --noEmit"
+    "lint": "biome check src/ && tsc --noEmit",
+    "prepack": "node ../../scripts/prepack-bundle.mjs shared",
+    "postpack": "node ../../scripts/postpack-restore.mjs shared"
   },
   "keywords": [
     "mcp",
@@ -67,5 +69,8 @@
   },
   "publishConfig": {
     "access": "public"
-  }
+  },
+  "bundledDependencies": [
+    "@ask-llm/shared"
+  ]
 }

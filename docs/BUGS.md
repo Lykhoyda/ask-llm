@@ -2,6 +2,17 @@
 
 ## Open
 
+### #115 — `npx ask-llm-mcp doctor` ERR_MODULE_NOT_FOUND on `zod/index.js` (Node 26, global install)
+- **Severity:** High (blocks any Node 26 user of `ask-llm-mcp` via global install)
+- **Upstream issue:** [#115](https://github.com/Lykhoyda/ask-llm/issues/115)
+- **Reporter:** twardoch (external)
+- **Affected versions:** `ask-llm-mcp` all versions to date on Node v26.0.0 (any platform; reproduced on macOS arm64)
+- **Status:** **Re-opened 2026-05-28.** PR #126 (ADR-106) attempted to fix this by removing `bundledDependencies`, but the publish-pipeline change had a verification gap that broke all 4 MCP manifests on npm. PR #126 was reverted in ADR-107 (`fix/republish-workspace-protocol-regression`); #115 remains an open Tier-B problem to be solved via either inline-bundling (esbuild/tsup) or a properly-sequenced public `@ask-llm/shared` migration. See incident issue #128 and ADR-107 for the full arc.
+- **Actual root cause** (verified 2026-05-27): npm 11's global install + `bundledDependencies` interaction. The bundled workspace packages extract correctly, but their declared transitive deps that aren't bundled get 78 empty placeholder directories. Local install on the same Node 26 binary works correctly — the bug is specifically in npm 11's global install path.
+- **Two viable fix paths under evaluation** (Tier-B work):
+  - **B1: Inline-bundle via esbuild/tsup** — each MCP's `dist/` becomes a single self-contained file with `@ask-llm/shared` inlined. Drops `bundledDependencies` entirely. Keeps shared `private: true`. New build pipeline to vet.
+  - **B2: Public `@ask-llm/shared` after proper scope setup** — manually create the `@ask-llm` org on npm, verify with a `0.0.0-test` sandbox publish from a feature branch, then flip shared to public. Codex's brainstorm ruled out the "publish AND inline-bundle" hybrid (if shared is in `dependencies`, npm installs it; if not, publishing is irrelevant — pick one mechanism, not both).
+
 ### #96 — codex-pair "next-turn surface" never fires for HIGH/MED findings
 - **Severity:** High (silently neutralizes ADR-077's 5x recall promise)
 - **Upstream issue:** [#96](https://github.com/Lykhoyda/ask-llm/issues/96)
@@ -14,7 +25,10 @@
 
 ## Fixed (pending publish)
 
-### ~~#115 — `npx ask-llm-mcp doctor` ERR_MODULE_NOT_FOUND on `zod/index.js` (Node 26, global install)~~ FIXED in PR #126
+### ~~#115 — superseded entry (PR #126 / ADR-106) — reverted by ADR-107~~ HISTORICAL
+The entry below documents the (failed) first attempt at fixing #115 via PR #126. PR #126's verification step tested `yarn pack`, but the actual publish path uses `npm publish` (via changesets/action), which doesn't perform the same `workspace:*` rewrite. The result was four broken npm tarballs on 2026-05-27. ADR-107 restored the bundling architecture; the canonical #115 entry is now under `## Open` above.
+
+### ~~#115 first-attempt — `npx ask-llm-mcp doctor` ERR_MODULE_NOT_FOUND on `zod/index.js` (Node 26, global install)~~ ROLLED BACK in ADR-107
 - **Severity:** Critical (blocked any Node 26 user of `ask-llm-mcp` via global install)
 - **Upstream issue:** [#115](https://github.com/Lykhoyda/ask-llm/issues/115)
 - **Reporter:** twardoch (external)
@@ -32,7 +46,7 @@
 - **Actual root cause** (after reproducing exactly on Node 26.0.0 + npm 11.12.1): npm 11's **global install** + `bundledDependencies` interaction. The bundled workspace packages (`@ask-llm/shared`, `ask-gemini-mcp`, `ask-codex-mcp`, `ask-ollama-mcp`) are extracted correctly from the tarball, but their declared transitive deps that *aren't* bundled get empty placeholder directories instead of real installs. In the reproduced install, **78 packages were empty stubs** including `zod`, `@modelcontextprotocol/sdk`, `express`, `hono`, `jose`, `cors`, `ajv`, `cookie`, `cross-spawn`, `which`, `ms`, etc. Node's ESM resolver finds the empty `zod/` directory, can't find an `exports` field (no `package.json` at all), falls into `legacyMainResolve`, tries `index.js`, fails. The initial guess that this was a zod packaging bug or a Node 26 resolver-strictness change was wrong — the same exact tarball installs perfectly via `npm install ask-llm-mcp` to a project directory on the same Node 26 binary. The bug is **specifically in npm 11's global install path** when `bundledDependencies` is present.
 - **Fix (ADR-106):** Publish `@ask-llm/shared` as a public npm package and remove the entire `bundledDependencies` mechanism from all four MCP packages. Since shared was the only `private: true` workspace package and the sole reason `bundledDependencies` existed (ADR-052), making it public eliminates the bundling code path entirely. Concrete changes: (1) `@ask-llm/shared` gets `"publishConfig": { "access": "public" }` + publishable metadata; (2) all four MCP packages drop `bundledDependencies` + the `prepack`/`postpack` scripts; (3) `scripts/prepack-bundle.mjs` + `scripts/postpack-restore.mjs` deleted — yarn 4 handles `workspace:* → fixed-version` rewriting automatically (more precisely than our custom script, which used `*`). Tarballs shrink dramatically (orchestrator 202 → 31 files). Once published, `npm install -g ask-llm-mcp@<next>` and `npx -y ask-llm-mcp` both fetch shared from npm as a normal dep — no bundling, no npm 11 bug exposure.
 - **Pre-merge verification:** (1) Reproduced exactly on Node 26.0.0 + npm 11.12.1. (2) Inspected broken layout, counted empty dirs. (3) Confirmed local install works on same Node 26 (isolating the bug to global install). (4) Manually populated missing deps in broken install, verified doctor works. (5) Tested architectural fix via `yarn pack`, confirmed correct tarball shape (no `node_modules/`, workspace deps rewritten to exact versions). (6) Full test suite green post-fix. (7) Confirmed `@ask-llm/shared` returns 404 from npm — no prior publish, so `0.3.2` will be the first ever public release.
-- **Status:** Fixed in [PR #126](https://github.com/Lykhoyda/ask-llm/pull/126) (CI green, awaiting merge + release). Will be fully resolved once `@ask-llm/shared@0.3.2` + the four MCPs publish to npm via changesets.
+- **Status (final):** Rolled back in ADR-107 (`fix/republish-workspace-protocol-regression`) after the publish to npm produced 4 broken tarballs (`ask-gemini-mcp@1.6.6`, `ask-codex-mcp@0.3.8`, `ask-ollama-mcp@0.3.3`, `ask-llm-mcp@0.3.9` — all with literal `workspace:*` in their published manifests; `@ask-llm/shared@0.3.2` never published because the `@ask-llm` npm scope didn't exist on the maintainer's account). #115 remains open as Tier-B work — see the canonical entry under `## Open` above. Incident issue: #128.
 
 ## Known Bugs (inherited from upstream)
 
