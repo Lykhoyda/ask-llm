@@ -39,11 +39,27 @@ jobs:
       - run: yarn lint
       - run: yarn test
 
+      # Preflight gate (ADR-107): scan the manifest that npm will actually publish for
+      # `workspace:` protocol literals. The 2026-05-27 incident shipped 4 broken
+      # manifests because ADR-106 deleted the prepack-bundle.mjs script and trusted
+      # yarn 4 to rewrite workspace:* on publish — but changesets/action invokes
+      # `npm publish` directly, and `npm publish` doesn't rewrite. This gate runs
+      # `npm pack --dry-run --json` for each publishable package (which fires the
+      # restored prepack lifecycle), parses the resulting manifest, and fails the
+      # workflow if any `workspace:` literal survives. Catches the regression class
+      # before any tarball reaches the registry.
+      - name: Preflight — assert no workspace:* in published manifests
+        run: node scripts/preflight-no-workspace-protocol.mjs
+
       # When pending changesets exist on main: opens/updates the Version Packages PR.
       # When this push IS the merged Version Packages PR: runs `yarn changeset:publish`
       # which builds + publishes any packages whose version is ahead of the registry.
-      # Yarn 4 auto-rewrites workspace:* → the actual workspace version on publish (ADR-106
-      # removed the custom prepack-bundle.mjs rewrite and the bundledDependencies mechanism).
+      # The `prepack-bundle.mjs` lifecycle (workspace:* → versioned, shared bundling) fires
+      # inside each `npm publish` call. ADR-052 originally established this; ADR-106 tried to
+      # remove it on the assumption that yarn 4 would auto-rewrite via changeset publish —
+      # that assumption was wrong (yarn 4 only rewrites via `yarn npm publish`, not the
+      # `npm publish` invoked by changesets/action). ADR-107 restores the bundling lifecycle
+      # and adds the preflight gate below as a safety net so the regression can't recur.
       - name: Create Release PR or Publish
         id: changesets
         uses: changesets/action@v1

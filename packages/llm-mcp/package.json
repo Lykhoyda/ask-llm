@@ -1,6 +1,6 @@
 {
   "name": "ask-llm-mcp",
-  "version": "0.3.9",
+  "version": "0.3.10",
   "mcpName": "io.github.Lykhoyda/ask-llm",
   "description": "Unified MCP server for multi-LLM consultation — registers tools from all available providers (Gemini, Codex, Ollama) behind runtime availability checks",
   "type": "module",
@@ -14,7 +14,9 @@
     "start": "node dist/cli.js",
     "dev": "tsc -b && node dist/cli.js",
     "test": "vitest run",
-    "lint": "biome check src/ && tsc --noEmit"
+    "lint": "biome check src/ && tsc --noEmit",
+    "prepack": "node ../../scripts/prepack-bundle.mjs shared gemini-mcp codex-mcp ollama-mcp",
+    "postpack": "node ../../scripts/postpack-restore.mjs shared gemini-mcp codex-mcp ollama-mcp"
   },
   "keywords": [
     "mcp",
@@ -69,5 +71,11 @@
   },
   "publishConfig": {
     "access": "public"
-  }
+  },
+  "bundledDependencies": [
+    "@ask-llm/shared",
+    "ask-gemini-mcp",
+    "ask-codex-mcp",
+    "ask-ollama-mcp"
+  ]
 }

@@ -1,6 +1,6 @@
 {
   "name": "ask-codex-mcp",
-  "version": "0.3.8",
+  "version": "0.3.9",
   "mcpName": "io.github.Lykhoyda/ask-codex",
   "description": "MCP server for OpenAI Codex CLI integration - for Claude IDE and other IDEs",
   "type": "module",
@@ -19,7 +19,9 @@
     "start": "node dist/cli.js",
     "dev": "tsc -b && node dist/cli.js",
     "test": "vitest run",
-    "lint": "biome check src/ && tsc --noEmit"
+    "lint": "biome check src/ && tsc --noEmit",
+    "prepack": "node ../../scripts/prepack-bundle.mjs shared",
+    "postpack": "node ../../scripts/postpack-restore.mjs shared"
   },
   "keywords": [
     "mcp",
@@ -67,5 +69,8 @@
   },
   "publishConfig": {
     "access": "public"
-  }
+  },
+  "bundledDependencies": [
+    "@ask-llm/shared"
+  ]
 }
