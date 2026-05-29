@@ -84,6 +84,41 @@ const a = 2;
     expect(edits[0].newCode).toBe("const a = 2;");
   });
 
+  it("skips a legacy-format edit with mismatched filenames without hanging", () => {
+    // A rename emits differing old/new filenames. The parser must skip it and
+    // return — never spin forever (regression: the `continue` that never
+    // advanced the regex iterator).
+    const input = `/old/ * a.ts 'start:' 1
+const a = 1;
+// 'end:' 1
+\\new\\ * b.ts 'start:' 1
+const a = 2;
+// 'end:' 1`;
+
+    expect(parseChangeModeOutput(input)).toEqual([]);
+  });
+
+  it("keeps parsing valid legacy edits that follow a mismatched one", () => {
+    const input = `/old/ * a.ts 'start:' 1
+const a = 1;
+// 'end:' 1
+\\new\\ * b.ts 'start:' 1
+const a = 2;
+// 'end:' 1
+/old/ * c.ts 'start:' 3
+const c = 1;
+// 'end:' 3
+\\new\\ * c.ts 'start:' 3
+const c = 2;
+// 'end:' 3`;
+
+    const edits = parseChangeModeOutput(input);
+
+    expect(edits).toHaveLength(1);
+    expect(edits[0].filename).toBe("c.ts");
+    expect(edits[0].newCode).toBe("const c = 2;");
+  });
+
   it("handles single-line old code in markdown format", () => {
     const input = `**FILE: x.ts:42**
 \`\`\`

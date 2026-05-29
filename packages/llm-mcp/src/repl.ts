@@ -154,6 +154,53 @@ export async function dispatchPrompt(
   }
 }
 
+// Resolves to the user's line, or null on EOF / stream close. node:readline's
+// promises API leaves question() pending forever when stdin closes (Ctrl-D or a
+// piped EOF), so we race it against the interface's "close" event — otherwise
+// the REPL hangs instead of exiting. The "close" listener is removed when the
+// question resolves normally, so repeated prompts don't leak listeners.
+function questionOrEof(rl: readline.Interface, prompt: string): Promise<string | null> {
+  return new Promise((resolve) => {
+    const onClose = () => resolve(null);
+    rl.once("close", onClose);
+    rl.question(prompt).then(
+      (answer) => {
+        rl.off("close", onClose);
+        resolve(answer);
+      },
+      () => {
+        rl.off("close", onClose);
+        resolve(null);
+      },
+    );
+  });
+}
+
+export async function runReplLoop(rl: readline.Interface, state: ReplState, out: NodeJS.WritableStream): Promise<void> {
+  let closed = false;
+  rl.once("close", () => {
+    closed = true;
+  });
+
+  while (!closed) {
+    const line = await questionOrEof(rl, `${state.currentProvider}> `);
+    if (line === null) break;
+
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+
+    if (trimmed.startsWith("/")) {
+      const res = handleSlash(trimmed, state);
+      if (res.cleared) out.write("\x1b[2J\x1b[H");
+      if (res.message) out.write(`${res.message}\n`);
+      if (res.exit) break;
+      continue;
+    }
+
+    await dispatchPrompt(trimmed, state, out);
+  }
+}
+
 export async function startRepl(): Promise<number> {
   Logger.checkNodeVersion();
   process.stdout.write("Detecting providers...\n");
@@ -175,30 +222,11 @@ export async function startRepl(): Promise<number> {
 
   const rl = readline.createInterface({ input: process.stdin, output: process.stdout, terminal: true });
 
-  let exit = false;
-  while (!exit) {
-    let line: string;
-    try {
-      line = await rl.question(`${state.currentProvider}> `);
-    } catch {
-      break;
-    }
-
-    const trimmed = line.trim();
-    if (!trimmed) continue;
-
-    if (trimmed.startsWith("/")) {
-      const res = handleSlash(trimmed, state);
-      if (res.cleared) process.stdout.write("\x1b[2J\x1b[H");
-      if (res.message) process.stdout.write(`${res.message}\n`);
-      if (res.exit) exit = true;
-      continue;
-    }
-
-    await dispatchPrompt(trimmed, state, process.stdout);
+  try {
+    await runReplLoop(rl, state, process.stdout);
+  } finally {
+    rl.close();
   }
-
-  rl.close();
   process.stdout.write("\nbye.\n");
   return 0;
 }

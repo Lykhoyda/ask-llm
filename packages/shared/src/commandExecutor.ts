@@ -108,6 +108,10 @@ export async function executeCommand(
     const stdoutChunks: Buffer[] = [];
     let stderr = "";
     let isResolved = false;
+    // SIGKILL escalation timer scheduled after a timeout SIGTERM. Tracked so a
+    // clean child exit can cancel it — otherwise it lingers ~5s, holding the
+    // event loop open and pinning the (already dead) child object until GC.
+    let killTimer: ReturnType<typeof setTimeout> | undefined;
 
     const effectiveTimeoutMs = timeoutMs ?? getTimeoutMs();
     const timer = setTimeout(() => {
@@ -115,11 +119,12 @@ export async function executeCommand(
       isResolved = true;
       Logger.warn(`[cmd:${commandId}] Timeout after ${effectiveTimeoutMs}ms, sending SIGTERM`);
       childProcess.kill("SIGTERM");
-      setTimeout(() => {
+      killTimer = setTimeout(() => {
         try {
           childProcess.kill("SIGKILL");
         } catch {}
       }, 5000);
+      killTimer.unref?.();
       const timeoutSec = Math.round(effectiveTimeoutMs / 1000);
       reject(
         new Error(
@@ -147,6 +152,7 @@ export async function executeCommand(
     });
 
     childProcess.on("error", (error) => {
+      if (killTimer) clearTimeout(killTimer);
       if (!isResolved) {
         isResolved = true;
         clearTimeout(timer);
@@ -156,6 +162,7 @@ export async function executeCommand(
     });
 
     childProcess.on("close", (code) => {
+      if (killTimer) clearTimeout(killTimer);
       if (!isResolved) {
         isResolved = true;
         clearTimeout(timer);

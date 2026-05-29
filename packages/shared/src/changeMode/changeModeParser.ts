@@ -59,20 +59,19 @@ export function parseChangeModeOutput(geminiResponse: string): ChangeModeEdit[] 
         newEndLine,
       ] = match;
 
-      if (oldFilename !== newFilename) {
+      if (oldFilename === newFilename) {
+        edits.push({
+          filename: oldFilename.trim(),
+          oldStartLine: parseInt(oldStartLine, 10),
+          oldEndLine: parseInt(oldEndLine, 10),
+          oldCode: oldCode.trimEnd(),
+          newStartLine: parseInt(newStartLine, 10),
+          newEndLine: parseInt(newEndLine, 10),
+          newCode: newCode.trimEnd(),
+        });
+      } else {
         Logger.warn(`[changeModeParser] Filename mismatch: ${oldFilename} vs ${newFilename}`);
-        continue;
       }
-
-      edits.push({
-        filename: oldFilename.trim(),
-        oldStartLine: parseInt(oldStartLine, 10),
-        oldEndLine: parseInt(oldEndLine, 10),
-        oldCode: oldCode.trimEnd(),
-        newStartLine: parseInt(newStartLine, 10),
-        newEndLine: parseInt(newEndLine, 10),
-        newCode: newCode.trimEnd(),
-      });
       match = editPattern.exec(geminiResponse);
     }
   }

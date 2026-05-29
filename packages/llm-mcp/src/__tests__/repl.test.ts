@@ -1,7 +1,8 @@
-import { Writable } from "node:stream";
+import * as readline from "node:readline/promises";
+import { PassThrough, Writable } from "node:stream";
 import { createSessionUsage, type UsageStats } from "@ask-llm/shared";
 import { describe, expect, it, vi } from "vitest";
-import { dispatchPrompt, formatBanner, formatHelp, handleSlash, type ReplState } from "../repl.js";
+import { dispatchPrompt, formatBanner, formatHelp, handleSlash, type ReplState, runReplLoop } from "../repl.js";
 
 function makeState(overrides: Partial<ReplState> = {}): ReplState {
   return {
@@ -272,4 +273,52 @@ describe("dispatchPrompt", () => {
     expect(result.ok).toBe(false);
     expect(result.error).toContain("not loaded");
   });
+});
+
+describe("runReplLoop EOF handling", () => {
+  function makeRl(input: PassThrough, out: Writable): readline.Interface {
+    return readline.createInterface({ input, output: out, terminal: false });
+  }
+
+  it("resolves (does not hang) when stdin reaches EOF", async () => {
+    const input = new PassThrough();
+    const { stream: out } = captureWritable();
+    const rl = makeRl(input, out);
+    const state = makeState();
+
+    const loop = runReplLoop(rl, state, out);
+    input.end(); // EOF — the universal Ctrl-D / piped-input terminator
+
+    await expect(loop).resolves.toBeUndefined();
+    rl.close();
+  }, 3000);
+
+  it("processes a slash command and then exits on EOF (piped input)", async () => {
+    const input = new PassThrough();
+    const { stream: out, output } = captureWritable();
+    const rl = makeRl(input, out);
+    const state = makeState();
+
+    const loop = runReplLoop(rl, state, out);
+    input.write("/help\n");
+    await new Promise((r) => setImmediate(r));
+    input.end();
+
+    await expect(loop).resolves.toBeUndefined();
+    expect(output()).toContain("/provider");
+    rl.close();
+  }, 3000);
+
+  it("exits on /quit without needing EOF", async () => {
+    const input = new PassThrough();
+    const { stream: out } = captureWritable();
+    const rl = makeRl(input, out);
+    const state = makeState();
+
+    const loop = runReplLoop(rl, state, out);
+    input.write("/quit\n");
+
+    await expect(loop).resolves.toBeUndefined();
+    rl.close();
+  }, 3000);
 });

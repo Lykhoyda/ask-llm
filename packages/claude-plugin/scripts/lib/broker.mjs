@@ -338,6 +338,28 @@ export async function probeBrokerHealth(state) {
 // Failures map to thrown errors with `.code` matching the existing
 // taggedError verdict set in codex-pair-watch.mjs (timeout, error,
 // parse_failed) so the surrounding hook flow handles them uniformly.
+// Wrap an rpc.request for the thread/start + turn/start dance so a
+// transport-layer failure (request timeout, connection closed/errored) on a
+// broker that handshook OK but then hung is tagged brokerFailure=true. Per
+// ADR-077 a post-handshake broker hang must be a silent fallback to the
+// per-edit spawn, but broker-rpc's timeout/close/error rejections are PLAIN
+// Errors lacking that marker, so runCodexWithFallback would otherwise
+// rethrow them as a hard verdict. A genuine JSON-RPC error RESPONSE carries
+// `err.code` (broker-rpc sets it from env.error.code) — that's a real
+// server-side verdict, not a broker outage, so we leave it untagged.
+async function brokerRequest(rpc, method, params, timeoutMs, brokerPhase) {
+  try {
+    return await rpc.request(method, params, { timeoutMs });
+  } catch (err) {
+    if (err && typeof err === "object" && err.code === undefined && !err.brokerFailure) {
+      err.verdict = "error";
+      err.brokerFailure = true;
+      err.brokerPhase = brokerPhase;
+    }
+    throw err;
+  }
+}
+
 export async function submitReview(args) {
   const { rpc, connection, cwd, baseInstructions, prompt, model, timeoutMs = 60_000, abortSignal } = args;
   if (!rpc) throw new Error("submitReview: rpc client required");
@@ -353,7 +375,8 @@ export async function submitReview(args) {
   // approvalPolicy: "never" is mandatory for the hook context (no user
   // available to approve interactive prompts). sandbox: "read-only" denies
   // file writes from the reviewer.
-  const threadResp = await rpc.request(
+  const threadResp = await brokerRequest(
+    rpc,
     JSONRPC_METHODS.THREAD_START,
     {
       ephemeral: true,
@@ -363,7 +386,8 @@ export async function submitReview(args) {
       approvalPolicy: "never",
       sandbox: "read-only",
     },
-    { timeoutMs: remaining() },
+    remaining(),
+    "thread_start",
   );
   const threadId = threadResp?.thread?.id;
   if (typeof threadId !== "string") {
@@ -388,7 +412,8 @@ export async function submitReview(args) {
 
   // 3. turn/start. outputSchema constrains the agent's final message to
   // the parser-compatible shape (parser.mjs::parseConcernsJson).
-  const turnResp = await rpc.request(
+  const turnResp = await brokerRequest(
+    rpc,
     JSONRPC_METHODS.TURN_START,
     {
       threadId,
@@ -398,7 +423,8 @@ export async function submitReview(args) {
       // Belt-and-suspenders: also pin turn-level sandbox + deny network.
       sandboxPolicy: { type: "readOnly", networkAccess: false },
     },
-    { timeoutMs: remaining() },
+    remaining(),
+    "turn_start",
   );
   const turnId = turnResp?.turn?.id;
   if (typeof turnId !== "string") {

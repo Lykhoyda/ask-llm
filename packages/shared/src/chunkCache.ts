@@ -28,6 +28,7 @@ export function cacheChunks(prompt: string, chunks: EditChunk[]): string {
   const promptHash = createHash("sha256").update(prompt).digest("hex");
   const cacheKey = promptHash.slice(0, 8);
   const filePath = path.join(CACHE_DIR, `${cacheKey}.json`);
+  const tmpPath = `${filePath}.tmp.${process.pid}.${Date.now()}`;
 
   const cacheData: CacheEntry = {
     chunks,
@@ -36,10 +37,17 @@ export function cacheChunks(prompt: string, chunks: EditChunk[]): string {
   };
 
   try {
-    fs.writeFileSync(filePath, JSON.stringify(cacheData));
+    // Atomic write: these cache dirs are shared across MCP processes, so a
+    // concurrent reader must never observe a half-written file. rename() is
+    // atomic on the same filesystem. Mirrors sessions.ts.
+    fs.writeFileSync(tmpPath, JSON.stringify(cacheData));
+    fs.renameSync(tmpPath, filePath);
     Logger.debug(`Cached ${chunks.length} chunks to file: ${cacheKey}.json`);
   } catch (error) {
     Logger.error(`Failed to cache chunks: ${error}`);
+    try {
+      fs.unlinkSync(tmpPath);
+    } catch {}
   }
   enforceFileLimits();
   return cacheKey;
@@ -78,10 +86,13 @@ export function getChunks(cacheKey: string): EditChunk[] | null {
     Logger.debug(`Cache hit for ${cacheKey}, returning ${entry.chunks.length} chunks`);
     return entry.chunks;
   } catch (error) {
+    // A read/parse failure may be a transient partial read of an in-flight
+    // write by another process (these dirs are shared across MCP servers). Do
+    // NOT unlink — that would destroy a valid file mid-write. Stale or corrupt
+    // files are reclaimed by TTL expiry and the file-count cap; genuinely
+    // malformed-but-parseable files are still removed by the invalid-shape
+    // branch above.
     Logger.debug(`Cache read error for ${cacheKey}: ${error}`);
-    try {
-      fs.unlinkSync(filePath);
-    } catch {}
     return null;
   }
 }
@@ -121,11 +132,16 @@ function enforceFileLimits(): void {
     const files = fs
       .readdirSync(CACHE_DIR)
       .filter((f) => f.endsWith(".json"))
-      .map((f) => ({
-        name: f,
-        path: path.join(CACHE_DIR, f),
-        mtime: fs.statSync(path.join(CACHE_DIR, f)).mtimeMs,
-      }))
+      .map((f) => {
+        try {
+          return { path: path.join(CACHE_DIR, f), mtime: fs.statSync(path.join(CACHE_DIR, f)).mtimeMs };
+        } catch {
+          // Vanished between readdir and stat (concurrent eviction/expiry) —
+          // skip it rather than letting one ENOENT abort the whole sweep.
+          return null;
+        }
+      })
+      .filter((f): f is { path: string; mtime: number } => f !== null)
       .sort((a, b) => a.mtime - b.mtime);
 
     if (files.length > MAX_CACHE_FILES) {
@@ -141,3 +157,10 @@ function enforceFileLimits(): void {
     Logger.debug(`Error enforcing file limits: ${error}`);
   }
 }
+
+export const __test__ = {
+  CACHE_DIR,
+  CACHE_TTL,
+  MAX_CACHE_FILES,
+  enforceFileLimits,
+};

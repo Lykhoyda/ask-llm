@@ -16,11 +16,16 @@ const { SESSION_DIR, MAX_MESSAGES_PER_SESSION, isSafeSessionId } = __test__;
 function clearSessionDir(): void {
   if (!fs.existsSync(SESSION_DIR)) return;
   for (const f of fs.readdirSync(SESSION_DIR)) {
-    if (f.endsWith(".json")) {
-      try {
-        fs.unlinkSync(path.join(SESSION_DIR, f));
-      } catch {}
-    }
+    const p = path.join(SESSION_DIR, f);
+    try {
+      // unlinkSync reliably removes files AND symlinks (incl. broken ones);
+      // rmSync handles the directory case used by the blocked-path write test.
+      if (fs.lstatSync(p).isDirectory()) {
+        fs.rmSync(p, { recursive: true, force: true });
+      } else {
+        fs.unlinkSync(p);
+      }
+    } catch {}
   }
 }
 
@@ -221,5 +226,76 @@ describe("file permissions (ADR-063 — security hardening)", () => {
     appendAndSaveSession(undefined, "ollama", "test", "u", "a");
     const tmpFiles = fs.readdirSync(SESSION_DIR).filter((f) => f.includes(".tmp."));
     expect(tmpFiles).toEqual([]);
+  });
+});
+
+describe("saveSession write-failure signalling (no silent success)", () => {
+  it("returns false when the write fails (destination path blocked by a directory)", () => {
+    // Force a real rename() failure: occupy the destination path with a
+    // non-empty directory so the atomic temp->final rename cannot complete.
+    const id = createSessionId();
+    const blocked = path.join(SESSION_DIR, `${id}.json`);
+    fs.mkdirSync(blocked, { recursive: true });
+    fs.writeFileSync(path.join(blocked, "child"), "x");
+
+    const ok = saveSession({
+      id,
+      provider: "ollama",
+      model: "x",
+      messages: [{ role: "user", content: "hi" }],
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    });
+    expect(ok).toBe(false);
+  });
+
+  it("returns true on a successful save", () => {
+    const ok = saveSession({
+      id: createSessionId(),
+      provider: "ollama",
+      model: "x",
+      messages: [{ role: "user", content: "hi" }],
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    });
+    expect(ok).toBe(true);
+  });
+
+  it("appendAndSaveSession reports persisted:false when the write fails", () => {
+    const id = createSessionId();
+    const blocked = path.join(SESSION_DIR, `${id}.json`);
+    fs.mkdirSync(blocked, { recursive: true });
+    fs.writeFileSync(path.join(blocked, "child"), "x");
+
+    const result = appendAndSaveSession(id, "ollama", "x", "u", "a");
+    expect(result.persisted).toBe(false);
+  });
+
+  it("appendAndSaveSession reports persisted:true on a successful save", () => {
+    const result = appendAndSaveSession(undefined, "ollama", "x", "u", "a");
+    expect(result.persisted).toBe(true);
+  });
+});
+
+describe("enforceSessionLimit TOCTOU resilience", () => {
+  const isWin = process.platform === "win32";
+
+  it.skipIf(isWin)("still enforces the cap when one listed file cannot be stat'd", () => {
+    fs.mkdirSync(SESSION_DIR, { recursive: true });
+    const overflow = __test__.MAX_SESSION_FILES + 3;
+    for (let i = 0; i < overflow; i++) {
+      fs.writeFileSync(
+        path.join(SESSION_DIR, `real${String(i).padStart(4, "0")}.json`),
+        JSON.stringify({ id: "x", messages: [], updatedAt: Date.now() }),
+      );
+    }
+    // Broken symlink → statSync throws ENOENT, mimicking a concurrent removal
+    // between readdir() and stat().
+    fs.symlinkSync(path.join(SESSION_DIR, "missing-target"), path.join(SESSION_DIR, "ghost.json"));
+
+    __test__.enforceSessionLimit();
+
+    const realRemaining = fs.readdirSync(SESSION_DIR).filter((f) => f.startsWith("real") && f.endsWith(".json"));
+    expect(realRemaining.length).toBeLessThanOrEqual(__test__.MAX_SESSION_FILES);
   });
 });

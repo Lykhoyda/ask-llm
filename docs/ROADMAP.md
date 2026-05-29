@@ -10,6 +10,10 @@ The v0.6.3 → v0.7.0 codex-pair stability cadence (planned 2026-05-18) is **com
 
 Original plan reference: [`docs/plans/2026-05-18-codex-plugin-cc-adoption-roadmap.md`](plans/2026-05-18-codex-plugin-cc-adoption-roadmap.md).
 
+### 2026-05-29 — internal bug-hunt sweep (branch `fix/bug-hunt-2026-05-29`)
+
+Repo-wide defensive review (8 parallel agents → findings re-verified by hand → TDD fixes). Nine bugs fixed across shared, gemini-mcp, llm-mcp, and the codex-pair broker: 2 reachable hangs (changeMode parser infinite loop; REPL EOF), a cross-process chunkCache corruption race, a broker orphaned-socket lockout + post-handshake fallback gap, plus a SIGKILL timer leak, the `file:`→`@` regex over-match, an `enforceLimit` TOCTOU, and `saveSession` silent-failure signalling. Full suite + lint + types green. **Notably, the loudest finding — "production packages still ship `workspace:*`" — was disproven** (cosmetic; `bundleDependencies` makes installs work on npm 9.8.1/10.9.2/11). See `docs/BUGS.md` (Bug Hunt 2026-05-29) and ADR-108. Not yet published.
+
 ### What earned its keep empirically
 
 - **ADR-099 Karpathy baseline**: validated 2026-05-27 via the ADR-100 harness with **+12.5 pp recall, +0 noise** — first prompt change shipped with mechanical decision-rule gating rather than principles-as-justification.

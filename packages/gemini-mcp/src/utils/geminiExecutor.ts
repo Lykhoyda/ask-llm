@@ -429,13 +429,21 @@ function isWorkspaceTrustError(message: string): boolean {
   return WORKSPACE_TRUST_PATTERNS.some((pattern) => lower.includes(pattern.toLowerCase()));
 }
 
+// Converts standalone `file:<path>` tokens to Gemini's `@<path>` include
+// syntax (changeMode only). Anchored to start-of-string or whitespace so it
+// never mangles substrings like "profile:" or "Makefile:", and the `//`
+// lookahead leaves `file://` URLs intact.
+export function convertFileSyntaxToAt(prompt: string): string {
+  return prompt.replace(/(^|\s)file:(?!\/\/)(\S+)/g, "$1@$2");
+}
+
 export async function executeGeminiCLI(options: GeminiExecutorOptions): Promise<GeminiExecutorResult> {
   ensureWorkspaceTrustEnv();
   const { model, sandbox, changeMode, sessionId, includeDirs, onProgress } = options;
   let promptProcessed = options.prompt;
 
   if (changeMode) {
-    promptProcessed = promptProcessed.replace(/file:(\S+)/g, "@$1");
+    promptProcessed = convertFileSyntaxToAt(promptProcessed);
 
     const changeModeInstructions = `
 [CHANGEMODE INSTRUCTIONS]
