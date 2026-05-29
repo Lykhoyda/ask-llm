@@ -177,6 +177,10 @@ function questionOrEof(rl: readline.Interface, prompt: string): Promise<string |
 }
 
 export async function runReplLoop(rl: readline.Interface, state: ReplState, out: NodeJS.WritableStream): Promise<void> {
+  // `closed` is NOT redundant with questionOrEof's null-on-close return: if the
+  // stream closes while we're inside dispatchPrompt (between prompts),
+  // questionOrEof's own "close" listener isn't registered yet, so without this
+  // flag the loop would re-enter questionOrEof on a closed interface and hang.
   let closed = false;
   rl.once("close", () => {
     closed = true;

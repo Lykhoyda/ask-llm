@@ -344,14 +344,17 @@ export async function probeBrokerHealth(state) {
 // ADR-077 a post-handshake broker hang must be a silent fallback to the
 // per-edit spawn, but broker-rpc's timeout/close/error rejections are PLAIN
 // Errors lacking that marker, so runCodexWithFallback would otherwise
-// rethrow them as a hard verdict. A genuine JSON-RPC error RESPONSE carries
-// `err.code` (broker-rpc sets it from env.error.code) — that's a real
-// server-side verdict, not a broker outage, so we leave it untagged.
+// rethrow them as a hard verdict. broker-rpc rejects a transport failure with
+// either a PLAIN Error (timeout / connection-closed → no `.code`) or the RAW
+// socket error (transport "error" event → a STRING `.code` like ECONNRESET).
+// Only a genuine JSON-RPC error RESPONSE carries a NUMERIC `.code` (broker-rpc
+// sets it from env.error.code) — that's a real server-side verdict, not a
+// broker outage. So we tag everything EXCEPT numeric-coded errors.
 async function brokerRequest(rpc, method, params, timeoutMs, brokerPhase) {
   try {
     return await rpc.request(method, params, { timeoutMs });
   } catch (err) {
-    if (err && typeof err === "object" && err.code === undefined && !err.brokerFailure) {
+    if (err && typeof err === "object" && typeof err.code !== "number" && !err.brokerFailure) {
       err.verdict = "error";
       err.brokerFailure = true;
       err.brokerPhase = brokerPhase;
