@@ -116,7 +116,7 @@ export function loadSession(sessionId: string): SessionRecord | null {
   }
 }
 
-export function saveSession(record: SessionRecord): void {
+export function saveSession(record: SessionRecord): boolean {
   if (!isSafeSessionId(record.id)) {
     throw new Error(`Refusing to save session with unsafe id: ${record.id.slice(0, 16)}`);
   }
@@ -134,10 +134,12 @@ export function saveSession(record: SessionRecord): void {
 
   const finalPath = sessionPath(record.id);
   const tmpPath = `${finalPath}.tmp.${process.pid}.${Date.now()}`;
+  let persisted = false;
   try {
     fs.writeFileSync(tmpPath, JSON.stringify(trimmed), { mode: SESSION_FILE_MODE });
     fs.renameSync(tmpPath, finalPath);
     Logger.debug(`Saved session ${record.id} with ${trimmed.messages.length} messages`);
+    persisted = true;
   } catch (error) {
     Logger.error(`Failed to save session ${record.id}: ${error}`);
     try {
@@ -145,6 +147,7 @@ export function saveSession(record: SessionRecord): void {
     } catch {}
   }
   enforceSessionLimit();
+  return persisted;
 }
 
 export function appendAndSaveSession(
@@ -153,7 +156,7 @@ export function appendAndSaveSession(
   model: string,
   userContent: string,
   assistantContent: string,
-): { id: string; messages: SessionMessage[]; created: boolean } {
+): { id: string; messages: SessionMessage[]; created: boolean; persisted: boolean } {
   let id = sessionId;
   let created = false;
   let existing: SessionRecord | null = null;
@@ -182,8 +185,8 @@ export function appendAndSaveSession(
     updatedAt: now,
   };
 
-  saveSession(record);
-  return { id, messages: record.messages, created };
+  const persisted = saveSession(record);
+  return { id, messages: record.messages, created, persisted };
 }
 
 export function buildPriorMessages(sessionId: string | undefined): SessionMessage[] {
@@ -220,11 +223,16 @@ function enforceSessionLimit(): void {
     const files = fs
       .readdirSync(SESSION_DIR)
       .filter((f) => f.endsWith(".json"))
-      .map((f) => ({
-        name: f,
-        path: path.join(SESSION_DIR, f),
-        mtime: fs.statSync(path.join(SESSION_DIR, f)).mtimeMs,
-      }))
+      .map((f) => {
+        try {
+          return { path: path.join(SESSION_DIR, f), mtime: fs.statSync(path.join(SESSION_DIR, f)).mtimeMs };
+        } catch {
+          // Vanished between readdir and stat (concurrent eviction/expiry) —
+          // skip it rather than letting one ENOENT abort the whole sweep.
+          return null;
+        }
+      })
+      .filter((f): f is { path: string; mtime: number } => f !== null)
       .sort((a, b) => a.mtime - b.mtime);
 
     if (files.length > MAX_SESSION_FILES) {
@@ -249,4 +257,5 @@ export const __test__ = {
   SESSION_DIR_MODE,
   SESSION_FILE_MODE,
   isSafeSessionId,
+  enforceSessionLimit,
 };

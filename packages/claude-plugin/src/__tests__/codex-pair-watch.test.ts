@@ -2791,6 +2791,34 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
     expect(lifecycle).toMatch(/child\.on\("error"/);
   });
 
+  // Bug #5: the socket path is deterministic (sha256 of markerDir). If a
+  // broker is killed AFTER binding the unix socket but BEFORE its descriptor
+  // (broker.json) is written, the socket inode is orphaned. The next
+  // session's clearStaleBrokerState early-returns "absent" (no descriptor)
+  // and never cleans it, so the next bind hits EADDRINUSE and the broker is
+  // permanently unstartable for that project. spawnBroker must unlink the
+  // deterministic socket path before binding so an orphan can never block
+  // rebind. extractSafeSocketPath guards against unlinking arbitrary paths.
+  it("Bug#5: spawnBroker unlinks a stale orphaned socket at the deterministic path before binding", async () => {
+    const { spawnBroker, chooseTransport } = await import("../../scripts/lib/broker-lifecycle.mjs");
+    const transportUrl = chooseTransport(tempDir);
+    const sockPath = transportUrl.slice("unix://".length);
+    fs.mkdirSync(path.dirname(sockPath), { recursive: true });
+    // Simulate the orphaned socket inode left by a broker killed pre-descriptor.
+    fs.writeFileSync(sockPath, "");
+    expect(fs.existsSync(sockPath)).toBe(true);
+    const child = spawnBroker(tempDir, transportUrl);
+    // The unlink is synchronous and happens before spawn binds, so the path
+    // is clear regardless of whether the real codex binary is installed.
+    expect(fs.existsSync(sockPath)).toBe(false);
+    // Don't leak the detached child (codex may or may not be on PATH).
+    try {
+      child.kill("SIGKILL");
+    } catch {
+      // best-effort
+    }
+  });
+
   it("ADR-095 lifecycle: bootstrap budget exhaustion fails fast (no Math.max floors)", () => {
     const lifecycle = fs.readFileSync(path.join(PLUGIN_ROOT, "scripts", "lib", "broker-lifecycle.mjs"), "utf-8");
     // Floors like Math.max(100, deadline-now-1000) and Math.max(500, ...)
@@ -3374,6 +3402,118 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
     expect((caught as any)?.brokerPhase).toBe("protocol");
     // biome-ignore lint/suspicious/noExplicitAny: structured marker
     expect((caught as any)?.verdict).toBe("parse_failed");
+  });
+
+  // Bug #6: a request-level timeout/transport failure on thread/start or
+  // turn/start (broker handshook OK but then hung) rejects from broker-rpc
+  // with a PLAIN Error (no .brokerFailure). Per ADR-077 a hung broker must
+  // be a silent fallback to per-edit spawn, so submitReview must tag these
+  // transport-layer rejections with brokerFailure=true. Genuine codex
+  // JSON-RPC error responses (err.code present) and turn.status:failed are
+  // real verdicts and must NOT be tagged.
+  it("Bug#6: submitReview tags brokerFailure on thread/start request timeout (post-handshake hang)", async () => {
+    const { submitReview } = await import("../../scripts/lib/broker.mjs");
+    // biome-ignore lint/suspicious/noExplicitAny: test mock
+    const mockRpc: any = {
+      request: async (method: string) => {
+        if (method === "thread/start") {
+          // Mimics broker-rpc.mjs request timeout: a plain Error, no markers.
+          throw new Error("broker-rpc: timeout after 2000ms (method=thread/start, id=1)");
+        }
+        return {};
+      },
+      waitFor: async () => ({ method: "turn/completed", params: {} }),
+    };
+    // biome-ignore lint/suspicious/noExplicitAny: test mock
+    const mockConn: any = { close: () => {}, on: () => {}, destroyed: false };
+    let caught: Error | null = null;
+    try {
+      await submitReview({
+        rpc: mockRpc,
+        connection: mockConn,
+        cwd: "/tmp",
+        baseInstructions: "ctx",
+        prompt: "x",
+        model: "gpt-5.5",
+      });
+    } catch (err) {
+      caught = err as Error;
+    }
+    // biome-ignore lint/suspicious/noExplicitAny: structured marker
+    expect((caught as any)?.brokerFailure).toBe(true);
+    // biome-ignore lint/suspicious/noExplicitAny: structured marker
+    expect((caught as any)?.brokerPhase).toBe("thread_start");
+  });
+
+  it("Bug#6: submitReview tags brokerFailure on turn/start request timeout (post-handshake hang)", async () => {
+    const { submitReview } = await import("../../scripts/lib/broker.mjs");
+    // biome-ignore lint/suspicious/noExplicitAny: test mock
+    const mockRpc: any = {
+      request: async (method: string) => {
+        if (method === "thread/start") return { thread: { id: "T1" } };
+        if (method === "turn/start") {
+          throw new Error("broker-rpc: timeout after 2000ms (method=turn/start, id=2)");
+        }
+        return {};
+      },
+      waitFor: async () => ({ method: "turn/completed", params: {} }),
+    };
+    // biome-ignore lint/suspicious/noExplicitAny: test mock
+    const mockConn: any = { close: () => {}, on: () => {}, destroyed: false };
+    let caught: Error | null = null;
+    try {
+      await submitReview({
+        rpc: mockRpc,
+        connection: mockConn,
+        cwd: "/tmp",
+        baseInstructions: "ctx",
+        prompt: "x",
+        model: "gpt-5.5",
+      });
+    } catch (err) {
+      caught = err as Error;
+    }
+    // biome-ignore lint/suspicious/noExplicitAny: structured marker
+    expect((caught as any)?.brokerFailure).toBe(true);
+    // biome-ignore lint/suspicious/noExplicitAny: structured marker
+    expect((caught as any)?.brokerPhase).toBe("turn_start");
+  });
+
+  it("Bug#6: submitReview does NOT tag brokerFailure on a genuine JSON-RPC error response (err.code present)", async () => {
+    const { submitReview } = await import("../../scripts/lib/broker.mjs");
+    // biome-ignore lint/suspicious/noExplicitAny: test mock
+    const mockRpc: any = {
+      request: async (method: string) => {
+        if (method === "thread/start") {
+          // broker-rpc attaches err.code for real JSON-RPC error envelopes.
+          const e = new Error("Invalid params");
+          // biome-ignore lint/suspicious/noExplicitAny: structured marker
+          (e as any).code = -32602;
+          throw e;
+        }
+        return {};
+      },
+      waitFor: async () => ({ method: "turn/completed", params: {} }),
+    };
+    // biome-ignore lint/suspicious/noExplicitAny: test mock
+    const mockConn: any = { close: () => {}, on: () => {}, destroyed: false };
+    let caught: Error | null = null;
+    try {
+      await submitReview({
+        rpc: mockRpc,
+        connection: mockConn,
+        cwd: "/tmp",
+        baseInstructions: "ctx",
+        prompt: "x",
+        model: "gpt-5.5",
+      });
+    } catch (err) {
+      caught = err as Error;
+    }
+    // A real JSON-RPC error response is a server-side verdict, not a broker
+    // outage — must NOT trigger fallback (would double-spend).
+    // biome-ignore lint/suspicious/noExplicitAny: structured marker
+    expect((caught as any)?.brokerFailure).toBeUndefined();
   });
 
   it("M4 structural: codex-pair-watch.mjs wires the broker integration", () => {

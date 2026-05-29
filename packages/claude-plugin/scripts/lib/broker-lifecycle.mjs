@@ -161,6 +161,22 @@ function sleep(ms) {
 // Returns the spawned ChildProcess; caller is responsible for tracking
 // the pid and writing it to the descriptor only after handshake succeeds.
 export function spawnBroker(markerDir, transportUrl) {
+  // Bug #5: the socket path is deterministic (sha256 of markerDir), so an
+  // orphaned socket inode — left when a prior broker was killed AFTER
+  // binding but BEFORE writing its descriptor — makes the next bind fail
+  // with EADDRINUSE permanently (clearStaleBrokerState early-returns
+  // "absent" with no descriptor to drive cleanup). Unlink any stale socket
+  // at the deterministic path before binding. extractSafeSocketPath gates
+  // the unlink to paths strictly under <markerDir>/.codex-pair/state/ so a
+  // malformed transportUrl can never delete an arbitrary path.
+  const stalePath = extractSafeSocketPath(transportUrl, markerDir);
+  if (stalePath !== null) {
+    try {
+      unlinkSync(stalePath);
+    } catch {
+      // already gone (the common case) — fine
+    }
+  }
   const logFd = openSync(brokerLogPath(markerDir), "a");
   const child = spawn("codex", ["app-server", "--listen", transportUrl], {
     detached: true,
