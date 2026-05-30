@@ -10,7 +10,7 @@ Each provider auto-selects a sensible default model with automatic fallback to a
 
 | Provider | Default | Fallback | Trigger |
 |---|---|---|---|
-| Gemini | `gemini-3.1-pro-preview` | `gemini-3-flash-preview` | `RESOURCE_EXHAUSTED` quota error or "exhausted your capacity" pattern ([ADR-044](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md)) |
+| Gemini | `gemini-3.1-pro-preview` | `gemini-3.5-flash` | `RESOURCE_EXHAUSTED` quota error or "exhausted your capacity" pattern ([ADR-044](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md)) |
 | Codex | `gpt-5.5` | `gpt-5.5-mini` | Quota errors (`rate_limit_exceeded`, `429`, `insufficient_quota`) ([ADR-028](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md), bumped per [ADR-067](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md)) |
 | Ollama | `qwen2.5-coder:7b` | `qwen2.5-coder:1.5b` | Model-not-found error (e.g., 7b not pulled but 1.5b is) |
 
@@ -33,13 +33,13 @@ Different providers excel at different things. Pick by what you're doing, not by
 Pass `model` explicitly when you have a reason to:
 
 ```text
-Use ask-llm with provider gemini and model gemini-3-flash-preview to quickly check this CSS file
+Use ask-llm with provider gemini and model gemini-3.5-flash to quickly check this CSS file
 ```
 
 Or programmatically:
 
 ```json
-{ "name": "ask-llm", "arguments": { "provider": "gemini", "model": "gemini-3-flash-preview", "prompt": "..." } }
+{ "name": "ask-llm", "arguments": { "provider": "gemini", "model": "gemini-3.5-flash", "prompt": "..." } }
 ```
 
 For Codex, common overrides:

@@ -337,6 +337,30 @@ describe("quota fallback", () => {
     const [, fallbackArgs] = mockExecuteCommand.mock.calls[1];
     expect(fallbackArgs).toContain(MODELS.FALLBACK);
   });
+
+  // #127 — codex 0.134 PR #24114 added workspace credit/spend-cap usage-limit
+  // messages. They must trigger the same fallback as rate_limit_exceeded.
+  it("falls back on a codex 0.134 workspace credit-depletion error", async () => {
+    mockExecuteCommand
+      .mockRejectedValueOnce(new Error("Your workspace is out of credits. Add credits to continue."))
+      .mockResolvedValueOnce('{"type":"item.completed","item":{"type":"agent_message","text":"OK"}}');
+
+    const result = await executeCodexCLI({ prompt: "test" });
+    expect(result.response).toContain("OK");
+    expect(mockExecuteCommand).toHaveBeenCalledTimes(2);
+  });
+
+  it("falls back on a codex 0.134 workspace spend-cap error", async () => {
+    mockExecuteCommand
+      .mockRejectedValueOnce(
+        new Error("You hit your spend cap set in your workspace. Increase your spend cap to continue."),
+      )
+      .mockResolvedValueOnce('{"type":"item.completed","item":{"type":"agent_message","text":"OK"}}');
+
+    const result = await executeCodexCLI({ prompt: "test" });
+    expect(result.response).toContain("OK");
+    expect(mockExecuteCommand).toHaveBeenCalledTimes(2);
+  });
 });
 
 describe("session continuity (ADR-058 hardening per ADR-063)", () => {

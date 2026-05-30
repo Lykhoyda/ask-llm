@@ -121,7 +121,7 @@ Send prompts to Google Gemini CLI. Supports @ file syntax for including files in
 - **Package:** ask-gemini-mcp
 - **Parameters:**
   - `prompt` (string, required): The question, code review request, or analysis task. Use @ syntax to include files (e.g., "@src/main.ts explain this code").
-  - `model` (string, optional): Do not set unless user explicitly requests it. Default: gemini-3.1-pro-preview. Falls back to gemini-3-flash-preview on quota errors.
+  - `model` (string, optional): Do not set unless user explicitly requests it. Default: gemini-3.1-pro-preview. Falls back to gemini-3.5-flash on quota errors.
 - **Returns:** Gemini's text response with optional stats footer (model, tokens, thinking tokens, session ID).
 - **Annotations:** readOnlyHint=false, destructiveHint=false, openWorldHint=true
 
@@ -186,7 +186,7 @@ Test MCP server connectivity. Available in all packages.
 | Model | Use Case |
 |-------|----------|
 | gemini-3.1-pro-preview | Default — best quality reasoning, 1M+ token context |
-| gemini-3-flash-preview | Automatic fallback on quota errors — faster, large codebases |
+| gemini-3.5-flash | Automatic fallback on quota errors — faster, large codebases |
 
 ### Codex
 | Model | Use Case |

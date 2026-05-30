@@ -208,6 +208,31 @@ describe("executeGeminiCLI quota fallback", () => {
     expect(result.response).toContain("Flash response");
     expect(mockExecuteCommand).toHaveBeenCalledTimes(2);
   });
+
+  // #131 — gemini-3.5-flash reached GA; the preview model is superseded.
+  it("defaults the Flash fallback to the GA gemini-3.5-flash model", () => {
+    expect(MODELS.FLASH).toBe("gemini-3.5-flash");
+  });
+
+  it("references the GA Flash model (not the preview) in the quota-exceeded message", () => {
+    expect(ERROR_MESSAGES.QUOTA_EXCEEDED_SHORT).toContain("gemini-3.5-flash");
+    expect(ERROR_MESSAGES.QUOTA_EXCEEDED_SHORT).not.toContain("gemini-3-flash-preview");
+  });
+
+  // #116 — verify the fallback still tags usage.fellBack so callers/aggregators
+  // can tell a Flash fallback apart from a primary Pro response.
+  it("marks usage.fellBack=true after a Flash fallback", async () => {
+    mockExecuteCommand.mockRejectedValueOnce(new Error("RESOURCE_EXHAUSTED")).mockResolvedValueOnce(
+      JSON.stringify({
+        response: "Flash response",
+        stats: { models: { "gemini-3.5-flash": { tokens: { input: 10, candidates: 5, cached: 0, thoughts: 0 } } } },
+      }),
+    );
+
+    const result = await executeGeminiCLI({ prompt: "hello" });
+
+    expect(result.usage?.fellBack).toBe(true);
+  });
 });
 
 describe("executeGeminiCLI changeMode", () => {
