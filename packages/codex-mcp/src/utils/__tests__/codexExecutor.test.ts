@@ -245,6 +245,26 @@ describe("JSONL output parsing", () => {
     const result = await executeCodexCLI({ prompt: "test" });
     expect(result.response).toContain("Partial answer before error");
   });
+
+  // #114 §3.1 — turn.failed (codex rust-v0.131.0+) was unhandled: a failed turn
+  // with no agent_message silently returned the raw JSONL dump as the response.
+  it("throws on turn.failed events, extracting error.message", async () => {
+    mockExecuteCommand.mockResolvedValue(
+      [
+        '{"type":"thread.started","thread_id":"t1"}',
+        '{"type":"turn.failed","error":{"message":"context deadline exceeded"}}',
+      ].join("\n"),
+    );
+
+    await expect(executeCodexCLI({ prompt: "test" })).rejects.toThrow("context deadline exceeded");
+  });
+
+  // #114 §3.2 — error event surfaced the JSON envelope instead of the message field.
+  it("surfaces the error event's message field, not the JSON envelope", async () => {
+    mockExecuteCommand.mockResolvedValue('{"type":"error","message":"You are out of quota"}');
+
+    await expect(executeCodexCLI({ prompt: "test" })).rejects.toThrow("Codex error event: You are out of quota");
+  });
 });
 
 describe("quota fallback", () => {
@@ -302,6 +322,20 @@ describe("quota fallback", () => {
 
     await expect(executeCodexCLI({ prompt: "test" })).rejects.toThrow("ENOENT: codex not found");
     expect(mockExecuteCommand).toHaveBeenCalledTimes(1);
+  });
+
+  // #114 — a quota signal delivered via turn.failed (rather than a thrown CLI
+  // error) must still trigger the fallback, not return the raw JSONL dump.
+  it("falls back when a turn.failed event carries a quota signal", async () => {
+    mockExecuteCommand
+      .mockResolvedValueOnce('{"type":"turn.failed","error":{"message":"rate_limit_exceeded: usage cap hit"}}')
+      .mockResolvedValueOnce('{"type":"item.completed","item":{"type":"agent_message","text":"Recovered"}}');
+
+    const result = await executeCodexCLI({ prompt: "test" });
+    expect(result.response).toContain("Recovered");
+    expect(mockExecuteCommand).toHaveBeenCalledTimes(2);
+    const [, fallbackArgs] = mockExecuteCommand.mock.calls[1];
+    expect(fallbackArgs).toContain(MODELS.FALLBACK);
   });
 });
 

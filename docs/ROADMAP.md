@@ -20,6 +20,13 @@ Repo-wide defensive review (8 parallel agents → findings re-verified by hand �
 - **ADR-100 benchmark harness**: surfaced its own SIGKILL bug on first run (cost: $0 because runs hung before producing tokens), got fixed before being trusted — the meta-pattern that test infrastructure only proves itself by running.
 - **Release workflow hardening**: motivated by 6 days of silent npm publish failures across PRs #109/#112/#118 → fix landed as PR #123 the same session the issue was empirically reproduced.
 
+### 2026-05-30 — upstream-issue consolidation (21 → 15) + Block 1 shipped
+
+Drained the GitHub backlog by root cause (ADR-109), **superseding the 2026-05-27 backlog snapshot below**. Verified every audit claim against code first, then closed #27/#35 as completed (already shipped) and cadence-noise #24/#25/#28/#39 as not-planned, and grouped the remaining 15 issues into **5 fix story blocks** tracked in [`docs/plans/2026-05-30-upstream-issue-consolidation.md`](plans/2026-05-30-upstream-issue-consolidation.md). Each block: TDD fix → `/multi-review` per fix → live smoke per block → PR closing its issues.
+
+- ✅ **Block 1 — parser event-coverage defensiveness** (Tier C, closes #57/#114/#116/#117). Added codex `turn.failed` handling (extract `error.message` → propagate + fallback, was silently returning the raw JSONL dump), codex `error`-event message extraction, and a gemini stream-parser default branch logging unknown event types. 4 RED→GREEN tests; codex 49 / gemini 109 green; `/multi-review` clean both providers; live smoke green. Branch `fix/block-1-parser-defensiveness`.
+- [ ] Block 2 — quota/fallback freshness (#127/#131) · Block 3 — flag/contract cleanup incl. live `--full-auto` plugin residual (#37/#38/#52/#54/#75) · Block 4 — capability adoption (#59/#102) · Block 5 — codex-pair reliability (#74/#96).
+
 ### Open issue backlog (2026-05-27, sorted by signal-to-effort)
 
 GitHub triage: 19 open issues. Of those, **14 are entries in the recurring upstream-CLI audit series** (#24/25/27/28/35/37/38/39/52/54/57/59/75/102/114/116/117) — the audit cadence has stabilized at every 2 days, and as of #117 (2026-05-25) the bottleneck is explicitly _"no longer detection, it's the missing PR"_. The 5 non-audit issues are listed below in priority order.

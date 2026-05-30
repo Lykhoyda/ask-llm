@@ -35,7 +35,26 @@ interface CodexThreadStarted {
   thread_id?: string;
 }
 
-type CodexJsonLine = CodexItemCompleted | CodexTurnCompleted | CodexThreadStarted | { type: string };
+// codex rust-v0.131.0+ emits turn.failed for turns that abort (quota, policy,
+// deadline) without producing an agent_message; the human-readable reason is
+// nested under error.message.
+interface CodexTurnFailed {
+  type: "turn.failed";
+  error?: { message?: string };
+}
+
+interface CodexErrorEvent {
+  type: "error";
+  message?: string;
+}
+
+type CodexJsonLine =
+  | CodexItemCompleted
+  | CodexTurnCompleted
+  | CodexThreadStarted
+  | CodexTurnFailed
+  | CodexErrorEvent
+  | { type: string };
 
 export interface CodexExecutorOptions {
   prompt: string;
@@ -115,8 +134,12 @@ function parseCodexJsonlOutput(raw: string, model: string, durationMs: number, f
       usage = (parsed as CodexTurnCompleted).usage;
     }
 
+    if (parsed.type === "turn.failed") {
+      lastError = (parsed as CodexTurnFailed).error?.message ?? JSON.stringify(parsed);
+    }
+
     if (parsed.type === "error") {
-      lastError = JSON.stringify(parsed);
+      lastError = (parsed as CodexErrorEvent).message ?? JSON.stringify(parsed);
     }
   }
 

@@ -270,6 +270,12 @@ function streamStatsToCliStats(stats: GeminiStreamStats | undefined): GeminiCliS
   return { models };
 }
 
+// stream-json event types we explicitly handle. Anything outside this set is
+// logged (not silently dropped) so new upstream event variants — e.g.
+// AgentExecutionStopped/Blocked added in gemini-cli v0.43 — surface in debug
+// output instead of vanishing (#116).
+const RECOGNIZED_STREAM_EVENT_TYPES = new Set(["init", "message", "result", "error"]);
+
 export function parseGeminiStreamJsonl(
   raw: string,
   requestedModel: string,
@@ -314,6 +320,8 @@ export function parseGeminiStreamJsonl(
       }
     } else if (event.type === "error") {
       errorMsg = typeof event.message === "string" ? event.message : JSON.stringify(event);
+    } else if (!RECOGNIZED_STREAM_EVENT_TYPES.has(event.type)) {
+      Logger.debug(`Unrecognized Gemini stream-json event type: ${event.type}`);
     }
   }
 
