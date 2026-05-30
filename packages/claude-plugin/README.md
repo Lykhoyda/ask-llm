@@ -19,6 +19,8 @@ Part of the [Ask LLM](https://github.com/Lykhoyda/ask-llm) monorepo.
 /plugin install ask-llm@ask-llm-plugins
 ```
 
+> **After installing or upgrading, fully restart Claude Code** (quit and reopen) so the codex-pair `PostToolUse` hook registers. Claude Code binds hooks at session start; `/reload-plugins` refreshes the plugin cache but does **not** re-register hooks in a pre-existing session, so codex-pair won't auto-fire on edits until you restart (see [#74](https://github.com/Lykhoyda/ask-llm/issues/74)). Run `/codex-pair` afterwards to confirm the hook is wired up.
+
 ### MCP Servers (user scope for short tool names)
 
 ```bash
