@@ -1,5 +1,8 @@
 export const ERROR_MESSAGES = {
-  QUOTA_SIGNALS: ["rate_limit_exceeded", "quota_exceeded", "429", "insufficient_quota"],
+  // Lowercased substrings; isQuotaError() lowercases the message before matching.
+  // "out of credits" + "spend cap" cover the 4 codex 0.134 workspace usage-limit
+  // messages (owner/member × credits/spend-cap) from PR #24114. See #127.
+  QUOTA_SIGNALS: ["rate_limit_exceeded", "quota_exceeded", "429", "insufficient_quota", "out of credits", "spend cap"],
   NO_PROMPT_PROVIDED:
     "Please provide a prompt for analysis. Ask general questions or describe the code you want reviewed.",
   TOOL_NOT_FOUND: "not found in registry",

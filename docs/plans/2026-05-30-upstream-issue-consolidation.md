@@ -46,10 +46,10 @@
 
 **Defect:** Quota detection is a frozen substring list and the Flash fallback is a frozen model literal, so the safety net rots. Verified: codex `QUOTA_SIGNALS = ["rate_limit_exceeded","quota_exceeded","429","insufficient_quota"]` (`constants.ts:2`) — missing workspace credit / spend-cap strings; gemini `FLASH` default still `gemini-3-flash-preview` (`constants.ts:32`) with the preview model also hardcoded in `QUOTA_EXCEEDED_SHORT` (`constants.ts:9`) — GA `gemini-3.5-flash` exists.
 
-- [ ] **2a · codex quota signals** — add workspace-plan substrings (`out of credits`, `spend cap`, + the v0.134 enum tags) to `QUOTA_SIGNALS`; test a synthetic workspace-credit error triggers `gpt-5.4-mini` fallback.
-- [ ] **2b · gemini Flash → GA** — `FLASH` default `gemini-3-flash-preview` → `gemini-3.5-flash`; update `QUOTA_EXCEEDED_SHORT` (`:9`) + READMEs; keep `ASK_GEMINI_FALLBACK_MODEL` override; test pins the new default.
-- [ ] **2c · fallback semantics** — smoke scenario asserting `usage.fellBack === true` on Pro-quota exhaustion.
-- [ ] **Gate:** tests → `/multi-review` → smoke → PR `Closes #127 #131`.
+- [x] **2a · codex quota signals** — added lowercase `out of credits` + `spend cap` to `QUOTA_SIGNALS` (covers all 4 codex-0.134 workspace usage-limit messages); 2 tests assert credit/spend-cap errors trigger the `gpt-5.5-mini` fallback.
+- [x] **2b · gemini Flash → GA** — `FLASH` default + `QUOTA_EXCEEDED_SHORT` → `gemini-3.5-flash`; `ASK_GEMINI_FALLBACK_MODEL` override preserved; current-state docs (README + apps/docs) updated (historical CHANGELOG/DECISIONS left intact); tests pin the new default. **GA model name validated live** (`gemini -m gemini-3.5-flash` exit 0).
+- [x] **2c · fallback semantics** — characterization test confirms `usage.fellBack === true` after a Flash fallback is intact (no code change needed; this *verifies* #116's concern).
+- [x] **Gate:** codex 48 / gemini 109 green → `/multi-review` clean (both providers confirmed the new substrings are tighter than the existing `429` signal) → live smoke green (gemini 112 / codex 51) → PR `Closes #127 #131`.
 
 ## Block 3 · Flag / contract drift cleanup  (#37, #38, #52, #54, #75)
 
