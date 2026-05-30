@@ -3516,6 +3516,47 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
     expect((caught as any)?.brokerFailure).toBeUndefined();
   });
 
+  it("Bug#6: submitReview tags brokerFailure on a transport system error (string err.code, e.g. ECONNRESET)", async () => {
+    const { submitReview } = await import("../../scripts/lib/broker.mjs");
+    // broker-rpc's transport "error" handler rejects pending requests with the
+    // RAW socket error, which carries a STRING .code (ECONNRESET/EPIPE/...) —
+    // a broker outage mid-session that must tag brokerFailure so the hook falls
+    // back. Only a genuine JSON-RPC error response (NUMERIC .code) is a real
+    // server-side verdict. So `err.code === undefined` is too narrow.
+    // biome-ignore lint/suspicious/noExplicitAny: test mock
+    const mockRpc: any = {
+      request: async (method: string) => {
+        if (method === "thread/start") {
+          const e = new Error("read ECONNRESET");
+          // biome-ignore lint/suspicious/noExplicitAny: structured marker
+          (e as any).code = "ECONNRESET";
+          throw e;
+        }
+        return {};
+      },
+      waitFor: async () => ({ method: "turn/completed", params: {} }),
+    };
+    // biome-ignore lint/suspicious/noExplicitAny: test mock
+    const mockConn: any = { close: () => {}, on: () => {}, destroyed: false };
+    let caught: Error | null = null;
+    try {
+      await submitReview({
+        rpc: mockRpc,
+        connection: mockConn,
+        cwd: "/tmp",
+        baseInstructions: "ctx",
+        prompt: "x",
+        model: "gpt-5.5",
+      });
+    } catch (err) {
+      caught = err as Error;
+    }
+    // biome-ignore lint/suspicious/noExplicitAny: structured marker
+    expect((caught as any)?.brokerFailure).toBe(true);
+    // biome-ignore lint/suspicious/noExplicitAny: structured marker
+    expect((caught as any)?.brokerPhase).toBe("thread_start");
+  });
+
   it("M4 structural: codex-pair-watch.mjs wires the broker integration", () => {
     const watch = fs.readFileSync(path.join(PLUGIN_ROOT, "scripts", "codex-pair-watch.mjs"), "utf-8");
     expect(watch).toMatch(/import.*isBrokerEnabled.*from\s+["']\.\/lib\/broker\.mjs["']/);
