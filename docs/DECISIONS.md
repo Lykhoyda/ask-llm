@@ -1,5 +1,29 @@
 # Architectural Decisions
 
+## ADR-109: Upstream-Issue Consolidation — 21 Issues → 5 Fix Blocks, Audit-Cadence Retirement
+
+- **Date:** 2026-05-30
+- **Status:** Accepted (branch `fix/block-1-parser-defensiveness`; Block 1 shipped, Blocks 2–5 pending)
+
+**Context.** The open-issue tracker had grown to 21, of which **19 were a self-authored "upstream-CLI audit" cadence** (one issue every 1–3 days since 2026-04-21, each a "follow-up to" the last, the majority concluding *"no breaking changes"*). The remaining 2 were codex-pair feature reports. The audits had already diagnosed their own problem (#28: *"drain the backlog instead of recutting it"*; #39: *"cut the consolidated PR"*) and the `ROADMAP.md` already held the latent fix taxonomy (Tiers C–F). The defect was a **process artifact**, not 19 distinct bugs: no canonical upstream-compat tracker, so every re-audit spawned a new tracked issue.
+
+**Decision.** Consolidate by **root cause, not by audit**, after verifying each audit claim directly against the executors/constants (audits are secondary sources):
+
+1. **Close immediately (6):** verified-already-shipped (#27 trust-env co-emit `geminiExecutor.ts:421-424`; #35 reasoning-token mapping `codexExecutor.ts:65,77`) as `completed`; pure-noise cadence check-ins (#24/#25/#28/#39) as `not planned`, folded into the roadmap.
+2. **Fix the remaining 15 as 5 root-cause story blocks**, each gated by `/multi-review` per fix + live smoke per block, closed via its fix PR:
+   - Block 1 — parser event-coverage defensiveness (#57/#114/#116/#117)
+   - Block 2 — quota/fallback freshness (#127/#131)
+   - Block 3 — flag/contract drift cleanup incl. the verified-live `--full-auto` plugin residual (#37/#38/#52/#54/#75)
+   - Block 4 — capability adoption (#59/#102)
+   - Block 5 — codex-pair reliability (#74/#96)
+3. **Retire the cadence:** future upstream deltas become a comment on the standing roadmap, not a new tracked issue (per the ROADMAP meta-observation: stop re-cutting when the backlog is unchanged ≥48h).
+
+Roadmap/tracker: [`docs/plans/2026-05-30-upstream-issue-consolidation.md`](plans/2026-05-30-upstream-issue-consolidation.md).
+
+**Block 1 (shipped this ADR).** Both JSONL/stream-json parsers used `if`-chains with no default branch, silently dropping new upstream event types. Fixes: codex `turn.failed` branch extracting `error.message` so failed/quota turns propagate and trigger fallback (instead of returning the raw JSONL dump); codex `error` events surface `parsed.message` not the JSON envelope; gemini stream parser logs unrecognized event types via `Logger.debug` against a `RECOGNIZED_STREAM_EVENT_TYPES` set. TDD (4 RED→GREEN), full suites green (codex 49 / gemini 109), `/multi-review` clean (both providers, zero findings), live smoke green.
+
+**Consequences.** Tracker drops 21→15 immediately and trends to `open issues == open work`. The verification step caught that the audit's "`JSON.stringify` breaks `isQuotaError`" claim was overstated (substring matching still matched) — the real quota gap was `turn.failed` being unhandled; fixing the right defect required checking the claim, not trusting it.
+
 ## ADR-108: Internal Bug-Hunt Sweep (2026-05-29) + Correction to the `workspace:*` Alarm
 
 - **Date:** 2026-05-29

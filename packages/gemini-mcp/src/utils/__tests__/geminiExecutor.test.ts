@@ -14,7 +14,7 @@ vi.mock("@ask-llm/shared", async (importOriginal) => {
   };
 });
 
-import { executeCommand, responseCache } from "@ask-llm/shared";
+import { executeCommand, Logger, responseCache } from "@ask-llm/shared";
 import { executeGeminiCLI } from "../geminiExecutor.js";
 
 const mockExecuteCommand = vi.mocked(executeCommand);
@@ -514,6 +514,24 @@ describe("executeGeminiCLI session support", () => {
       CLI.FLAGS.PROMPT,
       "hello",
     ]);
+  });
+});
+
+describe("stream-json event coverage (#114/#116)", () => {
+  it("logs unrecognized stream-json event types instead of dropping them silently", async () => {
+    mockExecuteCommand.mockResolvedValueOnce(
+      [
+        '{"type":"init","session_id":"s1"}',
+        '{"type":"AgentExecutionStopped","reason":"policy"}',
+        '{"type":"message","role":"assistant","content":"hi"}',
+        '{"type":"result","stats":{}}',
+      ].join("\n"),
+    );
+
+    const result = await executeGeminiCLI({ prompt: "hello" });
+
+    expect(result.response).toContain("hi");
+    expect(vi.mocked(Logger.debug)).toHaveBeenCalledWith(expect.stringContaining("AgentExecutionStopped"));
   });
 });
 
