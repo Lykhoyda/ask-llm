@@ -108,6 +108,21 @@ describe("executeGeminiCLI argument construction", () => {
   });
 });
 
+describe("model pinning (#75)", () => {
+  it("always passes -m <model> (default Pro) so gemini never silently auto-resolves", async () => {
+    await executeGeminiCLI({ prompt: "x" });
+    const [, args] = mockExecuteCommand.mock.calls[0];
+    expect(args).toContain(CLI.FLAGS.MODEL);
+    expect(args[args.indexOf(CLI.FLAGS.MODEL) + 1]).toBe(MODELS.PRO);
+  });
+
+  it("pins an explicitly requested model with -m", async () => {
+    await executeGeminiCLI({ prompt: "x", model: "gemini-3.5-flash" });
+    const [, args] = mockExecuteCommand.mock.calls[0];
+    expect(args[args.indexOf(CLI.FLAGS.MODEL) + 1]).toBe("gemini-3.5-flash");
+  });
+});
+
 describe("executeGeminiCLI quota fallback", () => {
   it("retries with Flash model on RESOURCE_EXHAUSTED error", async () => {
     mockExecuteCommand

@@ -405,3 +405,16 @@ describe("brainstorm-coordinator — synthesis-confidence ladder (ADR-073 follow
     expect(body).toMatch(/false `?PERFECT`? is worse than honest `?PARTIAL`?/i);
   });
 });
+
+describe("agents/ — no removed codex CLI flags (#37/#38/#52)", () => {
+  // codex rust-v0.128+ removed `--full-auto` entirely; on codex 0.135 it errors
+  // with "unexpected argument", so any agent still spawning it has a broken codex
+  // dispatch. The canonical replacement is `--sandbox workspace-write`.
+  it.each(expectedAgents)("%s does not invoke the removed `codex exec --full-auto` flag", (agentFile) => {
+    expect(readFile(`agents/${agentFile}`)).not.toMatch(/--full-auto/);
+  });
+
+  it("brainstorm-coordinator dispatches codex with `--sandbox workspace-write`", () => {
+    expect(readFile("agents/brainstorm-coordinator.md")).toMatch(/codex exec --sandbox workspace-write/);
+  });
+});

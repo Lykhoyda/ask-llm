@@ -50,7 +50,6 @@ export const CLI = {
     STREAM_JSON: "stream-json",
   },
   DEFAULTS: {
-    MODEL: "default",
     BOOLEAN_TRUE: "true",
     BOOLEAN_FALSE: "false",
   },

@@ -23,6 +23,15 @@
 - **Suspected root cause:** The systemMessage emission might be buffered/swallowed at the PostToolUse-hook boundary, or the surface might be attached to the wrong event sequence. ADR-095 already documented "consumption discipline" as load-bearing — without the surface firing, that discipline can't run.
 - **Status:** Tracked in ROADMAP Tier C; needs repro against current `main` to confirm whether v0.7.0 hardening incidentally fixed it.
 
+## Fixed — Upstream-Issue Consolidation (2026-05-30, ADR-109)
+
+### ~~brainstorm-coordinator dispatched the removed `codex exec --full-auto` flag~~ FIXED (Block 3)
+- **Severity:** High — the `/brainstorm` Codex participant was **fully broken**, not merely degraded.
+- **Upstream issues:** #37 / #38 / #52
+- **Root cause:** codex rust-v0.128+ removed `--full-auto` (it had been sugar for `--sandbox workspace-write`). On the installed codex 0.135, `codex exec --full-auto` errors with "unexpected argument", so `packages/claude-plugin/agents/brainstorm-coordinator.md:97` produced a non-zero codex exit on every brainstorm — Codex silently dropped out of multi-LLM brainstorms while the run still reported "success" from the other providers. The MCP executor had already migrated (ADR-075); only the plugin agent was left behind, which the executor-only verification of #38/#52 missed.
+- **Fix:** `codex exec --full-auto -` → `codex exec --sandbox workspace-write -` (matches the executor; `-` reads the prompt from stdin). Stale `apps/docs/providers/codex.md` claim corrected. Regression guard in `skills-and-agents.test.ts` asserts no agent file ships `--full-auto`.
+- **Verified:** live `echo "…" | codex exec --sandbox workspace-write -` exits 0 with correct output; both `/multi-review` providers confirmed the invocation against codex-cli 0.135.0 (Codex checked its own `--help`).
+
 ## Fixed — Internal Bug Hunt (2026-05-29, branch `fix/bug-hunt-2026-05-29`)
 
 A repo-wide bug sweep (8 parallel review agents; every finding re-verified by reading the code before fixing) landed nine fixes, all TDD'd (failing test first) and green across the full suite + lint + types. Not yet published.
