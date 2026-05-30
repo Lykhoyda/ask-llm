@@ -40,5 +40,6 @@ export const CLI = {
     SANDBOX_WORKSPACE_WRITE: "workspace-write",
     IGNORE_USER_CONFIG: "--ignore-user-config",
     IGNORE_RULES: "--ignore-rules",
+    ADD_DIR: "--add-dir",
   },
 } as const;

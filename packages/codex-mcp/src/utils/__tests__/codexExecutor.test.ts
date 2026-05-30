@@ -106,6 +106,44 @@ describe("model pinning (#75)", () => {
   });
 });
 
+describe("includeDirs → --add-dir (#59)", () => {
+  it("maps includeDirs to one --add-dir flag per directory", async () => {
+    await executeCodexCLI({ prompt: "x", includeDirs: ["/repo/pkg-a", "/repo/pkg-b"] });
+    const [, args] = mockExecuteCommand.mock.calls[0];
+    expect(args).toContain("/repo/pkg-a");
+    expect(args).toContain("/repo/pkg-b");
+    expect(args.filter((a) => a === CLI.FLAGS.ADD_DIR)).toHaveLength(2);
+  });
+
+  it("preserves includeDirs in the fallback invocation", async () => {
+    mockExecuteCommand
+      .mockRejectedValueOnce(new Error("rate_limit_exceeded"))
+      .mockResolvedValueOnce('{"type":"item.completed","item":{"type":"agent_message","text":"OK"}}');
+
+    await executeCodexCLI({ prompt: "x", includeDirs: ["/repo/pkg-a"] });
+    const [, fallbackArgs] = mockExecuteCommand.mock.calls[1];
+    expect(fallbackArgs).toContain(CLI.FLAGS.ADD_DIR);
+    expect(fallbackArgs).toContain("/repo/pkg-a");
+  });
+
+  // includeDirs is context-affecting, so it must be part of the response cache
+  // key — otherwise the same prompt+model with different dirs serves a stale
+  // answer that ignored the new context. (Found in /multi-review by Codex.)
+  it("does not serve a cached response across different includeDirs", async () => {
+    mockExecuteCommand.mockResolvedValue('{"type":"item.completed","item":{"type":"agent_message","text":"R"}}');
+    await executeCodexCLI({ prompt: "same prompt", includeDirs: ["/a"] });
+    await executeCodexCLI({ prompt: "same prompt", includeDirs: ["/b"] });
+    expect(mockExecuteCommand).toHaveBeenCalledTimes(2);
+  });
+
+  it("still serves the cache when prompt, model, and includeDirs all match", async () => {
+    mockExecuteCommand.mockResolvedValue('{"type":"item.completed","item":{"type":"agent_message","text":"R"}}');
+    await executeCodexCLI({ prompt: "same prompt", includeDirs: ["/a"] });
+    await executeCodexCLI({ prompt: "same prompt", includeDirs: ["/a"] });
+    expect(mockExecuteCommand).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe("JSONL output parsing", () => {
   it("extracts agent_message text from item.completed event", async () => {
     mockExecuteCommand.mockResolvedValue(
@@ -324,6 +362,15 @@ describe("quota fallback", () => {
     await expect(executeCodexCLI({ prompt: "test" })).rejects.toThrow(
       `${MODELS.DEFAULT} quota exceeded, ${MODELS.FALLBACK} fallback also failed: still failing`,
     );
+  });
+
+  // #102 §3.2 — point users at `codex doctor` when the whole fallback chain fails.
+  it("suggests `codex doctor` when both models fail", async () => {
+    mockExecuteCommand
+      .mockRejectedValueOnce(new Error("rate_limit_exceeded"))
+      .mockRejectedValueOnce(new Error("still failing"));
+
+    await expect(executeCodexCLI({ prompt: "test" })).rejects.toThrow(/codex doctor/);
   });
 
   it("re-throws non-quota errors without retry", async () => {

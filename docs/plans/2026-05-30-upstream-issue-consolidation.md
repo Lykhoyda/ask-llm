@@ -64,11 +64,17 @@
 
 **Defect:** upstream features not yet adopted. `ask-codex-edit` via codex `--output-schema` on `exec resume` is the top cross-audit unblock (mirrors `ask-gemini-edit` changeMode, reuses `@ask-llm/shared` chunker). NOTE: `ask-codex-edit` is design-heavy — **brainstorm before implementing.**
 
-- [ ] **4a · `ask-codex-edit`** via `codex exec --output-schema` (brainstorm design first).
-- [ ] **4b · codex `--add-dir`** parity with gemini `--include-directories`.
-- [ ] **4c · `codex doctor` hint** in the fallback-failure error (`codexExecutor.ts:~212`).
-- [ ] **4d · surface codex `reasoning`/`error` item types** in output; **4e · bump documented min codex version**.
-- [ ] **Gate:** tests → `/multi-review` per item → smoke → PR(s) `Closes #102 #59`.
+**Split into "small wins now" (shipped) + `ask-codex-edit` (brainstorm-gated), per user direction.**
+
+Small wins — **shipped** (branch `fix/block-4-codex-capability-wins`):
+- [x] **4b · codex `--add-dir`** — new optional `includeDirs` on the ask-codex tool + executor, threaded to primary + fallback `buildArgs` as repeated `--add-dir` (verified flag exists in codex 0.135; validated live). **`/multi-review` caught a real cache-key bug** (includeDirs not in the response-cache key → stale cross-context hits); fixed by folding `includeDirs.sort().join(":")` into `buildKey` (mirrors gemini), TDD-covered.
+- [x] **4c · `codex doctor` hint** appended to the both-models-failed error.
+- [~] **4e · bump min codex version** — **N/A**: no hard min-version is documented (only an npm badge); won't invent a constraint.
+- [~] **4d · surface codex `reasoning`/`error` item text** — **deferred to the ask-codex-edit brainstorm**: it's a response-content/verbosity change (and codex may not emit reasoning as text items in `exec --json`), not a clean small win.
+
+Brainstorm-gated:
+- [ ] **4a · `ask-codex-edit`** via `codex exec --output-schema` — design with the user first, then TDD-build. Keeps #102 open until it lands.
+- [ ] **Gate:** small-wins PR *addresses* #59/#102 (does not close — ask-codex-edit pending). codex 54 green; `/multi-review` (Codex caught + I fixed the cache bug); live smoke 57 + `--add-dir` validated live.
 
 ## Block 5 · codex-pair reliability  (Tier D+F — #74, #96)
 

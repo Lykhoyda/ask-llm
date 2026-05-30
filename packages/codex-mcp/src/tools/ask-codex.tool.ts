@@ -21,6 +21,12 @@ const askCodexArgsSchema = z.object({
     .describe(
       "Optional Codex thread ID to resume a prior conversation. Use the [Thread ID: ...] value from a previous response to continue the same chat with full prior context.",
     ),
+  includeDirs: z
+    .array(z.string())
+    .optional()
+    .describe(
+      "Additional directories Codex may access alongside the working directory (maps to codex `--add-dir`, repeatable). Useful in monorepos where relevant context spans sibling packages.",
+    ),
 });
 
 export const askCodexTool: UnifiedTool = {
@@ -41,7 +47,7 @@ export const askCodexTool: UnifiedTool = {
   },
   category: "codex",
   execute: async (args, onProgress, onUsage) => {
-    const { prompt, model, sessionId } = args;
+    const { prompt, model, sessionId, includeDirs } = args;
     if (!prompt?.trim()) {
       throw new Error(ERROR_MESSAGES.NO_PROMPT_PROVIDED);
     }
@@ -50,6 +56,7 @@ export const askCodexTool: UnifiedTool = {
       prompt: prompt as string,
       model: model as string | undefined,
       sessionId: sessionId as string | undefined,
+      includeDirs: includeDirs as string[] | undefined,
       onProgress,
     });
 
