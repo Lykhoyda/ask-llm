@@ -97,6 +97,15 @@ describe("executeCodexCLI argument construction", () => {
   });
 });
 
+describe("model pinning (#75)", () => {
+  it("always passes -m <model> so codex never silently auto-resolves the model", async () => {
+    await executeCodexCLI({ prompt: "x" });
+    const [, args] = mockExecuteCommand.mock.calls[0];
+    expect(args).toContain(CLI.FLAGS.MODEL);
+    expect(args[args.indexOf(CLI.FLAGS.MODEL) + 1]).toBe(MODELS.DEFAULT);
+  });
+});
+
 describe("JSONL output parsing", () => {
   it("extracts agent_message text from item.completed event", async () => {
     mockExecuteCommand.mockResolvedValue(

@@ -40,7 +40,7 @@ npm install -g ask-codex-mcp
 
 - **GPT-5.5 access** via the official Codex CLI
 - **Native session continuity** — `sessionId` parameter maps to Codex's `thread_id`; `codex exec resume <id>` is used internally for follow-up turns (zero replay cost — Codex retains state)
-- **`--full-auto` flag** so Codex never hangs waiting for approval prompts in MCP subprocess context ([ADR-046](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md))
+- **Non-interactive sandbox** — `codex exec --sandbox workspace-write` so Codex never hangs on approval prompts in MCP subprocess context (`--full-auto` was removed upstream in codex 0.128; `exec` is non-interactive by definition — [ADR-075](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md))
 - **JSONL output parsing** for structured responses + token usage
 - **Automatic quota fallback** from GPT-5.5 to mini
 - **Structured AskResponse** via outputSchema for programmatic clients

@@ -18,7 +18,7 @@
 |---|---|---|
 | **Block 1 · Parser defensiveness** | #57, #114, #116, #117 | fix → PR `Closes` |
 | **Block 2 · Quota/fallback freshness** | #127, #131 | fix → PR `Closes` |
-| **Block 3 · Flag/contract cleanup** | #37, #38, #52, #54, #75 | fix → PR `Closes` |
+| **Block 3 · Flag/contract cleanup** | #37, #38, #52, #75 (#54 → not planned) | fix → PR `Closes`; #54 closed (infeasible `--ignore-env`) |
 | **Block 4 · Capability adoption** | #59, #102 | fix → PR `Closes` |
 | **Block 5 · codex-pair reliability** | #74, #96 | fix → PR `Closes` |
 | **Close now — verified already shipped** | #27, #35 | close `completed` (refs below) |
@@ -55,10 +55,10 @@
 
 **Defect (LIVE BUG):** the executor migrated `--full-auto` → `--sandbox workspace-write`, but `packages/claude-plugin/agents/brainstorm-coordinator.md:71,97` **still spawns `codex exec --full-auto`** — a no-op trap on codex ≥0.128 that silently drops the workspace-write sandbox. Plus two cheap guards.
 
-- [ ] **3a · kill `--full-auto`** in `brainstorm-coordinator.md:71,97` → `codex exec --sandbox workspace-write`; grep-guard test that no plugin source ships `--full-auto`.
-- [ ] **3b · `-m` guard** — snapshot test asserting `buildArgs()` always includes `-m <model>` (`gemini` + `codex`).
-- [ ] **3c · gemini `--ignore-env`** parity opt-out (`ignoreLocalEnv`), symmetric with `ASK_CODEX_LOAD_USER_CONFIG`.
-- [ ] **Gate:** tests → `/multi-review` → smoke → PR `Closes #37 #38 #52 #54 #75`.
+- [x] **3a · kill `--full-auto`** in `brainstorm-coordinator.md:71,97` → `codex exec --sandbox workspace-write` (codex 0.135 *removed* the flag → it was erroring, not just degrading; logged in BUGS.md). Stale `apps/docs/providers/codex.md` corrected. Grep-guard test asserts no agent ships `--full-auto`. **Validated live** (`codex exec --sandbox workspace-write -` exit 0).
+- [x] **3b · `-m` guard** — model-pinning guard tests assert args always include `-m <model>` (codex + gemini); removed dead unused `CLI.DEFAULTS.MODEL` (#75's latent-risk cleanup, confirmed 0 usages repo-wide).
+- [~] **3c · gemini `--ignore-env`** — **deferred**: the flag does not exist in gemini 0.44.1 (`gemini --help` has no ignore/env flag). Won't add a nonexistent flag.
+- [x] **Gate:** plugin 330 / codex 49 / gemini 111 green → `/multi-review` clean (Gemini 100, Codex 95 — verified the invocation vs codex-cli 0.135.0) → live smoke green (gemini 114 / codex 52) → PR `Closes #37 #38 #52 #75`. **#54 closed not-planned** (its only concrete item was `--ignore-env`, infeasible; rest speculative).
 
 ## Block 4 · Capability adoption  (Tier E — #59, #102)
 

@@ -68,7 +68,7 @@ Dispatch all requested external providers via **a single foreground Bash tool ca
 The user specifies which external providers to use. Default is `gemini,codex`. Only include the requested providers in the Bash call:
 
 - `gemini` — Google Gemini (large context, strong at analysis) via the `gemini` CLI
-- `codex` — OpenAI Codex (strong at code reasoning) via `codex exec --full-auto`
+- `codex` — OpenAI Codex (strong at code reasoning) via `codex exec --sandbox workspace-write`
 - `ollama` — Local Ollama (private, no data leaves machine) via the `ollama` CLI
 
 **Required Bash tool call parameters:**
@@ -94,7 +94,7 @@ PROMPT_EOF
 gemini -p "@$workdir/prompt.md" > "$workdir/gemini.out" 2> "$workdir/gemini.err" &
 pid_gemini=$!
 
-codex exec --full-auto - < "$workdir/prompt.md" > "$workdir/codex.out" 2> "$workdir/codex.err" &
+codex exec --sandbox workspace-write - < "$workdir/prompt.md" > "$workdir/codex.out" 2> "$workdir/codex.err" &
 pid_codex=$!
 
 # Only include this line if ollama was requested:
