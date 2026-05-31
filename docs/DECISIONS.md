@@ -1,5 +1,32 @@
 # Architectural Decisions
 
+## ADR-110: `ask-codex-edit` — Structured Edits via Codex `--output-schema`
+
+- **Date:** 2026-05-31
+- **Status:** Accepted (branch `fix/ask-codex-edit`, PR #138; closes #102)
+
+**Context.** `ask-gemini-edit` returns structured OLD/NEW edit blocks parsed from Gemini's *prose* by a brittle regex (`parseChangeModeOutput`). Codex 0.132+ exposes `codex exec --output-schema <file>`, which constrains the model's final response to a JSON Schema — enabling the same "propose concrete edits" capability without the regex. #102 flagged this as the highest-value cross-audit unblock.
+
+**Decision (shaped in a brainstorm).**
+1. **Propose, not apply.** Codex returns edits as data; **Claude applies** them — honors the project's "external LLM reads/proposes, Claude edits" core, mirrors `ask-gemini-edit`, avoids codex-vs-Claude write conflicts. Codex runs `--sandbox read-only` (it only reads to propose).
+2. **Search/replace edit shape** (`{file, startLine?, oldCode, newCode, description?}`) → maps 1:1 onto `ChangeModeEdit`, so the **shared chunker + translator are reused unchanged** and only the brittle regex *parse* stage is skipped.
+3. **Edit existing files only (v1).** New-file/delete, whole-file rewrites, apply-in-sandbox, and chunking/fetch-chunk are deferred (codex-mcp has no fetch-chunk tool yet).
+
+Implementation: `editMode` on `CodexExecutorOptions` writes `CODEX_EDIT_SCHEMA` to a temp file (`crypto.randomUUID` name, `finally`-cleanup), adds `--output-schema` + read-only sandbox; `parseCodexEdits` maps the JSON; `processCodexEditOutput` validates + formats. New `ask-codex-edit` tool; cache key carries an `edit=` marker.
+
+**Consequences.** The TDD → `/multi-review` → live-smoke loop caught **five** real defects the prior layer missed: (a) **critical** — the executor's `[Codex stats: …]` footer broke `JSON.parse`, silently dropping every real edit (unit test passed only because its fixture had no `turn.completed`); fixed with a balanced-brace JSON extractor. (b) `trimEnd` corrupted exact-match bytes → removed. (c) cache `extraContext` ambiguity (`includeDirs:["edit"]` vs edit-mode) → labeled key parts. (d) temp-file name race across parallel calls → UUID. (e) **live smoke only** — OpenAI strict structured-output rejects a schema whose `required` omits any property; fixed by requiring all properties (optionals nullable), guarded by a unit test. **Lesson:** structured-output schemas can only be validated by a real API call — keep a live smoke for any `--output-schema` change. **Known v1.1 polish:** the reused `formatChangeModeResponse` header says "Gemini has analyzed…" for codex output (parameterizing the translator touches gemini's path; deferred).
+
+## ADR-111: codex-pair Edit-Debounce Belongs in the Broker, Not the Hook (Deferred)
+
+- **Date:** 2026-05-31
+- **Status:** Accepted (decision); implementation deferred (tracked on #96)
+
+**Context.** #96 Bug 2 / Idea 1 asks for a per-file edit *debounce* (collapse rapid sequential edits into one review of the settled state). The current code has an inflight-*lock* (`state.mjs`) that serializes *concurrent* reviews — not a debounce. During Block 5 it was tempting to add a settle-timer to the PostToolUse hook.
+
+**Decision.** Do **not** put the debounce in the hook. Each edit spawns a separate, short-lived hook process that cannot block the next tool call (ADR-096), so it has no way to "wait for edits to settle." A true debounce needs a **long-lived timer**, which only the codex-pair **broker** (the app-server, ADR-090+) can hold: the hook should signal "file X edited" and the broker resets a per-file timer, reviewing only when it elapses. Deferred as a focused broker feature (not a Block-5 quick fix).
+
+**Consequences.** #96 stays open scoped to this single item. Block 5 shipped the genuinely-bounded wins (Idea 2 log pointer; #74 doc) and verified Bug 1 was already resolved by the v0.7.0 broker rework — avoiding a fake hook-side debounce that couldn't work.
+
 ## ADR-109: Upstream-Issue Consolidation — 21 Issues → 5 Fix Blocks, Audit-Cadence Retirement
 
 - **Date:** 2026-05-30

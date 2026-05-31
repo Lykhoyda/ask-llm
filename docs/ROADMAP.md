@@ -20,6 +20,21 @@ Repo-wide defensive review (8 parallel agents → findings re-verified by hand �
 - **ADR-100 benchmark harness**: surfaced its own SIGKILL bug on first run (cost: $0 because runs hung before producing tokens), got fixed before being trusted — the meta-pattern that test infrastructure only proves itself by running.
 - **Release workflow hardening**: motivated by 6 days of silent npm publish failures across PRs #109/#112/#118 → fix landed as PR #123 the same session the issue was empirically reproduced.
 
+### 2026-05-31 — issue-consolidation effort COMPLETE (6 PRs, 21 → 2 open)
+
+The 2026-05-30 consolidation is fully executed. All actionable backlog is fixed across **6 PRs**; only two genuinely-deferred *features* remain open.
+
+- **Merged to main:** PR #133 (parser defensiveness, `Closes #114/#116/#117/#57`), #134 (quota signals + Flash→GA, `Closes #127/#131`), #135 (flag cleanup incl. the live `--full-auto` bug, `Closes #37/#38/#52/#75` +#54).
+- **Open PRs — STACKED, merge in order #136 → #137 → #138** (each branch is stacked on the previous, so a later PR's diff includes earlier ones until they land):
+  - **#136** — codex `--add-dir` + `codex doctor` hint (addresses #59/#102).
+  - **#137** — codex-pair verdict log pointer (#96 Idea 2) + `Closes #74` (restart-after-install doc).
+  - **#138** — **`ask-codex-edit`** via `--output-schema` (`Closes #102`). New MCP tool. ADR-110.
+- **Closed:** 7 directly (#24/#25/#28/#39 noise; #27/#35 verified-shipped; #54 infeasible) + 10 via merged PRs + (#74 via #137, #102 via #138 on merge).
+- **Remaining open after the stack merges — both deferred features, not bugs:**
+  - **#59** — codex `reasoning`/`error` item-text surfacing (response-content/verbosity design; folded into a future codex-output-richness pass).
+  - **#96** — codex-pair edit-**debounce** — belongs in the long-lived broker, not the per-edit hook (**ADR-111**); Bug 1 already resolved in v0.7.0, Idea 2 shipped in #137.
+- **ADRs:** 109 (consolidation + cadence retirement), 110 (ask-codex-edit), 111 (debounce → broker). **New tool:** `ask-codex-edit`. **Method that paid off:** TDD → `/multi-review` → live smoke caught 6+ real bugs *after* green tests (cache collision, a critical silent-edit-drop, an OpenAI strict-schema rejection); claims were grounded in code before fixing (caught the half-shipped `--full-auto`).
+
 ### 2026-05-30 — upstream-issue consolidation (21 → 15) + Block 1 shipped
 
 Drained the GitHub backlog by root cause (ADR-109), **superseding the 2026-05-27 backlog snapshot below**. Verified every audit claim against code first, then closed #27/#35 as completed (already shipped) and cadence-noise #24/#25/#28/#39 as not-planned, and grouped the remaining 15 issues into **5 fix story blocks** tracked in [`docs/plans/2026-05-30-upstream-issue-consolidation.md`](plans/2026-05-30-upstream-issue-consolidation.md). Each block: TDD fix → `/multi-review` per fix → live smoke per block → PR closing its issues.
