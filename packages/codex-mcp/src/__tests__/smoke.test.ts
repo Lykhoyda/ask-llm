@@ -3,9 +3,9 @@ import { MODELS } from "../constants.js";
 import { toolRegistry } from "../tools/index.js";
 
 describe("MCP server smoke test", () => {
-  const expectedTools = ["ask-codex", "ping"];
+  const expectedTools = ["ask-codex", "ask-codex-edit", "ping"];
 
-  it("has exactly 2 tools registered", () => {
+  it("has exactly 3 tools registered", () => {
     const toolNames = toolRegistry.map((t) => t.name);
     expect(toolNames).toEqual(expect.arrayContaining(expectedTools));
     expect(toolNames).toHaveLength(expectedTools.length);
