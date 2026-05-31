@@ -21,7 +21,7 @@
 - **Symptom:** After enabling codex-pair with a marker file and producing 3 reviews that contained HIGH/MED concerns (verified via `.codex-pair-log.jsonl`), no `[codex-pair] <file>` system reminder appeared on the subsequent turn. The reviewer is working — findings land in the log — but the documented surfacing path to Claude is silent.
 - **Repro:** (1) enable codex-pair with a marker; (2) write a file containing a clear HIGH (e.g. `new RegExp(\`${userInput}\`)`); (3) wait for verdict `concerns` in the log; (4) make any other tool call; (5) observe no `[codex-pair]` system reminder visible to the model.
 - **Suspected root cause:** The systemMessage emission might be buffered/swallowed at the PostToolUse-hook boundary, or the surface might be attached to the wrong event sequence. ADR-095 already documented "consumption discipline" as load-bearing — without the surface firing, that discipline can't run.
-- **Status:** Tracked in ROADMAP Tier C; needs repro against current `main` to confirm whether v0.7.0 hardening incidentally fixed it.
+- **Status (2026-05-31, Block 5):** Diagnosed against current `main`. **Bug 1 (next-turn surface) is RESOLVED in v0.7.0** — verdicts surface synchronously on review-completion (`codex-pair-watch.mjs:1151`) or cache-hit on a later edit (`:1031`), covered by the "surfaces HIGH+MED via systemMessage" test (`codex-pair-watch.test.ts:659`); the 0.6.2 report hit a stale/coalesced path. **Idea 2 (verdict-header `→ see <log>` pointer) shipped.** The issue stays open for its one remaining item — the **edit-debounce** (Bug 2 / Idea 1): deferred, since a non-blocking per-edit hook can't settle edits, so it needs a long-lived broker-side timer.
 
 ## Fixed — Upstream-Issue Consolidation (2026-05-30, ADR-109)
 

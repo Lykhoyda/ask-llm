@@ -20,7 +20,7 @@
 | **Block 2 · Quota/fallback freshness** | #127, #131 | fix → PR `Closes` |
 | **Block 3 · Flag/contract cleanup** | #37, #38, #52, #75 (#54 → not planned) | fix → PR `Closes`; #54 closed (infeasible `--ignore-env`) |
 | **Block 4 · Capability adoption** | #59, #102 | fix → PR `Closes` |
-| **Block 5 · codex-pair reliability** | #74, #96 | fix → PR `Closes` |
+| **Block 5 · codex-pair reliability** | #74 (closed); #96 stays open | PR `Closes #74`; #96 scoped to deferred debounce |
 | **Close now — verified already shipped** | #27, #35 | close `completed` (refs below) |
 | **Close now — pure audit-cadence noise** | #24, #25, #28, #39 | close `not planned` (folded here) |
 
@@ -80,11 +80,12 @@ Brainstorm-gated:
 
 **Defect:** codex-pair's review signal fails to reach the consumer. #96 Bug 1: next-turn `[codex-pair]` systemMessage never surfaces (verified surfacing path at `codex-pair-watch.mjs:188`). #96 Bug 2: reviews fire on intermediate file states (verify ADR-087/088 debounce covers it). #96 Enh 2: compact verdict-count header. #74: hook not auto-invoked after install — Claude Code session-state limitation, doc-only.
 
-- [ ] **5a · #96 Bug 1** — diagnose + fix next-turn surface emission (repro from issue body first; this is an existing `BUGS.md` entry).
-- [ ] **5b · #96 Bug 2** — verify debounce resolves intermediate-state reviews; if not, per-file settle timer.
-- [ ] **5c · #96 Enh 2** — verdict-count header in `buildVerdictMessage` (gated on 5a).
-- [ ] **5d · #74** — document full-restart-after-install in plugin install instructions; close.
-- [ ] **Gate:** tests → `/multi-review` → smoke → PR `Closes #96 #74`.
+Diagnosed current `main` (via an Explore agent) before fixing — #96 was filed against 0.6.2 and the v0.7.0 broker rework changed each item's status:
+- [x] **5a · #96 Bug 1 (next-turn surface)** — **verified RESOLVED in v0.7.0**, not re-fixed. Verdicts surface synchronously on review completion (`codex-pair-watch.mjs:1151`) or cache-hit on a later edit (`:1031`); already covered by the "surfaces HIGH+MED via systemMessage" test (`:659`). The 0.6.2 reporter hit a stale/coalesced path.
+- [~] **5b · #96 Bug 2 / Idea 1 (edit-debounce)** — **deferred**. What exists is an inflight-*lock* (serializes concurrent edits, `state.mjs:106`), NOT a settle-timer debounce. True debounce can't live in a non-blocking per-edit hook process — it needs a long-lived **broker** timer. Real feature, not a small fix; tracked on #96.
+- [x] **5c · #96 Idea 2 (verdict header)** — implemented the missing piece: a `logPath` pointer (` → see <log>`) appended to the verdict header for both concerns + clean verdicts (counts/duration were already present). TDD'd; backward-compatible.
+- [x] **5d · #74** — documented the restart-after-install requirement in the plugin README (Claude Code binds hooks at session start; `/reload-plugins` doesn't re-register). Closed as a known platform limitation.
+- [x] **Gate:** plugin 331 green; `/multi-review` clean (both providers); `node --check` + fixture-based integration smoke green → PR `Closes #74`; **#96 stays open**, scoped to the deferred edit-debounce.
 
 ---
 
