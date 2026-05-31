@@ -1,6 +1,8 @@
 # ask-codex-edit — Design Spec (2026-05-31)
 
-**Status:** Design — awaiting user approval before implementation (closes #102, the Block-4 headline deferred during the 2026-05-30 consolidation).
+**Status:** ✅ Implemented (branch `fix/ask-codex-edit`, closes #102). TDD + `/multi-review` (caught a critical silent-edit-drop, a trim-corruption, a cache collision, + a temp-file race) + **live smoke** (caught an OpenAI strict-schema rejection — `required` must list every property). Validated end-to-end against real codex 0.135.
+
+**Known v1.1 polish:** the reused shared `formatChangeModeResponse` header says "Gemini has analyzed…" even for codex output (functionally-correct edits, wrong attribution). Parameterizing the translator with a provider name touches gemini's path, so deferred to a focused follow-up.
 
 **Goal:** Add an `ask-codex-edit` MCP tool that gets Codex to **propose** precise, applyable code edits — symmetric with the existing `ask-gemini-edit`, but using codex's `--output-schema` to return schema-validated JSON instead of prose, eliminating the brittle regex parser.
 
@@ -87,13 +89,13 @@ The prompt prefix instructs codex: *propose edits as search/replace against exis
 3. `buildArgs` in editMode includes `--output-schema <path>` + `--sandbox read-only` (and NOT `workspace-write`).
 4. `ask-codex-edit` tool returns CHANGEMODE-formatted output for a multi-edit JSON.
 5. Quota error in editMode → fallback to `MODELS.FALLBACK`.
-6. Large edit set → chunked output (reuses `chunkChangeModeEdits`; assert chunk headers).
+6. Multi-edit set (>5) → output is prefixed with `summarizeChangeModeEdits`.
 7. `includeDirs` → `--add-dir` still threaded in editMode (cache key includes it).
 8. **Live smoke:** real `codex exec --output-schema <tmp>` on a tiny fixture returns JSON conforming to the schema and parses to ≥1 edit.
 
 ## Out of scope (v1)
 
-New-file creation · file deletion · whole-file rewrites · codex applying edits in-sandbox · cross-file rename refactors. Each can be a focused follow-up once the core propose-and-apply flow is proven.
+New-file creation · file deletion · whole-file rewrites · codex applying edits in-sandbox · cross-file rename refactors. **Chunking + cross-call `fetch-chunk` retrieval** is also deferred to v1.1: codex-mcp has no `fetch-chunk` tool (only gemini does), so v1 returns all edits in one response via `formatChangeModeResponse` (with a `summarizeChangeModeEdits` header for large sets). v1.1 adds a codex `fetch-chunk` tool + `chunkChangeModeEdits`/`cacheChunks` reuse for very large edit sets. Each can be a focused follow-up once the core propose-and-apply flow is proven.
 
 ## Gate
 

@@ -41,5 +41,35 @@ export const CLI = {
     IGNORE_USER_CONFIG: "--ignore-user-config",
     IGNORE_RULES: "--ignore-rules",
     ADD_DIR: "--add-dir",
+    OUTPUT_SCHEMA: "--output-schema",
+    SANDBOX_READ_ONLY: "read-only",
   },
+} as const;
+
+// JSON Schema handed to `codex exec --output-schema <file>` for ask-codex-edit.
+// Constrains codex's final response to a list of search/replace edits against
+// existing files. The model only proposes; Claude applies (read-only sandbox).
+export const CODEX_EDIT_SCHEMA = {
+  type: "object",
+  additionalProperties: false,
+  properties: {
+    edits: {
+      type: "array",
+      items: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          file: { type: "string", description: "Repo-relative path to an existing file" },
+          // OpenAI strict structured-output requires every property in `required`;
+          // optional fields are expressed as nullable instead.
+          startLine: { type: ["integer", "null"], description: "1-based line where oldCode begins (or null)" },
+          oldCode: { type: "string", description: "Exact existing text to replace (must match the file verbatim)" },
+          newCode: { type: "string", description: "Replacement text" },
+          description: { type: ["string", "null"], description: "One-line rationale (or null)" },
+        },
+        required: ["file", "startLine", "oldCode", "newCode", "description"],
+      },
+    },
+  },
+  required: ["edits"],
 } as const;

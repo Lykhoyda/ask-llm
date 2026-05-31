@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { CLI, MODELS } from "../../constants.js";
+import { CLI, CODEX_EDIT_SCHEMA, MODELS } from "../../constants.js";
 
 vi.mock("@ask-llm/shared", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@ask-llm/shared")>();
@@ -15,7 +15,7 @@ vi.mock("@ask-llm/shared", async (importOriginal) => {
 });
 
 import { executeCommand, responseCache } from "@ask-llm/shared";
-import { executeCodexCLI } from "../codexExecutor.js";
+import { executeCodexCLI, parseCodexEdits, processCodexEditOutput } from "../codexExecutor.js";
 
 const mockExecuteCommand = vi.mocked(executeCommand);
 
@@ -612,5 +612,105 @@ describe("executeCodexCLI per-provider timeout (#45)", () => {
     // the param is silent in production until someone hits a quota error.
     expect(mockExecuteCommand.mock.calls[0][5]).toBe(900_000);
     expect(mockExecuteCommand.mock.calls[1][5]).toBe(900_000);
+  });
+});
+
+describe("ask-codex-edit / editMode (#102)", () => {
+  it("parseCodexEdits maps schema JSON to ChangeModeEdit[] with computed line ranges", () => {
+    const json = JSON.stringify({
+      edits: [
+        { file: "src/a.ts", startLine: 10, oldCode: "const x = 1;", newCode: "const x = 2;", description: "bump" },
+        { file: "src/b.ts", oldCode: "foo()\nbar()", newCode: "baz()" },
+      ],
+    });
+    const edits = parseCodexEdits(json);
+    expect(edits).toHaveLength(2);
+    expect(edits[0]).toMatchObject({
+      filename: "src/a.ts",
+      oldStartLine: 10,
+      oldCode: "const x = 1;",
+      newCode: "const x = 2;",
+    });
+    expect(edits[0].oldEndLine).toBe(10);
+    // startLine defaults to 1 when codex omits it
+    expect(edits[1].oldStartLine).toBe(1);
+    // multi-line oldCode → end line spans the lines
+    expect(edits[1].oldEndLine).toBe(2);
+  });
+
+  it("parseCodexEdits returns [] for an empty edit set", () => {
+    expect(parseCodexEdits(JSON.stringify({ edits: [] }))).toEqual([]);
+  });
+
+  it("processCodexEditOutput formats edits as applyable CHANGEMODE output", () => {
+    const json = JSON.stringify({ edits: [{ file: "src/a.ts", startLine: 1, oldCode: "a", newCode: "b" }] });
+    const out = processCodexEditOutput(json);
+    expect(out).toContain("src/a.ts");
+    expect(out).toMatch(/Replace this exact text|CHANGEMODE/);
+  });
+
+  it("processCodexEditOutput returns a friendly message when codex proposes no edits", () => {
+    expect(processCodexEditOutput(JSON.stringify({ edits: [] }))).toMatch(/no edits/i);
+  });
+
+  it("editMode uses --output-schema + read-only sandbox (never workspace-write)", async () => {
+    mockExecuteCommand.mockResolvedValue(
+      '{"type":"item.completed","item":{"type":"agent_message","text":"{\\"edits\\":[]}"}}',
+    );
+    await executeCodexCLI({ prompt: "fix it", editMode: true });
+    const [, args] = mockExecuteCommand.mock.calls[0];
+    expect(args).toContain(CLI.FLAGS.OUTPUT_SCHEMA);
+    expect(args).toContain(CLI.FLAGS.SANDBOX_READ_ONLY);
+    expect(args).not.toContain(CLI.FLAGS.SANDBOX_WORKSPACE_WRITE);
+  });
+
+  it("editMode still falls back to the fallback model on quota errors", async () => {
+    mockExecuteCommand
+      .mockRejectedValueOnce(new Error("rate_limit_exceeded"))
+      .mockResolvedValueOnce('{"type":"item.completed","item":{"type":"agent_message","text":"{\\"edits\\":[]}"}}');
+    await executeCodexCLI({ prompt: "fix it", editMode: true });
+    expect(mockExecuteCommand).toHaveBeenCalledTimes(2);
+    const [, fallbackArgs] = mockExecuteCommand.mock.calls[1];
+    expect(fallbackArgs).toContain(MODELS.FALLBACK);
+    expect(fallbackArgs).toContain(CLI.FLAGS.OUTPUT_SCHEMA);
+  });
+
+  // /multi-review (Codex, 95): the executor appends "[Codex stats: ...]" to the
+  // agent_message, so editMode JSON arrives with a trailing footer — parseCodexEdits
+  // must still recover the edits (extract the JSON object), not return "no edits".
+  it("parseCodexEdits extracts the JSON object even with a trailing stats footer", () => {
+    const withFooter =
+      '{"edits":[{"file":"a.ts","startLine":1,"oldCode":"a","newCode":"b"}]}\n\n[Codex stats: 100 input tokens]';
+    const edits = parseCodexEdits(withFooter);
+    expect(edits).toHaveLength(1);
+    expect(edits[0].filename).toBe("a.ts");
+  });
+
+  // /multi-review (Codex, 85): schema JSON carries exact bytes, so trimming
+  // oldCode/newCode would corrupt exact-match search/replace.
+  it("parseCodexEdits preserves exact bytes (no trimming) for exact-match fidelity", () => {
+    const json = JSON.stringify({ edits: [{ file: "a.ts", oldCode: "x  ", newCode: "y\n" }] });
+    const edits = parseCodexEdits(json);
+    expect(edits[0].oldCode).toBe("x  ");
+    expect(edits[0].newCode).toBe("y\n");
+  });
+
+  // /multi-review (Codex, 80): the cache marker must be unambiguous — a literal
+  // includeDir of "edit" must not collide with edit-mode's cache partition.
+  it("editMode and a literal 'edit' includeDir do not share a cache entry", async () => {
+    mockExecuteCommand.mockResolvedValue(
+      '{"type":"item.completed","item":{"type":"agent_message","text":"{\\"edits\\":[]}"}}',
+    );
+    await executeCodexCLI({ prompt: "p", editMode: true });
+    await executeCodexCLI({ prompt: "p", includeDirs: ["edit"] });
+    expect(mockExecuteCommand).toHaveBeenCalledTimes(2);
+  });
+
+  // Live smoke caught this: OpenAI strict structured-output (response_format)
+  // rejects the schema unless `required` lists EVERY property (optionals are
+  // nullable). Guard the invariant so it can't regress without a live call.
+  it("CODEX_EDIT_SCHEMA lists every edit property in required (OpenAI strict mode)", () => {
+    const item = CODEX_EDIT_SCHEMA.properties.edits.items;
+    expect([...item.required].sort()).toEqual(Object.keys(item.properties).sort());
   });
 });

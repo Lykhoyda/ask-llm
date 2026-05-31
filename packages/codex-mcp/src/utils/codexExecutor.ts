@@ -1,13 +1,21 @@
+import { randomUUID } from "node:crypto";
+import { unlinkSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import {
+  type ChangeModeEdit,
   EXECUTION,
   executeCommand,
+  formatChangeModeResponse,
   Logger,
   ResponseCache,
   resolveTimeoutMs,
   responseCache,
+  summarizeChangeModeEdits,
   type UsageStats,
+  validateChangeModeEdits,
 } from "@ask-llm/shared";
-import { CLI, ERROR_MESSAGES, MODELS, STATUS_MESSAGES } from "../constants.js";
+import { CLI, CODEX_EDIT_SCHEMA, ERROR_MESSAGES, MODELS, STATUS_MESSAGES } from "../constants.js";
 
 interface CodexItemCompleted {
   type: "item.completed";
@@ -63,6 +71,9 @@ export interface CodexExecutorOptions {
   // Additional directories codex may access alongside the workspace (codex
   // `--add-dir`, repeatable) — monorepo parity with gemini's includeDirs. #59.
   includeDirs?: string[];
+  // ask-codex-edit: run codex with --output-schema (read-only sandbox) so it
+  // returns structured search/replace edits instead of prose. #102.
+  editMode?: boolean;
   onProgress?: (newOutput: string) => void;
 }
 
@@ -167,12 +178,110 @@ function isQuotaError(error: unknown): boolean {
   return ERROR_MESSAGES.QUOTA_SIGNALS.some((signal) => msg.includes(signal));
 }
 
+interface CodexEditItem {
+  file: string;
+  startLine?: number;
+  oldCode: string;
+  newCode: string;
+  description?: string;
+}
+
+// Map codex's --output-schema JSON ({ edits: [...] }) onto ChangeModeEdit[],
+// deriving the line ranges from line counts the same way parseChangeModeOutput
+// does for Gemini. No regex — the schema already guarantees the shape. #102.
+// Extract the first balanced top-level JSON object from a string, ignoring any
+// trailing content — the executor appends a "[Codex stats: ...]" footer to the
+// agent_message, and codex could emit stray prose. String-aware brace counter.
+function extractFirstJsonObject(text: string): string | null {
+  const start = text.indexOf("{");
+  if (start === -1) return null;
+  let depth = 0;
+  let inStr = false;
+  let esc = false;
+  for (let i = start; i < text.length; i++) {
+    const ch = text[i];
+    if (inStr) {
+      if (esc) esc = false;
+      else if (ch === "\\") esc = true;
+      else if (ch === '"') inStr = false;
+    } else if (ch === '"') {
+      inStr = true;
+    } else if (ch === "{") {
+      depth++;
+    } else if (ch === "}") {
+      depth--;
+      if (depth === 0) return text.slice(start, i + 1);
+    }
+  }
+  return null;
+}
+
+export function parseCodexEdits(rawJson: string): ChangeModeEdit[] {
+  let parsed: { edits?: CodexEditItem[] };
+  try {
+    parsed = JSON.parse(extractFirstJsonObject(rawJson) ?? rawJson);
+  } catch {
+    return [];
+  }
+  if (!parsed || !Array.isArray(parsed.edits)) return [];
+  const edits: ChangeModeEdit[] = [];
+  for (const item of parsed.edits) {
+    if (
+      !item ||
+      typeof item.file !== "string" ||
+      typeof item.oldCode !== "string" ||
+      typeof item.newCode !== "string"
+    ) {
+      continue;
+    }
+    // Exact bytes — schema JSON carries the precise text, so do NOT trim:
+    // trailing spaces / final newlines are load-bearing for exact-match apply.
+    const oldCode = item.oldCode;
+    const newCode = item.newCode;
+    const startLine = typeof item.startLine === "number" && item.startLine > 0 ? item.startLine : 1;
+    const oldLineCount = oldCode === "" ? 0 : oldCode.split("\n").length;
+    const newLineCount = newCode === "" ? 0 : newCode.split("\n").length;
+    edits.push({
+      filename: item.file,
+      oldStartLine: startLine,
+      oldEndLine: startLine + (oldLineCount > 0 ? oldLineCount - 1 : 0),
+      oldCode,
+      newStartLine: startLine,
+      newEndLine: startLine + (newLineCount > 0 ? newLineCount - 1 : 0),
+      newCode,
+    });
+  }
+  return edits;
+}
+
+// Mirror geminiExecutor.processChangeModeOutput, but the input is codex's
+// schema-validated JSON (via parseCodexEdits, not a regex). v1 returns all edits
+// in one response — codex-mcp has no fetch-chunk tool yet — with a summary header
+// for large sets. #102.
+export function processCodexEditOutput(rawJson: string): string {
+  const edits = parseCodexEdits(rawJson);
+  if (edits.length === 0) {
+    return "Codex proposed no edits for this request.";
+  }
+  const validation = validateChangeModeEdits(edits);
+  if (!validation.valid) {
+    return `Edit validation failed:\n${validation.errors.join("\n")}`;
+  }
+  let result = formatChangeModeResponse(edits);
+  if (edits.length > 5) {
+    result = `${summarizeChangeModeEdits(edits)}\n\n${result}`;
+  }
+  return result;
+}
+
 function buildArgs(
   prompt: string,
   model: string,
   sessionId?: string,
   useStdin?: boolean,
   includeDirs?: string[],
+  editMode?: boolean,
+  schemaPath?: string,
 ): string[] {
   const base: string[] = [CLI.COMMANDS.EXEC];
   if (sessionId) base.push(CLI.COMMANDS.RESUME);
@@ -187,7 +296,10 @@ function buildArgs(
   if (process.env.ASK_CODEX_LOAD_USER_CONFIG !== "1") {
     base.push(CLI.FLAGS.IGNORE_USER_CONFIG, CLI.FLAGS.IGNORE_RULES);
   }
-  base.push(CLI.FLAGS.SANDBOX, CLI.FLAGS.SANDBOX_WORKSPACE_WRITE, CLI.FLAGS.JSON, CLI.FLAGS.MODEL, model);
+  // ask-codex-edit only proposes edits (Claude applies), so it runs read-only.
+  const sandboxMode = editMode ? CLI.FLAGS.SANDBOX_READ_ONLY : CLI.FLAGS.SANDBOX_WORKSPACE_WRITE;
+  base.push(CLI.FLAGS.SANDBOX, sandboxMode, CLI.FLAGS.JSON, CLI.FLAGS.MODEL, model);
+  if (editMode && schemaPath) base.push(CLI.FLAGS.OUTPUT_SCHEMA, schemaPath);
   if (includeDirs?.length) {
     for (const dir of includeDirs) base.push(CLI.FLAGS.ADD_DIR, dir);
   }
@@ -199,10 +311,14 @@ function buildArgs(
 export async function executeCodexCLI(options: CodexExecutorOptions): Promise<CodexExecutorResult> {
   const model = options.model || MODELS.DEFAULT;
   const sessionId = options.sessionId;
+  const editMode = options.editMode === true;
   const wantsSession = sessionId !== undefined;
-  // includeDirs changes the context codex sees, so it must distinguish cache
-  // entries (sorted for order-independence) — same as geminiExecutor.
-  const extraContext = options.includeDirs?.length ? [...options.includeDirs].sort().join(":") : undefined;
+  // includeDirs and editMode both change what codex sees/returns, so they must
+  // distinguish cache entries (includeDirs sorted for order-independence).
+  const dirsPart = options.includeDirs?.length ? [...options.includeDirs].sort().join(":") : "";
+  // Labeled parts so the marker is unambiguous — a literal includeDir of "edit"
+  // must never collide with edit-mode's cache partition.
+  const extraContext = editMode || dirsPart ? `edit=${editMode ? 1 : 0};dirs=${dirsPart}` : undefined;
   const cacheKey = wantsSession ? null : ResponseCache.buildKey("codex", options.prompt, model, extraContext);
 
   if (cacheKey) {
@@ -213,9 +329,20 @@ export async function executeCodexCLI(options: CodexExecutorOptions): Promise<Co
     }
   }
 
+  // editMode: codex returns structured edits via --output-schema; write the
+  // schema to a temp file for the duration of the call (removed in finally).
+  let schemaPath: string | undefined;
+  if (editMode) {
+    // crypto-random suffix so parallel ask-codex-edit calls in the same process
+    // (same pid + same millisecond) never collide on the temp schema path —
+    // otherwise one call's finally-unlink could ENOENT the other's read.
+    schemaPath = join(tmpdir(), `codex-edit-schema-${process.pid}-${randomUUID()}.json`);
+    writeFileSync(schemaPath, JSON.stringify(CODEX_EDIT_SCHEMA));
+  }
+
   const useStdin = options.prompt.length > EXECUTION.STDIN_THRESHOLD_BYTES;
   const stdinPayload = useStdin ? options.prompt : undefined;
-  const args = buildArgs(options.prompt, model, sessionId, useStdin, options.includeDirs);
+  const args = buildArgs(options.prompt, model, sessionId, useStdin, options.includeDirs, editMode, schemaPath);
   // Codex with reasoning models routinely needs >210s for substantive prompts
   // (issue #45). Resolution order: ASK_CODEX_TIMEOUT_MS > GMCPT_TIMEOUT_MS >
   // DEFAULT_CODEX_TIMEOUT_MS. The provider-specific knob lets users keep a
@@ -224,35 +351,60 @@ export async function executeCodexCLI(options: CodexExecutorOptions): Promise<Co
 
   const startedAt = Date.now();
   try {
-    const raw = await executeCommand(CLI.COMMANDS.CODEX, args, options.onProgress, undefined, stdinPayload, timeoutMs);
-    const result = parseCodexJsonlOutput(raw, model, Date.now() - startedAt, false);
-    if (cacheKey) responseCache.set(cacheKey, result.response);
-    return result;
-  } catch (error) {
-    if (isQuotaError(error) && model !== MODELS.FALLBACK) {
-      Logger.warn(`${STATUS_MESSAGES.QUOTA_SWITCHING} Falling back to ${MODELS.FALLBACK}.`);
-      Logger.debug(`Status: ${STATUS_MESSAGES.FALLBACK_RETRY}`);
-      const fallbackArgs = buildArgs(options.prompt, MODELS.FALLBACK, sessionId, useStdin, options.includeDirs);
-      const fallbackStartedAt = Date.now();
+    try {
+      const raw = await executeCommand(
+        CLI.COMMANDS.CODEX,
+        args,
+        options.onProgress,
+        undefined,
+        stdinPayload,
+        timeoutMs,
+      );
+      const result = parseCodexJsonlOutput(raw, model, Date.now() - startedAt, false);
+      if (cacheKey) responseCache.set(cacheKey, result.response);
+      return result;
+    } catch (error) {
+      if (isQuotaError(error) && model !== MODELS.FALLBACK) {
+        Logger.warn(`${STATUS_MESSAGES.QUOTA_SWITCHING} Falling back to ${MODELS.FALLBACK}.`);
+        Logger.debug(`Status: ${STATUS_MESSAGES.FALLBACK_RETRY}`);
+        const fallbackArgs = buildArgs(
+          options.prompt,
+          MODELS.FALLBACK,
+          sessionId,
+          useStdin,
+          options.includeDirs,
+          editMode,
+          schemaPath,
+        );
+        const fallbackStartedAt = Date.now();
+        try {
+          const raw = await executeCommand(
+            CLI.COMMANDS.CODEX,
+            fallbackArgs,
+            options.onProgress,
+            undefined,
+            stdinPayload,
+            timeoutMs,
+          );
+          Logger.warn(`Successfully executed with ${MODELS.FALLBACK} fallback.`);
+          Logger.debug(`Status: ${STATUS_MESSAGES.FALLBACK_SUCCESS}`);
+          return parseCodexJsonlOutput(raw, MODELS.FALLBACK, Date.now() - fallbackStartedAt, true);
+        } catch (fallbackError) {
+          const fallbackMsg = fallbackError instanceof Error ? fallbackError.message : String(fallbackError);
+          throw new Error(
+            `${MODELS.DEFAULT} quota exceeded, ${MODELS.FALLBACK} fallback also failed: ${fallbackMsg}. Run \`codex doctor\` to inspect your Codex CLI installation.`,
+          );
+        }
+      }
+      throw error;
+    }
+  } finally {
+    if (schemaPath) {
       try {
-        const raw = await executeCommand(
-          CLI.COMMANDS.CODEX,
-          fallbackArgs,
-          options.onProgress,
-          undefined,
-          stdinPayload,
-          timeoutMs,
-        );
-        Logger.warn(`Successfully executed with ${MODELS.FALLBACK} fallback.`);
-        Logger.debug(`Status: ${STATUS_MESSAGES.FALLBACK_SUCCESS}`);
-        return parseCodexJsonlOutput(raw, MODELS.FALLBACK, Date.now() - fallbackStartedAt, true);
-      } catch (fallbackError) {
-        const fallbackMsg = fallbackError instanceof Error ? fallbackError.message : String(fallbackError);
-        throw new Error(
-          `${MODELS.DEFAULT} quota exceeded, ${MODELS.FALLBACK} fallback also failed: ${fallbackMsg}. Run \`codex doctor\` to inspect your Codex CLI installation.`,
-        );
+        unlinkSync(schemaPath);
+      } catch {
+        /* best-effort cleanup */
       }
     }
-    throw error;
   }
 }

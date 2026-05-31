@@ -72,8 +72,8 @@ Small wins — **shipped** (branch `fix/block-4-codex-capability-wins`):
 - [~] **4e · bump min codex version** — **N/A**: no hard min-version is documented (only an npm badge); won't invent a constraint.
 - [~] **4d · surface codex `reasoning`/`error` item text** — **deferred to the ask-codex-edit brainstorm**: it's a response-content/verbosity change (and codex may not emit reasoning as text items in `exec --json`), not a clean small win.
 
-Brainstorm-gated:
-- [ ] **4a · `ask-codex-edit`** via `codex exec --output-schema` — design with the user first, then TDD-build. Keeps #102 open until it lands.
+Brainstorm-gated → **shipped**:
+- [x] **4a · `ask-codex-edit`** via `codex exec --output-schema` — brainstormed (propose-not-apply, search/replace, edit-existing-only) then TDD-built on `fix/ask-codex-edit` (**closes #102**). New tool returns schema-validated edits → reuses the changeMode chunker/translator. `/multi-review` caught 4 bugs (a critical silent-edit-drop via the stats footer, byte-trim corruption, a cache collision, a temp-file race) + live smoke caught an OpenAI strict-schema rejection — all fixed + guarded. Design: `docs/plans/2026-05-31-ask-codex-edit-design.md`.
 - [ ] **Gate:** small-wins PR *addresses* #59/#102 (does not close — ask-codex-edit pending). codex 54 green; `/multi-review` (Codex caught + I fixed the cache bug); live smoke 57 + `--add-dir` validated live.
 
 ## Block 5 · codex-pair reliability  (Tier D+F — #74, #96)
