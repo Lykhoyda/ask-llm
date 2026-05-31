@@ -60,6 +60,9 @@ export interface CodexExecutorOptions {
   prompt: string;
   model?: string;
   sessionId?: string;
+  // Additional directories codex may access alongside the workspace (codex
+  // `--add-dir`, repeatable) — monorepo parity with gemini's includeDirs. #59.
+  includeDirs?: string[];
   onProgress?: (newOutput: string) => void;
 }
 
@@ -164,7 +167,13 @@ function isQuotaError(error: unknown): boolean {
   return ERROR_MESSAGES.QUOTA_SIGNALS.some((signal) => msg.includes(signal));
 }
 
-function buildArgs(prompt: string, model: string, sessionId?: string, useStdin?: boolean): string[] {
+function buildArgs(
+  prompt: string,
+  model: string,
+  sessionId?: string,
+  useStdin?: boolean,
+  includeDirs?: string[],
+): string[] {
   const base: string[] = [CLI.COMMANDS.EXEC];
   if (sessionId) base.push(CLI.COMMANDS.RESUME);
   base.push(CLI.FLAGS.SKIP_GIT);
@@ -179,6 +188,9 @@ function buildArgs(prompt: string, model: string, sessionId?: string, useStdin?:
     base.push(CLI.FLAGS.IGNORE_USER_CONFIG, CLI.FLAGS.IGNORE_RULES);
   }
   base.push(CLI.FLAGS.SANDBOX, CLI.FLAGS.SANDBOX_WORKSPACE_WRITE, CLI.FLAGS.JSON, CLI.FLAGS.MODEL, model);
+  if (includeDirs?.length) {
+    for (const dir of includeDirs) base.push(CLI.FLAGS.ADD_DIR, dir);
+  }
   if (sessionId) base.push(sessionId);
   if (!useStdin) base.push(prompt);
   return base;
@@ -188,7 +200,10 @@ export async function executeCodexCLI(options: CodexExecutorOptions): Promise<Co
   const model = options.model || MODELS.DEFAULT;
   const sessionId = options.sessionId;
   const wantsSession = sessionId !== undefined;
-  const cacheKey = wantsSession ? null : ResponseCache.buildKey("codex", options.prompt, model);
+  // includeDirs changes the context codex sees, so it must distinguish cache
+  // entries (sorted for order-independence) — same as geminiExecutor.
+  const extraContext = options.includeDirs?.length ? [...options.includeDirs].sort().join(":") : undefined;
+  const cacheKey = wantsSession ? null : ResponseCache.buildKey("codex", options.prompt, model, extraContext);
 
   if (cacheKey) {
     const cached = responseCache.get(cacheKey);
@@ -200,7 +215,7 @@ export async function executeCodexCLI(options: CodexExecutorOptions): Promise<Co
 
   const useStdin = options.prompt.length > EXECUTION.STDIN_THRESHOLD_BYTES;
   const stdinPayload = useStdin ? options.prompt : undefined;
-  const args = buildArgs(options.prompt, model, sessionId, useStdin);
+  const args = buildArgs(options.prompt, model, sessionId, useStdin, options.includeDirs);
   // Codex with reasoning models routinely needs >210s for substantive prompts
   // (issue #45). Resolution order: ASK_CODEX_TIMEOUT_MS > GMCPT_TIMEOUT_MS >
   // DEFAULT_CODEX_TIMEOUT_MS. The provider-specific knob lets users keep a
@@ -217,7 +232,7 @@ export async function executeCodexCLI(options: CodexExecutorOptions): Promise<Co
     if (isQuotaError(error) && model !== MODELS.FALLBACK) {
       Logger.warn(`${STATUS_MESSAGES.QUOTA_SWITCHING} Falling back to ${MODELS.FALLBACK}.`);
       Logger.debug(`Status: ${STATUS_MESSAGES.FALLBACK_RETRY}`);
-      const fallbackArgs = buildArgs(options.prompt, MODELS.FALLBACK, sessionId, useStdin);
+      const fallbackArgs = buildArgs(options.prompt, MODELS.FALLBACK, sessionId, useStdin, options.includeDirs);
       const fallbackStartedAt = Date.now();
       try {
         const raw = await executeCommand(
@@ -233,7 +248,9 @@ export async function executeCodexCLI(options: CodexExecutorOptions): Promise<Co
         return parseCodexJsonlOutput(raw, MODELS.FALLBACK, Date.now() - fallbackStartedAt, true);
       } catch (fallbackError) {
         const fallbackMsg = fallbackError instanceof Error ? fallbackError.message : String(fallbackError);
-        throw new Error(`${MODELS.DEFAULT} quota exceeded, ${MODELS.FALLBACK} fallback also failed: ${fallbackMsg}`);
+        throw new Error(
+          `${MODELS.DEFAULT} quota exceeded, ${MODELS.FALLBACK} fallback also failed: ${fallbackMsg}. Run \`codex doctor\` to inspect your Codex CLI installation.`,
+        );
       }
     }
     throw error;
