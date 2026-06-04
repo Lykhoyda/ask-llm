@@ -1,8 +1,8 @@
+import { spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { spawnSync } from "node:child_process";
-import { createHash } from "node:crypto";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { PLUGIN_ROOT, readFile } from "./_helpers.js";
 
@@ -83,9 +83,7 @@ describe("scripts/codex-pair-debounce-worker.mjs — runtime behavior", () => {
     const res = runWorker(file, 1, "none"); // latest gen → review (fake codex 'none')
     expect(res.status).toBe(0);
     const pendingDir = path.join(dir, ".codex-pair/state/pending");
-    const files = fs.existsSync(pendingDir)
-      ? fs.readdirSync(pendingDir).filter((f) => f.endsWith(".json"))
-      : [];
+    const files = fs.existsSync(pendingDir) ? fs.readdirSync(pendingDir).filter((f) => f.endsWith(".json")) : [];
     expect(files.length).toBe(1);
     const payload = JSON.parse(fs.readFileSync(path.join(pendingDir, files[0]), "utf-8"));
     expect(typeof payload.message).toBe("string");

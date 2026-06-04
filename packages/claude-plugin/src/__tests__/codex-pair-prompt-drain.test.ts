@@ -1,7 +1,7 @@
+import { spawnSync } from "node:child_process";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { spawnSync } from "node:child_process";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { PLUGIN_ROOT, readFile } from "./_helpers.js";
 
@@ -57,9 +57,7 @@ describe("scripts/codex-pair-prompt-drain.mjs — runtime behavior", () => {
     expect(res.status).toBe(0);
     expect(res.stdout).toMatch(/additionalContext/);
     expect(res.stdout).toMatch(/reviewed y\.ts/);
-    expect(
-      fs.readdirSync(path.join(cwd, ".codex-pair/state/pending")).filter((f) => f.endsWith(".json")),
-    ).toEqual([]);
+    expect(fs.readdirSync(path.join(cwd, ".codex-pair/state/pending")).filter((f) => f.endsWith(".json"))).toEqual([]);
   });
 
   it("emits nothing when no pending verdict exists", () => {

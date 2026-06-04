@@ -1454,6 +1454,66 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
     expect(hookOutput.systemMessage).toMatch(/no concerns/);
   });
 
+  it("debounceMs:0 → synchronous review surfaces inline, no worker, no pending", () => {
+    const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "cp-sync-"));
+    fs.mkdirSync(path.join(cwd, ".codex-pair"), { recursive: true });
+    fs.writeFileSync(path.join(cwd, ".codex-pair/context.md"), "---\ndebounceMs: 0\n---\n# ctx");
+    const target = path.join(cwd, "x.ts");
+    fs.writeFileSync(target, "export const a = 1;\n");
+    const payload = JSON.stringify({
+      hook_event_name: "PostToolUse",
+      tool_name: "Edit",
+      tool_input: { file_path: target },
+      session_id: "s",
+    });
+    const result = spawnSync("node", [HOOK_PATH], {
+      input: payload,
+      cwd,
+      encoding: "utf-8",
+      timeout: 20_000,
+      env: { ...process.env, PATH: `${FIXTURE_DIR}:${process.env.PATH}`, FAKE_CODEX_SCENARIO: "none" },
+    });
+    expect(result.status).toBe(0);
+    expect(result.stdout).toMatch(/systemMessage/); // inline verdict (v0.7.0 behavior preserved)
+    expect(fs.existsSync(path.join(cwd, ".codex-pair/state/debounce"))).toBe(false);
+    expect(fs.existsSync(path.join(cwd, ".codex-pair/state/pending"))).toBe(false);
+    fs.rmSync(cwd, { recursive: true, force: true });
+  });
+
+  it("debounce: a queued pending verdict surfaces on the next edit hook", () => {
+    const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "cp-drain-"));
+    fs.mkdirSync(path.join(cwd, ".codex-pair/state/pending"), { recursive: true });
+    fs.writeFileSync(path.join(cwd, ".codex-pair/context.md"), "---\ndebounceMs: 15000\n---\n# ctx");
+    const target = path.join(cwd, "y.ts");
+    fs.writeFileSync(target, "export const b = 2;\n");
+    // Pre-seed a pending verdict (drainPending reads any *.json in pending/,
+    // so the filename need not match the file hash).
+    fs.writeFileSync(
+      path.join(cwd, ".codex-pair/state/pending", "seed.json"),
+      JSON.stringify({ file: target, message: "[codex-pair] reviewed y.ts — 1H/0M/0L" }),
+    );
+    const payload = JSON.stringify({
+      hook_event_name: "PostToolUse",
+      tool_name: "Edit",
+      tool_input: { file_path: target },
+      session_id: "s",
+    });
+    // PATH-isolated: we only care that the DRAIN emits; the worker it spawns
+    // (15s settle) wakes after this dir is gone and exits without reviewing.
+    const result = spawnSync("node", [HOOK_PATH], {
+      input: payload,
+      cwd,
+      encoding: "utf-8",
+      timeout: 10_000,
+      env: { ...process.env, PATH: path.dirname(process.execPath) },
+    });
+    expect(result.status).toBe(0);
+    expect(result.stdout).toMatch(/reviewed y\.ts — 1H\/0M\/0L/);
+    // Pending was cleared (surfaced exactly once).
+    expect(fs.readdirSync(path.join(cwd, ".codex-pair/state/pending")).filter((f) => f.endsWith(".json"))).toEqual([]);
+    fs.rmSync(cwd, { recursive: true, force: true });
+  });
+
   it("fake-codex 'concerns-labeled' scenario → verdict:concerns with HIGH/MED/LOW counts", () => {
     setupMarker(tempDir, "# ctx");
     const filePath = path.join(tempDir, "src.ts");
