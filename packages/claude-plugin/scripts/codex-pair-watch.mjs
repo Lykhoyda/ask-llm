@@ -40,6 +40,7 @@ import { IS_WINDOWS, terminateProcessTree } from "./lib/process.mjs";
 // fire, but isBrokerEnabled returns false fast when ASK_CODEX_BROKER
 // isn't set, so the per-edit fast path is unaffected.
 import { initializeBroker, isBrokerEnabled, readBrokerState, submitReview } from "./lib/broker.mjs";
+import { DEFAULT_DEBOUNCE_MS, DEFAULT_DEBOUNCE_MAX_MS } from "./lib/debounce-state.mjs";
 import { buildReviewPrompt } from "./lib/prompt.mjs";
 import {
   buildVerdictMessage,
@@ -92,6 +93,8 @@ const DEFAULT_MODEL = process.env.ASK_CODEX_MODEL ?? CODEX_PAIR_DEFAULTS.model;
 const FALLBACK_MODEL = process.env.ASK_CODEX_FALLBACK_MODEL ?? CODEX_PAIR_DEFAULTS.fallbackModel;
 const DEFAULT_TIMEOUT_MS = Number(process.env.ASK_CODEX_TIMEOUT_MS ?? 800_000);
 const MAX_FILE_BYTES = Number(process.env.CODEX_PAIR_MAX_FILE_BYTES ?? 20_000);
+const DEBOUNCE_MS = Number(process.env.ASK_CODEX_DEBOUNCE_MS ?? DEFAULT_DEBOUNCE_MS);
+const DEBOUNCE_MAX_MS = Number(process.env.ASK_CODEX_DEBOUNCE_MAX_MS ?? DEFAULT_DEBOUNCE_MAX_MS);
 const QUOTA_SIGNALS = ["rate_limit_exceeded", "quota_exceeded", "429", "insufficient_quota"];
 
 // Transient failure signatures (item #10). Errors matching any of these get
@@ -458,6 +461,10 @@ function resolveConfig(frontmatter) {
       surfaceCandidate && VALID_THRESHOLDS.has(surfaceCandidate)
         ? surfaceCandidate
         : DEFAULT_SURFACE_THRESHOLD,
+    debounceMs:
+      typeof fm.debounceMs === "number" && fm.debounceMs >= 0 ? fm.debounceMs : DEBOUNCE_MS,
+    debounceMaxMs:
+      typeof fm.debounceMaxMs === "number" && fm.debounceMaxMs > 0 ? fm.debounceMaxMs : DEBOUNCE_MAX_MS,
   };
 }
 

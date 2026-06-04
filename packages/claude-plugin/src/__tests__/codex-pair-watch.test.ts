@@ -108,6 +108,18 @@ describe("scripts/codex-pair-watch.mjs — structural invariants (ADR-077)", () 
     expect(script).toMatch(/WATCHED_TOOLS.*Edit.*Write.*MultiEdit/s);
   });
 
+  it("resolveConfig exposes debounceMs (default 15000) and debounceMaxMs (default 60000)", () => {
+    expect(script).toMatch(/debounceMs:/);
+    expect(script).toMatch(/debounceMaxMs:/);
+    expect(script).toMatch(/DEFAULT_DEBOUNCE_MS/);
+    expect(script).toMatch(/DEFAULT_DEBOUNCE_MAX_MS/);
+  });
+
+  it("debounceMs accepts 0 (>= 0 guard) to restore synchronous review", () => {
+    // The frontmatter guard must allow 0 (disable), unlike timeoutMs (> 0).
+    expect(script).toMatch(/fm\.debounceMs\s*===\s*"number"\s*&&\s*fm\.debounceMs\s*>=\s*0/);
+  });
+
   // Phase 1 item #1: log rotation (now in lib/state.mjs per ADR-088)
   it("caps log growth via CODEX_PAIR_MAX_LOG_BYTES env var (default 2_000_000) and MAX_LOG_ENTRIES", () => {
     expect(libState).toMatch(/CODEX_PAIR_MAX_LOG_BYTES/);
