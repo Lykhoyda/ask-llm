@@ -138,6 +138,13 @@ describe("scripts/codex-pair-watch.mjs — structural invariants (ADR-077)", () 
     expect(script).toMatch(/CODEX_PAIR_FORCE_SYNC[^\n]*\?\s*0\s*:/);
   });
 
+  it("SessionEnd clears debounce state regardless of the broker flag", () => {
+    const sessionScript = readFile("scripts/codex-pair-session.mjs");
+    expect(sessionScript).toMatch(/clearAllDebounceState/);
+    // The debounce cleanup must run even when ASK_CODEX_BROKER !== "1".
+    expect(sessionScript).toMatch(/SessionEnd/);
+  });
+
   // Phase 1 item #1: log rotation (now in lib/state.mjs per ADR-088)
   it("caps log growth via CODEX_PAIR_MAX_LOG_BYTES env var (default 2_000_000) and MAX_LOG_ENTRIES", () => {
     expect(libState).toMatch(/CODEX_PAIR_MAX_LOG_BYTES/);
