@@ -21,7 +21,7 @@
 - **Symptom:** After enabling codex-pair with a marker file and producing 3 reviews that contained HIGH/MED concerns (verified via `.codex-pair-log.jsonl`), no `[codex-pair] <file>` system reminder appeared on the subsequent turn. The reviewer is working — findings land in the log — but the documented surfacing path to Claude is silent.
 - **Repro:** (1) enable codex-pair with a marker; (2) write a file containing a clear HIGH (e.g. `new RegExp(\`${userInput}\`)`); (3) wait for verdict `concerns` in the log; (4) make any other tool call; (5) observe no `[codex-pair]` system reminder visible to the model.
 - **Suspected root cause:** The systemMessage emission might be buffered/swallowed at the PostToolUse-hook boundary, or the surface might be attached to the wrong event sequence. ADR-095 already documented "consumption discipline" as load-bearing — without the surface firing, that discipline can't run.
-- **Status:** Tracked in ROADMAP Tier C; needs repro against current `main` to confirm whether v0.7.0 hardening incidentally fixed it.
+- **Status:** ✅ Resolved. **Bug 1 (next-turn surface)** was fixed by the v0.7.0 broker rework (verdicts surface synchronously on review-completion / cache-hit). **Bug 2 / Idea 1 (edit-debounce)** is fixed on branch `feat/codex-pair-edit-debounce` (ADR-112): a detached delayed-worker collapses a burst of same-file edits into one review of the settled state and surfaces the verdict on the next PostToolUse drain or a new `UserPromptSubmit` drain. Confirmed by a live real-codex smoke (3 edits → 1 review; trailing verdict surfaced). Closes #96.
 
 ## Fixed — Internal Bug Hunt (2026-05-29, branch `fix/bug-hunt-2026-05-29`)
 
