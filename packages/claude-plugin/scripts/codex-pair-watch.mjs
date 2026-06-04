@@ -68,6 +68,7 @@ import {
   includePath,
   INFLIGHT_TTL_MIN_MS,
   isPaused,
+  logPath,
   PAIR_ROOT_DIR,
   releaseInflightLock,
   setCachedConcerns,
@@ -1106,6 +1107,7 @@ async function main() {
         surfaceThreshold: config.surfaceThreshold,
         cached: true,
         repeatedIgnoredCount: cachedRepeatedIgnoredCount,
+        logPath: logPath(markerDir),
       }),
     );
     process.exit(0);
@@ -1225,6 +1227,7 @@ async function main() {
       durationMs,
       surfaceThreshold: config.surfaceThreshold,
       repeatedIgnoredCount,
+      logPath: logPath(markerDir),
     }),
   );
 

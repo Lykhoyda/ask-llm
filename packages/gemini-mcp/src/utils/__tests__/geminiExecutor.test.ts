@@ -14,7 +14,7 @@ vi.mock("@ask-llm/shared", async (importOriginal) => {
   };
 });
 
-import { executeCommand, responseCache } from "@ask-llm/shared";
+import { executeCommand, Logger, responseCache } from "@ask-llm/shared";
 import { executeGeminiCLI } from "../geminiExecutor.js";
 
 const mockExecuteCommand = vi.mocked(executeCommand);
@@ -105,6 +105,21 @@ describe("executeGeminiCLI argument construction", () => {
 
   it("prompt flag value is CLI.FLAGS.PROMPT constant", () => {
     expect(CLI.FLAGS.PROMPT).toBe("-p");
+  });
+});
+
+describe("model pinning (#75)", () => {
+  it("always passes -m <model> (default Pro) so gemini never silently auto-resolves", async () => {
+    await executeGeminiCLI({ prompt: "x" });
+    const [, args] = mockExecuteCommand.mock.calls[0];
+    expect(args).toContain(CLI.FLAGS.MODEL);
+    expect(args[args.indexOf(CLI.FLAGS.MODEL) + 1]).toBe(MODELS.PRO);
+  });
+
+  it("pins an explicitly requested model with -m", async () => {
+    await executeGeminiCLI({ prompt: "x", model: "gemini-3.5-flash" });
+    const [, args] = mockExecuteCommand.mock.calls[0];
+    expect(args[args.indexOf(CLI.FLAGS.MODEL) + 1]).toBe("gemini-3.5-flash");
   });
 });
 
@@ -207,6 +222,31 @@ describe("executeGeminiCLI quota fallback", () => {
 
     expect(result.response).toContain("Flash response");
     expect(mockExecuteCommand).toHaveBeenCalledTimes(2);
+  });
+
+  // #131 — gemini-3.5-flash reached GA; the preview model is superseded.
+  it("defaults the Flash fallback to the GA gemini-3.5-flash model", () => {
+    expect(MODELS.FLASH).toBe("gemini-3.5-flash");
+  });
+
+  it("references the GA Flash model (not the preview) in the quota-exceeded message", () => {
+    expect(ERROR_MESSAGES.QUOTA_EXCEEDED_SHORT).toContain("gemini-3.5-flash");
+    expect(ERROR_MESSAGES.QUOTA_EXCEEDED_SHORT).not.toContain("gemini-3-flash-preview");
+  });
+
+  // #116 — verify the fallback still tags usage.fellBack so callers/aggregators
+  // can tell a Flash fallback apart from a primary Pro response.
+  it("marks usage.fellBack=true after a Flash fallback", async () => {
+    mockExecuteCommand.mockRejectedValueOnce(new Error("RESOURCE_EXHAUSTED")).mockResolvedValueOnce(
+      JSON.stringify({
+        response: "Flash response",
+        stats: { models: { "gemini-3.5-flash": { tokens: { input: 10, candidates: 5, cached: 0, thoughts: 0 } } } },
+      }),
+    );
+
+    const result = await executeGeminiCLI({ prompt: "hello" });
+
+    expect(result.usage?.fellBack).toBe(true);
   });
 });
 
@@ -514,6 +554,24 @@ describe("executeGeminiCLI session support", () => {
       CLI.FLAGS.PROMPT,
       "hello",
     ]);
+  });
+});
+
+describe("stream-json event coverage (#114/#116)", () => {
+  it("logs unrecognized stream-json event types instead of dropping them silently", async () => {
+    mockExecuteCommand.mockResolvedValueOnce(
+      [
+        '{"type":"init","session_id":"s1"}',
+        '{"type":"AgentExecutionStopped","reason":"policy"}',
+        '{"type":"message","role":"assistant","content":"hi"}',
+        '{"type":"result","stats":{}}',
+      ].join("\n"),
+    );
+
+    const result = await executeGeminiCLI({ prompt: "hello" });
+
+    expect(result.response).toContain("hi");
+    expect(vi.mocked(Logger.debug)).toHaveBeenCalledWith(expect.stringContaining("AgentExecutionStopped"));
   });
 });
 

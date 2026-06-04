@@ -179,7 +179,7 @@ curl http://localhost:11434/api/tags    # Ollama
   preview="Provider quota exhausted"
 >
 
-**The executor handles this automatically** — Gemini falls back from `gemini-3.1-pro-preview` to `gemini-3-flash-preview` per [ADR-044](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md), Codex falls back from `gpt-5.5` to `gpt-5.5-mini` per [ADR-028](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md) (model bumped in [ADR-067](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md)). You'll see `usage.fellBack: true` in the structured response.
+**The executor handles this automatically** — Gemini falls back from `gemini-3.1-pro-preview` to `gemini-3.5-flash` per [ADR-044](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md), Codex falls back from `gpt-5.5` to `gpt-5.5-mini` per [ADR-028](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md) (model bumped in [ADR-067](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md)). You'll see `usage.fellBack: true` in the structured response.
 
 If both Pro and Flash (or both gpt-5.5 and mini) hit quota, the call fails with both errors surfaced. Wait for the quota window to reset, or:
 

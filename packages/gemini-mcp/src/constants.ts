@@ -6,7 +6,7 @@ export const WORKSPACE_TRUST_PATTERNS = ["FatalUntrustedWorkspaceError", "not ru
 
 export const ERROR_MESSAGES = {
   QUOTA_EXCEEDED: "RESOURCE_EXHAUSTED",
-  QUOTA_EXCEEDED_SHORT: "⚠️ Gemini Pro daily quota exceeded. Please retry with model: 'gemini-3-flash-preview'",
+  QUOTA_EXCEEDED_SHORT: "⚠️ Gemini Pro daily quota exceeded. Please retry with model: 'gemini-3.5-flash'",
   TOOL_NOT_FOUND: "not found in registry",
   NO_PROMPT_PROVIDED:
     "Please provide a prompt for analysis. Use @ syntax to include files (e.g., '@largefile.js explain what this does') or ask general questions",
@@ -29,7 +29,7 @@ export const STATUS_MESSAGES = {
 
 export const MODELS = {
   PRO: process.env.ASK_GEMINI_MODEL || "gemini-3.1-pro-preview",
-  FLASH: process.env.ASK_GEMINI_FALLBACK_MODEL || "gemini-3-flash-preview",
+  FLASH: process.env.ASK_GEMINI_FALLBACK_MODEL || "gemini-3.5-flash",
 };
 
 export const CLI = {
@@ -50,7 +50,6 @@ export const CLI = {
     STREAM_JSON: "stream-json",
   },
   DEFAULTS: {
-    MODEL: "default",
     BOOLEAN_TRUE: "true",
     BOOLEAN_FALSE: "false",
   },

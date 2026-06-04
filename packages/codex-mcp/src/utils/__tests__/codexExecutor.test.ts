@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { CLI, MODELS } from "../../constants.js";
+import { CLI, CODEX_EDIT_SCHEMA, MODELS } from "../../constants.js";
 
 vi.mock("@ask-llm/shared", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@ask-llm/shared")>();
@@ -15,7 +15,7 @@ vi.mock("@ask-llm/shared", async (importOriginal) => {
 });
 
 import { executeCommand, responseCache } from "@ask-llm/shared";
-import { executeCodexCLI } from "../codexExecutor.js";
+import { executeCodexCLI, parseCodexEdits, processCodexEditOutput } from "../codexExecutor.js";
 
 const mockExecuteCommand = vi.mocked(executeCommand);
 
@@ -94,6 +94,53 @@ describe("executeCodexCLI argument construction", () => {
       undefined,
       expect.any(Number),
     );
+  });
+});
+
+describe("model pinning (#75)", () => {
+  it("always passes -m <model> so codex never silently auto-resolves the model", async () => {
+    await executeCodexCLI({ prompt: "x" });
+    const [, args] = mockExecuteCommand.mock.calls[0];
+    expect(args).toContain(CLI.FLAGS.MODEL);
+    expect(args[args.indexOf(CLI.FLAGS.MODEL) + 1]).toBe(MODELS.DEFAULT);
+  });
+});
+
+describe("includeDirs → --add-dir (#59)", () => {
+  it("maps includeDirs to one --add-dir flag per directory", async () => {
+    await executeCodexCLI({ prompt: "x", includeDirs: ["/repo/pkg-a", "/repo/pkg-b"] });
+    const [, args] = mockExecuteCommand.mock.calls[0];
+    expect(args).toContain("/repo/pkg-a");
+    expect(args).toContain("/repo/pkg-b");
+    expect(args.filter((a) => a === CLI.FLAGS.ADD_DIR)).toHaveLength(2);
+  });
+
+  it("preserves includeDirs in the fallback invocation", async () => {
+    mockExecuteCommand
+      .mockRejectedValueOnce(new Error("rate_limit_exceeded"))
+      .mockResolvedValueOnce('{"type":"item.completed","item":{"type":"agent_message","text":"OK"}}');
+
+    await executeCodexCLI({ prompt: "x", includeDirs: ["/repo/pkg-a"] });
+    const [, fallbackArgs] = mockExecuteCommand.mock.calls[1];
+    expect(fallbackArgs).toContain(CLI.FLAGS.ADD_DIR);
+    expect(fallbackArgs).toContain("/repo/pkg-a");
+  });
+
+  // includeDirs is context-affecting, so it must be part of the response cache
+  // key — otherwise the same prompt+model with different dirs serves a stale
+  // answer that ignored the new context. (Found in /multi-review by Codex.)
+  it("does not serve a cached response across different includeDirs", async () => {
+    mockExecuteCommand.mockResolvedValue('{"type":"item.completed","item":{"type":"agent_message","text":"R"}}');
+    await executeCodexCLI({ prompt: "same prompt", includeDirs: ["/a"] });
+    await executeCodexCLI({ prompt: "same prompt", includeDirs: ["/b"] });
+    expect(mockExecuteCommand).toHaveBeenCalledTimes(2);
+  });
+
+  it("still serves the cache when prompt, model, and includeDirs all match", async () => {
+    mockExecuteCommand.mockResolvedValue('{"type":"item.completed","item":{"type":"agent_message","text":"R"}}');
+    await executeCodexCLI({ prompt: "same prompt", includeDirs: ["/a"] });
+    await executeCodexCLI({ prompt: "same prompt", includeDirs: ["/a"] });
+    expect(mockExecuteCommand).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -245,6 +292,26 @@ describe("JSONL output parsing", () => {
     const result = await executeCodexCLI({ prompt: "test" });
     expect(result.response).toContain("Partial answer before error");
   });
+
+  // #114 §3.1 — turn.failed (codex rust-v0.131.0+) was unhandled: a failed turn
+  // with no agent_message silently returned the raw JSONL dump as the response.
+  it("throws on turn.failed events, extracting error.message", async () => {
+    mockExecuteCommand.mockResolvedValue(
+      [
+        '{"type":"thread.started","thread_id":"t1"}',
+        '{"type":"turn.failed","error":{"message":"context deadline exceeded"}}',
+      ].join("\n"),
+    );
+
+    await expect(executeCodexCLI({ prompt: "test" })).rejects.toThrow("context deadline exceeded");
+  });
+
+  // #114 §3.2 — error event surfaced the JSON envelope instead of the message field.
+  it("surfaces the error event's message field, not the JSON envelope", async () => {
+    mockExecuteCommand.mockResolvedValue('{"type":"error","message":"You are out of quota"}');
+
+    await expect(executeCodexCLI({ prompt: "test" })).rejects.toThrow("Codex error event: You are out of quota");
+  });
 });
 
 describe("quota fallback", () => {
@@ -297,11 +364,58 @@ describe("quota fallback", () => {
     );
   });
 
+  // #102 §3.2 — point users at `codex doctor` when the whole fallback chain fails.
+  it("suggests `codex doctor` when both models fail", async () => {
+    mockExecuteCommand
+      .mockRejectedValueOnce(new Error("rate_limit_exceeded"))
+      .mockRejectedValueOnce(new Error("still failing"));
+
+    await expect(executeCodexCLI({ prompt: "test" })).rejects.toThrow(/codex doctor/);
+  });
+
   it("re-throws non-quota errors without retry", async () => {
     mockExecuteCommand.mockRejectedValueOnce(new Error("ENOENT: codex not found"));
 
     await expect(executeCodexCLI({ prompt: "test" })).rejects.toThrow("ENOENT: codex not found");
     expect(mockExecuteCommand).toHaveBeenCalledTimes(1);
+  });
+
+  // #114 — a quota signal delivered via turn.failed (rather than a thrown CLI
+  // error) must still trigger the fallback, not return the raw JSONL dump.
+  it("falls back when a turn.failed event carries a quota signal", async () => {
+    mockExecuteCommand
+      .mockResolvedValueOnce('{"type":"turn.failed","error":{"message":"rate_limit_exceeded: usage cap hit"}}')
+      .mockResolvedValueOnce('{"type":"item.completed","item":{"type":"agent_message","text":"Recovered"}}');
+
+    const result = await executeCodexCLI({ prompt: "test" });
+    expect(result.response).toContain("Recovered");
+    expect(mockExecuteCommand).toHaveBeenCalledTimes(2);
+    const [, fallbackArgs] = mockExecuteCommand.mock.calls[1];
+    expect(fallbackArgs).toContain(MODELS.FALLBACK);
+  });
+
+  // #127 — codex 0.134 PR #24114 added workspace credit/spend-cap usage-limit
+  // messages. They must trigger the same fallback as rate_limit_exceeded.
+  it("falls back on a codex 0.134 workspace credit-depletion error", async () => {
+    mockExecuteCommand
+      .mockRejectedValueOnce(new Error("Your workspace is out of credits. Add credits to continue."))
+      .mockResolvedValueOnce('{"type":"item.completed","item":{"type":"agent_message","text":"OK"}}');
+
+    const result = await executeCodexCLI({ prompt: "test" });
+    expect(result.response).toContain("OK");
+    expect(mockExecuteCommand).toHaveBeenCalledTimes(2);
+  });
+
+  it("falls back on a codex 0.134 workspace spend-cap error", async () => {
+    mockExecuteCommand
+      .mockRejectedValueOnce(
+        new Error("You hit your spend cap set in your workspace. Increase your spend cap to continue."),
+      )
+      .mockResolvedValueOnce('{"type":"item.completed","item":{"type":"agent_message","text":"OK"}}');
+
+    const result = await executeCodexCLI({ prompt: "test" });
+    expect(result.response).toContain("OK");
+    expect(mockExecuteCommand).toHaveBeenCalledTimes(2);
   });
 });
 
@@ -498,5 +612,105 @@ describe("executeCodexCLI per-provider timeout (#45)", () => {
     // the param is silent in production until someone hits a quota error.
     expect(mockExecuteCommand.mock.calls[0][5]).toBe(900_000);
     expect(mockExecuteCommand.mock.calls[1][5]).toBe(900_000);
+  });
+});
+
+describe("ask-codex-edit / editMode (#102)", () => {
+  it("parseCodexEdits maps schema JSON to ChangeModeEdit[] with computed line ranges", () => {
+    const json = JSON.stringify({
+      edits: [
+        { file: "src/a.ts", startLine: 10, oldCode: "const x = 1;", newCode: "const x = 2;", description: "bump" },
+        { file: "src/b.ts", oldCode: "foo()\nbar()", newCode: "baz()" },
+      ],
+    });
+    const edits = parseCodexEdits(json);
+    expect(edits).toHaveLength(2);
+    expect(edits[0]).toMatchObject({
+      filename: "src/a.ts",
+      oldStartLine: 10,
+      oldCode: "const x = 1;",
+      newCode: "const x = 2;",
+    });
+    expect(edits[0].oldEndLine).toBe(10);
+    // startLine defaults to 1 when codex omits it
+    expect(edits[1].oldStartLine).toBe(1);
+    // multi-line oldCode → end line spans the lines
+    expect(edits[1].oldEndLine).toBe(2);
+  });
+
+  it("parseCodexEdits returns [] for an empty edit set", () => {
+    expect(parseCodexEdits(JSON.stringify({ edits: [] }))).toEqual([]);
+  });
+
+  it("processCodexEditOutput formats edits as applyable CHANGEMODE output", () => {
+    const json = JSON.stringify({ edits: [{ file: "src/a.ts", startLine: 1, oldCode: "a", newCode: "b" }] });
+    const out = processCodexEditOutput(json);
+    expect(out).toContain("src/a.ts");
+    expect(out).toMatch(/Replace this exact text|CHANGEMODE/);
+  });
+
+  it("processCodexEditOutput returns a friendly message when codex proposes no edits", () => {
+    expect(processCodexEditOutput(JSON.stringify({ edits: [] }))).toMatch(/no edits/i);
+  });
+
+  it("editMode uses --output-schema + read-only sandbox (never workspace-write)", async () => {
+    mockExecuteCommand.mockResolvedValue(
+      '{"type":"item.completed","item":{"type":"agent_message","text":"{\\"edits\\":[]}"}}',
+    );
+    await executeCodexCLI({ prompt: "fix it", editMode: true });
+    const [, args] = mockExecuteCommand.mock.calls[0];
+    expect(args).toContain(CLI.FLAGS.OUTPUT_SCHEMA);
+    expect(args).toContain(CLI.FLAGS.SANDBOX_READ_ONLY);
+    expect(args).not.toContain(CLI.FLAGS.SANDBOX_WORKSPACE_WRITE);
+  });
+
+  it("editMode still falls back to the fallback model on quota errors", async () => {
+    mockExecuteCommand
+      .mockRejectedValueOnce(new Error("rate_limit_exceeded"))
+      .mockResolvedValueOnce('{"type":"item.completed","item":{"type":"agent_message","text":"{\\"edits\\":[]}"}}');
+    await executeCodexCLI({ prompt: "fix it", editMode: true });
+    expect(mockExecuteCommand).toHaveBeenCalledTimes(2);
+    const [, fallbackArgs] = mockExecuteCommand.mock.calls[1];
+    expect(fallbackArgs).toContain(MODELS.FALLBACK);
+    expect(fallbackArgs).toContain(CLI.FLAGS.OUTPUT_SCHEMA);
+  });
+
+  // /multi-review (Codex, 95): the executor appends "[Codex stats: ...]" to the
+  // agent_message, so editMode JSON arrives with a trailing footer — parseCodexEdits
+  // must still recover the edits (extract the JSON object), not return "no edits".
+  it("parseCodexEdits extracts the JSON object even with a trailing stats footer", () => {
+    const withFooter =
+      '{"edits":[{"file":"a.ts","startLine":1,"oldCode":"a","newCode":"b"}]}\n\n[Codex stats: 100 input tokens]';
+    const edits = parseCodexEdits(withFooter);
+    expect(edits).toHaveLength(1);
+    expect(edits[0].filename).toBe("a.ts");
+  });
+
+  // /multi-review (Codex, 85): schema JSON carries exact bytes, so trimming
+  // oldCode/newCode would corrupt exact-match search/replace.
+  it("parseCodexEdits preserves exact bytes (no trimming) for exact-match fidelity", () => {
+    const json = JSON.stringify({ edits: [{ file: "a.ts", oldCode: "x  ", newCode: "y\n" }] });
+    const edits = parseCodexEdits(json);
+    expect(edits[0].oldCode).toBe("x  ");
+    expect(edits[0].newCode).toBe("y\n");
+  });
+
+  // /multi-review (Codex, 80): the cache marker must be unambiguous — a literal
+  // includeDir of "edit" must not collide with edit-mode's cache partition.
+  it("editMode and a literal 'edit' includeDir do not share a cache entry", async () => {
+    mockExecuteCommand.mockResolvedValue(
+      '{"type":"item.completed","item":{"type":"agent_message","text":"{\\"edits\\":[]}"}}',
+    );
+    await executeCodexCLI({ prompt: "p", editMode: true });
+    await executeCodexCLI({ prompt: "p", includeDirs: ["edit"] });
+    expect(mockExecuteCommand).toHaveBeenCalledTimes(2);
+  });
+
+  // Live smoke caught this: OpenAI strict structured-output (response_format)
+  // rejects the schema unless `required` lists EVERY property (optionals are
+  // nullable). Guard the invariant so it can't regress without a live call.
+  it("CODEX_EDIT_SCHEMA lists every edit property in required (OpenAI strict mode)", () => {
+    const item = CODEX_EDIT_SCHEMA.properties.edits.items;
+    expect([...item.required].sort()).toEqual(Object.keys(item.properties).sort());
   });
 });

@@ -215,6 +215,31 @@ describe("scripts/codex-pair-watch.mjs — structural invariants (ADR-077)", () 
     expect(warnMsg).toMatch(/^codex-pair WARN:/);
   });
 
+  // #96 Idea 2 — surface a fast pointer to the durable log in the verdict header,
+  // for both concerns and clean (none) verdicts. Backward-compatible: omitted = no pointer.
+  it("buildVerdictMessage appends a log pointer when logPath is provided (#96 Idea 2)", async () => {
+    const { buildVerdictMessage } = await import("../../scripts/lib/parser.mjs");
+    const base = {
+      filePath: "/x.ts",
+      concerns: { high: ["H"], med: [], low: [] },
+      fellBack: false,
+      durationMs: 1000,
+      surfaceThreshold: "med",
+      cached: false,
+    };
+    expect(buildVerdictMessage({ ...base, logPath: "/repo/.codex-pair/log.jsonl" })).toMatch(
+      /→ see \/repo\/\.codex-pair\/log\.jsonl/,
+    );
+    expect(
+      buildVerdictMessage({
+        ...base,
+        concerns: { high: [], med: [], low: [] },
+        logPath: "/repo/.codex-pair/log.jsonl",
+      }),
+    ).toMatch(/→ see \/repo\/\.codex-pair\/log\.jsonl/);
+    expect(buildVerdictMessage(base)).not.toMatch(/→ see/);
+  });
+
   // Phase 2 item #5: YAML frontmatter config + threshold-aware surfacing.
   // ADR-088 moves the threshold constants to lib/parser.mjs.
   it("declares valid surface thresholds (high|med|low) with med as the default (ADR-088)", async () => {

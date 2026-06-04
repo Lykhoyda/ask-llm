@@ -48,16 +48,20 @@ export function buildVerdictMessage({
   surfaceThreshold,
   cached,
   repeatedIgnoredCount = 0,
+  logPath,
 }) {
   const threshold = VALID_THRESHOLDS.has(surfaceThreshold) ? surfaceThreshold : DEFAULT_SURFACE_THRESHOLD;
   const total = concerns.high.length + concerns.med.length + concerns.low.length;
   const flag = fellBack ? " [fallback model]" : "";
   const cachedTag = cached ? " [cached]" : "";
+  // #96 Idea 2: a fast pointer to the durable log (for LOWs kept out of the
+  // message body, and to confirm "codex did look") — appended to the header line.
+  const logPointer = logPath ? ` → see ${logPath}` : "";
   if (total === 0) {
-    return `codex-pair ${VERDICT_PREFIXES.none}${flag}${cachedTag}: ${filePath} — no concerns (${formatDuration(durationMs)})`;
+    return `codex-pair ${VERDICT_PREFIXES.none}${flag}${cachedTag}: ${filePath} — no concerns (${formatDuration(durationMs)})${logPointer}`;
   }
   const counts = `${concerns.high.length}H / ${concerns.med.length}M / ${concerns.low.length}L`;
-  const header = `codex-pair ${VERDICT_PREFIXES.concerns}${flag}${cachedTag}: ${filePath} — ${counts} (${formatDuration(durationMs)})`;
+  const header = `codex-pair ${VERDICT_PREFIXES.concerns}${flag}${cachedTag}: ${filePath} — ${counts} (${formatDuration(durationMs)})${logPointer}`;
   const details = [];
   for (const c of concerns.high) details.push(`[HIGH]\n${c}`);
   if (threshold === "med" || threshold === "low") {

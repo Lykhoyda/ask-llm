@@ -41,7 +41,7 @@ gemini login
 ## Models
 
 - **Default:** `gemini-3.1-pro-preview` (latest, highest capability)
-- **Fallback:** `gemini-3-flash-preview` (automatic on quota errors per [ADR-044](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md))
+- **Fallback:** `gemini-3.5-flash` (automatic on quota errors per [ADR-044](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md))
 
 ## Key Features
 
