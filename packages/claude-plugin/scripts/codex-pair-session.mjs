@@ -12,6 +12,7 @@ import { access } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { bootstrapBroker, clearStaleBrokerState, teardownBroker } from "./lib/broker-lifecycle.mjs";
+import { clearAllDebounceState } from "./lib/debounce-state.mjs";
 import { CONTEXT_FILENAME, PAIR_ROOT_DIR } from "./lib/state.mjs";
 
 const MARKER_FILE = join(PAIR_ROOT_DIR, CONTEXT_FILENAME);
@@ -89,6 +90,22 @@ async function main() {
   const event = payload?.hook_event_name;
   if (event !== "SessionStart" && event !== "SessionEnd") {
     process.exit(0);
+  }
+
+  // Edit-debounce cleanup runs on SessionEnd only (un-gated by the broker flag,
+  // since debounce is not broker-gated): a sleeping worker wakes to a missing
+  // record and self-cancels. NOT on SessionStart — that would wipe a verdict
+  // queued just before a new session begins; crash-orphaned state is reclaimed
+  // by the TTL sweep (sweepStaleDebounce) instead.
+  if (event === "SessionEnd") {
+    const dbMarkerDir = await findMarkerUp(process.cwd());
+    if (dbMarkerDir) {
+      try {
+        clearAllDebounceState(dbMarkerDir);
+      } catch {
+        // best-effort (ADR-077)
+      }
+    }
   }
 
   // Broker is disabled until ASK_CODEX_BROKER=1. Production behavior

@@ -7,6 +7,12 @@ import { PLUGIN_ROOT, readFile } from "./_helpers.js";
 
 const HOOK_PATH = path.join(PLUGIN_ROOT, "scripts", "codex-pair-watch.mjs");
 
+// Debounce ships ON by default (debounceMs=15000). These behavioral tests were
+// written for the synchronous review path, so pin debounce OFF process-wide;
+// spawned hooks inherit process.env. Debounce-specific tests opt back in via
+// marker frontmatter (frontmatter > env > default), which overrides this.
+process.env.ASK_CODEX_DEBOUNCE_MS = "0";
+
 describe("scripts/codex-pair-watch.mjs — structural invariants (ADR-077)", () => {
   const script = readFile("scripts/codex-pair-watch.mjs");
   // ADR-088: state helpers now live in lib/state.mjs. Tests that previously
@@ -106,6 +112,40 @@ describe("scripts/codex-pair-watch.mjs — structural invariants (ADR-077)", () 
 
   it("watches Edit, Write, and MultiEdit tools only", () => {
     expect(script).toMatch(/WATCHED_TOOLS.*Edit.*Write.*MultiEdit/s);
+  });
+
+  it("resolveConfig exposes debounceMs (default 15000) and debounceMaxMs (default 60000)", () => {
+    expect(script).toMatch(/debounceMs:/);
+    expect(script).toMatch(/debounceMaxMs:/);
+    expect(script).toMatch(/DEFAULT_DEBOUNCE_MS/);
+    expect(script).toMatch(/DEFAULT_DEBOUNCE_MAX_MS/);
+  });
+
+  it("debounceMs accepts 0 (>= 0 guard) to restore synchronous review", () => {
+    // The frontmatter guard must allow 0 (disable), unlike timeoutMs (> 0).
+    expect(script).toMatch(/typeof\s+fm\.debounceMs\s*===\s*"number"\s*&&\s*fm\.debounceMs\s*>=\s*0/);
+  });
+
+  it("dispatches to a detached debounce worker when debounceMs > 0", () => {
+    expect(script).toMatch(/codex-pair-debounce-worker\.mjs/);
+    expect(script).toMatch(/detached:\s*true/);
+    expect(script).toMatch(/\.unref\(\)/);
+  });
+
+  it("drains pending verdicts and skips both drain+dispatch under force-sync", () => {
+    expect(script).toMatch(/drainPending\(/);
+    // The effective window collapses to 0 under force-sync (no drain, no dispatch).
+    expect(script).toMatch(/CODEX_PAIR_FORCE_SYNC[^\n]*\?\s*0\s*:/);
+  });
+
+  it("clears debounce state on SessionEnd only (not SessionStart), un-gated by the broker flag", () => {
+    const sessionScript = readFile("scripts/codex-pair-session.mjs");
+    expect(sessionScript).toMatch(/clearAllDebounceState/);
+    // Must be SessionEnd-gated — clearing on SessionStart would wipe a verdict
+    // queued just before a new session begins (claude-review finding on #144).
+    expect(sessionScript).toMatch(/event === "SessionEnd"[\s\S]{0,240}clearAllDebounceState/);
+    // The cleanup must run before (and independent of) the ASK_CODEX_BROKER gate.
+    expect(sessionScript).toMatch(/clearAllDebounceState[\s\S]{0,400}ASK_CODEX_BROKER/);
   });
 
   // Phase 1 item #1: log rotation (now in lib/state.mjs per ADR-088)
@@ -793,6 +833,32 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
     expect(result.status).toBe(0);
   });
 
+  it("debounce ON: records the edit + spawns a worker, emits no inline verdict", () => {
+    // Short window + PATH isolation so the detached worker wakes fast and its
+    // codex spawn ENOENTs instantly — no multi-second orphan after afterEach.
+    // The assertions (record written, no inline verdict) are synchronous in the
+    // hook, so the window value does not affect them.
+    setupMarker(tempDir, "---\ndebounceMs: 300\n---\n# ctx");
+    const target = path.join(tempDir, "x.ts");
+    fs.writeFileSync(target, "export const a = 1;\n");
+    const payload = JSON.stringify({
+      hook_event_name: "PostToolUse",
+      tool_name: "Edit",
+      tool_input: { file_path: target },
+      session_id: "sess-1",
+    });
+    // PATH-isolate so even if a worker mis-fires it cannot reach real codex.
+    const isolatedPath = path.dirname(process.execPath);
+    const result = runHook(payload, tempDir, { PATH: isolatedPath });
+    expect(result.status).toBe(0);
+    // No inline verdict on stdout (review is deferred to the worker).
+    expect(result.stdout).not.toMatch(/systemMessage/);
+    // A per-file debounce record was written.
+    const debounceDir = path.join(tempDir, ".codex-pair/state/debounce");
+    expect(fs.existsSync(debounceDir)).toBe(true);
+    expect(fs.readdirSync(debounceDir).filter((f) => f.endsWith(".json")).length).toBe(1);
+  });
+
   it("exits 0 silently for non-watched tools (Read, Bash, etc.)", () => {
     const payload = JSON.stringify({
       tool_name: "Read",
@@ -1414,6 +1480,66 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
     const hookOutput = JSON.parse(result.stdout.trim());
     expect(hookOutput.systemMessage).toMatch(/^codex-pair OK:/);
     expect(hookOutput.systemMessage).toMatch(/no concerns/);
+  });
+
+  it("debounceMs:0 → synchronous review surfaces inline, no worker, no pending", () => {
+    const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "cp-sync-"));
+    fs.mkdirSync(path.join(cwd, ".codex-pair"), { recursive: true });
+    fs.writeFileSync(path.join(cwd, ".codex-pair/context.md"), "---\ndebounceMs: 0\n---\n# ctx");
+    const target = path.join(cwd, "x.ts");
+    fs.writeFileSync(target, "export const a = 1;\n");
+    const payload = JSON.stringify({
+      hook_event_name: "PostToolUse",
+      tool_name: "Edit",
+      tool_input: { file_path: target },
+      session_id: "s",
+    });
+    const result = spawnSync("node", [HOOK_PATH], {
+      input: payload,
+      cwd,
+      encoding: "utf-8",
+      timeout: 20_000,
+      env: { ...process.env, PATH: `${FIXTURE_DIR}:${process.env.PATH}`, FAKE_CODEX_SCENARIO: "none" },
+    });
+    expect(result.status).toBe(0);
+    expect(result.stdout).toMatch(/systemMessage/); // inline verdict (v0.7.0 behavior preserved)
+    expect(fs.existsSync(path.join(cwd, ".codex-pair/state/debounce"))).toBe(false);
+    expect(fs.existsSync(path.join(cwd, ".codex-pair/state/pending"))).toBe(false);
+    fs.rmSync(cwd, { recursive: true, force: true });
+  });
+
+  it("debounce: a queued pending verdict surfaces on the next edit hook", () => {
+    const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "cp-drain-"));
+    fs.mkdirSync(path.join(cwd, ".codex-pair/state/pending"), { recursive: true });
+    fs.writeFileSync(path.join(cwd, ".codex-pair/context.md"), "---\ndebounceMs: 15000\n---\n# ctx");
+    const target = path.join(cwd, "y.ts");
+    fs.writeFileSync(target, "export const b = 2;\n");
+    // Pre-seed a pending verdict (drainPending reads any *.json in pending/,
+    // so the filename need not match the file hash).
+    fs.writeFileSync(
+      path.join(cwd, ".codex-pair/state/pending", "seed.json"),
+      JSON.stringify({ file: target, message: "[codex-pair] reviewed y.ts — 1H/0M/0L" }),
+    );
+    const payload = JSON.stringify({
+      hook_event_name: "PostToolUse",
+      tool_name: "Edit",
+      tool_input: { file_path: target },
+      session_id: "s",
+    });
+    // PATH-isolated: we only care that the DRAIN emits; the worker it spawns
+    // (15s settle) wakes after this dir is gone and exits without reviewing.
+    const result = spawnSync("node", [HOOK_PATH], {
+      input: payload,
+      cwd,
+      encoding: "utf-8",
+      timeout: 10_000,
+      env: { ...process.env, PATH: path.dirname(process.execPath) },
+    });
+    expect(result.status).toBe(0);
+    expect(result.stdout).toMatch(/reviewed y\.ts — 1H\/0M\/0L/);
+    // Pending was cleared (surfaced exactly once).
+    expect(fs.readdirSync(path.join(cwd, ".codex-pair/state/pending")).filter((f) => f.endsWith(".json"))).toEqual([]);
+    fs.rmSync(cwd, { recursive: true, force: true });
   });
 
   it("fake-codex 'concerns-labeled' scenario → verdict:concerns with HIGH/MED/LOW counts", () => {
