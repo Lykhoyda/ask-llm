@@ -7,6 +7,12 @@ import { PLUGIN_ROOT, readFile } from "./_helpers.js";
 
 const HOOK_PATH = path.join(PLUGIN_ROOT, "scripts", "codex-pair-watch.mjs");
 
+// Debounce ships ON by default (debounceMs=15000). These behavioral tests were
+// written for the synchronous review path, so pin debounce OFF process-wide;
+// spawned hooks inherit process.env. Debounce-specific tests opt back in via
+// marker frontmatter (frontmatter > env > default), which overrides this.
+process.env.ASK_CODEX_DEBOUNCE_MS = "0";
+
 describe("scripts/codex-pair-watch.mjs — structural invariants (ADR-077)", () => {
   const script = readFile("scripts/codex-pair-watch.mjs");
   // ADR-088: state helpers now live in lib/state.mjs. Tests that previously
@@ -118,6 +124,18 @@ describe("scripts/codex-pair-watch.mjs — structural invariants (ADR-077)", () 
   it("debounceMs accepts 0 (>= 0 guard) to restore synchronous review", () => {
     // The frontmatter guard must allow 0 (disable), unlike timeoutMs (> 0).
     expect(script).toMatch(/fm\.debounceMs\s*===\s*"number"\s*&&\s*fm\.debounceMs\s*>=\s*0/);
+  });
+
+  it("dispatches to a detached debounce worker when debounceMs > 0", () => {
+    expect(script).toMatch(/codex-pair-debounce-worker\.mjs/);
+    expect(script).toMatch(/detached:\s*true/);
+    expect(script).toMatch(/\.unref\(\)/);
+  });
+
+  it("drains pending verdicts and skips both drain+dispatch under force-sync", () => {
+    expect(script).toMatch(/drainPending\(/);
+    // The effective window collapses to 0 under force-sync (no drain, no dispatch).
+    expect(script).toMatch(/CODEX_PAIR_FORCE_SYNC[^\n]*\?\s*0\s*:/);
   });
 
   // Phase 1 item #1: log rotation (now in lib/state.mjs per ADR-088)
@@ -778,6 +796,32 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
   it("exits 0 on malformed JSON (must not throw)", () => {
     const result = runHook("not valid json", tempDir);
     expect(result.status).toBe(0);
+  });
+
+  it("debounce ON: records the edit + spawns a worker, emits no inline verdict", () => {
+    // Short window + PATH isolation so the detached worker wakes fast and its
+    // codex spawn ENOENTs instantly — no multi-second orphan after afterEach.
+    // The assertions (record written, no inline verdict) are synchronous in the
+    // hook, so the window value does not affect them.
+    setupMarker(tempDir, "---\ndebounceMs: 300\n---\n# ctx");
+    const target = path.join(tempDir, "x.ts");
+    fs.writeFileSync(target, "export const a = 1;\n");
+    const payload = JSON.stringify({
+      hook_event_name: "PostToolUse",
+      tool_name: "Edit",
+      tool_input: { file_path: target },
+      session_id: "sess-1",
+    });
+    // PATH-isolate so even if a worker mis-fires it cannot reach real codex.
+    const isolatedPath = path.dirname(process.execPath);
+    const result = runHook(payload, tempDir, { PATH: isolatedPath });
+    expect(result.status).toBe(0);
+    // No inline verdict on stdout (review is deferred to the worker).
+    expect(result.stdout).not.toMatch(/systemMessage/);
+    // A per-file debounce record was written.
+    const debounceDir = path.join(tempDir, ".codex-pair/state/debounce");
+    expect(fs.existsSync(debounceDir)).toBe(true);
+    expect(fs.readdirSync(debounceDir).filter((f) => f.endsWith(".json")).length).toBe(1);
   });
 
   it("exits 0 silently for non-watched tools (Read, Bash, etc.)", () => {

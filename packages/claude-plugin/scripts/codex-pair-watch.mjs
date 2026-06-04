@@ -40,7 +40,13 @@ import { IS_WINDOWS, terminateProcessTree } from "./lib/process.mjs";
 // fire, but isBrokerEnabled returns false fast when ASK_CODEX_BROKER
 // isn't set, so the per-edit fast path is unaffected.
 import { initializeBroker, isBrokerEnabled, readBrokerState, submitReview } from "./lib/broker.mjs";
-import { DEFAULT_DEBOUNCE_MS, DEFAULT_DEBOUNCE_MAX_MS } from "./lib/debounce-state.mjs";
+import {
+  DEFAULT_DEBOUNCE_MS,
+  DEFAULT_DEBOUNCE_MAX_MS,
+  bumpEditRecord,
+  drainPending,
+  sweepStaleDebounce,
+} from "./lib/debounce-state.mjs";
 import { buildReviewPrompt } from "./lib/prompt.mjs";
 import {
   buildVerdictMessage,
@@ -799,6 +805,33 @@ async function runCodexWithFallback({ prompt, timeoutMs, model, fallbackModel, m
   }
 }
 
+// Spawn the detached edit-debounce worker (design 2026-06-03). Mirrors the
+// detached+unref pattern from spawnBroker. Returns true on success; the caller
+// falls back to a synchronous review when this returns false.
+function spawnDebounceWorker({ markerDir, filePath, toolName, generation, settleMs, maxMs, sessionId }) {
+  try {
+    const worker = spawn(process.execPath, [join(SCRIPT_DIR, "codex-pair-debounce-worker.mjs")], {
+      detached: true,
+      stdio: "ignore",
+      env: {
+        ...process.env,
+        CP_MARKER_DIR: markerDir,
+        CP_FILE: filePath,
+        CP_TOOL: toolName,
+        CP_GENERATION: String(generation),
+        CP_SETTLE_MS: String(settleMs),
+        CP_MAX_MS: String(maxMs),
+        CP_SESSION_ID: sessionId ?? "",
+      },
+    });
+    worker.on("error", () => {});
+    worker.unref();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 async function main() {
   if (process.env.CODEX_PAIR_DISABLED === "1") process.exit(0);
 
@@ -930,6 +963,36 @@ async function main() {
     });
   }
   const config = resolveConfig(frontmatter);
+
+  // Edit-debounce (design 2026-06-03, #96). When enabled, this edit is recorded
+  // and a detached worker reviews the SETTLED file after the window — the hook
+  // does NOT review inline. force-sync (set by the worker's re-invocation)
+  // collapses the window to 0 so the synchronous path below runs verbatim.
+  const effectiveDebounceMs = process.env.CODEX_PAIR_FORCE_SYNC === "1" ? 0 : config.debounceMs;
+  if (effectiveDebounceMs > 0) {
+    // Surface any verdict a prior worker queued (the worker has no stdout to
+    // Claude). This is the ONLY systemMessage this invocation emits.
+    const pendingMessages = drainPending(markerDir);
+    if (pendingMessages.length > 0) {
+      await emitSystemMessage(pendingMessages.join("\n\n"));
+    }
+    const record = bumpEditRecord(markerDir, filePath, {
+      sessionId: payload?.session_id,
+      now: Date.now(),
+    });
+    if (Math.random() < 0.05) sweepStaleDebounce(markerDir, config.debounceMaxMs);
+    const spawned = spawnDebounceWorker({
+      markerDir,
+      filePath,
+      toolName,
+      generation: record.generation,
+      settleMs: effectiveDebounceMs,
+      maxMs: config.debounceMaxMs,
+      sessionId: payload?.session_id,
+    });
+    if (spawned) process.exit(0);
+    // Worker spawn failed → fall through to a synchronous review (safety net).
+  }
 
   let fileContent;
   try {
