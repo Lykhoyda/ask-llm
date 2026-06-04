@@ -9,7 +9,7 @@ This implements the deferred enhancement tracked by **ADR-111** (debounce belong
 ## Decisions (settled in brainstorming)
 
 1. **Detached delayed-worker — no daemon.** Each edit hook spawns a cheap detached "sleeper" worker; only the *last* burst-edit's worker survives a supersede check and runs the review. Chosen over a plugin-owned coordinator daemon (too much new infra for an experimental, off-by-default broker) and over lazy next-edit coalescing (trailing edit never reviewed until an unrelated edit). Keeps debounce on the **default path** — it does **not** depend on `ASK_CODEX_BROKER=1`.
-2. **Surface the deferred verdict on the next edit hook only.** The worker fires after the triggering hook has exited, so it has no stdout channel to Claude. It enqueues the verdict; the next `Edit|Write|MultiEdit` hook drains and emits it via `emitSystemMessage`. Reuses the existing "surface on next edit" precedent (the cache-hit path at `codex-pair-watch.mjs:1031`). No new hook events.
+2. **Surface the deferred verdict on the next PostToolUse edit drain, with a `UserPromptSubmit` trailing drain.** The worker fires after the triggering hook has exited, so it has no stdout channel to Claude. It enqueues the verdict; the next `Edit|Write|MultiEdit` hook drains and emits it via `emitSystemMessage`. **Plan red-team refinement (2026-06-04):** because a single edit followed by no further edit would otherwise leave its (paid) review unsurfaced, a `UserPromptSubmit` hook also drains pending verdicts at the start of the next user turn — by which point the ~15s worker review has completed. `UserPromptSubmit` was chosen over `Stop` (fires before the review finishes) and avoids ADR-048's removed-Stop-hook baggage. Drains are idempotent (`drainPending` clears as it reads), so the two paths never double-surface.
 3. **ON by default — 15s settle / 60s cap, configurable.** `debounceMs` defaults to `15000`, `debounceMaxMs` to `60000`, both overridable via marker frontmatter / env (same `frontmatter > env > default` precedence as `timeoutMs`). **`debounceMs <= 0` restores the v0.7.0 synchronous behavior** verbatim — the escape hatch and the regression anchor.
 4. **Generation-counter supersede token.** A monotonically increasing per-file `generation` (not a `lastEditAt` timestamp) — collision-proof for same-millisecond `MultiEdit` bursts.
 5. **Per-file JSON state files** under `.codex-pair/` (not a shared JSONL) — concurrent workers/hooks for *different* files never contend, and claim/cancel is a single atomic unlink.
@@ -82,7 +82,7 @@ When a worker decides to proceed (latest-gen **or** cap), it first atomically ad
 
 - **Worker spawn fails** → hook performs a synchronous inline review for that edit (safety net).
 - **Worker crashes mid-sleep / session ends** → SessionEnd unlinked its record; on wake the worker sees a missing/superseded record → exits. Records older than `maxMs + buffer` are swept.
-- **Pending verdict never drained** (no further edits before session end) → verdict is in `.codex-pair-log.jsonl` (audit trail) but not surfaced to Claude. This is the accepted cost of "drain on next edit only" — documented, not a bug.
+- **Pending verdict drained late** → surfaced on whichever fires first: the next PostToolUse edit drain or the `UserPromptSubmit` drain at the start of the next user turn. Only if the session ends with no further edit *and* no further prompt does a verdict stay log-only (audit trail) — a genuinely terminal turn, where surfacing has no consumer anyway.
 
 ## Testing (TDD + live smoke)
 
@@ -101,7 +101,7 @@ When a worker decides to proceed (latest-gen **or** cap), it first atomically ad
 
 - Cross-file batching / a single combined review of several files (per-file debounce only).
 - A long-lived coordinator daemon (ADR-111's "true broker" path — explicitly deferred).
-- Surfacing a trailing verdict via SessionEnd or a broader hook (decision 2 keeps surfacing on the next edit only).
+- Surfacing a trailing verdict via a `Stop` hook (the `UserPromptSubmit` drain in decision 2 covers the trailing case with better timing).
 
 ## Config reference
 
