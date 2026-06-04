@@ -76,6 +76,12 @@ export function decideReview({ record, myGeneration, now, maxMs }) {
 }
 
 // Advance reviewedGen so the next edit starts a fresh burst. Best-effort.
+// Note: a cap-triggered worker (generation N < the current latest M) advances
+// reviewedGen to N, not M — so the latest-gen worker still reviews the SETTLED
+// state once editing stops. A long continuous burst therefore yields a mid-burst
+// cap review (state at N) plus a final settled review (state at M): two reviews
+// of two DIFFERENT states, which is intended. The per-file inflight lock bounds
+// the worst case to one in-flight Codex call at a time (extra wakers coalesce).
 export function markReviewed(markerDir, file, generation) {
   const p = debounceRecordPath(markerDir, file);
   let rec;

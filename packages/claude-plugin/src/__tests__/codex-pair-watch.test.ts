@@ -138,11 +138,14 @@ describe("scripts/codex-pair-watch.mjs — structural invariants (ADR-077)", () 
     expect(script).toMatch(/CODEX_PAIR_FORCE_SYNC[^\n]*\?\s*0\s*:/);
   });
 
-  it("SessionEnd clears debounce state regardless of the broker flag", () => {
+  it("clears debounce state on SessionEnd only (not SessionStart), un-gated by the broker flag", () => {
     const sessionScript = readFile("scripts/codex-pair-session.mjs");
     expect(sessionScript).toMatch(/clearAllDebounceState/);
-    // The debounce cleanup must run even when ASK_CODEX_BROKER !== "1".
-    expect(sessionScript).toMatch(/SessionEnd/);
+    // Must be SessionEnd-gated — clearing on SessionStart would wipe a verdict
+    // queued just before a new session begins (claude-review finding on #144).
+    expect(sessionScript).toMatch(/event === "SessionEnd"[\s\S]{0,240}clearAllDebounceState/);
+    // The cleanup must run before (and independent of) the ASK_CODEX_BROKER gate.
+    expect(sessionScript).toMatch(/clearAllDebounceState[\s\S]{0,400}ASK_CODEX_BROKER/);
   });
 
   // Phase 1 item #1: log rotation (now in lib/state.mjs per ADR-088)

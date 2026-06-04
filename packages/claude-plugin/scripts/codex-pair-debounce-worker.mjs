@@ -47,7 +47,10 @@ async function main() {
   const tool = process.env.CP_TOOL || "Edit";
   const myGeneration = Number(process.env.CP_GENERATION);
   const settleMs = Number(process.env.CP_SETTLE_MS);
-  const maxMs = Number(process.env.CP_MAX_MS);
+  const rawMaxMs = Number(process.env.CP_MAX_MS);
+  // Guard maxMs like settleMs: a missing/NaN CP_MAX_MS must not silently
+  // disable the anti-starvation cap (every `>= NaN` comparison is false).
+  const maxMs = Number.isFinite(rawMaxMs) && rawMaxMs > 0 ? rawMaxMs : 60_000;
   if (!markerDir || !file || !Number.isFinite(myGeneration)) process.exit(0);
 
   await sleep(Number.isFinite(settleMs) ? settleMs : 15_000);

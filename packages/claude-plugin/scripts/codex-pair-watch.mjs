@@ -971,12 +971,6 @@ async function main() {
   // collapses the window to 0 so the synchronous path below runs verbatim.
   const effectiveDebounceMs = process.env.CODEX_PAIR_FORCE_SYNC === "1" ? 0 : config.debounceMs;
   if (effectiveDebounceMs > 0) {
-    // Surface any verdict a prior worker queued (the worker has no stdout to
-    // Claude). This is the ONLY systemMessage this invocation emits.
-    const pendingMessages = drainPending(markerDir);
-    if (pendingMessages.length > 0) {
-      await emitSystemMessage(pendingMessages.join("\n\n"));
-    }
     const record = bumpEditRecord(markerDir, filePath, {
       sessionId: payload?.session_id,
       now: Date.now(),
@@ -991,8 +985,19 @@ async function main() {
       maxMs: config.debounceMaxMs,
       sessionId: payload?.session_id,
     });
-    if (spawned) process.exit(0);
-    // Worker spawn failed → fall through to a synchronous review (safety net).
+    if (spawned) {
+      // Surface any verdict a prior worker queued (the worker has no stdout to
+      // Claude). Drained ONLY on the successful-dispatch path so it cannot pair
+      // with the synchronous review's emit below into a double systemMessage;
+      // on spawn failure the pending verdict stays queued for the next hook.
+      const pendingMessages = drainPending(markerDir);
+      if (pendingMessages.length > 0) {
+        await emitSystemMessage(pendingMessages.join("\n\n"));
+      }
+      process.exit(0);
+    }
+    // Worker spawn failed → fall through to a synchronous review (safety net),
+    // leaving any pending verdict queued to drain on a later hook.
   }
 
   let fileContent;

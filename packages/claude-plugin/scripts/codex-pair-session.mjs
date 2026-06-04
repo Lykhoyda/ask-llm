@@ -92,15 +92,19 @@ async function main() {
     process.exit(0);
   }
 
-  // Edit-debounce cleanup runs for BOTH events, regardless of the broker flag
-  // (debounce is not broker-gated). On SessionEnd it cancels orphaned sleepers;
-  // on SessionStart it clears state a crashed prior session left behind.
-  const dbMarkerDir = await findMarkerUp(process.cwd());
-  if (dbMarkerDir) {
-    try {
-      clearAllDebounceState(dbMarkerDir);
-    } catch {
-      // best-effort (ADR-077)
+  // Edit-debounce cleanup runs on SessionEnd only (un-gated by the broker flag,
+  // since debounce is not broker-gated): a sleeping worker wakes to a missing
+  // record and self-cancels. NOT on SessionStart — that would wipe a verdict
+  // queued just before a new session begins; crash-orphaned state is reclaimed
+  // by the TTL sweep (sweepStaleDebounce) instead.
+  if (event === "SessionEnd") {
+    const dbMarkerDir = await findMarkerUp(process.cwd());
+    if (dbMarkerDir) {
+      try {
+        clearAllDebounceState(dbMarkerDir);
+      } catch {
+        // best-effort (ADR-077)
+      }
     }
   }
 
