@@ -30,6 +30,16 @@
           }
         ]
       }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node ${CLAUDE_PLUGIN_ROOT}/scripts/codex-pair-prompt-drain.mjs"
+          }
+        ]
+      }
     ]
   }
 }
