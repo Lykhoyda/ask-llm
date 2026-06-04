@@ -7,6 +7,8 @@ import {
   clearAllDebounceState,
   decideReview,
   drainPending,
+  joinPendingForSurface,
+  MAX_SURFACE_VERDICTS,
   markReviewed,
   readEditRecord,
   writePending,
@@ -89,6 +91,19 @@ describe("lib/debounce-state.mjs", () => {
 
   it("drainPending on a fresh dir returns []", () => {
     expect(drainPending(dir)).toEqual([]);
+  });
+
+  it("joinPendingForSurface joins all messages when under the cap", () => {
+    const msgs = ["a", "b", "c"];
+    expect(joinPendingForSurface(msgs)).toBe("a\n\nb\n\nc");
+  });
+
+  it("joinPendingForSurface caps the surfaced verdicts and appends an overflow trailer", () => {
+    const msgs = Array.from({ length: MAX_SURFACE_VERDICTS + 3 }, (_, i) => `v${i}`);
+    const out = joinPendingForSurface(msgs);
+    const shown = out.split("\n\n").filter((l) => /^v\d+$/.test(l));
+    expect(shown.length).toBe(MAX_SURFACE_VERDICTS);
+    expect(out).toMatch(/\+3 more verdict\(s\) drained — see \.codex-pair\/log\.jsonl/);
   });
 
   it("clearAllDebounceState removes records and pending", () => {

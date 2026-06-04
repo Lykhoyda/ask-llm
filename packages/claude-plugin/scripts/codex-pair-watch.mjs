@@ -45,6 +45,7 @@ import {
   DEFAULT_DEBOUNCE_MAX_MS,
   bumpEditRecord,
   drainPending,
+  joinPendingForSurface,
   sweepStaleDebounce,
 } from "./lib/debounce-state.mjs";
 import { buildReviewPrompt } from "./lib/prompt.mjs";
@@ -992,7 +993,7 @@ async function main() {
       // on spawn failure the pending verdict stays queued for the next hook.
       const pendingMessages = drainPending(markerDir);
       if (pendingMessages.length > 0) {
-        await emitSystemMessage(pendingMessages.join("\n\n"));
+        await emitSystemMessage(joinPendingForSurface(pendingMessages));
       }
       process.exit(0);
     }

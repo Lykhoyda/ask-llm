@@ -14,7 +14,7 @@ import { access } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { CONTEXT_FILENAME, PAIR_ROOT_DIR } from "./lib/state.mjs";
-import { drainPending } from "./lib/debounce-state.mjs";
+import { drainPending, joinPendingForSurface } from "./lib/debounce-state.mjs";
 
 const MARKER_FILE = join(PAIR_ROOT_DIR, CONTEXT_FILENAME);
 
@@ -67,7 +67,7 @@ async function main() {
   const out = JSON.stringify({
     hookSpecificOutput: {
       hookEventName: "UserPromptSubmit",
-      additionalContext: messages.join("\n\n"),
+      additionalContext: joinPendingForSurface(messages),
     },
   });
   process.stdout.write(`${out}\n`, () => process.exit(0));

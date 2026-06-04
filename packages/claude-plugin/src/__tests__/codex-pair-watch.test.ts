@@ -123,7 +123,7 @@ describe("scripts/codex-pair-watch.mjs — structural invariants (ADR-077)", () 
 
   it("debounceMs accepts 0 (>= 0 guard) to restore synchronous review", () => {
     // The frontmatter guard must allow 0 (disable), unlike timeoutMs (> 0).
-    expect(script).toMatch(/fm\.debounceMs\s*===\s*"number"\s*&&\s*fm\.debounceMs\s*>=\s*0/);
+    expect(script).toMatch(/typeof\s+fm\.debounceMs\s*===\s*"number"\s*&&\s*fm\.debounceMs\s*>=\s*0/);
   });
 
   it("dispatches to a detached debounce worker when debounceMs > 0", () => {

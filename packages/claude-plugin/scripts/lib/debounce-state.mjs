@@ -128,6 +128,19 @@ export function drainPending(markerDir) {
   return messages;
 }
 
+// Bound how many drained verdicts are surfaced inline. drainPending still
+// clears ALL pending files; only the surfaced text is capped, so a burst that
+// touches many files can't inject an unbounded blob into Claude's context —
+// the overflow stays in the log. Trailer points there.
+export const MAX_SURFACE_VERDICTS = 8;
+export function joinPendingForSurface(messages) {
+  if (messages.length <= MAX_SURFACE_VERDICTS) return messages.join("\n\n");
+  const extra = messages.length - MAX_SURFACE_VERDICTS;
+  return `${messages
+    .slice(0, MAX_SURFACE_VERDICTS)
+    .join("\n\n")}\n\n[codex-pair] +${extra} more verdict(s) drained — see .codex-pair/log.jsonl`;
+}
+
 // SessionEnd cancel: drop all debounce + pending state so orphaned sleepers
 // self-cancel (decideReview → record-missing) and no stale verdict leaks into
 // a later session.
