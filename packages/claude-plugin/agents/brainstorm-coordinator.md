@@ -39,7 +39,7 @@ Understand what needs brainstorming:
 - If the topic involves code, gather relevant context (diffs, file contents, architecture)
 - If the topic is a plan or design, include the full proposal text
 - Note which files, skills, or artifacts are referenced — you'll Read them in Phase 3B
-- Build or refine a **Context Brief** before external dispatch. If the caller supplied one, preserve it and fill gaps rather than starting over. The brief is a compact manifest, not a raw-data dump:
+- Build an initial **Context Brief** now; Phase 3B will refine it after verifying artifacts. If the caller supplied one, preserve it and fill gaps rather than starting over. The brief is a compact manifest, not a raw-data dump:
 
 ```markdown
 ## Context Brief

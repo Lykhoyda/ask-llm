@@ -155,10 +155,18 @@ describe("multi-review skill — load-bearing polish (ADR-064)", () => {
 
   it("requires a Context Brief before dispatching reviewer prompts", () => {
     expect(body).toMatch(/Context Brief/);
-    expect(body).toMatch(/Included files/);
-    expect(body).toMatch(/Excluded files and reason/);
+    expect(body).toMatch(/Providers: <list the actual providers selected for this run>/);
+    expect(body).toMatch(/Included files\/docs/);
+    expect(body).toMatch(/Excluded files\/docs and reason/);
     expect(body).toMatch(/Diff bytes/);
     expect(body).toMatch(/before the diff/);
+  });
+
+  it("pins the Context used section in the output template", () => {
+    expect(body).toMatch(/Context used:/);
+    expect(body).toMatch(/Included: <files \/ packages>/);
+    expect(body).toMatch(/Excluded: <files \/ patterns and reason>/);
+    expect(body).toMatch(/Diff bytes: <N>/);
   });
 });
 
@@ -185,8 +193,9 @@ describe("brainstorm skill — polish (ADR-064)", () => {
 
   it("requires passing a Context Brief into the coordinator", () => {
     expect(body).toMatch(/Context Brief/);
-    expect(body).toMatch(/selected providers/);
-    expect(body).toMatch(/included\/excluded files and reasons/i);
+    expect(body).toMatch(/Providers: <list the selected providers for this run>/);
+    expect(body).toMatch(/Included files\/docs/);
+    expect(body).toMatch(/Excluded files\/docs and reason/);
     expect(body).toMatch(/unverified assumptions/);
   });
 });

@@ -54,13 +54,13 @@ The two skills compose. Run both when you want both questions answered; do not m
 Intent:
 - User request:
 - Review mode: multi-review
-- Providers: gemini, codex
+- Providers: <list the actual providers selected for this run>
 
 Scope:
 - Base ref:
 - Changed files:
-- Included files:
-- Excluded files and reason:
+- Included files/docs:
+- Excluded files/docs and reason:
 - Diff bytes:
 
 Repository signals:
