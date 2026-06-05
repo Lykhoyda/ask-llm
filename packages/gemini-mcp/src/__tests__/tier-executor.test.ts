@@ -77,9 +77,7 @@ describe("executeGeminiCLI tier enrichment (#140)", () => {
 
   it("workspace-trust error is unchanged even post-cutoff (no note, no Flash retry)", async () => {
     process.env[KEY] = "2020-01-01T00:00:00Z";
-    mockExec.mockRejectedValueOnce(
-      new Error("FatalUntrustedWorkspaceError: not running in a trusted directory"),
-    );
+    mockExec.mockRejectedValueOnce(new Error("FatalUntrustedWorkspaceError: not running in a trusted directory"));
     const err = await executeGeminiCLI({ prompt: "hi" }).catch((e) => e as Error);
     expect(err.message).toMatch(/workspace-trust/i); // ERROR_MESSAGES.WORKSPACE_TRUST_REQUIRED
     expect(err.message).not.toContain(TIER_NOTE_MARKER);

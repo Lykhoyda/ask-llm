@@ -46,12 +46,7 @@ export function resolveTierCutoff(): Date {
 
 // Pure formatter. Prepends the tier note iff now ≥ cutoff AND the class is
 // quota/tierAccess AND the marker isn't already present. Otherwise unchanged.
-export function formatTierNote(
-  message: string,
-  classification: GeminiErrorClass,
-  now: Date,
-  cutoff: Date,
-): string {
+export function formatTierNote(message: string, classification: GeminiErrorClass, now: Date, cutoff: Date): string {
   if (now.getTime() < cutoff.getTime()) return message;
   if (classification !== "quota" && classification !== "tierAccess") return message;
   if (message.includes(TIER_NOTE_MARKER)) return message;
