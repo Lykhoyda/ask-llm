@@ -252,6 +252,7 @@ interface GeminiStreamEvent {
   status?: string;
   error?: unknown;
   message?: string;
+  reason?: string;
   stats?: GeminiStreamStats;
 }
 
@@ -272,10 +273,18 @@ function streamStatsToCliStats(stats: GeminiStreamStats | undefined): GeminiCliS
 }
 
 // stream-json event types we explicitly handle. Anything outside this set is
-// logged (not silently dropped) so new upstream event variants — e.g.
-// AgentExecutionStopped/Blocked added in gemini-cli v0.43 — surface in debug
-// output instead of vanishing (#116).
-const RECOGNIZED_STREAM_EVENT_TYPES = new Set(["init", "message", "result", "error"]);
+// logged (not silently dropped) so new upstream event variants surface in
+// debug output instead of vanishing (#116). AgentExecutionStopped/Blocked
+// (gemini-cli v0.43+) are now handled as terminal errors rather than logged,
+// since their reason/message is actionable (#139, unblocked by 0.45.0 stable).
+const RECOGNIZED_STREAM_EVENT_TYPES = new Set([
+  "init",
+  "message",
+  "result",
+  "error",
+  "AgentExecutionStopped",
+  "AgentExecutionBlocked",
+]);
 
 export function parseGeminiStreamJsonl(
   raw: string,
@@ -321,6 +330,16 @@ export function parseGeminiStreamJsonl(
       }
     } else if (event.type === "error") {
       errorMsg = typeof event.message === "string" ? event.message : JSON.stringify(event);
+    } else if (event.type === "AgentExecutionStopped" || event.type === "AgentExecutionBlocked") {
+      // gemini-cli v0.43+ stop/block events carry the actionable reason
+      // (workspace-trust block, tool denial, policy, …). Surface as a terminal
+      // error instead of dropping to debug — mirror the `error` extraction.
+      const detail =
+        (typeof event.reason === "string" && event.reason) ||
+        (typeof event.message === "string" && event.message) ||
+        (typeof event.error === "string" ? event.error : event.error ? JSON.stringify(event.error) : "") ||
+        JSON.stringify(event);
+      errorMsg = `Gemini ${event.type}: ${detail}`;
     } else if (!RECOGNIZED_STREAM_EVENT_TYPES.has(event.type)) {
       Logger.debug(`Unrecognized Gemini stream-json event type: ${event.type}`);
     }

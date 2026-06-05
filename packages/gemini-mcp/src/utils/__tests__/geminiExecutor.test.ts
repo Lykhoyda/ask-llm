@@ -557,21 +557,35 @@ describe("executeGeminiCLI session support", () => {
   });
 });
 
-describe("stream-json event coverage (#114/#116)", () => {
-  it("logs unrecognized stream-json event types instead of dropping them silently", async () => {
+describe("stream-json event coverage (#114/#116, #139)", () => {
+  it("surfaces AgentExecutionStopped as an error (gemini 0.43+; was dropped to debug)", async () => {
+    mockExecuteCommand.mockResolvedValueOnce(
+      ['{"type":"init","session_id":"s1"}', '{"type":"AgentExecutionStopped","reason":"workspace trust denied"}'].join(
+        "\n",
+      ),
+    );
+    const err = await executeGeminiCLI({ prompt: "hello" }).catch((e) => e as Error);
+    expect(err.message).toMatch(/AgentExecutionStopped/);
+    expect(err.message).toMatch(/workspace trust denied/);
+  });
+
+  it("surfaces AgentExecutionBlocked with its reason", async () => {
+    mockExecuteCommand.mockResolvedValueOnce('{"type":"AgentExecutionBlocked","reason":"tool denied"}');
+    const err = await executeGeminiCLI({ prompt: "hello" }).catch((e) => e as Error);
+    expect(err.message).toMatch(/AgentExecutionBlocked: tool denied/);
+  });
+
+  it("still logs a genuinely-unknown event type to debug (no throw)", async () => {
     mockExecuteCommand.mockResolvedValueOnce(
       [
-        '{"type":"init","session_id":"s1"}',
-        '{"type":"AgentExecutionStopped","reason":"policy"}',
+        '{"type":"SomeFutureEvent","x":1}',
         '{"type":"message","role":"assistant","content":"hi"}',
         '{"type":"result","stats":{}}',
       ].join("\n"),
     );
-
     const result = await executeGeminiCLI({ prompt: "hello" });
-
     expect(result.response).toContain("hi");
-    expect(vi.mocked(Logger.debug)).toHaveBeenCalledWith(expect.stringContaining("AgentExecutionStopped"));
+    expect(vi.mocked(Logger.debug)).toHaveBeenCalledWith(expect.stringContaining("SomeFutureEvent"));
   });
 });
 
