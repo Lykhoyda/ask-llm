@@ -49,8 +49,10 @@ describe("classifyGeminiCliError", () => {
   it("classifies operational for timeouts/parse", () => {
     expect(classifyGeminiCliError("Command timed out after 800000ms")).toBe("operational");
   });
-  it("does not false-match loose terms inside other words (word boundary)", () => {
-    expect(classifyGeminiCliError("explored the frontier of parsing")).toBe("unknown");
+  it("word boundaries prevent mid-token false matches", () => {
+    expect(classifyGeminiCliError("error code 1401")).toBe("unknown"); // not "401"
+    expect(classifyGeminiCliError("RESOURCE_EXHAUSTED_LIMIT_EXCEEDED")).toBe("unknown"); // trailing _ blocks quota
+    expect(classifyGeminiCliError("HTTP 1403 gateway")).toBe("unknown"); // not "403"
   });
 });
 

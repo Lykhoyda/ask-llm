@@ -43,12 +43,10 @@ describe("executeGeminiCLI tier enrichment (#140)", () => {
     process.env[KEY] = "2020-01-01T00:00:00Z"; // post-cutoff
     mockExec.mockRejectedValueOnce(quotaError()); // Pro
     mockExec.mockRejectedValueOnce(quotaError()); // Flash
-    await expect(executeGeminiCLI({ prompt: "hi" })).rejects.toThrow(TIER_NOTE_MARKER);
-    expect(mockExec).toHaveBeenCalledTimes(2);
-    mockExec.mockRejectedValueOnce(quotaError());
-    mockExec.mockRejectedValueOnce(quotaError());
     const err = await executeGeminiCLI({ prompt: "hi" }).catch((e) => e as Error);
-    expect(err.message.split(TIER_NOTE_MARKER).length - 1).toBe(1); // marker once
+    expect(err.message).toContain(TIER_NOTE_MARKER);
+    expect(err.message.split(TIER_NOTE_MARKER).length - 1).toBe(1); // prepended exactly once
+    expect(mockExec).toHaveBeenCalledTimes(2); // Pro + Flash
   });
 
   it("post-cutoff: Pro quota + Flash TIMEOUT → no note (operational Flash failure)", async () => {

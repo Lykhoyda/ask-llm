@@ -7,9 +7,12 @@ export const WORKSPACE_TRUST_PATTERNS = ["FatalUntrustedWorkspaceError", "not ru
 // #140: Gemini CLI free/Pro/Ultra backend cutoff (2026-06-18). Error classes
 // used by the date-gated tier-discontinuation enricher. tierAccess = "your
 // account/tier can't use this" (the post-cutoff signature); quota stays the
-// narrow Flash-fallback trigger. Loose terms (subscription/Standard/…) are
-// matched word-boundary in classifyGeminiCliError and only drive the advisory
-// note, never the fallback.
+// narrow Flash-fallback trigger. Patterns are word-boundary matched in
+// classifyGeminiCliError and only drive the advisory note, never the fallback.
+// Restricted to high-confidence auth/access signals (PR #147 review): broad
+// terms (Standard/Enterprise/billing/subscription/"not available") were dropped
+// because they false-positive on generic 503/service errors post-cutoff; the
+// real tier-cutoff failure is a 403/PERMISSION_DENIED, already captured here.
 export const TIER_ACCESS_PATTERNS = [
   "403",
   "PERMISSION_DENIED",
@@ -21,12 +24,7 @@ export const TIER_ACCESS_PATTERNS = [
   "access denied",
   "does not have access",
   "not permitted",
-  "subscription",
   "Code Assist",
-  "Standard",
-  "Enterprise",
-  "billing",
-  "not available",
 ] as const;
 
 export const OPERATIONAL_PATTERNS = [
