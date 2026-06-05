@@ -3,6 +3,12 @@ export const ERROR_MESSAGES = {
   // "out of credits" + "spend cap" cover the 4 codex 0.134 workspace usage-limit
   // messages (owner/member × credits/spend-cap) from PR #24114. See #127.
   QUOTA_SIGNALS: ["rate_limit_exceeded", "quota_exceeded", "429", "insufficient_quota", "out of credits", "spend cap"],
+  // codex 0.136 archived sessions: `codex exec resume <id>` fails if the session
+  // was archived. Lowercased substrings; isArchivedSessionError() lowercases
+  // before matching. "archived_sessions" is the rollout path from upstream
+  // openai/codex#19362 — confirm the exact string against a live archived
+  // session on codex >= 0.136. #139 / #141 F1.
+  ARCHIVED_SESSION_SIGNALS: ["archived_sessions", "archived session", "session is archived"],
   NO_PROMPT_PROVIDED:
     "Please provide a prompt for analysis. Ask general questions or describe the code you want reviewed.",
   TOOL_NOT_FOUND: "not found in registry",
