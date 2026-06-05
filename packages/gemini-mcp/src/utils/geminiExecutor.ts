@@ -23,6 +23,7 @@ import {
   STATUS_MESSAGES,
   WORKSPACE_TRUST_PATTERNS,
 } from "../constants.js";
+import { classifyGeminiCliError, formatTierNote, resolveTierCutoff } from "./tierGuidance.js";
 
 interface GeminiModelTokens {
   input?: number;
@@ -581,9 +582,23 @@ ${promptProcessed}
         return parseGeminiStreamJsonl(raw, MODELS.FLASH, Date.now() - fallbackStartedAt, true);
       } catch (fallbackError) {
         const fallbackErrorMessage = fallbackError instanceof Error ? fallbackError.message : String(fallbackError);
-        throw new Error(`${MODELS.PRO} quota exceeded, ${MODELS.FLASH} fallback also failed: ${fallbackErrorMessage}`);
+        // Pro is quota by construction here; discriminate on the Flash failure
+        // class so a transient Flash timeout doesn't masquerade as tier death.
+        const composed = `${MODELS.PRO} quota exceeded, ${MODELS.FLASH} fallback also failed: ${fallbackErrorMessage}`;
+        const flashClass = classifyGeminiCliError(fallbackErrorMessage);
+        throw new Error(formatTierNote(composed, flashClass, new Date(), resolveTierCutoff()));
       }
     } else {
+      // Non-quota, non-trust errors (incl. raw 401/403 auth) land here with no
+      // Flash retry. Enrich only when the date+class gate adds a note; otherwise
+      // re-throw the original error untouched.
+      const enriched = formatTierNote(
+        errorMessage,
+        classifyGeminiCliError(errorMessage),
+        new Date(),
+        resolveTierCutoff(),
+      );
+      if (enriched !== errorMessage) throw new Error(enriched);
       throw error;
     }
   }

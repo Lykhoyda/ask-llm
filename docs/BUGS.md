@@ -2,6 +2,12 @@
 
 ## Open
 
+### Side-finding (unfiled) — `MODELS.FLASH` (`gemini-3.5-flash`) returns `404 ModelNotFoundError`
+- **Severity:** Medium (the Gemini quota→Flash fallback may be silently broken)
+- **Discovered:** 2026-06-05, while dual-reviewing the #140 plan via the live `gemini` CLI.
+- **Symptom:** `gemini -m gemini-3.5-flash -p ...` on gemini-cli 0.44.1 returned `404 ModelNotFoundError: Requested entity was not found`, while `gemini -m gemini-3.1-pro-preview` returned `429 MODEL_CAPACITY_EXHAUSTED` (transient) and `gemini -m gemini-3-flash-preview` worked. `gemini-3.5-flash` is the configured `MODELS.FLASH` (`packages/gemini-mcp/src/constants.ts`) used by the quota fallback — so a real Pro-quota error today could fall back to a 404'ing model.
+- **Status:** **Needs verification before filing.** May be account/tier-specific (the test account's available models), a CLI-version model-catalog change, or a genuine misconfiguration (the docs were migrated to `gemini-3.5-flash` in 2026-05-30; `CLAUDE.md` still notes `gemini-3-flash-preview`). Verify which Flash model the current gemini-cli/account actually serves, then file or correct `MODELS.FLASH`. Independent of #140.
+
 ### #115 — `npx ask-llm-mcp doctor` ERR_MODULE_NOT_FOUND on `zod/index.js` (Node 26, global install)
 - **Severity:** High (blocks any Node 26 user of `ask-llm-mcp` via global install)
 - **Upstream issue:** [#115](https://github.com/Lykhoyda/ask-llm/issues/115)
