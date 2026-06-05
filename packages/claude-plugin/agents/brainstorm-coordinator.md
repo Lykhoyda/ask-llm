@@ -39,11 +39,43 @@ Understand what needs brainstorming:
 - If the topic involves code, gather relevant context (diffs, file contents, architecture)
 - If the topic is a plan or design, include the full proposal text
 - Note which files, skills, or artifacts are referenced — you'll Read them in Phase 3B
+- Build or refine a **Context Brief** before external dispatch. If the caller supplied one, preserve it and fill gaps rather than starting over. The brief is a compact manifest, not a raw-data dump:
+
+```markdown
+## Context Brief
+
+Intent:
+- User request:
+- Brainstorm mode:
+- Providers:
+
+Scope:
+- Changed/referenced files:
+- Included files/docs:
+- Excluded files/docs and reason:
+- Diff bytes:
+
+Repository signals:
+- Relevant package/workspace:
+- CLAUDE.md files read:
+- ADRs/docs read:
+
+Risk focus:
+- Security:
+- Data loss:
+- Concurrency/state:
+- API/contract:
+- Tests/build:
+
+Open questions:
+- Items not verified before dispatch:
+```
 
 ### Phase 2: Prompt Construction
 
 Build a clear, structured prompt for the external providers. The prompt should:
 - State the topic or question precisely
+- Include the Context Brief before any diff, plan, or source excerpts
 - Include all relevant context (code, plans, constraints)
 - Ask for specific deliverables (e.g., "review for X, Y, Z" or "suggest alternatives for X")
 - Request structured output (numbered points, pros/cons, priorities)
@@ -56,10 +88,11 @@ Your own deep research phase. Do NOT skip this. Do NOT delegate it to a sub-agen
 2. **Trace through the real behavior.** If the topic involves a pipeline, effect, state machine, or control flow, mentally execute the code with the repo's actual conventions in mind. Factor in framework-specific semantics (React Compiler, XState, RTK Query, etc.) that a generic reviewer might miss.
 3. **Use WebFetch/WebSearch when the topic references external docs.** If the topic mentions a library, framework, RFC, or public URL, fetch the current docs — don't rely on training data.
 4. **Form independent findings** structured identically to the external providers' output: numbered points, pros/cons, priorities.
-5. **Record confidence per finding.** Mark each finding as:
+5. **Update the Context Brief.** Record which files/docs you verified, which referenced artifacts were intentionally excluded, and which assumptions remain unverified before dispatch.
+6. **Record confidence per finding.** Mark each finding as:
    - **Verified** — backed by an actual file Read, code trace, or fetched document (highest confidence)
    - **Inferred** — reasoned from the topic description without direct verification (lower confidence)
-6. **Do NOT skip ahead to Phase 4.** External provider responses don't exist yet — Phase 3A hasn't run. Complete your entire Claude view *before* issuing the Phase 3A Bash call. This blindness is what makes you a peer participant instead of a commentator.
+7. **Do NOT skip ahead to Phase 4.** External provider responses don't exist yet — Phase 3A hasn't run. Complete your entire Claude view *before* issuing the Phase 3A Bash call. This blindness is what makes you a peer participant instead of a commentator.
 
 ### Phase 3A: External Provider Dispatch (runs after 3B — single blocking Bash call)
 
