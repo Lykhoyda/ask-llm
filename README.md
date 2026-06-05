@@ -21,6 +21,8 @@
 
 MCP servers that bridge your AI client with multiple LLM providers for AI-to-AI collaboration. Works with Claude Code, Claude Desktop, Cursor, Warp, Copilot, and [40+ other MCP clients](https://modelcontextprotocol.io/clients). Leverage Gemini's 1M+ token context, Codex's GPT-5.5, or local Ollama models — all via standard [MCP](https://modelcontextprotocol.io/).
 
+> **⚠️ Gemini CLI tier change (2026-06-18):** Google stopped serving Gemini CLI requests for free, Google AI Pro, and Ultra accounts on 2026-06-18 — only **Gemini Code Assist Standard/Enterprise** seats keep working. `ask-gemini-mcp` still installs and launches (the failure is account/backend access, so reinstalling won't help); on a non-enterprise account it now surfaces actionable guidance instead of a raw error. Google's successor, **Antigravity CLI (`agy`)**, is a separate tool that `ask-gemini-mcp` does **not** support yet. Free/Pro users can switch to `ask-codex` or `ask-ollama`. [Announcement](https://developers.googleblog.com/an-important-update-transitioning-gemini-cli-to-antigravity-cli/).
+
 ## Why?
 
 - **Get a second opinion** — Ask another AI to review your coding approach before committing
