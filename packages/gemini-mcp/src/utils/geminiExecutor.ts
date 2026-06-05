@@ -334,6 +334,8 @@ export function parseGeminiStreamJsonl(
       // gemini-cli v0.43+ stop/block events carry the actionable reason
       // (workspace-trust block, tool denial, policy, …). Surface as a terminal
       // error instead of dropping to debug — mirror the `error` extraction.
+      // `||` (not `??`) is deliberate: an empty-string reason/message is not
+      // actionable, so fall through to the next field rather than surface "".
       const detail =
         (typeof event.reason === "string" && event.reason) ||
         (typeof event.message === "string" && event.message) ||
