@@ -1,5 +1,11 @@
 # ask-gemini-mcp
 
+## 1.6.8
+
+### Patch Changes
+
+- [#147](https://github.com/Lykhoyda/ask-llm/pull/147) [`d88606f`](https://github.com/Lykhoyda/ask-llm/commit/d88606f9ec7c1dcc48308d4cadfd8731c9ade8d8) Thanks [@Lykhoyda](https://github.com/Lykhoyda)! - Surface actionable, date-gated guidance when Gemini CLI's backend stops serving free/Pro/Ultra accounts (2026-06-18 cutoff, [#140](https://github.com/Lykhoyda/ask-llm/issues/140)). On or after the cutoff, an auth/quota-class failure is classified and a hedged tier-discontinuation notice is prepended to the error (cutoff date, switch to ask-codex/ask-ollama, Antigravity `agy` is a separate path not yet supported). The Flash-fallback control flow is unchanged; the cutoff is overridable via `ASK_GEMINI_TIER_CUTOFF`.
+
 ## 1.6.6
 
 ### Patch Changes

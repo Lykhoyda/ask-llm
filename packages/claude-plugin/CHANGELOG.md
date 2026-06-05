@@ -1,5 +1,12 @@
 # @ask-llm/plugin
 
+## 0.7.4
+
+### Patch Changes
+
+- Updated dependencies [[`d88606f`](https://github.com/Lykhoyda/ask-llm/commit/d88606f9ec7c1dcc48308d4cadfd8731c9ade8d8)]:
+  - ask-gemini-mcp@1.6.8
+
 ## 0.7.3
 
 ### Patch Changes
