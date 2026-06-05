@@ -4,6 +4,49 @@ export const QUOTA_PATTERNS = ["RESOURCE_EXHAUSTED", "TerminalQuotaError", "exha
 
 export const WORKSPACE_TRUST_PATTERNS = ["FatalUntrustedWorkspaceError", "not running in a trusted directory"] as const;
 
+// #140: Gemini CLI free/Pro/Ultra backend cutoff (2026-06-18). Error classes
+// used by the date-gated tier-discontinuation enricher. tierAccess = "your
+// account/tier can't use this" (the post-cutoff signature); quota stays the
+// narrow Flash-fallback trigger. Loose terms (subscription/Standard/…) are
+// matched word-boundary in classifyGeminiCliError and only drive the advisory
+// note, never the fallback.
+export const TIER_ACCESS_PATTERNS = [
+  "403",
+  "PERMISSION_DENIED",
+  "401",
+  "UNAUTHENTICATED",
+  "forbidden",
+  "unauthorized",
+  "not authorized",
+  "access denied",
+  "does not have access",
+  "not permitted",
+  "subscription",
+  "Code Assist",
+  "Standard",
+  "Enterprise",
+  "billing",
+  "not available",
+] as const;
+
+export const OPERATIONAL_PATTERNS = [
+  "timed out",
+  "ETIMEDOUT",
+  "ECONNRESET",
+  "ECONNREFUSED",
+  "ENOTFOUND",
+  "EAI_AGAIN",
+  "Unexpected token",
+  "is not valid JSON",
+] as const;
+
+// Explicit UTC instant — NOT new Date("2026-06-18"), which is UTC-midnight and
+// can fire June 17 in negative-offset timezones. Override via ASK_GEMINI_TIER_CUTOFF.
+export const GEMINI_TIER_CUTOFF_DEFAULT = "2026-06-18T00:00:00Z";
+
+// Stable header used as the prepend marker (idempotency) and the user-facing lead.
+export const TIER_NOTE_MARKER = "Gemini CLI tier change (2026-06-18)";
+
 export const ERROR_MESSAGES = {
   QUOTA_EXCEEDED: "RESOURCE_EXHAUSTED",
   QUOTA_EXCEEDED_SHORT: "⚠️ Gemini Pro daily quota exceeded. Please retry with model: 'gemini-3.5-flash'",
@@ -12,6 +55,8 @@ export const ERROR_MESSAGES = {
     "Please provide a prompt for analysis. Use @ syntax to include files (e.g., '@largefile.js explain what this does') or ask general questions",
   WORKSPACE_TRUST_REQUIRED:
     "Gemini blocked this call because workspace-trust enforcement is enabled and the current directory is not trusted. To resolve, either (a) unset ASK_GEMINI_REQUIRE_WORKSPACE_TRUST so ask-gemini-mcp re-applies its safe default of co-emitting GEMINI_CLI_TRUST_WORKSPACE=true (≥0.42) and GEMINI_TRUST_WORKSPACE=true (≤0.41), (b) export GEMINI_CLI_TRUST_WORKSPACE=true yourself on gemini ≥0.42 (or GEMINI_TRUST_WORKSPACE=true on ≤0.41), (c) pass --skip-trust to gemini for this session (≥0.41), or (d) run `gemini` interactively in this directory once and mark it trusted.",
+  TIER_DISCONTINUED:
+    "⚠️ Gemini CLI tier change (2026-06-18): Google stopped serving Gemini CLI requests for free, Google AI Pro, and Ultra accounts on 2026-06-18; only Gemini Code Assist Standard/Enterprise seats remain supported. If you are on a free/Pro/Ultra account, the error below is LIKELY caused by that change (it can also be a genuine auth, billing, or quota error). Options: (a) upgrade to Gemini Code Assist Standard/Enterprise; (b) switch providers — use ask-codex or ask-ollama; (c) Google's successor is the separate Antigravity CLI (`agy`), which ask-gemini-mcp does NOT yet support — run `agy` directly or use one of the above. The npm package still installs and launches, so reinstalling will not help. See https://developers.googleblog.com/an-important-update-transitioning-gemini-cli-to-antigravity-cli/",
 } as const;
 
 export const STATUS_MESSAGES = {
