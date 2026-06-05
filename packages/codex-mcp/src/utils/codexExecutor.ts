@@ -178,6 +178,11 @@ function isQuotaError(error: unknown): boolean {
   return ERROR_MESSAGES.QUOTA_SIGNALS.some((signal) => msg.includes(signal));
 }
 
+function isArchivedSessionError(error: unknown): boolean {
+  const msg = (error instanceof Error ? error.message : String(error)).toLowerCase();
+  return ERROR_MESSAGES.ARCHIVED_SESSION_SIGNALS.some((signal) => msg.includes(signal));
+}
+
 interface CodexEditItem {
   file: string;
   startLine?: number;
@@ -364,6 +369,14 @@ export async function executeCodexCLI(options: CodexExecutorOptions): Promise<Co
       if (cacheKey) responseCache.set(cacheKey, result.response);
       return result;
     } catch (error) {
+      // codex 0.136: resuming an archived session can't be retried (the session
+      // stays archived), so surface an actionable message and do NOT fall back
+      // to the mini model. Only when a sessionId was actually supplied.
+      if (sessionId && isArchivedSessionError(error)) {
+        throw new Error(
+          `Codex session ${sessionId} is archived. Run \`codex unarchive ${sessionId}\` to resume it, or omit sessionId to start a new thread.`,
+        );
+      }
       if (isQuotaError(error) && model !== MODELS.FALLBACK) {
         Logger.warn(`${STATUS_MESSAGES.QUOTA_SWITCHING} Falling back to ${MODELS.FALLBACK}.`);
         Logger.debug(`Status: ${STATUS_MESSAGES.FALLBACK_RETRY}`);

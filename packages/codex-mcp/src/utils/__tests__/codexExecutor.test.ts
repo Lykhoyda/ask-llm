@@ -714,3 +714,34 @@ describe("ask-codex-edit / editMode (#102)", () => {
     expect([...item.required].sort()).toEqual(Object.keys(item.properties).sort());
   });
 });
+
+// codex 0.136 introduced archived sessions; `codex exec resume <id>` against an
+// archived session fails. Translate it to an actionable error and do NOT fall
+// back to the mini model (the session is still archived after a retry). #139 / #141 F1.
+describe("executeCodexCLI archived-session resume (codex 0.136, #139)", () => {
+  // beforeEach already runs vi.clearAllMocks() + sets a default resolved value,
+  // so no per-test mockReset() is needed; mockRejectedValueOnce overrides for
+  // the single call these tests make.
+  it("archived-session error on resume (rollout-path signal) → actionable message, no mini fallback", async () => {
+    mockExecuteCommand.mockRejectedValueOnce(
+      new Error("Failed to resume session from ~/.codex/archived_sessions/rollout-2026-06-05.jsonl"),
+    );
+    const err = await executeCodexCLI({ prompt: "follow up", sessionId: "thread-xyz" }).catch((e) => e as Error);
+    expect(err.message).toMatch(/session thread-xyz is archived/i);
+    expect(err.message).toMatch(/codex unarchive thread-xyz/);
+    expect(mockExecuteCommand).toHaveBeenCalledTimes(1); // no mini fallback
+  });
+
+  it("matches the prose 'session is archived' signal too (not just the rollout path)", async () => {
+    mockExecuteCommand.mockRejectedValueOnce(new Error("error: session is archived"));
+    const err = await executeCodexCLI({ prompt: "follow up", sessionId: "thread-xyz" }).catch((e) => e as Error);
+    expect(err.message).toMatch(/session thread-xyz is archived/i);
+    expect(err.message).toMatch(/codex unarchive thread-xyz/);
+  });
+
+  it("archived signal without a sessionId is not special-cased (no false trigger)", async () => {
+    mockExecuteCommand.mockRejectedValueOnce(new Error("unrelated archived_sessions mention"));
+    const err = await executeCodexCLI({ prompt: "hi" }).catch((e) => e as Error);
+    expect(err.message).not.toMatch(/codex unarchive/i);
+  });
+});
