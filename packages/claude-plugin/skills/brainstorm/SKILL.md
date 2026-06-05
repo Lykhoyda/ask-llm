@@ -29,13 +29,45 @@ Consult multiple external LLM providers simultaneously on a topic while Claude O
   - **Size-check**: if combined diff > 150KB, ask the user before sending (the providers will take 5–15 min on payloads that large)
 - If the context is a design/plan, gather the relevant documentation or conversation context
 - If no topic is clear, ask the user what they'd like to brainstorm about
+- Create a compact **Context Brief** before launching the coordinator. Keep it tiny for simple topics; add detail when the request is architecture/design/security/concurrency/migration related, spans packages, references external specs, or depends on conversation context external providers cannot see.
+
+```markdown
+## Context Brief
+
+Intent:
+- User request:
+- Brainstorm mode:
+- Providers: <list the selected providers for this run>
+
+Scope:
+- Changed/referenced files:
+- Included files/docs:
+- Excluded files/docs and reason:
+- Diff bytes:
+
+Repository signals:
+- Relevant package/workspace:
+- CLAUDE.md files read:
+- ADRs/docs read:
+
+Risk focus:
+- Security:
+- Data loss:
+- Concurrency/state:
+- API/contract:
+- Tests/build:
+
+Open questions:
+- Items not verified before dispatch:
+```
 
 ### Phase 3: Launch the brainstorm-coordinator agent
 
-Launch with: the topic, the selected external providers list, any gathered context (diff/files/docs).
+Launch with: the topic, the selected external providers list, the Context Brief, and any gathered context (diff/files/docs).
 
 The coordinator handles:
 - Phase 3B: its own Claude Opus research (reads actual files, traces code, uses WebFetch/WebSearch on referenced external docs) — runs FIRST so Claude doesn't anchor on external responses
+- Context Brief update: after Phase 3B, records verified files/docs and unverified assumptions before external dispatch
 - Phase 3A: external provider dispatch via a single blocking foreground Bash call (ADR-050 dispatch pattern)
 - Phase 4: synthesis — consensus, unique insights, contradictions across all participants
 - Verified findings (backed by Claude's file reads) are weighted higher than inferred ones

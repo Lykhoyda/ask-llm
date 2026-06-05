@@ -152,6 +152,22 @@ describe("multi-review skill — load-bearing polish (ADR-064)", () => {
   it("requires resilient failure handling (don't silently drop a failed provider)", () => {
     expect(body).toMatch(/[Dd]o NOT silently drop|silently drop|surface the failure/i);
   });
+
+  it("requires a Context Brief before dispatching reviewer prompts", () => {
+    expect(body).toMatch(/Context Brief/);
+    expect(body).toMatch(/Providers: <list the actual providers selected for this run>/);
+    expect(body).toMatch(/Included files\/docs/);
+    expect(body).toMatch(/Excluded files\/docs and reason/);
+    expect(body).toMatch(/Diff bytes/);
+    expect(body).toMatch(/before the diff/);
+  });
+
+  it("pins the Context used section in the output template", () => {
+    expect(body).toMatch(/Context used:/);
+    expect(body).toMatch(/Included: <files \/ packages>/);
+    expect(body).toMatch(/Excluded: <files \/ patterns and reason>/);
+    expect(body).toMatch(/Diff bytes: <N>/);
+  });
 });
 
 describe("brainstorm skill — polish (ADR-064)", () => {
@@ -174,6 +190,14 @@ describe("brainstorm skill — polish (ADR-064)", () => {
   it("points users to /multi-review for source-verified code review", () => {
     expect(body).toMatch(/\/multi-review/);
   });
+
+  it("requires passing a Context Brief into the coordinator", () => {
+    expect(body).toMatch(/Context Brief/);
+    expect(body).toMatch(/Providers: <list the selected providers for this run>/);
+    expect(body).toMatch(/Included files\/docs/);
+    expect(body).toMatch(/Excluded files\/docs and reason/);
+    expect(body).toMatch(/unverified assumptions/);
+  });
 });
 
 describe("brainstorm-coordinator agent — Phase 4 cross-check polish (ADR-064)", () => {
@@ -190,6 +214,13 @@ describe("brainstorm-coordinator agent — Phase 4 cross-check polish (ADR-064)"
 
   it("includes a Rejected section in the synthesis to surface false positives", () => {
     expect(body).toMatch(/Rejected.*false positives/i);
+  });
+
+  it("requires the coordinator to update the Context Brief after Claude research", () => {
+    expect(body).toMatch(/Context Brief/);
+    expect(body).toMatch(/verified files\/docs|files\/docs you verified/i);
+    expect(body).toMatch(/assumptions remain unverified|unverified assumptions/i);
+    expect(body).toMatch(/before external dispatch|before dispatch/i);
   });
 });
 

@@ -46,11 +46,46 @@ The two skills compose. Run both when you want both questions answered; do not m
    - **> 150KB**: tell the user, ask whether to truncate (head -c 150000) or split by package, do NOT silently send a giant payload
    - **Empty**: stop and inform the user "no changes to review"
 
+4. **Create a Context Brief** — a compact manifest that makes the handoff reproducible. Put it before the diff in every reviewer prompt; do not use it as an excuse to paste more raw files by default.
+
+```markdown
+## Context Brief
+
+Intent:
+- User request:
+- Review mode: multi-review
+- Providers: <list the actual providers selected for this run>
+
+Scope:
+- Base ref:
+- Changed files:
+- Included files/docs:
+- Excluded files/docs and reason:
+- Diff bytes:
+
+Repository signals:
+- Relevant package/workspace:
+- CLAUDE.md files read:
+- ADRs/docs read:
+
+Risk focus:
+- Security:
+- Data loss:
+- Concurrency/state:
+- API/contract:
+- Tests/build:
+
+Open questions:
+- Items not verified before dispatch:
+```
+
+Keep the brief tiny for simple diffs. Escalate detail when the diff is over 50KB, spans more than 5 files, crosses package boundaries, includes untracked files, references ADRs/specs, or depends on conversation context the external providers cannot see.
+
 ### Phase 2: Dispatch (with fallback)
 
 **Preferred: launch both reviewer agents in parallel** using the Agent tool in a single message:
-- `gemini-reviewer` agent with the diff content
-- `codex-reviewer` agent with the diff content
+- `gemini-reviewer` agent with the Context Brief + diff content
+- `codex-reviewer` agent with the Context Brief + diff content
 - Each agent performs its own 4-phase pipeline: Context → Prompt → Synthesis → Validation
 
 **Fallback when reviewer agents are unavailable** (e.g., plugin not installed in this Claude Code session): dispatch directly via the project's `dist/run.js` and `dist/codex-run.js` runner binaries using the **ADR-050 dispatch pattern** (single foreground blocking Bash call, direct backgrounding, per-PID `wait`, 25-min timeout):
@@ -96,6 +131,11 @@ When a provider fails (timeout, capacity exhaustion, exit code ≠ 0, 0-byte out
 
 ```markdown
 ## Multi-Provider Review
+
+**Context used:**
+- Included: <files / packages>
+- Excluded: <files / patterns and reason>
+- Diff bytes: <N>
 
 **Verified by both providers (highest confidence):**
 - ⟨finding⟩ — Gemini: 92, Codex: 88. Verified at <file>:<line>.
