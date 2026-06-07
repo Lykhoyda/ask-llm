@@ -19,12 +19,13 @@ export const pingTool: UnifiedTool = {
     description: "Verify the Antigravity MCP server is working and agy is reachable",
   },
   category: "simple",
-  execute: async (args, onProgress) => {
+  execute: async (args) => {
     const message = (args.message as string) || "Pong from Antigravity MCP Server!";
     try {
       // 5s ceiling for a version probe — never inherit the 210s default; a hung
       // agy must not block ping for minutes (matches isCommandAvailable, #153 review).
-      const version = await executeCommand("agy", ["--version"], onProgress, undefined, undefined, 5_000);
+      // No onProgress: the version string must not be streamed as a progress event.
+      const version = await executeCommand("agy", ["--version"], undefined, undefined, undefined, 5_000);
       return `${message} (agy detected: ${version.trim()})`;
     } catch {
       return `${message} (warning: agy not found on PATH — install Antigravity CLI and run \`agy\` once to log in)`;
