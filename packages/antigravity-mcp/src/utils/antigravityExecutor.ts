@@ -102,10 +102,14 @@ export async function executeAntigravityCLI(options: AntigravityExecutorOptions)
       throw error; // not-found / spawn errors are already actionable via sanitizeErrorForLLM
     }
 
+    // First non-null wins. Order matters: structured stdout JSON (if agy ever adds
+    // it, #27466) is unambiguous; the transcript is the authoritative record; raw
+    // stdout text is LAST because agy may print banners/progress/auth lines that
+    // aren't the answer, and those must never preempt the transcript (#153 review).
     const sources: Array<{ label: string; get: () => string | null }> = [
       { label: "stdout-json", get: () => fromStdoutJson(raw) },
-      { label: "stdout-plain", get: () => fromStdoutPlain(raw) },
       { label: "transcript", get: () => readLatestResponse(startedAt) },
+      { label: "stdout-plain", get: () => fromStdoutPlain(raw) },
     ];
     for (const source of sources) {
       const response = source.get();

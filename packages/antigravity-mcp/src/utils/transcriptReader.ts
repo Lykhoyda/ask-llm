@@ -35,9 +35,10 @@ function pickMostRecentId(parsed: unknown): string | null {
     const obj = parsed as Record<string, unknown>;
     if (typeof obj.lastId === "string") return obj.lastId;
     if (Array.isArray(obj.conversations)) return pickMostRecentId(obj.conversations);
-    // A bare object keyed by conversation id gives no reliable recency order
-    // (V8 sorts integer-like keys numerically), so return null and let the caller
-    // fall through to the mtime-based brain-dir scan instead of guessing wrong.
+    // A bare object keyed by conversation id gives no reliable recency signal:
+    // integer-like keys enumerate in ascending numeric order and string keys in
+    // insertion order — neither tracks creation time — so return null and let the
+    // caller fall through to the mtime-based brain-dir scan instead of guessing.
   }
   return null;
 }

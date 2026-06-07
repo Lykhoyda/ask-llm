@@ -116,7 +116,9 @@ fixture-based tests) is contained where the rest of the package never has to kno
    `cache/last_conversations.json` and the "newest brain dir" heuristic)
 3. `executeCommand('agy', args, …)` via `@ask-llm/shared`; record `startedAt`
 4. **response-source chain**, first non-null wins:
-   `[parseJsonStdout (future), parsePlainStdout, scrapeTranscript(startedAt)]`
+   `[parseJsonStdout (future), scrapeTranscript(startedAt), parsePlainStdout (last resort)]`
+   — plain stdout is LAST so agy banners/progress lines can't preempt the authoritative
+   transcript (#153 review); structured JSON stays first for clean self-heal on #27466.
 5. release mutex → return `{ response, sessionId: undefined, usage: undefined }`
    (`agy` exposes neither a session id nor token stats in headless mode)
 

@@ -13,7 +13,7 @@ const askAntigravityArgsSchema = z.object({
     .array(z.string())
     .optional()
     .describe(
-      "Additional directories agy may access alongside the working directory (maps to agy `--add-dir`, repeatable). Useful in monorepos where relevant context spans sibling packages.",
+      "Additional directories agy may access alongside the working directory (maps to agy `--add-dir`, repeatable). Useful in monorepos where relevant context spans sibling packages. Paths are forwarded to agy as-is and trusted (agy runs with --dangerously-skip-permissions), so only pass directories you intend the model to read.",
     ),
 });
 

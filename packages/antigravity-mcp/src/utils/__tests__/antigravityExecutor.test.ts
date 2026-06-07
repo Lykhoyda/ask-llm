@@ -59,11 +59,20 @@ describe("buildArgs", () => {
 });
 
 describe("executeAntigravityCLI response sources", () => {
-  it("uses plain stdout when agy prints (future-proof path)", async () => {
+  it("uses plain stdout only as a last resort, after the transcript", async () => {
     mockExec.mockResolvedValue("direct answer");
+    mockReadLatest.mockReturnValue(null);
     const result = await executeAntigravityCLI({ prompt: "q" });
     expect(result.response).toBe("direct answer");
-    expect(mockReadLatest).not.toHaveBeenCalled();
+    // transcript is consulted before plain stdout
+    expect(mockReadLatest).toHaveBeenCalledOnce();
+  });
+
+  it("prefers the transcript over non-JSON stdout banners (#153)", async () => {
+    mockExec.mockResolvedValue("Initializing model...");
+    mockReadLatest.mockReturnValue("real answer");
+    const result = await executeAntigravityCLI({ prompt: "q" });
+    expect(result.response).toBe("real answer");
   });
 
   it("uses JSON stdout .response when present", async () => {
