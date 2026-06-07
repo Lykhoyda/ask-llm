@@ -107,7 +107,7 @@ export function readLatestResponse(sinceMs: number, baseDir: string = defaultBas
   // Note: readFileOrNull returns file *contents*, so once transcript_full.jsonl
   // exists it wins even if it yields no model entry (e.g. agy crashed mid-write) —
   // we return null rather than fall back to the truncated copy. Intentional:
-  // full > truncated; a present-but-empty full file means the run didn't finish (#154).
+  // full > truncated; a full file with no model entry means the run didn't finish (#154).
   const raw =
     readFileOrNull(join(logsDir, "transcript_full.jsonl")) ?? readFileOrNull(join(logsDir, "transcript.jsonl"));
   if (raw === null) {

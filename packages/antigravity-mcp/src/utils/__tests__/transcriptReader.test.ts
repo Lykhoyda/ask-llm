@@ -121,14 +121,16 @@ describe("readLatestResponse", () => {
 
   it("returns null when transcript_full.jsonl exists but has no model entry (no fallback to truncated)", () => {
     // truncated copy HAS a usable answer...
-    writeTranscript("conv1", [{ source: "MODEL", status: "DONE", type: "PLANNER_RESPONSE", content: "truncated answer" }]);
+    writeTranscript("conv1", [
+      { source: "MODEL", status: "DONE", type: "PLANNER_RESPONSE", content: "truncated answer" },
+    ]);
     // ...but the full copy exists with no MODEL/DONE/PLANNER_RESPONSE (e.g. agy crashed mid-write)
     writeTranscript(
       "conv1",
       [{ source: "USER_EXPLICIT", status: "DONE", type: "USER_INPUT", content: "question" }],
       "transcript_full.jsonl",
     );
-    // full > truncated: a present-but-empty full file means the run didn't finish → null (#154)
+    // full > truncated: a full file with no model entry means the run didn't finish → null (#154)
     expect(readLatestResponse(0, baseDir)).toBeNull();
   });
 });
