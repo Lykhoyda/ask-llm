@@ -24,6 +24,7 @@ const mockReadLatest = vi.mocked(readLatestResponse);
 beforeEach(() => {
   vi.clearAllMocks();
   delete process.env[ANTIGRAVITY.SANDBOX_ENV_VAR];
+  delete process.env[ANTIGRAVITY.TIMEOUT_ENV_VAR];
   mockExec.mockResolvedValue("");
   mockReadLatest.mockReturnValue(null);
 });
@@ -120,6 +121,15 @@ describe("executeAntigravityCLI argument wiring", () => {
     const [, args] = mockExec.mock.calls[0];
     expect(args).not.toContain(CLI.FLAGS.SANDBOX);
   });
+
+  it("does not invert agy --print-timeout for very small configured timeouts", async () => {
+    process.env[ANTIGRAVITY.TIMEOUT_ENV_VAR] = "3000";
+    mockExec.mockResolvedValue("answer");
+    await executeAntigravityCLI({ prompt: "q" });
+    const [, args] = mockExec.mock.calls[0];
+    const idx = args.indexOf(CLI.FLAGS.PRINT_TIMEOUT);
+    expect(args[idx + 1]).toBe("3s");
+  });
 });
 
 describe("executeAntigravityCLI error handling", () => {
@@ -135,21 +145,31 @@ describe("executeAntigravityCLI error handling", () => {
 });
 
 describe("executeAntigravityCLI concurrency", () => {
-  it("serializes concurrent calls via the mutex", async () => {
-    let resolveFirst!: (v: string) => void;
-    const first = new Promise<string>((r) => {
-      resolveFirst = r;
-    });
-    mockExec.mockReturnValueOnce(first).mockResolvedValueOnce("second");
+  it("serializes concurrent calls via the mutex (never more than one agy active)", async () => {
+    let active = 0;
+    let maxActive = 0;
+    const releases: Array<() => void> = [];
+    mockExec.mockImplementation(
+      () =>
+        new Promise<string>((resolve) => {
+          active++;
+          maxActive = Math.max(maxActive, active);
+          releases.push(() => {
+            active--;
+            resolve("answer");
+          });
+        }),
+    );
     const p1 = executeAntigravityCLI({ prompt: "a" });
     const p2 = executeAntigravityCLI({ prompt: "b" });
-    await Promise.resolve();
-    await Promise.resolve();
-    expect(mockExec).toHaveBeenCalledTimes(1); // second call queued behind the mutex
-    resolveFirst("first");
-    const [r1, r2] = await Promise.all([p1, p2]);
-    expect(r1.response).toBe("first");
-    expect(r2.response).toBe("second");
-    expect(mockExec).toHaveBeenCalledTimes(2);
+    await new Promise((r) => setTimeout(r, 0));
+    expect(releases.length).toBe(1); // only the first call has reached agy
+    expect(maxActive).toBe(1);
+    releases[0]();
+    await new Promise((r) => setTimeout(r, 0));
+    expect(releases.length).toBe(2); // second starts only after the first finished
+    releases[1]();
+    await Promise.all([p1, p2]);
+    expect(maxActive).toBe(1);
   });
 });

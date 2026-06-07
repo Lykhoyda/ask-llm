@@ -76,7 +76,9 @@ export async function executeAntigravityCLI(options: AntigravityExecutorOptions)
   const timeoutMs = resolveTimeoutMs(ANTIGRAVITY.TIMEOUT_ENV_VAR, ANTIGRAVITY.DEFAULT_TIMEOUT_MS);
   // Tell agy to wait slightly less than our hard process timeout so agy's own
   // --print-timeout fires first with a cleaner message when the model is slow.
-  const agyTimeoutSec = Math.max(1, Math.round(timeoutMs / 1000) - 5);
+  // For very small configured timeouts (<=6s), don't subtract — otherwise agy's
+  // deadline could invert past the process timeout (or clamp to a near-instant 1s).
+  const agyTimeoutSec = timeoutMs > 6000 ? Math.round(timeoutMs / 1000) - 5 : Math.max(1, Math.round(timeoutMs / 1000));
 
   const fullPrompt = `${READ_ONLY_PREAMBLE}\n\n${options.prompt}`;
   if (fullPrompt.length > EXECUTION.STDIN_THRESHOLD_BYTES) {
@@ -100,14 +102,15 @@ export async function executeAntigravityCLI(options: AntigravityExecutorOptions)
       throw error; // not-found / spawn errors are already actionable via sanitizeErrorForLLM
     }
 
-    const sources: Array<() => string | null> = [
-      () => fromStdoutJson(raw),
-      () => fromStdoutPlain(raw),
-      () => readLatestResponse(startedAt),
+    const sources: Array<{ label: string; get: () => string | null }> = [
+      { label: "stdout-json", get: () => fromStdoutJson(raw) },
+      { label: "stdout-plain", get: () => fromStdoutPlain(raw) },
+      { label: "transcript", get: () => readLatestResponse(startedAt) },
     ];
     for (const source of sources) {
-      const response = source();
+      const response = source.get();
       if (response !== null) {
+        Logger.debug(`antigravity: response from ${source.label}`);
         return { response, sessionId: undefined, usage: undefined };
       }
     }
