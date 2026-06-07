@@ -104,6 +104,10 @@ export function readLatestResponse(sinceMs: number, baseDir: string = defaultBas
   // agy writes a token-truncated transcript.jsonl plus a complete
   // transcript_full.jsonl; prefer the full one so long responses aren't clipped
   // (verified against agy 1.0.6 — #153 dogfood), falling back to transcript.jsonl.
+  // Note: readFileOrNull returns file *contents*, so once transcript_full.jsonl
+  // exists it wins even if it yields no model entry (e.g. agy crashed mid-write) —
+  // we return null rather than fall back to the truncated copy. Intentional:
+  // full > truncated; a full file with no model entry means the run didn't finish (#154).
   const raw =
     readFileOrNull(join(logsDir, "transcript_full.jsonl")) ?? readFileOrNull(join(logsDir, "transcript.jsonl"));
   if (raw === null) {
