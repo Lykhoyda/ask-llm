@@ -9,6 +9,10 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    # Cap each matrix leg so a hung runner fails fast instead of stalling up to the
+    # 6h default. Normal build+lint+test is <2m; #155 hit a 22.x runner that hung
+    # ~12m while 20.x passed the same commit in 77s. 10m leaves generous headroom.
+    timeout-minutes: 10
 
     strategy:
       matrix:
