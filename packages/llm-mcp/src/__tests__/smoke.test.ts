@@ -17,6 +17,10 @@ vi.mock("ask-ollama-mcp/executor", () => ({
   isProviderAvailable: vi.fn().mockResolvedValue(false),
 }));
 
+vi.mock("ask-antigravity-mcp/executor", () => ({
+  executeAntigravityCLI: vi.fn().mockResolvedValue({ response: "antigravity response" }),
+}));
+
 import { executeCodexCLI } from "ask-codex-mcp/executor";
 import { executeGeminiCLI } from "ask-gemini-mcp/executor";
 import { executeOllamaCLI, isProviderAvailable as mockIsOllamaAvailable } from "ask-ollama-mcp/executor";
@@ -71,7 +75,7 @@ describe("detectProviders", () => {
 
     const status = await detectProviders();
 
-    expect(status.available).toEqual(["gemini", "codex", "ollama"]);
+    expect(status.available).toEqual(["gemini", "codex", "ollama", "antigravity"]);
     expect(status.missing).toHaveLength(0);
   });
 
@@ -82,6 +86,6 @@ describe("detectProviders", () => {
     const status = await detectProviders();
 
     expect(status.available).toHaveLength(0);
-    expect(status.missing).toEqual(["gemini", "codex", "ollama"]);
+    expect(status.missing).toEqual(["gemini", "codex", "ollama", "antigravity"]);
   });
 });

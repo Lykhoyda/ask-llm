@@ -188,7 +188,7 @@ export async function startServer() {
             ? `\n\n[Thread ID: ${result.threadId}]`
             : "";
         const structured: AskResponse = {
-          provider: provider as "gemini" | "codex" | "ollama",
+          provider: provider as "gemini" | "codex" | "ollama" | "antigravity",
           response: result.response,
           model: result.usage?.model ?? model ?? PROVIDERS[provider]?.defaultModel ?? "unknown",
           sessionId: resolvedSessionId,

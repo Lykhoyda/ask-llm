@@ -2550,7 +2550,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"ask-antigravity-mcp@workspace:packages/antigravity-mcp":
+"ask-antigravity-mcp@workspace:*, ask-antigravity-mcp@workspace:packages/antigravity-mcp":
   version: 0.0.0-use.local
   resolution: "ask-antigravity-mcp@workspace:packages/antigravity-mcp"
   dependencies:
@@ -2606,6 +2606,7 @@ __metadata:
     "@biomejs/biome": "npm:^2.4.4"
     "@modelcontextprotocol/sdk": "npm:^1.27.1"
     "@types/node": "npm:^22.19.13"
+    ask-antigravity-mcp: "workspace:*"
     ask-codex-mcp: "workspace:*"
     ask-gemini-mcp: "workspace:*"
     ask-ollama-mcp: "workspace:*"

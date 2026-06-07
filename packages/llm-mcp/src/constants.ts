@@ -32,10 +32,18 @@ export const PROVIDERS: Record<string, ProviderConfig> = {
     availabilityModule: "ask-ollama-mcp/executor",
     availabilityFn: "isProviderAvailable",
   },
+  antigravity: {
+    name: "Antigravity",
+    command: "agy",
+    executorModule: "ask-antigravity-mcp/executor",
+    executorFn: "executeAntigravityCLI",
+    defaultModel: "antigravity",
+  },
 };
 
 export const INSTALL_HINTS: Record<string, string> = {
   gemini: "npm install -g @google/gemini-cli",
   codex: "npm install -g @openai/codex",
   ollama: "https://ollama.com — then: ollama pull qwen2.5-coder:7b",
+  antigravity: "Install Google Antigravity (agy) from https://antigravity.google, then run `agy` once to log in",
 };

@@ -58,6 +58,7 @@
   "dependencies": {
     "@ask-llm/shared": "workspace:*",
     "@modelcontextprotocol/sdk": "^1.27.1",
+    "ask-antigravity-mcp": "workspace:*",
     "ask-codex-mcp": "workspace:*",
     "ask-gemini-mcp": "workspace:*",
     "ask-ollama-mcp": "workspace:*",
