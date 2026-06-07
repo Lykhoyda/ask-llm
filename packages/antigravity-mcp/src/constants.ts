@@ -2,7 +2,7 @@ export const ERROR_MESSAGES = {
   NO_PROMPT_PROVIDED:
     "Please provide a prompt for analysis. Ask a question or describe the code you want a second opinion on.",
   NO_OUTPUT:
-    "Antigravity (agy) ran but produced no readable response. Most likely you are not logged in (run `agy` once interactively to authenticate), or agy's transcript output path/schema changed (this experimental provider may need an update). agy's headless `-p` mode is known to not print to stdout (gemini-cli #27466), so ask-antigravity-mcp reads agy's transcript files instead.",
+    "Antigravity (agy) ran but produced no readable response. Most likely you are not logged in (run `agy` once interactively to authenticate), or agy's transcript output path/schema changed (this experimental provider may need an update). agy >=1.0.6 prints to stdout; on older versions where headless `-p` did not (gemini-cli #27466), ask-antigravity-mcp reads agy's transcript files as a fallback.",
   RATE_LIMITED:
     "Antigravity (agy) hit a subscription rate limit. Google AI Pro/Ultra quotas refresh roughly every 5 hours — wait and retry, or use ask-codex / ask-gemini in the meantime.",
   TOOL_NOT_FOUND: "not found in registry",

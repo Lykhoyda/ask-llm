@@ -3,10 +3,10 @@
 MCP server for Google's Antigravity CLI (`agy`). Lets Claude get a
 subscription-backed second opinion / code review from Antigravity.
 
-> **Experimental.** `agy`'s headless `-p` mode does not reliably print to stdout
-> (gemini-cli #27466) and exposes no JSON output or session id. This server reads
-> `agy`'s internal transcript files as a fallback, so it is sensitive to changes
-> in `agy`'s on-disk layout. One-shot only: no model selection, no multi-turn.
+> **Experimental.** Validated against `agy` 1.0.6, which prints the response to
+> stdout (gemini-cli #27466 is fixed there); older versions fall back to reading
+> `agy`'s internal transcript files (sensitive to `agy`'s on-disk layout). No JSON
+> output or session id, so it stays one-shot: no model selection, no multi-turn.
 
 ## Prerequisites
 - `agy` installed and on PATH, and logged in once (run `agy` interactively).

@@ -20,7 +20,7 @@ const askAntigravityArgsSchema = z.object({
 export const askAntigravityTool: UnifiedTool = {
   name: "ask-antigravity",
   description:
-    "Send a prompt to Google's Antigravity CLI (agy) for a subscription-backed second opinion, code review, or analysis. EXPERIMENTAL: agy's headless mode does not print to stdout, so this reads agy's transcript files; one-shot only (no model selection, no multi-turn). Requires `agy` installed and logged in once. Returns human-readable text plus a structured response.",
+    "Send a prompt to Google's Antigravity CLI (agy) for a subscription-backed second opinion, code review, or analysis. agy >=1.0.6 prints the response to stdout (used directly); older versions/edge cases fall back to reading agy's transcript files. One-shot only (no model selection, no multi-turn). Requires `agy` installed and logged in once. Returns human-readable text plus a structured response.",
   zodSchema: askAntigravityArgsSchema,
   outputSchema: askResponseSchema,
   annotations: {

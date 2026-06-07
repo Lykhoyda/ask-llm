@@ -57,12 +57,16 @@ function resolveConversationId(baseDir: string, sinceMs: number): string | null 
     const brainDir = join(baseDir, "brain");
     let newest: { id: string; mtimeMs: number } | null = null;
     for (const id of readdirSync(brainDir)) {
-      let mtimeMs: number;
+      let stat: ReturnType<typeof statSync>;
       try {
-        mtimeMs = statSync(join(brainDir, id)).mtimeMs;
+        stat = statSync(join(brainDir, id));
       } catch {
         continue;
       }
+      // skip stray non-directory entries (e.g. .DS_Store, lock files) so they
+      // can't become the "newest" id and break the transcript path (#153 dogfood).
+      if (!stat.isDirectory()) continue;
+      const mtimeMs = stat.mtimeMs;
       // include if mtimeMs >= sinceMs - 1 (1ms tolerance for coarse FS timestamps)
       if (mtimeMs + 1 < sinceMs) continue;
       if (!newest || mtimeMs > newest.mtimeMs) newest = { id, mtimeMs };
@@ -78,22 +82,32 @@ function extractText(entry: TranscriptEntry): string | null {
   return typeof text === "string" && text.length > 0 ? text : null;
 }
 
+function readFileOrNull(path: string): string | null {
+  try {
+    return readFileSync(path, "utf8");
+  } catch {
+    return null;
+  }
+}
+
 // Read agy's transcript for the resolved conversation and return the last
 // completed model response, or null if absent/unreadable. Never throws.
-// NOTE: confirm source/status/type/text field names against a real agy transcript
-// (spec §10.2). The chosen values match the community MCP bridge precedent.
+// Schema validated against agy 1.0.6 (#153 dogfood): the answer is the last entry
+// with source=MODEL, status=DONE, type=PLANNER_RESPONSE, and its text in `content`.
 export function readLatestResponse(sinceMs: number, baseDir: string = defaultBaseDir()): string | null {
   const convId = resolveConversationId(baseDir, sinceMs);
   if (!convId) {
     Logger.debug("antigravity: could not resolve a conversation id from cache or brain dir");
     return null;
   }
-  const transcriptPath = join(baseDir, "brain", convId, ".system_generated", "logs", "transcript.jsonl");
-  let raw: string;
-  try {
-    raw = readFileSync(transcriptPath, "utf8");
-  } catch {
-    Logger.debug(`antigravity: transcript not found at ${transcriptPath}`);
+  const logsDir = join(baseDir, "brain", convId, ".system_generated", "logs");
+  // agy writes a token-truncated transcript.jsonl plus a complete
+  // transcript_full.jsonl; prefer the full one so long responses aren't clipped
+  // (verified against agy 1.0.6 — #153 dogfood), falling back to transcript.jsonl.
+  const raw =
+    readFileOrNull(join(logsDir, "transcript_full.jsonl")) ?? readFileOrNull(join(logsDir, "transcript.jsonl"));
+  if (raw === null) {
+    Logger.debug(`antigravity: no transcript (full or truncated) under ${logsDir}`);
     return null;
   }
   let answer: string | null = null;
