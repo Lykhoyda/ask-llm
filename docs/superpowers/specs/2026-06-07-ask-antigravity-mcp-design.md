@@ -186,16 +186,28 @@ All tests mock the filesystem and `executeCommand`; none require a real `agy` bi
 - **Not published to npm until validated** against a real `agy` install (release decision,
   out of scope for v1 implementation).
 
-## 10. Open verification items (confirm during implementation, against a real `agy`)
+## 10. Validation results (against real `agy` 1.0.6 — #153 dogfood)
 
-1. Whether `agy -p` accepts a piped **stdin** payload (for large prompts), mirroring
-   `gemini`'s `STDIN_THRESHOLD_BYTES` behavior. If not, large prompts go via a temp file.
-2. Exact `transcript.jsonl` entry schema (`source`/`status`/`type` field names) — confirm
-   against a real transcript before trusting the fixtures.
-3. Whether `--sandbox` blocks `--add-dir` context reads (drives the `ASK_ANTIGRAVITY_SANDBOX`
-   default).
-4. `ping`'s authed-check mechanism (presence of credentials/data dir vs a fast
-   `agy --version`).
+Validated by running `executeAntigravityCLI` against a live `agy` 1.0.6 (a code review
+of this package), in the PR #153 dogfood follow-up:
+
+1. **stdout works — gemini-cli #27466 is FIXED in agy 1.0.6.** `agy -p` prints the full
+   response to stdout in a non-TTY context, so the `stdout-plain` source wins and the
+   transcript scrape is now a *fallback*, not the primary path. (stdin handling for very
+   large prompts remains untested — still bounded by the 100KB zod cap, well under ARG_MAX.)
+2. **Transcript schema confirmed:** the answer is the last `source=MODEL, status=DONE,
+   type=PLANNER_RESPONSE` entry, text in **`content`** (handled by our `text ?? content ??
+   message` fallback). ⚠️ Two real bugs found & fixed: (a) `agy` writes a token-**truncated**
+   `transcript.jsonl` plus a complete `transcript_full.jsonl` — the reader now prefers the
+   full one; (b) the brain-dir scan now skips non-directory entries (a stray `.DS_Store` could
+   otherwise become the "newest" id).
+3. **`--sandbox` does NOT block `--add-dir` reads** — agy read the target files accurately with
+   both flags on, so the default posture (`--sandbox` + `--dangerously-skip-permissions`) stands.
+4. `ping` uses a 5s-capped `agy --version` — works; a deeper authed-check is unnecessary.
+
+**Net:** validated against agy 1.0.6 via the now-primary stdout path. Remaining before npm
+publish / dropping "experimental": broaden real-`agy` coverage (large-prompt stdin, long-response
+fallback) and the deferred minors.
 
 ## 11. Out of scope (v1)
 

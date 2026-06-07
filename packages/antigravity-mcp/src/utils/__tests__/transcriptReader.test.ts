@@ -6,10 +6,10 @@ import { readLatestResponse } from "../transcriptReader.js";
 
 let baseDir: string;
 
-function writeTranscript(convId: string, lines: object[]): string {
+function writeTranscript(convId: string, lines: object[], filename = "transcript.jsonl"): string {
   const dir = join(baseDir, "brain", convId, ".system_generated", "logs");
   mkdirSync(dir, { recursive: true });
-  writeFileSync(join(dir, "transcript.jsonl"), lines.map((l) => JSON.stringify(l)).join("\n"));
+  writeFileSync(join(dir, filename), lines.map((l) => JSON.stringify(l)).join("\n"));
   return join(baseDir, "brain", convId);
 }
 
@@ -96,5 +96,26 @@ describe("readLatestResponse", () => {
     utimesSync(newDir, new Date(5000), new Date(5000));
     // sinceMs=3000 → "old" (mtime 1000) is excluded, "new" (mtime 5000) wins.
     expect(readLatestResponse(3000, baseDir)).toBe("new answer");
+  });
+
+  it("prefers transcript_full.jsonl over the truncated transcript.jsonl", () => {
+    writeTranscript("conv1", [{ source: "MODEL", status: "DONE", type: "PLANNER_RESPONSE", content: "TRUNCATED" }]);
+    writeTranscript(
+      "conv1",
+      [{ source: "MODEL", status: "DONE", type: "PLANNER_RESPONSE", content: "FULL ANSWER" }],
+      "transcript_full.jsonl",
+    );
+    expect(readLatestResponse(0, baseDir)).toBe("FULL ANSWER");
+  });
+
+  it("ignores non-directory entries in brain/ (e.g. .DS_Store)", () => {
+    const dir = writeTranscript("conv1", [
+      { source: "MODEL", status: "DONE", type: "PLANNER_RESPONSE", content: "real answer" },
+    ]);
+    const stray = join(baseDir, "brain", ".DS_Store");
+    writeFileSync(stray, "junk");
+    utimesSync(dir, new Date(1000), new Date(1000));
+    utimesSync(stray, new Date(9000), new Date(9000)); // newer than the real dir
+    expect(readLatestResponse(0, baseDir)).toBe("real answer");
   });
 });
