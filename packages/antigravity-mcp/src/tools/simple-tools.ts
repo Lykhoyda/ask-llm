@@ -22,7 +22,9 @@ export const pingTool: UnifiedTool = {
   execute: async (args, onProgress) => {
     const message = (args.message as string) || "Pong from Antigravity MCP Server!";
     try {
-      const version = await executeCommand("agy", ["--version"], onProgress);
+      // 5s ceiling for a version probe — never inherit the 210s default; a hung
+      // agy must not block ping for minutes (matches isCommandAvailable, #153 review).
+      const version = await executeCommand("agy", ["--version"], onProgress, undefined, undefined, 5_000);
       return `${message} (agy detected: ${version.trim()})`;
     } catch {
       return `${message} (warning: agy not found on PATH — install Antigravity CLI and run \`agy\` once to log in)`;
