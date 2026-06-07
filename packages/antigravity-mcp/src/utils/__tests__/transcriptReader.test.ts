@@ -55,6 +55,24 @@ describe("readLatestResponse", () => {
     expect(readLatestResponse(0, baseDir)).toBe("B answer");
   });
 
+  it("falls through to the newest brain dir when the cache file is a bare keyed object", () => {
+    const oldDir = writeTranscript("old", [
+      { source: "MODEL", status: "DONE", type: "PLANNER_RESPONSE", text: "old answer" },
+    ]);
+    const newDir = writeTranscript("new", [
+      { source: "MODEL", status: "DONE", type: "PLANNER_RESPONSE", text: "new answer" },
+    ]);
+    utimesSync(oldDir, new Date(1000), new Date(1000));
+    utimesSync(newDir, new Date(5000), new Date(5000));
+    mkdirSync(join(baseDir, "cache"), { recursive: true });
+    // last key is "old" — proves we do NOT trust object-key order; mtime scan picks "new".
+    writeFileSync(
+      join(baseDir, "cache", "last_conversations.json"),
+      JSON.stringify({ new: { ts: 2 }, old: { ts: 1 } }),
+    );
+    expect(readLatestResponse(0, baseDir)).toBe("new answer");
+  });
+
   it("falls back to the newest brain dir modified since the run", () => {
     const oldDir = writeTranscript("old", [
       { source: "MODEL", status: "DONE", type: "PLANNER_RESPONSE", text: "old answer" },

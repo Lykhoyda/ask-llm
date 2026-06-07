@@ -4,7 +4,9 @@ import { join } from "node:path";
 import { Logger } from "@ask-llm/shared";
 
 export function defaultBaseDir(): string {
-  return join(homedir(), ".gemini", "antigravity-cli");
+  // ASK_ANTIGRAVITY_BASE_DIR overrides the assumed location of agy's data dir —
+  // the path most likely to need correcting against a real agy install (spec §10).
+  return process.env.ASK_ANTIGRAVITY_BASE_DIR ?? join(homedir(), ".gemini", "antigravity-cli");
 }
 
 interface TranscriptEntry {
@@ -33,8 +35,9 @@ function pickMostRecentId(parsed: unknown): string | null {
     const obj = parsed as Record<string, unknown>;
     if (typeof obj.lastId === "string") return obj.lastId;
     if (Array.isArray(obj.conversations)) return pickMostRecentId(obj.conversations);
-    const keys = Object.keys(obj);
-    if (keys.length > 0) return keys[keys.length - 1];
+    // A bare object keyed by conversation id gives no reliable recency order
+    // (V8 sorts integer-like keys numerically), so return null and let the caller
+    // fall through to the mtime-based brain-dir scan instead of guessing wrong.
   }
   return null;
 }
@@ -59,7 +62,7 @@ function resolveConversationId(baseDir: string, sinceMs: number): string | null 
       } catch {
         continue;
       }
-      // allow 1ms slack for filesystem mtime granularity
+      // include if mtimeMs >= sinceMs - 1 (1ms tolerance for coarse FS timestamps)
       if (mtimeMs + 1 < sinceMs) continue;
       if (!newest || mtimeMs > newest.mtimeMs) newest = { id, mtimeMs };
     }
