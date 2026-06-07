@@ -1,12 +1,17 @@
 {
-  "name": "ask-llm-mcp",
-  "version": "0.3.11",
-  "mcpName": "io.github.Lykhoyda/ask-llm",
-  "description": "Unified MCP server for multi-LLM consultation — registers tools from all available providers (Gemini, Codex, Ollama) behind runtime availability checks",
+  "name": "ask-antigravity-mcp",
+  "version": "0.0.1",
+  "mcpName": "io.github.Lykhoyda/ask-antigravity",
+  "description": "EXPERIMENTAL MCP server for Google's Antigravity CLI (agy) — subscription-backed second opinions",
   "type": "module",
   "main": "dist/index.js",
   "exports": {
-    ".": "./dist/index.js"
+    ".": "./dist/index.js",
+    "./executor": {
+      "types": "./dist/utils/antigravityExecutor.d.ts",
+      "default": "./dist/utils/antigravityExecutor.js"
+    },
+    "./register": "./dist/tools/index.js"
   },
   "bin": "dist/cli.js",
   "scripts": {
@@ -15,25 +20,20 @@
     "dev": "tsc -b && node dist/cli.js",
     "test": "vitest run",
     "lint": "biome check src/ && tsc --noEmit",
-    "prepack": "node ../../scripts/prepack-bundle.mjs shared gemini-mcp codex-mcp ollama-mcp",
-    "postpack": "node ../../scripts/postpack-restore.mjs shared gemini-mcp codex-mcp ollama-mcp"
+    "prepack": "node ../../scripts/prepack-bundle.mjs shared",
+    "postpack": "node ../../scripts/postpack-restore.mjs shared"
   },
   "keywords": [
     "mcp",
     "mcp-server",
     "modelcontextprotocol",
-    "llm",
-    "multi-llm",
+    "antigravity",
+    "agy",
+    "google",
     "gemini",
-    "codex",
-    "openai",
-    "google-gemini",
-    "ollama",
-    "local-llm",
     "claude",
     "ai",
     "ai-collaboration",
-    "code-review",
     "second-opinion"
   ],
   "author": "Lykhoyda",
@@ -41,7 +41,7 @@
   "repository": {
     "type": "git",
     "url": "git+https://github.com/Lykhoyda/ask-llm.git",
-    "directory": "packages/llm-mcp"
+    "directory": "packages/antigravity-mcp"
   },
   "bugs": {
     "url": "https://github.com/Lykhoyda/ask-llm/issues"
@@ -58,10 +58,6 @@
   "dependencies": {
     "@ask-llm/shared": "workspace:*",
     "@modelcontextprotocol/sdk": "^1.27.1",
-    "ask-antigravity-mcp": "workspace:*",
-    "ask-codex-mcp": "workspace:*",
-    "ask-gemini-mcp": "workspace:*",
-    "ask-ollama-mcp": "workspace:*",
     "zod": "^4.3.6"
   },
   "devDependencies": {
@@ -74,9 +70,6 @@
     "access": "public"
   },
   "bundledDependencies": [
-    "@ask-llm/shared",
-    "ask-gemini-mcp",
-    "ask-codex-mcp",
-    "ask-ollama-mcp"
+    "@ask-llm/shared"
   ]
 }

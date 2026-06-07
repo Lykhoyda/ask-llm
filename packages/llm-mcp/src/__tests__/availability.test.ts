@@ -6,9 +6,19 @@ vi.mock("node:child_process", () => {
 });
 
 import { execFile } from "node:child_process";
+import { PROVIDERS } from "../constants.js";
 import { isCommandAvailable } from "../utils/availability.js";
 
 const mockExecFile = vi.mocked(execFile);
+
+describe("PROVIDERS registry", () => {
+  it("registers antigravity as an agy-backed provider", () => {
+    expect(PROVIDERS.antigravity).toBeDefined();
+    expect(PROVIDERS.antigravity.command).toBe("agy");
+    expect(PROVIDERS.antigravity.executorModule).toBe("ask-antigravity-mcp/executor");
+    expect(PROVIDERS.antigravity.executorFn).toBe("executeAntigravityCLI");
+  });
+});
 
 describe("isCommandAvailable", () => {
   it("returns true when command is found on PATH", async () => {

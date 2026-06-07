@@ -6,6 +6,7 @@
     { "path": "packages/claude-plugin" },
     { "path": "packages/codex-mcp" },
     { "path": "packages/ollama-mcp" },
+    { "path": "packages/antigravity-mcp" },
     { "path": "packages/llm-mcp" }
   ]
 }
