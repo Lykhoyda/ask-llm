@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { listFiles, listSubdirs, parseMarkdownFrontmatter, readFile } from "./_helpers.js";
 
 const expectedSkills = [
+  "antigravity-review",
   "brainstorm",
   "brainstorm-all",
   "codex-image",
@@ -16,6 +17,7 @@ const expectedSkills = [
   "ollama-review",
 ];
 const expectedAgents = [
+  "antigravity-reviewer.md",
   "brainstorm-coordinator.md",
   "codex-reviewer.md",
   "codex-verifier.md",
@@ -84,6 +86,7 @@ describe("agents/", () => {
       { file: "gemini-reviewer.md", tool: "mcp__gemini__ask-gemini" },
       { file: "codex-reviewer.md", tool: "mcp__codex__ask-codex" },
       { file: "ollama-reviewer.md", tool: "mcp__ollama__ask-ollama" },
+      { file: "antigravity-reviewer.md", tool: "mcp__antigravity__ask-antigravity" },
     ];
     for (const { file, tool } of cases) {
       const { frontmatter } = parseMarkdownFrontmatter(readFile(`agents/${file}`));
@@ -94,7 +97,7 @@ describe("agents/", () => {
   });
 
   it("review agents are restricted from edit/write tools", () => {
-    const reviewerAgents = ["gemini-reviewer.md", "codex-reviewer.md", "ollama-reviewer.md"];
+    const reviewerAgents = ["gemini-reviewer.md", "codex-reviewer.md", "ollama-reviewer.md", "antigravity-reviewer.md"];
     for (const file of reviewerAgents) {
       const { frontmatter } = parseMarkdownFrontmatter(readFile(`agents/${file}`));
       const tools = frontmatter.tools as string[] | undefined;

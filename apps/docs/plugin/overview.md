@@ -48,11 +48,12 @@ This gives you `gemini:ask-gemini` rather than `plugin:ask-llm:gemini:ask-gemini
 | `/gemini-review` | Gemini | Get a second opinion on your current changes |
 | `/codex-review` | Codex | Get a second opinion from GPT-5.5 |
 | `/ollama-review` | Ollama | Local review — no data leaves your machine |
+| `/antigravity-review` | Antigravity | Subscription-backed second opinion via Google `agy` (experimental) |
 | `/brainstorm` | Multi + Claude Opus | Claude Opus researches the topic against real files in parallel with external providers, then synthesizes findings |
 | `/brainstorm-all` | All + Claude Opus | Brainstorm with all three external providers plus Claude Opus research |
 | `/compare` | Multi (configurable) | Side-by-side raw responses from selected providers — no synthesis, no consensus extraction. Use when you want to see how each provider phrases the same answer |
 
-> `/codex-review`, `/ollama-review`, and `/brainstorm` require the respective CLI tools to be installed and authenticated.
+> `/codex-review`, `/ollama-review`, `/antigravity-review`, and `/brainstorm` require the respective CLI tools to be installed and authenticated.
 >
 > Looking for **continuous background review** (not a slash command)? See [`codex-pair`](/plugin/hooks#posttooluse-hook-codex-pair-opt-in-continuous-review) — a PostToolUse hook that runs Codex against every file edit when a project has opted in via a marker file. It's the recall-first complement to `/codex-review`.
 
@@ -63,6 +64,7 @@ This gives you `gemini:ask-gemini` rather than `plugin:ask-llm:gemini:ask-gemini
 | `gemini-reviewer` | Isolated Gemini code review with confidence-based filtering |
 | `codex-reviewer` | Isolated Codex code review with confidence-based filtering |
 | `ollama-reviewer` | Local Ollama code review — no data leaves your machine |
+| `antigravity-reviewer` | Subscription-backed Antigravity (`agy`) code review — experimental |
 | `brainstorm-coordinator` | First-class research participant: runs its own Claude Opus research (reads real files, traces code, fetches docs) in parallel with external providers, then synthesizes consensus. Verified findings weighted higher than inferred ones. |
 
 ### Hooks

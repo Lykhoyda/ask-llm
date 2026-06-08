@@ -1,16 +1,16 @@
 ---
-description: Slash commands for AI code review, brainstorming, and side-by-side multi-provider comparison — /gemini-review, /codex-review, /ollama-review, /multi-review (with verification), /brainstorm, /brainstorm-all, and /compare.
+description: Slash commands for AI code review, brainstorming, and side-by-side multi-provider comparison — /gemini-review, /codex-review, /ollama-review, /antigravity-review, /multi-review (with verification), /brainstorm, /brainstorm-all, and /compare.
 ---
 
 # Skills
 
 Skills are slash commands you can invoke directly in Claude Code. Each skill triggers a structured workflow that gathers context, calls a provider, and returns prioritized findings.
 
-> `/gemini-review` works out of the box with the plugin. `/codex-review` and `/ollama-review` require their MCP servers to be added separately — see [Plugin Overview](/plugin/overview#installation).
+> `/gemini-review` works out of the box with the plugin. `/codex-review`, `/ollama-review`, and `/antigravity-review` require their MCP servers to be added separately — see [Plugin Overview](/plugin/overview#installation).
 
 ## Review Skills
 
-All three review skills follow the same pattern:
+All four review skills follow the same pattern:
 
 1. Gather staged and unstaged git changes
 2. Read project conventions from `CLAUDE.md`
@@ -47,6 +47,16 @@ Get a second opinion from a local Ollama model. No API keys needed — all proce
 ```
 
 Requires Ollama running locally with a model pulled (e.g., `qwen2.5-coder:7b`).
+
+### `/antigravity-review`
+
+Get a **subscription-backed** second opinion from Google Antigravity (`agy`) — uses your Google AI Pro/Ultra plan, no per-token API billing.
+
+```text
+/antigravity-review
+```
+
+Experimental and one-shot (no multi-turn). Requires `agy` installed + logged in once and the Antigravity MCP server registered (`claude mcp add antigravity -- npx -y ask-antigravity-mcp`).
 
 ## Brainstorm Skills
 
