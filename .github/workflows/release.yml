@@ -113,14 +113,14 @@ jobs:
         run: ./mcp-publisher publish packages/ollama-mcp/server.json
         continue-on-error: true
 
-      - name: Publish ask-llm to MCP Registry
-        if: steps.changesets.outputs.published == 'true'
-        run: ./mcp-publisher publish packages/llm-mcp/server.json
-        continue-on-error: true
-
       - name: Publish ask-antigravity to MCP Registry
         if: steps.changesets.outputs.published == 'true'
         run: ./mcp-publisher publish packages/antigravity-mcp/server.json
+        continue-on-error: true
+
+      - name: Publish ask-llm to MCP Registry
+        if: steps.changesets.outputs.published == 'true'
+        run: ./mcp-publisher publish packages/llm-mcp/server.json
         continue-on-error: true
 
       # Unified GitHub Release tagged at gemini's version (legacy convention from when this
@@ -188,7 +188,7 @@ jobs:
               ``,
               `Likely causes:`,
               `- NODE_AUTH_TOKEN expired, revoked, or wrong type (must be Classic "Automation" or 2FA-bypass Granular)`,
-              `- Package permission changed on npm (token no longer covers ask-gemini-mcp / ask-codex-mcp / ask-ollama-mcp / ask-llm-mcp)`,
+              `- Package permission changed on npm (token no longer covers ask-gemini-mcp / ask-codex-mcp / ask-ollama-mcp / ask-antigravity-mcp / ask-llm-mcp)`,
               `- npm registry outage`,
               ``,
               `**Fix path:**`,
