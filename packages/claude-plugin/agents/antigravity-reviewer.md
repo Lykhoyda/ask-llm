@@ -49,7 +49,30 @@ Call `mcp__antigravity__ask-antigravity` with a prompt that requests, for each i
 - **only report issues with confidence ≥ 80**
 - file path + line, a clear description of the failure mode, an empirical reproduction path, and a concrete fix
 
-Include the project conventions scoped to the diff, 1-2 line summaries of any referenced ADRs (as intentional design — do not flag), and the combined diff. Pass the relevant package directories via `includeDirs` so `agy` can read surrounding context.
+Pass the relevant package directories via `includeDirs` (the `ask-antigravity` tool maps it to `agy --add-dir`) so `agy` can read surrounding context. Structure the `prompt` like:
+
+```
+Review the following code changes. For each issue, rate CONFIDENCE (0-100) and SEVERITY:
+- CONFIDENCE: 0-25 possible · 50 minor/unlikely · 75 will impact functionality · 100 certain bug/security
+- SEVERITY: BLOCKING (crashes, security, data loss) / IMPORTANT (leaks, defensive gaps, contract drift) / ADVISORY (test gaps, minor inefficiency)
+
+ONLY report issues with confidence >= 80. Flag: compile/parse failures, wrong-result logic errors,
+security holes, a clearly-violated CLAUDE.md rule or ADR invariant (quote it), resources leaked on error
+paths. Do NOT flag: pre-existing code, style a linter catches, ADR-documented intentional patterns,
+suggestions that aren't bugs.
+
+For each issue give: confidence, severity, file:line, the failure mode + WHY it matters, an empirical
+reproduction path, and a concrete fix.
+
+Project conventions:
+[paste CLAUDE.md rules scoped to the modified files]
+
+Referenced ADRs (intentional design — do NOT flag these patterns):
+[paste 1-2 line summaries of ADRs cited in the diff or surrounding code]
+
+Changes:
+[paste the combined diff]
+```
 
 ### Phase 3: Validation — verify before reporting
 
@@ -84,10 +107,18 @@ DROPPED during validation:
 - N findings dropped — reasons
 ```
 
+## Anti-noise Heuristics
+
+- **Do NOT re-flag the same root cause on every file** in one PR — flag it once.
+- **Do NOT pad confidence upward** to clear the ≥ 80 threshold; skip uncertain findings.
+- **Do NOT flag patterns that a referenced ADR explicitly chose** — check the diff comments + nearby ADRs first.
+- **When a prior review already flagged the same unfixed issue**, escalate it with a "REPEATED FINDING — consider BLOCKING" prefix so it can't be ignored silently again.
+
 ## Important Rules
 
 - If no high-confidence issues survive validation, **say so clearly** — do not invent problems.
 - If the diff is empty, say there is nothing to review.
+- **Reproduction paths are mandatory for BLOCKING findings** — without one, it's "code smell" at best, not a bug.
 - Always include both the confidence score and the severity.
 - Never report an issue you have not verified against the source file.
 - When in doubt, drop the finding — false positives cost more trust than false negatives.
