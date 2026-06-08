@@ -133,7 +133,7 @@ The **Ask LLM plugin** adds multi-provider code review, brainstorming, and autom
 
 | Feature | Description |
 |:---|:---|
-| <nobr>`/multi-review`</nobr> | Parallel Gemini + Codex review with 4-phase validation pipeline and consensus highlighting |
+| <nobr>`/multi-review`</nobr> | Parallel Antigravity + Codex review with 4-phase validation pipeline and consensus highlighting (gemini via `/gemini-review`) |
 | <nobr>`/gemini-review`</nobr> | Gemini-only review with confidence filtering |
 | <nobr>`/codex-review`</nobr> | Codex-only review with confidence filtering |
 | <nobr>`/ollama-review`</nobr> | Local review — no data leaves your machine |

@@ -120,7 +120,7 @@ The orchestrator exposes one MCP Resource for live introspection:
 
 If you've installed [the Ask LLM plugin](/plugin/overview), additional slash commands are available:
 
-- `/multi-review` — parallel Gemini + Codex review **with source verification** of each finding
+- `/multi-review` — parallel Antigravity + Codex review **with source verification** of each finding
 - `/gemini-review`, `/codex-review`, `/ollama-review` — single-provider reviews
 - `/brainstorm` — multi-LLM brainstorm with Claude Opus as a first-class research participant
 - `/compare` — side-by-side responses, no synthesis (raw outputs)

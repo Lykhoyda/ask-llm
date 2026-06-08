@@ -26,7 +26,7 @@ Different providers excel at different things. Pick by what you're doing, not by
 | Targeted code reasoning, refactor critique | **Codex** | GPT-5.5's strength is dense code reasoning at moderate context size |
 | Private / air-gapped analysis | **Ollama** | Runs locally, nothing leaves your machine |
 | "What do they all think?" comparison | **Multi-LLM** (`multi-llm` tool or `/compare` skill) | Parallel dispatch, see all responses side-by-side |
-| Code review with verified findings | **`/multi-review` skill** | Gemini + Codex in parallel, then verifies each finding against source |
+| Code review with verified findings | **`/multi-review` skill** | Antigravity + Codex in parallel, then verifies each finding against source |
 
 ## Overriding the Model
 
