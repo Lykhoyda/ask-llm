@@ -10,6 +10,10 @@ The v0.6.3 → v0.7.0 codex-pair stability cadence (planned 2026-05-18) is **com
 
 Original plan reference: [`docs/plans/2026-05-18-codex-plugin-cc-adoption-roadmap.md`](plans/2026-05-18-codex-plugin-cc-adoption-roadmap.md).
 
+### 2026-06-09 — codex quota fallback fix for CLI 0.137+ (branch `fix/codex-usage-limit-quota-detection`, ADR-117)
+
+Found while pushing the gpt-5.5 doc-sync (PR #172): the local codex smoke hard-failed on a quota error. Root cause = ADR-044's pattern recurring for Codex. Codex 0.137 reports plan exhaustion as `"You've hit your usage limit"` on **stdout JSONL** (exit non-zero, benign stderr), but (1) `executeCommand` discarded stdout on non-zero exit so the quota text never reached `isQuotaError()`, and (2) `QUOTA_SIGNALS` lacked the phrasing — so the gpt-5.5→gpt-5.5-mini fallback silently never fired for real users. Fix: `commandExecutor` unions stderr+stdout on failure; `sanitizeErrorForLLM` + codex `QUOTA_SIGNALS` + smoke `QUOTA_PATTERN` all learn `usage limit`; `isQuotaError` exported + unit-tested. shared + codex suites green (+3 shared tests, +7 codex tests). `@ask-llm/shared` + `ask-codex-mcp` patch bump (cascades to dependent MCPs).
+
 ### 2026-06-08 — brainstorm-coordinator pins the Flash default (branch `feat/brainstorm-coordinator-flash-default`)
 
 Follow-on to ADR-116. The brainstorm-coordinator's Phase 3A dispatch calls the **raw `agy -p` binary** directly (per ADR-050's single-foreground-Bash constraint), so it bypasses the `ask-antigravity-mcp` executor and did **not** inherit the new `MODELS.DEFAULT`. Added `--model "Gemini 3.5 Flash (High)"` to that invocation (+ a guard comment explaining why it's restated here and that the long `--model` works under `-p` where short `-m` hangs). Verified this is the **only** surface needing a manual change: the multi-review skill + reviewer agents dispatch via `dist/antigravity-run.js` / the MCP tool → the executor → so they already inherit the default automatically (`antigravity-run.ts` calls `executeAntigravityCLI({ prompt })` with no model). Plugin 372 tests green (the coordinator regression assertions are unaffected). Plugin is `private` — no changeset/publish.

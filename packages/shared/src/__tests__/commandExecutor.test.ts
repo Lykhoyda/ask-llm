@@ -98,6 +98,14 @@ Node.js v18.15.0`;
     expect(result).toContain("TerminalQuotaError");
   });
 
+  it("passes through codex 0.137 'usage limit' quota text for downstream fallback (ADR-117)", () => {
+    const combined =
+      "Reading additional input from stdin...\n" +
+      '{"type":"error","message":"You\'ve hit your usage limit. Upgrade to Pro or try again later."}';
+    const result = sanitizeErrorForLLM(combined, "codex");
+    expect(result).toContain("usage limit");
+  });
+
   it("does not match ENOENT from CLI file errors", () => {
     const result = sanitizeErrorForLLM(
       "Error: ENOENT: no such file or directory, open '/missing/config.json'",
@@ -244,6 +252,35 @@ describe("executeCommand stdin payload (issue #30)", () => {
     async () => {
       const result = await executeCommand("node", ["-e", "console.log('hi')"], undefined, undefined, "");
       expect(result).toBe("hi");
+    },
+    SPAWN_TIMEOUT_MS,
+  );
+});
+
+describe("executeCommand surfaces stdout-borne errors on non-zero exit (ADR-117)", () => {
+  // Codex 0.137+ prints the fatal error as JSON on stdout while exiting
+  // non-zero and emitting only a benign notice on stderr. The non-zero-exit
+  // branch must UNION stderr+stdout so that stdout-borne quota text survives
+  // into the rejected Error — otherwise the quota fallback can never fire.
+  const SPAWN_TIMEOUT_MS = 30_000;
+
+  it(
+    "includes stdout in the rejected error when stderr lacks the real cause",
+    async () => {
+      const args = [
+        "-e",
+        "process.stderr.write('Reading additional input from stdin...'); process.stdout.write(\"You've hit your usage limit\"); process.exit(1)",
+      ];
+      await expect(executeCommand("node", args)).rejects.toThrow(/usage limit/);
+    },
+    SPAWN_TIMEOUT_MS,
+  );
+
+  it(
+    "still surfaces stderr-only errors when stdout is empty",
+    async () => {
+      const args = ["-e", "process.stderr.write('boom on stderr'); process.exit(1)"];
+      await expect(executeCommand("node", args)).rejects.toThrow(/boom on stderr/);
     },
     SPAWN_TIMEOUT_MS,
   );

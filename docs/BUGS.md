@@ -2,12 +2,12 @@
 
 ## Open
 
-### Local pre-push smoke test depends on a live `codex` CLI (blocks unrelated pushes in degraded envs)
-- **Severity:** Low (local developer-experience only — does not affect published code or GitHub CI)
-- **Discovered:** 2026-06-08, pushing a docs-only commit on `feat/antigravity-multi-brainstorm`.
-- **Symptom:** `.husky/pre-push` runs `scripts/smoke-test.sh`, which executes the `codex-mcp` integration tests against the **real `codex` CLI**. When `codex` errors locally (observed: `codex exec ... exit code 1`, "Reading additional input from stdin"), the smoke test fails and blocks the push — even for commits that don't touch `codex-mcp`. GitHub CI is unaffected (it doesn't spawn the live codex CLI; the PR's `test (20.x/22.x)` jobs were green).
-- **Workaround:** `git push --no-verify` when the diff is provably unrelated to codex (verify with `git show --stat`). Note `--no-verify` skips **all** pre-push hooks (a blunt instrument), so first confirm no other hook is load-bearing for your diff. Restore `codex` CLI auth to make the gate pass normally.
-- **Status:** Open. Consider making the codex smoke test **skip gracefully** (warn, not fail) when the `codex` CLI is unavailable/unauthenticated, so the pre-push gate doesn't block unrelated work in degraded environments.
+### Codex quota fallback broken for CLI 0.137+ ("You've hit your usage limit") — also blocked unrelated pushes
+- **Severity:** ~~Low (local DX)~~ → **Medium** (refined): the real impact is a **user-facing** quota-fallback regression, not just a local pre-push annoyance.
+- **Discovered:** 2026-06-08 (as a generic "smoke fails on live codex"); **root-caused 2026-06-09** while pushing a docs-only commit.
+- **Refined root cause (2026-06-09):** Codex `0.137.0` reports plan exhaustion as `{"type":"error","message":"You've hit your usage limit. ... try again at <date>"}` on **stdout JSONL** while exiting non-zero, with only a benign `Reading additional input from stdin...` on stderr. Two stale layers hid it: (1) `executeCommand` discarded stdout on non-zero exit (`stderr.trim() || "Unknown error"`), so the quota text never reached `isQuotaError()`; (2) codex `QUOTA_SIGNALS` (tuned for 0.134 per #127) lacked the `usage limit` phrasing. Net: the gpt-5.5 → gpt-5.5-mini fallback **silently never fired** for real users, and the pre-push smoke (ADR-043) hard-failed instead of skip-with-warning (ADR-051).
+- **Workaround (historical):** `git push --no-verify` when the diff is provably unrelated to codex (verify with `git show --stat`).
+- **Status:** **FIXED** by ADR-117 (`fix/codex-usage-limit-quota-detection`): `commandExecutor` now unions stderr+stdout on non-zero exit; `sanitizeErrorForLLM` + codex `QUOTA_SIGNALS` + smoke `QUOTA_PATTERN` all recognize `usage limit`. Residual (unchanged): if the codex CLI is broken in some *other* way (not quota), the pre-push smoke can still block unrelated pushes — `--no-verify` remains the escape for provably-unrelated diffs.
 
 ### Side-finding (unfiled) — `MODELS.FLASH` (`gemini-3.5-flash`) returns `404 ModelNotFoundError`
 - **Severity:** Medium (the Gemini quota→Flash fallback may be silently broken)

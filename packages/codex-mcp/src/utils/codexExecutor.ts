@@ -173,7 +173,8 @@ function parseCodexJsonlOutput(raw: string, model: string, durationMs: number, f
   };
 }
 
-function isQuotaError(error: unknown): boolean {
+// Exported for unit testing — pure predicate over the error message text.
+export function isQuotaError(error: unknown): boolean {
   const msg = (error instanceof Error ? error.message : String(error)).toLowerCase();
   return ERROR_MESSAGES.QUOTA_SIGNALS.some((signal) => msg.includes(signal));
 }

@@ -12,6 +12,10 @@ const QUOTA_PASSTHROUGH_PATTERNS = [
   "rate_limit_exceeded",
   "quota_exceeded",
   "insufficient_quota",
+  // Codex 0.137+ reports quota exhaustion as "You've hit your usage limit"
+  // (on stdout JSONL). Passing it through untruncated keeps the signal
+  // visible to each provider's isQuotaError() fallback check.
+  "usage limit",
 ];
 
 export function sanitizeErrorForLLM(stderr: string, command: string): string {
@@ -173,7 +177,12 @@ export async function executeCommand(
         } else {
           Logger.commandComplete(commandId, code);
           Logger.error(`Failed with exit code ${code}`);
-          const rawError = stderr.trim() || "Unknown error";
+          // Some CLIs (e.g. Codex 0.137+) report the fatal error as JSON on
+          // stdout while emitting only a benign notice on stderr ("Reading
+          // additional input from stdin...") and still exit non-zero. Union
+          // both streams (not stderr-or-stdout) so stdout-borne errors stay
+          // visible to downstream quota/fallback detection. See ADR-117.
+          const rawError = [stderr.trim(), stdout.trim()].filter(Boolean).join("\n") || "Unknown error";
           const userMessage = sanitizeErrorForLLM(rawError, command);
           reject(new Error(userMessage));
         }
