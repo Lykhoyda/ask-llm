@@ -6,7 +6,7 @@
 - **Severity:** Low (local developer-experience only — does not affect published code or GitHub CI)
 - **Discovered:** 2026-06-08, pushing a docs-only commit on `feat/antigravity-multi-brainstorm`.
 - **Symptom:** `.husky/pre-push` runs `scripts/smoke-test.sh`, which executes the `codex-mcp` integration tests against the **real `codex` CLI**. When `codex` errors locally (observed: `codex exec ... exit code 1`, "Reading additional input from stdin"), the smoke test fails and blocks the push — even for commits that don't touch `codex-mcp`. GitHub CI is unaffected (it doesn't spawn the live codex CLI; the PR's `test (20.x/22.x)` jobs were green).
-- **Workaround:** `git push --no-verify` when the diff is provably unrelated to codex (verify with `git show --stat`). Restore `codex` CLI auth to make the gate pass normally.
+- **Workaround:** `git push --no-verify` when the diff is provably unrelated to codex (verify with `git show --stat`). Note `--no-verify` skips **all** pre-push hooks (a blunt instrument), so first confirm no other hook is load-bearing for your diff. Restore `codex` CLI auth to make the gate pass normally.
 - **Status:** Open. Consider making the codex smoke test **skip gracefully** (warn, not fail) when the `codex` CLI is unavailable/unauthenticated, so the pre-push gate doesn't block unrelated work in degraded environments.
 
 ### Side-finding (unfiled) — `MODELS.FLASH` (`gemini-3.5-flash`) returns `404 ModelNotFoundError`
