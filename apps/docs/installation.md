@@ -14,6 +14,7 @@ Multiple ways to install Ask LLM, depending on whether you want the unified orch
   - `npm install -g @google/gemini-cli && gemini login` for Gemini
   - `npm install -g @openai/codex` (then follow CLI auth) for Codex
   - [Ollama](https://ollama.com) running locally with a model pulled (`ollama pull qwen2.5-coder:7b`)
+  - [Antigravity CLI](https://antigravity.google) (`agy`) installed and logged in once for Antigravity
 
 ## Packages
 
@@ -23,6 +24,7 @@ Multiple ways to install Ask LLM, depending on whether you want the unified orch
 | [`ask-gemini-mcp`](https://www.npmjs.com/package/ask-gemini-mcp) | Gemini-only — full feature set including `@` file syntax, sandbox, edit mode | `ask-gemini`, `ask-gemini-edit`, `fetch-chunk`, `get-usage-stats`, `ping` |
 | [`ask-codex-mcp`](https://www.npmjs.com/package/ask-codex-mcp) | Codex-only | `ask-codex`, `get-usage-stats`, `ping` |
 | [`ask-ollama-mcp`](https://www.npmjs.com/package/ask-ollama-mcp) | Ollama-only (local) | `ask-ollama`, `get-usage-stats`, `ping` |
+| [`ask-antigravity-mcp`](https://www.npmjs.com/package/ask-antigravity-mcp) | Antigravity-only (experimental) — subscription-backed via `agy` | `ask-antigravity`, `get-usage-stats`, `ping` |
 
 The unified orchestrator uses a single `ask-llm` tool with a `provider` parameter for token efficiency ([ADR-029](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md)) — you pick the provider per call. Per-provider packages expose the richer per-provider tool surface (`ask-gemini-edit` for structured edits, `fetch-chunk` for large response pagination, etc.).
 
@@ -52,6 +54,7 @@ claude mcp add --scope user ask-llm -- npx -y ask-llm-mcp
 claude mcp add --scope user gemini -- npx -y ask-gemini-mcp
 claude mcp add --scope user codex  -- npx -y ask-codex-mcp
 claude mcp add --scope user ollama -- npx -y ask-ollama-mcp
+claude mcp add --scope user antigravity -- npx -y ask-antigravity-mcp
 ```
 
 `--scope user` registers globally for all projects. Drop the flag for per-project scope.

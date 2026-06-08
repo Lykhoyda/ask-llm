@@ -180,6 +180,7 @@ const providerConfigs: Record<string, ProviderConfig> = {
   gemini: { pkg: "ask-gemini-mcp", serverName: "gemini-cli" },
   codex: { pkg: "ask-codex-mcp", serverName: "codex-cli" },
   ollama: { pkg: "ask-ollama-mcp", serverName: "ollama" },
+  antigravity: { pkg: "ask-antigravity-mcp", serverName: "antigravity" },
   unified: { pkg: "ask-llm-mcp", serverName: "ask-llm" },
 };
 

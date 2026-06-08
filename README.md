@@ -12,6 +12,7 @@
 | [`ask-gemini-mcp`](https://www.npmjs.com/package/ask-gemini-mcp) | MCP Server | [![npm](https://img.shields.io/npm/v/ask-gemini-mcp)](https://www.npmjs.com/package/ask-gemini-mcp) | [![downloads](https://img.shields.io/npm/dt/ask-gemini-mcp)](https://www.npmjs.com/package/ask-gemini-mcp) |
 | [`ask-codex-mcp`](https://www.npmjs.com/package/ask-codex-mcp) | MCP Server | [![npm](https://img.shields.io/npm/v/ask-codex-mcp)](https://www.npmjs.com/package/ask-codex-mcp) | [![downloads](https://img.shields.io/npm/dt/ask-codex-mcp)](https://www.npmjs.com/package/ask-codex-mcp) |
 | [`ask-ollama-mcp`](https://www.npmjs.com/package/ask-ollama-mcp) | MCP Server | [![npm](https://img.shields.io/npm/v/ask-ollama-mcp)](https://www.npmjs.com/package/ask-ollama-mcp) | [![downloads](https://img.shields.io/npm/dt/ask-ollama-mcp)](https://www.npmjs.com/package/ask-ollama-mcp) |
+| [`ask-antigravity-mcp`](https://www.npmjs.com/package/ask-antigravity-mcp) | MCP Server | [![npm](https://img.shields.io/npm/v/ask-antigravity-mcp)](https://www.npmjs.com/package/ask-antigravity-mcp) | [![downloads](https://img.shields.io/npm/dt/ask-antigravity-mcp)](https://www.npmjs.com/package/ask-antigravity-mcp) |
 | [`ask-llm-mcp`](https://www.npmjs.com/package/ask-llm-mcp) | MCP Server | [![npm](https://img.shields.io/npm/v/ask-llm-mcp)](https://www.npmjs.com/package/ask-llm-mcp) | [![downloads](https://img.shields.io/npm/dt/ask-llm-mcp)](https://www.npmjs.com/package/ask-llm-mcp) |
 | [`@ask-llm/plugin`](https://github.com/Lykhoyda/ask-llm/tree/main/packages/claude-plugin) | Claude Code Plugin | [![GitHub](https://img.shields.io/github/v/release/Lykhoyda/ask-llm?label=latest)](https://github.com/Lykhoyda/ask-llm/releases) | `/plugin install` |
 
@@ -19,9 +20,9 @@
 
 </div>
 
-MCP servers that bridge your AI client with multiple LLM providers for AI-to-AI collaboration. Works with Claude Code, Claude Desktop, Cursor, Warp, Copilot, and [40+ other MCP clients](https://modelcontextprotocol.io/clients). Leverage Gemini's 1M+ token context, Codex's GPT-5.5, or local Ollama models — all via standard [MCP](https://modelcontextprotocol.io/).
+MCP servers that bridge your AI client with multiple LLM providers for AI-to-AI collaboration. Works with Claude Code, Claude Desktop, Cursor, Warp, Copilot, and [40+ other MCP clients](https://modelcontextprotocol.io/clients). Leverage Gemini's 1M+ token context, Codex's GPT-5.5, local Ollama models, or Google Antigravity (`agy`) — all via standard [MCP](https://modelcontextprotocol.io/).
 
-> **⚠️ Gemini CLI tier change (2026-06-18):** Google stopped serving Gemini CLI requests for free, Google AI Pro, and Ultra accounts on 2026-06-18 — only **Gemini Code Assist Standard/Enterprise** seats keep working. `ask-gemini-mcp` still installs and launches (the failure is account/backend access, so reinstalling won't help); on a non-enterprise account it now surfaces actionable guidance instead of a raw error. Google's successor, **Antigravity CLI (`agy`)**, is a separate tool that `ask-gemini-mcp` does **not** support yet. Free/Pro users can switch to `ask-codex` or `ask-ollama`. [Announcement](https://developers.googleblog.com/an-important-update-transitioning-gemini-cli-to-antigravity-cli/).
+> **⚠️ Gemini CLI tier change (2026-06-18):** Google stopped serving Gemini CLI requests for free, Google AI Pro, and Ultra accounts on 2026-06-18 — only **Gemini Code Assist Standard/Enterprise** seats keep working. `ask-gemini-mcp` still installs and launches (the failure is account/backend access, so reinstalling won't help); on a non-enterprise account it now surfaces actionable guidance instead of a raw error. Google's successor, **Antigravity CLI (`agy`)**, is now supported via the separate **[`ask-antigravity-mcp`](https://www.npmjs.com/package/ask-antigravity-mcp)** package — subscription-backed through your Google AI Pro/Ultra plan (no per-token API billing). Free/Pro users can switch to `ask-antigravity`, `ask-codex`, or `ask-ollama`. [Announcement](https://developers.googleblog.com/an-important-update-transitioning-gemini-cli-to-antigravity-cli/).
 
 ## Why?
 
@@ -47,6 +48,7 @@ claude mcp add --scope user ask-llm -- npx -y ask-llm-mcp
 claude mcp add --scope user gemini -- npx -y ask-gemini-mcp
 claude mcp add --scope user codex -- npx -y ask-codex-mcp
 claude mcp add --scope user ollama -- npx -y ask-ollama-mcp
+claude mcp add --scope user antigravity -- npx -y ask-antigravity-mcp
 ```
 
 </details>
@@ -160,6 +162,7 @@ See the [plugin docs](https://lykhoyda.github.io/ask-llm/plugin/overview) for de
 | `fetch-chunk` | ask-gemini-mcp | Retrieve chunks from cached large responses |
 | `ask-codex` | ask-codex-mcp | Send prompts to Codex CLI. GPT-5.5 with mini fallback. Native session resume via `sessionId` |
 | `ask-ollama` | ask-ollama-mcp | Send prompts to local Ollama. Fully private, zero cost. Server-side conversation replay via `sessionId` |
+| `ask-antigravity` | ask-antigravity-mcp | Send a prompt to Google Antigravity (`agy`) for a subscription-backed second opinion. Experimental; one-shot |
 | `ask-llm` | ask-llm-mcp | Unified orchestrator — pick provider per call. Fan out to all installed providers |
 | `multi-llm` | ask-llm-mcp | Dispatch the same prompt to multiple providers in parallel; returns per-provider responses + usage in one call |
 | `get-usage-stats` | all | Per-session token totals, fallback counts, breakdowns by provider/model — all in-memory, no persistence |
