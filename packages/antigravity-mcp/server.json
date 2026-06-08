@@ -1,0 +1,46 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.Lykhoyda/ask-antigravity",
+  "description": "Bridge Claude with Google's Antigravity CLI (agy) for code review and second opinions",
+  "repository": {
+    "url": "https://github.com/Lykhoyda/ask-llm",
+    "source": "github"
+  },
+  "version": "0.0.1",
+  "packages": [
+    {
+      "registryType": "npm",
+      "identifier": "ask-antigravity-mcp",
+      "version": "0.0.1",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "ASK_ANTIGRAVITY_TIMEOUT_MS",
+          "description": "Timeout for Antigravity (agy) execution in milliseconds (default: 300000 = 5 minutes)",
+          "isRequired": false,
+          "format": "string",
+          "isSecret": false,
+          "default": "300000"
+        },
+        {
+          "name": "ASK_ANTIGRAVITY_SANDBOX",
+          "description": "Set to '0' to drop agy's --sandbox flag if it blocks --add-dir context reads (default: sandbox on)",
+          "isRequired": false,
+          "format": "string",
+          "isSecret": false,
+          "default": "1"
+        },
+        {
+          "name": "GMCPT_LOG_LEVEL",
+          "description": "Log verbosity: debug, info, warn, error (default: warn)",
+          "isRequired": false,
+          "format": "string",
+          "isSecret": false,
+          "default": "warn"
+        }
+      ]
+    }
+  ]
+}

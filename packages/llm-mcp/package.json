@@ -15,8 +15,8 @@
     "dev": "tsc -b && node dist/cli.js",
     "test": "vitest run",
     "lint": "biome check src/ && tsc --noEmit",
-    "prepack": "node ../../scripts/prepack-bundle.mjs shared gemini-mcp codex-mcp ollama-mcp",
-    "postpack": "node ../../scripts/postpack-restore.mjs shared gemini-mcp codex-mcp ollama-mcp"
+    "prepack": "node ../../scripts/prepack-bundle.mjs shared gemini-mcp codex-mcp ollama-mcp antigravity-mcp",
+    "postpack": "node ../../scripts/postpack-restore.mjs shared gemini-mcp codex-mcp ollama-mcp antigravity-mcp"
   },
   "keywords": [
     "mcp",
@@ -77,6 +77,7 @@
     "@ask-llm/shared",
     "ask-gemini-mcp",
     "ask-codex-mcp",
-    "ask-ollama-mcp"
+    "ask-ollama-mcp",
+    "ask-antigravity-mcp"
   ]
 }
