@@ -85,7 +85,7 @@ Send a topic to multiple LLM providers AND have Claude Opus perform its own inde
 
 ### `/brainstorm-all`
 
-Shortcut for `/brainstorm gemini,codex,ollama <topic>`. Sends to all three external providers (Gemini, Codex, Ollama) plus the always-on Claude Opus research phase — up to four participants total.
+Shortcut for `/brainstorm gemini,codex,ollama,antigravity <topic>`. Sends to all four external providers (Gemini, Codex, Ollama, Antigravity) plus the always-on Claude Opus research phase — up to five participants total.
 
 ```text
 /brainstorm-all What's the best caching strategy for our API?
@@ -97,7 +97,7 @@ Requires Ollama running locally since it includes the local provider.
 
 ### `/multi-review`
 
-Run independent code reviews from Gemini and Codex in parallel, **verify** each finding against the source, then present combined consensus / unique / rejected findings.
+Run independent code reviews from Antigravity and Codex in parallel, **verify** each finding against the source, then present combined consensus / unique / rejected findings. (Gemini via `/gemini-review` or the `gemini-reviewer` agent.)
 
 ```text
 /multi-review

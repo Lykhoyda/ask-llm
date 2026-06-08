@@ -42,7 +42,7 @@ Ask Codex to do the same review on the same files — focus on edge cases.
 /multi-review
 ```
 
-The `/multi-review` skill dispatches to Gemini + Codex in parallel, then **verifies each high-confidence finding against the actual source** before presenting. Findings are classified as VERIFIED / REJECTED / UNVERIFIABLE — false positives get caught instead of acted on. See [ADR-064](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md).
+The `/multi-review` skill dispatches to Antigravity + Codex in parallel, then **verifies each high-confidence finding against the actual source** before presenting. Findings are classified as VERIFIED / REJECTED / UNVERIFIABLE — false positives get caught instead of acted on. See [ADR-064](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md).
 
 **Multi-provider (raw, no synthesis):**
 
@@ -91,7 +91,7 @@ When choosing between approaches, get all three providers' opinions and let Clau
 /brainstorm Should we use server-sent events or WebSockets for our notification system? Pros, cons, and which fits a team that values backwards compatibility.
 ```
 
-The `/brainstorm` skill runs Claude Opus's own research (reads your real codebase), dispatches to Gemini + Codex in parallel, and returns a synthesis with consensus / unique / contradictory points. Verified findings (Claude reading actual files) outweigh inferred ones.
+The `/brainstorm` skill runs Claude Opus's own research (reads your real codebase), dispatches to Antigravity + Codex in parallel, and returns a synthesis with consensus / unique / contradictory points. Verified findings (Claude reading actual files) outweigh inferred ones.
 
 ### 5. Multi-Turn Iterative Refinement
 

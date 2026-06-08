@@ -1,6 +1,6 @@
 ---
 name: brainstorm
-description: Send a topic to multiple LLM providers in parallel while Claude Opus performs its own independent research in parallel, then synthesize all findings. Usage /brainstorm [providers] <topic>. External providers default to gemini,codex. Example /brainstorm gemini,codex,ollama "review this architecture"
+description: Send a topic to multiple LLM providers in parallel while Claude Opus performs its own independent research in parallel, then synthesize all findings. Usage /brainstorm [providers] <topic>. External providers default to antigravity,codex. Example /brainstorm antigravity,codex,ollama "review this architecture"
 user_invocable: true
 ---
 
@@ -12,9 +12,10 @@ Consult multiple external LLM providers simultaneously on a topic while Claude O
 
 ### Phase 1: Parse arguments
 
-- If the first argument looks like a comma-separated provider list (e.g., `gemini,codex` or `gemini,codex,ollama`), use those as the external providers
-- If no provider list is given, default to `gemini,codex`
-- Valid external providers: `gemini`, `codex`, `ollama`
+- If the first argument looks like a comma-separated provider list (e.g., `antigravity,codex` or `gemini,codex,ollama`), use those as the external providers
+- If no provider list is given, default to `antigravity,codex`
+- Valid external providers: `gemini`, `codex`, `ollama`, `antigravity`
+- `antigravity` requires `agy` installed + logged in; if it's unavailable the coordinator surfaces that and continues with the other providers
 - Everything after the provider list (or all args if no list) is the topic
 - Claude Opus is always a participant — it's not in the provider list because it runs inside the coordinator
 

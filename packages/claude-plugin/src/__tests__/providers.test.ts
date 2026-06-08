@@ -2,15 +2,21 @@ import { describe, expect, it } from "vitest";
 import { providers } from "../index.js";
 
 describe("ProviderExecutor wiring", () => {
-  it("exports exactly three providers", () => {
-    expect(providers).toHaveLength(3);
+  it("exports exactly four providers", () => {
+    expect(providers).toHaveLength(4);
   });
 
-  it("each provider has matching name and command", () => {
-    const expectedNames = ["gemini", "codex", "ollama"];
-    expect(providers.map((p) => p.name).sort()).toEqual(expectedNames.sort());
+  it("each provider has the expected name and CLI command", () => {
+    // antigravity's CLI binary is `agy`, so command !== name for it
+    const expectedCommand: Record<string, string> = {
+      gemini: "gemini",
+      codex: "codex",
+      ollama: "ollama",
+      antigravity: "agy",
+    };
+    expect(providers.map((p) => p.name).sort()).toEqual(Object.keys(expectedCommand).sort());
     for (const provider of providers) {
-      expect(provider.command).toBe(provider.name);
+      expect(provider.command).toBe(expectedCommand[provider.name]);
     }
   });
 
@@ -25,5 +31,6 @@ describe("ProviderExecutor wiring", () => {
     expect(names).toContain("gemini");
     expect(names).toContain("codex");
     expect(names).toContain("ollama");
+    expect(names).toContain("antigravity");
   });
 });

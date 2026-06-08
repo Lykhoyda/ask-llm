@@ -5,6 +5,7 @@
   "type": "module",
   "main": "dist/index.js",
   "bin": {
+    "ask-antigravity-run": "dist/antigravity-run.js",
     "ask-codex-run": "dist/codex-run.js",
     "ask-gemini-run": "dist/run.js",
     "ask-ollama-run": "dist/ollama-run.js"
@@ -16,6 +17,7 @@
   },
   "dependencies": {
     "@ask-llm/shared": "workspace:*",
+    "ask-antigravity-mcp": "workspace:*",
     "ask-codex-mcp": "workspace:*",
     "ask-gemini-mcp": "workspace:*",
     "ask-ollama-mcp": "workspace:*"

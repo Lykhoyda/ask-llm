@@ -32,4 +32,13 @@ export const providers: ProviderExecutor[] = [
       return result.response;
     },
   },
+  {
+    name: "antigravity",
+    command: "agy",
+    async execute(prompt: string) {
+      const { executeAntigravityCLI } = await import("ask-antigravity-mcp/executor");
+      const result = await executeAntigravityCLI({ prompt });
+      return result.response;
+    },
+  },
 ];

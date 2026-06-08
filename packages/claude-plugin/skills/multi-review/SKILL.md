@@ -1,12 +1,12 @@
 ---
 name: multi-review
-description: This skill should be used when the user asks to "review my code with multiple providers", "get reviews from Gemini and Codex", "multi-provider review", "review changes", or wants independent code reviews from both Gemini and Codex in parallel.
+description: This skill should be used when the user asks to "review my code with multiple providers", "get reviews from Antigravity and Codex", "multi-provider review", "review changes", or wants independent code reviews from both Antigravity and Codex in parallel.
 user_invocable: true
 ---
 
 # Multi-Provider Code Review
 
-Run independent code reviews from Gemini and Codex in parallel, **verify** each finding against the source, then present combined consensus / unique / rejected sections so the user sees what really matters and what was a false positive.
+Run independent code reviews from Antigravity and Codex in parallel, **verify** each finding against the source, then present combined consensus / unique / rejected sections so the user sees what really matters and what was a false positive. (Gemini is one command away via the `gemini-reviewer` agent or `/gemini-review` if you want it in the mix.)
 
 ## Why verification matters
 
@@ -84,26 +84,28 @@ Keep the brief tiny for simple diffs. Escalate detail when the diff is over 50KB
 ### Phase 2: Dispatch (with fallback)
 
 **Preferred: launch both reviewer agents in parallel** using the Agent tool in a single message:
-- `gemini-reviewer` agent with the Context Brief + diff content
+- `antigravity-reviewer` agent with the Context Brief + diff content
 - `codex-reviewer` agent with the Context Brief + diff content
-- Each agent performs its own 4-phase pipeline: Context → Prompt → Synthesis → Validation
+- Each agent performs its own multi-phase pipeline: Context → Prompt → Validation → Report
 
-**Fallback when reviewer agents are unavailable** (e.g., plugin not installed in this Claude Code session): dispatch directly via the project's `dist/run.js` and `dist/codex-run.js` runner binaries using the **ADR-050 dispatch pattern** (single foreground blocking Bash call, direct backgrounding, per-PID `wait`, 25-min timeout):
+> `antigravity-reviewer` requires `agy` installed + logged in and the Antigravity MCP server registered. If it's unavailable it will say so — present the codex-only result and note "antigravity skipped (agy not available)" rather than failing the whole review. To include Gemini instead/as well, also launch the `gemini-reviewer` agent.
+
+**Fallback when reviewer agents are unavailable** (e.g., plugin not installed in this Claude Code session): dispatch directly via the project's `dist/antigravity-run.js` and `dist/codex-run.js` runner binaries using the **ADR-050 dispatch pattern** (single foreground blocking Bash call, direct backgrounding, per-PID `wait`, 25-min timeout):
 
 ```bash
-GMCPT_TIMEOUT_MS=1500000 node ${CLAUDE_PLUGIN_ROOT}/dist/run.js "$REVIEW_PROMPT" < diff.patch > /tmp/mr-gemini.out 2> /tmp/mr-gemini.err &
-gem_pid=$!
+GMCPT_TIMEOUT_MS=1500000 node ${CLAUDE_PLUGIN_ROOT}/dist/antigravity-run.js "$REVIEW_PROMPT" < diff.patch > /tmp/mr-antigravity.out 2> /tmp/mr-antigravity.err &
+agy_pid=$!
 
 GMCPT_TIMEOUT_MS=1500000 node ${CLAUDE_PLUGIN_ROOT}/dist/codex-run.js "$REVIEW_PROMPT" < diff.patch > /tmp/mr-codex.out 2> /tmp/mr-codex.err &
 codex_pid=$!
 
-gem_rc=0; wait $gem_pid || gem_rc=$?
+agy_rc=0; wait $agy_pid || agy_rc=$?
 codex_rc=0; wait $codex_pid || codex_rc=$?
 ```
 
 Set the Bash tool's `timeout` parameter to **600000ms** (10-min max). For diffs > 50KB, expect both providers to take real wall time — this is normal.
 
-Do NOT use raw `gemini -p` or `codex exec` — those bypass the project's quota fallback (ADR-044), Codex stdin handling (ADR-042), and PATH resolution (ADR-047). Use the runner binaries.
+Do NOT use raw `agy -p`, `gemini -p`, or `codex exec` — those bypass the project's quota/transcript handling, Codex stdin handling (ADR-042), and PATH resolution (ADR-047). Use the runner binaries.
 
 ### Phase 3: Verify each finding before presenting
 
@@ -123,7 +125,7 @@ For every finding from either provider at confidence ≥ 80:
 
 When a provider fails (timeout, capacity exhaustion, exit code ≠ 0, 0-byte output):
 - Do NOT silently drop it from the synthesis
-- Surface the failure inline: "Gemini failed (exit 1): <first 3 lines of stderr>"
+- Surface the failure inline: "Antigravity failed (exit 1): <first 3 lines of stderr>"
 - If both providers failed, say so explicitly and surface both stderr — don't pretend you have findings
 - A single-provider review is still useful — present what you have, note what's missing
 
@@ -138,9 +140,9 @@ When a provider fails (timeout, capacity exhaustion, exit code ≠ 0, 0-byte out
 - Diff bytes: <N>
 
 **Verified by both providers (highest confidence):**
-- ⟨finding⟩ — Gemini: 92, Codex: 88. Verified at <file>:<line>.
+- ⟨finding⟩ — Antigravity: 92, Codex: 88. Verified at <file>:<line>.
 
-**Verified by Gemini only:**
+**Verified by Antigravity only:**
 - ⟨finding⟩ — Confidence 85. Verified at <file>:<line>.
 
 **Verified by Codex only:**
@@ -153,7 +155,7 @@ When a provider fails (timeout, capacity exhaustion, exit code ≠ 0, 0-byte out
 - ⟨finding⟩ — Cannot confirm without runtime; flagging for user attention.
 
 **Provider stats:**
-- Gemini: ⟨N⟩ findings, ⟨V⟩ verified, ⟨R⟩ rejected. Status: ⟨ok | failed: ⟨reason⟩⟩
+- Antigravity: ⟨N⟩ findings, ⟨V⟩ verified, ⟨R⟩ rejected. Status: ⟨ok | failed: ⟨reason⟩⟩
 - Codex: ⟨N⟩ findings, ⟨V⟩ verified, ⟨R⟩ rejected. Status: ⟨ok | failed: ⟨reason⟩⟩
 ```
 

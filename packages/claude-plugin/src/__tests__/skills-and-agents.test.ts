@@ -139,13 +139,13 @@ describe("multi-review skill — load-bearing polish (ADR-064)", () => {
   });
 
   it("documents fallback dispatch via dist runner binaries", () => {
-    expect(body).toMatch(/dist\/run\.js/);
+    expect(body).toMatch(/dist\/antigravity-run\.js/);
     expect(body).toMatch(/dist\/codex-run\.js/);
   });
 
   it("includes the ADR-050 dispatch pattern (direct backgrounding + per-PID wait)", () => {
-    expect(body).toMatch(/&\s*\ngem_pid=\$!|& gem_pid=\$!/);
-    expect(body).toMatch(/wait \$gem_pid|wait "\$gem_pid"/);
+    expect(body).toMatch(/&\s*\nagy_pid=\$!|& agy_pid=\$!/);
+    expect(body).toMatch(/wait \$agy_pid|wait "\$agy_pid"/);
   });
 
   it("forbids raw provider CLI invocation (preserves quota fallback + stdin handling)", () => {
@@ -274,11 +274,12 @@ describe("brainstorm-coordinator agent", () => {
     expect(frontmatter.model).toBe("opus");
   });
 
-  it("has all three external provider MCP tools", () => {
+  it("has all four external provider MCP tools", () => {
     const tools = frontmatter.tools as string[];
     expect(tools).toContain("mcp__gemini__ask-gemini");
     expect(tools).toContain("mcp__codex__ask-codex");
     expect(tools).toContain("mcp__ollama__ask-ollama");
+    expect(tools).toContain("mcp__antigravity__ask-antigravity");
   });
 
   it("has WebFetch and WebSearch (Phase 3B research surface — ADR-049)", () => {

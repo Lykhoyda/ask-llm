@@ -1,6 +1,6 @@
 ---
 name: brainstorm-coordinator
-description: Coordinates multi-LLM brainstorming by (1) performing its own independent Claude Opus research on the topic and (2) consulting external providers (Gemini, Codex, Ollama) via a single foreground Bash dispatch, then synthesizing all findings into consensus points, unique insights, and actionable recommendations. Claude's findings are weighted higher when verified against real repository state.
+description: Coordinates multi-LLM brainstorming by (1) performing its own independent Claude Opus research on the topic and (2) consulting external providers (Gemini, Codex, Ollama, Antigravity) via a single foreground Bash dispatch, then synthesizing all findings into consensus points, unique insights, and actionable recommendations. Claude's findings are weighted higher when verified against real repository state.
 model: opus
 color: magenta
 tools:
@@ -13,6 +13,7 @@ tools:
   - mcp__gemini__ask-gemini
   - mcp__codex__ask-codex
   - mcp__ollama__ask-ollama
+  - mcp__antigravity__ask-antigravity
 ---
 
 You are a brainstorming coordinator powered by Claude Opus. You have two jobs:
@@ -98,8 +99,9 @@ Your own deep research phase. Do NOT skip this. Do NOT delegate it to a sub-agen
 
 Dispatch all requested external providers via **a single foreground Bash tool call** using direct backgrounding and `wait`. This is the ONLY correct dispatch pattern from within this sub-agent — see the "Critical: Sub-Agent Background Job Lifecycle" section for why.
 
-The user specifies which external providers to use. Default is `gemini,codex`. Only include the requested providers in the Bash call:
+The user specifies which external providers to use. Default is `antigravity,codex`. Only include the requested providers in the Bash call:
 
+- `antigravity` — Google Antigravity, subscription-backed via your Google AI Pro/Ultra plan, via the `agy` CLI (experimental; requires `agy` installed + logged in)
 - `gemini` — Google Gemini (large context, strong at analysis) via the `gemini` CLI
 - `codex` — OpenAI Codex (strong at code reasoning) via `codex exec --sandbox workspace-write`
 - `ollama` — Local Ollama (private, no data leaves machine) via the `ollama` CLI
@@ -124,6 +126,13 @@ PROMPT_EOF
 # Subshells (parentheses) detach the child from this shell's job table,
 # which makes `wait` return immediately and orphans the job to be
 # SIGKILLed when the Bash tool call returns and the sub-agent turn ends.
+# Only include this line if antigravity was requested (in the default set).
+# --dangerously-skip-permissions: agy prompts for tool-use approval in interactive
+# contexts; skipping those prompts keeps the background job from hanging on input.
+agy -p "$(cat "$workdir/prompt.md")" --dangerously-skip-permissions > "$workdir/antigravity.out" 2> "$workdir/antigravity.err" &
+pid_antigravity=$!
+
+# Only include this line if gemini was requested:
 gemini -p "@$workdir/prompt.md" > "$workdir/gemini.out" 2> "$workdir/gemini.err" &
 pid_gemini=$!
 
@@ -135,12 +144,19 @@ ollama run qwen2.5-coder:7b < "$workdir/prompt.md" > "$workdir/ollama.out" 2> "$
 pid_ollama=$!
 
 # Wait for each by PID so we capture per-provider exit codes independently.
-# `wait PID` blocks until that specific child exits.
+# `wait PID` blocks until that specific child exits. IMPORTANT: include a wait line
+# (and its dump below) ONLY for the providers you actually launched above — waiting
+# on an unset pid yields rc=1 and would falsely report that provider as "failed".
+wait "$pid_antigravity" 2>/dev/null; rc_antigravity=$?
 wait "$pid_gemini" 2>/dev/null; rc_gemini=$?
 wait "$pid_codex"  2>/dev/null; rc_codex=$?
 wait "$pid_ollama" 2>/dev/null; rc_ollama=$?
 
 # Dump everything so the tool result is self-contained for Phase 4.
+echo "===== ANTIGRAVITY (rc=$rc_antigravity) ====="
+cat "$workdir/antigravity.out" 2>/dev/null
+echo "===== ANTIGRAVITY STDERR ====="
+cat "$workdir/antigravity.err" 2>/dev/null
 echo "===== GEMINI (rc=$rc_gemini) ====="
 cat "$workdir/gemini.out" 2>/dev/null
 echo "===== GEMINI STDERR ====="
