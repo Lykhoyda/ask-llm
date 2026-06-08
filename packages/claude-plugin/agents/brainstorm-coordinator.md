@@ -136,6 +136,7 @@ pid_antigravity=$!
 gemini -p "@$workdir/prompt.md" > "$workdir/gemini.out" 2> "$workdir/gemini.err" &
 pid_gemini=$!
 
+# Only include this line if codex was requested (in the default set):
 codex exec --sandbox workspace-write - < "$workdir/prompt.md" > "$workdir/codex.out" 2> "$workdir/codex.err" &
 pid_codex=$!
 
