@@ -55,7 +55,16 @@ Include the project conventions scoped to the diff, 1-2 line summaries of any re
 
 For each issue Antigravity flags: Read the actual source at the reported line, confirm the bug exists in the **current** code (not just diff context), verify any cited CLAUDE.md rule actually exists and is scoped to that directory, and drop anything whose reproduction path you cannot articulate or that an ADR documents as intentional. **State how many findings were dropped and why** — transparency builds trust.
 
-### Phase 4: Report
+### Phase 4: Actionability — make findings consumable
+
+For each surviving finding:
+
+1. Name the **smallest concrete fix** (a specific edit, not a vague suggestion).
+2. If a finding is a class of bug that repeats across files, say so and point at every site.
+3. If it is best addressed in a follow-on PR (large refactor, breaking change), say "fix in follow-on" so the current PR isn't blocked.
+4. Group related findings under one heading when they share a root cause.
+
+### Phase 5: Report
 
 Lead with the highest-severity finding, not the longest:
 
