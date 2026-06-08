@@ -1,6 +1,6 @@
 ---
 name: brainstorm
-description: Send a topic to multiple LLM providers in parallel while Claude Opus performs its own independent research in parallel, then synthesize all findings. Usage /brainstorm [providers] <topic>. External providers default to antigravity,codex. Example /brainstorm gemini,codex,antigravity "review this architecture"
+description: Send a topic to multiple LLM providers in parallel while Claude Opus performs its own independent research in parallel, then synthesize all findings. Usage /brainstorm [providers] <topic>. External providers default to antigravity,codex. Example /brainstorm antigravity,codex,ollama "review this architecture"
 user_invocable: true
 ---
 

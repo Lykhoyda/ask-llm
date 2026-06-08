@@ -142,7 +142,9 @@ ollama run qwen2.5-coder:7b < "$workdir/prompt.md" > "$workdir/ollama.out" 2> "$
 pid_ollama=$!
 
 # Wait for each by PID so we capture per-provider exit codes independently.
-# `wait PID` blocks until that specific child exits.
+# `wait PID` blocks until that specific child exits. IMPORTANT: include a wait line
+# (and its dump below) ONLY for the providers you actually launched above — waiting
+# on an unset pid yields rc=1 and would falsely report that provider as "failed".
 wait "$pid_antigravity" 2>/dev/null; rc_antigravity=$?
 wait "$pid_gemini" 2>/dev/null; rc_gemini=$?
 wait "$pid_codex"  2>/dev/null; rc_codex=$?
