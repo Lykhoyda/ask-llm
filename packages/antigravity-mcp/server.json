@@ -1,29 +1,21 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
-  "name": "io.github.Lykhoyda/ask-llm",
-  "description": "Unified MCP server — auto-detects Gemini, Codex, Ollama, Antigravity; registers available tools",
+  "name": "io.github.Lykhoyda/ask-antigravity",
+  "description": "Bridge Claude with Google's Antigravity CLI (agy) for code review and second opinions",
   "repository": {
     "url": "https://github.com/Lykhoyda/ask-llm",
     "source": "github"
   },
-  "version": "0.2.0",
+  "version": "0.0.1",
   "packages": [
     {
       "registryType": "npm",
-      "identifier": "ask-llm-mcp",
-      "version": "0.2.0",
+      "identifier": "ask-antigravity-mcp",
+      "version": "0.0.1",
       "transport": {
         "type": "stdio"
       },
       "environmentVariables": [
-        {
-          "name": "OLLAMA_HOST",
-          "description": "Ollama server address (default: http://localhost:11434)",
-          "isRequired": false,
-          "format": "string",
-          "isSecret": false,
-          "default": "http://localhost:11434"
-        },
         {
           "name": "ASK_ANTIGRAVITY_TIMEOUT_MS",
           "description": "Timeout for Antigravity (agy) execution in milliseconds (default: 300000 = 5 minutes)",
@@ -39,14 +31,6 @@
           "format": "string",
           "isSecret": false,
           "default": "1"
-        },
-        {
-          "name": "GMCPT_TIMEOUT_MS",
-          "description": "Timeout for CLI execution in milliseconds (default: 300000 = 5 minutes)",
-          "isRequired": false,
-          "format": "string",
-          "isSecret": false,
-          "default": "300000"
         },
         {
           "name": "GMCPT_LOG_LEVEL",

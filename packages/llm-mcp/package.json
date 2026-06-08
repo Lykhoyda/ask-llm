@@ -2,7 +2,7 @@
   "name": "ask-llm-mcp",
   "version": "0.3.11",
   "mcpName": "io.github.Lykhoyda/ask-llm",
-  "description": "Unified MCP server for multi-LLM consultation — registers tools from all available providers (Gemini, Codex, Ollama) behind runtime availability checks",
+  "description": "Unified MCP server for multi-LLM consultation — registers tools from all available providers (Gemini, Codex, Ollama, Antigravity) behind runtime availability checks",
   "type": "module",
   "main": "dist/index.js",
   "exports": {
@@ -15,8 +15,8 @@
     "dev": "tsc -b && node dist/cli.js",
     "test": "vitest run",
     "lint": "biome check src/ && tsc --noEmit",
-    "prepack": "node ../../scripts/prepack-bundle.mjs shared gemini-mcp codex-mcp ollama-mcp",
-    "postpack": "node ../../scripts/postpack-restore.mjs shared gemini-mcp codex-mcp ollama-mcp"
+    "prepack": "node ../../scripts/prepack-bundle.mjs shared gemini-mcp codex-mcp ollama-mcp antigravity-mcp",
+    "postpack": "node ../../scripts/postpack-restore.mjs shared gemini-mcp codex-mcp ollama-mcp antigravity-mcp"
   },
   "keywords": [
     "mcp",
@@ -29,6 +29,8 @@
     "openai",
     "google-gemini",
     "ollama",
+    "antigravity",
+    "agy",
     "local-llm",
     "claude",
     "ai",
@@ -77,6 +79,7 @@
     "@ask-llm/shared",
     "ask-gemini-mcp",
     "ask-codex-mcp",
-    "ask-ollama-mcp"
+    "ask-ollama-mcp",
+    "ask-antigravity-mcp"
   ]
 }

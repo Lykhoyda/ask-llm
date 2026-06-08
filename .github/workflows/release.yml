@@ -86,7 +86,7 @@ jobs:
       - name: Sync versions from package.json to server.json and marketplace.json
         if: steps.changesets.outputs.published == 'true'
         run: |
-          for entry in "gemini-mcp:server.json" "codex-mcp:packages/codex-mcp/server.json" "ollama-mcp:packages/ollama-mcp/server.json" "llm-mcp:packages/llm-mcp/server.json"; do
+          for entry in "gemini-mcp:server.json" "codex-mcp:packages/codex-mcp/server.json" "ollama-mcp:packages/ollama-mcp/server.json" "antigravity-mcp:packages/antigravity-mcp/server.json" "llm-mcp:packages/llm-mcp/server.json"; do
             pkg="${entry%%:*}"
             file="${entry#*:}"
             PKG_VERSION=$(node -p "require('./packages/$pkg/package.json').version")
@@ -111,6 +111,11 @@ jobs:
       - name: Publish ask-ollama to MCP Registry
         if: steps.changesets.outputs.published == 'true'
         run: ./mcp-publisher publish packages/ollama-mcp/server.json
+        continue-on-error: true
+
+      - name: Publish ask-antigravity to MCP Registry
+        if: steps.changesets.outputs.published == 'true'
+        run: ./mcp-publisher publish packages/antigravity-mcp/server.json
         continue-on-error: true
 
       - name: Publish ask-llm to MCP Registry
@@ -183,7 +188,7 @@ jobs:
               ``,
               `Likely causes:`,
               `- NODE_AUTH_TOKEN expired, revoked, or wrong type (must be Classic "Automation" or 2FA-bypass Granular)`,
-              `- Package permission changed on npm (token no longer covers ask-gemini-mcp / ask-codex-mcp / ask-ollama-mcp / ask-llm-mcp)`,
+              `- Package permission changed on npm (token no longer covers ask-gemini-mcp / ask-codex-mcp / ask-ollama-mcp / ask-antigravity-mcp / ask-llm-mcp)`,
               `- npm registry outage`,
               ``,
               `**Fix path:**`,
