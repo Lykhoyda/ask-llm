@@ -7,7 +7,7 @@ description: Bridge Claude with Google Gemini via the official CLI. 1M+ token co
 Bridge Claude with Google's Gemini via the official Gemini CLI. Leverages Gemini's massive 1M+ token context window for large file and codebase analysis while Claude handles interaction and code editing.
 
 ::: danger Discontinued on consumer tiers — migrate to Antigravity
-**As of 2026-06-18**, Google restricts Gemini CLI access to **Gemini Code Assist Standard/Enterprise** seats; **free, Google AI Pro, and Ultra** accounts are no longer served by `ask-gemini-mcp`.
+**As of 2026-06-18**, Google restricts Gemini CLI access to **Gemini Code Assist Standard/Enterprise** seats; **free, Google AI Pro, and Ultra** accounts are no longer served. `ask-gemini-mcp` still installs and launches — the failure is a runtime auth/quota error from Google's backend, not a missing binary.
 
 **On a subscription tier?** Migrate to **[Antigravity (`agy`)](./antigravity)** — Google's successor CLI, covered by the same AI Pro/Ultra subscription with no per-token billing. Install [`ask-antigravity-mcp`](./antigravity), or switch to [`ask-codex`](./codex) / [`ask-ollama`](./ollama). The **2026-06-18 tier change** section below covers what happens at runtime.
 :::
