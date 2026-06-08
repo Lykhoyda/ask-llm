@@ -126,7 +126,9 @@ PROMPT_EOF
 # Subshells (parentheses) detach the child from this shell's job table,
 # which makes `wait` return immediately and orphans the job to be
 # SIGKILLed when the Bash tool call returns and the sub-agent turn ends.
-# Only include this line if antigravity was requested (in the default set):
+# Only include this line if antigravity was requested (in the default set).
+# --dangerously-skip-permissions: agy prompts for tool-use approval in interactive
+# contexts; skipping those prompts keeps the background job from hanging on input.
 agy -p "$(cat "$workdir/prompt.md")" --dangerously-skip-permissions > "$workdir/antigravity.out" 2> "$workdir/antigravity.err" &
 pid_antigravity=$!
 
