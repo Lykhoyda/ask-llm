@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { ANTIGRAVITY, CLI, ERROR_MESSAGES, READ_ONLY_PREAMBLE } from "../../constants.js";
+import { ANTIGRAVITY, CLI, ERROR_MESSAGES, MODELS, READ_ONLY_PREAMBLE } from "../../constants.js";
 
 vi.mock("@ask-llm/shared", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@ask-llm/shared")>();
@@ -25,16 +25,19 @@ beforeEach(() => {
   vi.clearAllMocks();
   delete process.env[ANTIGRAVITY.SANDBOX_ENV_VAR];
   delete process.env[ANTIGRAVITY.TIMEOUT_ENV_VAR];
+  delete process.env[ANTIGRAVITY.MODEL_ENV_VAR];
   mockExec.mockResolvedValue("");
   mockReadLatest.mockReturnValue(null);
 });
 
 describe("buildArgs", () => {
-  it("builds -p, prompt, print-timeout, skip-permissions, sandbox", () => {
-    const args = buildArgs("hello", undefined, 295, true);
+  it("builds -p, prompt, model, print-timeout, skip-permissions, sandbox", () => {
+    const args = buildArgs("hello", undefined, 295, true, "Gemini 3.5 Flash (High)");
     expect(args).toEqual([
       CLI.FLAGS.PRINT,
       "hello",
+      CLI.FLAGS.MODEL,
+      "Gemini 3.5 Flash (High)",
       CLI.FLAGS.PRINT_TIMEOUT,
       "295s",
       CLI.FLAGS.SKIP_PERMISSIONS,
@@ -42,8 +45,8 @@ describe("buildArgs", () => {
     ]);
   });
 
-  it("omits sandbox when disabled and repeats --add-dir per includeDir", () => {
-    const args = buildArgs("hello", ["/a", "/b"], 100, false);
+  it("omits sandbox when disabled, repeats --add-dir per includeDir, and places --model after dirs", () => {
+    const args = buildArgs("hello", ["/a", "/b"], 100, false, "Gemini 3.5 Flash (High)");
     expect(args).toEqual([
       CLI.FLAGS.PRINT,
       "hello",
@@ -51,10 +54,17 @@ describe("buildArgs", () => {
       "/a",
       CLI.FLAGS.ADD_DIR,
       "/b",
+      CLI.FLAGS.MODEL,
+      "Gemini 3.5 Flash (High)",
       CLI.FLAGS.PRINT_TIMEOUT,
       "100s",
       CLI.FLAGS.SKIP_PERMISSIONS,
     ]);
+  });
+
+  it("omits --model when no model is given", () => {
+    const args = buildArgs("hello", undefined, 100, false, undefined);
+    expect(args).not.toContain(CLI.FLAGS.MODEL);
   });
 });
 
@@ -138,6 +148,38 @@ describe("executeAntigravityCLI argument wiring", () => {
     const [, args] = mockExec.mock.calls[0];
     const idx = args.indexOf(CLI.FLAGS.PRINT_TIMEOUT);
     expect(args[idx + 1]).toBe("3s");
+  });
+});
+
+describe("executeAntigravityCLI model selection", () => {
+  it("passes the default model via --model and reports it when none is specified", async () => {
+    mockExec.mockResolvedValue("answer");
+    const result = await executeAntigravityCLI({ prompt: "q" });
+    const [, args] = mockExec.mock.calls[0];
+    const idx = args.indexOf(CLI.FLAGS.MODEL);
+    expect(idx).toBeGreaterThan(-1);
+    expect(args[idx + 1]).toBe(MODELS.DEFAULT);
+    expect(result.model).toBe(MODELS.DEFAULT);
+  });
+
+  it("honors ASK_ANTIGRAVITY_MODEL over the default", async () => {
+    process.env[ANTIGRAVITY.MODEL_ENV_VAR] = "Gemini 3.1 Pro (High)";
+    mockExec.mockResolvedValue("answer");
+    const result = await executeAntigravityCLI({ prompt: "q" });
+    const [, args] = mockExec.mock.calls[0];
+    const idx = args.indexOf(CLI.FLAGS.MODEL);
+    expect(args[idx + 1]).toBe("Gemini 3.1 Pro (High)");
+    expect(result.model).toBe("Gemini 3.1 Pro (High)");
+  });
+
+  it("lets an explicit options.model win over env and default", async () => {
+    process.env[ANTIGRAVITY.MODEL_ENV_VAR] = "Gemini 3.1 Pro (High)";
+    mockExec.mockResolvedValue("answer");
+    const result = await executeAntigravityCLI({ prompt: "q", model: "Claude Sonnet 4.6 (Thinking)" });
+    const [, args] = mockExec.mock.calls[0];
+    const idx = args.indexOf(CLI.FLAGS.MODEL);
+    expect(args[idx + 1]).toBe("Claude Sonnet 4.6 (Thinking)");
+    expect(result.model).toBe("Claude Sonnet 4.6 (Thinking)");
   });
 });
 

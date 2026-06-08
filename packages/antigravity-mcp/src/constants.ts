@@ -26,10 +26,20 @@ export const CLI = {
   FLAGS: {
     PRINT: "-p",
     ADD_DIR: "--add-dir",
+    MODEL: "--model",
     PRINT_TIMEOUT: "--print-timeout",
     SKIP_PERMISSIONS: "--dangerously-skip-permissions",
     SANDBOX: "--sandbox",
   },
+} as const;
+
+// agy exposes named models (run `agy models`). Default to Gemini 3.5 Flash (High):
+// the strongest Flash effort tier, best for the code-review / second-opinion workload.
+// `agy --model` accepts the verbatim display string and works under `-p` (the v1
+// "no model selection" note was about the short `-m` flag, which hangs; `--model`
+// does not — verified against agy 1.0.6). Override via ASK_ANTIGRAVITY_MODEL.
+export const MODELS = {
+  DEFAULT: "Gemini 3.5 Flash (High)",
 } as const;
 
 export const ANTIGRAVITY = {
@@ -37,6 +47,7 @@ export const ANTIGRAVITY = {
   // agy's --print-timeout defaults to 5m; mirror that as our process timeout.
   DEFAULT_TIMEOUT_MS: 300_000,
   SANDBOX_ENV_VAR: "ASK_ANTIGRAVITY_SANDBOX",
+  MODEL_ENV_VAR: "ASK_ANTIGRAVITY_MODEL",
   // Lowercased substrings; isRateLimitError() lowercases the message first.
   RATE_LIMIT_SIGNALS: ["rate limit", "rate_limit", "resource_exhausted", "quota", "429", "too many requests"],
 } as const;
