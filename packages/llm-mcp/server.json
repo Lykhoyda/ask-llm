@@ -1,7 +1,7 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.Lykhoyda/ask-llm",
-  "description": "Unified MCP server — auto-detects Gemini, Codex, and Ollama, registers available tools",
+  "description": "Unified MCP server — auto-detects Gemini, Codex, Ollama, Antigravity; registers available tools",
   "repository": {
     "url": "https://github.com/Lykhoyda/ask-llm",
     "source": "github"
@@ -23,6 +23,22 @@
           "format": "string",
           "isSecret": false,
           "default": "http://localhost:11434"
+        },
+        {
+          "name": "ASK_ANTIGRAVITY_TIMEOUT_MS",
+          "description": "Timeout for Antigravity (agy) execution in milliseconds (default: 300000 = 5 minutes)",
+          "isRequired": false,
+          "format": "string",
+          "isSecret": false,
+          "default": "300000"
+        },
+        {
+          "name": "ASK_ANTIGRAVITY_SANDBOX",
+          "description": "Set to '0' to drop agy's --sandbox flag if it blocks --add-dir context reads (default: sandbox on)",
+          "isRequired": false,
+          "format": "string",
+          "isSecret": false,
+          "default": "1"
         },
         {
           "name": "GMCPT_TIMEOUT_MS",

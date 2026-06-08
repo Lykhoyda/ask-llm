@@ -2,7 +2,7 @@
   "name": "ask-llm-mcp",
   "version": "0.3.11",
   "mcpName": "io.github.Lykhoyda/ask-llm",
-  "description": "Unified MCP server for multi-LLM consultation — registers tools from all available providers (Gemini, Codex, Ollama) behind runtime availability checks",
+  "description": "Unified MCP server for multi-LLM consultation — registers tools from all available providers (Gemini, Codex, Ollama, Antigravity) behind runtime availability checks",
   "type": "module",
   "main": "dist/index.js",
   "exports": {
@@ -29,6 +29,8 @@
     "openai",
     "google-gemini",
     "ollama",
+    "antigravity",
+    "agy",
     "local-llm",
     "claude",
     "ai",
