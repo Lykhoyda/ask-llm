@@ -129,7 +129,11 @@ PROMPT_EOF
 # Only include this line if antigravity was requested (in the default set).
 # --dangerously-skip-permissions: agy prompts for tool-use approval in interactive
 # contexts; skipping those prompts keeps the background job from hanging on input.
-agy -p "$(cat "$workdir/prompt.md")" --dangerously-skip-permissions > "$workdir/antigravity.out" 2> "$workdir/antigravity.err" &
+# --model "Gemini 3.5 Flash (High)": pin the same default ask-antigravity-mcp uses
+# (ADR-116). This raw `agy` call bypasses that executor, so the default must be
+# restated here or agy falls back to its own built-in model. The long --model flag
+# works under -p (only the short -m hangs). Run `agy models` to see the options.
+agy -p "$(cat "$workdir/prompt.md")" --model "Gemini 3.5 Flash (High)" --dangerously-skip-permissions > "$workdir/antigravity.out" 2> "$workdir/antigravity.err" &
 pid_antigravity=$!
 
 # Only include this line if gemini was requested:
