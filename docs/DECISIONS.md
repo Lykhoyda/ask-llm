@@ -1,5 +1,13 @@
 # Architectural Decisions
 
+## ADR-116: Antigravity default model — Gemini 3.5 Flash (High) via `--model` (supersedes ADR-114's "no model selection")
+
+- **Date:** 2026-06-08
+- **Status:** Accepted — implemented on branch `feat/antigravity-default-model-flash` (constants + executor + tool + orchestrator label + docs + tests; antigravity-mcp + llm-mcp suites green). Narrows the ADR-114 "no `model` param" decision.
+- **Context:** ADR-114 shipped `ask-antigravity-mcp` with **no model selection**, citing "`-m` model-switching hangs under `-p`". That was a true finding about the **short `-m` flag**, but it ossified into a blanket "no model selection" claim across six surfaces (executor comment, tool description, package README, provider docs ×2, spec). A fresh empirical probe of the installed `agy` 1.0.6 found a documented long **`--model`** flag plus an `agy models` subcommand, and a live one-shot test — `agy -p --model "Gemini 3.5 Flash (Low)" "…" --print-timeout 120s --dangerously-skip-permissions --sandbox` — returned cleanly with exit 0, **no hang**. `agy models` lists Gemini 3.5 Flash (Low/Medium/High), Gemini 3.1 Pro (Low/High), Claude Sonnet 4.6 (Thinking), Claude Opus 4.6 (Thinking), GPT-OSS 120B. The maintainer wants Gemini 3.5 Flash as the default for its coding strength.
+- **Decision:** Add model selection. Resolution order: explicit `options.model` → `ASK_ANTIGRAVITY_MODEL` env → `MODELS.DEFAULT = "Gemini 3.5 Flash (High)"` (the High effort tier, chosen for code-review quality). `buildArgs` appends `--model <model>` (the verbatim `agy models` display string) after `--add-dir`; the executor returns the resolved model so `AskResponse.model` reports the real model instead of the placeholder `"antigravity"` label. The orchestrator's `defaultModel` label is synced to `"Gemini 3.5 Flash (High)"`. The short `-m` flag is **never** used (it still hangs). Multi-turn / sessions stay out of scope (antigravity-cli #7).
+- **Consequences:** Antigravity calls now run on Gemini 3.5 Flash (High) by default, overridable per-environment via `ASK_ANTIGRAVITY_MODEL` or per-call via `options.model`. The six "no model selection" surfaces are corrected. The historical ADR-114 + spec v1 records stay as-is (accurate about `-m`); this ADR records the `-m` vs `--model` distinction so the constraint isn't re-introduced. `ask-antigravity-mcp` gets a **minor** bump (new feature) and republishes; the cascade republishes `ask-llm-mcp`. Risk: if `agy` renames its model display strings a pinned value could 404 — mitigated by the env override and the `agy models` pointer in the docs.
+
 ## ADR-114: New `ask-antigravity-mcp` Provider — Experimental, Transcript-Scraping (stdout-first)
 
 - **Date:** 2026-06-07

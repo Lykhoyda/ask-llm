@@ -1,19 +1,23 @@
 import { EXECUTION, executeCommand, Logger, resolveTimeoutMs } from "@ask-llm/shared";
-import { ANTIGRAVITY, CLI, ERROR_MESSAGES, READ_ONLY_PREAMBLE } from "../constants.js";
+import { ANTIGRAVITY, CLI, ERROR_MESSAGES, MODELS, READ_ONLY_PREAMBLE } from "../constants.js";
 import { readLatestResponse } from "./transcriptReader.js";
 
 export interface AntigravityExecutorOptions {
   prompt: string;
   includeDirs?: string[];
-  // Accepted for structural compatibility with the orchestrator's ExecutorFn but
-  // intentionally ignored: agy -p can't switch models (hangs) or resume by id.
+  // agy model display name (see `agy models`), e.g. "Gemini 3.5 Flash (High)".
+  // Passed via `--model` (works under -p, unlike the short `-m` flag which hangs).
+  // Falls back to ASK_ANTIGRAVITY_MODEL, then MODELS.DEFAULT, when omitted.
   model?: string;
+  // Accepted for orchestrator ExecutorFn compatibility but ignored: agy -p can't
+  // resume by id (no capturable conversation id, antigravity-cli #7).
   sessionId?: string;
   onProgress?: (newOutput: string) => void;
 }
 
 export interface AntigravityExecutorResult {
   response: string;
+  model: string;
   sessionId: undefined;
   usage: undefined;
 }
@@ -36,11 +40,13 @@ export function buildArgs(
   includeDirs: string[] | undefined,
   timeoutSec: number,
   sandbox: boolean,
+  model: string | undefined,
 ): string[] {
   const args: string[] = [CLI.FLAGS.PRINT, prompt];
   if (includeDirs?.length) {
     for (const dir of includeDirs) args.push(CLI.FLAGS.ADD_DIR, dir);
   }
+  if (model) args.push(CLI.FLAGS.MODEL, model);
   args.push(CLI.FLAGS.PRINT_TIMEOUT, `${timeoutSec}s`);
   args.push(CLI.FLAGS.SKIP_PERMISSIONS);
   if (sandbox) args.push(CLI.FLAGS.SANDBOX);
@@ -89,7 +95,8 @@ export async function executeAntigravityCLI(options: AntigravityExecutorOptions)
     );
   }
 
-  const args = buildArgs(fullPrompt, options.includeDirs, agyTimeoutSec, sandbox);
+  const model = options.model?.trim() || process.env[ANTIGRAVITY.MODEL_ENV_VAR]?.trim() || MODELS.DEFAULT;
+  const args = buildArgs(fullPrompt, options.includeDirs, agyTimeoutSec, sandbox, model);
 
   return withMutex(async () => {
     const startedAt = Date.now();
@@ -115,7 +122,7 @@ export async function executeAntigravityCLI(options: AntigravityExecutorOptions)
       const response = source.get();
       if (response !== null) {
         Logger.debug(`antigravity: response from ${source.label}`);
-        return { response, sessionId: undefined, usage: undefined };
+        return { response, model, sessionId: undefined, usage: undefined };
       }
     }
     // agy exited cleanly but produced no readable answer anywhere.
