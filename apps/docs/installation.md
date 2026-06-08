@@ -78,7 +78,7 @@ Then point your MCP config at the binary path or just use `ask-llm-mcp` directly
 
 ## Method 4: Claude Code Plugin (richer experience)
 
-If you're a Claude Code user, the plugin adds slash commands (`/multi-review`, `/brainstorm`, `/compare`, `/gemini-review`, `/codex-review`, `/ollama-review`), reviewer subagents with confidence-based filtering, and an opt-in continuous `codex-pair` review hook:
+If you're a Claude Code user, the plugin adds slash commands (`/multi-review`, `/brainstorm`, `/compare`, `/gemini-review`, `/codex-review`, `/ollama-review`, `/antigravity-review`), reviewer subagents with confidence-based filtering, and an opt-in continuous `codex-pair` review hook:
 
 ```bash
 /plugin marketplace add Lykhoyda/ask-llm
