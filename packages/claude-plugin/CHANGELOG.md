@@ -1,5 +1,12 @@
 # @ask-llm/plugin
 
+## 0.7.6
+
+### Patch Changes
+
+- Updated dependencies [[`0e14e19`](https://github.com/Lykhoyda/ask-llm/commit/0e14e19fd55dad04c4cc31b55336a970de01ef0b)]:
+  - ask-antigravity-mcp@0.2.0
+
 ## 0.7.5
 
 ### Patch Changes

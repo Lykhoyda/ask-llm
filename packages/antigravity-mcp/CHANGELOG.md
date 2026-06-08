@@ -1,5 +1,11 @@
 # ask-antigravity-mcp
 
+## 0.2.0
+
+### Minor Changes
+
+- [#167](https://github.com/Lykhoyda/ask-llm/pull/167) [`0e14e19`](https://github.com/Lykhoyda/ask-llm/commit/0e14e19fd55dad04c4cc31b55336a970de01ef0b) Thanks [@Lykhoyda](https://github.com/Lykhoyda)! - Add model selection to `ask-antigravity`, defaulting to **Gemini 3.5 Flash (High)**. Antigravity's `agy` supports model choice via the long `--model` flag (the short `-m` flag hangs under `-p`, which is why v1 shipped without it). Override with the `ASK_ANTIGRAVITY_MODEL` env var (run `agy models` for the list) or per-call via the executor's `model` option. The structured `AskResponse.model` now reports the actual model used instead of the `"antigravity"` placeholder.
+
 ## 0.1.0
 
 ### Minor Changes
