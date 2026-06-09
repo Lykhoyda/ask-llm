@@ -28,6 +28,8 @@ Records an ack for the given finding hash so the codex-pair Stop-gate skips it o
    node --input-type=module -e '
    import { addAck } from "<plugin-root>/scripts/lib/state.mjs";
    import { readFileSync } from "node:fs";
+   // With `node -e CODE A B`, process.argv = [node, A, B] (no script-file
+   // placeholder), so argv[1]=markerDir, argv[2]=hash.
    addAck(process.argv[1], process.argv[2], { reason: readFileSync(0, "utf8").trim() });
    ' "<markerDir>" "<hash>" <<'CODEX_PAIR_ACK_REASON'
    <reason>
