@@ -1,5 +1,12 @@
 # ask-gemini-mcp
 
+## 1.6.10
+
+### Patch Changes
+
+- Updated dependencies [[`2f12b43`](https://github.com/Lykhoyda/ask-llm/commit/2f12b43c5b8111e3f726ee52fc237ca31df0b4b0)]:
+  - @ask-llm/shared@0.3.4
+
 ## 1.6.9
 
 ### Patch Changes
