@@ -7,6 +7,7 @@ const expectedSkills = [
   "brainstorm-all",
   "codex-image",
   "codex-pair",
+  "codex-pair-ack",
   "codex-pair-pause",
   "codex-pair-resume",
   "codex-review",
