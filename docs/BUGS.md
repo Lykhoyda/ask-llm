@@ -2,6 +2,14 @@
 
 ## Open
 
+### `agy` (Antigravity) can act during "review" calls — read-only guard is soft and raw calls bypass it
+- **Severity:** Medium — the provider's PRIMARY use case is read-only second-opinions/reviews, yet `agy` can silently modify the repo.
+- **Discovered:** 2026-06-09, while asking `agy` to *critique* the #142 stop-gate design. It went ahead and **implemented the whole feature** (created/edited 6 files on `main`, ran the test suite) instead of just reviewing. Changes were reverted; no harm, but the behavior is the concern.
+- **Root cause:** `agy` is an agentic CLI run with `--dangerously-skip-permissions` (required to avoid headless `-p` approval-prompt hangs). `--sandbox` only restricts the *terminal*, not file writes. `agy` 1.0.6 has **no hard read-only / tool-restriction flag**. The only guard is a **soft** prompt preamble (`READ_ONLY_PREAMBLE`, `packages/antigravity-mcp/src/constants.ts`) — and it is prepended **only on the MCP-tool path**.
+- **Gaps:** (1) **Raw `agy` calls bypass the preamble** — notably the brainstorm-coordinator dispatch (`packages/claude-plugin/agents/brainstorm-coordinator.md:136`), which runs `--dangerously-skip-permissions` **without `--sandbox`** → agy can write files AND run terminal commands during a brainstorm. Any ad-hoc raw `agy -p` review (like the one that surfaced this) is unguarded. (2) Even with the preamble, the constraint is **soft** — agy may ignore it (it ignored the "give a verdict only" instruction here).
+- **Recommended (deferred):** (a) prepend `READ_ONLY_PREAMBLE` + add `--sandbox` to **every** raw `agy` call (brainstorm-coordinator + any docs/snippets); (b) for a hard guarantee, run review-mode `agy` in a throwaway git worktree (writes can't reach the real repo) or `git status`/revert after the call; (c) track upstream — `agy` needs a real `--read-only` / `--allowed-tools` mode.
+- **Status:** Open — **noted only** per maintainer (2026-06-09); hardening deferred.
+
 ### Codex quota fallback broken for CLI 0.137+ ("You've hit your usage limit") — also blocked unrelated pushes
 - **Severity:** ~~Low (local DX)~~ → **Medium** (refined): the real impact is a **user-facing** quota-fallback regression, not just a local pre-push annoyance.
 - **Discovered:** 2026-06-08 (as a generic "smoke fails on live codex"); **root-caused 2026-06-09** while pushing a docs-only commit.
