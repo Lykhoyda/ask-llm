@@ -15,7 +15,7 @@
 // identity-snapshot recheck.
 
 import { appendFile, mkdir, readFile, readdir, rename, stat, unlink, writeFile } from "node:fs/promises";
-import { mkdirSync, readFileSync, statSync, unlinkSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, renameSync, statSync, unlinkSync, writeFileSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { dirname, join } from "node:path";
 
@@ -88,11 +88,16 @@ export function readAcks(markerDir) {
 }
 
 // Append-merge a single ack. Best-effort; the slash command surfaces failures.
+// Atomic tmp+rename so a kill mid-write can't corrupt/truncate acks.json
+// (readAcks fails-open on a partial read, but rename keeps the file consistent).
 export function addAck(markerDir, hash, { reason }) {
   const acks = readAcks(markerDir);
   acks[hash] = { reason, ts: new Date().toISOString() };
   mkdirSync(stateRoot(markerDir), { recursive: true });
-  writeFileSync(acksPath(markerDir), `${JSON.stringify(acks, null, 2)}\n`);
+  const path = acksPath(markerDir);
+  const tmp = `${path}.tmp`;
+  writeFileSync(tmp, `${JSON.stringify(acks, null, 2)}\n`);
+  renameSync(tmp, path);
 }
 // ADR-096: include-list + repetitions resolvers
 export const includePath = (markerDir) => join(pairRoot(markerDir), INCLUDE_FILENAME);

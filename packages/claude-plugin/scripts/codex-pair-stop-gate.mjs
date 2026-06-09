@@ -45,7 +45,7 @@ function readBlockOn(markerDir) {
   } catch {
     return null;
   }
-  const fm = text.match(/^---\n([\s\S]*?)\n---/);
+  const fm = text.match(/^---\r?\n([\s\S]*?)\r?\n---/); // tolerate CRLF (Windows)
   if (!fm) return null;
   const m = fm[1].match(/^\s*blockOn:\s*(\S+)\s*$/m);
   return m ? m[1].trim() : null;

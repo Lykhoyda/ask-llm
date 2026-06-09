@@ -44,7 +44,7 @@ export function collectBlockingHighs({ entries, acks, existsFn, gitDirty, marker
     if (!existsFn(file)) continue; // [A] deleted/renamed
     if (INDETERMINATE.has(entry.verdict)) continue; // [C] indeterminate latest → fail-open
     if (gitDirty && !gitDirty.has(file)) continue; // [B] clean vs HEAD
-    const highs = entry.concerns?.high ?? [];
+    const highs = Array.isArray(entry.concerns?.high) ? entry.concerns.high : [];
     for (const text of highs) {
       const hash = hashConcernBody(`${relative(markerDir, file)}:${text}`); // [E] file-scoped
       if (!acks[hash]) blocking.push({ file, text, hash });
@@ -63,7 +63,7 @@ export function formatBlockMessage(blocking, markerDir) {
     `🚫 codex-pair: ${blocking.length} unaddressed HIGH finding(s) (blockOn: HIGH). ` +
     `Fix them, or defer each with /codex-pair-ack.\n\n` +
     `${lines.join("\n")}\n\n` +
-    `To defer (stale / pre-existing / out-of-scope):\n` +
+    `To defer a finding (stale / pre-existing / out-of-scope), run /codex-pair-ack with its [hash] from the list above — e.g.:\n` +
     `  /codex-pair-ack ${blocking[0].hash} "<reason>"\n` +
     `(If you fixed a finding by editing a DIFFERENT file, make a real edit to the ` +
     `flagged file so it gets re-reviewed — an identical re-touch hits the review cache.)`
