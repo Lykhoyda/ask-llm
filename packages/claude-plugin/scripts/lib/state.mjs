@@ -75,6 +75,25 @@ export const cacheRoot = (markerDir) => join(pairRoot(markerDir), CACHE_DIR);
 export const stateRoot = (markerDir) => join(pairRoot(markerDir), STATE_DIR);
 export const pausePath = (markerDir) => join(stateRoot(markerDir), PAUSE_SENTINEL_FILE);
 export const inflightRoot = (markerDir) => join(stateRoot(markerDir), INFLIGHT_DIR);
+
+export const ACKS_FILENAME = "acks.json";
+export const acksPath = (markerDir) => join(stateRoot(markerDir), ACKS_FILENAME);
+
+export function readAcks(markerDir) {
+  try {
+    return JSON.parse(readFileSync(acksPath(markerDir), "utf8"));
+  } catch {
+    return {}; // missing/corrupt → no acks
+  }
+}
+
+// Append-merge a single ack. Best-effort; the slash command surfaces failures.
+export function addAck(markerDir, hash, { reason }) {
+  const acks = readAcks(markerDir);
+  acks[hash] = { reason, ts: new Date().toISOString() };
+  mkdirSync(stateRoot(markerDir), { recursive: true });
+  writeFileSync(acksPath(markerDir), `${JSON.stringify(acks, null, 2)}\n`);
+}
 // ADR-096: include-list + repetitions resolvers
 export const includePath = (markerDir) => join(pairRoot(markerDir), INCLUDE_FILENAME);
 // Legacy v1 singleton path — kept for the one-time cleanup of pre-hotfix

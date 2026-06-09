@@ -88,6 +88,29 @@ describe("collectBlockingHighs", () => {
   });
 });
 
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { addAck, readAcks, acksPath } from "../../scripts/lib/state.mjs";
+
+describe("acks state helpers", () => {
+  it("addAck persists, readAcks reads back, missing file → {}", () => {
+    const dir = mkdtempSync(join(tmpdir(), "ackstest-"));
+    try {
+      expect(readAcks(dir)).toEqual({});
+      expect(acksPath(dir).endsWith(".codex-pair/state/acks.json")).toBe(true);
+      addAck(dir, "abc123", { reason: "stale" });
+      const acks = readAcks(dir);
+      expect(acks.abc123.reason).toBe("stale");
+      expect(typeof acks.abc123.ts).toBe("string");
+      addAck(dir, "def456", { reason: "pre-existing" });
+      expect(Object.keys(readAcks(dir))).toHaveLength(2);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});
+
 describe("formatBlockMessage", () => {
   it("lists each finding with a short hash, file, and ack instructions", () => {
     const msg = formatBlockMessage(
