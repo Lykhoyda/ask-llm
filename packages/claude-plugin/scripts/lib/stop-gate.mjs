@@ -23,6 +23,12 @@ export function parseGitPorcelain(stdout, repoRoot) {
   return dirty;
 }
 
+// Verdicts that don't carry a trustworthy final-state review. `skipped`/`error`
+// carry a `file` field, so they can be a file's latest entry → [C] fail-opens on
+// them. `retried`/`broker_fallback` are logged WITHOUT a `file` (transient
+// per-attempt markers), so selectLatestEntries already excludes them and the
+// file's true latest review (concerns/none/cached) is used — they're listed here
+// for completeness/future-proofing, not because they're currently reachable.
 const INDETERMINATE = new Set(["skipped", "error", "retried", "broker_fallback"]);
 
 // Reconcile latest-per-file entries against present reality, returning the
