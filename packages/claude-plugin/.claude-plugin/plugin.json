@@ -1,6 +1,6 @@
 {
   "name": "ask-llm",
-  "version": "0.7.6",
+  "version": "0.7.7",
   "description": "AI-to-AI collaboration — review code, brainstorm ideas, and debate plans across Gemini, Codex, and Ollama",
   "author": {
     "name": "Anton Lykhoyda",
