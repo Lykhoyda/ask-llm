@@ -43,7 +43,7 @@ export function sanitizeErrorForLLM(stderr: string, command: string): string {
     const idx = lower.indexOf(matchedQuotaPattern.toLowerCase());
     const start = Math.max(0, idx - 100);
     const end = Math.min(start + 500, stderr.length);
-    const head = start > 0 ? "...(truncated) " : "";
+    const head = start > 0 ? "... (truncated) " : "";
     const tail = end < stderr.length ? "... (truncated)" : "";
     return `${head}${stderr.slice(start, end)}${tail}`;
   }
