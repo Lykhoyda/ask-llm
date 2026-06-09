@@ -10,6 +10,10 @@ The v0.6.3 → v0.7.0 codex-pair stability cadence (planned 2026-05-18) is **com
 
 Original plan reference: [`docs/plans/2026-05-18-codex-plugin-cc-adoption-roadmap.md`](plans/2026-05-18-codex-plugin-cc-adoption-roadmap.md).
 
+### 2026-06-09 — codex-pair Stop-gate MVP (branch `feat/codex-pair-stop-gate`, ADR-118, closes #142)
+
+Opt-in (`blockOn: HIGH`) `Stop` hook that blocks turn-end while unaddressed HIGH codex-pair findings remain — zero new LLM calls (reads `log.jsonl`), reconciled against present reality (file existence, git-status cleanliness, indeterminate-latest fail-open), file-scoped content-hash acks via `/codex-pair-ack`. Re-introduces a Stop hook that ADR-048 removed, on a fundamentally different mechanism. Refined by an Antigravity critique (deletion/revert/transient-error/collision edge cases). Pure logic in `scripts/lib/stop-gate.mjs` (12 unit tests); fail-open hook; plugin suite 385+ green. Plugin is `private` — no changeset.
+
 ### 2026-06-09 — codex quota fallback fix for CLI 0.137+ (branch `fix/codex-usage-limit-quota-detection`, ADR-117)
 
 Found while pushing the gpt-5.5 doc-sync (PR #172): the local codex smoke hard-failed on a quota error. Root cause = ADR-044's pattern recurring for Codex. Codex 0.137 reports plan exhaustion as `"You've hit your usage limit"` on **stdout JSONL** (exit non-zero, benign stderr), but (1) `executeCommand` discarded stdout on non-zero exit so the quota text never reached `isQuotaError()`, and (2) `QUOTA_SIGNALS` lacked the phrasing — so the gpt-5.5→gpt-5.5-mini fallback silently never fired for real users. Fix: `commandExecutor` unions stderr+stdout on failure (windowed around the signal so a long stderr can't bury it); `sanitizeErrorForLLM` + codex `QUOTA_SIGNALS` + smoke `QUOTA_PATTERN` all learn `usage limit`; `isQuotaError` + `parseCodexJsonlOutput` exported + unit-tested. shared + codex suites green (+4 shared tests, +12 codex tests). `@ask-llm/shared` + `ask-codex-mcp` patch bump (cascades to dependent MCPs).

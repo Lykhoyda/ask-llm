@@ -56,6 +56,7 @@ claude mcp add --scope user ollama -- npx -y ask-ollama-mcp
 |------|---------|--------|
 | PreToolUse | Before `git commit` | Reviews staged changes via Gemini, warns about critical issues |
 | PostToolUse | After Edit/Write/MultiEdit | Runs codex-pair review IF `.codex-pair/context.md` marker file is present in the project (opt-in, ADR-077; layout per ADR-092) |
+| Stop | Turn-end | Blocks turn-end while unaddressed HIGH codex-pair findings remain — **opt-in default OFF**, enabled via `blockOn: HIGH` in `.codex-pair/context.md` frontmatter; zero new LLM calls (reads `log.jsonl`); defer findings with `/codex-pair-ack <hash> "<reason>"` (ADR-118) |
 
 ## Enabling codex-pair mode
 
