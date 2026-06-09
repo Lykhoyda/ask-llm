@@ -47,6 +47,24 @@ export function collectBlockingHighs({ entries, acks, existsFn, gitDirty, marker
   return blocking;
 }
 
+// Build the Stop-hook block reason. Short hashes (first 6) are the ack ids.
+export function formatBlockMessage(blocking, markerDir) {
+  const lines = blocking.map((b) => {
+    const short = b.hash.slice(0, 6);
+    const rel = relative(markerDir, b.file);
+    return `  [${short}] ${rel}\n    ${b.text}`;
+  });
+  return (
+    `🚫 codex-pair: ${blocking.length} unaddressed HIGH finding(s) (blockOn: HIGH). ` +
+    `Fix them, or defer each with /codex-pair-ack.\n\n` +
+    `${lines.join("\n")}\n\n` +
+    `To defer (stale / pre-existing / out-of-scope):\n` +
+    `  /codex-pair-ack ${blocking[0].hash.slice(0, 6)} "<reason>"\n` +
+    `(If you fixed a finding by editing a DIFFERENT file, make a real edit to the ` +
+    `flagged file so it gets re-reviewed — an identical re-touch hits the review cache.)`
+  );
+}
+
 // Parse log.jsonl text → Map<file, latestEntry>. Last write per file wins
 // (the log is append-only; the final entry is the file's latest review).
 export function selectLatestEntries(logText) {

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { selectLatestEntries, parseGitPorcelain } from "../../scripts/lib/stop-gate.mjs";
 import { collectBlockingHighs } from "../../scripts/lib/stop-gate.mjs";
+import { formatBlockMessage } from "../../scripts/lib/stop-gate.mjs";
 
 describe("selectLatestEntries", () => {
   it("keeps the last entry per file and tolerates blank/garbage lines", () => {
@@ -84,5 +85,21 @@ describe("collectBlockingHighs", () => {
   it("a clean `none` latest entry blocks nothing (auto-clear on fix)", () => {
     const entries = m({ "/r/a.ts": { file: "/r/a.ts", verdict: "none", concerns: { high: [] } } });
     expect(collectBlockingHighs({ ...base, entries, acks: {} })).toHaveLength(0);
+  });
+});
+
+describe("formatBlockMessage", () => {
+  it("lists each finding with a short hash, file, and ack instructions", () => {
+    const msg = formatBlockMessage(
+      [
+        { file: "/r/src/auth.ts", text: "onSubmit awaits mutation without .unwrap()", hash: "a1b2c3d4e5" },
+        { file: "/r/src/del.tsx", text: "replace() after swallowed catch", hash: "d4e5f6a7b8" },
+      ],
+      "/r",
+    );
+    expect(msg).toContain("2 unaddressed HIGH");
+    expect(msg).toContain("[a1b2c3]");
+    expect(msg).toContain("src/auth.ts");
+    expect(msg).toContain("/codex-pair-ack a1b2c3");
   });
 });
