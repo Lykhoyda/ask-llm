@@ -155,7 +155,7 @@ Send prompts to OpenAI Codex CLI.
 - **Package:** ask-codex-mcp
 - **Parameters:**
   - `prompt` (string, required): The question, code review request, or analysis task.
-  - `model` (string, optional): Do not set unless user explicitly requests it. Default: gpt-5.4. Falls back to gpt-5.4-mini on quota errors.
+  - `model` (string, optional): Do not set unless user explicitly requests it. Default: gpt-5.5. Falls back to gpt-5.5-mini on quota errors.
 - **Returns:** Codex's text response.
 - **Annotations:** readOnlyHint=false, destructiveHint=false, openWorldHint=true
 
@@ -191,8 +191,8 @@ Test MCP server connectivity. Available in all packages.
 ### Codex
 | Model | Use Case |
 |-------|----------|
-| gpt-5.4 | Default — highest capability |
-| gpt-5.4-mini | Automatic fallback on quota errors |
+| gpt-5.5 | Default — highest capability |
+| gpt-5.5-mini | Automatic fallback on quota errors |
 
 ### Ollama
 | Model | Use Case |
@@ -267,7 +267,7 @@ Launches Gemini and Codex reviews in parallel with consensus highlighting.
 ## Error Handling
 
 All MCP servers handle errors gracefully:
-- **Quota errors:** Automatic fallback to cheaper model (Pro→Flash, gpt-5.4→mini, 7b→1.5b)
+- **Quota errors:** Automatic fallback to cheaper model (Pro→Flash, gpt-5.5→mini, 7b→1.5b)
 - **CLI not found:** Clear error message with installation instructions
 - **Timeout:** 5-minute default, configurable via GMCPT_TIMEOUT_MS environment variable
 - **Large responses:** Automatic chunking with fetch-chunk retrieval (Gemini only)
