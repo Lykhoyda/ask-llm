@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { selectLatestEntries, parseGitPorcelain } from "../../scripts/lib/stop-gate.mjs";
-import { collectBlockingHighs } from "../../scripts/lib/stop-gate.mjs";
-import { formatBlockMessage } from "../../scripts/lib/stop-gate.mjs";
+import {
+  collectBlockingHighs,
+  formatBlockMessage,
+  parseGitPorcelain,
+  selectLatestEntries,
+} from "../../scripts/lib/stop-gate.mjs";
 
 describe("selectLatestEntries", () => {
   it("keeps the last entry per file and tolerates blank/garbage lines", () => {
@@ -21,12 +24,7 @@ describe("selectLatestEntries", () => {
 
 describe("parseGitPorcelain", () => {
   it("maps porcelain entries to absolute paths (modified, untracked, renamed)", () => {
-    const out = [
-      " M src/a.ts",
-      "?? src/new.ts",
-      "R  old.ts -> src/b.ts",
-      "",
-    ].join("\n");
+    const out = [" M src/a.ts", "?? src/new.ts", "R  old.ts -> src/b.ts", ""].join("\n");
     const set = parseGitPorcelain(out, "/repo");
     expect(set.has("/repo/src/a.ts")).toBe(true);
     expect(set.has("/repo/src/new.ts")).toBe(true);
@@ -91,7 +89,7 @@ describe("collectBlockingHighs", () => {
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { addAck, readAcks, acksPath } from "../../scripts/lib/state.mjs";
+import { acksPath, addAck, readAcks } from "../../scripts/lib/state.mjs";
 
 describe("acks state helpers", () => {
   it("addAck persists, readAcks reads back, missing file → {}", () => {
