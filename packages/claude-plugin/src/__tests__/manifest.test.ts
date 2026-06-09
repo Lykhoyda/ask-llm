@@ -76,8 +76,15 @@ describe("marketplace.json", () => {
 describe("hooks.json", () => {
   const hooks = readJson<{ hooks: Record<string, unknown[]> }>("hooks/hooks.json");
 
-  it("Stop hook is NOT present (removed in ADR-048)", () => {
-    expect(hooks.hooks.Stop).toBeUndefined();
+  it("registers the Stop hook → codex-pair-stop-gate.mjs", () => {
+    expect(hooks.hooks.Stop).toBeDefined();
+    const cmd = (hooks.hooks.Stop as Array<{ hooks: Array<{ command: string }> }>)[0].hooks[0].command;
+    expect(cmd).toContain("${CLAUDE_PLUGIN_ROOT}");
+    expect(cmd).toContain("codex-pair-stop-gate.mjs");
+  });
+
+  it("the stop-gate script exists on disk", () => {
+    expect(fs.existsSync(path.join(PLUGIN_ROOT, "scripts", "codex-pair-stop-gate.mjs"))).toBe(true);
   });
 
   it("PreToolUse hook is NOT present (removed in ADR-094)", () => {
