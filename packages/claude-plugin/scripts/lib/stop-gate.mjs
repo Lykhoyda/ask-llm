@@ -2,7 +2,8 @@
 // Pure, I/O-free gate logic for the codex-pair Stop hook (#142, ADR-118).
 // No workspace imports — the hook ships without node_modules.
 
-import { isAbsolute, join } from "node:path";
+import { isAbsolute, join, relative } from "node:path";
+import { hashConcernBody } from "./state.mjs";
 
 // Parse `git status --porcelain` (v1) into a Set of ABSOLUTE paths that are
 // modified or untracked relative to HEAD. repoRoot = `git rev-parse
@@ -20,6 +21,30 @@ export function parseGitPorcelain(stdout, repoRoot) {
     dirty.add(isAbsolute(path) ? path : join(repoRoot, path));
   }
   return dirty;
+}
+
+const INDETERMINATE = new Set(["skipped", "error", "retried", "broker_fallback"]);
+
+// Reconcile latest-per-file entries against present reality, returning the
+// unacked HIGH findings that should block turn-end.
+//   entries   Map<file, latestEntry>      (from selectLatestEntries)
+//   acks      { [hash]: {reason, ts} }     (from readAcks)
+//   existsFn  (absFile) => boolean         (injected fs.existsSync)
+//   gitDirty  Set<absPath> | null          (null = no git filter)
+//   markerDir project root for relPath ack identity
+export function collectBlockingHighs({ entries, acks, existsFn, gitDirty, markerDir }) {
+  const blocking = [];
+  for (const [file, entry] of entries) {
+    if (!existsFn(file)) continue; // [A] deleted/renamed
+    if (INDETERMINATE.has(entry.verdict)) continue; // [C] indeterminate latest → fail-open
+    if (gitDirty && !gitDirty.has(file)) continue; // [B] clean vs HEAD
+    const highs = entry.concerns?.high ?? [];
+    for (const text of highs) {
+      const hash = hashConcernBody(`${relative(markerDir, file)}:${text}`); // [E] file-scoped
+      if (!acks[hash]) blocking.push({ file, text, hash });
+    }
+  }
+  return blocking;
 }
 
 // Parse log.jsonl text → Map<file, latestEntry>. Last write per file wins
