@@ -121,8 +121,8 @@ describe("formatBlockMessage", () => {
       "/r",
     );
     expect(msg).toContain("2 unaddressed HIGH");
-    expect(msg).toContain("[a1b2c3]");
+    expect(msg).toContain("[a1b2c3d4e5]");
     expect(msg).toContain("src/auth.ts");
-    expect(msg).toContain("/codex-pair-ack a1b2c3");
+    expect(msg).toContain("/codex-pair-ack a1b2c3d4e5");
   });
 });
