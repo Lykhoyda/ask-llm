@@ -1,12 +1,13 @@
 ---
-description: PostToolUse codex-pair reviewer that runs Codex on every file edit when a project marker file is present, plus SessionStart / SessionEnd hooks for the app-server broker lifecycle.
+description: PostToolUse codex-pair reviewer that runs Codex on every file edit when a project marker file is present, plus a Stop gate for HIGH findings, plus SessionStart / SessionEnd hooks for the app-server broker lifecycle.
 ---
 
 # Hooks
 
-Hooks are automated actions that trigger on specific Claude Code events. The plugin configures three hooks:
+Hooks are automated actions that trigger on specific Claude Code events. The plugin configures these hooks:
 
 - **`PostToolUse` codex-pair hook** — always loaded, but **self-gates on a project marker file** and stays silent (zero cost, zero codex calls) unless you opt in. Covered in detail below.
+- **`Stop` codex-pair stop-gate hook** — **opt-in, default OFF**. Blocks turn-end while unaddressed HIGH codex-pair findings remain. Enabled by adding `blockOn: HIGH` to `.codex-pair/context.md` frontmatter. Covered in detail below.
 - **`SessionStart` / `SessionEnd` codex-pair-session hooks** — broker lifecycle scaffolding for the long-lived `codex app-server` (ADR-090 + ADR-093). No-op until `ASK_CODEX_BROKER=1` ships with the Tier 3 implementation.
 
 > The plugin previously shipped two other hooks that have been removed:
@@ -198,6 +199,54 @@ The `sort -V | tail -1` picks the highest semver directory under the cache. Sile
 Run `/reload-plugins` to pick up the new hook config. The next Edit/Write/MultiEdit should fire the hook automatically (proven by `codex-pair OK:`/`WARN:` systemMessage in the transcript + a new `.codex-pair/log.jsonl` entry — typical wall clock 5-30s per call).
 
 Note: this workaround is per-developer (project-local) and gitignored. Once Claude Code's plugin-hook dispatch is fixed upstream, you can remove the `hooks` block and rely on the plugin's own registration again.
+
+## Stop Hook: `codex-pair-stop-gate` (opt-in HIGH-findings gate)
+
+**Default:** OFF. You must explicitly opt in.
+
+**Trigger:** At the end of every Claude turn (`Stop` event).
+
+**Action:** If unaddressed HIGH codex-pair findings remain in `.codex-pair/log.jsonl`, the hook blocks turn-end and surfaces those findings — forcing them to be addressed before the session continues.
+
+> **Why opt-in?** A blocking turn-end gate is disruptive by design. ADR-048 removed the original Stop hook because it ran a fresh Gemini review every turn (latency, quota burn). This hook is fundamentally different — it reads the already-computed `log.jsonl` with zero new LLM calls — but blocking is still a `kano:reverse` feature for some workflows, so it defaults OFF (ADR-118).
+
+### Enable it
+
+Add a `blockOn` key to your `.codex-pair/context.md` YAML frontmatter:
+
+```markdown
+---
+blockOn: HIGH
+---
+
+# .codex-pair/context.md
+
+This is a payment-processing service. All currency calculations must
+use integer cents internally (floating-point loses precision on every
+charge).
+
+[Your domain context here...]
+```
+
+Once enabled, the hook checks at turn-end whether any HIGH findings in `log.jsonl` are unacknowledged and unresolved. It reconciles against present reality before blocking:
+
+- **File deleted or renamed** → finding skipped (no longer relevant)
+- **File clean vs HEAD** (`git status --porcelain`) → finding skipped (reverted or branch-switched away)
+- **Latest log entry for the file is indeterminate** (`skipped`/`error`/`retried`/`broker_fallback`) → fail-open, finding skipped (don't block on a stale HIGH from before a transient error)
+
+### Defer a finding with `/codex-pair-ack`
+
+To acknowledge a HIGH finding without fixing it — e.g., it's a known trade-off or tracked in a ticket — use:
+
+```
+/codex-pair-ack <hash> "<reason>"
+```
+
+The `<hash>` is the content hash shown alongside the finding when the gate blocks. The reason is recorded to `.codex-pair/state/acks.json` alongside a timestamp. Acknowledged findings are skipped by the gate until the file changes.
+
+### Fail-open behavior
+
+Any error in the stop-gate hook (missing log, parse error, git unavailable) warns to stderr and exits 0 — the turn is **never** blocked due to a hook bug. This is intentional: a gate that blocks turns on its own fault is worse than no gate.
 
 ## CLI Binaries
 

@@ -15,7 +15,7 @@
 // identity-snapshot recheck.
 
 import { appendFile, mkdir, readFile, readdir, rename, stat, unlink, writeFile } from "node:fs/promises";
-import { mkdirSync, readFileSync, statSync, unlinkSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, renameSync, statSync, unlinkSync, writeFileSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { dirname, join } from "node:path";
 
@@ -75,6 +75,30 @@ export const cacheRoot = (markerDir) => join(pairRoot(markerDir), CACHE_DIR);
 export const stateRoot = (markerDir) => join(pairRoot(markerDir), STATE_DIR);
 export const pausePath = (markerDir) => join(stateRoot(markerDir), PAUSE_SENTINEL_FILE);
 export const inflightRoot = (markerDir) => join(stateRoot(markerDir), INFLIGHT_DIR);
+
+export const ACKS_FILENAME = "acks.json";
+export const acksPath = (markerDir) => join(stateRoot(markerDir), ACKS_FILENAME);
+
+export function readAcks(markerDir) {
+  try {
+    return JSON.parse(readFileSync(acksPath(markerDir), "utf8"));
+  } catch {
+    return {}; // missing/corrupt → no acks
+  }
+}
+
+// Append-merge a single ack. Best-effort; the slash command surfaces failures.
+// Atomic tmp+rename so a kill mid-write can't corrupt/truncate acks.json
+// (readAcks fails-open on a partial read, but rename keeps the file consistent).
+export function addAck(markerDir, hash, { reason }) {
+  const acks = readAcks(markerDir);
+  acks[hash] = { reason, ts: new Date().toISOString() };
+  mkdirSync(stateRoot(markerDir), { recursive: true });
+  const path = acksPath(markerDir);
+  const tmp = `${path}.tmp`;
+  writeFileSync(tmp, `${JSON.stringify(acks, null, 2)}\n`);
+  renameSync(tmp, path);
+}
 // ADR-096: include-list + repetitions resolvers
 export const includePath = (markerDir) => join(pairRoot(markerDir), INCLUDE_FILENAME);
 // Legacy v1 singleton path — kept for the one-time cleanup of pre-hotfix
