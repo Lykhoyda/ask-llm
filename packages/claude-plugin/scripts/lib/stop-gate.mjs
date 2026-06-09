@@ -2,6 +2,26 @@
 // Pure, I/O-free gate logic for the codex-pair Stop hook (#142, ADR-118).
 // No workspace imports — the hook ships without node_modules.
 
+import { isAbsolute, join } from "node:path";
+
+// Parse `git status --porcelain` (v1) into a Set of ABSOLUTE paths that are
+// modified or untracked relative to HEAD. repoRoot = `git rev-parse
+// --show-toplevel`. Rename lines ("R  old -> new") contribute the NEW path
+// (that's the file present on disk). The first 3 chars are the XY status +
+// space; the path starts at index 3.
+export function parseGitPorcelain(stdout, repoRoot) {
+  const dirty = new Set();
+  for (const line of stdout.split("\n")) {
+    if (line.length < 4) continue;
+    let path = line.slice(3);
+    const arrow = path.indexOf(" -> ");
+    if (arrow !== -1) path = path.slice(arrow + 4);
+    path = path.replace(/^"|"$/g, ""); // git quotes paths with special chars
+    dirty.add(isAbsolute(path) ? path : join(repoRoot, path));
+  }
+  return dirty;
+}
+
 // Parse log.jsonl text → Map<file, latestEntry>. Last write per file wins
 // (the log is append-only; the final entry is the file's latest review).
 export function selectLatestEntries(logText) {

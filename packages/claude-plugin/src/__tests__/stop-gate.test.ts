@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { selectLatestEntries } from "../../scripts/lib/stop-gate.mjs";
+import { selectLatestEntries, parseGitPorcelain } from "../../scripts/lib/stop-gate.mjs";
 
 describe("selectLatestEntries", () => {
   it("keeps the last entry per file and tolerates blank/garbage lines", () => {
@@ -14,5 +14,21 @@ describe("selectLatestEntries", () => {
     expect(map.get("/r/a.ts").verdict).toBe("none");
     expect(map.get("/r/b.ts").concerns.high).toEqual(["H2"]);
     expect(map.size).toBe(2);
+  });
+});
+
+describe("parseGitPorcelain", () => {
+  it("maps porcelain entries to absolute paths (modified, untracked, renamed)", () => {
+    const out = [
+      " M src/a.ts",
+      "?? src/new.ts",
+      "R  old.ts -> src/b.ts",
+      "",
+    ].join("\n");
+    const set = parseGitPorcelain(out, "/repo");
+    expect(set.has("/repo/src/a.ts")).toBe(true);
+    expect(set.has("/repo/src/new.ts")).toBe(true);
+    expect(set.has("/repo/src/b.ts")).toBe(true); // rename → new path is the dirty one
+    expect(set.has("/repo/old.ts")).toBe(false);
   });
 });
