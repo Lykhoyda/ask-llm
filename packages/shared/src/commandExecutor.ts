@@ -33,8 +33,17 @@ export function sanitizeErrorForLLM(stderr: string, command: string): string {
   }
 
   const lower = stderr.toLowerCase();
-  if (QUOTA_PASSTHROUGH_PATTERNS.some((p) => lower.includes(p.toLowerCase()))) {
-    return stderr.length > 500 ? `${stderr.slice(0, 500)}... (truncated)` : stderr;
+  const matchedQuotaPattern = QUOTA_PASSTHROUGH_PATTERNS.find((p) => lower.includes(p.toLowerCase()));
+  if (matchedQuotaPattern) {
+    if (stderr.length <= 500) return stderr;
+    // Window the output AROUND the matched signal rather than taking a blind
+    // 500-char prefix. With the stderr+stdout union (ADR-117), a long stderr
+    // could otherwise push a stdout-borne quota signal past the prefix and
+    // hide it from isQuotaError(). Anchoring on the match guarantees it lands.
+    const idx = lower.indexOf(matchedQuotaPattern.toLowerCase());
+    const start = Math.max(0, idx - 100);
+    const head = start > 0 ? "...(truncated) " : "";
+    return `${head}${stderr.slice(start, start + 500)}... (truncated)`;
   }
 
   const lines = stderr.split("\n").filter((l) => l.trim().length > 0);

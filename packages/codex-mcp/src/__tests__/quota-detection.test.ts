@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isQuotaError } from "../utils/codexExecutor.js";
+import { isQuotaError, parseCodexJsonlOutput } from "../utils/codexExecutor.js";
 
 // ADR-117: codex 0.137 reports plan exhaustion as "You've hit your usage limit"
 // (on stdout JSONL), a format none of the pre-0.137 signals matched — so the
@@ -36,5 +36,32 @@ describe("isQuotaError — codex quota signal detection", () => {
   it("handles non-Error inputs by stringifying", () => {
     expect(isQuotaError("hit your usage limit")).toBe(true);
     expect(isQuotaError(undefined)).toBe(false);
+  });
+});
+
+// Pins the exit-0 path the reviewer flagged: codex can exit 0 yet emit
+// {"type":"error","message":"You've hit your usage limit"} as a JSONL event
+// with no agent_message. parseCodexJsonlOutput throws "Codex error event: ..."
+// and isQuotaError must classify that thrown message as quota (ADR-117).
+describe("parseCodexJsonlOutput — exit-0 error-event quota path", () => {
+  const errorEventJsonl =
+    '{"type":"thread.started","thread_id":"t1"}\n' +
+    '{"type":"turn.started"}\n' +
+    '{"type":"error","message":"You\'ve hit your usage limit. Upgrade to Pro."}\n' +
+    '{"type":"turn.failed","error":{"message":"You\'ve hit your usage limit. Upgrade to Pro."}}';
+
+  it("throws 'Codex error event: <message>' when no agent_message is present", () => {
+    expect(() => parseCodexJsonlOutput(errorEventJsonl, "gpt-5.5", 100, false)).toThrow(/Codex error event:/);
+    expect(() => parseCodexJsonlOutput(errorEventJsonl, "gpt-5.5", 100, false)).toThrow(/usage limit/);
+  });
+
+  it("the thrown message is classified as quota by isQuotaError", () => {
+    let thrown: unknown;
+    try {
+      parseCodexJsonlOutput(errorEventJsonl, "gpt-5.5", 100, false);
+    } catch (e) {
+      thrown = e;
+    }
+    expect(isQuotaError(thrown)).toBe(true);
   });
 });

@@ -106,6 +106,16 @@ Node.js v18.15.0`;
     expect(result).toContain("usage limit");
   });
 
+  it("preserves the quota signal even when a long stderr precedes it (ADR-117 windowing)", () => {
+    // A long preceding stderr must not push the stdout-borne signal past the
+    // 500-char cap — the passthrough windows around the match, not a blind prefix.
+    const combined = `${"noise ".repeat(120)}\nYou've hit your usage limit`;
+    expect(combined.length).toBeGreaterThan(500);
+    const result = sanitizeErrorForLLM(combined, "codex");
+    expect(result).toContain("usage limit");
+    expect(result.length).toBeLessThan(600);
+  });
+
   it("does not match ENOENT from CLI file errors", () => {
     const result = sanitizeErrorForLLM(
       "Error: ENOENT: no such file or directory, open '/missing/config.json'",
