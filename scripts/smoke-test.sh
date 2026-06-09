@@ -7,7 +7,12 @@ set -o pipefail
 # pushes 1..N-1 consumed the window. Detect quota/rate-limit errors and treat
 # them as skip-with-warning rather than a hard failure. Set FORCE_SMOKE=1 to
 # disable the escape and require all smokes to pass regardless. See ADR-051.
-QUOTA_PATTERN='rateLimitExceeded|RESOURCE_EXHAUSTED|TerminalQuotaError|exhausted your capacity|code=429'
+# Match both raw CLI quota phrasings (gemini RESOURCE_EXHAUSTED; codex 0.137
+# "usage limit") AND the executors' OWN quota status text ("quota exceeded",
+# logged whenever isQuotaError fires + the fallback). The executor signal is
+# the robust anchor — the raw CLI message is caught internally during fallback
+# and may not reach the smoke output (ADR-117).
+QUOTA_PATTERN='rateLimitExceeded|RESOURCE_EXHAUSTED|TerminalQuotaError|exhausted your capacity|code=429|usage limit|quota exceeded'
 
 # Live API calls occasionally fail with transient errors (network blips, brief
 # 5xx, upstream-API hiccups) that succeed on retry. Default behavior: one

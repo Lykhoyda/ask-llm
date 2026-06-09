@@ -114,7 +114,15 @@ function formatStats(usage: CodexTurnCompleted["usage"]): string {
   return parts.length > 0 ? `\n\n[Codex stats: ${parts.join(", ")}]` : "";
 }
 
-function parseCodexJsonlOutput(raw: string, model: string, durationMs: number, fellBack: boolean): CodexExecutorResult {
+// Exported for unit testing — the exit-0 error-event path (codex emits
+// {"type":"error",...} as JSONL and still exits 0) throws "Codex error
+// event: <message>", which isQuotaError must classify.
+export function parseCodexJsonlOutput(
+  raw: string,
+  model: string,
+  durationMs: number,
+  fellBack: boolean,
+): CodexExecutorResult {
   const lines = raw.split("\n").filter((l) => l.trim().length > 0);
 
   let lastAgentMessage: string | undefined;
@@ -173,7 +181,8 @@ function parseCodexJsonlOutput(raw: string, model: string, durationMs: number, f
   };
 }
 
-function isQuotaError(error: unknown): boolean {
+// Exported for unit testing — pure predicate over the error message text.
+export function isQuotaError(error: unknown): boolean {
   const msg = (error instanceof Error ? error.message : String(error)).toLowerCase();
   return ERROR_MESSAGES.QUOTA_SIGNALS.some((signal) => msg.includes(signal));
 }

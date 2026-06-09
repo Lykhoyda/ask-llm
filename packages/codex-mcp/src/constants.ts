@@ -2,7 +2,17 @@ export const ERROR_MESSAGES = {
   // Lowercased substrings; isQuotaError() lowercases the message before matching.
   // "out of credits" + "spend cap" cover the 4 codex 0.134 workspace usage-limit
   // messages (owner/member × credits/spend-cap) from PR #24114. See #127.
-  QUOTA_SIGNALS: ["rate_limit_exceeded", "quota_exceeded", "429", "insufficient_quota", "out of credits", "spend cap"],
+  // "usage limit" covers codex 0.137's "You've hit your usage limit" (ChatGPT
+  // plan exhaustion), reported on stdout JSONL — see ADR-117.
+  QUOTA_SIGNALS: [
+    "rate_limit_exceeded",
+    "quota_exceeded",
+    "429",
+    "insufficient_quota",
+    "out of credits",
+    "spend cap",
+    "usage limit",
+  ],
   // codex 0.136 archived sessions: `codex exec resume <id>` fails if the session
   // was archived. Lowercased substrings; isArchivedSessionError() lowercases
   // before matching. "archived_sessions" is the rollout path from upstream

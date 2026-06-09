@@ -12,6 +12,10 @@ const QUOTA_PASSTHROUGH_PATTERNS = [
   "rate_limit_exceeded",
   "quota_exceeded",
   "insufficient_quota",
+  // Codex 0.137+ reports quota exhaustion as "You've hit your usage limit"
+  // (on stdout JSONL). Passing it through untruncated keeps the signal
+  // visible to each provider's isQuotaError() fallback check.
+  "usage limit",
 ];
 
 export function sanitizeErrorForLLM(stderr: string, command: string): string {
@@ -29,8 +33,19 @@ export function sanitizeErrorForLLM(stderr: string, command: string): string {
   }
 
   const lower = stderr.toLowerCase();
-  if (QUOTA_PASSTHROUGH_PATTERNS.some((p) => lower.includes(p.toLowerCase()))) {
-    return stderr.length > 500 ? `${stderr.slice(0, 500)}... (truncated)` : stderr;
+  const matchedQuotaPattern = QUOTA_PASSTHROUGH_PATTERNS.find((p) => lower.includes(p.toLowerCase()));
+  if (matchedQuotaPattern) {
+    if (stderr.length <= 500) return stderr;
+    // Window the output AROUND the matched signal rather than taking a blind
+    // 500-char prefix. With the stderr+stdout union (ADR-117), a long stderr
+    // could otherwise push a stdout-borne quota signal past the prefix and
+    // hide it from isQuotaError(). Anchoring on the match guarantees it lands.
+    const idx = lower.indexOf(matchedQuotaPattern.toLowerCase());
+    const start = Math.max(0, idx - 100);
+    const end = Math.min(start + 500, stderr.length);
+    const head = start > 0 ? "... (truncated) " : "";
+    const tail = end < stderr.length ? "... (truncated)" : "";
+    return `${head}${stderr.slice(start, end)}${tail}`;
   }
 
   const lines = stderr.split("\n").filter((l) => l.trim().length > 0);
@@ -173,7 +188,12 @@ export async function executeCommand(
         } else {
           Logger.commandComplete(commandId, code);
           Logger.error(`Failed with exit code ${code}`);
-          const rawError = stderr.trim() || "Unknown error";
+          // Some CLIs (e.g. Codex 0.137+) report the fatal error as JSON on
+          // stdout while emitting only a benign notice on stderr ("Reading
+          // additional input from stdin...") and still exit non-zero. Union
+          // both streams (not stderr-or-stdout) so stdout-borne errors stay
+          // visible to downstream quota/fallback detection. See ADR-117.
+          const rawError = [stderr.trim(), stdout.trim()].filter(Boolean).join("\n") || "Unknown error";
           const userMessage = sanitizeErrorForLLM(rawError, command);
           reject(new Error(userMessage));
         }

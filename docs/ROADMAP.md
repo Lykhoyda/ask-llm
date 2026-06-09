@@ -10,7 +10,11 @@ The v0.6.3 → v0.7.0 codex-pair stability cadence (planned 2026-05-18) is **com
 
 Original plan reference: [`docs/plans/2026-05-18-codex-plugin-cc-adoption-roadmap.md`](plans/2026-05-18-codex-plugin-cc-adoption-roadmap.md).
 
-### 2026-06-08 — codex `gpt-5.5` doc-sync follow-up to ADR-067 (branch `docs/codex-gpt-5.5-doc-sync`)
+### 2026-06-09 — codex quota fallback fix for CLI 0.137+ (branch `fix/codex-usage-limit-quota-detection`, ADR-117)
+
+Found while pushing the gpt-5.5 doc-sync (PR #172): the local codex smoke hard-failed on a quota error. Root cause = ADR-044's pattern recurring for Codex. Codex 0.137 reports plan exhaustion as `"You've hit your usage limit"` on **stdout JSONL** (exit non-zero, benign stderr), but (1) `executeCommand` discarded stdout on non-zero exit so the quota text never reached `isQuotaError()`, and (2) `QUOTA_SIGNALS` lacked the phrasing — so the gpt-5.5→gpt-5.5-mini fallback silently never fired for real users. Fix: `commandExecutor` unions stderr+stdout on failure (windowed around the signal so a long stderr can't bury it); `sanitizeErrorForLLM` + codex `QUOTA_SIGNALS` + smoke `QUOTA_PATTERN` all learn `usage limit`; `isQuotaError` + `parseCodexJsonlOutput` exported + unit-tested. shared + codex suites green (+4 shared tests, +12 codex tests). `@ask-llm/shared` + `ask-codex-mcp` patch bump (cascades to dependent MCPs).
+
+### 2026-06-08 — codex `gpt-5.5` doc-sync follow-up to ADR-067 (PR #172)
 
 Cleanup completing ADR-067's intent. The codex default was already `gpt-5.5` / `gpt-5.5-mini` in the source of truth (`codex-mcp/constants.ts`, `llm-mcp` orchestrator, per-package README, `ask-codex` tool description), but two static doc assets in `apps/docs/public/` still advertised `gpt-5.4`: `llms.txt` (1 line) and `llms-full.txt` (4 lines — param doc, model table ×2, quota-fallback line). Corrected both. Deliberately left untouched: `docs/DECISIONS.md` ADR text (historical record), `docs/benchmarks/fixtures/s3-codex-diff.patch` (immutable fixture), and `usage.test.ts`/`multiLlm.test.ts`/etc. (`"gpt-5.4"` is an opaque usage-recording identifier, not a default assertion — ADR-067 explicitly reasoned churning them adds no signal). Docs-only static assets → no changeset. (Local-only `CLAUDE.md` lines 90/142 also corrected; gitignored, not in the PR.)
 
