@@ -9,6 +9,12 @@ uplinks:
   npmjs:
     url: https://registry.npmjs.org/
 packages:
+  'ask-*':
+    access: $all
+    publish: $all
+    # NO proxy: the five ask-* tarballs published locally must always win —
+    # at PR time their versions may equal npmjs versions (old broken builds)
+    # or be bumped versions that don't exist upstream yet (ADR-119 smoke).
   '**':
     access: $all
     publish: $all

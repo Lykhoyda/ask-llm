@@ -113,6 +113,9 @@ jobs:
     - name: Global-install + doctor smoke — ask-llm-mcp via local registry
       run: |
         set -eu
+        # Defensive: stale verdaccio storage caches npmjs copies of ask-* and would
+        # shadow this PR's tarballs — same bug class as the warm-npm-cache #115 mask.
+        rm -rf /tmp/verdaccio-storage /tmp/verdaccio-htpasswd
         npx verdaccio --config .github/verdaccio/config.yaml --listen 4873 &
         npx wait-on -t 30000 http://localhost:4873
         npm config set //localhost:4873/:_authToken fake
