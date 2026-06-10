@@ -69,7 +69,7 @@ jobs:
       # silently left `import ... from "@ask-llm/shared"` external in the output.
       # Consumers can never resolve that (shared is private) → instant crash.
       run: |
-        if grep -rln '@ask-llm/shared' packages/*/dist/*.js; then
+        if grep -rl '@ask-llm/shared' packages/*/dist --include='*.js'; then
           echo "FAIL: dist still imports @ask-llm/shared — build order broken (see ADR-119)"; exit 1
         fi
         echo "OK: shared fully inlined in all dist outputs"
@@ -126,8 +126,8 @@ jobs:
         # Defensive: stale verdaccio storage caches npmjs copies of ask-* and would
         # shadow this PR's tarballs — same bug class as the warm-npm-cache #115 mask.
         rm -rf /tmp/verdaccio-storage /tmp/verdaccio-htpasswd
-        npx verdaccio --config .github/verdaccio/config.yaml --listen 4873 &
-        npx wait-on -t 30000 http://localhost:4873
+        npx verdaccio@6 --config .github/verdaccio/config.yaml --listen 4873 &
+        npx wait-on@9 -t 30000 http://localhost:4873
         npm config set //localhost:4873/:_authToken fake
         for t in /tmp/tarballs/*.tgz; do npm publish --registry http://localhost:4873 "$t"; done
         npm install -g ask-llm-mcp --registry http://localhost:4873
