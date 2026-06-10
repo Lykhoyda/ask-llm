@@ -8,8 +8,14 @@ import fs from "node:fs";
 const REQUIRED = ["ask-gemini-mcp", "ask-codex-mcp", "ask-ollama-mcp", "ask-antigravity-mcp", "ask-llm-mcp"];
 const base = process.env.GITHUB_BASE_REF ? `origin/${process.env.GITHUB_BASE_REF}` : "origin/main";
 
-const changed = execFileSync("git", ["diff", "--name-only", `${base}...HEAD`], { encoding: "utf8" })
-  .split("\n").filter(Boolean);
+let changed;
+try {
+  changed = execFileSync("git", ["diff", "--name-only", `${base}...HEAD`], { encoding: "utf8" })
+    .split("\n").filter(Boolean);
+} catch {
+  console.error(`[shared-changeset] ERROR: cannot diff against ${base} — is the checkout shallow? (fetch-depth: 0 required)`);
+  process.exit(1);
+}
 if (!changed.some((f) => f.startsWith("packages/shared/src/"))) {
   console.log("[shared-changeset] no shared src changes — OK");
   process.exit(0);

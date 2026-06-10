@@ -20,6 +20,10 @@ jobs:
 
     steps:
     - uses: actions/checkout@v6
+      with:
+        # Full history: the ADR-119 shared-changeset guard diffs against the PR base
+        # (git diff origin/<base>...HEAD needs the merge-base; a shallow clone has neither).
+        fetch-depth: 0
 
     - name: Use Node.js ${{ matrix.node-version }}
       uses: actions/setup-node@v6
