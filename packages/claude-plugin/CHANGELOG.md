@@ -1,5 +1,15 @@
 # @ask-llm/plugin
 
+## 0.7.8
+
+### Patch Changes
+
+- Updated dependencies [[`fc40dcb`](https://github.com/Lykhoyda/ask-llm/commit/fc40dcbca3256d1558c2910bb30df64f373876ab)]:
+  - ask-gemini-mcp@1.6.11
+  - ask-codex-mcp@0.3.11
+  - ask-ollama-mcp@0.3.6
+  - ask-antigravity-mcp@0.2.2
+
 ## 0.7.7
 
 ### Patch Changes
