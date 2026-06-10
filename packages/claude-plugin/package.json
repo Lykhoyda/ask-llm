@@ -11,7 +11,7 @@
     "ask-ollama-run": "dist/ollama-run.js"
   },
   "scripts": {
-    "build": "tsc -b",
+    "build": "tsc",
     "test": "vitest run",
     "lint": "biome check src/ && tsc --noEmit"
   },
