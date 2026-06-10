@@ -40,3 +40,7 @@ jobs:
 
     - name: Run tests
       run: yarn test
+
+    - name: Guard — shared changes must changeset all five MCPs (ADR-119)
+      if: github.event_name == 'pull_request'
+      run: node scripts/check-shared-changeset.mjs
