@@ -2,11 +2,15 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Fix #115 (Node 26 `npm install -g` → `ERR_MODULE_NOT_FOUND`) by inlining `@ask-llm/shared` into each publishable package's `dist/` via tsup, deleting `bundledDependencies` + the prepack/postpack lifecycle entirely.
+**Goal:** Fix #115 (Node 26 `npm install -g` → `ERR_MODULE_NOT_FOUND`) by inlining `@ask-llm/shared` into each publishable package's `dist/` via tsdown, deleting `bundledDependencies` + the prepack/postpack lifecycle entirely.
 
-**Architecture:** Five publishable packages (`ask-gemini-mcp` 1.6.10, `ask-codex-mcp` 0.3.10, `ask-ollama-mcp` 0.3.5, `ask-antigravity-mcp` 0.2.1, `ask-llm-mcp` 0.3.15) switch build from `tsc -b` to tsup with `noExternal: ['@ask-llm/shared']`. Shared moves to `devDependencies` (cascade + local resolution); llm-mcp's sibling deps become real semver ranges. No `workspace:` or `bundledDependencies` survives in any published manifest. Spec: `docs/superpowers/specs/2026-06-10-inline-bundle-shared-design.md` (ADR-119).
+**Architecture:** Five publishable packages (`ask-gemini-mcp` 1.6.10, `ask-codex-mcp` 0.3.10, `ask-ollama-mcp` 0.3.5, `ask-antigravity-mcp` 0.2.1, `ask-llm-mcp` 0.3.15) switch build from `tsc -b` to tsdown with `deps: { alwaysBundle: ['@ask-llm/shared'] }`. Shared moves to `devDependencies` (cascade + local resolution); llm-mcp's sibling deps become real semver ranges. No `workspace:` or `bundledDependencies` survives in any published manifest. Spec: `docs/superpowers/specs/2026-06-10-inline-bundle-shared-design.md` (ADR-119).
 
-**Tech Stack:** tsup 8.5.x (esbuild + rollup-plugin-dts), yarn 4 workspaces, changesets, verdaccio (CI only), GitHub Actions.
+**Tech Stack:** tsdown 0.22.x (rolldown + oxc; chosen over tsup, which is in maintenance mode — tsdown is its designated successor), yarn 4 workspaces, changesets, verdaccio (CI only), GitHub Actions.
+
+**Build-toolchain Node constraint:** tsdown requires **Node ≥22.18 to run** (emitted output still targets node20 — runtime support unchanged). Consequence: the CI `test` matrix moves `[20.x, 22.x]` → `[22.x, 24.x]` (Task 10), and Node-20 *runtime* support is verified by installing + booting the packed tarballs on a Node 20 leg of the smoke job — the tsdown-documented pattern for supporting runtimes older than the build toolchain.
+
+**tsdown config-API note (applies to every conversion task):** if `deps: { alwaysBundle/neverBundle }` is rejected by the installed tsdown version's config validation, fall back to the tsup-compatible `noExternal: [...]` / `external: [...]` options and report which form was used. If the emitted `.d.ts` still references `@ask-llm/shared` (the DTS grep check fails), change `dts: true` → `dts: { resolve: ["@ask-llm/shared"] }` and re-verify. These are the ONLY sanctioned adaptations — anything else is BLOCKED.
 
 **Conversion order is load-bearing:** plugin/root tsconfig decoupling FIRST (Task 2), then llm-mcp (Task 3), then providers (Tasks 4–7). Reason: `claude-plugin` and `llm-mcp` build with `tsc -b` and *reference* the provider packages — converting a provider first would break every `tsc -b` that references it (a non-composite project can't be referenced).
 
@@ -91,32 +95,33 @@ git commit -m "build(plugin): decouple from MCP project references (#115 prep)"
 
 ---
 
-### Task 3: Convert `ask-llm-mcp` to tsup + real semver sibling ranges
+### Task 3: Convert `ask-llm-mcp` to tsdown + real semver sibling ranges
 
 **Files:**
-- Create: `packages/llm-mcp/tsup.config.ts`
+- Create: `packages/llm-mcp/tsdown.config.ts`
 - Modify: `packages/llm-mcp/package.json`
 - Modify: `packages/llm-mcp/tsconfig.json`
 
-- [ ] **Step 1: Create `packages/llm-mcp/tsup.config.ts`**
+- [ ] **Step 1: Create `packages/llm-mcp/tsdown.config.ts`**
 
 ```ts
-import { defineConfig } from "tsup";
+import { defineConfig } from "tsdown";
 
 export default defineConfig({
   entry: { index: "src/index.ts", cli: "src/cli.ts" },
   format: ["esm"],
   target: "node20",
-  splitting: true,
   sourcemap: true,
   clean: true,
-  dts: { resolve: ["@ask-llm/shared"] },
-  noExternal: ["@ask-llm/shared"],
-  external: ["ask-gemini-mcp", "ask-codex-mcp", "ask-ollama-mcp", "ask-antigravity-mcp"],
+  dts: true,
+  deps: {
+    alwaysBundle: ["@ask-llm/shared"],
+    neverBundle: ["ask-gemini-mcp", "ask-codex-mcp", "ask-ollama-mcp", "ask-antigravity-mcp"],
+  },
 });
 ```
 
-Why: `splitting: true` keeps `loadedExecutors`/module state a per-process singleton across the `index`+`cli` entries; `dts.resolve` inlines shared's types so published `.d.ts` is self-contained; the four siblings stay external (their executors load via string-variable dynamic `import()` at runtime — esbuild leaves those verbatim).
+Why: tsdown/rolldown chunk-splits multiple entries by default (no `splitting` flag exists — it's always on), which keeps `loadedExecutors`/module state a per-process singleton across the `index`+`cli` entries; `alwaysBundle` inlines shared (code AND its types into the emitted `.d.ts` — verified by the DTS grep below); the four siblings stay external (their executors load via string-variable dynamic `import()` at runtime — rolldown leaves those verbatim). See the header's config-API note for the two sanctioned fallbacks.
 
 - [ ] **Step 2: Modify `packages/llm-mcp/package.json`**
 
@@ -126,9 +131,9 @@ Changed fields (final state):
 "types": "dist/index.d.ts",
 "exports": { ".": { "types": "./dist/index.d.ts", "default": "./dist/index.js" } },
 "scripts": {
-  "build": "tsup",
+  "build": "tsdown",
   "start": "node dist/cli.js",
-  "dev": "tsup && node dist/cli.js",
+  "dev": "tsdown && node dist/cli.js",
   "test": "vitest run",
   "lint": "biome check src/ && tsc --noEmit"
 },
@@ -144,7 +149,7 @@ Changed fields (final state):
   "@ask-llm/shared": "workspace:*",
   "@biomejs/biome": "^2.4.4",
   "@types/node": "^22.19.13",
-  "tsup": "^8.5.1",
+  "tsdown": "^0.22.2",
   "typescript": "^5.0.0",
   "vitest": "^4.0.18"
 }
@@ -196,19 +201,19 @@ Expected: `{"ws":false,"bundled":null,"prepack":null}` and `no-node_modules-OK`.
 
 ```bash
 git add packages/llm-mcp yarn.lock
-git commit -m "build(llm-mcp): tsup inline of @ask-llm/shared, semver sibling ranges (#115)"
+git commit -m "build(llm-mcp): tsdown inline of @ask-llm/shared, semver sibling ranges (#115)"
 ```
 
 ---
 
 ### Task 4: Convert `ask-gemini-mcp`
 
-**Files:** Create `packages/gemini-mcp/tsup.config.ts`; Modify `packages/gemini-mcp/package.json`, `packages/gemini-mcp/tsconfig.json`
+**Files:** Create `packages/gemini-mcp/tsdown.config.ts`; Modify `packages/gemini-mcp/package.json`, `packages/gemini-mcp/tsconfig.json`
 
-- [ ] **Step 1: Create `packages/gemini-mcp/tsup.config.ts`**
+- [ ] **Step 1: Create `packages/gemini-mcp/tsdown.config.ts`**
 
 ```ts
-import { defineConfig } from "tsup";
+import { defineConfig } from "tsdown";
 
 export default defineConfig({
   entry: {
@@ -219,11 +224,10 @@ export default defineConfig({
   },
   format: ["esm"],
   target: "node20",
-  splitting: true,
   sourcemap: true,
   clean: true,
-  dts: { resolve: ["@ask-llm/shared"] },
-  noExternal: ["@ask-llm/shared"],
+  dts: true,
+  deps: { alwaysBundle: ["@ask-llm/shared"] },
 });
 ```
 
@@ -237,9 +241,9 @@ export default defineConfig({
   "./register": { "types": "./dist/register.d.ts", "default": "./dist/register.js" }
 },
 "scripts": {
-  "build": "tsup",
+  "build": "tsdown",
   "start": "node dist/cli.js",
-  "dev": "tsup && node dist/cli.js",
+  "dev": "tsdown && node dist/cli.js",
   "test": "vitest run",
   "lint": "biome check src/ && tsc --noEmit"
 },
@@ -251,13 +255,13 @@ export default defineConfig({
   "@ask-llm/shared": "workspace:*",
   "@biomejs/biome": "^2.4.4",
   "@types/node": "^22.19.13",
-  "tsup": "^8.5.1",
+  "tsdown": "^0.22.2",
   "typescript": "^5.0.0",
   "vitest": "^4.0.18"
 }
 ```
 
-DELETE: `prepack`/`postpack` scripts, `bundledDependencies`. Note the `./executor` + `./register` targets move from `dist/utils/...`/`dist/tools/...` to the flat tsup entry outputs — `llm-mcp` and `claude-plugin` consume these subpaths, which is why the `exports` map must change in the same commit as the build.
+DELETE: `prepack`/`postpack` scripts, `bundledDependencies`. Note the `./executor` + `./register` targets move from `dist/utils/...`/`dist/tools/...` to the flat tsdown entry outputs — `llm-mcp` and `claude-plugin` consume these subpaths, which is why the `exports` map must change in the same commit as the build.
 
 - [ ] **Step 3: Replace `packages/gemini-mcp/tsconfig.json`**
 
@@ -303,7 +307,7 @@ Expected: `{"ws":false,"bundled":null}`.
 
 ```bash
 git add packages/gemini-mcp yarn.lock
-git commit -m "build(gemini-mcp): tsup inline of @ask-llm/shared (#115)"
+git commit -m "build(gemini-mcp): tsdown inline of @ask-llm/shared (#115)"
 ```
 
 ---
@@ -312,9 +316,9 @@ git commit -m "build(gemini-mcp): tsup inline of @ask-llm/shared (#115)"
 
 Same pattern as Task 4; repeated in full so the task is self-contained.
 
-- [ ] **Step 1: Create `packages/codex-mcp/tsup.config.ts`** — identical to Task 4 Step 1 except `executor: "src/utils/codexExecutor.ts"`.
+- [ ] **Step 1: Create `packages/codex-mcp/tsdown.config.ts`** — identical to Task 4 Step 1 except `executor: "src/utils/codexExecutor.ts"`.
 
-- [ ] **Step 2: Modify `packages/codex-mcp/package.json`** — apply exactly the Task 4 Step 2 field changes (same `types`/`exports`/`scripts` blocks verbatim; same `dependencies` = sdk+zod only; same `devDependencies` block with `"@ask-llm/shared": "workspace:*"` + `"tsup": "^8.5.1"`; DELETE `prepack`/`postpack`/`bundledDependencies`).
+- [ ] **Step 2: Modify `packages/codex-mcp/package.json`** — apply exactly the Task 4 Step 2 field changes (same `types`/`exports`/`scripts` blocks verbatim; same `dependencies` = sdk+zod only; same `devDependencies` block with `"@ask-llm/shared": "workspace:*"` + `"tsdown": "^0.22.2"`; DELETE `prepack`/`postpack`/`bundledDependencies`).
 
 - [ ] **Step 3: Replace `packages/codex-mcp/tsconfig.json`** with the Task 4 Step 3 content verbatim.
 
@@ -330,13 +334,13 @@ yarn workspace @ask-llm/plugin run build && yarn workspace @ask-llm/plugin run t
 
 - [ ] **Step 5: Tarball inspection** — as Task 4 Step 5 with `ask-codex-mcp-0.3.10.tgz`.
 
-- [ ] **Step 6: Commit** — `git add packages/codex-mcp yarn.lock && git commit -m "build(codex-mcp): tsup inline of @ask-llm/shared (#115)"`
+- [ ] **Step 6: Commit** — `git add packages/codex-mcp yarn.lock && git commit -m "build(codex-mcp): tsdown inline of @ask-llm/shared (#115)"`
 
 ---
 
 ### Task 6: Convert `ask-ollama-mcp`
 
-- [ ] **Step 1: Create `packages/ollama-mcp/tsup.config.ts`** — identical to Task 4 Step 1 except `executor: "src/utils/ollamaExecutor.ts"`. (This entry also exports `isProviderAvailable`, which llm-mcp's availability probe dynamic-imports — same module, nothing extra needed.)
+- [ ] **Step 1: Create `packages/ollama-mcp/tsdown.config.ts`** — identical to Task 4 Step 1 except `executor: "src/utils/ollamaExecutor.ts"`. (This entry also exports `isProviderAvailable`, which llm-mcp's availability probe dynamic-imports — same module, nothing extra needed.)
 
 - [ ] **Step 2: Modify `packages/ollama-mcp/package.json`** — apply exactly the Task 4 Step 2 field changes; DELETE `prepack`/`postpack`/`bundledDependencies`.
 
@@ -354,13 +358,13 @@ yarn workspace ask-llm-mcp run test
 
 - [ ] **Step 5: Tarball inspection** — as Task 4 Step 5 with `ask-ollama-mcp-0.3.5.tgz`.
 
-- [ ] **Step 6: Commit** — `git add packages/ollama-mcp yarn.lock && git commit -m "build(ollama-mcp): tsup inline of @ask-llm/shared (#115)"`
+- [ ] **Step 6: Commit** — `git add packages/ollama-mcp yarn.lock && git commit -m "build(ollama-mcp): tsdown inline of @ask-llm/shared (#115)"`
 
 ---
 
 ### Task 7: Convert `ask-antigravity-mcp`
 
-- [ ] **Step 1: Create `packages/antigravity-mcp/tsup.config.ts`** — identical to Task 4 Step 1 except `executor: "src/utils/antigravityExecutor.ts"`.
+- [ ] **Step 1: Create `packages/antigravity-mcp/tsdown.config.ts`** — identical to Task 4 Step 1 except `executor: "src/utils/antigravityExecutor.ts"`.
 
 - [ ] **Step 2: Modify `packages/antigravity-mcp/package.json`** — apply exactly the Task 4 Step 2 field changes; DELETE `prepack`/`postpack`/`bundledDependencies`.
 
@@ -385,7 +389,7 @@ yarn build && yarn test && yarn lint
 
 Expected: all workspaces green, including docs build.
 
-- [ ] **Step 7: Commit** — `git add packages/antigravity-mcp yarn.lock && git commit -m "build(antigravity-mcp): tsup inline of @ask-llm/shared (#115)"`
+- [ ] **Step 7: Commit** — `git add packages/antigravity-mcp yarn.lock && git commit -m "build(antigravity-mcp): tsdown inline of @ask-llm/shared (#115)"`
 
 ---
 
@@ -416,7 +420,7 @@ Decision rule: if all five MCP versions bumped → cascade works; record "verifi
 ```js
 #!/usr/bin/env node
 // CI guard (ADR-119 fallback): the five publishable MCPs embed @ask-llm/shared
-// at build time (tsup noExternal), so a shared change MUST ship with a changeset
+// at build time (tsdown noExternal), so a shared change MUST ship with a changeset
 // covering all five — otherwise the fix silently never reaches npm.
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
@@ -576,7 +580,7 @@ git checkout -- packages/gemini-mcp/package.json
       # Preflight gate (ADR-107, rules extended by ADR-119): statically assert no
       # publishable manifest carries `workspace:` deps, bundledDependencies, or
       # prepack/postpack hooks. Since ADR-119 @ask-llm/shared is INLINED into each
-      # MCP's dist/ by tsup (no bundling, no pack-time rewrite), so what's in source
+      # MCP's dist/ by tsdown (no bundling, no pack-time rewrite), so what's in source
       # is exactly what npm publishes. History: ADR-052 (npm 9 EUNSUPPORTEDPROTOCOL),
       # ADR-106/107 (2026-05-27 broken-release incident), #115 (npm 11 global install).
 ```
@@ -587,7 +591,7 @@ Also replace the stale comment block above the changesets step (lines 54–62) w
       # When pending changesets exist on main: opens/updates the Version Packages PR.
       # When this push IS the merged Version Packages PR: runs `yarn changeset:publish`
       # which builds + publishes any packages whose version is ahead of the registry.
-      # Since ADR-119 there are NO pack-time lifecycle hooks — tsup inlines
+      # Since ADR-119 there are NO pack-time lifecycle hooks — tsdown inlines
       # @ask-llm/shared at build time and manifests publish as-is.
 ```
 
@@ -634,40 +638,75 @@ packages:
 log: { type: stdout, format: pretty, level: warn }
 ```
 
-- [ ] **Step 2: Add the job to `.github/workflows/ci.yml`** (after the `test` job, same indent level):
+- [ ] **Step 2: Update the `test` job matrix in `.github/workflows/ci.yml`** — tsdown requires Node ≥22.18 to run, so `yarn build` can no longer execute on Node 20:
 
 ```yaml
-  node26-global-install:
-    # #115 regression smoke (ADR-119): npm 11 global install of bundledDependencies
-    # produced empty transitive-dep dirs and ERR_MODULE_NOT_FOUND on Node 26.
-    # This job proves every publishable tarball global-installs and boots on Node 26.
+    strategy:
+      matrix:
+        node-version: [22.x, 24.x]
+```
+
+(Replace the existing `node-version: [20.x, 22.x]` line. Add a YAML comment above it: `# tsdown (build toolchain) needs Node >=22.18 (ADR-119); Node 20 RUNTIME support is verified by the global-install-smoke job below`.)
+
+- [ ] **Step 3: Add the pack + smoke jobs to `.github/workflows/ci.yml`** (after the `test` job, same indent level). Two jobs: tarballs are built ONCE on Node 24 (tsdown constraint), then installed + booted on a Node matrix — 20.x proves the oldest supported runtime still works, 26.x proves the #115 regression environment:
+
+```yaml
+  pack-tarballs:
+    # Build once on Node 24 (tsdown needs >=22.18), share tarballs with the smoke matrix.
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 10
     steps:
     - uses: actions/checkout@v6
     - uses: actions/setup-node@v6
       with:
-        node-version: 26
+        node-version: 24
     - run: corepack enable
     - run: yarn install --immutable
     - run: yarn build
     - name: Pack all publishable tarballs (npm pack — the real publish shape)
       run: |
-        mkdir -p /tmp/tarballs
+        mkdir -p tarballs
         for p in gemini-mcp codex-mcp ollama-mcp antigravity-mcp llm-mcp; do
-          (cd "packages/$p" && npm pack --pack-destination /tmp/tarballs)
+          (cd "packages/$p" && npm pack --pack-destination "$GITHUB_WORKSPACE/tarballs")
         done
-        ls -la /tmp/tarballs
+        ls -la tarballs
+    - uses: actions/upload-artifact@v4
+      with:
+        name: npm-tarballs
+        path: tarballs/*.tgz
+        retention-days: 1
+
+  global-install-smoke:
+    # #115 regression smoke (ADR-119): npm 11 global install of bundledDependencies
+    # produced empty transitive-dep dirs and ERR_MODULE_NOT_FOUND on Node 26.
+    # 20.x leg: oldest supported RUNTIME (engines >=20; build toolchain is 22+).
+    # 26.x leg: the environment where #115 reproduced.
+    needs: pack-tarballs
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      matrix:
+        node-version: [20.x, 26.x]
+    steps:
+    - uses: actions/checkout@v6   # for .github/verdaccio/config.yaml
+    - uses: actions/setup-node@v6
+      with:
+        node-version: ${{ matrix.node-version }}
+    - uses: actions/download-artifact@v4
+      with:
+        name: npm-tarballs
+        path: /tmp/tarballs
     - name: Global-install + boot smoke — provider packages
       run: |
         set -eu
+        npm cache clean --force   # Task 1 finding: a warm cache MASKS #115 — cold cache is required for the guard to be able to fail
         for bin in ask-gemini-mcp ask-codex-mcp ask-ollama-mcp ask-antigravity-mcp; do
           npm install -g /tmp/tarballs/${bin}-*.tgz
           printf '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"smoke","version":"0.0.0"}}}\n' \
             | timeout 20 "$bin" > /tmp/out.json 2> /tmp/err.txt || true
           if grep -q 'ERR_MODULE_NOT_FOUND' /tmp/err.txt; then echo "FAIL: $bin crashed at import"; cat /tmp/err.txt; exit 1; fi
           grep -q '"serverInfo"' /tmp/out.json || { echo "FAIL: $bin no initialize response"; cat /tmp/err.txt; exit 1; }
-          echo "OK: $bin boots on Node 26"
+          echo "OK: $bin boots on Node ${{ matrix.node-version }}"
         done
     - name: Global-install + doctor smoke — ask-llm-mcp via local registry
       run: |
@@ -680,15 +719,15 @@ log: { type: stdout, format: pretty, level: warn }
         ask-llm-mcp doctor --json > /tmp/doctor.json 2> /tmp/doctor-err.txt || true
         if grep -q 'ERR_MODULE_NOT_FOUND' /tmp/doctor-err.txt; then echo "FAIL: doctor crashed at import"; cat /tmp/doctor-err.txt; exit 1; fi
         grep -q '"status"' /tmp/doctor.json || { echo "FAIL: doctor produced no report"; cat /tmp/doctor-err.txt; cat /tmp/doctor.json; exit 1; }
-        echo "OK: ask-llm-mcp global install + doctor on Node 26"
+        echo "OK: ask-llm-mcp global install + doctor on Node ${{ matrix.node-version }}"
 ```
 
 Note: `doctor` may exit non-zero when no provider CLIs are installed on the runner — the `|| true` + report-shape assertion deliberately tests *module resolution* (the #115 failure), not provider availability.
 
-- [ ] **Step 3: Commit**
+- [ ] **Step 4: Commit**
 
 ```bash
-git add .github && git commit -m "ci: Node 26 global-install smoke for all publishable tarballs (#115)"
+git add .github && git commit -m "ci: Node 20+26 global-install smoke, test matrix to 22/24 for tsdown (#115)"
 ```
 
 ---
@@ -700,6 +739,7 @@ git add .github && git commit -m "ci: Node 26 global-install smoke for all publi
 ```bash
 export PATH="$HOME/.nvm/versions/node/v26.0.0/bin:$PATH"
 node -v   # v26.0.0
+npm cache clean --force   # Task 1 finding: warm cache masks #115 — verify against a cold cache
 yarn build
 mkdir -p /tmp/i115-final && rm -f /tmp/i115-final/*.tgz
 for p in gemini-mcp codex-mcp ollama-mcp antigravity-mcp llm-mcp; do (cd "packages/$p" && npm pack --pack-destination /tmp/i115-final); done
@@ -737,19 +777,19 @@ Expected: `BOOT-OK`. Record before/after evidence for the PR body. Clean up: `np
 - [ ] **Step 1: Fix `docs/CONTRIBUTING.md`** (currently stale — still describes the reverted ADR-106 world). Replace the sentence at line 82 ending `(\`@ask-llm/shared\` is published as a public npm package since ADR-106 — bundling was removed.)` with:
 
 ```
-(`@ask-llm/shared` is private and INLINED into each MCP's `dist/` at build time by tsup since ADR-119 — there is no bundling and no publish-time manifest rewriting.)
+(`@ask-llm/shared` is private and INLINED into each MCP's `dist/` at build time by tsdown since ADR-119 — there is no bundling and no publish-time manifest rewriting.)
 ```
 
 In the line-94 paragraph, replace `via \`yarn npm publish\`. Yarn 4 automatically rewrites \`workspace:*\` references to the actual workspace version at publish time, so all 5 packages (\`@ask-llm/shared\`, \`ask-gemini-mcp\`, \`ask-codex-mcp\`, \`ask-ollama-mcp\`, \`ask-llm-mcp\`) land on npm with valid semver in their manifests.` with:
 
 ```
-via `npm publish` (changesets/action). Since ADR-119 the manifests publish exactly as they exist in source — no `workspace:` protocol remains (llm-mcp's sibling deps are real semver ranges maintained by changesets; `@ask-llm/shared` is a devDependency, inlined into `dist/` by tsup), so no rewrite step exists to get wrong.
+via `npm publish` (changesets/action). Since ADR-119 the manifests publish exactly as they exist in source — no `workspace:` protocol remains (llm-mcp's sibling deps are real semver ranges maintained by changesets; `@ask-llm/shared` is a devDependency, inlined into `dist/` by tsdown), so no rewrite step exists to get wrong.
 ```
 
 - [ ] **Step 2: Update `docs/BUGS.md` #115 entry** — change the Status line of the `### #115` entry under `## Open` to:
 
 ```
-- **Status:** **FIXED (pending publish)** by ADR-119 (`fix/115-inline-bundle-shared`): tsup inlines `@ask-llm/shared` into each MCP's `dist/`; `bundledDependencies` + prepack/postpack deleted repo-wide, so the npm-11 global-install trigger no longer exists. Verified: #115 reproduced on local Node 26 against `ask-llm-mcp@0.3.15`, then fixed tarballs installed + booted clean on the same binary; permanent Node 26 global-install CI smoke added. Closes the loop on B1-vs-B2 deferred by ADR-107.
+- **Status:** **FIXED (pending publish)** by ADR-119 (`fix/115-inline-bundle-shared`): tsdown inlines `@ask-llm/shared` into each MCP's `dist/`; `bundledDependencies` + prepack/postpack deleted repo-wide, so the npm-11 global-install trigger no longer exists. Verified: #115 reproduced on local Node 26 against `ask-llm-mcp@0.3.15`, then fixed tarballs installed + booted clean on the same binary; permanent Node 26 global-install CI smoke added. Closes the loop on B1-vs-B2 deferred by ADR-107.
 ```
 
 - [ ] **Step 3: Update ADR-119 Status** in `docs/DECISIONS.md` from `(design phase — spec approved, implementation pending; ...)` to `(implemented on \`fix/115-inline-bundle-shared\`; ...)` and append the Task 8 cascade-experiment result (one sentence: verified-fires OR guard-added).
@@ -767,7 +807,7 @@ via `npm publish` (changesets/action). Since ADR-119 the manifests publish exact
 "ask-llm-mcp": patch
 ---
 
-Fix #115: `npm install -g` / `npx -y` on Node 26 crashed with `ERR_MODULE_NOT_FOUND` (npm 11 left empty placeholder dirs for bundled packages' transitive deps). `@ask-llm/shared` is now inlined into each package's `dist/` at build time (tsup); `bundledDependencies` and the prepack/postpack manifest rewriting are gone entirely, so published manifests contain plain semver only.
+Fix #115: `npm install -g` / `npx -y` on Node 26 crashed with `ERR_MODULE_NOT_FOUND` (npm 11 left empty placeholder dirs for bundled packages' transitive deps). `@ask-llm/shared` is now inlined into each package's `dist/` at build time (tsdown); `bundledDependencies` and the prepack/postpack manifest rewriting are gone entirely, so published manifests contain plain semver only.
 ```
 
 - [ ] **Step 6: Commit**
@@ -792,10 +832,10 @@ Expected: all green across all workspaces (174+ MCP tests, 385+ plugin tests), g
 
 ```bash
 git push -u origin fix/115-inline-bundle-shared
-gh pr create --title "fix(packaging): inline @ask-llm/shared via tsup — Node 26 global install (#115)" --body "$(cat <<'EOF'
+gh pr create --title "fix(packaging): inline @ask-llm/shared via tsdown — Node 26 global install (#115)" --body "$(cat <<'EOF'
 ## Summary
 - Fixes #115: `npm install -g` / `npx -y` crash on Node 26 (`ERR_MODULE_NOT_FOUND` from npm 11's bundledDependencies global-install bug)
-- tsup inlines `@ask-llm/shared` into each publishable package's `dist/` (`noExternal`, dts rollup, `splitting: true`)
+- tsdown inlines `@ask-llm/shared` into each publishable package's `dist/` (`noExternal`, dts rollup, `splitting: true`)
 - Deletes `bundledDependencies` + prepack/postpack lifecycle (`prepack-bundle.mjs`, `postpack-restore.mjs`) — no publish-time manifest mutation remains
 - llm-mcp sibling deps move `workspace:*` → real semver ranges (changesets-maintained); shared becomes a devDependency (cascade verified per ADR-119)
 - Preflight gate rewritten: static scan, now also forbids `bundledDependencies` and pack hooks

@@ -15,7 +15,7 @@ History constraint: the first fix attempt (ADR-106, "publish shared as public") 
 
 ## 2. Decision — B1: inline-bundle `@ask-llm/shared` into each MCP package's `dist/`
 
-A bundler (tsup over the already-present esbuild) inlines shared's code into each publishable package at build time. `@ask-llm/shared` then disappears from `dependencies` entirely, and `bundledDependencies` + the prepack/postpack lifecycle are deleted.
+A bundler — **tsdown** (rolldown + oxc; tsup was the original pick but is in maintenance mode, and tsdown is its designated successor — maintainer decision 2026-06-10) — inlines shared's code into each publishable package at build time. `@ask-llm/shared` then disappears from `dependencies` entirely, and `bundledDependencies` + the prepack/postpack lifecycle are deleted.
 
 **Why B1 over B2** (the decisive asymmetry):
 
@@ -26,7 +26,7 @@ A bundler (tsup over the already-present esbuild) inlines shared's code into eac
 | Needs `@ask-llm` npm org creation | no | yes (the other ADR-106 failure) |
 | Publish ordering / partial-publish risk | none | shared-before-dependents |
 | Keeps shared `private: true` | yes | no — becomes a public API surface |
-| Build-tooling change | adds tsup | none |
+| Build-tooling change | adds tsdown | none |
 | Also eliminates ADR-052's npm-9 `EUNSUPPORTEDPROTOCOL` class | yes (no `workspace:` left in provider manifests) | only after a correct rewrite |
 
 B1 kills **both** historical bug classes (npm 11 `bundledDependencies` global-install, npm 9 `workspace:` manifest parsing) by removing their preconditions, instead of guarding them.
@@ -40,12 +40,13 @@ The five publishable packages: `ask-gemini-mcp`, `ask-codex-mcp`, `ask-ollama-mc
 - `@ask-llm/shared` stays `private: true` and keeps building with `tsc` (it is the inlining *source*).
 - `@ask-llm/plugin` (claude-plugin) is unchanged: private, marketplace-distributed, keeps `workspace:*` deps. Its static imports of `ask-*-mcp/executor` keep working because the subpath exports are preserved (3.2).
 
-### 3.2 Build: tsup per publishable package
+### 3.2 Build: tsdown per publishable package
 
-- `build: tsup` replaces `tsc -b` as the build step. Type-checking stays in `lint` (`tsc --noEmit`, unchanged). Tests stay on vitest against `src` (unchanged).
-- Config per package (`tsup.config.ts`): `format: ['esm']`, `dts: true`, `clean: true` (wipe stale `tsc` artifacts so they can't leak into tarballs), `splitting: true`, and `noExternal: ['@ask-llm/shared']` with everything else external.
+- `build: tsdown` replaces `tsc -b` as the build step. Type-checking stays in `lint` (`tsc --noEmit`, unchanged). Tests stay on vitest against `src` (unchanged).
+- Config per package (`tsdown.config.ts`): `format: ['esm']`, `target: 'node20'`, `dts: true`, `clean: true` (wipe stale `tsc` artifacts so they can't leak into tarballs), and `deps: { alwaysBundle: ['@ask-llm/shared'] }` with everything else external (llm-mcp additionally lists its four siblings under `deps.neverBundle`).
 - **Entries mirror the existing `exports` map.** Provider packages: `index` (`src/index.ts`), `cli` (`src/cli.ts`), `executor` (`src/utils/<provider>Executor.ts`), `register` (`src/tools/index.ts`). `llm-mcp`: `index` + `cli` only. The `exports`/`bin` fields are updated to the new output paths.
-- **`splitting: true` is load-bearing, not cosmetic:** with multiple entries and no splitting, esbuild duplicates shared modules into each entry bundle. Module-level state inside one package (e.g. the tool registry consumed by both `.` and `./register`) would then exist twice in one process. Splitting emits common chunks so each module stays a process-wide singleton *within* a package.
+- **Multi-entry chunk splitting is load-bearing, not cosmetic:** without it, each entry bundle would carry its own copy of shared modules, so module-level state inside one package (e.g. the tool registry consumed by both `.` and `./register`) would exist twice in one process. tsdown/rolldown chunk-splits multiple ESM entries **by default** (no flag — always on), so each module stays a process-wide singleton *within* a package.
+- **Build-toolchain Node constraint:** tsdown requires **Node ≥22.18 to run**; the emitted output still targets node20, so consumer runtime support (`engines: >=20`) is unchanged. Consequence: the CI `test` matrix moves `[20.x, 22.x]` → `[22.x, 24.x]`, and Node-20 runtime support is verified by installing + booting the packed tarballs on a Node 20 leg of the smoke job (§3.6.3) — the tsdown-documented pattern for supporting runtimes older than the build toolchain.
 - **`dts` must be self-contained:** the rolled-up `.d.ts` files must not contain `import ... from "@ask-llm/shared"` (shared won't be installed for consumers). Acceptance check greps the emitted `.d.ts` for the package name.
 - Build order is preserved by the existing `yarn workspaces foreach -At` (shared before MCPs). Verify the topological sort still orders shared first once it moves to `devDependencies` (plan task).
 
@@ -82,8 +83,8 @@ Today a shared fix cascades patch-bumps to all five MCPs because they list share
 
 1. **Reproduce first:** `nvm install 26`, `npm install -g ask-llm-mcp@latest` (current bundled version), run `ask-llm-mcp doctor` → confirm the #115 crash on this machine.
 2. **Verify the fix on the same binary:** build, `npm pack` each package (NOT `yarn pack`), `npm install -g` the tarballs on Node 26, run `ask-llm-mcp doctor` + boot each provider bin and assert it reaches its server-startup log without `ERR_MODULE_NOT_FOUND` (the #115 crash happens at import time, before startup; exact smoke mechanics — e.g. stdin-EOF or an MCP `initialize` round-trip — are defined in the implementation plan).
-3. **Permanent CI smoke (new job):** on Node 26 — build, `npm pack` all five, then:
-   - the four provider packages: `npm install -g <tarball>` + boot smoke (their deps are all public registry packages);
+3. **Permanent CI smoke (new jobs):** tarballs are built ONCE on Node 24 (`pack-tarballs` job — tsdown needs ≥22.18) and shared via artifact; a `global-install-smoke` matrix job then runs on **Node 20.x AND 26.x** (20.x = oldest supported runtime, replacing the build-matrix coverage tsdown's constraint removed; 26.x = the #115 regression environment), each leg with `npm cache clean --force` first (Task-1 finding: a warm cache masks #115 — without a cold cache the guard cannot fail):
+   - the four provider packages: `npm install -g <tarball>` + MCP-initialize boot smoke (their deps are all public registry packages);
    - `ask-llm-mcp`: publish all five tarballs to a throwaway local registry (verdaccio) and `npm install -g ask-llm-mcp` from it + `doctor` — because at PR time its freshly-bumped sibling ranges may not exist on the real registry yet.
 4. Existing 174+ tests across the suites stay green untouched (no runtime behavior change) — that is the regression net.
 5. Tarball inspection: manifests contain no `workspace:`, no `bundledDependencies`, no `node_modules/` payload; `.d.ts` contain no `@ask-llm/shared` imports.
@@ -93,10 +94,10 @@ Today a shared fix cascades patch-bumps to all five MCPs because they list share
 | Risk | Mitigation |
 |---|---|
 | Bundler inlines/breaks the dynamic provider imports in `llm-mcp` | They are string-variable `import()`s — esbuild leaves them verbatim; siblings also listed as `external`. Covered by the verdaccio CI smoke. |
-| Module-state duplication across entries within a package | `splitting: true` (3.2). |
+| Module-state duplication across entries within a package | rolldown multi-entry chunk splitting, always on (3.2). |
 | `.d.ts` referencing the now-absent shared package | dts rollup + grep acceptance check (3.2, 3.6.5). |
 | Shared fixes silently stop shipping (cascade loss) | Must-verify Task 1 + CI-guard fallback (3.5). |
-| Stale `tsc` output leaking into tarballs | tsup `clean: true`. |
+| Stale `tsc` output leaking into tarballs | tsdown `clean: true`. |
 | `createRequire(import.meta.url)` + `require("../package.json")` | ESM output at the same `dist/` depth — path semantics unchanged. |
 | Build order regression after dep-field move | Plan task verifies `yarn workspaces foreach -At` still builds shared first. |
 | Wrong-publisher verification (the ADR-106 killer) | All verification uses `npm pack`/`npm install -g`; never `yarn pack`. |
@@ -115,4 +116,4 @@ Today a shared fix cascades patch-bumps to all five MCPs because they list share
 3. `prepack-bundle.mjs` / `postpack-restore.mjs` no longer exist; no package has `prepack`/`postpack` hooks.
 4. Full suite + lint + `yarn build` green; claude-plugin builds and its `*-run` binaries work unchanged.
 5. The shared→MCP release cascade demonstrably still fires (or the CI-guard fallback is in place).
-6. Node 26 global-install CI smoke runs on every PR/release.
+6. The global-install CI smoke (Node 20.x + 26.x matrix, cold npm cache) runs on every PR/release.
