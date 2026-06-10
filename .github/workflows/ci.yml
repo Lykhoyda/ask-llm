@@ -63,6 +63,16 @@ jobs:
     - run: corepack enable
     - run: yarn install --immutable
     - run: yarn build
+    - name: Assert dist purity — @ask-llm/shared must be inlined, never imported
+      # Regression guard for the 2026-06-10 ordering bug: when shared's dist was
+      # missing at MCP build time (yarn -t ignores devDependency edges), tsdown
+      # silently left `import ... from "@ask-llm/shared"` external in the output.
+      # Consumers can never resolve that (shared is private) → instant crash.
+      run: |
+        if grep -rln '@ask-llm/shared' packages/*/dist/*.js; then
+          echo "FAIL: dist still imports @ask-llm/shared — build order broken (see ADR-119)"; exit 1
+        fi
+        echo "OK: shared fully inlined in all dist outputs"
     - name: Pack all publishable tarballs (npm pack — the real publish shape)
       run: |
         mkdir -p tarballs
