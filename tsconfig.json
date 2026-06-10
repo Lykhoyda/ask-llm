@@ -1,12 +1,4 @@
 {
   "files": [],
-  "references": [
-    { "path": "packages/shared" },
-    { "path": "packages/gemini-mcp" },
-    { "path": "packages/claude-plugin" },
-    { "path": "packages/codex-mcp" },
-    { "path": "packages/ollama-mcp" },
-    { "path": "packages/antigravity-mcp" },
-    { "path": "packages/llm-mcp" }
-  ]
+  "references": [{ "path": "packages/shared" }]
 }

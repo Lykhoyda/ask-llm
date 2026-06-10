@@ -39,27 +39,20 @@ jobs:
       - run: yarn lint
       - run: yarn test
 
-      # Preflight gate (ADR-107): scan the manifest that npm will actually publish for
-      # `workspace:` protocol literals. The 2026-05-27 incident shipped 4 broken
-      # manifests because ADR-106 deleted the prepack-bundle.mjs script and trusted
-      # yarn 4 to rewrite workspace:* on publish — but changesets/action invokes
-      # `npm publish` directly, and `npm publish` doesn't rewrite. This gate runs
-      # `npm pack --dry-run --json` for each publishable package (which fires the
-      # restored prepack lifecycle), parses the resulting manifest, and fails the
-      # workflow if any `workspace:` literal survives. Catches the regression class
-      # before any tarball reaches the registry.
+      # Preflight gate (ADR-107, rules extended by ADR-119): statically assert no
+      # publishable manifest carries `workspace:` deps, bundledDependencies, or
+      # prepack/postpack hooks. Since ADR-119 @ask-llm/shared is INLINED into each
+      # MCP's dist/ by tsdown (no bundling, no pack-time rewrite), so what's in source
+      # is exactly what npm publishes. History: ADR-052 (npm 9 EUNSUPPORTEDPROTOCOL),
+      # ADR-106/107 (2026-05-27 broken-release incident), #115 (npm 11 global install).
       - name: Preflight — assert no workspace:* in published manifests
         run: node scripts/preflight-no-workspace-protocol.mjs
 
       # When pending changesets exist on main: opens/updates the Version Packages PR.
       # When this push IS the merged Version Packages PR: runs `yarn changeset:publish`
       # which builds + publishes any packages whose version is ahead of the registry.
-      # The `prepack-bundle.mjs` lifecycle (workspace:* → versioned, shared bundling) fires
-      # inside each `npm publish` call. ADR-052 originally established this; ADR-106 tried to
-      # remove it on the assumption that yarn 4 would auto-rewrite via changeset publish —
-      # that assumption was wrong (yarn 4 only rewrites via `yarn npm publish`, not the
-      # `npm publish` invoked by changesets/action). ADR-107 restores the bundling lifecycle
-      # and adds the preflight gate below as a safety net so the regression can't recur.
+      # Since ADR-119 there are NO pack-time lifecycle hooks — tsdown inlines
+      # @ask-llm/shared at build time and manifests publish as-is.
       - name: Create Release PR or Publish
         id: changesets
         uses: changesets/action@v1

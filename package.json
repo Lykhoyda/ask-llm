@@ -6,7 +6,7 @@
     "apps/docs"
   ],
   "scripts": {
-    "build": "yarn workspaces foreach -At run build",
+    "build": "yarn workspaces foreach -A --topological-dev run build",
     "test": "yarn workspaces foreach -A run test",
     "lint": "yarn workspaces foreach -A run lint",
     "smoke": "sh scripts/smoke-test.sh",

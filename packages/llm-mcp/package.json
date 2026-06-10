@@ -5,18 +5,20 @@
   "description": "Unified MCP server for multi-LLM consultation — registers tools from all available providers (Gemini, Codex, Ollama, Antigravity) behind runtime availability checks",
   "type": "module",
   "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "exports": {
-    ".": "./dist/index.js"
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
   },
   "bin": "dist/cli.js",
   "scripts": {
-    "build": "tsc -b",
+    "build": "tsdown",
     "start": "node dist/cli.js",
-    "dev": "tsc -b && node dist/cli.js",
+    "dev": "tsdown && node dist/cli.js",
     "test": "vitest run",
-    "lint": "biome check src/ && tsc --noEmit",
-    "prepack": "node ../../scripts/prepack-bundle.mjs shared gemini-mcp codex-mcp ollama-mcp antigravity-mcp",
-    "postpack": "node ../../scripts/postpack-restore.mjs shared gemini-mcp codex-mcp ollama-mcp antigravity-mcp"
+    "lint": "biome check src/ && tsc --noEmit"
   },
   "keywords": [
     "mcp",
@@ -58,28 +60,22 @@
     "LICENSE"
   ],
   "dependencies": {
-    "@ask-llm/shared": "workspace:*",
     "@modelcontextprotocol/sdk": "^1.27.1",
-    "ask-antigravity-mcp": "workspace:*",
-    "ask-codex-mcp": "workspace:*",
-    "ask-gemini-mcp": "workspace:*",
-    "ask-ollama-mcp": "workspace:*",
+    "ask-antigravity-mcp": "^0.2.1",
+    "ask-codex-mcp": "^0.3.10",
+    "ask-gemini-mcp": "^1.6.10",
+    "ask-ollama-mcp": "^0.3.5",
     "zod": "^4.3.6"
   },
   "devDependencies": {
+    "@ask-llm/shared": "workspace:*",
     "@biomejs/biome": "^2.4.4",
     "@types/node": "^22.19.13",
+    "tsdown": "^0.22.2",
     "typescript": "^5.0.0",
     "vitest": "^4.0.18"
   },
   "publishConfig": {
     "access": "public"
-  },
-  "bundledDependencies": [
-    "@ask-llm/shared",
-    "ask-gemini-mcp",
-    "ask-codex-mcp",
-    "ask-ollama-mcp",
-    "ask-antigravity-mcp"
-  ]
+  }
 }

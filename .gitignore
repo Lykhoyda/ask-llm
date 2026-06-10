@@ -39,9 +39,6 @@ mcp-publisher
 skills-lock.json
 .playwright-mcp
 
-# Transient backup from ADR-052 prepack-bundle workflow
-packages/*/package.json.bak
-
 # npm pack outputs (publish dry-runs leave these behind; never want them tracked)
 *.tgz
 

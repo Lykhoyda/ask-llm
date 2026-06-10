@@ -12,7 +12,7 @@ yarn build
 yarn test
 ```
 
-Requires Node.js 20+ and Yarn 4 (managed via the `packageManager` field).
+Requires Node.js 22.18+ to build (the tsdown toolchain's floor since ADR-119 — published packages still run on Node 20+) and Yarn 4 (managed via the `packageManager` field).
 
 ## Project layout
 
@@ -79,7 +79,7 @@ Interactive prompt asks (a) which packages your change affects, (b) the bump typ
 
 **You don't need to manually bump `package.json` versions.** The bot does that.
 
-You can pick "patch" for any package even if your change doesn't directly touch it, but in practice the internal-dependents cascade handles that automatically: bumping `@ask-llm/shared` cascades a patch bump to `ask-gemini-mcp`, `ask-codex-mcp`, `ask-ollama-mcp`, and `ask-llm-mcp` because they all depend on it. This is configured via `updateInternalDependents: "always"` in `.changeset/config.json` — without it, the `workspace:*` protocol would always satisfy the range and the cascade would silently skip. (`@ask-llm/shared` is published as a public npm package since ADR-106 — bundling was removed.)
+You can pick "patch" for any package even if your change doesn't directly touch it. IMPORTANT (ADR-119): `@ask-llm/shared` is private and INLINED into each MCP's `dist/` at build time by tsdown — and because shared is only a devDependency of the MCPs, the changesets internal-dependents cascade does NOT fire for it (verified empirically 2026-06-10). Any change to `packages/shared/src/**` MUST ship with a changeset that explicitly lists all five publishable packages (`ask-gemini-mcp`, `ask-codex-mcp`, `ask-ollama-mcp`, `ask-antigravity-mcp`, `ask-llm-mcp`) — otherwise the fix never reaches npm. CI enforces this via `scripts/check-shared-changeset.mjs`.
 
 `@ask-llm/plugin` is excluded from changesets (it's distributed via the Claude Code plugin marketplace, not npm; tracked in `.claude-plugin/marketplace.json`).
 
@@ -91,7 +91,7 @@ Driven by [changesets/action](https://github.com/changesets/action) (ADR-076). T
 
 **Phase 1 — Version Packages PR**: when your PR with a changeset merges to `main`, the `release.yml` workflow runs, sees pending changesets, and opens (or updates) a `chore: version packages` PR. That PR bumps `package.json` versions, generates `CHANGELOG.md` entries, and deletes the consumed `.changeset/*.md` files. **You don't open this PR — the bot does.** Multiple changesets accumulate into one Version Packages PR until you're ready to ship.
 
-**Phase 2 — Publish**: when the maintainer merges the Version Packages PR, `release.yml` runs again, this time detecting that the merge consumed changesets. It runs `yarn changeset:publish` which publishes every workspace package whose version is ahead of the npm registry via `yarn npm publish`. Yarn 4 automatically rewrites `workspace:*` references to the actual workspace version at publish time, so all 5 packages (`@ask-llm/shared`, `ask-gemini-mcp`, `ask-codex-mcp`, `ask-ollama-mcp`, `ask-llm-mcp`) land on npm with valid semver in their manifests. After npm, the workflow publishes to the MCP Registry and creates a unified GitHub Release tagged `v<gemini-version>` (legacy convention from when this was a fork of gemini-mcp-tool — preserved alongside the per-package tags changesets creates).
+**Phase 2 — Publish**: when the maintainer merges the Version Packages PR, `release.yml` runs again, this time detecting that the merge consumed changesets. It runs `yarn changeset:publish` which publishes every workspace package whose version is ahead of the npm registry via `npm publish` (changesets/action). Since ADR-119 the manifests publish exactly as they exist in source — no `workspace:` protocol remains (llm-mcp's sibling deps are real semver ranges maintained by changesets; `@ask-llm/shared` is a devDependency, inlined into `dist/` by tsdown), so no rewrite step exists to get wrong. After npm, the workflow publishes to the MCP Registry and creates a unified GitHub Release tagged `v<gemini-version>` (legacy convention from when this was a fork of gemini-mcp-tool — preserved alongside the per-package tags changesets creates).
 
 **Maintainer responsibilities** are minimal: review the Version Packages PR (does the CHANGELOG read sensibly? are the bump types right?), merge it when ready to ship. No manual `git tag` or `package.json` editing.
 
