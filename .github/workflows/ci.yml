@@ -16,7 +16,9 @@ jobs:
 
     strategy:
       matrix:
-        node-version: [20.x, 22.x]
+        # tsdown (build toolchain) needs Node >=22.18 (ADR-119); Node 20 RUNTIME
+        # support is verified by the global-install-smoke job below
+        node-version: [22.x, 24.x]
 
     steps:
     - uses: actions/checkout@v6
@@ -48,3 +50,75 @@ jobs:
     - name: Guard — shared changes must changeset all five MCPs (ADR-119)
       if: github.event_name == 'pull_request'
       run: node scripts/check-shared-changeset.mjs
+
+  pack-tarballs:
+    # Build once on Node 24 (tsdown needs >=22.18), share tarballs with the smoke matrix.
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+    - uses: actions/checkout@v6
+    - uses: actions/setup-node@v6
+      with:
+        node-version: 24
+    - run: corepack enable
+    - run: yarn install --immutable
+    - run: yarn build
+    - name: Pack all publishable tarballs (npm pack — the real publish shape)
+      run: |
+        mkdir -p tarballs
+        for p in gemini-mcp codex-mcp ollama-mcp antigravity-mcp llm-mcp; do
+          (cd "packages/$p" && npm pack --pack-destination "$GITHUB_WORKSPACE/tarballs")
+        done
+        ls -la tarballs
+    - uses: actions/upload-artifact@v4
+      with:
+        name: npm-tarballs
+        path: tarballs/*.tgz
+        retention-days: 1
+
+  global-install-smoke:
+    # #115 regression smoke (ADR-119): npm 11 global install of bundledDependencies
+    # produced empty transitive-dep dirs and ERR_MODULE_NOT_FOUND on Node 26.
+    # 20.x leg: oldest supported RUNTIME (engines >=20; build toolchain is 22+).
+    # 26.x leg: the environment where #115 reproduced.
+    # npm cache clean is REQUIRED: a warm cache masks #115 (Task 1 finding) —
+    # without a cold cache this guard cannot fail.
+    needs: pack-tarballs
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      matrix:
+        node-version: [20.x, 26.x]
+    steps:
+    - uses: actions/checkout@v6   # for .github/verdaccio/config.yaml
+    - uses: actions/setup-node@v6
+      with:
+        node-version: ${{ matrix.node-version }}
+    - uses: actions/download-artifact@v4
+      with:
+        name: npm-tarballs
+        path: /tmp/tarballs
+    - name: Global-install + boot smoke — provider packages
+      run: |
+        set -eu
+        npm cache clean --force
+        for bin in ask-gemini-mcp ask-codex-mcp ask-ollama-mcp ask-antigravity-mcp; do
+          npm install -g /tmp/tarballs/${bin}-*.tgz
+          printf '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"smoke","version":"0.0.0"}}}\n' \
+            | timeout 20 "$bin" > /tmp/out.json 2> /tmp/err.txt || true
+          if grep -q 'ERR_MODULE_NOT_FOUND' /tmp/err.txt; then echo "FAIL: $bin crashed at import"; cat /tmp/err.txt; exit 1; fi
+          grep -q '"serverInfo"' /tmp/out.json || { echo "FAIL: $bin no initialize response"; cat /tmp/err.txt; exit 1; }
+          echo "OK: $bin boots on Node ${{ matrix.node-version }}"
+        done
+    - name: Global-install + doctor smoke — ask-llm-mcp via local registry
+      run: |
+        set -eu
+        npx verdaccio --config .github/verdaccio/config.yaml --listen 4873 &
+        npx wait-on -t 30000 http://localhost:4873
+        npm config set //localhost:4873/:_authToken fake
+        for t in /tmp/tarballs/*.tgz; do npm publish --registry http://localhost:4873 "$t"; done
+        npm install -g ask-llm-mcp --registry http://localhost:4873
+        ask-llm-mcp doctor --json > /tmp/doctor.json 2> /tmp/doctor-err.txt || true
+        if grep -q 'ERR_MODULE_NOT_FOUND' /tmp/doctor-err.txt; then echo "FAIL: doctor crashed at import"; cat /tmp/doctor-err.txt; exit 1; fi
+        grep -q '"status"' /tmp/doctor.json || { echo "FAIL: doctor produced no report"; cat /tmp/doctor-err.txt; cat /tmp/doctor.json; exit 1; }
+        echo "OK: ask-llm-mcp global install + doctor on Node ${{ matrix.node-version }}"

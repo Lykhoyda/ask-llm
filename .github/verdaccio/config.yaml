@@ -1,0 +1,16 @@
+# Throwaway local registry for the Node 20/26 global-install smoke (ADR-119).
+# ask-llm-mcp's freshly-bumped sibling ranges may not exist on npmjs yet at PR
+# time, so we publish all five tarballs here and install the orchestrator from it.
+storage: /tmp/verdaccio-storage
+auth:
+  htpasswd:
+    file: /tmp/verdaccio-htpasswd
+uplinks:
+  npmjs:
+    url: https://registry.npmjs.org/
+packages:
+  '**':
+    access: $all
+    publish: $all
+    proxy: npmjs
+log: { type: stdout, format: pretty, level: warn }
