@@ -15,7 +15,7 @@
     "docs:preview": "yarn workspace docs run preview",
     "benchmark": "yarn build && npx tsx scripts/benchmark-overhead.ts",
     "changeset": "changeset",
-    "changeset:version": "changeset version && node scripts/sync-plugin-manifests.mjs",
+    "changeset:version": "changeset version && yarn install --mode=update-lockfile && node scripts/sync-plugin-manifests.mjs",
     "changeset:status": "changeset status --verbose",
     "changeset:publish": "yarn build && changeset publish",
     "prepare": "husky"
