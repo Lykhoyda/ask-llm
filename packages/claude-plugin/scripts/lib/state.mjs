@@ -135,7 +135,9 @@ export const failuresPath = (markerDir) => join(stateRoot(markerDir), FAILURES_F
 // Returns null (not paused), { manual: true } (empty or unrecognized body),
 // or the parsed auto-pause JSON ({ v, kind, reason, resetHint?, at }).
 // Unrecognized bodies are treated as manual — the conservative read: an
-// unknown pause never auto-expires and never gets overwritten.
+// unknown pause never auto-expires and never gets overwritten. A string
+// reason is required too, so downstream provenance rendering never sees
+// a non-string ("[object Object]") reason.
 export function readPauseInfo(markerDir) {
   let raw;
   try {
@@ -147,7 +149,12 @@ export function readPauseInfo(markerDir) {
   if (trimmed.length === 0) return { manual: true };
   try {
     const parsed = JSON.parse(trimmed);
-    if (parsed && typeof parsed === "object" && (parsed.kind === "quota" || parsed.kind === "failures")) {
+    if (
+      parsed &&
+      typeof parsed === "object" &&
+      (parsed.kind === "quota" || parsed.kind === "failures") &&
+      typeof parsed.reason === "string"
+    ) {
       return parsed;
     }
   } catch {
@@ -164,7 +171,7 @@ export function writeAutoPause(markerDir, { kind, reason, resetHint }) {
   const body = JSON.stringify({
     v: 1,
     kind,
-    reason: clampReason(reason),
+    reason: clampReason(typeof reason === "string" ? reason : String(reason)),
     ...(resetHint ? { resetHint } : {}),
     at: new Date().toISOString(),
   });
@@ -181,6 +188,11 @@ export function writeAutoPause(markerDir, { kind, reason, resetHint }) {
 // Global per project (markerDir), spans files and sessions. Incremented on
 // every non-quota review failure; cleared on every successful live review.
 // Tolerant reads (missing/corrupt → 0); atomic tmp+rename writes.
+// Accepted race: this read-modify-write is global per project and NOT
+// serialized by ADR-087's per-file inflight locks — two concurrent
+// failures on different files can lose an increment. Accepted: the
+// threshold just fires one failure later, and the eventual sentinel
+// write is still wx-safe.
 
 export function readFailureCount(markerDir) {
   try {

@@ -43,6 +43,17 @@ describe("lib/state.mjs — auto-pause sentinel (#176)", () => {
     expect(info?.resetHint).toBe("3 hours");
   });
 
+  it("readPauseInfo → parsed JSON for a failures-kind body", () => {
+    fs.mkdirSync(path.dirname(pausePath(dir)), { recursive: true });
+    fs.writeFileSync(
+      pausePath(dir),
+      JSON.stringify({ v: 1, kind: "failures", reason: "3 consecutive failures", at: "2026-06-11T00:00:00Z" }),
+    );
+    const info = readPauseInfo(dir);
+    expect(info?.kind).toBe("failures");
+    expect(info?.reason).toBe("3 consecutive failures");
+  });
+
   it("readPauseInfo → {manual:true} for a corrupt/unknown body (conservative)", () => {
     fs.mkdirSync(path.dirname(pausePath(dir)), { recursive: true });
     fs.writeFileSync(pausePath(dir), "not json {][");
