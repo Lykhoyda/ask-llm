@@ -2,6 +2,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { parseResetHint } from "../../scripts/lib/parser.mjs";
 import {
   AUTOPAUSE_FAILURE_THRESHOLD,
   clearReviewFailures,
@@ -125,5 +126,27 @@ describe("lib/state.mjs — consecutive-failure counter (#176)", () => {
     fs.writeFileSync(failuresPath(dir), "garbage }{");
     expect(readFailureCount(dir)).toBe(0);
     expect(recordReviewFailure(dir, "y")).toBe(1);
+  });
+});
+
+describe("lib/parser.mjs — parseResetHint (#176)", () => {
+  it.each([
+    ["You've hit your usage limit. Try again in 3 hours 25 minutes.", "3 hours 25 minutes"],
+    ["Rate limited, try again at 14:30 UTC", "14:30 UTC"],
+    ["quota exceeded; resets at 2026-06-12T00:00:00Z", "2026-06-12T00:00:00Z"],
+    ["please try again after 2 hours", "2 hours"],
+  ])("extracts the hint from %j", (input, expected) => {
+    expect(parseResetHint(input)).toBe(expected);
+  });
+
+  it("returns null when nothing parseable", () => {
+    expect(parseResetHint("rate_limit_exceeded: capacity exhausted")).toBeNull();
+    expect(parseResetHint("")).toBeNull();
+    expect(parseResetHint(null as unknown as string)).toBeNull();
+  });
+
+  it("caps absurdly long hints", () => {
+    const hint = parseResetHint(`try again in ${"x".repeat(300)}`);
+    expect(hint).toBeNull(); // > 80 chars is not a plausible reset time
   });
 });

@@ -196,3 +196,25 @@ export function parseConcerns(message) {
   if (fromJson) return fromJson;
   return parseConcernsLegacy(message);
 }
+
+// ── Reset-hint extraction (#176 / ADR-120) ────────────────────────────────
+// Best-effort, DISPLAY-ONLY parse of "when does the quota reset" from a
+// provider error message. Never used for timestamp math — resume is manual;
+// the hint just makes the one-time auto-pause notice actionable.
+const RESET_HINT_PATTERNS = [
+  /try again (?:in|at|after)\s+([^.()\n]+)/i,
+  /resets?\s+(?:in|at|after)\s+([^.()\n]+)/i,
+];
+const RESET_HINT_MAX_CHARS = 80;
+
+export function parseResetHint(text) {
+  if (typeof text !== "string" || text.length === 0) return null;
+  for (const re of RESET_HINT_PATTERNS) {
+    const m = text.match(re);
+    if (m) {
+      const hint = m[1].trim().replace(/[,;].*$/, "").trim();
+      if (hint.length > 0 && hint.length <= RESET_HINT_MAX_CHARS) return hint;
+    }
+  }
+  return null;
+}
