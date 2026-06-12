@@ -103,7 +103,15 @@ const DEFAULT_TIMEOUT_MS = Number(process.env.ASK_CODEX_TIMEOUT_MS ?? 800_000);
 const MAX_FILE_BYTES = Number(process.env.CODEX_PAIR_MAX_FILE_BYTES ?? 20_000);
 const DEBOUNCE_MS = Number(process.env.ASK_CODEX_DEBOUNCE_MS ?? DEFAULT_DEBOUNCE_MS);
 const DEBOUNCE_MAX_MS = Number(process.env.ASK_CODEX_DEBOUNCE_MAX_MS ?? DEFAULT_DEBOUNCE_MAX_MS);
-const QUOTA_SIGNALS = ["rate_limit_exceeded", "quota_exceeded", "429", "insufficient_quota"];
+const QUOTA_SIGNALS = [
+  "rate_limit_exceeded",
+  "quota_exceeded",
+  "429",
+  "insufficient_quota",
+  // ChatGPT-plan phrasings (#176) — API-style signals above never match these.
+  "usage limit",
+  "rate limit",
+];
 
 // Transient failure signatures (item #10). Errors matching any of these get
 // ONE retry with jittered delay before propagating. Quota errors take the
@@ -594,6 +602,39 @@ function verdictFromError(err) {
   return "error";
 }
 
+// Pull `{"type":"error"}` event messages out of codex --json stdout. On a
+// non-zero exit the real failure reason is usually HERE, while stderr holds
+// only the "Reading prompt from stdin..." banner (#176).
+function extractJsonlErrorEvents(stdout) {
+  const messages = [];
+  for (const line of stdout.split("\n")) {
+    if (line.trim().length === 0) continue;
+    let parsed;
+    try {
+      parsed = JSON.parse(line);
+    } catch {
+      continue;
+    }
+    if (parsed?.type === "error") {
+      messages.push(typeof parsed.message === "string" ? parsed.message : JSON.stringify(parsed));
+    }
+  }
+  return messages;
+}
+
+// Last non-empty stderr lines (≤3), capped at 500 bytes. The informative
+// part of codex stderr is the TAIL — the quota line, when present, follows
+// the stdin banner.
+function stderrTail(stderr) {
+  const lines = stderr
+    .split("\n")
+    .map((l) => l.trim())
+    .filter((l) => l.length > 0);
+  if (lines.length === 0) return "";
+  const tail = lines.slice(-3).join(" | ");
+  return tail.length > 500 ? tail.slice(-500) : tail;
+}
+
 // Single codex invocation. The stdio + stdin-end pattern (and the SIGTERM →
 // SIGKILL escalation, now tree-aware per ADR-084) mirrors
 // `packages/shared/src/commandExecutor.ts`. Critically: stdin must be "pipe"
@@ -656,7 +697,14 @@ function spawnCodex({ prompt, model, timeoutMs }) {
           rejectCall(taggedError(msg, "parse_failed"));
         }
       } else {
-        rejectCall(taggedError(stderr.trim() || `codex exit ${code}`, "error"));
+        // Prefer the JSONL error event (the real reason) over the stderr
+        // tail (often just the stdin banner) — #176.
+        const errorEvents = extractJsonlErrorEvents(stdout);
+        const reason =
+          errorEvents.length > 0
+            ? errorEvents[errorEvents.length - 1]
+            : stderrTail(stderr) || `codex exit ${code}`;
+        rejectCall(taggedError(reason, "error"));
       }
     });
   });

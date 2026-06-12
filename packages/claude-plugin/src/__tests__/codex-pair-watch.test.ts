@@ -1637,6 +1637,30 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
     expect(errEntry.reason).toMatch(/rate_limit_exceeded|quota/i);
   });
 
+  it("fake-codex 'quota-plan' → failure reason is the JSONL error, NOT the stdin banner (#176)", () => {
+    setupMarker(tempDir, "# ctx");
+    const filePath = path.join(tempDir, "src.ts");
+    fs.writeFileSync(filePath, "export const x = 1;");
+    const payload = JSON.stringify({
+      tool_name: "Edit",
+      tool_input: { file_path: filePath },
+    });
+    const result = runHookWithFakeCodex(payload, tempDir, "quota-plan");
+    expect(result.status).toBe(0);
+    const lines = fs
+      .readFileSync(path.join(tempDir, ".codex-pair/log.jsonl"), "utf-8")
+      .trim()
+      .split("\n")
+      .map((l) => JSON.parse(l));
+    const entry = lines.find((l) => typeof l.reason === "string" && /usage limit/i.test(l.reason));
+    expect(entry).toBeTruthy();
+    // The banner must never be the surfaced reason again.
+    const bannerEntry = lines.find(
+      (l) => typeof l.reason === "string" && /^Reading prompt from stdin/.test(l.reason.trim()),
+    );
+    expect(bannerEntry).toBeFalsy();
+  });
+
   // ADR-083: structured JSON output contract. The `concerns-schema` scenario
   // emits the new shape; the hook's parser should classify findings into
   // HIGH/MED/LOW buckets identical to the legacy [LABEL] path.
