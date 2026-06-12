@@ -139,6 +139,18 @@ describe("lib/parser.mjs — parseResetHint (#176)", () => {
     expect(parseResetHint(input)).toBe(expected);
   });
 
+  it("strips trailing clauses after , or ; inside the capture", () => {
+    expect(parseResetHint("try again in 2 hours, or contact support")).toBe("2 hours");
+  });
+
+  it("does not bleed across newlines", () => {
+    expect(parseResetHint("try again in 2 hours\nstack trace line")).toBe("2 hours");
+  });
+
+  it("rejects bare-numeric captures (decimal-seconds truncation)", () => {
+    expect(parseResetHint("Please try again in 1.928s.")).toBeNull();
+  });
+
   it("returns null when nothing parseable", () => {
     expect(parseResetHint("rate_limit_exceeded: capacity exhausted")).toBeNull();
     expect(parseResetHint("")).toBeNull();

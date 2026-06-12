@@ -203,7 +203,7 @@ export function parseConcerns(message) {
 // the hint just makes the one-time auto-pause notice actionable.
 const RESET_HINT_PATTERNS = [
   /try again (?:in|at|after)\s+([^.()\n]+)/i,
-  /resets?\s+(?:in|at|after)\s+([^.()\n]+)/i,
+  /\bresets?\s+(?:in|at|after)\s+([^.()\n]+)/i,
 ];
 const RESET_HINT_MAX_CHARS = 80;
 
@@ -213,6 +213,11 @@ export function parseResetHint(text) {
     const m = text.match(re);
     if (m) {
       const hint = m[1].trim().replace(/[,;].*$/, "").trim();
+      // Reject bare-numeric captures: "try again in 1.928s." (the standard
+      // OpenAI rate-limit phrasing) truncates at the decimal point to "1",
+      // a misleading false positive. Real reset hints always carry units
+      // or separators ("30s", "3 hours", "14:30 UTC").
+      if (/^\d+$/.test(hint)) continue;
       if (hint.length > 0 && hint.length <= RESET_HINT_MAX_CHARS) return hint;
     }
   }
