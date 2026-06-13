@@ -1701,6 +1701,30 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
     expect(hookOutput.systemMessage).toMatch(/auto-paused: provider quota exhausted/);
   });
 
+  it("model===fallbackModel: a single quota error is exhaustion (no ladder) → auto-pause (#176)", () => {
+    setupMarker(tempDir, "# ctx");
+    const filePath = path.join(tempDir, "src.ts");
+    fs.writeFileSync(filePath, "export const x = 1;");
+    const payload = JSON.stringify({
+      tool_name: "Edit",
+      tool_input: { file_path: filePath },
+    });
+    // Primary === fallback (non-default config): runCodexWithFallback has no
+    // ladder to descend, so the FIRST quota error is exhaustion and tags
+    // quotaExhausted directly (the third tagging site). Without that tag the
+    // error would fall through to the 3-failure backstop instead of pausing.
+    const result = runHookWithFakeCodex(payload, tempDir, "quota", {
+      ASK_CODEX_MODEL: "gpt-5.5",
+      ASK_CODEX_FALLBACK_MODEL: "gpt-5.5",
+    });
+    expect(result.status).toBe(0);
+    const sentinelPath = path.join(tempDir, ".codex-pair/state/paused");
+    expect(fs.existsSync(sentinelPath)).toBe(true);
+    expect(JSON.parse(fs.readFileSync(sentinelPath, "utf-8")).kind).toBe("quota");
+    const hookOutput = JSON.parse(result.stdout.trim());
+    expect(hookOutput.systemMessage).toMatch(/auto-paused: provider quota exhausted/);
+  });
+
   it("quota exhaustion (both models) → auto-pause: sentinel + one-time notice with reset hint (#176)", () => {
     setupMarker(tempDir, "# ctx");
     const filePath = path.join(tempDir, "src.ts");
