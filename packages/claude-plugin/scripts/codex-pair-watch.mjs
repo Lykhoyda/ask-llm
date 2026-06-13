@@ -60,6 +60,8 @@ import {
 } from "./lib/parser.mjs";
 import {
   appendLog,
+  AUTOPAUSE_FAILURE_THRESHOLD,
+  clearReviewFailures,
   computeCacheKey,
   CONTEXT_FILENAME,
   contextPath,
@@ -72,6 +74,7 @@ import {
   logPath,
   PAIR_ROOT_DIR,
   readPauseInfo,
+  recordReviewFailure,
   releaseInflightLock,
   setCachedConcerns,
   tryAcquireInflightLock,
@@ -1254,6 +1257,29 @@ async function main() {
       process.exit(0);
     }
 
+    // #176 backstop: any other failure increments the consecutive counter.
+    // At AUTOPAUSE_FAILURE_THRESHOLD, pause — a broken provider must not
+    // error-spam an entire session. Counter clears on the next success.
+    const failureCount = recordReviewFailure(markerDir, reason);
+    if (failureCount >= AUTOPAUSE_FAILURE_THRESHOLD) {
+      const paused = writeAutoPause(markerDir, { kind: "failures", reason });
+      await appendLog(markerDir, {
+        timestamp: new Date().toISOString(),
+        tool: toolName,
+        file: filePath,
+        verdict,
+        reason,
+        durationMs,
+        ...(paused ? { autoPaused: "failures" } : {}),
+      });
+      if (paused) {
+        await emitSystemMessage(
+          `codex-pair auto-paused after ${AUTOPAUSE_FAILURE_THRESHOLD} consecutive review failures (last: ${reason}). Resume with /codex-pair-resume.`,
+        );
+      }
+      process.exit(0);
+    }
+
     await appendLog(markerDir, {
       timestamp: new Date().toISOString(),
       tool: toolName,
@@ -1263,10 +1289,13 @@ async function main() {
       durationMs,
     });
     await emitSystemMessage(
-      `codex-pair ${prefix}: ${filePath} — review failed: ${reason} (${formatDuration(durationMs)})`,
+      `codex-pair ${prefix}: ${filePath} — review failed: ${reason} (${formatDuration(durationMs)}) (failure ${failureCount}/${AUTOPAUSE_FAILURE_THRESHOLD} before auto-pause)`,
     );
     process.exit(0);
   }
+
+  // Live review succeeded — any failure streak is over (#176 backstop).
+  clearReviewFailures(markerDir);
 
   const concerns = parseConcerns(response);
   const total = concerns.high.length + concerns.med.length + concerns.low.length;

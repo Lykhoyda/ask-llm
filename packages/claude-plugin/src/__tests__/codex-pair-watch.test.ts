@@ -791,6 +791,14 @@ describe("scripts/codex-pair-watch.mjs — structural invariants (ADR-077)", () 
     // The content is wrapped in XML tags, NOT inside a markdown fence
     expect(rendered).toMatch(/<file_content>\nconst x = 1;\n<\/file_content>/);
   });
+
+  it("auto-pauses on quota exhaustion and consecutive failures (#176 / ADR-120)", () => {
+    expect(script).toMatch(/quotaExhausted/);
+    expect(script).toMatch(/writeAutoPause/);
+    expect(script).toMatch(/AUTOPAUSE_FAILURE_THRESHOLD/);
+    expect(script).toMatch(/clearReviewFailures/);
+    expect(libState).toMatch(/flag:\s*"wx"/);
+  });
 });
 
 describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", () => {
@@ -1611,6 +1619,64 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
     expect(errEntry.reason).toMatch(/generic non-zero exit reason/);
     const hookOutput = JSON.parse(result.stdout.trim());
     expect(hookOutput.systemMessage).toMatch(/^codex-pair ERROR:/);
+  });
+
+  it("backstop: 3 consecutive non-quota failures → auto-pause; 1–2 get an escalation suffix (#176)", () => {
+    setupMarker(tempDir, "# ctx");
+    const filePath = path.join(tempDir, "src.ts");
+    const payload = JSON.stringify({
+      tool_name: "Edit",
+      tool_input: { file_path: filePath },
+    });
+    const sentinelPath = path.join(tempDir, ".codex-pair/state/paused");
+
+    fs.writeFileSync(filePath, "export const x = 1;");
+    const first = runHookWithFakeCodex(payload, tempDir, "exit-nonzero");
+    expect(JSON.parse(first.stdout.trim()).systemMessage).toMatch(/failure 1\/3 before auto-pause/);
+    expect(fs.existsSync(sentinelPath)).toBe(false);
+
+    fs.writeFileSync(filePath, "export const x = 2;");
+    const second = runHookWithFakeCodex(payload, tempDir, "exit-nonzero");
+    expect(JSON.parse(second.stdout.trim()).systemMessage).toMatch(/failure 2\/3 before auto-pause/);
+    expect(fs.existsSync(sentinelPath)).toBe(false);
+
+    fs.writeFileSync(filePath, "export const x = 3;");
+    const third = runHookWithFakeCodex(payload, tempDir, "exit-nonzero");
+    expect(JSON.parse(third.stdout.trim()).systemMessage).toMatch(/auto-paused after 3 consecutive review failures/);
+    expect(fs.existsSync(sentinelPath)).toBe(true);
+    const sentinel = JSON.parse(fs.readFileSync(sentinelPath, "utf-8"));
+    expect(sentinel.kind).toBe("failures");
+
+    fs.writeFileSync(filePath, "export const x = 4;");
+    const fourth = runHookWithFakeCodex(payload, tempDir, "exit-nonzero");
+    expect(fourth.stdout.trim()).toBe(""); // silent log-only skip
+  });
+
+  it("backstop counter resets on a successful live review (#176)", () => {
+    setupMarker(tempDir, "# ctx");
+    const filePath = path.join(tempDir, "src.ts");
+    const payload = JSON.stringify({
+      tool_name: "Edit",
+      tool_input: { file_path: filePath },
+    });
+    const failuresFile = path.join(tempDir, ".codex-pair/state/failures.json");
+
+    fs.writeFileSync(filePath, "export const a = 1;");
+    runHookWithFakeCodex(payload, tempDir, "exit-nonzero");
+    fs.writeFileSync(filePath, "export const a = 2;");
+    runHookWithFakeCodex(payload, tempDir, "exit-nonzero");
+    expect(JSON.parse(fs.readFileSync(failuresFile, "utf-8")).consecutive).toBe(2);
+
+    fs.writeFileSync(filePath, "export const a = 3;");
+    runHookWithFakeCodex(payload, tempDir, "none"); // success clears the streak
+    expect(fs.existsSync(failuresFile)).toBe(false);
+
+    fs.writeFileSync(filePath, "export const a = 4;");
+    runHookWithFakeCodex(payload, tempDir, "exit-nonzero");
+    fs.writeFileSync(filePath, "export const a = 5;");
+    const fifth = runHookWithFakeCodex(payload, tempDir, "exit-nonzero");
+    expect(JSON.parse(fifth.stdout.trim()).systemMessage).toMatch(/failure 2\/3 before auto-pause/);
+    expect(fs.existsSync(path.join(tempDir, ".codex-pair/state/paused"))).toBe(false);
   });
 
   it("fake-codex 'quota' scenario → both models exhaust → auto-pause (was: bare error) (#176)", () => {
