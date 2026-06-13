@@ -54,6 +54,7 @@ import {
   DEFAULT_SURFACE_THRESHOLD,
   formatDuration,
   parseConcerns,
+  parseResetHint,
   VALID_THRESHOLDS,
   VERDICT_PREFIXES,
 } from "./lib/parser.mjs";
@@ -68,13 +69,14 @@ import {
   ignorePath,
   includePath,
   INFLIGHT_TTL_MIN_MS,
-  isPaused,
   logPath,
   PAIR_ROOT_DIR,
+  readPauseInfo,
   releaseInflightLock,
   setCachedConcerns,
   tryAcquireInflightLock,
   updateRepetitions,
+  writeAutoPause,
 } from "./lib/state.mjs";
 
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
@@ -843,13 +845,26 @@ async function runCodexWithFallback({ prompt, timeoutMs, model, fallbackModel, m
     };
   } catch (err) {
     if (isQuotaError(err) && model !== fallbackModel) {
-      const response = await spawnCodexWithRetry({
-        prompt,
-        model: fallbackModel,
-        timeoutMs,
-        markerDir,
-      });
-      return { response, fellBack: true };
+      try {
+        const response = await spawnCodexWithRetry({
+          prompt,
+          model: fallbackModel,
+          timeoutMs,
+          markerDir,
+        });
+        return { response, fellBack: true };
+      } catch (fallbackErr) {
+        // BOTH models failed. If the fallback also hit quota, the provider
+        // is exhausted — tag it so main()'s catch auto-pauses (#176).
+        if (isQuotaError(fallbackErr) && fallbackErr && typeof fallbackErr === "object") {
+          fallbackErr.quotaExhausted = true;
+        }
+        throw fallbackErr;
+      }
+    }
+    // model === fallbackModel: there is no ladder left — quota here IS exhaustion.
+    if (isQuotaError(err) && err && typeof err === "object") {
+      err.quotaExhausted = true;
     }
     throw err;
   }
@@ -911,13 +926,17 @@ async function main() {
   const markerDir = await findMarkerUp(markerAnchor);
   if (!markerDir) process.exit(0);
 
-  if (isPaused(markerDir)) {
+  const pauseInfo = readPauseInfo(markerDir);
+  if (pauseInfo) {
+    const pauseReason = pauseInfo.manual
+      ? "paused via /codex-pair-pause (rm .codex-pair/state/paused to resume)"
+      : `auto-paused (${pauseInfo.kind}${pauseInfo.resetHint ? `, resets ~${pauseInfo.resetHint}` : ""}) — resume with /codex-pair-resume`;
     await appendLog(markerDir, {
       timestamp: new Date().toISOString(),
       tool: toolName,
       file: filePath,
       verdict: "skipped",
-      reason: "paused via /codex-pair-pause (rm .codex-pair/state/paused to resume)",
+      reason: pauseReason,
     });
     process.exit(0);
   }
@@ -1209,6 +1228,32 @@ async function main() {
     const verdict = verdictFromError(err);
     const prefix = VERDICT_PREFIXES[verdict] ?? VERDICT_PREFIXES.error;
     const durationMs = Date.now() - startedAt;
+
+    // #176 / ADR-120: provider quota exhausted (both models) → pause
+    // ourselves ONCE instead of erroring on every subsequent edit. The
+    // sentinel write is wx-exclusive; false means another hook (or the
+    // user) already paused — log, but stay silent.
+    if (err && typeof err === "object" && err.quotaExhausted) {
+      const resetHint = parseResetHint(reason);
+      const paused = writeAutoPause(markerDir, { kind: "quota", reason, resetHint });
+      await appendLog(markerDir, {
+        timestamp: new Date().toISOString(),
+        tool: toolName,
+        file: filePath,
+        verdict,
+        reason,
+        durationMs,
+        ...(paused ? { autoPaused: "quota" } : {}),
+      });
+      if (paused) {
+        const resetClause = resetHint ? ` (resets ~${resetHint})` : "";
+        await emitSystemMessage(
+          `codex-pair auto-paused: provider quota exhausted${resetClause}. Resume with /codex-pair-resume.`,
+        );
+      }
+      process.exit(0);
+    }
+
     await appendLog(markerDir, {
       timestamp: new Date().toISOString(),
       tool: toolName,

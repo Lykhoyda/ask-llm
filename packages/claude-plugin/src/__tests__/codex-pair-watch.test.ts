@@ -1613,7 +1613,7 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
     expect(hookOutput.systemMessage).toMatch(/^codex-pair ERROR:/);
   });
 
-  it("fake-codex 'quota' scenario → falls back to FALLBACK_MODEL, log captures fellBack:true", () => {
+  it("fake-codex 'quota' scenario → both models exhaust → auto-pause (was: bare error) (#176)", () => {
     setupMarker(tempDir, "# ctx");
     const filePath = path.join(tempDir, "src.ts");
     fs.writeFileSync(filePath, "export const x = 1;");
@@ -1621,9 +1621,6 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
       tool_name: "Edit",
       tool_input: { file_path: filePath },
     });
-    // Both default and fallback invocations hit the quota signal in this
-    // fixture, so the hook should ultimately log an error verdict after
-    // exhausting the fallback. Test asserts the quota error message lands.
     const result = runHookWithFakeCodex(payload, tempDir, "quota");
     expect(result.status).toBe(0);
     const lines = fs
@@ -1631,13 +1628,74 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
       .trim()
       .split("\n")
       .map((l) => JSON.parse(l));
-    // After fallback also fails on quota, hook records the original error.
-    const errEntry = lines.find((l) => l.verdict === "error" || l.verdict === "spawn_failed");
+    const errEntry = lines.find((l) => typeof l.reason === "string" && /rate_limit_exceeded|quota/i.test(l.reason));
     expect(errEntry).toBeTruthy();
-    expect(errEntry.reason).toMatch(/rate_limit_exceeded|quota/i);
+    expect(fs.existsSync(path.join(tempDir, ".codex-pair/state/paused"))).toBe(true);
+    const hookOutput = JSON.parse(result.stdout.trim());
+    expect(hookOutput.systemMessage).toMatch(/auto-paused: provider quota exhausted/);
+  });
+
+  it("quota exhaustion (both models) → auto-pause: sentinel + one-time notice with reset hint (#176)", () => {
+    setupMarker(tempDir, "# ctx");
+    const filePath = path.join(tempDir, "src.ts");
+    fs.writeFileSync(filePath, "export const x = 1;");
+    const payload = JSON.stringify({
+      tool_name: "Edit",
+      tool_input: { file_path: filePath },
+    });
+    const result = runHookWithFakeCodex(payload, tempDir, "quota-plan");
+    expect(result.status).toBe(0);
+
+    const sentinelPath = path.join(tempDir, ".codex-pair/state/paused");
+    expect(fs.existsSync(sentinelPath)).toBe(true);
+    const sentinel = JSON.parse(fs.readFileSync(sentinelPath, "utf-8"));
+    expect(sentinel.kind).toBe("quota");
+    expect(sentinel.resetHint).toBe("3 hours 25 minutes");
+
+    const hookOutput = JSON.parse(result.stdout.trim());
+    expect(hookOutput.systemMessage).toMatch(/auto-paused: provider quota exhausted/);
+    expect(hookOutput.systemMessage).toMatch(/resets ~3 hours 25 minutes/);
+    expect(hookOutput.systemMessage).toMatch(/\/codex-pair-resume/);
+    expect(hookOutput.systemMessage).not.toMatch(/review failed/);
+
+    const lines = fs
+      .readFileSync(path.join(tempDir, ".codex-pair/log.jsonl"), "utf-8")
+      .trim()
+      .split("\n")
+      .map((l) => JSON.parse(l));
+    expect(lines.some((l) => l.autoPaused === "quota")).toBe(true);
+  });
+
+  it("after auto-pause, the next edit is a SILENT log-only skip stating provenance (#176)", () => {
+    setupMarker(tempDir, "# ctx");
+    const filePath = path.join(tempDir, "src.ts");
+    fs.writeFileSync(filePath, "export const x = 1;");
+    const payload = JSON.stringify({
+      tool_name: "Edit",
+      tool_input: { file_path: filePath },
+    });
+    runHookWithFakeCodex(payload, tempDir, "quota-plan"); // pauses
+    fs.writeFileSync(filePath, "export const x = 2;"); // different content → not a cache hit
+    const second = runHookWithFakeCodex(payload, tempDir, "quota-plan");
+    expect(second.status).toBe(0);
+    expect(second.stdout.trim()).toBe(""); // NO systemMessage — silent
+    const lines = fs
+      .readFileSync(path.join(tempDir, ".codex-pair/log.jsonl"), "utf-8")
+      .trim()
+      .split("\n")
+      .map((l) => JSON.parse(l));
+    const skip = lines.filter((l) => l.verdict === "skipped").pop();
+    expect(skip).toBeTruthy();
+    expect(skip.reason).toMatch(/auto-paused \(quota/);
+    expect(skip.reason).toMatch(/codex-pair-resume/);
   });
 
   it("fake-codex 'quota-plan' → failure reason is the JSONL error, NOT the stdin banner (#176)", () => {
+    // Task 4: quota-plan now triggers auto-pause (both models exhausted).
+    // The log entry still carries the JSONL error reason ("usage limit…"),
+    // and the systemMessage is the auto-pause notice — not "ERROR:". The
+    // banner-not-surfaced invariant is preserved (the auto-pause notice
+    // mentions the JSONL error via resetHint, not the stdin banner text).
     setupMarker(tempDir, "# ctx");
     const filePath = path.join(tempDir, "src.ts");
     fs.writeFileSync(filePath, "export const x = 1;");
@@ -1655,9 +1713,10 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
     const entry = lines.find((l) => typeof l.reason === "string" && /usage limit/i.test(l.reason));
     expect(entry).toBeTruthy();
     expect(entry.verdict).toBe("error");
+    // Auto-pause fires: systemMessage is the pause notice, not "ERROR:".
     const hookOutput = JSON.parse(result.stdout.trim());
-    expect(hookOutput.systemMessage).toMatch(/^codex-pair ERROR:/);
-    expect(hookOutput.systemMessage).toMatch(/usage limit/i);
+    expect(hookOutput.systemMessage).toMatch(/auto-paused: provider quota exhausted/);
+    expect(hookOutput.systemMessage).toMatch(/resets ~3 hours 25 minutes/);
     // The banner must never be the surfaced reason again.
     const bannerEntry = lines.find(
       (l) => typeof l.reason === "string" && /^Reading prompt from stdin/.test(l.reason.trim()),
