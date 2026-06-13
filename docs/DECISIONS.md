@@ -1,5 +1,20 @@
 # Architectural Decisions
 
+## ADR-120: codex-pair auto-pauses itself on provider failure (#176)
+
+- **Date:** 2026-06-11
+- **Status:** Accepted — implemented on branch `feat/176-codex-pair-auto-pause` (state helpers, parseResetHint, error classification, quota auto-pause, failure backstop, skill docs; plugin suite green).
+- **Context:** Once Codex quota was exhausted, the PostToolUse hook failed on every edit for the rest of the session with an unhelpful reason: "Reading prompt from stdin..." — the stderr banner. The real error is a stdout JSONL `error` event that the non-zero-exit path discarded (ADR-117's `commandExecutor` union fix applied to the shared layer, but the hook's own rejection-reason construction still grabbed stderr first). `QUOTA_SIGNALS` only matched API-style error phrasings; ChatGPT-plan quota messages ("You've hit your usage limit") bypassed even the existing model fallback because typographic vs ASCII apostrophes caused substring mismatches. The plugin had a pause mechanism (`/codex-pair-pause` → `state/paused` sentinel) but the hook never invoked it — quota exhaustion produced an error cascade instead of a single, clean pause with a user-facing notice.
+- **Decision:**
+  1. **Rejection reason**: on non-zero exit, surface the last stdout JSONL `error` event first, falling back to the stderr tail, then `codex exit <code>` — so the real quota text reaches the quota classifier instead of the benign stdin banner.
+  2. **QUOTA_SIGNALS widened**: add `"usage limit"` and `"rate limit"` as apostrophe-free substrings so ChatGPT-plan quota messages match regardless of whether the apostrophe is ASCII (`'`) or typographic (`'`).
+  3. **Both-models-quota → auto-pause**: when both gpt-5.5 and gpt-5.5-mini are quota-exhausted, set `err.quotaExhausted = true`; the hook writes the pause sentinel itself and emits a one-time notice that includes the parsed reset hint (extracted by a pure `parseResetHint(text)` from the quota message's "try again at `<date>`" clause — display-only, not acted on).
+  4. **Backstop**: 3 consecutive non-quota failures of any kind (global per project, any tool) → same auto-pause. Counter stored in `state/failures.json`; clears on any successful live review. Cache hits do not touch the counter.
+  5. **Sentinel reuse**: the same `state/paused` file as `/codex-pair-pause`. Empty body = manual pause; JSON body = auto pause with `kind`/`reason`/`resetHint`/`at` fields. Written with flag `"wx"` (exclusive create) — an existing pause is never clobbered, which also makes notify-once hold under concurrent hook invocations.
+  6. **Resume is always manual**: `/codex-pair-resume` or `rm .codex-pair/state/paused`. No expiry logic — the user may have their own reasons to stay paused; the reset hint is informational. This was an explicit user decision during design (auto-resume rejected).
+- **Alternatives rejected:** (a) A dedicated `state/quota-paused` sentinel alongside `state/paused` — two files to reason about, and the skill/dashboard already knows one sentinel; (b) auto-resume on the parsed reset time — clobbers user intent without their knowledge; (c) widening the `VERDICT_PREFIXES` taxonomy with a `quota` verdict — the verdict set is a closed enum consumed by log tooling; (d) a new `lib/auto-pause.mjs` module — pause ownership belongs to `state.mjs` (the file that knows the sentinel path), splitting it creates an import cycle risk and a second place to maintain.
+- **Reference:** `docs/plans/2026-06-11-codex-pair-auto-pause-design.md` and `docs/plans/2026-06-11-codex-pair-auto-pause-plan.md`
+
 ## ADR-119: Inline-bundle `@ask-llm/shared` via tsdown — retire `bundledDependencies` + prepack lifecycle (fixes #115, resolves ADR-107's Tier-B question)
 
 - **Date:** 2026-06-10
