@@ -138,7 +138,8 @@ async function run() {
       break;
 
     case "quota":
-      // Quota signal in stderr — hook should fall back to FALLBACK_MODEL.
+      // Quota signal in stderr on EVERY invocation — both primary and fallback
+      // models exhaust, so the hook auto-pauses (full quota exhaustion, #176).
       process.stderr.write("rate_limit_exceeded: you have exhausted your capacity on this model\n");
       process.exit(1);
       break;

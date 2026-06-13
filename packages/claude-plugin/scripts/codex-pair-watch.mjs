@@ -136,7 +136,7 @@ const TRANSIENT_SIGNALS = [
 
 // Cache, log, pause, and inflight-lock state live in ./lib/state.mjs.
 // The hook imports computeCacheKey, getCachedConcerns, setCachedConcerns,
-// appendLog, isPaused, tryAcquireInflightLock, releaseInflightLock, and
+// appendLog, readPauseInfo, tryAcquireInflightLock, releaseInflightLock, and
 // INFLIGHT_TTL_MIN_MS at the top of this file.
 
 // Marker-walk anchor for the unhandled-exception catch handler. main() sets
@@ -358,7 +358,7 @@ async function buildAdaptiveContext({ filePath, fileContent, markerDir, maxFileB
   };
 }
 
-// isPaused, inflightLockPath, tryAcquireInflightLock, releaseInflightLock
+// readPauseInfo, inflightLockPath, tryAcquireInflightLock, releaseInflightLock
 // all live in ./lib/state.mjs.
 
 // Read `.codex-pair/ignore` from the marker directory if present. Returns an
@@ -827,7 +827,19 @@ async function runCodexWithFallback({ prompt, timeoutMs, model, fallbackModel, m
         viaBroker: true,
       };
     } catch (err) {
-      if (!err?.brokerFailure) throw err;
+      if (!err?.brokerFailure) {
+        // The broker path has no fallback ladder — a real (non-transport)
+        // quota error here IS exhaustion, the same as the no-ladder spawn
+        // case (model === fallbackModel). Tag it so main()'s catch surfaces
+        // the clean quota auto-pause notice instead of routing through the
+        // 3-failure backstop (#176 PR-review follow-up). Strictly additive:
+        // only sets a flag on an error already propagating. Broker mode is
+        // env-gated, so this path is not exercised by the fake-codex fixture.
+        if (isQuotaError(err) && err && typeof err === "object") {
+          err.quotaExhausted = true;
+        }
+        throw err;
+      }
       // brokerFailure → silent fall-through to spawnCodex path below.
       // Append a log entry so dogfooders can audit broker-mode regressions.
       try {

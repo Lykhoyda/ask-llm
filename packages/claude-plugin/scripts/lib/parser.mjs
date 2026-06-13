@@ -200,7 +200,11 @@ export function parseConcerns(message) {
 // ── Reset-hint extraction (#176 / ADR-120) ────────────────────────────────
 // Best-effort, DISPLAY-ONLY parse of "when does the quota reset" from a
 // provider error message. Never used for timestamp math — resume is manual;
-// the hint just makes the one-time auto-pause notice actionable.
+// the hint just makes the one-time auto-pause notice actionable. The capture
+// stops at `.` (see RESET_HINT_PATTERNS), so decimal-fraction phrasings like
+// "1.5 hours" yield null rather than a partial hint — an accepted limitation:
+// a missing hint degrades cleanly to a hint-less notice, and integer-unit
+// phrasings ("3 hours 25 minutes") are the common provider format.
 const RESET_HINT_PATTERNS = [
   /try again (?:in|at|after)\s+([^.()\n]+)/i,
   /\bresets?\s+(?:in|at|after)\s+([^.()\n]+)/i,
