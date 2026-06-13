@@ -1259,7 +1259,10 @@ async function main() {
 
     // #176 backstop: any other failure increments the consecutive counter.
     // At AUTOPAUSE_FAILURE_THRESHOLD, pause — a broken provider must not
-    // error-spam an entire session. Counter clears on the next success.
+    // error-spam an entire session. The counter is global per project and
+    // persists across sessions until a successful review or a manual clear,
+    // so a stale streak can trip the pause on the first failure of a new
+    // session — intentional, matching the issue's "never error-spam a session".
     const failureCount = recordReviewFailure(markerDir, reason);
     if (failureCount >= AUTOPAUSE_FAILURE_THRESHOLD) {
       const paused = writeAutoPause(markerDir, { kind: "failures", reason });
