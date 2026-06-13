@@ -14,7 +14,11 @@ Removes the pause sentinel written by `/codex-pair-pause`, restoring normal code
 
 2. Check whether the pause sentinel exists at `<marker-dir>/.codex-pair/state/paused`:
    - If it does not exist, tell the user: "codex-pair was not paused — no `.codex-pair/state/paused` sentinel found. No change."
-   - If it exists, remove it:
+   - If it exists and is non-empty, it is an auto-pause written by the hook itself
+     (quota exhaustion or repeated failures — see #176). `cat` it and show the user
+     the `kind`, `reason`, and `resetHint` fields before removing, so they know
+     whether the provider has likely recovered.
+   - Remove it:
      ```bash
      rm <marker-dir>/.codex-pair/state/paused
      ```
