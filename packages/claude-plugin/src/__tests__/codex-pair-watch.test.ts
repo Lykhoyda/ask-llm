@@ -1654,11 +1654,40 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
       .map((l) => JSON.parse(l));
     const entry = lines.find((l) => typeof l.reason === "string" && /usage limit/i.test(l.reason));
     expect(entry).toBeTruthy();
+    expect(entry.verdict).toBe("error");
+    const hookOutput = JSON.parse(result.stdout.trim());
+    expect(hookOutput.systemMessage).toMatch(/^codex-pair ERROR:/);
+    expect(hookOutput.systemMessage).toMatch(/usage limit/i);
     // The banner must never be the surfaced reason again.
     const bannerEntry = lines.find(
       (l) => typeof l.reason === "string" && /^Reading prompt from stdin/.test(l.reason.trim()),
     );
     expect(bannerEntry).toBeFalsy();
+  });
+
+  it("fake-codex 'quota-plan-recover' → 'usage limit' is classified as quota and drives the model fallback (#176)", () => {
+    setupMarker(tempDir, "# ctx");
+    const filePath = path.join(tempDir, "src.ts");
+    fs.writeFileSync(filePath, "export const x = 1;");
+    const payload = JSON.stringify({
+      tool_name: "Edit",
+      tool_input: { file_path: filePath },
+    });
+    const result = runHookWithFakeCodex(payload, tempDir, "quota-plan-recover", {
+      FAKE_CODEX_ATTEMPT_FILE: path.join(tempDir, "attempt"),
+    });
+    expect(result.status).toBe(0);
+    const lines = fs
+      .readFileSync(path.join(tempDir, ".codex-pair/log.jsonl"), "utf-8")
+      .trim()
+      .split("\n")
+      .map((l) => JSON.parse(l));
+    // Fallback model produced the clean review → the plan-quota phrasing WAS
+    // classified as quota. Delete "usage limit" from QUOTA_SIGNALS and this
+    // entry becomes verdict:error instead (mutation killed).
+    const reviewEntry = lines.find((l) => l.verdict === "none");
+    expect(reviewEntry).toBeTruthy();
+    expect(reviewEntry.fellBack).toBe(true);
   });
 
   // ADR-083: structured JSON output contract. The `concerns-schema` scenario

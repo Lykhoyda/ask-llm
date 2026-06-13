@@ -622,9 +622,9 @@ function extractJsonlErrorEvents(stdout) {
   return messages;
 }
 
-// Last non-empty stderr lines (≤3), capped at 500 bytes. The informative
-// part of codex stderr is the TAIL — the quota line, when present, follows
-// the stdin banner.
+// Last non-empty stderr lines (≤3), capped at 500 chars. The informative
+// part of codex stderr is the TAIL. Capped at 500 chars here; clampReason
+// applies the UTF-8 byte clamp downstream before the reason is logged.
 function stderrTail(stderr) {
   const lines = stderr
     .split("\n")
