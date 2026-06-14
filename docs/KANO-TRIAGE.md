@@ -30,10 +30,10 @@ Issues are triaged on two axes (mirrors the scheme used in `rn-dev-agent`): **Ka
   - Quick wins: `gh issue list --label "kano:must-be" --label "effort:s"`
   - Big bets: `gh issue list --label "kano:attractive" --label "effort:l"`
 
-## Current triage (2026-06-05)
+## Current triage (2026-06-14)
 
 | Issue | Kano | Effort | Note |
 |-------|------|--------|------|
-| #139 — upstream-CLI compatibility (root audit) | `must-be` | `s` | The one canonical compat tracker to keep |
-| #141 / #143 / #145 — sync follow-ups | `indifferent` | `s` | Consolidation candidates — fold into #139 or the roadmap (cf. ADR-109's audit-cadence retirement) |
-| #142 — codex-pair Stop-hook gate | `attractive` | `l` | Delighter hardening the flagship; findings already surface, this makes HIGHs un-ignorable; needs design |
+| #183 — `ask-llm doctor` codex-diagnostics enrichment | `performance` | `s` | The single live tracker. Consolidates the I1 (`codex doctor`/`plugin list --json` in `packages/shared/src/doctor.ts`) + I2 (resume smoke-test) threads from the retired #151/#152 audits (ADR-121); quick win, additive only |
+
+Everything else recent is closed: the #139 → #145 upstream-sync audit chain and #142 (codex-pair Stop-gate) shipped; #151 / #152 (audit records, zero correctness gaps) and #171 (external CodeGuilds notice) closed 2026-06-14 per **ADR-121**. Per **ADR-109 + ADR-121**, upstream-CLI compatibility is watched **on-demand** — re-audit only when a *stable* release observably breaks a surface we depend on — **not** via a standing per-release audit issue.
