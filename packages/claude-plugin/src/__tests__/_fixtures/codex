@@ -185,7 +185,7 @@ async function run() {
     }
 
     case "quota-plan-chatgpt": {
-      // #183 follow-up: primary model hits ChatGPT-plan quota; the gpt-5.5-mini
+      // #176 follow-up (ADR-123): primary model hits ChatGPT-plan quota; the gpt-5.5-mini
       // fallback is structurally unavailable on a ChatGPT account (a 400, not a
       // quota). The fallback ladder is broken, so this is exhaustion → a clean
       // quota auto-pause carrying the PRIMARY reason + reset hint, NOT the
