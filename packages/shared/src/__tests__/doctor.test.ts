@@ -207,3 +207,106 @@ describe("runDiagnostics", () => {
     expect(report.generatedAt).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/);
   });
 });
+
+describe("formatDiagnosticReport — provider enrichment", () => {
+  function codexProbe(enrichment?: DiagnosticReport["providers"][number]["enrichment"]) {
+    return makeReport({
+      providers: [
+        {
+          name: "Codex",
+          command: "codex",
+          available: true,
+          cliPath: "/usr/bin/codex",
+          cliVersion: "codex-cli 0.139.0",
+          error: undefined,
+          enrichment,
+        },
+      ],
+    });
+  }
+
+  it("renders codex doctor overall status and only non-ok checks with remediation", () => {
+    const out = formatDiagnosticReport(
+      codexProbe({
+        heading: "codex doctor",
+        overall: "warning",
+        checks: [
+          { name: "auth.credentials", status: "pass", summary: "auth is configured" },
+          {
+            name: "state.rollout_db_parity",
+            status: "warn",
+            summary: "rollout files and state DB thread inventory differ",
+            remediation: "run `codex doctor` to inspect",
+          },
+          { name: "git.optional", status: "skip", summary: "not applicable in this repo" },
+          { name: "mcp.servers", status: "fail", summary: "1 server failed to start" },
+        ],
+      }),
+    );
+    expect(out).toContain("codex doctor: WARNING");
+    // assert the warn glyph too (not just the name) — a `!`→`✗` regression must fail
+    expect(out).toContain("! state.rollout_db_parity:");
+    expect(out).toContain("rollout files and state DB thread inventory differ");
+    expect(out).toContain("→ run `codex doctor` to inspect");
+    // fail-status checks render with the ✗ glyph (non-ok, so not suppressed)
+    expect(out).toContain("✗ mcp.servers: 1 server failed to start");
+    // pass + skip are neutral; text mode shows only non-ok checks (full set in --json).
+    // skip in particular must not render — its "-" glyph collides with the "- Codex:" prefix.
+    expect(out).not.toContain("auth.credentials");
+    expect(out).not.toContain("git.optional");
+  });
+
+  it("omits the enrichment block entirely when a provider has no enrichment", () => {
+    const out = formatDiagnosticReport(codexProbe(undefined));
+    expect(out).not.toContain("codex doctor:");
+  });
+});
+
+describe("runDiagnostics — provider enrichment", () => {
+  // `node` is guaranteed present + version-probeable in CI, so the provider
+  // resolves to available and the enrich hook fires — no mocks needed.
+  it("attaches enrichment from spec.enrich for an available provider", async () => {
+    const enrichment = { heading: "codex doctor", overall: "ok" as const, checks: [] };
+    const spec: ProviderSpec = {
+      key: "node",
+      name: "NodeEnrich",
+      command: "node",
+      enrich: async () => enrichment,
+    };
+    const report = await runDiagnostics([spec]);
+    const probe = report.providers.find((p) => p.name === "NodeEnrich");
+    expect(probe?.available).toBe(true);
+    expect(probe?.enrichment).toEqual(enrichment);
+  });
+
+  it("degrades to undefined enrichment when spec.enrich throws", async () => {
+    const spec: ProviderSpec = {
+      key: "node",
+      name: "NodeEnrichThrow",
+      command: "node",
+      enrich: async () => {
+        throw new Error("doctor probe failed");
+      },
+    };
+    const report = await runDiagnostics([spec]);
+    const probe = report.providers.find((p) => p.name === "NodeEnrichThrow");
+    expect(probe?.available).toBe(true);
+    expect(probe?.enrichment).toBeUndefined();
+  });
+
+  it("does not run enrich for an unavailable provider", async () => {
+    let called = false;
+    const spec: ProviderSpec = {
+      key: "missing",
+      name: "MissingEnrich",
+      command: "this-command-definitely-does-not-exist-1234567890",
+      enrich: async () => {
+        called = true;
+        return { heading: "x", overall: "ok" as const, checks: [] };
+      },
+    };
+    const report = await runDiagnostics([spec]);
+    expect(called).toBe(false);
+    expect(report.providers.find((p) => p.name === "MissingEnrich")?.enrichment).toBeUndefined();
+  });
+});

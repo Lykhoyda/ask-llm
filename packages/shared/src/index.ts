@@ -17,6 +17,8 @@ export type {
   DiagnosticCheck,
   DiagnosticReport,
   OverallStatus,
+  ProviderEnrichment,
+  ProviderEnrichmentCheck,
   ProviderProbe,
   ProviderSpec,
 } from "./doctor.js";

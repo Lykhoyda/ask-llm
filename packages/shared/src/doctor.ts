@@ -16,6 +16,19 @@ export interface DiagnosticCheck {
   fix?: string;
 }
 
+export interface ProviderEnrichmentCheck {
+  name: string;
+  status: CheckStatus;
+  summary: string;
+  remediation?: string;
+}
+
+export interface ProviderEnrichment {
+  heading: string;
+  overall: OverallStatus;
+  checks: ProviderEnrichmentCheck[];
+}
+
 export interface ProviderProbe {
   name: string;
   command: string;
@@ -23,6 +36,7 @@ export interface ProviderProbe {
   cliPath: string | undefined;
   cliVersion: string | undefined;
   error: string | undefined;
+  enrichment?: ProviderEnrichment;
 }
 
 export interface DiagnosticReport {
@@ -50,6 +64,16 @@ export interface ProviderSpec {
   versionArgs?: string[];
   installHint?: string;
   probeAvailability?: () => Promise<boolean>;
+  /**
+   * Optional per-provider enrichment, run by `runDiagnostics` only for CLI
+   * providers (those without `probeAvailability`) and only once the CLI probes
+   * available — HTTP/`probeAvailability` providers are handled in a separate
+   * branch and never reach the enrich step. Mirrors `probeAvailability` as an
+   * opaque capability callback so this module stays provider-agnostic. Must
+   * degrade to `undefined` on its own errors; `runDiagnostics` also wraps it in
+   * try/catch as a backstop.
+   */
+  enrich?: (ctx: { command: string; pathEnv: string }) => Promise<ProviderEnrichment | undefined>;
 }
 
 const NODE_MIN_MAJOR = 20;
@@ -157,6 +181,14 @@ export async function runDiagnostics(providers: ProviderSpec[]): Promise<Diagnos
     const versionArgs = spec.versionArgs ?? ["--version"];
     const probe = await probeCommand(spec.command, versionArgs, resolvedPath);
     const available = probe.cliPath !== undefined && probe.error === undefined;
+    let enrichment: ProviderEnrichment | undefined;
+    if (available && spec.enrich) {
+      try {
+        enrichment = await spec.enrich({ command: spec.command, pathEnv: resolvedPath });
+      } catch {
+        enrichment = undefined;
+      }
+    }
     providerProbes.push({
       name: spec.name,
       command: spec.command,
@@ -164,6 +196,7 @@ export async function runDiagnostics(providers: ProviderSpec[]): Promise<Diagnos
       cliPath: probe.cliPath,
       cliVersion: probe.version,
       error: probe.error,
+      enrichment,
     });
 
     if (probe.cliPath === undefined) {
@@ -268,6 +301,19 @@ export function formatDiagnosticReport(report: DiagnosticReport): string {
       const detail = provider.cliPath ? ` (${provider.cliVersion ?? "version unknown"})` : "";
       lines.push(`  - ${provider.name}: ${status}${detail}`);
       if (provider.cliPath) lines.push(`      path: ${provider.cliPath}`);
+      if (provider.enrichment) {
+        const { heading, overall, checks } = provider.enrichment;
+        lines.push(`      ${heading}: ${overall.toUpperCase()}`);
+        for (const check of checks) {
+          // Compact text view: surface only non-ok checks; the full mapped list
+          // rides along in the structured report for `doctor --json`. `skip` is
+          // neutral (not-applicable) and its "-" glyph collides with the
+          // "  - <Provider>:" prefix, so it is suppressed alongside `pass`.
+          if (check.status === "pass" || check.status === "skip") continue;
+          lines.push(`        ${STATUS_GLYPH[check.status]} ${check.name}: ${check.summary}`);
+          if (check.remediation) lines.push(`            → ${check.remediation}`);
+        }
+      }
     }
   }
 
