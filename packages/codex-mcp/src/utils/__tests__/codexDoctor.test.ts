@@ -87,4 +87,21 @@ describe("enrichCodexDoctor", () => {
   it("degrades to undefined when the runner returns non-report output", async () => {
     expect(await enrichCodexDoctor(ctx, async () => "garbage output")).toBeUndefined();
   });
+
+  it("salvages a doctor report from a non-zero exit (codex emits JSON on stdout while exiting 1)", async () => {
+    // codex 0.139 prints the full --json report on stdout even when overall
+    // health is error and the process exits non-zero (cf. ADR-117).
+    const enrichment = await enrichCodexDoctor(ctx, async () => {
+      throw Object.assign(new Error("Command failed: codex doctor --json"), { stdout: DOCTOR_JSON, code: 1 });
+    });
+    expect(enrichment?.overall).toBe("warning");
+    expect(enrichment?.checks).toHaveLength(3);
+  });
+
+  it("returns undefined when a thrown error carries no usable stdout", async () => {
+    const enrichment = await enrichCodexDoctor(ctx, async () => {
+      throw Object.assign(new Error("spawn codex ENOENT"), { stdout: "" });
+    });
+    expect(enrichment).toBeUndefined();
+  });
 });

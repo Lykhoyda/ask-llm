@@ -103,7 +103,11 @@ export async function enrichCodexDoctor(
   try {
     const stdout = await run(ctx.command, ctx.pathEnv);
     return parseCodexDoctorJson(stdout);
-  } catch {
-    return undefined;
+  } catch (err) {
+    // codex exits non-zero when overall health is error while still emitting the
+    // full --json report on stdout (cf. ADR-117). Salvage it so the most important
+    // case — codex actually broken — is surfaced rather than silently dropped.
+    const salvaged = (err as { stdout?: unknown }).stdout;
+    return typeof salvaged === "string" ? parseCodexDoctorJson(salvaged) : undefined;
   }
 }
