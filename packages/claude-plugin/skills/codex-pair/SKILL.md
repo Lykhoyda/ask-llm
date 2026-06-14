@@ -94,7 +94,27 @@ The hook empirically catches bugs earlier across any codebase and any task type 
 
 ### Phase 4: Paused dashboard
 
-Render a status table:
+Read the sentinel file:
+```bash
+cat "$MARKER_DIR/.codex-pair/state/paused" 2>/dev/null
+```
+
+If the sentinel is **non-empty** it is an auto-pause written by the hook (quota exhaustion or consecutive failures — see #176). Parse its JSON body and render:
+
+```
+codex-pair status — <MARKER_DIR>
+
+  State:          AUTO-PAUSED ⏸
+  Paused since:   <at field from JSON>
+  Kind:           <kind field: "quota" or "failures">
+  Reason:         <reason field>
+  Resets ~        <resetHint field>  (omit this line if resetHint is absent)
+
+To resume:  /codex-pair-resume
+To remove:  rm -rf <MARKER_DIR>/.codex-pair
+```
+
+If the sentinel is **empty** it is a manual pause. Render:
 
 ```
 codex-pair status — <MARKER_DIR>

@@ -121,6 +121,119 @@ export function isPaused(markerDir) {
   }
 }
 
+// ── Auto-pause (#176 / ADR-120) ───────────────────────────────────────────
+// The hook can pause ITSELF: on provider quota exhaustion, or after
+// AUTOPAUSE_FAILURE_THRESHOLD consecutive review failures of any kind.
+// Same sentinel file as the manual /codex-pair-pause skill — an EMPTY file
+// is a manual pause; a JSON body is an auto-pause with provenance. Resume
+// is always manual (/codex-pair-resume or rm); there is no expiry logic.
+
+export const FAILURES_FILENAME = "failures.json";
+export const AUTOPAUSE_FAILURE_THRESHOLD = 3;
+export const failuresPath = (markerDir) => join(stateRoot(markerDir), FAILURES_FILENAME);
+
+// Returns null (not paused), { manual: true } (empty or unrecognized body),
+// or the parsed auto-pause JSON ({ v, kind, reason, resetHint?, at }).
+// Unrecognized bodies are treated as manual — the conservative read: an
+// unknown pause never auto-expires and never gets overwritten. A string
+// reason is required too, so downstream provenance rendering never sees
+// a non-string ("[object Object]") reason.
+export function readPauseInfo(markerDir) {
+  let raw;
+  try {
+    raw = readFileSync(pausePath(markerDir), "utf8");
+  } catch {
+    return null;
+  }
+  const trimmed = raw.trim();
+  if (trimmed.length === 0) return { manual: true };
+  try {
+    const parsed = JSON.parse(trimmed);
+    if (
+      parsed &&
+      typeof parsed === "object" &&
+      (parsed.kind === "quota" || parsed.kind === "failures") &&
+      typeof parsed.reason === "string"
+    ) {
+      return parsed;
+    }
+  } catch {
+    // fall through to manual
+  }
+  return { manual: true };
+}
+
+// Write the auto-pause sentinel. `flag: "wx"` makes this atomic-exclusive:
+// an existing pause (manual OR auto, including a concurrent hook racing us)
+// is never overwritten — we return false and the caller skips its
+// notification, which is what makes "notify once" hold under concurrency.
+export function writeAutoPause(markerDir, { kind, reason, resetHint }) {
+  const body = JSON.stringify({
+    v: 1,
+    kind,
+    reason: clampReason(typeof reason === "string" ? reason : String(reason)),
+    ...(resetHint ? { resetHint } : {}),
+    at: new Date().toISOString(),
+  });
+  try {
+    mkdirSync(stateRoot(markerDir), { recursive: true });
+    writeFileSync(pausePath(markerDir), body, { flag: "wx" });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// ── Consecutive-failure counter (#176 backstop) ──────────────────────────
+// Global per project (markerDir), spans files and sessions. Incremented on
+// every non-quota review failure; cleared on every successful live review.
+// Tolerant reads (missing/corrupt → 0); atomic tmp+rename writes.
+// Accepted race: this read-modify-write is global per project and NOT
+// serialized by ADR-087's per-file inflight locks — two concurrent
+// failures on different files can lose an increment. Accepted: the
+// threshold just fires one failure later, and the eventual sentinel
+// write is still wx-safe.
+
+export function readFailureCount(markerDir) {
+  try {
+    const parsed = JSON.parse(readFileSync(failuresPath(markerDir), "utf8"));
+    if (parsed && typeof parsed === "object" && typeof parsed.consecutive === "number" && parsed.consecutive > 0) {
+      return Math.floor(parsed.consecutive);
+    }
+  } catch {
+    // missing/corrupt → 0
+  }
+  return 0;
+}
+
+export function recordReviewFailure(markerDir, reason) {
+  const consecutive = readFailureCount(markerDir) + 1;
+  const payload = {
+    v: 1,
+    consecutive,
+    lastAt: new Date().toISOString(),
+    lastReason: clampReason(typeof reason === "string" ? reason : String(reason)),
+  };
+  try {
+    mkdirSync(stateRoot(markerDir), { recursive: true });
+    const p = failuresPath(markerDir);
+    const tmp = `${p}.tmp.${process.pid}`;
+    writeFileSync(tmp, JSON.stringify(payload));
+    renameSync(tmp, p);
+  } catch {
+    // best-effort — counter loss degrades to "pause later", never breaks the hook
+  }
+  return consecutive;
+}
+
+export function clearReviewFailures(markerDir) {
+  try {
+    unlinkSync(failuresPath(markerDir));
+  } catch {
+    // already clear
+  }
+}
+
 // ── Inflight lock (ADR-087, paths consolidated per ADR-092) ──────────────
 export function inflightLockPath(markerDir, filePath) {
   const hash = createHash("sha256").update(filePath).digest("hex").slice(0, 16);

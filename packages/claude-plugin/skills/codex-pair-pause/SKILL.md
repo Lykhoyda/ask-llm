@@ -8,6 +8,11 @@ user_invocable: true
 
 Pauses the codex-pair hook for the current project without removing the `.codex-pair/context.md` marker. The marker (and its project context) stays in place — only the temporary pause sentinel is written. Resume with `/codex-pair-resume`.
 
+The hook may also pause itself automatically — on provider quota exhaustion or after
+3 consecutive review failures — writing the same sentinel with a JSON body that
+records why (`kind`, `reason`, `resetHint`). Manual and automatic pauses are resumed
+the same way.
+
 ## When to use
 
 - Starting a noisy refactor where every edit would surface concerns you've already decided to accept
