@@ -1,5 +1,19 @@
 # Architectural Decisions
 
+## ADR-122: `ask-llm doctor` codex-diagnostics enrichment via a generic `enrich` hook (#183)
+
+- **Date:** 2026-06-14
+- **Status:** Accepted — implemented on `feat/183-codex-doctor-enrichment` (shared `enrich` hook + render, codex parser/runner, llm-mcp wiring; +3 shared doctor tests, +8 codex doctor tests, all green; verified end-to-end against codex 0.139 — text + `--json`).
+- **Context:** #183 (the "I1" thread carried across five upstream-sync audits, #131 → #152) asked to fold codex's machine-readable `codex doctor --json` health into `ask-llm doctor`, gated to codex ≥0.137, without changing default output. `runDiagnostics` (`packages/shared/src/doctor.ts`) is deliberately provider-agnostic — it probes every provider generically (`which` + `--version`) and already exposes one optional per-provider capability callback (`probeAvailability`, used by HTTP providers like ollama). Hardcoding codex branches into shared would break that boundary. Empirically (`codex doctor --json`, codex 0.139): a structured `{ overallStatus, codexVersion, checks: { <id>: { category, status, summary, remediation } } }` report that maps near 1:1 onto ask-llm's own check model, exits 0 even on `warning`, and reports **local install/auth/config health, not live API/quota state**.
+- **Decision:**
+  1. **Generic `enrich` hook**, mirroring `probeAvailability`: `ProviderSpec.enrich?(ctx: { command; pathEnv }) => Promise<ProviderEnrichment | undefined>`, run by `runDiagnostics` only when the CLI probes *available*, wrapped in try/catch. `ProviderProbe` gains optional `enrichment`; new `ProviderEnrichment { heading, overall, checks[] }` type. shared never learns codex shells out.
+  2. **Capability-probe, not version-gate.** The codex enricher attempts `codex doctor --json` and degrades to `undefined` on any failure (old codex without `--json` exits non-zero; unparseable/timeout). No `codex --version` parsing — the issue's "≥0.137" enforces itself by the probe succeeding. Rejects the issue's literal version-gate because version strings are brittle (the pre-release/nightly parsing the upstream-sync audits kept tripping on).
+  3. **Scope: `codex doctor` only.** `codex plugin list --json` (codex *marketplace* plugins) dropped as YAGNI — unrelated to ask-llm's `codex exec` usage.
+  4. **Informational only.** codex status maps onto ask-llm's vocabulary (`ok→pass`, `warning→warn`, `error→fail`) but never affects `report.status` or the doctor exit code; text mode shows overall + non-ok checks only, the full mapped list rides along in `--json`.
+  5. **Placement honors the package graph:** pure `parseCodexDoctorJson` + `enrichCodexDoctor` (injectable runner) live in `ask-codex-mcp` (beside `parseCodexJsonlOutput`), re-exported on `ask-codex-mcp/executor`; llm-mcp wires it via new `enrichModule`/`enrichFn` config loaded by the **same variable-specifier dynamic `import()`** as `probeAvailability` (ADR-119-safe; graceful if codex-mcp absent).
+- **Alternatives rejected:** (a) codex branches in `shared/doctor.ts` — breaks the provider-agnostic boundary; (b) version-gate on `codex --version ≥0.137` — brittle string parsing; (c) static import of the codex enricher in llm-mcp — tsdown could inline it and it crashes when codex-mcp is absent; the config-driven dynamic import degrades gracefully; (d) `codex plugin list` inclusion — YAGNI; (e) rolling codex health into ask-llm's overall status/exit code — false alarms (codex `warning` for "app-server not running" doesn't mean ask-llm is broken).
+- **Reference:** `docs/plans/2026-06-14-codex-doctor-enrichment-design.md`; issue #183.
+
 ## ADR-121: Consolidate the `kano:indifferent` upstream-sync audit backlog — #151/#152 → #183, close notice #171
 
 - **Date:** 2026-06-14

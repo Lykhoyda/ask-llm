@@ -17,6 +17,10 @@ import {
 } from "@ask-llm/shared";
 import { CLI, CODEX_EDIT_SCHEMA, ERROR_MESSAGES, MODELS, STATUS_MESSAGES } from "../constants.js";
 
+// Re-exported on the `ask-codex-mcp/executor` surface so the llm-mcp orchestrator
+// can load the doctor enrichment by name (mirrors how executeCodexCLI is loaded).
+export { enrichCodexDoctor, parseCodexDoctorJson } from "./codexDoctor.js";
+
 interface CodexItemCompleted {
   type: "item.completed";
   item?: {

@@ -20,12 +20,29 @@ export async function buildProviderSpecs(): Promise<ProviderSpec[]> {
         }
       };
     }
+    let enrich: ProviderSpec["enrich"];
+    if (config.enrichModule && config.enrichFn) {
+      const moduleName = config.enrichModule;
+      const fnName = config.enrichFn;
+      enrich = async (ctx) => {
+        try {
+          const mod = (await import(moduleName)) as Record<string, unknown>;
+          const fn = mod[fnName] as ProviderSpec["enrich"] | undefined;
+          if (typeof fn !== "function") return undefined;
+          return await fn(ctx);
+        } catch {
+          return undefined;
+        }
+      };
+    }
+
     specs.push({
       key,
       name: config.name,
       command: config.command,
       installHint,
       probeAvailability,
+      enrich,
     });
   }
   return specs;

@@ -6,6 +6,8 @@ export interface ProviderConfig {
   defaultModel: string;
   availabilityModule?: string;
   availabilityFn?: string;
+  enrichModule?: string;
+  enrichFn?: string;
 }
 
 export const PROVIDERS: Record<string, ProviderConfig> = {
@@ -22,6 +24,8 @@ export const PROVIDERS: Record<string, ProviderConfig> = {
     executorModule: "ask-codex-mcp/executor",
     executorFn: "executeCodexCLI",
     defaultModel: "gpt-5.5",
+    enrichModule: "ask-codex-mcp/executor",
+    enrichFn: "enrichCodexDoctor",
   },
   ollama: {
     name: "Ollama",
