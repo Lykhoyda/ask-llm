@@ -238,6 +238,7 @@ describe("formatDiagnosticReport — provider enrichment", () => {
             summary: "rollout files and state DB thread inventory differ",
             remediation: "run `codex doctor` to inspect",
           },
+          { name: "git.optional", status: "skip", summary: "not applicable in this repo" },
         ],
       }),
     );
@@ -245,8 +246,10 @@ describe("formatDiagnosticReport — provider enrichment", () => {
     expect(out).toContain("state.rollout_db_parity");
     expect(out).toContain("rollout files and state DB thread inventory differ");
     expect(out).toContain("→ run `codex doctor` to inspect");
-    // pass-level checks are full detail only in --json; text mode stays compact
+    // pass + skip are neutral; text mode shows only non-ok checks (full set in --json).
+    // skip in particular must not render — its "-" glyph collides with the "- Codex:" prefix.
     expect(out).not.toContain("auth.credentials");
+    expect(out).not.toContain("git.optional");
   });
 
   it("omits the enrichment block entirely when a provider has no enrichment", () => {

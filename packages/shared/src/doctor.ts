@@ -303,8 +303,10 @@ export function formatDiagnosticReport(report: DiagnosticReport): string {
         lines.push(`      ${heading}: ${overall.toUpperCase()}`);
         for (const check of checks) {
           // Compact text view: surface only non-ok checks; the full mapped list
-          // rides along in the structured report for `doctor --json`.
-          if (check.status === "pass") continue;
+          // rides along in the structured report for `doctor --json`. `skip` is
+          // neutral (not-applicable) and its "-" glyph collides with the
+          // "  - <Provider>:" prefix, so it is suppressed alongside `pass`.
+          if (check.status === "pass" || check.status === "skip") continue;
           lines.push(`        ${STATUS_GLYPH[check.status]} ${check.name}: ${check.summary}`);
           if (check.remediation) lines.push(`            → ${check.remediation}`);
         }
