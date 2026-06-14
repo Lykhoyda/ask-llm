@@ -118,6 +118,13 @@ const QUOTA_SIGNALS = [
   "rate limit",
 ];
 
+// A configured fallback model can be structurally unavailable on some Codex
+// account types — notably gpt-5.5-mini is rejected with a 400 on ChatGPT-plan
+// accounts (where quota is account-wide, so a cheaper fallback never applied).
+// Matched only on the FALLBACK leg after a primary quota error: it means the
+// fallback ladder is broken, i.e. the same "no usable model" exhaustion.
+const MODEL_UNAVAILABLE_SIGNALS = ["is not supported when using codex with a chatgpt"];
+
 // Transient failure signatures (item #10). Errors matching any of these get
 // ONE retry with jittered delay before propagating. Quota errors take the
 // existing model-fallback path (not retry — quota exhaustion isn't transient).
@@ -574,6 +581,11 @@ function isQuotaError(err) {
   return QUOTA_SIGNALS.some((sig) => msg.includes(sig));
 }
 
+function isModelUnavailableError(err) {
+  const msg = (err instanceof Error ? err.message : String(err)).toLowerCase();
+  return MODEL_UNAVAILABLE_SIGNALS.some((sig) => msg.includes(sig));
+}
+
 // Transient = retryable. Excludes hook-side timeout and parse_failed by
 // verdict tag (those are deterministic and retry can't help). Quota errors
 // take the model-fallback path instead — they're not transient either.
@@ -869,10 +881,23 @@ async function runCodexWithFallback({ prompt, timeoutMs, model, fallbackModel, m
         });
         return { response, fellBack: true };
       } catch (fallbackErr) {
-        // BOTH models failed. If the fallback also hit quota, the provider
-        // is exhausted — tag it so main()'s catch auto-pauses (#176).
+        // BOTH models are now unusable, which is exhaustion either way:
+        //  (a) the fallback also hit quota → provider exhausted, or
+        //  (b) the fallback is structurally unavailable on this account
+        //      (e.g. gpt-5.5-mini on a ChatGPT plan returns a 400, not a
+        //      quota) → the ladder is broken, the same "no usable model"
+        //      case as model === fallbackModel below.
+        // Tag quotaExhausted so main()'s catch does the clean #176 quota
+        // auto-pause instead of the 3-failure backstop. For (b) re-throw the
+        // PRIMARY quota error so its reason + reset hint reach the pause
+        // notice — the fallback 400 carries neither.
         if (isQuotaError(fallbackErr) && fallbackErr && typeof fallbackErr === "object") {
           fallbackErr.quotaExhausted = true;
+          throw fallbackErr;
+        }
+        if (isModelUnavailableError(fallbackErr) && err && typeof err === "object") {
+          err.quotaExhausted = true;
+          throw err;
         }
         throw fallbackErr;
       }

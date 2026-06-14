@@ -184,6 +184,41 @@ async function run() {
       break;
     }
 
+    case "quota-plan-chatgpt": {
+      // #176 follow-up (ADR-123): primary model hits ChatGPT-plan quota; the gpt-5.5-mini
+      // fallback is structurally unavailable on a ChatGPT account (a 400, not a
+      // quota). The fallback ladder is broken, so this is exhaustion → a clean
+      // quota auto-pause carrying the PRIMARY reason + reset hint, NOT the
+      // 3-failure backstop. Mirrors the real codex error shape (nested under
+      // `error.message`, no top-level `message`) so the hook's reason becomes
+      // the full JSON containing the model-unavailable signal.
+      const fs = require("node:fs");
+      const counterFile = process.env.FAKE_CODEX_ATTEMPT_FILE;
+      let attempts = 0;
+      if (counterFile) {
+        try { attempts = Number(fs.readFileSync(counterFile, "utf8")) || 0; } catch {}
+        fs.writeFileSync(counterFile, String(attempts + 1));
+      }
+      if (attempts >= 1) {
+        // fallback-model invocation → rejected on ChatGPT plan
+        emitJsonl({
+          type: "error",
+          status: 400,
+          error: {
+            type: "invalid_request_error",
+            message: "The 'gpt-5.5-mini' model is not supported when using Codex with a ChatGPT account.",
+          },
+        });
+        process.exit(1);
+      }
+      // primary-model invocation → ChatGPT-plan quota (with reset hint)
+      process.stderr.write("Reading prompt from stdin...\n");
+      emitJsonl({ type: "thread.started", thread_id: "fake-thread-quota-chatgpt" });
+      emitJsonl({ type: "error", message: "You've hit your usage limit. Try again in 3 hours 25 minutes." });
+      process.exit(1);
+      break;
+    }
+
     case "transient": {
       // Transient network signal — hook should retry once.
       process.stderr.write("ECONNRESET while connecting to upstream\n");
