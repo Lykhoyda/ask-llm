@@ -65,10 +65,13 @@ export interface ProviderSpec {
   installHint?: string;
   probeAvailability?: () => Promise<boolean>;
   /**
-   * Optional per-provider enrichment, run only when the CLI probes available.
-   * Mirrors `probeAvailability` as an opaque capability callback so this module
-   * stays provider-agnostic. Must degrade to `undefined` on its own errors;
-   * `runDiagnostics` also wraps it in try/catch as a backstop.
+   * Optional per-provider enrichment, run by `runDiagnostics` only for CLI
+   * providers (those without `probeAvailability`) and only once the CLI probes
+   * available — HTTP/`probeAvailability` providers are handled in a separate
+   * branch and never reach the enrich step. Mirrors `probeAvailability` as an
+   * opaque capability callback so this module stays provider-agnostic. Must
+   * degrade to `undefined` on its own errors; `runDiagnostics` also wraps it in
+   * try/catch as a backstop.
    */
   enrich?: (ctx: { command: string; pathEnv: string }) => Promise<ProviderEnrichment | undefined>;
 }

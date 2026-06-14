@@ -239,6 +239,7 @@ describe("formatDiagnosticReport — provider enrichment", () => {
             remediation: "run `codex doctor` to inspect",
           },
           { name: "git.optional", status: "skip", summary: "not applicable in this repo" },
+          { name: "mcp.servers", status: "fail", summary: "1 server failed to start" },
         ],
       }),
     );
@@ -246,6 +247,8 @@ describe("formatDiagnosticReport — provider enrichment", () => {
     expect(out).toContain("state.rollout_db_parity");
     expect(out).toContain("rollout files and state DB thread inventory differ");
     expect(out).toContain("→ run `codex doctor` to inspect");
+    // fail-status checks render with the ✗ glyph (non-ok, so not suppressed)
+    expect(out).toContain("✗ mcp.servers: 1 server failed to start");
     // pass + skip are neutral; text mode shows only non-ok checks (full set in --json).
     // skip in particular must not render — its "-" glyph collides with the "- Codex:" prefix.
     expect(out).not.toContain("auth.credentials");
