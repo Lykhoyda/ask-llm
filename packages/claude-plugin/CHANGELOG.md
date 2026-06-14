@@ -1,5 +1,20 @@
 # @ask-llm/plugin
 
+## 0.9.0
+
+### Minor Changes
+
+- [#187](https://github.com/Lykhoyda/ask-llm/pull/187) [`5757bee`](https://github.com/Lykhoyda/ask-llm/commit/5757bee9029303118cb9e58040617c3390e959b2) Thanks [@Lykhoyda](https://github.com/Lykhoyda)! - codex-pair: a primary-model quota error followed by a **structurally-unavailable fallback model** now auto-pauses cleanly (kind `quota`, with the reset hint) instead of cascading to the 3-failure backstop. On ChatGPT-plan Codex accounts the `gpt-5.5-mini` fallback is rejected with a 400 ("not supported when using Codex with a ChatGPT account") — because plan quota is account-wide, a cheaper fallback never applied. The hook now recognizes the broken fallback ladder as the same "no usable model" exhaustion as the no-ladder case and re-throws the primary quota error so its reason + reset hint reach the pause notice. ADR-123.
+
+### Patch Changes
+
+- Updated dependencies [[`206943d`](https://github.com/Lykhoyda/ask-llm/commit/206943deb83975e7b06f461771087210617d7287)]:
+  - @ask-llm/shared@0.4.0
+  - ask-codex-mcp@0.4.0
+  - ask-gemini-mcp@1.6.12
+  - ask-ollama-mcp@0.3.7
+  - ask-antigravity-mcp@0.2.3
+
 ## 0.8.0
 
 ### Minor Changes
