@@ -35,7 +35,7 @@
   /* ─── Text ───────────────────────────────────── */
   --color-text-primary: #ededed;
   --color-text-secondary: #a1a1aa;
-  --color-text-muted: #52525b;
+  --color-text-muted: #82828c; /* WCAG AA: ~5.2:1 on --color-bg (was #52525b ~2.5:1) */
 
   /* ─── Status ─────────────────────────────────── */
   --color-error: #f87171;
