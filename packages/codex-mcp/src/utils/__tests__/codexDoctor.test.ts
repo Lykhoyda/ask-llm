@@ -52,7 +52,9 @@ describe("parseCodexDoctorJson", () => {
     const withSkip = parseCodexDoctorJson(
       JSON.stringify({
         overallStatus: "ok",
-        checks: { "git.optional": { id: "git.optional", status: "skip", summary: "not in a git repo", remediation: null } },
+        checks: {
+          "git.optional": { id: "git.optional", status: "skip", summary: "not in a git repo", remediation: null },
+        },
       }),
     );
     expect(withSkip?.checks[0]?.status).toBe("skip");
