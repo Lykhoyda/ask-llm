@@ -1756,6 +1756,35 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
     expect(lines.some((l) => l.autoPaused === "quota")).toBe(true);
   });
 
+  it("primary quota + fallback model unavailable (ChatGPT plan) → clean quota auto-pause, NOT the 3-failure backstop", () => {
+    setupMarker(tempDir, "# ctx");
+    const filePath = path.join(tempDir, "src.ts");
+    fs.writeFileSync(filePath, "export const x = 1;");
+    const payload = JSON.stringify({
+      tool_name: "Edit",
+      tool_input: { file_path: filePath },
+    });
+    // Primary gpt-5.5 hits ChatGPT-plan quota; the gpt-5.5-mini fallback is
+    // structurally rejected on a ChatGPT account (400, not a quota). The ladder
+    // is broken → exhaustion, so a SINGLE edit must pause as kind:"quota" with
+    // the PRIMARY reset hint — pre-fix it fell to the 3-failure backstop (no
+    // sentinel on the first failure, and kind:"failures" with no reset hint).
+    const result = runHookWithFakeCodex(payload, tempDir, "quota-plan-chatgpt", {
+      FAKE_CODEX_ATTEMPT_FILE: path.join(tempDir, "attempt"),
+    });
+    expect(result.status).toBe(0);
+
+    const sentinelPath = path.join(tempDir, ".codex-pair/state/paused");
+    expect(fs.existsSync(sentinelPath)).toBe(true);
+    const sentinel = JSON.parse(fs.readFileSync(sentinelPath, "utf-8"));
+    expect(sentinel.kind).toBe("quota");
+    expect(sentinel.resetHint).toBe("3 hours 25 minutes");
+
+    const hookOutput = JSON.parse(result.stdout.trim());
+    expect(hookOutput.systemMessage).toMatch(/auto-paused: provider quota exhausted/);
+    expect(hookOutput.systemMessage).toMatch(/resets ~3 hours 25 minutes/);
+  });
+
   it("after auto-pause, the next edit is a SILENT log-only skip stating provenance (#176)", () => {
     setupMarker(tempDir, "# ctx");
     const filePath = path.join(tempDir, "src.ts");
