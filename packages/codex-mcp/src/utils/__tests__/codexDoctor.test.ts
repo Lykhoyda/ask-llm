@@ -48,6 +48,14 @@ describe("parseCodexDoctorJson", () => {
     expect(byName["auth.credentials"]?.status).toBe("pass");
     expect(byName["state.rollout_db_parity"]?.status).toBe("warn");
     expect(byName["mcp.servers"]?.status).toBe("fail");
+    // drive "skip" through the real parser (the render test bypasses it with a pre-typed check)
+    const withSkip = parseCodexDoctorJson(
+      JSON.stringify({
+        overallStatus: "ok",
+        checks: { "git.optional": { id: "git.optional", status: "skip", summary: "not in a git repo", remediation: null } },
+      }),
+    );
+    expect(withSkip?.checks[0]?.status).toBe("skip");
   });
 
   it("normalizes null remediation to undefined and preserves real remediation", () => {

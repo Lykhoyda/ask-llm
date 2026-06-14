@@ -244,7 +244,8 @@ describe("formatDiagnosticReport — provider enrichment", () => {
       }),
     );
     expect(out).toContain("codex doctor: WARNING");
-    expect(out).toContain("state.rollout_db_parity");
+    // assert the warn glyph too (not just the name) — a `!`→`✗` regression must fail
+    expect(out).toContain("! state.rollout_db_parity:");
     expect(out).toContain("rollout files and state DB thread inventory differ");
     expect(out).toContain("→ run `codex doctor` to inspect");
     // fail-status checks render with the ✗ glyph (non-ok, so not suppressed)
