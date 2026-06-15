@@ -13,7 +13,7 @@ vi.mock("ask-codex-mcp/executor", () => ({
 }));
 
 vi.mock("ask-ollama-mcp/executor", () => ({
-  executeOllamaCLI: vi.fn().mockResolvedValue({ response: "ollama response", model: "qwen2.5-coder:7b" }),
+  executeOllamaCLI: vi.fn().mockResolvedValue({ response: "ollama response", model: "qwen3.6:27b" }),
   isProviderAvailable: vi.fn().mockResolvedValue(false),
 }));
 
@@ -35,7 +35,7 @@ beforeEach(() => {
   vi.mocked(mockIsOllamaAvailable).mockResolvedValue(false);
   vi.mocked(executeGeminiCLI).mockResolvedValue({ response: "gemini response", sessionId: undefined });
   vi.mocked(executeCodexCLI).mockResolvedValue({ response: "codex response", threadId: undefined });
-  vi.mocked(executeOllamaCLI).mockResolvedValue({ response: "ollama response", model: "qwen2.5-coder:7b" });
+  vi.mocked(executeOllamaCLI).mockResolvedValue({ response: "ollama response", model: "qwen3.6:27b" });
 });
 
 describe("detectProviders", () => {

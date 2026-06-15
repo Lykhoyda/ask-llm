@@ -46,7 +46,7 @@ Get a second opinion from a local Ollama model. No API keys needed — all proce
 /ollama-review
 ```
 
-Requires Ollama running locally with a model pulled (e.g., `qwen2.5-coder:7b`).
+Requires Ollama running locally with a model pulled (e.g., `qwen3.6:27b`).
 
 ### `/antigravity-review`
 

@@ -14,7 +14,6 @@ import {
   ERROR_MESSAGES,
   MODELS,
   OLLAMA_HOST_ENV,
-  STATUS_MESSAGES,
 } from "../constants.js";
 
 interface OllamaChatResponse {
@@ -47,12 +46,7 @@ export interface OllamaExecutorResult {
   usage: UsageStats | undefined;
 }
 
-function buildUsageStats(
-  data: OllamaChatResponse,
-  resolvedModel: string,
-  durationMs: number,
-  fellBack: boolean,
-): UsageStats {
+function buildUsageStats(data: OllamaChatResponse, resolvedModel: string, durationMs: number): UsageStats {
   return {
     provider: "ollama",
     model: data.model ?? resolvedModel,
@@ -61,7 +55,8 @@ function buildUsageStats(
     cachedTokens: undefined,
     thinkingTokens: undefined,
     durationMs,
-    fellBack,
+    // Local inference has no quota/model fallback, so this is always false.
+    fellBack: false,
   };
 }
 
@@ -178,7 +173,7 @@ export async function executeOllamaCLI(options: OllamaExecutorOptions): Promise<
         response: raw,
         model: data.model ?? model,
         sessionId: undefined,
-        usage: buildUsageStats(data, model, durationMs, false),
+        usage: buildUsageStats(data, model, durationMs),
       };
     }
 
@@ -199,46 +194,15 @@ export async function executeOllamaCLI(options: OllamaExecutorOptions): Promise<
       response,
       model: data.model ?? model,
       sessionId: stored?.id,
-      usage: buildUsageStats(data, model, durationMs, false),
+      usage: buildUsageStats(data, model, durationMs),
     };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
 
-    if (isModelNotFoundError(errorMessage) && model !== MODELS.FALLBACK) {
-      Logger.warn(`${STATUS_MESSAGES.MODEL_NOT_FOUND_SWITCHING} Falling back to ${MODELS.FALLBACK}.`);
-      Logger.debug(`Status: ${STATUS_MESSAGES.FALLBACK_RETRY}`);
-
-      const fallbackStartedAt = Date.now();
-      try {
-        const data = await callOllama(baseUrl, MODELS.FALLBACK, messages);
-        const content = data.message?.content ?? "";
-        const stored =
-          sessionId !== undefined
-            ? appendAndSaveSession(sessionId, "ollama", data.model ?? MODELS.FALLBACK, prompt, content)
-            : undefined;
-
-        const sessionLine = stored ? `\n\n[Session ID: ${stored.id}${stored.created ? " (new)" : ""}]` : "";
-        const response =
-          content + formatStats(data.prompt_eval_count, data.eval_count, data.model ?? MODELS.FALLBACK) + sessionLine;
-        const durationMs = Date.now() - fallbackStartedAt;
-
-        Logger.warn(`Successfully executed with ${MODELS.FALLBACK} fallback.`);
-        Logger.debug(`Status: ${STATUS_MESSAGES.FALLBACK_SUCCESS}`);
-
-        if (onProgress) {
-          onProgress(content.slice(-150));
-        }
-
-        return {
-          response,
-          model: data.model ?? MODELS.FALLBACK,
-          sessionId: stored?.id,
-          usage: buildUsageStats(data, MODELS.FALLBACK, durationMs, true),
-        };
-      } catch (fallbackError) {
-        const fallbackMsg = fallbackError instanceof Error ? fallbackError.message : String(fallbackError);
-        throw new Error(`${MODELS.DEFAULT} model not found, ${MODELS.FALLBACK} fallback also failed: ${fallbackMsg}`);
-      }
+    if (isModelNotFoundError(errorMessage)) {
+      // Local inference: no automatic fallback to a different model — surface a clear,
+      // actionable error so the user pulls the model they actually intend to run.
+      throw new Error(`Ollama model "${model}" is not available locally. Pull it first: ollama pull ${model}`);
     }
 
     throw error;

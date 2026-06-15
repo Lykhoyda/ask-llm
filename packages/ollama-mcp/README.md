@@ -50,21 +50,22 @@ Add to `claude_desktop_config.json`:
 
 - **[Node.js](https://nodejs.org/)** v20.0.0 or higher
 - **[Ollama](https://ollama.com)** installed and running locally
-- **A model pulled:** `ollama pull qwen2.5-coder:7b`
+- **A model pulled:** `ollama pull qwen3.6:27b`
 
 ## Tools
 
 | Tool | Purpose |
 |------|---------|
-| `ask-ollama` | Send prompts to local Ollama via HTTP. Defaults to qwen2.5-coder:7b |
+| `ask-ollama` | Send prompts to local Ollama via HTTP. Defaults to qwen3.6:27b |
 | `ping` | Lists locally available Ollama models via /api/tags |
 
 ## Models
 
 | Model | Use Case |
 |-------|----------|
-| `qwen2.5-coder:7b` | Default — good balance of speed and capability |
-| `qwen2.5-coder:1.5b` | Automatic fallback if 7b not available |
+| `qwen3.6:27b` | Default — Qwen's flagship-level local coding model (~17 GB) |
+
+Override with `ASK_OLLAMA_MODEL`. Ollama is local, so there's no automatic fallback — you pull the model you want, and a missing model returns a clear `ollama pull <model>` error.
 
 ## Configuration
 

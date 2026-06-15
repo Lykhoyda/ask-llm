@@ -28,7 +28,7 @@ npm install -g @openai/codex
 
 # Ollama
 # install from https://ollama.com, then:
-ollama pull qwen2.5-coder:7b
+ollama pull qwen3.6:27b
 
 # Gemini (enterprise seats only from 2026-06-18)
 npm install -g @google/gemini-cli && gemini login

@@ -120,38 +120,26 @@ describe("response parsing", () => {
   });
 });
 
-describe("model-not-found fallback", () => {
-  it("retries with fallback model on 'not found' error", async () => {
-    mockFetch
-      .mockImplementationOnce(() =>
-        Promise.resolve(errorResponse(404, "model 'qwen2.5-coder:7b' not found, try pulling it first")),
-      )
-      .mockImplementationOnce(() => Promise.resolve(okResponse("Fallback response", MODELS.FALLBACK)));
+describe("model-not-found handling (no fallback)", () => {
+  it("throws an actionable 'ollama pull' error on 'not found', without retrying", async () => {
+    mockFetch.mockImplementationOnce(() =>
+      Promise.resolve(errorResponse(404, "model 'qwen3.6:27b' not found, try pulling it first")),
+    );
 
-    const result = await executeOllamaCLI({ prompt: "test" });
-    expect(result.response).toContain("Fallback response");
-    expect(result.model).toBe(MODELS.FALLBACK);
-    expect(mockFetch).toHaveBeenCalledTimes(2);
-
-    const secondBody = JSON.parse(mockFetch.mock.calls[1][1].body);
-    expect(secondBody.model).toBe(MODELS.FALLBACK);
-  });
-
-  it("does not retry if already using fallback model", async () => {
-    mockFetch.mockImplementationOnce(() => Promise.resolve(errorResponse(404, "model not found")));
-
-    await expect(executeOllamaCLI({ prompt: "test", model: MODELS.FALLBACK })).rejects.toThrow("model not found");
+    await expect(executeOllamaCLI({ prompt: "test", model: "qwen3.6:27b" })).rejects.toThrow(
+      /ollama pull qwen3\.6:27b/,
+    );
+    // Exactly one request — no substitution to a different model.
     expect(mockFetch).toHaveBeenCalledTimes(1);
   });
 
-  it("throws combined error when both models fail", async () => {
-    mockFetch
-      .mockImplementationOnce(() => Promise.resolve(errorResponse(404, "model not found")))
-      .mockImplementationOnce(() => Promise.resolve(errorResponse(404, "fallback also missing")));
-
-    await expect(executeOllamaCLI({ prompt: "test" })).rejects.toThrow(
-      `${MODELS.DEFAULT} model not found, ${MODELS.FALLBACK} fallback also failed: fallback also missing`,
+  it("names the default model in the error when no model is specified", async () => {
+    mockFetch.mockImplementationOnce(() =>
+      Promise.resolve(errorResponse(404, "model not found, try pulling it first")),
     );
+
+    await expect(executeOllamaCLI({ prompt: "test" })).rejects.toThrow(new RegExp(`ollama pull ${MODELS.DEFAULT}`));
+    expect(mockFetch).toHaveBeenCalledTimes(1);
   });
 
   it("does not retry on non-model errors (500)", async () => {
@@ -191,22 +179,6 @@ describe("response caching", () => {
     await executeOllamaCLI({ prompt: "test", model: "model-b" });
 
     expect(mockFetch).toHaveBeenCalledTimes(2);
-  });
-
-  it("does not cache fallback responses", async () => {
-    mockFetch
-      .mockImplementationOnce(() => Promise.resolve(errorResponse(404, "model not found")))
-      .mockImplementationOnce(() => Promise.resolve(okResponse("Fallback", MODELS.FALLBACK)));
-
-    await executeOllamaCLI({ prompt: "test" });
-
-    mockFetch
-      .mockImplementationOnce(() => Promise.resolve(errorResponse(404, "model not found")))
-      .mockImplementationOnce(() => Promise.resolve(okResponse("Fallback again", MODELS.FALLBACK)));
-
-    await executeOllamaCLI({ prompt: "test" });
-
-    expect(mockFetch).toHaveBeenCalledTimes(4);
   });
 });
 

@@ -2,8 +2,9 @@ export const OLLAMA_HOST_ENV = "OLLAMA_HOST";
 export const DEFAULT_BASE_URL = "http://localhost:11434";
 
 export const MODELS = {
-  DEFAULT: process.env.ASK_OLLAMA_MODEL || "qwen2.5-coder:7b",
-  FALLBACK: process.env.ASK_OLLAMA_FALLBACK_MODEL || "qwen2.5-coder:1.5b",
+  // Ollama is local — the user explicitly pulls the model they want, so there is no
+  // automatic fallback to a different model. Override the default via ASK_OLLAMA_MODEL.
+  DEFAULT: process.env.ASK_OLLAMA_MODEL || "qwen3.6:27b",
 };
 
 export const API = {
@@ -20,9 +21,6 @@ export const ERROR_MESSAGES = {
 } as const;
 
 export const STATUS_MESSAGES = {
-  MODEL_NOT_FOUND_SWITCHING: "Ollama model not found, switching to fallback model...",
-  FALLBACK_RETRY: "Retrying with fallback model...",
-  FALLBACK_SUCCESS: "Fallback model completed successfully",
   OLLAMA_RESPONSE: "Ollama response:",
 } as const;
 

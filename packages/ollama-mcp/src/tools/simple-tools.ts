@@ -1,5 +1,6 @@
 import type { UnifiedTool } from "@ask-llm/shared";
 import { z } from "zod";
+import { MODELS } from "../constants.js";
 import { listModels } from "../utils/ollamaExecutor.js";
 
 const pingArgsSchema = z.object({
@@ -25,7 +26,7 @@ export const pingTool: UnifiedTool = {
     if (message) return message as string;
 
     const models = await listModels();
-    const modelList = models.length > 0 ? models.join(", ") : "none (run: ollama pull qwen2.5-coder:7b)";
+    const modelList = models.length > 0 ? models.join(", ") : `none (run: ollama pull ${MODELS.DEFAULT})`;
     return `Pong from Ollama MCP Server! Available models: ${modelList}`;
   },
 };
