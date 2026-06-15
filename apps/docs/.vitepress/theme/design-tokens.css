@@ -22,6 +22,7 @@
   --color-ollama: #ff6b35;
   --color-unified: #818cf8;
   --color-plugin: #a855f7;
+  --color-antigravity: #22d3ee;
 
   /* ─── Surface ────────────────────────────────── */
   --color-bg: #0a0a0b;
@@ -69,6 +70,7 @@
   --color-ollama-glow: rgba(255, 107, 53, 0.1);
   --color-unified-glow: rgba(129, 140, 248, 0.1);
   --color-plugin-glow: rgba(168, 85, 247, 0.1);
+  --color-antigravity-glow: rgba(34, 211, 238, 0.1);
 
   /* ─── Anti-grid corner ───────────────────────── */
   --corner-size: 10px;

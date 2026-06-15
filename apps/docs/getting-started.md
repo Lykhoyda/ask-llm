@@ -15,7 +15,7 @@ Three steps: install Node, install at least one provider, register the MCP serve
 - **Codex** — strong code reasoning (GPT-5.5). The default workhorse for targeted reviews and architecture critique.
 - **Antigravity** — subscription-backed via Google AI Pro/Ultra (`agy`). The Gemini CLI successor; good for a second opinion and larger-context reads.
 - **Ollama** — local, private, zero cost. Best when data can't leave your machine.
-- **Gemini** — huge 1M+ token context, but [enterprise-gated since 2026-06-18](/providers/gemini).
+- **Gemini** — huge 1M+ token context, but [enterprise-gated from 2026-06-18](/providers/gemini).
 :::
 
 ```bash
@@ -30,7 +30,7 @@ npm install -g @openai/codex
 # install from https://ollama.com, then:
 ollama pull qwen2.5-coder:7b
 
-# Gemini (enterprise seats only since 2026-06-18)
+# Gemini (enterprise seats only from 2026-06-18)
 npm install -g @google/gemini-cli && gemini login
 ```
 

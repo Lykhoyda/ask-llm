@@ -22,7 +22,7 @@
 
 **Get a second opinion before you ship.** Ask LLM lets your AI assistant — Claude Code, Cursor, Claude Desktop, or any of [40+ MCP clients](https://modelcontextprotocol.io/clients) — consult a _second_ model to review your code, debate a plan, or catch a bug it might have missed. Pick the reviewer that fits: OpenAI **Codex** (GPT-5.5), Google **Antigravity** (`agy`), a local **Ollama** model, or **Gemini** (1M+ token context). Standard [MCP](https://modelcontextprotocol.io/), no prompt hacks.
 
-> **⚠️ Gemini CLI is enterprise-gated (since 2026-06-18):** Google restricts Gemini CLI to **Gemini Code Assist Standard/Enterprise** seats — free, Google AI Pro, and Ultra accounts are no longer served. `ask-gemini-mcp` still installs, but on a non-enterprise account it surfaces actionable guidance instead of output. Free/Pro users: switch to **`ask-antigravity`** (the Google-sanctioned successor, subscription-backed via Google AI Pro/Ultra), **`ask-codex`**, or **`ask-ollama`**. [Announcement](https://developers.googleblog.com/an-important-update-transitioning-gemini-cli-to-antigravity-cli/)
+> **⚠️ Gemini CLI is enterprise-gated (from 2026-06-18):** Google restricts Gemini CLI to **Gemini Code Assist Standard/Enterprise** seats — free, Google AI Pro, and Ultra accounts are no longer served. `ask-gemini-mcp` still installs, but on a non-enterprise account it surfaces actionable guidance instead of output. Free/Pro users: switch to **`ask-antigravity`** (the Google-sanctioned successor, subscription-backed via Google AI Pro/Ultra), **`ask-codex`**, or **`ask-ollama`**. [Announcement](https://developers.googleblog.com/an-important-update-transitioning-gemini-cli-to-antigravity-cli/)
 
 ## Why a second opinion?
 
@@ -140,7 +140,7 @@ Replace `ask-llm-mcp` with `ask-codex-mcp`, `ask-antigravity-mcp`, `ask-ollama-m
 | **Codex** | Code reasoning, targeted reviews, architecture critique | `gpt-5.5` → `gpt-5.5-mini` | Requires an OpenAI/Codex account |
 | **Antigravity** | A subscription-backed second opinion; larger-context reads | `Gemini 3.5 Flash (High)` | Google AI Pro/Ultra plan; one-shot, experimental |
 | **Ollama** | Private/local review, zero cost, offline | `qwen2.5-coder:7b` → `:1.5b` | Runs entirely on your machine |
-| **Gemini** | Whole-codebase reads (1M+ tokens) | `gemini-3.1-pro-preview` → `gemini-3.5-flash` | ⚠️ Enterprise-gated since 2026-06-18 |
+| **Gemini** | Whole-codebase reads (1M+ tokens) | `gemini-3.1-pro-preview` → `gemini-3.5-flash` | ⚠️ Enterprise-gated from 2026-06-18 |
 | **Unified (`ask-llm`)** | One install for all of the above; fan out in parallel | routes per call | **Recommended** |
 
 ## Claude Code Plugin
@@ -176,7 +176,7 @@ See the [plugin docs](https://lykhoyda.github.io/ask-llm/plugin/overview) for de
   - [Codex CLI](https://github.com/openai/codex) — installed and authenticated
   - [Antigravity CLI](https://antigravity.google) (`agy`) — installed and logged in once (Google AI Pro/Ultra)
   - [Ollama](https://ollama.com) — running locally with a model pulled (`ollama pull qwen2.5-coder:7b`)
-  - [Gemini CLI](https://github.com/google-gemini/gemini-cli) — `npm install -g @google/gemini-cli && gemini login` (enterprise-gated since 2026-06-18)
+  - [Gemini CLI](https://github.com/google-gemini/gemini-cli) — `npm install -g @google/gemini-cli && gemini login` (enterprise-gated from 2026-06-18)
 
 ## MCP Tools
 

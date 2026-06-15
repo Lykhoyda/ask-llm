@@ -25,7 +25,7 @@ Different providers excel at different things. Pick by what you're doing, not by
 | Targeted code reasoning, refactor critique | **Codex** | GPT-5.5's strength is dense code reasoning at moderate context size |
 | Private / air-gapped analysis | **Ollama** | Runs locally, nothing leaves your machine |
 | Subscription-backed second opinion, larger context | **Antigravity** | `agy` via your Google AI Pro/Ultra plan — the Gemini CLI successor |
-| Whole-codebase review (enterprise seats) | **Gemini** | 1M+ token context fits what others can't — [enterprise-gated since 2026-06-18](/providers/gemini) |
+| Whole-codebase review (enterprise seats) | **Gemini** | 1M+ token context fits what others can't — [enterprise-gated from 2026-06-18](/providers/gemini) |
 | "What do they all think?" comparison | **Multi-LLM** (`multi-llm` tool or `/compare` skill) | Parallel dispatch, see all responses side-by-side |
 | Code review with verified findings | **`/multi-review` skill** | Antigravity + Codex in parallel, then verifies each finding against source |
 
@@ -63,7 +63,7 @@ Use ask-ollama with model deepseek-coder:6.7b to review this implementation
 
 | Provider | Context window | Cost model |
 |---|---|---|
-| Gemini Pro | ~1M tokens (~250k LOC) | Gemini Code Assist Standard/Enterprise seat (since 2026-06-18) |
+| Gemini Pro | ~1M tokens (~250k LOC) | Gemini Code Assist Standard/Enterprise seat (from 2026-06-18) |
 | Gemini Flash | ~1M tokens | Cheaper than Pro; fallback target for quota relief |
 | Codex GPT-5.5 | Per OpenAI's published context window | Per OpenAI billing |
 | Codex GPT-5.5-mini | Smaller context | Cheaper; fallback target |

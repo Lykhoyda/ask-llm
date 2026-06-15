@@ -39,7 +39,7 @@ Sends code changes to a local Ollama model. All processing stays on your machine
 
 ### `gemini-reviewer`
 
-Sends code changes to Google Gemini for review. Leverages Gemini's massive context window for changes that span many files. ([Enterprise-gated since 2026-06-18](/providers/gemini).)
+Sends code changes to Google Gemini for review. Leverages Gemini's massive context window for changes that span many files. ([Enterprise-gated from 2026-06-18](/providers/gemini).)
 
 ## Brainstorm Agent
 

@@ -54,7 +54,7 @@ The `/compare` skill returns each provider's verbatim response side-by-side. No 
 
 ### 2. Massive Codebase Analysis
 
-Claude is excellent at writing code, but its context window gets expensive when you ask it to read a lot. Offload heavy reading to Gemini's 1M+ token context (Gemini CLI is [enterprise-gated since 2026-06-18](/providers/gemini) — on other plans, use `ask-antigravity` for large-context reads):
+Claude is excellent at writing code, but its context window gets expensive when you ask it to read a lot. Offload heavy reading to Gemini's 1M+ token context (Gemini CLI is [enterprise-gated from 2026-06-18](/providers/gemini) — on other plans, use `ask-antigravity` for large-context reads):
 
 ```text
 # Architecture overview
@@ -65,6 +65,12 @@ Ask Gemini: @package.json @package-lock.json — are there any security vulnerab
 
 # Cross-package monorepo analysis
 Ask Gemini with includeDirs ["packages/api", "packages/shared"] to review how the API uses the shared types
+```
+
+On a non-enterprise plan, run the same large-context read through Antigravity (`agy`) instead — it takes file context via `includeDirs`, not `@`:
+
+```text
+Use ask-antigravity with includeDirs ["packages/api", "packages/shared"] to review how the API uses the shared types
 ```
 
 Gemini reads, Claude edits — the canonical Ask LLM pattern.

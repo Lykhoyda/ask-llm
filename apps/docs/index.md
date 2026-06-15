@@ -44,7 +44,7 @@ hero:
     <span class="provider-desc">OpenAI's Codex CLI (GPT-5.5). Strongest code reasoning — the default workhorse reviewer.</span>
     <span class="provider-pkg">npx ask-codex-mcp</span>
   </a>
-  <a href="/ask-llm/providers/antigravity" class="provider-card" data-provider="plugin">
+  <a href="/ask-llm/providers/antigravity" class="provider-card" data-provider="antigravity">
     <span class="provider-name">Antigravity</span>
     <span class="provider-desc">Google Antigravity (agy) — a subscription-backed second opinion via your Google AI Pro/Ultra plan. The Gemini CLI successor.</span>
     <span class="provider-pkg">npx ask-antigravity-mcp</span>
@@ -56,7 +56,7 @@ hero:
   </a>
   <a href="/ask-llm/providers/gemini" class="provider-card" data-provider="gemini">
     <span class="provider-name">Gemini <span class="provider-tag">enterprise</span></span>
-    <span class="provider-desc">Google's Gemini CLI. 1M+ token context for whole-codebase reads. Gated to enterprise seats since 2026-06-18.</span>
+    <span class="provider-desc">Google's Gemini CLI. 1M+ token context for whole-codebase reads. Gated to enterprise seats from 2026-06-18.</span>
     <span class="provider-pkg">npx ask-gemini-mcp</span>
   </a>
 </div>

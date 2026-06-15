@@ -565,6 +565,13 @@
   box-shadow: inset 0 20px 40px -20px var(--color-plugin-glow);
 }
 
+.provider-card[data-provider="antigravity"]:hover::after {
+  background: var(--color-antigravity);
+}
+.provider-card[data-provider="antigravity"]:hover::before {
+  box-shadow: inset 0 20px 40px -20px var(--color-antigravity-glow);
+}
+
 .provider-card.plugin-featured {
   grid-column: 1 / -1;
 }

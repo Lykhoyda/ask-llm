@@ -160,7 +160,7 @@ This is a one-shot — once you've cleared the cache and run a clean install, th
 
 Each provider has its own auth flow:
 
-- **Gemini**: `gemini login` (OAuth) or set `GEMINI_API_KEY` env var. **Note:** Gemini CLI is [enterprise-gated since 2026-06-18](/providers/gemini) — non-enterprise accounts get an auth/quota error here even after a successful login. Switch to `ask-antigravity` or `ask-codex`.
+- **Gemini**: `gemini login` (OAuth) or set `GEMINI_API_KEY` env var. **Note:** Gemini CLI is [enterprise-gated from 2026-06-18](/providers/gemini) — non-enterprise accounts get an auth/quota error here even after a successful login. Switch to `ask-antigravity` or `ask-codex`.
 - **Codex**: follow `codex` CLI's auth instructions (varies by version)
 - **Ollama**: no auth needed; Ollama just needs to be running locally
 

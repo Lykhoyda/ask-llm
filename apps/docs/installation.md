@@ -14,7 +14,7 @@ Multiple ways to install Ask LLM, depending on whether you want the unified orch
   - `npm install -g @openai/codex` (then follow CLI auth) for Codex
   - [Antigravity CLI](https://antigravity.google) (`agy`) installed and logged in once for Antigravity
   - [Ollama](https://ollama.com) running locally with a model pulled (`ollama pull qwen2.5-coder:7b`)
-  - `npm install -g @google/gemini-cli && gemini login` for Gemini ([enterprise-gated since 2026-06-18](/providers/gemini))
+  - `npm install -g @google/gemini-cli && gemini login` for Gemini ([enterprise-gated from 2026-06-18](/providers/gemini))
 
 ## Packages
 
@@ -24,7 +24,7 @@ Multiple ways to install Ask LLM, depending on whether you want the unified orch
 | [`ask-codex-mcp`](https://www.npmjs.com/package/ask-codex-mcp) | Codex-only | `ask-codex`, `get-usage-stats`, `ping` |
 | [`ask-antigravity-mcp`](https://www.npmjs.com/package/ask-antigravity-mcp) | Antigravity-only (experimental) — subscription-backed via `agy` | `ask-antigravity`, `get-usage-stats`, `ping` |
 | [`ask-ollama-mcp`](https://www.npmjs.com/package/ask-ollama-mcp) | Ollama-only (local) | `ask-ollama`, `get-usage-stats`, `ping` |
-| [`ask-gemini-mcp`](https://www.npmjs.com/package/ask-gemini-mcp) | Gemini-only — full feature set including `@` file syntax, sandbox, edit mode. [Enterprise-gated since 2026-06-18](/providers/gemini) | `ask-gemini`, `ask-gemini-edit`, `fetch-chunk`, `get-usage-stats`, `ping` |
+| [`ask-gemini-mcp`](https://www.npmjs.com/package/ask-gemini-mcp) | Gemini-only — full feature set including `@` file syntax, sandbox, edit mode. [Enterprise-gated from 2026-06-18](/providers/gemini) | `ask-gemini`, `ask-gemini-edit`, `fetch-chunk`, `get-usage-stats`, `ping` |
 
 The unified orchestrator uses a single `ask-llm` tool with a `provider` parameter for token efficiency ([ADR-029](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md)) — you pick the provider per call. Per-provider packages expose the richer per-provider tool surface (`ask-gemini-edit` for structured edits, `fetch-chunk` for large response pagination, etc.).
 

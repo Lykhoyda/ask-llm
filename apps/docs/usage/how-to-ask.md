@@ -105,7 +105,7 @@ Used automatically when Gemini's response is larger than a single MCP message al
 
 #### `ask-codex` / `ask-ollama` / `ask-antigravity`
 
-Same shape as `ask-llm` but pre-bound to the provider. `ask-codex` and `ask-ollama` accept `prompt`, `model`, `sessionId` (Codex maps `sessionId` to its `thread_id`; Ollama uses server-side message replay). `ask-antigravity` is single-turn — it accepts `prompt` and `model` only (no `sessionId`).
+Same shape as `ask-llm` but pre-bound to the provider. `ask-codex` and `ask-ollama` accept `prompt`, `model`, `sessionId` (Codex maps `sessionId` to its `thread_id`; Ollama uses server-side message replay). `ask-antigravity` is single-turn — it accepts `prompt` and `includeDirs` (file context via `agy --add-dir`); there is no `sessionId` and no per-call `model` (set the model with the `ASK_ANTIGRAVITY_MODEL` env var).
 
 ---
 

@@ -25,7 +25,7 @@ The MCP servers are MIT-licensed and free. Provider costs depend on which provid
 - **Codex** — per OpenAI billing
 - **Antigravity** — covered by your Google AI Pro/Ultra subscription (no per-token billing)
 - **Ollama** — free (runs locally on your machine)
-- **Gemini** — requires a Gemini Code Assist Standard/Enterprise seat ([enterprise-gated since 2026-06-18](/providers/gemini))
+- **Gemini** — requires a Gemini Code Assist Standard/Enterprise seat ([enterprise-gated from 2026-06-18](/providers/gemini))
 
 ### Why is Gemini gated now, and what should I use instead?
 
