@@ -149,7 +149,7 @@ export async function startServer() {
     "ask-llm",
     {
       description:
-        "Send a prompt to an LLM provider (Gemini, Codex, Ollama). Specify which provider to use. Each provider auto-selects its best model with fallback on errors. Returns both human-readable text and a structured response (provider, model, sessionId, usage) via outputSchema.",
+        "Send a prompt to an LLM provider (Codex, Antigravity, Ollama, Gemini). Specify which provider to use. Each provider auto-selects its best model with fallback on errors. Returns both human-readable text and a structured response (provider, model, sessionId, usage) via outputSchema.",
       inputSchema: askLlmSchema.shape,
       outputSchema: (askResponseSchema as z.ZodObject<z.ZodRawShape>).shape,
       annotations: { title: "Ask LLM", readOnlyHint: false, destructiveHint: false, openWorldHint: true },
@@ -258,7 +258,7 @@ export async function startServer() {
     "multi-llm",
     {
       description:
-        "Dispatch the same prompt to multiple LLM providers in parallel and return all responses in one structured payload. Use when you want to compare answers across Gemini, Codex, and Ollama, or when you want a multi-provider sanity check on a question. Returns per-provider success/failure, response text, model, sessionId, and token usage. Each call is fresh — no session continuity (use ask-llm for individual session-bearing calls).",
+        "Dispatch the same prompt to multiple LLM providers in parallel and return all responses in one structured payload. Use when you want to compare answers across Codex, Antigravity, Ollama, and Gemini, or when you want a multi-provider sanity check on a question. Returns per-provider success/failure, response text, model, sessionId, and token usage. Each call is fresh — no session continuity (use ask-llm for individual session-bearing calls).",
       inputSchema: multiLlmInputSchema.shape,
       outputSchema: (multiLlmReportSchema as z.ZodObject<z.ZodRawShape>).shape,
       annotations: {
