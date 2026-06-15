@@ -12,22 +12,26 @@ Three steps: install Node, install at least one provider, register the MCP serve
 2. **At least one provider** — pick whichever fits your use case:
 
 ::: tip Which provider should I install first?
-- **Gemini** — best for huge-context analysis (1M+ tokens). Great for whole-codebase reviews. Free tier via OAuth.
-- **Codex** — strong at code reasoning (GPT-5.5). Good for targeted fixes and architecture critique.
-- **Ollama** — local, private, zero-cost. Good when data can't leave your machine.
+- **Codex** — strong code reasoning (GPT-5.5). The default workhorse for targeted reviews and architecture critique.
+- **Antigravity** — subscription-backed via Google AI Pro/Ultra (`agy`). The Gemini CLI successor; good for a second opinion and larger-context reads.
+- **Ollama** — local, private, zero cost. Best when data can't leave your machine.
+- **Gemini** — huge 1M+ token context, but [enterprise-gated since 2026-06-18](/providers/gemini).
 :::
 
 ```bash
-# Gemini
-npm install -g @google/gemini-cli && gemini login
-
 # Codex (requires OpenAI account)
 npm install -g @openai/codex
 # follow the codex CLI's auth instructions
 
+# Antigravity (requires Google AI Pro/Ultra)
+# install agy from https://antigravity.google, then log in once
+
 # Ollama
 # install from https://ollama.com, then:
 ollama pull qwen2.5-coder:7b
+
+# Gemini (enterprise seats only since 2026-06-18)
+npm install -g @google/gemini-cli && gemini login
 ```
 
 You can install one or all three. The MCP server auto-detects which providers are available and only registers tools for the ones it finds.
@@ -111,7 +115,7 @@ npx ask-llm-mcp doctor
 
 The doctor checks Node version, PATH resolution, every provider CLI's presence and version, and key env vars. Use it when MCP itself can't start (server not registered, broken auth, wrong Node version) — it works outside the MCP transport.
 
-If everything looks good, head to [How to Ask](/usage/how-to-ask) for usage patterns.
+If everything looks good, head to [First Steps](/first-steps) to send your first prompt, or [How to Ask](/usage/how-to-ask) for usage patterns. Need every install method and per-client config? See [Installation](/installation).
 
 ---
 

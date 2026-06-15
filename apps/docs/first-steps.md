@@ -25,17 +25,17 @@ npx ask-llm-mcp doctor
 The unified `ask-llm` tool takes a `provider` parameter. In natural language:
 
 ```text
-Use ask-llm to ask Gemini to explain @src/auth.ts
-Use ask-llm to ask Codex how to refactor this function
+Use ask-llm to ask Codex to refactor @src/auth.ts
+Use ask-llm to ask Antigravity to debate this approach
 Use ask-llm to ask Ollama to summarize this file (runs locally, no data sent anywhere)
 ```
 
 If you installed the per-provider packages instead of the orchestrator, the tools are named explicitly:
 
 ```text
-ask gemini to summarize @README.md
 ask codex to review the staged changes
 ask ollama to explain this auth flow
+ask gemini to summarize @README.md
 ```
 
 ## Multi-Provider Dispatch
@@ -43,7 +43,7 @@ ask ollama to explain this auth flow
 Send the same prompt to multiple providers in one call and compare:
 
 ```text
-Use multi-llm to ask Gemini and Codex whether this approach is thread-safe
+Use multi-llm to ask Codex and Gemini whether this approach is thread-safe
 ```
 
 Returns per-provider responses + token usage in one structured payload. Per-provider failures are isolated (one provider hitting quota doesn't fail the whole call).
@@ -53,11 +53,11 @@ Returns per-provider responses + token usage in one structured payload. Per-prov
 Every response includes a session ID. Pass it back to continue:
 
 ```text
-Use ask-llm to ask Gemini to review @src/auth.ts for security issues
+Use ask-llm to ask Codex to review @src/auth.ts for security issues
 # → Response includes [Session ID: abc-123-...]
 
-Use ask-llm to ask Gemini to fix the XSS issue you found, sessionId abc-123-...
-# → Gemini remembers the prior review
+Use ask-llm to ask Codex to fix the issue you found, sessionId abc-123-...
+# → Codex remembers the prior review
 ```
 
 All three providers support sessions — Gemini and Codex use native CLI resume, Ollama uses server-side conversation replay. See [Multi-Turn Sessions](/usage/multi-turn-sessions) for details.
