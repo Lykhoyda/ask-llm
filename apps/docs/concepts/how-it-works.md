@@ -4,7 +4,7 @@ description: Architecture and execution flow of Ask LLM — from natural languag
 
 # How It Works
 
-Ask LLM is a set of MCP servers that bridge your AI client (Claude Code, Claude Desktop, Cursor, etc.) with up to three LLM providers running locally on your machine: Google's Gemini CLI, OpenAI's Codex CLI, and Ollama (local models). Your client decides when to delegate work to one or more providers based on what you ask.
+Ask LLM is a set of MCP servers that bridge your AI client (Claude Code, Claude Desktop, Cursor, etc.) with up to four LLM providers through their local CLIs: OpenAI's Codex, Google's Antigravity (`agy`), Ollama (fully local models), and Google's Gemini. Your client decides when to delegate work to one or more providers based on what you ask.
 
 ## Natural Language Workflow
 
