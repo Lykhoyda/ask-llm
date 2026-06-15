@@ -1,5 +1,20 @@
 # ask-llm-mcp
 
+## 0.4.1
+
+### Patch Changes
+
+- [#189](https://github.com/Lykhoyda/ask-llm/pull/189) [`2436972`](https://github.com/Lykhoyda/ask-llm/commit/2436972aeba14bb9cb352e0ff4a6056c552498d3) Thanks [@Lykhoyda](https://github.com/Lykhoyda)! - Include Antigravity in the `ask-llm` and `multi-llm` tool descriptions. The unified orchestrator has supported Antigravity as a fourth provider for a while (it's in the `PROVIDERS` registry and the `provider` enum), but the two top-level tool-description strings still enumerated only "Gemini, Codex, Ollama" — so MCP clients listing the tools saw a stale, incomplete provider list. Both descriptions now read "Codex, Antigravity, Ollama, Gemini" (the canonical order). The runtime `provider` enum was already dynamic and unaffected.
+
+- [#191](https://github.com/Lykhoyda/ask-llm/pull/191) [`1feaaa2`](https://github.com/Lykhoyda/ask-llm/commit/1feaaa2ca51e79fb334af780aaf0ecaa83b5bd8f) Thanks [@Lykhoyda](https://github.com/Lykhoyda)! - Bump the default Ollama model to `qwen3.6:27b` (was `qwen2.5-coder:7b`) and remove the automatic model fallback.
+
+  Ollama runs locally, where you explicitly pull the model you want — so silently substituting a _different_ model on "model not found" was a footgun. The executor now surfaces a clear, actionable error (`Ollama model "<model>" is not available locally. Pull it first: ollama pull <model>`) instead of falling back to another model. The `ASK_OLLAMA_FALLBACK_MODEL` env var and the `FALLBACK` constant are removed; `ASK_OLLAMA_MODEL` still overrides the default, and `usage.fellBack` is now always `false` for Ollama.
+
+  Note: qwen3.6's smallest Ollama variant is ~17 GB and needs a capable GPU / plenty of RAM — set `ASK_OLLAMA_MODEL` to a lighter tag (e.g. a `qwen2.5-coder` size) if your machine can't run it.
+
+- Updated dependencies [[`1feaaa2`](https://github.com/Lykhoyda/ask-llm/commit/1feaaa2ca51e79fb334af780aaf0ecaa83b5bd8f)]:
+  - ask-ollama-mcp@0.4.0
+
 ## 0.4.0
 
 ### Minor Changes

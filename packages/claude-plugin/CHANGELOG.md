@@ -1,5 +1,12 @@
 # @ask-llm/plugin
 
+## 0.9.1
+
+### Patch Changes
+
+- Updated dependencies [[`1feaaa2`](https://github.com/Lykhoyda/ask-llm/commit/1feaaa2ca51e79fb334af780aaf0ecaa83b5bd8f)]:
+  - ask-ollama-mcp@0.4.0
+
 ## 0.9.0
 
 ### Minor Changes
