@@ -51,9 +51,9 @@ To start a fresh Ollama session explicitly, pass `sessionId: ""` (empty string) 
 
 You don't need to manually manage session IDs. Just tell your AI assistant to continue the conversation:
 
-- *"Ask Gemini to review my auth module, then follow up asking it to fix what it found."*
+- *"Ask Codex to review my auth module, then follow up asking it to fix what it found."*
 - *"Have Gemini analyze @src/ — then in a second call, ask it which files need refactoring."*
-- *"Get Gemini's opinion on this PR, then ask it to elaborate on the performance concerns."*
+- *"Get Codex's opinion on this PR, then ask it to elaborate on the performance concerns."*
 
 Your AI assistant will automatically extract the session ID from the first response and pass it in the follow-up.
 
@@ -92,12 +92,12 @@ Gemini compares against its earlier analysis without re-reading the files.
 
 | Scenario | Without sessions | With sessions |
 |----------|-----------------|---------------|
-| Code review + fix | Gemini re-reads files on every call | Gemini remembers its review findings |
+| Code review + fix | The model re-reads files on every call | The model remembers its review findings |
 | Architecture debate | Repeat full context each time | Build on previous arguments |
 | Iterative analysis | Start from scratch | Refine progressively |
 | Multi-step refactoring | Explain the plan again | Continue from last step |
 
-Sessions are especially useful for **large codebases** — Gemini's context is preserved across calls, avoiding redundant token usage on file re-reads.
+Sessions are especially useful for **large codebases** — the provider's context is preserved across calls, avoiding redundant token usage on file re-reads.
 
 ---
 

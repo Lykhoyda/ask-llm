@@ -4,7 +4,7 @@ description: Proven strategies for AI-to-AI code review, architecture debates, a
 
 # Strategies & Examples
 
-Real-world workflows that get the most out of Ask LLM. Each strategy maps to a specific provider strength or tool — pick the pattern that fits your task.
+Copy-paste recipes that get the most out of Ask LLM. Each maps to a job — a second opinion, a plan debate, a diff review, a big read, or a private check — and to the provider that fits it best.
 
 ## The `@` File Syntax (Gemini)
 
@@ -32,8 +32,8 @@ Don't rely on one AI model — get a second perspective before committing or mer
 **Single provider:**
 
 ```text
-Ask Gemini to review the staged changes in @feature/new-api/*.js for security issues, performance, and missing error handling.
-Ask Codex to do the same review on the same files — focus on edge cases.
+Ask Codex to review the staged changes for security issues, performance, and missing error handling.
+Ask Gemini to do the same review on @feature/new-api/*.js — focus on edge cases.
 ```
 
 **Multi-provider (with verification, plugin only):**
@@ -54,7 +54,7 @@ The `/compare` skill returns each provider's verbatim response side-by-side. No 
 
 ### 2. Massive Codebase Analysis
 
-Claude is excellent at writing code, but its context window gets expensive when you ask it to read a lot. Offload heavy reading to Gemini's 1M+ token context:
+Claude is excellent at writing code, but its context window gets expensive when you ask it to read a lot. Offload heavy reading to Gemini's 1M+ token context (Gemini CLI is [enterprise-gated since 2026-06-18](/providers/gemini) — on other plans, use `ask-antigravity` for large-context reads):
 
 ```text
 # Architecture overview
