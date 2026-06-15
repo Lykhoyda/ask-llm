@@ -8,7 +8,7 @@ Ask LLM provides Model Context Protocol (MCP) servers that let any MCP-compatibl
 
 - `ask-gemini-mcp`: MCP server for Google Gemini CLI. 1M+ token context. Default model: gemini-3.1-pro-preview.
 - `ask-codex-mcp`: MCP server for OpenAI Codex CLI. Default model: gpt-5.5.
-- `ask-ollama-mcp`: MCP server for local Ollama. No API keys, fully private. Default model: qwen2.5-coder:7b.
+- `ask-ollama-mcp`: MCP server for local Ollama. No API keys, fully private. Default model: qwen3.6:27b.
 - `ask-llm-mcp`: Unified server — auto-detects installed providers and registers all available tools.
 
 ## Installation

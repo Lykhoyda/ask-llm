@@ -166,7 +166,7 @@ Send prompts to a local Ollama LLM via HTTP. No API keys or network calls needed
 - **Package:** ask-ollama-mcp
 - **Parameters:**
   - `prompt` (string, required): The question, code review request, or analysis task.
-  - `model` (string, optional): Do not set unless user explicitly requests it. Default: qwen2.5-coder:7b. Falls back to qwen2.5-coder:1.5b if not found.
+  - `model` (string, optional): Do not set unless user explicitly requests it. Default: qwen3.6:27b. No fallback — returns a clear "ollama pull" error if the model isn't installed.
 - **Returns:** Ollama's text response.
 - **Annotations:** readOnlyHint=false, destructiveHint=false, openWorldHint=false
 - **Environment:** Set OLLAMA_HOST to customize the Ollama server address (default: http://localhost:11434).
@@ -197,8 +197,9 @@ Test MCP server connectivity. Available in all packages.
 ### Ollama
 | Model | Use Case |
 |-------|----------|
-| qwen2.5-coder:7b | Default — good balance of speed and capability |
-| qwen2.5-coder:1.5b | Automatic fallback if 7b not available |
+| qwen3.6:27b | Default — Qwen's flagship-level local coding model (~17 GB) |
+
+Ollama is local — no automatic fallback. Override with `ASK_OLLAMA_MODEL`; a model that isn't pulled returns a clear `ollama pull` error.
 
 ## Usage Patterns
 
@@ -267,7 +268,7 @@ Launches Gemini and Codex reviews in parallel with consensus highlighting.
 ## Error Handling
 
 All MCP servers handle errors gracefully:
-- **Quota errors:** Automatic fallback to cheaper model (Pro→Flash, gpt-5.5→mini, 7b→1.5b)
+- **Quota errors:** Automatic fallback to a cheaper model for hosted providers (Pro→Flash, gpt-5.5→mini). Ollama is local and never substitutes — a missing model returns a clear "ollama pull" error.
 - **CLI not found:** Clear error message with installation instructions
 - **Timeout:** 5-minute default, configurable via GMCPT_TIMEOUT_MS environment variable
 - **Large responses:** Automatic chunking with fetch-chunk retrieval (Gemini only)
