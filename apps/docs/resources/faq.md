@@ -12,7 +12,7 @@ A set of MCP servers that bridge your AI client (Claude Code, Claude Desktop, Cu
 
 ### Why use this instead of the providers directly?
 
-- **One interface for all three providers** — you don't switch between three CLIs
+- **One interface for every provider** — you don't switch between separate CLIs
 - **Multi-provider parallel dispatch** — `multi-llm` and `/compare` send the same prompt to multiple providers in one call
 - **Verified code review** — `/multi-review` cross-checks each finding against source before presenting (catches false positives)
 - **Session continuity across providers** — `sessionId` works the same way for all three
@@ -27,9 +27,9 @@ The MCP servers are MIT-licensed and free. Provider costs depend on which provid
 - **Ollama** — free (runs locally on your machine)
 - **Gemini** — requires a Gemini Code Assist Standard/Enterprise seat ([enterprise-gated from 2026-06-18](/providers/gemini))
 
-### Why is Gemini gated now, and what should I use instead?
+### Why is Gemini enterprise-gated, and what should I use instead?
 
-As of 2026-06-18, Google restricts Gemini CLI to Gemini Code Assist Standard/Enterprise seats — free, Google AI Pro, and Ultra accounts are no longer served. `ask-gemini-mcp` still installs, but a non-enterprise account will see actionable guidance instead of output. Use **Antigravity** (`ask-antigravity` — the Google-sanctioned successor, subscription-backed via Google AI Pro/Ultra), **Codex** (`ask-codex`), or **Ollama** (`ask-ollama`) instead. See [Antigravity](/providers/antigravity).
+From 2026-06-18, Google restricts Gemini CLI to Gemini Code Assist Standard/Enterprise seats, and free, Google AI Pro, and Ultra accounts lose access. `ask-gemini-mcp` still installs, but a non-enterprise account will then see actionable guidance instead of output. Use **Antigravity** (`ask-antigravity` — the Google-sanctioned successor, subscription-backed via Google AI Pro/Ultra), **Codex** (`ask-codex`), or **Ollama** (`ask-ollama`) instead. See [Antigravity](/providers/antigravity).
 
 ### Does it work on Windows?
 

@@ -1,12 +1,12 @@
 ---
-description: Continue conversations across multiple tool calls using session IDs. All three providers (Gemini, Codex, Ollama) support multi-turn — Gemini and Codex use native CLI resume, Ollama uses server-side conversation replay.
+description: Continue conversations across multiple tool calls using session IDs. Gemini, Codex, and Ollama support multi-turn — Gemini and Codex use native CLI resume, Ollama uses server-side conversation replay (Antigravity is single-turn).
 ---
 
 # Multi-Turn Sessions
 
 Continue conversations across multiple tool calls. Instead of starting fresh every time, pass a session ID to resume where you left off — the provider retains the full conversation history.
 
-**All three providers support sessions** as of ADR-058 (with hardening in ADR-063):
+**Gemini, Codex, and Ollama support sessions** as of ADR-058 (with hardening in ADR-063):
 
 | Provider | Mechanism | Replay cost |
 |---|---|---|

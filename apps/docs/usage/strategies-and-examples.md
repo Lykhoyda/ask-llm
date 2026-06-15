@@ -91,7 +91,7 @@ Use multi-llm with providers gemini and codex to analyze why /user returns 500. 
 
 ### 4. Architecture Debate
 
-When choosing between approaches, get all three providers' opinions and let Claude synthesize:
+When choosing between approaches, get multiple providers' opinions and let Claude synthesize:
 
 ```text
 /brainstorm Should we use server-sent events or WebSockets for our notification system? Pros, cons, and which fits a team that values backwards compatibility.
@@ -114,7 +114,7 @@ Call 3: Ask Gemini to write tests for the fix, sessionId abc-123
         → continues the same thread
 ```
 
-All three providers support sessions ([ADR-058](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md)). For programmatic clients, the `sessionId` is also exposed structurally via `result.structuredContent.sessionId` — no need to regex-parse the response footer ([ADR-065](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md)).
+Gemini, Codex, and Ollama support sessions ([ADR-058](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md)); Antigravity is single-turn. For programmatic clients, the `sessionId` is also exposed structurally via `result.structuredContent.sessionId` — no need to regex-parse the response footer ([ADR-065](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md)).
 
 ### 6. Quick Sanity Check via REPL
 
