@@ -39,7 +39,7 @@ Ask Gemini to give me a high-level overview of @. (current directory)
 Ask Gemini to scan @routes/**/*.js for OWASP issues
 ```
 
-This is a Gemini CLI feature — `@` syntax is interpreted by `gemini`, not by the MCP server. Codex and Ollama don't have direct equivalents (the relevant code should be quoted or pasted into the prompt).
+This is a Gemini CLI feature — `@` syntax is interpreted by `gemini`, not by the MCP server. Codex, Antigravity, and Ollama don't interpret `@` — quote or paste the relevant code into the prompt (Antigravity takes file context via `includeDirs` → `--add-dir`).
 
 ---
 

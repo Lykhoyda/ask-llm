@@ -8,7 +8,7 @@
       <div class="ia-body">
         <p class="ia-line">
           <span class="ia-role ia-you">you</span>
-          <span class="ia-text">ask codex to review <code>@src/auth.ts</code> for security issues</span>
+          <span class="ia-text">ask codex to review <code>src/auth.ts</code> for security issues</span>
         </p>
         <p class="ia-line">
           <span class="ia-role ia-codex">codex</span>

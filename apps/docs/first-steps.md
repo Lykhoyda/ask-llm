@@ -25,7 +25,7 @@ npx ask-llm-mcp doctor
 The unified `ask-llm` tool takes a `provider` parameter. In natural language:
 
 ```text
-Use ask-llm to ask Codex to refactor @src/auth.ts
+Use ask-llm to ask Codex to refactor src/auth.ts
 Use ask-llm to ask Antigravity to debate this approach
 Use ask-llm to ask Ollama to summarize this file (runs locally, no data sent anywhere)
 ```
@@ -53,7 +53,7 @@ Returns per-provider responses + token usage in one structured payload. Per-prov
 Every response includes a session ID. Pass it back to continue:
 
 ```text
-Use ask-llm to ask Codex to review @src/auth.ts for security issues
+Use ask-llm to ask Codex to review src/auth.ts for security issues
 # → Response includes [Session ID: abc-123-...]
 
 Use ask-llm to ask Codex to fix the issue you found, sessionId abc-123-...

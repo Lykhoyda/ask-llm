@@ -37,7 +37,7 @@ Your primary AI is confident — but confidence isn't correctness. A second mode
 ## In action
 
 ```text
-You:    ask codex to review @src/auth.ts for security issues
+You:    ask codex to review src/auth.ts for security issues
 Codex:  ⚠ verifyToken() compares tokens with === — not timing-safe (line 42)
         ⚠ the session cookie is missing a SameSite attribute
 Claude: Good catches — applying both fixes to src/auth.ts.
@@ -129,7 +129,7 @@ args = ["-y", "ask-llm-mcp"]
 { "command": "npx", "args": ["-y", "ask-llm-mcp"] }
 ```
 
-Replace `ask-llm-mcp` with `ask-gemini-mcp`, `ask-codex-mcp`, or `ask-ollama-mcp` for a single provider.
+Replace `ask-llm-mcp` with `ask-codex-mcp`, `ask-antigravity-mcp`, `ask-ollama-mcp`, or `ask-gemini-mcp` for a single provider.
 
 </details>
 
@@ -138,7 +138,7 @@ Replace `ask-llm-mcp` with `ask-gemini-mcp`, `ask-codex-mcp`, or `ask-ollama-mcp
 | Provider | Best for | Model (default → fallback) | Notes |
 |----------|----------|----------------------------|-------|
 | **Codex** | Code reasoning, targeted reviews, architecture critique | `gpt-5.5` → `gpt-5.5-mini` | Requires an OpenAI/Codex account |
-| **Antigravity** | A subscription-backed second opinion; larger-context reads | `agy` (one-shot) | Google AI Pro/Ultra plan; experimental |
+| **Antigravity** | A subscription-backed second opinion; larger-context reads | `Gemini 3.5 Flash (High)` | Google AI Pro/Ultra plan; one-shot, experimental |
 | **Ollama** | Private/local review, zero cost, offline | `qwen2.5-coder:7b` → `:1.5b` | Runs entirely on your machine |
 | **Gemini** | Whole-codebase reads (1M+ tokens) | `gemini-3.1-pro-preview` → `gemini-3.5-flash` | ⚠️ Enterprise-gated since 2026-06-18 |
 | **Unified (`ask-llm`)** | One install for all of the above; fan out in parallel | routes per call | **Recommended** |
@@ -173,9 +173,10 @@ See the [plugin docs](https://lykhoyda.github.io/ask-llm/plugin/overview) for de
 
 - **[Node.js](https://nodejs.org/)** v20.0.0 or higher (LTS)
 - **At least one provider:**
-  - [Gemini CLI](https://github.com/google-gemini/gemini-cli) — `npm install -g @google/gemini-cli && gemini login`
   - [Codex CLI](https://github.com/openai/codex) — installed and authenticated
+  - [Antigravity CLI](https://antigravity.google) (`agy`) — installed and logged in once (Google AI Pro/Ultra)
   - [Ollama](https://ollama.com) — running locally with a model pulled (`ollama pull qwen2.5-coder:7b`)
+  - [Gemini CLI](https://github.com/google-gemini/gemini-cli) — `npm install -g @google/gemini-cli && gemini login` (enterprise-gated since 2026-06-18)
 
 ## MCP Tools
 
@@ -198,10 +199,10 @@ All `ask-*` tools accept an optional `sessionId` parameter for multi-turn conver
 ### Usage Examples
 
 ```
-ask codex to review the changes in @src/auth.ts for security issues
-ask antigravity to debate this architecture plan: @docs/design.md
-ask ollama to explain @src/config.ts (runs locally, no data sent anywhere)
-ask gemini to summarize @. the current directory (1M+ context)
+ask codex to review the changes in src/auth.ts for security issues
+ask antigravity to debate this architecture plan in docs/design.md
+ask ollama to explain src/config.ts (runs locally, no data sent anywhere)
+ask gemini to summarize @. the current directory (1M+ context, @ is Gemini-only)
 use multi-llm to compare what codex and gemini think about this approach
 ```
 

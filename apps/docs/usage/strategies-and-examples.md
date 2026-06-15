@@ -1,5 +1,5 @@
 ---
-description: Proven strategies for AI-to-AI code review, architecture debates, and large-codebase analysis using Gemini, Codex, Ollama, and multi-provider parallel dispatch.
+description: Proven recipes for AI-to-AI code review, architecture debates, and large-codebase analysis using Codex, Antigravity, Ollama, Gemini, and multi-provider parallel dispatch.
 ---
 
 # Strategies & Examples
@@ -17,7 +17,7 @@ What is the purpose of this project? Read @. (current directory)
 review @routes/**/*.js for OWASP vulnerabilities
 ```
 
-This is a Gemini CLI feature — Codex and Ollama don't have direct equivalents. Quote or paste the relevant code into the prompt instead, or use `multi-llm` and let Gemini handle the file reading while Codex/Ollama work from the same prompt text.
+This is a Gemini CLI feature — Codex, Antigravity, and Ollama don't have direct equivalents. Quote or paste the relevant code into the prompt instead, or use `multi-llm` and let Gemini handle the file reading while the others work from the same prompt text.
 
 > **Tip:** Including `package.json` (`@package.json @src/`) helps Gemini understand your dependencies before analyzing your code.
 
@@ -132,7 +132,7 @@ Multi-provider switching, persistent sessions per provider, live token tracking.
 For code that can't leave your machine — proprietary IP, regulated industries, security-sensitive work:
 
 ```text
-Ask Ollama to review @src/payment-flow.ts for any obvious bugs or security issues.
+Ask Ollama to review src/payment-flow.ts for any obvious bugs or security issues.
 ```
 
 Or via the unified orchestrator:
