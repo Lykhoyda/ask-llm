@@ -8,11 +8,11 @@ description: Frequently asked questions about Ask LLM MCP servers — setup, mul
 
 ### What is Ask LLM?
 
-A set of MCP servers that bridge your AI client (Claude Code, Claude Desktop, Cursor, Warp, Copilot — any of [40+ MCP-compatible clients](https://modelcontextprotocol.io/clients)) with up to three LLM providers running locally on your machine: Google Gemini, OpenAI Codex, and Ollama. Plus a Claude Code plugin layer with slash commands, reviewer subagents, and the opt-in continuous `codex-pair` review hook.
+A set of MCP servers that bridge your AI client (Claude Code, Claude Desktop, Cursor, Warp, Copilot — any of [40+ MCP-compatible clients](https://modelcontextprotocol.io/clients)) with up to four LLM providers through their local CLIs: OpenAI Codex, Google Antigravity (`agy`), Ollama (fully local), and Google Gemini. Plus a Claude Code plugin layer with slash commands, reviewer subagents, and the opt-in continuous `codex-pair` review hook.
 
 ### Why use this instead of the providers directly?
 
-- **One interface for all three providers** — you don't switch between three CLIs
+- **One interface for every provider** — you don't switch between separate CLIs
 - **Multi-provider parallel dispatch** — `multi-llm` and `/compare` send the same prompt to multiple providers in one call
 - **Verified code review** — `/multi-review` cross-checks each finding against source before presenting (catches false positives)
 - **Session continuity across providers** — `sessionId` works the same way for all three
@@ -22,9 +22,14 @@ A set of MCP servers that bridge your AI client (Claude Code, Claude Desktop, Cu
 ### Is it free?
 
 The MCP servers are MIT-licensed and free. Provider costs depend on which provider you use:
-- **Gemini** — free tier via OAuth (`gemini login`), paid via API key
 - **Codex** — per OpenAI billing
+- **Antigravity** — covered by your Google AI Pro/Ultra subscription (no per-token billing)
 - **Ollama** — free (runs locally on your machine)
+- **Gemini** — requires a Gemini Code Assist Standard/Enterprise seat ([enterprise-gated from 2026-06-18](/providers/gemini))
+
+### Why is Gemini enterprise-gated, and what should I use instead?
+
+From 2026-06-18, Google restricts Gemini CLI to Gemini Code Assist Standard/Enterprise seats, and free, Google AI Pro, and Ultra accounts lose access. `ask-gemini-mcp` still installs, but a non-enterprise account will then see actionable guidance instead of output. Use **Antigravity** (`ask-antigravity` — the Google-sanctioned successor, subscription-backed via Google AI Pro/Ultra), **Codex** (`ask-codex`), or **Ollama** (`ask-ollama`) instead. See [Antigravity](/providers/antigravity).
 
 ### Does it work on Windows?
 
@@ -34,7 +39,7 @@ Yes for the per-provider packages. The orchestrator (`ask-llm-mcp`) and plugin s
 
 ## Setup
 
-### Do I need all three providers?
+### Do I need every provider?
 
 No. The orchestrator (`ask-llm-mcp`) auto-detects which CLIs are installed and only registers tools for available providers. Install one and add others anytime.
 
@@ -113,7 +118,7 @@ A dedicated GitHub Action was built and then withdrawn ([ADR-061](https://github
 
 ### Is my code sent to Google / OpenAI?
 
-Only when you explicitly use `ask-gemini` (Google) or `ask-codex` (OpenAI). For private code, use `ask-ollama` — it runs entirely locally and never makes external network calls.
+Only when you explicitly use `ask-codex` (OpenAI) or `ask-gemini` / `ask-antigravity` (Google). For private code, use `ask-ollama` — it runs entirely locally and never makes external network calls.
 
 ### Where do session files live?
 

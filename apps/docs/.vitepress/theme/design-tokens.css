@@ -22,6 +22,7 @@
   --color-ollama: #ff6b35;
   --color-unified: #818cf8;
   --color-plugin: #a855f7;
+  --color-antigravity: #22d3ee;
 
   /* ─── Surface ────────────────────────────────── */
   --color-bg: #0a0a0b;
@@ -35,7 +36,7 @@
   /* ─── Text ───────────────────────────────────── */
   --color-text-primary: #ededed;
   --color-text-secondary: #a1a1aa;
-  --color-text-muted: #52525b;
+  --color-text-muted: #82828c; /* WCAG AA: ~5.2:1 on --color-bg (was #52525b ~2.5:1) */
 
   /* ─── Status ─────────────────────────────────── */
   --color-error: #f87171;
@@ -69,6 +70,7 @@
   --color-ollama-glow: rgba(255, 107, 53, 0.1);
   --color-unified-glow: rgba(129, 140, 248, 0.1);
   --color-plugin-glow: rgba(168, 85, 247, 0.1);
+  --color-antigravity-glow: rgba(34, 211, 238, 0.1);
 
   /* ─── Anti-grid corner ───────────────────────── */
   --corner-size: 10px;

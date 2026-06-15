@@ -1,10 +1,10 @@
 ---
-description: Architecture and execution flow of Ask LLM — from natural language prompts through the MCP protocol to Gemini, Codex, and Ollama providers.
+description: Architecture and execution flow of Ask LLM — from natural language prompts through the MCP protocol to Codex, Antigravity, Ollama, and Gemini providers.
 ---
 
 # How It Works
 
-Ask LLM is a set of MCP servers that bridge your AI client (Claude Code, Claude Desktop, Cursor, etc.) with up to three LLM providers running locally on your machine: Google's Gemini CLI, OpenAI's Codex CLI, and Ollama (local models). Your client decides when to delegate work to one or more providers based on what you ask.
+Ask LLM is a set of MCP servers that bridge your AI client (Claude Code, Claude Desktop, Cursor, etc.) with up to four LLM providers through their local CLIs: OpenAI's Codex, Google's Antigravity (`agy`), Ollama (fully local models), and Google's Gemini. Your client decides when to delegate work to one or more providers based on what you ask.
 
 ## Natural Language Workflow
 
@@ -74,7 +74,7 @@ Each provider's executor wraps the underlying CLI with operational hardening tha
 - **Stdin handling** — Codex needs an EOF-terminated pipe rather than `/dev/null`, otherwise it errors out ([ADR-042](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md))
 - **PATH resolution** — macOS GUI clients (Claude Desktop) don't inherit your shell's PATH; the server resolves it from your login shell at startup ([ADR-047](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md))
 - **Live progressive output** — Gemini's `--output-format stream-json` deltas are parsed and forwarded to MCP progress notifications, so users see Gemini's prose unfolding rather than a frozen wait ([ADR-057](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md))
-- **Session continuity** — all three providers support multi-turn via the `sessionId` parameter; Gemini and Codex use native CLI resume, Ollama uses server-side conversation replay ([ADR-058](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md), [ADR-063](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md))
+- **Session continuity** — Gemini, Codex, and Ollama support multi-turn via the `sessionId` parameter; Gemini and Codex use native CLI resume, Ollama uses server-side conversation replay (Antigravity is single-turn) ([ADR-058](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md), [ADR-063](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md))
 - **Structured responses** — every `ask-*` tool returns both human-readable text AND a structured `AskResponse` (provider, response, model, sessionId, usage) via MCP `outputSchema` so programmatic clients don't have to parse the response footer ([ADR-065](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md))
 
 You don't need to think about any of this — it's just the infrastructure that makes the natural-language flow work reliably.

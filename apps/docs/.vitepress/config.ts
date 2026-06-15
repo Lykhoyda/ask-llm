@@ -112,10 +112,10 @@ export default withMermaid(
         {
           text: "Providers",
           items: [
-            { text: "Gemini", link: "/providers/gemini" },
             { text: "Codex", link: "/providers/codex" },
-            { text: "Ollama", link: "/providers/ollama" },
             { text: "Antigravity", link: "/providers/antigravity" },
+            { text: "Ollama", link: "/providers/ollama" },
+            { text: "Gemini", link: "/providers/gemini" },
             { text: "Unified", link: "/providers/unified" },
           ],
         },
@@ -129,16 +129,18 @@ export default withMermaid(
           items: [
             { text: "Overview", link: "/" },
             { text: "Quick Start", link: "/getting-started" },
+            { text: "Installation", link: "/installation" },
+            { text: "First Steps", link: "/first-steps" },
           ],
         },
         {
           text: "Providers",
           collapsed: false,
           items: [
-            { text: "Gemini", link: "/providers/gemini" },
             { text: "Codex", link: "/providers/codex" },
-            { text: "Ollama", link: "/providers/ollama" },
             { text: "Antigravity", link: "/providers/antigravity" },
+            { text: "Ollama", link: "/providers/ollama" },
+            { text: "Gemini", link: "/providers/gemini" },
             { text: "Unified (ask-llm)", link: "/providers/unified" },
           ],
         },

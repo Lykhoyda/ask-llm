@@ -20,17 +20,30 @@
 
 </div>
 
-MCP servers that bridge your AI client with multiple LLM providers for AI-to-AI collaboration. Works with Claude Code, Claude Desktop, Cursor, Warp, Copilot, and [40+ other MCP clients](https://modelcontextprotocol.io/clients). Leverage Gemini's 1M+ token context, Codex's GPT-5.5, local Ollama models, or Google Antigravity (`agy`) — all via standard [MCP](https://modelcontextprotocol.io/).
+**Get a second opinion before you ship.** Ask LLM lets your AI assistant — Claude Code, Cursor, Claude Desktop, or any of [40+ MCP clients](https://modelcontextprotocol.io/clients) — consult a _second_ model to review your code, debate a plan, or catch a bug it might have missed. Pick the reviewer that fits: OpenAI **Codex** (GPT-5.5), Google **Antigravity** (`agy`), a local **Ollama** model, or **Gemini** (1M+ token context). Standard [MCP](https://modelcontextprotocol.io/), no prompt hacks.
 
-> **⚠️ Gemini CLI tier change (2026-06-18):** As of **2026-06-18**, Google restricts Gemini CLI access to **Gemini Code Assist Standard/Enterprise** seats — free, Google AI Pro, and Ultra accounts are no longer served. `ask-gemini-mcp` still installs and launches (the failure is account/backend access, so reinstalling won't help); on a non-enterprise account it now surfaces actionable guidance instead of a raw error. Google's successor, **Antigravity CLI (`agy`)**, is now supported via the separate **[`ask-antigravity-mcp`](https://www.npmjs.com/package/ask-antigravity-mcp)** package — subscription-backed through your Google AI Pro/Ultra plan (no per-token API billing). Free/Pro users can switch to `ask-antigravity`, `ask-codex`, or `ask-ollama`. [Announcement](https://developers.googleblog.com/an-important-update-transitioning-gemini-cli-to-antigravity-cli/).
+> **⚠️ Gemini CLI goes enterprise-only on 2026-06-18:** From that date Google restricts Gemini CLI to **Gemini Code Assist Standard/Enterprise** seats, and free, Google AI Pro, and Ultra accounts lose access. `ask-gemini-mcp` still installs, but a non-enterprise account then surfaces actionable guidance instead of output. Free/Pro users: switch to **`ask-antigravity`** (the Google-sanctioned successor, subscription-backed via Google AI Pro/Ultra), **`ask-codex`**, or **`ask-ollama`**. [Announcement](https://developers.googleblog.com/an-important-update-transitioning-gemini-cli-to-antigravity-cli/)
 
-## Why?
+## Why a second opinion?
 
-- **Get a second opinion** — Ask another AI to review your coding approach before committing
-- **Debate plans** — Send architecture proposals for critique and alternative suggestions
-- **Review changes** — Have multiple AIs analyze diffs to catch issues your primary AI might miss
-- **Massive context** — Gemini reads entire codebases (1M+ tokens) that would overflow other models
-- **Local & private** — Use Ollama for reviews where no data leaves your machine
+Your primary AI is confident — but confidence isn't correctness. A second model, with no stake in the first one's answer, catches what it missed.
+
+- **Second opinion on code** — before you commit to an approach, have another model review it independently.
+- **Debate a plan** — send an architecture proposal for critique, alternatives, and trade-off analysis.
+- **Review a diff** — have a different model analyze your changes to surface issues your primary AI glossed over.
+- **Read more than fits** — Gemini and Antigravity's large context windows ingest whole codebases at once.
+- **Keep it local** — run reviews through Ollama when nothing can leave your machine.
+
+## In action
+
+```text
+You:    ask codex to review src/auth.ts for security issues
+Codex:  ⚠ verifyToken() compares tokens with === — not timing-safe (line 42)
+        ⚠ the session cookie is missing a SameSite attribute
+Claude: Good catches — applying both fixes to src/auth.ts.
+```
+
+One prompt. A second model reviews independently; your assistant applies the fix — no copy-paste between tools.
 
 ## Quick Start
 
@@ -116,9 +129,19 @@ args = ["-y", "ask-llm-mcp"]
 { "command": "npx", "args": ["-y", "ask-llm-mcp"] }
 ```
 
-Replace `ask-llm-mcp` with `ask-gemini-mcp`, `ask-codex-mcp`, or `ask-ollama-mcp` for a single provider.
+Replace `ask-llm-mcp` with `ask-codex-mcp`, `ask-antigravity-mcp`, `ask-ollama-mcp`, or `ask-gemini-mcp` for a single provider.
 
 </details>
+
+## Choose your reviewer
+
+| Provider | Best for | Model (default → fallback) | Notes |
+|----------|----------|----------------------------|-------|
+| **Codex** | Code reasoning, targeted reviews, architecture critique | `gpt-5.5` → `gpt-5.5-mini` | Requires an OpenAI/Codex account |
+| **Antigravity** | A subscription-backed second opinion; larger-context reads | `Gemini 3.5 Flash (High)` | Google AI Pro/Ultra plan; one-shot, experimental |
+| **Ollama** | Private/local review, zero cost, offline | `qwen2.5-coder:7b` → `:1.5b` | Runs entirely on your machine |
+| **Gemini** | Whole-codebase reads (1M+ tokens) | `gemini-3.1-pro-preview` → `gemini-3.5-flash` | ⚠️ Enterprise-gated from 2026-06-18 |
+| **Unified (`ask-llm`)** | One install for all of the above; fan out in parallel | routes per call | **Recommended** |
 
 ## Claude Code Plugin
 
@@ -150,9 +173,10 @@ See the [plugin docs](https://lykhoyda.github.io/ask-llm/plugin/overview) for de
 
 - **[Node.js](https://nodejs.org/)** v20.0.0 or higher (LTS)
 - **At least one provider:**
-  - [Gemini CLI](https://github.com/google-gemini/gemini-cli) — `npm install -g @google/gemini-cli && gemini login`
   - [Codex CLI](https://github.com/openai/codex) — installed and authenticated
+  - [Antigravity CLI](https://antigravity.google) (`agy`) — installed and logged in once (Google AI Pro/Ultra)
   - [Ollama](https://ollama.com) — running locally with a model pulled (`ollama pull qwen2.5-coder:7b`)
+  - [Gemini CLI](https://github.com/google-gemini/gemini-cli) — `npm install -g @google/gemini-cli && gemini login` (enterprise-gated from 2026-06-18)
 
 ## MCP Tools
 
@@ -175,11 +199,11 @@ All `ask-*` tools accept an optional `sessionId` parameter for multi-turn conver
 ### Usage Examples
 
 ```
-ask gemini to review the changes in @src/auth.ts for security issues
-ask codex to suggest a better algorithm for @src/sort.ts
-ask ollama to explain @src/config.ts (runs locally, no data sent anywhere)
-use gemini to summarize @. the current directory
-use multi-llm to compare what gemini and codex think about this approach
+ask codex to review the changes in src/auth.ts for security issues
+ask antigravity to debate this architecture plan in docs/design.md
+ask ollama to explain src/config.ts (runs locally, no data sent anywhere)
+ask gemini to summarize @. the current directory (1M+ context, @ is Gemini-only)
+use multi-llm to compare what codex and gemini think about this approach
 ```
 
 ## CLI Subcommands

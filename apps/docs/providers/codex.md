@@ -6,6 +6,9 @@ description: Bridge Claude with OpenAI Codex CLI for GPT-5.5 code review and ana
 
 Bridge Claude with OpenAI's Codex CLI. Access GPT-5.5 for code generation, analysis, and review with automatic fallback to GPT-5.5-mini on quota limits.
 
+> **Best for:** targeted code reasoning, architecture critique, and security review of specific files — the default workhorse reviewer.
+> **Not for:** whole-repository reads beyond its context window (use Gemini or Antigravity), or fully offline/air-gapped use (it's a hosted model — use Ollama).
+
 ## Installation
 
 <SetupTabs provider="codex" />

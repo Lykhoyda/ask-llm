@@ -7,14 +7,14 @@ description: Bridge Claude with Google Gemini via the official CLI. 1M+ token co
 Bridge Claude with Google's Gemini via the official Gemini CLI. Leverages Gemini's massive 1M+ token context window for large file and codebase analysis while Claude handles interaction and code editing.
 
 ::: danger Discontinued on consumer tiers — migrate to Antigravity
-**As of 2026-06-18**, Google restricts Gemini CLI access to **Gemini Code Assist Standard/Enterprise** seats; **free, Google AI Pro, and Ultra** accounts are no longer served. `ask-gemini-mcp` still installs and launches — the failure is a runtime auth/quota error from Google's backend, not a missing binary.
+**From 2026-06-18**, Google restricts Gemini CLI access to **Gemini Code Assist Standard/Enterprise** seats; **free, Google AI Pro, and Ultra** accounts lose access. `ask-gemini-mcp` still installs and launches — the failure is a runtime auth/quota error from Google's backend, not a missing binary.
 
 **On a subscription tier?** Migrate to **[Antigravity (`agy`)](./antigravity)** — Google's successor CLI, covered by the same AI Pro/Ultra subscription with no per-token billing. Install [`ask-antigravity-mcp`](./antigravity), or switch to [`ask-codex`](./codex) / [`ask-ollama`](./ollama). The **2026-06-18 tier change** section below covers what happens at runtime.
 :::
 
 ## 2026-06-18 tier change
 
-As of **2026-06-18**, Google serves Gemini CLI requests only for **Gemini Code Assist Standard/Enterprise** accounts; free, Google AI Pro, and Ultra accounts are no longer served. The surviving tiers keep working with the same `gemini` binary and backend.
+From **2026-06-18**, Google serves Gemini CLI requests only for **Gemini Code Assist Standard/Enterprise** accounts; free, Google AI Pro, and Ultra accounts lose access. The surviving tiers keep working with the same `gemini` binary and backend.
 
 What this means for `ask-gemini-mcp`:
 
@@ -24,6 +24,9 @@ What this means for `ask-gemini-mcp`:
 - **Testing the guidance:** set `ASK_GEMINI_TIER_CUTOFF` to a past UTC instant (e.g. `2020-01-01T00:00:00Z`) to force the post-cutoff gate on; an auth/quota failure will then prepend the notice. The default cutoff is `2026-06-18T00:00:00Z`.
 
 [Google's announcement](https://developers.googleblog.com/an-important-update-transitioning-gemini-cli-to-antigravity-cli/).
+
+> **Best for:** whole-codebase reads using the 1M+ token context window, if you have an eligible Gemini Code Assist Standard/Enterprise seat.
+> **Not for:** most users from 2026-06-18 (see the notice above). For large-context reads without an enterprise seat, use [Antigravity](./antigravity).
 
 ## Installation
 

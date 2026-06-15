@@ -1,10 +1,10 @@
 ---
-description: Proven strategies for AI-to-AI code review, architecture debates, and large-codebase analysis using Gemini, Codex, Ollama, and multi-provider parallel dispatch.
+description: Proven recipes for AI-to-AI code review, architecture debates, and large-codebase analysis using Codex, Antigravity, Ollama, Gemini, and multi-provider parallel dispatch.
 ---
 
 # Strategies & Examples
 
-Real-world workflows that get the most out of Ask LLM. Each strategy maps to a specific provider strength or tool — pick the pattern that fits your task.
+Copy-paste recipes that get the most out of Ask LLM. Each maps to a job — a second opinion, a plan debate, a diff review, a big read, or a private check — and to the provider that fits it best.
 
 ## The `@` File Syntax (Gemini)
 
@@ -17,7 +17,7 @@ What is the purpose of this project? Read @. (current directory)
 review @routes/**/*.js for OWASP vulnerabilities
 ```
 
-This is a Gemini CLI feature — Codex and Ollama don't have direct equivalents. Quote or paste the relevant code into the prompt instead, or use `multi-llm` and let Gemini handle the file reading while Codex/Ollama work from the same prompt text.
+This is a Gemini CLI feature — Codex, Antigravity, and Ollama don't have direct equivalents. Quote or paste the relevant code into the prompt instead, or use `multi-llm` and let Gemini handle the file reading while the others work from the same prompt text.
 
 > **Tip:** Including `package.json` (`@package.json @src/`) helps Gemini understand your dependencies before analyzing your code.
 
@@ -32,8 +32,8 @@ Don't rely on one AI model — get a second perspective before committing or mer
 **Single provider:**
 
 ```text
-Ask Gemini to review the staged changes in @feature/new-api/*.js for security issues, performance, and missing error handling.
-Ask Codex to do the same review on the same files — focus on edge cases.
+Ask Codex to review the staged changes for security issues, performance, and missing error handling.
+Ask Gemini to do the same review on @feature/new-api/*.js — focus on edge cases.
 ```
 
 **Multi-provider (with verification, plugin only):**
@@ -54,7 +54,7 @@ The `/compare` skill returns each provider's verbatim response side-by-side. No 
 
 ### 2. Massive Codebase Analysis
 
-Claude is excellent at writing code, but its context window gets expensive when you ask it to read a lot. Offload heavy reading to Gemini's 1M+ token context:
+Claude is excellent at writing code, but its context window gets expensive when you ask it to read a lot. Offload heavy reading to Gemini's 1M+ token context (Gemini CLI is [enterprise-gated from 2026-06-18](/providers/gemini) — on other plans, use `ask-antigravity` for large-context reads):
 
 ```text
 # Architecture overview
@@ -65,6 +65,12 @@ Ask Gemini: @package.json @package-lock.json — are there any security vulnerab
 
 # Cross-package monorepo analysis
 Ask Gemini with includeDirs ["packages/api", "packages/shared"] to review how the API uses the shared types
+```
+
+On a non-enterprise plan, run the same large-context read through Antigravity (`agy`) instead — it takes file context via `includeDirs`, not `@`:
+
+```text
+Use ask-antigravity with includeDirs ["packages/api", "packages/shared"] to review how the API uses the shared types
 ```
 
 Gemini reads, Claude edits — the canonical Ask LLM pattern.
@@ -85,7 +91,7 @@ Use multi-llm with providers gemini and codex to analyze why /user returns 500. 
 
 ### 4. Architecture Debate
 
-When choosing between approaches, get all three providers' opinions and let Claude synthesize:
+When choosing between approaches, get multiple providers' opinions and let Claude synthesize:
 
 ```text
 /brainstorm Should we use server-sent events or WebSockets for our notification system? Pros, cons, and which fits a team that values backwards compatibility.
@@ -108,7 +114,7 @@ Call 3: Ask Gemini to write tests for the fix, sessionId abc-123
         → continues the same thread
 ```
 
-All three providers support sessions ([ADR-058](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md)). For programmatic clients, the `sessionId` is also exposed structurally via `result.structuredContent.sessionId` — no need to regex-parse the response footer ([ADR-065](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md)).
+Gemini, Codex, and Ollama support sessions ([ADR-058](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md)); Antigravity is single-turn. For programmatic clients, the `sessionId` is also exposed structurally via `result.structuredContent.sessionId` — no need to regex-parse the response footer ([ADR-065](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md)).
 
 ### 6. Quick Sanity Check via REPL
 
@@ -132,7 +138,7 @@ Multi-provider switching, persistent sessions per provider, live token tracking.
 For code that can't leave your machine — proprietary IP, regulated industries, security-sensitive work:
 
 ```text
-Ask Ollama to review @src/payment-flow.ts for any obvious bugs or security issues.
+Ask Ollama to review src/payment-flow.ts for any obvious bugs or security issues.
 ```
 
 Or via the unified orchestrator:
