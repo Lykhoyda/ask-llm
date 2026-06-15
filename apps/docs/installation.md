@@ -13,7 +13,7 @@ Multiple ways to install Ask LLM, depending on whether you want the unified orch
 - **At least one provider CLI** installed and authenticated:
   - `npm install -g @openai/codex` (then follow CLI auth) for Codex
   - [Antigravity CLI](https://antigravity.google) (`agy`) installed and logged in once for Antigravity
-  - [Ollama](https://ollama.com) running locally with a model pulled (`ollama pull qwen2.5-coder:7b`)
+  - [Ollama](https://ollama.com) running locally with a model pulled (`ollama pull qwen3.6:27b`)
   - `npm install -g @google/gemini-cli && gemini login` for Gemini ([enterprise-gated from 2026-06-18](/providers/gemini))
 
 ## Packages

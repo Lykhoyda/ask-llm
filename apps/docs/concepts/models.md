@@ -1,10 +1,10 @@
 ---
-description: Choose the right model across providers. Default models, fallback chains, and overrides for Gemini, Codex, and Ollama.
+description: Choose the right model across providers. Default models, fallback behavior (Gemini/Codex), and per-provider overrides.
 ---
 
 # Model Selection
 
-Each provider auto-selects a sensible default model with automatic fallback to a lighter model on quota or availability errors. **Most users should never override the model parameter** — the defaults are tuned for quality and the fallback chain handles failures.
+Hosted providers (Gemini, Codex) auto-select a sensible default model with automatic fallback to a lighter model on quota errors. Ollama runs locally and uses exactly the model you pull — it never substitutes another. **Most users should never override the model parameter** — the defaults are tuned for quality.
 
 ## Defaults & Fallbacks
 
@@ -12,9 +12,9 @@ Each provider auto-selects a sensible default model with automatic fallback to a
 |---|---|---|---|
 | Gemini | `gemini-3.1-pro-preview` | `gemini-3.5-flash` | `RESOURCE_EXHAUSTED` quota error or "exhausted your capacity" pattern ([ADR-044](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md)) |
 | Codex | `gpt-5.5` | `gpt-5.5-mini` | Quota errors (`rate_limit_exceeded`, `429`, `insufficient_quota`) ([ADR-028](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md), bumped per [ADR-067](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md)) |
-| Ollama | `qwen2.5-coder:7b` | `qwen2.5-coder:1.5b` | Model-not-found error (e.g., 7b not pulled but 1.5b is) |
+| Ollama | `qwen3.6:27b` | — (none) | Local — no fallback; a missing model returns a clear `ollama pull` error |
 
-The fallback fires automatically inside the executor — your client sees a successful response with `usage.fellBack: true` in the structured output, and a `[Gemini stats: ... fell back]` annotation in the formatted text.
+For Gemini and Codex, the fallback fires automatically inside the executor — your client sees a successful response with `usage.fellBack: true` in the structured output, and a `[Gemini stats: ... fell back]` annotation in the formatted text. Ollama never falls back, so its `fellBack` is always `false`.
 
 ## Choosing a Provider
 
@@ -67,7 +67,7 @@ Use ask-ollama with model deepseek-coder:6.7b to review this implementation
 | Gemini Flash | ~1M tokens | Cheaper than Pro; fallback target for quota relief |
 | Codex GPT-5.5 | Per OpenAI's published context window | Per OpenAI billing |
 | Codex GPT-5.5-mini | Smaller context | Cheaper; fallback target |
-| Ollama | Per model (e.g., 32k for qwen2.5-coder) | Free — runs locally |
+| Ollama | Per model (e.g., 256k for qwen3.6) | Free — runs locally |
 
 ## Track What You're Spending
 

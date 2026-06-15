@@ -26,7 +26,7 @@ npm install -g ask-ollama-mcp
 3. **A model pulled:**
 
 ```bash
-ollama pull qwen2.5-coder:7b
+ollama pull qwen3.6:27b
 ```
 
 ## Tools
@@ -41,8 +41,8 @@ ollama pull qwen2.5-coder:7b
 
 ## Models
 
-- **Default:** `qwen2.5-coder:7b` (good balance of speed and capability)
-- **Fallback:** `qwen2.5-coder:1.5b` (automatic on model-not-found)
+- **Default:** `qwen3.6:27b` — Qwen's flagship-level local coding model (~17 GB; needs a capable GPU / plenty of RAM). Set `ASK_OLLAMA_MODEL` to pick a lighter model.
+- **No fallback.** Ollama is local — you pull the model you want, so the server never silently substitutes another. If the model isn't installed, you get a clear `ollama pull <model>` error.
 
 ## Configuration
 
@@ -67,7 +67,7 @@ Each turn replays the full prior conversation (input tokens grow linearly with d
 - **Zero cost** per query
 - **Server-side session continuity** with hardened storage
 - **Model auto-detection** via `/api/tags` endpoint
-- **Automatic model fallback** from 7b to 1.5b
+- **No silent model substitution** — a clear "pull it first" error if a model isn't installed
 - **Structured AskResponse** via outputSchema for programmatic clients
 
 ## npm

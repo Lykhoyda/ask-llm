@@ -13,7 +13,7 @@ const askOllamaArgsSchema = z.object({
     .string()
     .optional()
     .describe(
-      `DO NOT set this parameter. The tool automatically uses ${MODELS.DEFAULT} and falls back to ${MODELS.FALLBACK} if not found. Only set this if the user explicitly requests a specific model.`,
+      `DO NOT set this parameter unless the user explicitly requests a specific model. The tool uses ${MODELS.DEFAULT} by default; if the model isn't pulled locally it returns a clear "ollama pull" error rather than substituting another model.`,
     ),
   sessionId: z
     .string()
@@ -26,7 +26,7 @@ const askOllamaArgsSchema = z.object({
 export const askOllamaTool: UnifiedTool = {
   name: "ask-ollama",
   description:
-    "Send a prompt to a local Ollama LLM (defaults to qwen2.5-coder:7b with automatic fallback). Use for code review, second opinions, analysis, and AI-to-AI collaboration. Runs entirely locally — no API keys or network calls needed. Returns both human-readable text and a structured response (provider, model, sessionId, usage) via outputSchema.",
+    "Send a prompt to a local Ollama LLM (defaults to qwen3.6:27b; errors with a 'pull it first' message if the model isn't installed — no automatic substitution). Use for code review, second opinions, analysis, and AI-to-AI collaboration. Runs entirely locally — no API keys or network calls needed. Returns both human-readable text and a structured response (provider, model, sessionId, usage) via outputSchema.",
   zodSchema: askOllamaArgsSchema,
   outputSchema: askResponseSchema,
   annotations: {

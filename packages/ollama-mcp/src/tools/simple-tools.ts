@@ -25,7 +25,7 @@ export const pingTool: UnifiedTool = {
     if (message) return message as string;
 
     const models = await listModels();
-    const modelList = models.length > 0 ? models.join(", ") : "none (run: ollama pull qwen2.5-coder:7b)";
+    const modelList = models.length > 0 ? models.join(", ") : "none (run: ollama pull qwen3.6:27b)";
     return `Pong from Ollama MCP Server! Available models: ${modelList}`;
   },
 };
