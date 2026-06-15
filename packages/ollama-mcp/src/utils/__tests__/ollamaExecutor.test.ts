@@ -133,6 +133,15 @@ describe("model-not-found handling (no fallback)", () => {
     expect(mockFetch).toHaveBeenCalledTimes(1);
   });
 
+  it("names the default model in the error when no model is specified", async () => {
+    mockFetch.mockImplementationOnce(() =>
+      Promise.resolve(errorResponse(404, "model not found, try pulling it first")),
+    );
+
+    await expect(executeOllamaCLI({ prompt: "test" })).rejects.toThrow(new RegExp(`ollama pull ${MODELS.DEFAULT}`));
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+  });
+
   it("does not retry on non-model errors (500)", async () => {
     mockFetch.mockImplementationOnce(() => Promise.resolve(errorResponse(500, "internal server error")));
 
