@@ -6,6 +6,9 @@ description: Bridge Claude with Google's Antigravity CLI (agy) for subscription-
 
 Bridge Claude with Google's Antigravity CLI (`agy`) — Google's successor to Gemini CLI. Get a subscription-backed second opinion or code review using your Google AI Pro/Ultra plan, without per-token API billing.
 
+> **Best for:** a subscription-backed second opinion if you have a Google AI Pro/Ultra plan, and larger-context reads. The Google-sanctioned successor to Gemini CLI.
+> **Not for:** fine-grained per-edit automation — it's one-shot and experimental. For continuous review, use Codex via `codex-pair`.
+
 ::: warning Experimental
 On `agy` ≥ 1.0.6 the headless `-p` mode prints the response to stdout (used directly); older versions / edge cases fall back to reading `agy`'s transcript files, which is sensitive to `agy`'s on-disk layout. Single-turn only (no multi-turn); defaults to the **Gemini 3.5 Flash (High)** model. Validated end-to-end against `agy` 1.0.6.
 :::

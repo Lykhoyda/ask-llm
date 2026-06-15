@@ -25,6 +25,9 @@ What this means for `ask-gemini-mcp`:
 
 [Google's announcement](https://developers.googleblog.com/an-important-update-transitioning-gemini-cli-to-antigravity-cli/).
 
+> **Best for:** whole-codebase reads using the 1M+ token context window, if you have an eligible Gemini Code Assist Standard/Enterprise seat.
+> **Not for:** most users since 2026-06-18 (see the notice above). For large-context reads without an enterprise seat, use [Antigravity](./antigravity).
+
 ## Installation
 
 <SetupTabs provider="gemini" />

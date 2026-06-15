@@ -6,6 +6,9 @@ description: Run local LLMs via Ollama for fully private AI code review. No API 
 
 Run local LLMs via Ollama's HTTP API. No API keys needed, fully private, zero cost. Uses native `fetch` against Ollama's local server.
 
+> **Best for:** private, air-gapped review of code that can't leave your machine — zero cost, no API keys, works offline.
+> **Not for:** frontier-level reasoning. Local 7B models are weaker than hosted frontier models; use Codex when you need maximum capability.
+
 ## Installation
 
 <SetupTabs provider="ollama" />

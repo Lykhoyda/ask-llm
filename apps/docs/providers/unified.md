@@ -6,6 +6,9 @@ description: All LLM providers in one MCP server. Auto-detects installed CLIs (G
 
 All providers in one MCP server. Auto-detects which CLIs are installed and registers only the available tools. One install, all providers.
 
+> **Best for:** installing once and letting the orchestrator route each request to whatever provider you have — or fanning the same prompt out to several at once. The recommended starting point.
+> **Not for:** nothing in particular — if you're unsure which provider to install, start here.
+
 ## Installation
 
 <SetupTabs provider="unified" />
