@@ -1,5 +1,5 @@
 ---
-description: Isolated sub-agents for AI code review and multi-LLM brainstorming. Confidence-based filtering (80%+ threshold) across Gemini, Codex, and Ollama.
+description: Isolated sub-agents for AI code review and multi-LLM brainstorming. Confidence-based filtering (80%+ threshold) across Codex, Antigravity, Ollama, and Gemini.
 ---
 
 # Agents
@@ -17,7 +17,7 @@ All review agents use a 3-phase workflow with confidence-based filtering:
 
 **Phase 2: Provider Consultation**
 - Construct a targeted prompt with the diff and conventions
-- Call the respective provider (Gemini, Codex, or Ollama)
+- Call the respective provider (Codex, Antigravity, Ollama, or Gemini)
 - Parse the structured response
 
 **Phase 3: Synthesis**
@@ -25,17 +25,21 @@ All review agents use a 3-phase workflow with confidence-based filtering:
 - Group as **Critical** (90%+) or **Important** (80-89%)
 - Discard low-confidence noise
 
-### `gemini-reviewer`
-
-Sends code changes to Google Gemini for review. Leverages Gemini's massive context window for changes that span many files.
-
 ### `codex-reviewer`
 
 Sends code changes to OpenAI Codex (GPT-5.5) for review. Automatic fallback to GPT-5.5-mini on quota limits.
 
+### `antigravity-reviewer`
+
+Sends code changes to Google Antigravity (`agy`) for a subscription-backed review via your Google AI Pro/Ultra plan. Experimental; the Gemini CLI successor.
+
 ### `ollama-reviewer`
 
 Sends code changes to a local Ollama model. All processing stays on your machine — no data leaves your network.
+
+### `gemini-reviewer`
+
+Sends code changes to Google Gemini for review. Leverages Gemini's massive context window for changes that span many files. ([Enterprise-gated since 2026-06-18](/providers/gemini).)
 
 ## Brainstorm Agent
 

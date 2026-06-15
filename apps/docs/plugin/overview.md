@@ -4,7 +4,7 @@ description: Claude Code plugin for AI-to-AI collaboration. Multi-provider code 
 
 # Claude Code Plugin
 
-The `@ask-llm/plugin` package integrates Ask LLM providers into Claude Code as a first-class plugin. It adds review skills, brainstorm agents, automated hooks, and CLI binaries for piping code to any provider.
+The **Ask LLM plugin** brings the second opinion into Claude Code itself: slash-command reviews (`/codex-review`, `/multi-review`), multi-model brainstorming (`/brainstorm`), and an opt-in continuous review hook (`codex-pair`) that checks every edit as you make it. Under the hood it adds review skills, brainstorm agents, automated hooks, and CLI binaries for piping code to any provider.
 
 ## Installation
 
