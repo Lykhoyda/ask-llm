@@ -575,6 +575,29 @@
   color: var(--color-text-secondary);
 }
 
+.provider-card.unified-featured {
+  grid-column: 1 / -1;
+}
+.provider-card.unified-featured .provider-name {
+  color: var(--color-unified);
+}
+
+/* "enterprise" tag on the Gemini card (and any gated provider) */
+.provider-tag {
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  vertical-align: middle;
+  margin-left: 8px;
+  padding: 2px 7px;
+  border-radius: var(--radius-sm);
+  color: var(--color-text-muted);
+  background: var(--color-bg-hover);
+  border: 1px solid var(--color-bg-border);
+}
+
 .provider-card .provider-icon {
   font-size: 1.5rem;
 }

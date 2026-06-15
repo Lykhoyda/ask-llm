@@ -3,8 +3,8 @@ layout: home
 
 hero:
   name: "Ask LLM"
-  text: "AI-to-AI collaboration via MCP"
-  tagline: "Bridge Claude with Gemini, Codex, and Ollama. Multi-provider code review, brainstorming, and automated hooks — as a Claude Code plugin or standalone MCP servers."
+  text: "Get a second opinion before you ship"
+  tagline: "Let your AI assistant consult Codex, Antigravity, Ollama, or Gemini for an independent code review, a plan debate, or a fresh pair of eyes on a diff. Standard MCP — works in Claude Code, Cursor, Claude Desktop, and 40+ clients."
   actions:
     - theme: brand
       text: Install Plugin
@@ -19,6 +19,8 @@ hero:
 
 <div class="vp-doc home-content">
 
+<InAction />
+
 <h2 class="section-title">Claude Code Plugin</h2>
 
 <div class="provider-grid">
@@ -32,25 +34,30 @@ hero:
 <h2 class="section-title">MCP Servers</h2>
 
 <div class="provider-grid">
-  <a href="/ask-llm/providers/gemini" class="provider-card" data-provider="gemini">
-    <span class="provider-name">Gemini</span>
-    <span class="provider-desc">Google's Gemini via CLI. 1M+ token context for massive codebase analysis.</span>
-    <span class="provider-pkg">npx ask-gemini-mcp</span>
+  <a href="/ask-llm/providers/unified" class="provider-card unified-featured" data-provider="unified">
+    <span class="provider-name">Unified — start here</span>
+    <span class="provider-desc">All providers in one server. Auto-detects the CLIs you have installed and routes each request, or fans the same prompt out to several at once.</span>
+    <span class="provider-pkg">npx ask-llm-mcp</span>
   </a>
   <a href="/ask-llm/providers/codex" class="provider-card" data-provider="codex">
     <span class="provider-name">Codex</span>
-    <span class="provider-desc">OpenAI's Codex CLI. GPT-5.5 with automatic mini fallback on quota.</span>
+    <span class="provider-desc">OpenAI's Codex CLI (GPT-5.5). Strongest code reasoning — the default workhorse reviewer.</span>
     <span class="provider-pkg">npx ask-codex-mcp</span>
+  </a>
+  <a href="/ask-llm/providers/antigravity" class="provider-card" data-provider="plugin">
+    <span class="provider-name">Antigravity</span>
+    <span class="provider-desc">Google Antigravity (agy) — a subscription-backed second opinion via your Google AI Pro/Ultra plan. The Gemini CLI successor.</span>
+    <span class="provider-pkg">npx ask-antigravity-mcp</span>
   </a>
   <a href="/ask-llm/providers/ollama" class="provider-card" data-provider="ollama">
     <span class="provider-name">Ollama</span>
-    <span class="provider-desc">Local LLMs via Ollama HTTP. No API keys, fully private, zero cost.</span>
+    <span class="provider-desc">Local models via Ollama. No API keys, fully private, zero cost — for code that can't leave your machine.</span>
     <span class="provider-pkg">npx ask-ollama-mcp</span>
   </a>
-  <a href="/ask-llm/providers/unified" class="provider-card" data-provider="unified">
-    <span class="provider-name">Unified</span>
-    <span class="provider-desc">All providers in one server. Auto-detects available CLIs and registers tools.</span>
-    <span class="provider-pkg">npx ask-llm-mcp</span>
+  <a href="/ask-llm/providers/gemini" class="provider-card" data-provider="gemini">
+    <span class="provider-name">Gemini <span class="provider-tag">enterprise</span></span>
+    <span class="provider-desc">Google's Gemini CLI. 1M+ token context for whole-codebase reads. Gated to enterprise seats since 2026-06-18.</span>
+    <span class="provider-pkg">npx ask-gemini-mcp</span>
   </a>
 </div>
 
@@ -71,7 +78,7 @@ hero:
       <svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>
     </div>
     <h3>Verify</h3>
-    <p>Ask your AI assistant: <code>Use Gemini ping to test the connection</code>. Got <em>Pong!</em> back? You're ready. See <a href="/ask-llm/usage/how-to-ask">How to Ask</a> for usage examples.</p>
+    <p>Ask your AI assistant: <code>Use ask-llm ping to test the connection</code>. Got <em>Pong!</em> back? You're ready. See <a href="/ask-llm/usage/how-to-ask">How to Ask</a> for usage examples.</p>
   </div>
   <div class="feature-card">
     <div class="icon-wrapper">
