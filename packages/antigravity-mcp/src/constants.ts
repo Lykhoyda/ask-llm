@@ -33,13 +33,15 @@ export const CLI = {
   },
 } as const;
 
-// agy exposes named models (run `agy models`). Default to Gemini 3.5 Flash (High):
-// the strongest Flash effort tier, best for the code-review / second-opinion workload.
+// agy exposes named models (run `agy models`). Default to Gemini 3.1 Pro (High) —
+// the strongest reasoning tier — for the code-review / second-opinion workload, and
+// fall back to Gemini 3.5 Flash (High) when Pro hits a subscription rate limit.
 // `agy --model` accepts the verbatim display string and works under `-p` (the v1
 // "no model selection" note was about the short `-m` flag, which hangs; `--model`
 // does not — verified against agy 1.0.6). Override via ASK_ANTIGRAVITY_MODEL.
 export const MODELS = {
-  DEFAULT: "Gemini 3.5 Flash (High)",
+  DEFAULT: "Gemini 3.1 Pro (High)",
+  FALLBACK: "Gemini 3.5 Flash (High)",
 } as const;
 
 export const ANTIGRAVITY = {

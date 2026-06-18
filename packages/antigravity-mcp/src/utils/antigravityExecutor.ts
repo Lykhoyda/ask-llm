@@ -5,9 +5,10 @@ import { readLatestResponse } from "./transcriptReader.js";
 export interface AntigravityExecutorOptions {
   prompt: string;
   includeDirs?: string[];
-  // agy model display name (see `agy models`), e.g. "Gemini 3.5 Flash (High)".
+  // agy model display name (see `agy models`), e.g. "Gemini 3.1 Pro (High)".
   // Passed via `--model` (works under -p, unlike the short `-m` flag which hangs).
-  // Falls back to ASK_ANTIGRAVITY_MODEL, then MODELS.DEFAULT, when omitted.
+  // Resolves to ASK_ANTIGRAVITY_MODEL, then MODELS.DEFAULT, when omitted; on a
+  // rate limit the executor retries once on MODELS.FALLBACK.
   model?: string;
   // Accepted for orchestrator ExecutorFn compatibility but ignored: agy -p can't
   // resume by id (no capturable conversation id, antigravity-cli #7).
@@ -95,19 +96,16 @@ export async function executeAntigravityCLI(options: AntigravityExecutorOptions)
     );
   }
 
-  const model = options.model?.trim() || process.env[ANTIGRAVITY.MODEL_ENV_VAR]?.trim() || MODELS.DEFAULT;
-  const args = buildArgs(fullPrompt, options.includeDirs, agyTimeoutSec, sandbox, model);
+  const primaryModel = options.model?.trim() || process.env[ANTIGRAVITY.MODEL_ENV_VAR]?.trim() || MODELS.DEFAULT;
 
-  return withMutex(async () => {
+  // One agy invocation with a specific model. Resolves to the parsed answer or
+  // throws (rate limit, spawn error, or NO_OUTPUT). Each call stamps its own
+  // startedAt so the transcript scraper reads *this* run's response, not a prior
+  // (rate-limited, transcript-less) attempt.
+  const runWithModel = async (model: string): Promise<AntigravityExecutorResult> => {
+    const args = buildArgs(fullPrompt, options.includeDirs, agyTimeoutSec, sandbox, model);
     const startedAt = Date.now();
-    let raw: string;
-    try {
-      raw = await executeCommand(CLI.COMMANDS.AGY, args, options.onProgress, undefined, undefined, timeoutMs);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      if (isRateLimitError(message)) throw new Error(ERROR_MESSAGES.RATE_LIMITED);
-      throw error; // not-found / spawn errors are already actionable via sanitizeErrorForLLM
-    }
+    const raw = await executeCommand(CLI.COMMANDS.AGY, args, options.onProgress, undefined, undefined, timeoutMs);
 
     // First non-null wins. Order matters: structured stdout JSON (if agy ever adds
     // it, #27466) is unambiguous; the transcript is the authoritative record; raw
@@ -127,5 +125,34 @@ export async function executeAntigravityCLI(options: AntigravityExecutorOptions)
     }
     // agy exited cleanly but produced no readable answer anywhere.
     throw new Error(ERROR_MESSAGES.NO_OUTPUT);
+  };
+
+  return withMutex(async () => {
+    try {
+      return await runWithModel(primaryModel);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (!isRateLimitError(message)) {
+        // not-found / spawn / NO_OUTPUT — already actionable, and a different model
+        // wouldn't help (auth / not-installed fail identically on every model).
+        throw error;
+      }
+      // Primary hit a subscription rate limit. Retry once on the cheaper Flash
+      // tier, unless we were already on it (or the caller pinned a model equal to
+      // the fallback) — in which case there is nothing left to fall back to.
+      if (primaryModel === MODELS.FALLBACK) {
+        throw new Error(ERROR_MESSAGES.RATE_LIMITED);
+      }
+      Logger.warn(`Antigravity rate limited on "${primaryModel}". Falling back to "${MODELS.FALLBACK}".`);
+      try {
+        return await runWithModel(MODELS.FALLBACK);
+      } catch (fallbackError) {
+        const fbMessage = fallbackError instanceof Error ? fallbackError.message : String(fallbackError);
+        // Both tiers throttled → the actionable quota message. A non-rate-limit
+        // fallback failure (timeout, crash) is surfaced as-is, not masked.
+        if (isRateLimitError(fbMessage)) throw new Error(ERROR_MESSAGES.RATE_LIMITED);
+        throw fallbackError;
+      }
+    }
   });
 }

@@ -138,7 +138,7 @@ Replace `ask-llm-mcp` with `ask-codex-mcp`, `ask-antigravity-mcp`, `ask-ollama-m
 | Provider | Best for | Model (default → fallback) | Notes |
 |----------|----------|----------------------------|-------|
 | **Codex** | Code reasoning, targeted reviews, architecture critique | `gpt-5.5` → `gpt-5.5-mini` | Requires an OpenAI/Codex account |
-| **Antigravity** | A subscription-backed second opinion; larger-context reads | `Gemini 3.5 Flash (High)` | Google AI Pro/Ultra plan; one-shot, experimental |
+| **Antigravity** | A subscription-backed second opinion; larger-context reads | `Gemini 3.1 Pro (High)` → `Gemini 3.5 Flash (High)` | Google AI Pro/Ultra plan; one-shot, experimental |
 | **Ollama** | Private/local review, zero cost, offline | `qwen3.6:27b` (no auto-fallback) | Runs entirely on your machine |
 | **Gemini** | Whole-codebase reads (1M+ tokens) | `gemini-3.1-pro-preview` → `gemini-3.5-flash` | ⚠️ Enterprise-gated from 2026-06-18 |
 | **Unified (`ask-llm`)** | One install for all of the above; fan out in parallel | routes per call | **Recommended** |

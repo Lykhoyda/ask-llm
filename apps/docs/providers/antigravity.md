@@ -10,7 +10,7 @@ Bridge Claude with Google's Antigravity CLI (`agy`) — Google's successor to Ge
 > **Not for:** fine-grained per-edit automation — it's one-shot and experimental. For continuous review, use Codex via `codex-pair`.
 
 ::: warning Experimental
-On `agy` ≥ 1.0.6 the headless `-p` mode prints the response to stdout (used directly); older versions / edge cases fall back to reading `agy`'s transcript files, which is sensitive to `agy`'s on-disk layout. Single-turn only (no multi-turn); defaults to the **Gemini 3.5 Flash (High)** model. Validated end-to-end against `agy` 1.0.6.
+On `agy` ≥ 1.0.6 the headless `-p` mode prints the response to stdout (used directly); older versions / edge cases fall back to reading `agy`'s transcript files, which is sensitive to `agy`'s on-disk layout. Single-turn only (no multi-turn); defaults to the **Gemini 3.1 Pro (High)** model, falling back to **Gemini 3.5 Flash (High)** on a rate limit. Validated end-to-end against `agy` 1.0.6.
 :::
 
 ## Installation
@@ -48,12 +48,12 @@ npm install -g ask-antigravity-mcp
 |---------|---------|---------|
 | `ASK_ANTIGRAVITY_TIMEOUT_MS` | `300000` | Process timeout (5 minutes) |
 | `ASK_ANTIGRAVITY_SANDBOX` | on | Set `0` to drop `agy`'s `--sandbox` flag if it blocks `--add-dir` context reads |
-| `ASK_ANTIGRAVITY_MODEL` | `Gemini 3.5 Flash (High)` | agy model passed via `--model` (run `agy models` for the list — e.g. `Gemini 3.1 Pro (High)`, `Claude Sonnet 4.6 (Thinking)`) |
+| `ASK_ANTIGRAVITY_MODEL` | `Gemini 3.1 Pro (High)` | agy model passed via `--model`; on a rate limit the executor retries once on `Gemini 3.5 Flash (High)` (run `agy models` for the list — e.g. `Claude Sonnet 4.6 (Thinking)`) |
 
 ## Limitations
 
 - **Experimental** — the transcript fallback is sensitive to changes in `agy`'s on-disk format.
-- **Single-turn** — no multi-turn sessions (no capturable conversation id, antigravity-cli #7). Model selection *is* supported via `--model` (defaults to Gemini 3.5 Flash (High); see [Config](#config)) — only the short `-m` flag hangs under `-p`.
+- **Single-turn** — no multi-turn sessions (no capturable conversation id, antigravity-cli #7). Model selection *is* supported via `--model` (defaults to Gemini 3.1 Pro (High), with a Gemini 3.5 Flash (High) rate-limit fallback; see [Config](#config)) — only the short `-m` flag hangs under `-p`.
 - **Interactive auth** — requires an `agy` login, so it isn't suited to headless CI.
 
 ## npm

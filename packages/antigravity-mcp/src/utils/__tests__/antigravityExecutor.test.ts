@@ -163,13 +163,13 @@ describe("executeAntigravityCLI model selection", () => {
   });
 
   it("honors ASK_ANTIGRAVITY_MODEL over the default", async () => {
-    process.env[ANTIGRAVITY.MODEL_ENV_VAR] = "Gemini 3.1 Pro (High)";
+    process.env[ANTIGRAVITY.MODEL_ENV_VAR] = "Gemini 3.5 Flash (Low)";
     mockExec.mockResolvedValue("answer");
     const result = await executeAntigravityCLI({ prompt: "q" });
     const [, args] = mockExec.mock.calls[0];
     const idx = args.indexOf(CLI.FLAGS.MODEL);
-    expect(args[idx + 1]).toBe("Gemini 3.1 Pro (High)");
-    expect(result.model).toBe("Gemini 3.1 Pro (High)");
+    expect(args[idx + 1]).toBe("Gemini 3.5 Flash (Low)");
+    expect(result.model).toBe("Gemini 3.5 Flash (Low)");
   });
 
   it("lets an explicit options.model win over env and default", async () => {
@@ -184,14 +184,44 @@ describe("executeAntigravityCLI model selection", () => {
 });
 
 describe("executeAntigravityCLI error handling", () => {
-  it("translates rate-limit errors to the actionable message", async () => {
-    mockExec.mockRejectedValue(new Error("RESOURCE_EXHAUSTED: quota"));
-    await expect(executeAntigravityCLI({ prompt: "q" })).rejects.toThrow(ERROR_MESSAGES.RATE_LIMITED);
-  });
-
-  it("rethrows non-rate-limit errors unchanged", async () => {
+  it("rethrows non-rate-limit errors unchanged without attempting a fallback", async () => {
     mockExec.mockRejectedValue(new Error("agy CLI not found on PATH"));
     await expect(executeAntigravityCLI({ prompt: "q" })).rejects.toThrow("agy CLI not found on PATH");
+    expect(mockExec).toHaveBeenCalledOnce();
+  });
+});
+
+describe("executeAntigravityCLI rate-limit fallback", () => {
+  it("retries on the Flash fallback when the default Pro model is rate limited", async () => {
+    mockExec.mockRejectedValueOnce(new Error("RESOURCE_EXHAUSTED: quota")).mockResolvedValueOnce("flash answer");
+    const result = await executeAntigravityCLI({ prompt: "q" });
+    expect(result.response).toBe("flash answer");
+    expect(result.model).toBe(MODELS.FALLBACK);
+    // first attempt used the default model, the retry used the fallback model
+    const firstArgs = mockExec.mock.calls[0][1];
+    const secondArgs = mockExec.mock.calls[1][1];
+    expect(firstArgs[firstArgs.indexOf(CLI.FLAGS.MODEL) + 1]).toBe(MODELS.DEFAULT);
+    expect(secondArgs[secondArgs.indexOf(CLI.FLAGS.MODEL) + 1]).toBe(MODELS.FALLBACK);
+  });
+
+  it("does not retry when the resolved model already is the fallback", async () => {
+    process.env[ANTIGRAVITY.MODEL_ENV_VAR] = MODELS.FALLBACK;
+    mockExec.mockRejectedValue(new Error("rate limit"));
+    await expect(executeAntigravityCLI({ prompt: "q" })).rejects.toThrow(ERROR_MESSAGES.RATE_LIMITED);
+    expect(mockExec).toHaveBeenCalledOnce();
+  });
+
+  it("throws the actionable RATE_LIMITED message when both tiers are throttled", async () => {
+    mockExec.mockRejectedValue(new Error("429 too many requests"));
+    await expect(executeAntigravityCLI({ prompt: "q" })).rejects.toThrow(ERROR_MESSAGES.RATE_LIMITED);
+    expect(mockExec).toHaveBeenCalledTimes(2);
+  });
+
+  it("surfaces a non-rate-limit fallback failure instead of masking it as RATE_LIMITED", async () => {
+    mockExec
+      .mockRejectedValueOnce(new Error("RESOURCE_EXHAUSTED"))
+      .mockRejectedValueOnce(new Error("agy crashed during fallback"));
+    await expect(executeAntigravityCLI({ prompt: "q" })).rejects.toThrow("agy crashed during fallback");
   });
 });
 

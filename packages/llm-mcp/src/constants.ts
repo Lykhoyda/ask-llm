@@ -41,7 +41,7 @@ export const PROVIDERS: Record<string, ProviderConfig> = {
     command: "agy",
     executorModule: "ask-antigravity-mcp/executor",
     executorFn: "executeAntigravityCLI",
-    defaultModel: "Gemini 3.5 Flash (High)",
+    defaultModel: "Gemini 3.1 Pro (High)",
   },
 };
 
