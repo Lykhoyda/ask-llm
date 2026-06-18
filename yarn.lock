@@ -2823,7 +2823,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"ask-antigravity-mcp@npm:^0.2.3, ask-antigravity-mcp@workspace:*, ask-antigravity-mcp@workspace:packages/antigravity-mcp":
+"ask-antigravity-mcp@npm:^0.3.0, ask-antigravity-mcp@workspace:*, ask-antigravity-mcp@workspace:packages/antigravity-mcp":
   version: 0.0.0-use.local
   resolution: "ask-antigravity-mcp@workspace:packages/antigravity-mcp"
   dependencies:
@@ -2882,7 +2882,7 @@ __metadata:
     "@biomejs/biome": "npm:^2.4.4"
     "@modelcontextprotocol/sdk": "npm:^1.27.1"
     "@types/node": "npm:^22.19.13"
-    ask-antigravity-mcp: "npm:^0.2.3"
+    ask-antigravity-mcp: "npm:^0.3.0"
     ask-codex-mcp: "npm:^0.4.0"
     ask-gemini-mcp: "npm:^1.6.12"
     ask-ollama-mcp: "npm:^0.4.0"
