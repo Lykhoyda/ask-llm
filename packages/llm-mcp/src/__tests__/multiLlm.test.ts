@@ -87,6 +87,31 @@ describe("dispatchMultiLlm", () => {
     expect(report.results.find((r) => r.provider === "phantom")?.error).toContain("not loaded");
   });
 
+  it("reports a provider's top-level result.model when usage is absent (Antigravity fallback)", async () => {
+    // Antigravity surfaces the actual model out-of-band (no usage stats); after a
+    // Pro → Flash rate-limit fallback the result carries model: Flash, which must
+    // be reported rather than dropped to undefined.
+    const exAntigravity: ExecutorFn = vi.fn().mockResolvedValue({ response: "ans", model: "Gemini 3.5 Flash (High)" });
+    const report = await dispatchMultiLlm({
+      prompt: "p",
+      providers: ["antigravity"],
+      getExecutor: () => exAntigravity,
+    });
+    expect(report.results[0].model).toBe("Gemini 3.5 Flash (High)");
+  });
+
+  it("prefers usage.model over a top-level result.model when both are present", async () => {
+    const ex: ExecutorFn = vi
+      .fn()
+      .mockResolvedValue({ response: "ans", model: "top-level", usage: makeUsage({ model: "usage-model" }) });
+    const report = await dispatchMultiLlm({
+      prompt: "p",
+      providers: ["gemini"],
+      getExecutor: () => ex,
+    });
+    expect(report.results[0].model).toBe("usage-model");
+  });
+
   it("treats prefers result.threadId over result.sessionId when both are absent then present", async () => {
     const ex: ExecutorFn = vi.fn().mockResolvedValue({ response: "x", threadId: "T-42" });
     const report = await dispatchMultiLlm({

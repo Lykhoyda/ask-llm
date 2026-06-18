@@ -41,6 +41,11 @@ export type ExecutorFn = (options: {
   onProgress?: (output: string) => void;
 }) => Promise<{
   response: string;
+  // Actual model that produced the answer. Gemini/Codex report it via
+  // usage.model; Ollama and Antigravity surface it here (their usage may be
+  // undefined), so the unified layer reads result.model to stay accurate after
+  // a provider-internal fallback (e.g. Antigravity Pro → Flash).
+  model?: string;
   usage?: UsageStats;
   sessionId?: string;
   threadId?: string;
@@ -190,7 +195,7 @@ export async function startServer() {
         const structured: AskResponse = {
           provider: provider as "gemini" | "codex" | "ollama" | "antigravity",
           response: result.response,
-          model: result.usage?.model ?? model ?? PROVIDERS[provider]?.defaultModel ?? "unknown",
+          model: result.usage?.model ?? result.model ?? model ?? PROVIDERS[provider]?.defaultModel ?? "unknown",
           sessionId: resolvedSessionId,
           usage: result.usage,
         };
