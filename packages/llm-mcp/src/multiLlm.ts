@@ -80,7 +80,7 @@ export async function dispatchMultiLlm(opts: DispatchOptions): Promise<MultiLlmR
         provider,
         ok: true,
         response: result.response,
-        model: result.usage?.model,
+        model: result.usage?.model ?? result.model,
         sessionId: result.sessionId ?? result.threadId,
         usage: result.usage,
         durationMs: Date.now() - callStart,
