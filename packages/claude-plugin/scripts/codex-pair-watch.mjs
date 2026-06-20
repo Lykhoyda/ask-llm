@@ -90,7 +90,7 @@ const DEFAULTS_PATH = join(SCRIPT_DIR, "..", "codex-pair-defaults.json");
 // without duplicating literals across files. A structural test links the
 // JSON values to constants.ts so drift fails CI. If the file is missing or
 // malformed, fall through to env vars and hardcoded literals.
-let CODEX_PAIR_DEFAULTS = { model: "gpt-5.5", fallbackModel: "gpt-5.5-mini" };
+let CODEX_PAIR_DEFAULTS = { model: "gpt-5.5", fallbackModel: "gpt-5.4-mini" };
 try {
   CODEX_PAIR_DEFAULTS = JSON.parse(readFileSync(DEFAULTS_PATH, "utf8"));
 } catch {
@@ -119,10 +119,13 @@ const QUOTA_SIGNALS = [
 ];
 
 // A configured fallback model can be structurally unavailable on some Codex
-// account types — notably gpt-5.5-mini is rejected with a 400 on ChatGPT-plan
+// account types — e.g. gpt-5.5-mini is rejected with a 400 on ChatGPT-plan
 // accounts (where quota is account-wide, so a cheaper fallback never applied).
-// Matched only on the FALLBACK leg after a primary quota error: it means the
-// fallback ladder is broken, i.e. the same "no usable model" exhaustion.
+// The default fallback is now gpt-5.4-mini, which works on ChatGPT-plan accounts
+// (ADR-126), but a user can still pin an unavailable model via
+// ASK_CODEX_FALLBACK_MODEL — this guard keeps that case graceful. Matched only on
+// the FALLBACK leg after a primary quota error: it means the fallback ladder is
+// broken, i.e. the same "no usable model" exhaustion.
 const MODEL_UNAVAILABLE_SIGNALS = ["is not supported when using codex with a chatgpt"];
 
 // Transient failure signatures (item #10). Errors matching any of these get

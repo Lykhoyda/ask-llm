@@ -1,10 +1,10 @@
 ---
-description: Bridge Claude with OpenAI Codex CLI for GPT-5.5 code review and analysis. Automatic fallback to GPT-5.5-mini on quota limits.
+description: Bridge Claude with OpenAI Codex CLI for GPT-5.5 code review and analysis. Automatic fallback to GPT-5.4-mini on quota limits.
 ---
 
 # Codex
 
-Bridge Claude with OpenAI's Codex CLI. Access GPT-5.5 for code generation, analysis, and review with automatic fallback to GPT-5.5-mini on quota limits.
+Bridge Claude with OpenAI's Codex CLI. Access GPT-5.5 for code generation, analysis, and review with automatic fallback to GPT-5.4-mini on quota limits.
 
 > **Best for:** targeted code reasoning, architecture critique, and security review of specific files — the default workhorse reviewer.
 > **Not for:** whole-repository reads beyond its context window (use Gemini or Antigravity), or fully offline/air-gapped use (it's a hosted model — use Ollama).
@@ -37,7 +37,7 @@ npm install -g ask-codex-mcp
 ## Models
 
 - **Default:** `gpt-5.5` (highest capability)
-- **Fallback:** `gpt-5.5-mini` (automatic on quota errors per [ADR-028](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md), model bumped in [ADR-067](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md))
+- **Fallback:** `gpt-5.4-mini` (automatic on quota errors per [ADR-028](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md), model bumped in [ADR-067](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md))
 
 ## Key Features
 

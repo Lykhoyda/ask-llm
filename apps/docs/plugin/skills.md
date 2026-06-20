@@ -36,7 +36,7 @@ Get a second opinion from OpenAI Codex (GPT-5.5) on your current changes.
 /codex-review
 ```
 
-Falls back to GPT-5.5-mini automatically if you hit quota limits.
+Falls back to GPT-5.4-mini automatically if you hit quota limits.
 
 ### `/ollama-review`
 

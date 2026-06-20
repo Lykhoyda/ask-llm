@@ -1,4 +1,4 @@
 {
   "model": "gpt-5.5",
-  "fallbackModel": "gpt-5.5-mini"
+  "fallbackModel": "gpt-5.4-mini"
 }

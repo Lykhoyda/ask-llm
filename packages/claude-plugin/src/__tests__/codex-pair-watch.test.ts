@@ -53,7 +53,7 @@ describe("scripts/codex-pair-watch.mjs — structural invariants (ADR-077)", () 
     expect(script).toMatch(/stdin\.on\(["']error["']/);
   });
 
-  it("preserves quota fallback (gpt-5.5 → gpt-5.5-mini on rate_limit_exceeded)", () => {
+  it("preserves quota fallback (gpt-5.5 → gpt-5.4-mini on rate_limit_exceeded)", () => {
     expect(script).toMatch(/isQuotaError/);
     expect(script).toMatch(/rate_limit_exceeded/);
     expect(script).toMatch(/FALLBACK_MODEL/);
@@ -1119,7 +1119,7 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
       [
         "---",
         "model: gpt-5.5",
-        "fallbackModel: gpt-5.5-mini",
+        "fallbackModel: gpt-5.4-mini",
         "timeoutMs: 800000",
         "maxFileBytes: 50",
         "surfaceThreshold: med",
@@ -1764,11 +1764,15 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
       tool_name: "Edit",
       tool_input: { file_path: filePath },
     });
-    // Primary gpt-5.5 hits ChatGPT-plan quota; the gpt-5.5-mini fallback is
-    // structurally rejected on a ChatGPT account (400, not a quota). The ladder
-    // is broken → exhaustion, so a SINGLE edit must pause as kind:"quota" with
-    // the PRIMARY reset hint — pre-fix it fell to the 3-failure backstop (no
-    // sentinel on the first failure, and kind:"failures" with no reset hint).
+    // Primary gpt-5.5 hits ChatGPT-plan quota; the configured fallback model is
+    // structurally rejected on a ChatGPT account (400, not a quota). Since
+    // ADR-126 the default fallback (gpt-5.4-mini) works on ChatGPT plans, so this
+    // exercises a user who pinned an unavailable fallback (e.g.
+    // ASK_CODEX_FALLBACK_MODEL=gpt-5.5-mini) — the defensive guard must still
+    // hold. The ladder is broken → exhaustion, so a SINGLE edit must pause as
+    // kind:"quota" with the PRIMARY reset hint — pre-fix it fell to the 3-failure
+    // backstop (no sentinel on the first failure, and kind:"failures" with no
+    // reset hint).
     const result = runHookWithFakeCodex(payload, tempDir, "quota-plan-chatgpt", {
       FAKE_CODEX_ATTEMPT_FILE: path.join(tempDir, "attempt"),
     });

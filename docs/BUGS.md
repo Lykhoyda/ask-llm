@@ -81,6 +81,15 @@ A repo-wide bug sweep (8 parallel review agents; every finding re-verified by re
 
 ## Fixed (pending publish)
 
+### #194 — Codex quota fallback `gpt-5.5-mini` is rejected (400) on ChatGPT-plan accounts → fallback never produced a cheaper answer
+- **Severity:** High — the quota-fallback path (a reliability safety net) was broken for the common case. More load-bearing since the live Gemini consumer cutoff redirects those users to `ask-codex`.
+- **Issue:** [#194](https://github.com/Lykhoyda/ask-llm/issues/194) (filed by the 2026-06-19 scheduled drift-audit)
+- **Symptom:** On a Codex quota error, the fallback retry shelled out `codex exec -m gpt-5.5-mini …`. The issue framed `gpt-5.5-mini` as a non-existent model; the live probe (CLI 0.141.0, ChatGPT-plan account) showed it is actually rejected with `400 "The 'gpt-5.5-mini' model is not supported when using Codex with a ChatGPT account."` — an account-type restriction, not a 404. `gpt-5.4-mini` answers `pong` (exit 0). Either way the fallback failed → `…fallback also failed` (`codexExecutor.ts:419-423`) instead of a cheaper answer.
+- **Root cause:** ADR-067 set the fallback to `gpt-5.5-mini`. Plan quota on ChatGPT accounts is account-wide, so a cheaper-model fallback never applied there — and ChatGPT-plan is the common case for the `codex` CLI. ADR-123 had found the same 400 but deliberately kept `gpt-5.5-mini` (deeming the failure account-type-specific) and only made codex-pair *pause* cleanly; the published `ask-codex-mcp` executor still surfaced a terminal error and never got a working fallback. Existing quota-fallback tests mocked the fallback response, so the slug was never validated against a live Codex — a latent gap, not a new 0.141 regression.
+- **Fix (ADR-126):** Default `MODELS.FALLBACK` → `gpt-5.4-mini` (works on ChatGPT-plan **and** API-key accounts), mirrored in `codex-pair-defaults.json` + `codex-pair-watch.mjs` (drift guard enforces parity). ADR-123's structural-unavailability guard retained for pinned-unavailable models. Primary `gpt-5.5` unchanged; `ASK_CODEX_FALLBACK_MODEL` still overrides. Current/user-facing docs swept to the new slug.
+- **Verification:** Live two-model probe; `ask-codex-mcp` 90 tests + `@ask-llm/plugin` 415 tests green (drift guard + structural-unavailability test).
+- **Status:** Fixed on `fix/codex-fallback-gpt-5.4-mini` — pending publish (changeset `codex-fallback-gpt-5.4-mini`).
+
 ### ~~#115 — superseded entry (PR #126 / ADR-106) — reverted by ADR-107~~ HISTORICAL
 The entry below documents the (failed) first attempt at fixing #115 via PR #126. PR #126's verification step tested `yarn pack`, but the actual publish path uses `npm publish` (via changesets/action), which doesn't perform the same `workspace:*` rewrite. The result was four broken npm tarballs on 2026-05-27. ADR-107 restored the bundling architecture; the canonical #115 entry is now under `## Open` above.
 

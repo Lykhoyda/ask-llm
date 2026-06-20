@@ -29,8 +29,8 @@ describe("Codex default model version (ADR-067)", () => {
     expect(MODELS.DEFAULT).toBe("gpt-5.5");
   });
 
-  it("falls back to gpt-5.5-mini when ASK_CODEX_FALLBACK_MODEL is not set", () => {
+  it("falls back to gpt-5.4-mini when ASK_CODEX_FALLBACK_MODEL is not set", () => {
     if (process.env.ASK_CODEX_FALLBACK_MODEL) return;
-    expect(MODELS.FALLBACK).toBe("gpt-5.5-mini");
+    expect(MODELS.FALLBACK).toBe("gpt-5.4-mini");
   });
 });
