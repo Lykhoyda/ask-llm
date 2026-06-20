@@ -155,7 +155,7 @@ Send prompts to OpenAI Codex CLI.
 - **Package:** ask-codex-mcp
 - **Parameters:**
   - `prompt` (string, required): The question, code review request, or analysis task.
-  - `model` (string, optional): Do not set unless user explicitly requests it. Default: gpt-5.5. Falls back to gpt-5.5-mini on quota errors.
+  - `model` (string, optional): Do not set unless user explicitly requests it. Default: gpt-5.5. Falls back to gpt-5.4-mini on quota errors.
 - **Returns:** Codex's text response.
 - **Annotations:** readOnlyHint=false, destructiveHint=false, openWorldHint=true
 
@@ -192,7 +192,7 @@ Test MCP server connectivity. Available in all packages.
 | Model | Use Case |
 |-------|----------|
 | gpt-5.5 | Default — highest capability |
-| gpt-5.5-mini | Automatic fallback on quota errors |
+| gpt-5.4-mini | Automatic fallback on quota errors |
 
 ### Ollama
 | Model | Use Case |

@@ -11,7 +11,7 @@ Hosted providers (Gemini, Codex) auto-select a sensible default model with autom
 | Provider | Default | Fallback | Trigger |
 |---|---|---|---|
 | Gemini | `gemini-3.1-pro-preview` | `gemini-3.5-flash` | `RESOURCE_EXHAUSTED` quota error or "exhausted your capacity" pattern ([ADR-044](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md)) |
-| Codex | `gpt-5.5` | `gpt-5.5-mini` | Quota errors (`rate_limit_exceeded`, `429`, `insufficient_quota`) ([ADR-028](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md), bumped per [ADR-067](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md)) |
+| Codex | `gpt-5.5` | `gpt-5.4-mini` | Quota errors (`rate_limit_exceeded`, `429`, `insufficient_quota`) ([ADR-028](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md), bumped per [ADR-067](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md)) |
 | Ollama | `qwen3.6:27b` | — (none) | Local — no fallback; a missing model returns a clear `ollama pull` error |
 
 For Gemini and Codex, the fallback fires automatically inside the executor — your client sees a successful response with `usage.fellBack: true` in the structured output, and a `[Gemini stats: ... fell back]` annotation in the formatted text. Ollama never falls back, so its `fellBack` is always `false`.
@@ -46,7 +46,7 @@ Or programmatically:
 For Codex, common overrides:
 
 ```text
-Use ask-codex with model gpt-5.5-mini to summarize this commit
+Use ask-codex with model gpt-5.4-mini to summarize this commit
 ```
 
 For Ollama, you can request any model you've pulled:
@@ -66,7 +66,7 @@ Use ask-ollama with model deepseek-coder:6.7b to review this implementation
 | Gemini Pro | ~1M tokens (~250k LOC) | Gemini Code Assist Standard/Enterprise seat (from 2026-06-18) |
 | Gemini Flash | ~1M tokens | Cheaper than Pro; fallback target for quota relief |
 | Codex GPT-5.5 | Per OpenAI's published context window | Per OpenAI billing |
-| Codex GPT-5.5-mini | Smaller context | Cheaper; fallback target |
+| Codex GPT-5.4-mini | Smaller context | Cheaper; fallback target |
 | Ollama | Per model (e.g., 256k for qwen3.6) | Free — runs locally |
 
 ## Track What You're Spending
@@ -83,6 +83,6 @@ This is in-memory only — no persistence to disk, resets when the MCP server re
 
 - **General code review** → defaults are correct; let the fallback chain handle quota
 - **Whole-codebase analysis** → `ask-gemini` (Pro) if you have an enterprise seat, otherwise `ask-antigravity` for large-context reads without per-token billing
-- **Quick fixes, fast iteration** → request Flash or `gpt-5.5-mini` explicitly to skip the Pro→fallback round-trip
+- **Quick fixes, fast iteration** → request Flash or `gpt-5.4-mini` explicitly to skip the Pro→fallback round-trip
 - **Privacy-sensitive code** → `ask-ollama`, never leaves your machine
 - **Multi-perspective debate** → `multi-llm` or `/brainstorm` skill — Claude weighs verified vs inferred

@@ -52,7 +52,7 @@ node packages/claude-plugin/scripts/benchmark/prompt-ab.mjs \
 
 # Cheaper model for sanity
 node packages/claude-plugin/scripts/benchmark/prompt-ab.mjs \
-  --model gpt-5.5-mini \
+  --model gpt-5.4-mini \
   --timeout-ms 60000
 ```
 

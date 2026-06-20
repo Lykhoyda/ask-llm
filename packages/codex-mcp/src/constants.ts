@@ -33,7 +33,13 @@ export const STATUS_MESSAGES = {
 
 export const MODELS = {
   DEFAULT: process.env.ASK_CODEX_MODEL || "gpt-5.5",
-  FALLBACK: process.env.ASK_CODEX_FALLBACK_MODEL || "gpt-5.5-mini",
+  // gpt-5.4-mini, not gpt-5.5-mini: the 5.5 "mini" is rejected with a 400
+  // ("not supported when using Codex with a ChatGPT account") on ChatGPT-plan
+  // accounts — the common case for the codex CLI — so the quota fallback never
+  // produced a cheaper answer there. gpt-5.4-mini works on both ChatGPT-plan and
+  // API-key accounts. API-key users who prefer 5.5-mini can pin it via the env
+  // var. See ADR-126 (supersedes ADR-067's gpt-5.5-mini fallback choice; #194).
+  FALLBACK: process.env.ASK_CODEX_FALLBACK_MODEL || "gpt-5.4-mini",
 };
 
 export const CLI = {
