@@ -19,6 +19,15 @@ export const ERROR_MESSAGES = {
   // openai/codex#19362 — confirm the exact string against a live archived
   // session on codex >= 0.136. #139 / #141 F1.
   ARCHIVED_SESSION_SIGNALS: ["archived_sessions", "archived session", "session is archived"],
+  // A pinned ASK_CODEX_FALLBACK_MODEL can be structurally unavailable on some
+  // account types — e.g. gpt-5.5-mini is rejected with a 400 ("not supported when
+  // using Codex with a ChatGPT account") on ChatGPT-plan accounts. The default
+  // fallback (gpt-5.4-mini) works everywhere (ADR-126), but this guard keeps a
+  // user-pinned-incompatible fallback graceful. Matched only on the FALLBACK leg
+  // after a primary quota error → the ladder is broken (same "no usable model"
+  // exhaustion). Ports MODEL_UNAVAILABLE_SIGNALS from codex-pair-watch.mjs
+  // (ADR-123). Lowercased substrings; isModelUnavailableError() lowercases first.
+  MODEL_UNAVAILABLE_SIGNALS: ["is not supported when using codex with a chatgpt"],
   NO_PROMPT_PROVIDED:
     "Please provide a prompt for analysis. Ask general questions or describe the code you want reviewed.",
   TOOL_NOT_FOUND: "not found in registry",

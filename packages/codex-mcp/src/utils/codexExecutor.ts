@@ -197,6 +197,15 @@ function isArchivedSessionError(error: unknown): boolean {
   return ERROR_MESSAGES.ARCHIVED_SESSION_SIGNALS.some((signal) => msg.includes(signal));
 }
 
+// Exported for unit testing — pure predicate over the error message text. True
+// when the model is structurally rejected for the account type (a 400, NOT a
+// quota signal), e.g. a pinned gpt-5.5-mini fallback on a ChatGPT-plan account.
+// #196 / ADR-126.
+export function isModelUnavailableError(error: unknown): boolean {
+  const msg = (error instanceof Error ? error.message : String(error)).toLowerCase();
+  return ERROR_MESSAGES.MODEL_UNAVAILABLE_SIGNALS.some((signal) => msg.includes(signal));
+}
+
 interface CodexEditItem {
   file: string;
   startLine?: number;
@@ -418,6 +427,23 @@ export async function executeCodexCLI(options: CodexExecutorOptions): Promise<Co
           return parseCodexJsonlOutput(raw, MODELS.FALLBACK, Date.now() - fallbackStartedAt, true);
         } catch (fallbackError) {
           const fallbackMsg = fallbackError instanceof Error ? fallbackError.message : String(fallbackError);
+          // The fallback is structurally rejected for this account type (a 400,
+          // not a quota) — the ladder is broken in a way `codex doctor` can't
+          // diagnose, so point the user at the env var that controls it instead of
+          // the generic both-failed message. #196 / ADR-126.
+          if (isModelUnavailableError(fallbackError)) {
+            // Tailor the remediation: "unset to use the default" only makes sense
+            // when the user PINNED an incompatible model. With no pin the failing
+            // model already IS the default, so recommending it back would be
+            // self-contradictory (PR #198 review). The pin is the same env var
+            // MODELS.FALLBACK resolves from, so its presence distinguishes them.
+            const remediation = process.env.ASK_CODEX_FALLBACK_MODEL
+              ? "Set ASK_CODEX_FALLBACK_MODEL to a model your account supports, or unset it to use the default (gpt-5.4-mini, which works on both ChatGPT-plan and API-key accounts)."
+              : "Set ASK_CODEX_FALLBACK_MODEL to a model your account supports.";
+            throw new Error(
+              `${MODELS.DEFAULT} quota exceeded and the fallback model "${MODELS.FALLBACK}" is not available for this Codex account type (${fallbackMsg}). ${remediation}`,
+            );
+          }
           throw new Error(
             `${MODELS.DEFAULT} quota exceeded, ${MODELS.FALLBACK} fallback also failed: ${fallbackMsg}. Run \`codex doctor\` to inspect your Codex CLI installation.`,
           );

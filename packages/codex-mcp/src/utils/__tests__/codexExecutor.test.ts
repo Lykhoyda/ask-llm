@@ -419,6 +419,81 @@ describe("quota fallback", () => {
   });
 });
 
+// #196 / ADR-126 follow-up: the DEFAULT fallback (gpt-5.4-mini) works on every
+// account type, but a user can pin an incompatible model via
+// ASK_CODEX_FALLBACK_MODEL (e.g. gpt-5.5-mini on a ChatGPT-plan account). When
+// the primary hits quota AND that pinned fallback fails structurally (a 400, not
+// a quota), the ladder is broken — surface an actionable message naming the
+// offending model and the env var to fix, NOT the generic "fallback also failed".
+describe("fallback model structurally unavailable for the account (#196)", () => {
+  it("surfaces an actionable message naming the fallback model and ASK_CODEX_FALLBACK_MODEL", async () => {
+    mockExecuteCommand
+      .mockRejectedValueOnce(new Error("rate_limit_exceeded"))
+      .mockRejectedValueOnce(new Error("400 The model is not supported when using Codex with a ChatGPT account."));
+
+    const err = await executeCodexCLI({ prompt: "test" }).catch((e) => e as Error);
+    expect(err.message).toContain(MODELS.FALLBACK);
+    expect(err.message).toMatch(/ASK_CODEX_FALLBACK_MODEL/);
+    expect(err.message).toMatch(/account/i);
+    // Must NOT degrade to the generic both-failed / codex-doctor message.
+    expect(err.message).not.toMatch(/fallback also failed/);
+    expect(mockExecuteCommand).toHaveBeenCalledTimes(2);
+  });
+
+  it("still uses the generic both-failed message when the fallback fails for an unrelated reason", async () => {
+    mockExecuteCommand
+      .mockRejectedValueOnce(new Error("rate_limit_exceeded"))
+      .mockRejectedValueOnce(new Error("network blip"));
+
+    const err = await executeCodexCLI({ prompt: "test" }).catch((e) => e as Error);
+    expect(err.message).toMatch(/fallback also failed: network blip/);
+    expect(err.message).toMatch(/codex doctor/);
+  });
+
+  // PR #198 review (claude-review, finding 1): the actionable message must not
+  // assume its own trigger. The branch fires for ANY fallback 400, but "unset it
+  // to use the default" only makes sense when the user PINNED an incompatible
+  // model. With no pin, the failing model IS the default — telling the user to
+  // unset back to it is self-contradictory.
+  describe("remediation wording adapts to whether the fallback was user-pinned", () => {
+    let originalPin: string | undefined;
+
+    beforeEach(() => {
+      originalPin = process.env.ASK_CODEX_FALLBACK_MODEL;
+      delete process.env.ASK_CODEX_FALLBACK_MODEL;
+    });
+
+    afterEach(() => {
+      if (originalPin === undefined) delete process.env.ASK_CODEX_FALLBACK_MODEL;
+      else process.env.ASK_CODEX_FALLBACK_MODEL = originalPin;
+    });
+
+    it("does NOT tell the user to unset/use-the-default when no fallback is pinned", async () => {
+      mockExecuteCommand
+        .mockRejectedValueOnce(new Error("rate_limit_exceeded"))
+        .mockRejectedValueOnce(new Error("400 The model is not supported when using Codex with a ChatGPT account."));
+
+      const err = await executeCodexCLI({ prompt: "test" }).catch((e) => e as Error);
+      // Still actionable…
+      expect(err.message).toMatch(/ASK_CODEX_FALLBACK_MODEL/);
+      expect(err.message).toMatch(/account/i);
+      // …but no self-contradictory "unset it to use the default" — there is no pin.
+      expect(err.message).not.toMatch(/unset/i);
+    });
+
+    it("offers to unset back to the default when an incompatible fallback IS pinned", async () => {
+      process.env.ASK_CODEX_FALLBACK_MODEL = "gpt-5.5-mini";
+      mockExecuteCommand
+        .mockRejectedValueOnce(new Error("rate_limit_exceeded"))
+        .mockRejectedValueOnce(new Error("400 The model is not supported when using Codex with a ChatGPT account."));
+
+      const err = await executeCodexCLI({ prompt: "test" }).catch((e) => e as Error);
+      expect(err.message).toMatch(/unset it to use the default/i);
+      expect(err.message).toMatch(/gpt-5\.4-mini/);
+    });
+  });
+});
+
 describe("session continuity (ADR-058 hardening per ADR-063)", () => {
   it("includes --ephemeral when no sessionId is provided", async () => {
     await executeCodexCLI({ prompt: "hello" });
