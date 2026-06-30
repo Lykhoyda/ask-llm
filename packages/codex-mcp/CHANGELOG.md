@@ -1,5 +1,17 @@
 # ask-codex-mcp
 
+## 0.4.1
+
+### Patch Changes
+
+- [#195](https://github.com/Lykhoyda/ask-llm/pull/195) [`f65e72f`](https://github.com/Lykhoyda/ask-llm/commit/f65e72f03b975a93d480091687729350b78788d6) Thanks [@Lykhoyda](https://github.com/Lykhoyda)! - Fix the Codex quota-fallback model: default to `gpt-5.4-mini` instead of `gpt-5.5-mini`.
+
+  `gpt-5.5-mini` is rejected with a `400 "not supported when using Codex with a ChatGPT account"` on ChatGPT-plan accounts — the common case for the `codex` CLI, where plan quota is account-wide — so when `gpt-5.5` hit a usage limit the fallback retry failed (`…fallback also failed`) instead of producing a cheaper answer. `gpt-5.4-mini` is confirmed to work on both ChatGPT-plan and API-key accounts and is now the default `ASK_CODEX_FALLBACK_MODEL`. The `gpt-5.5` primary default is unchanged, and API-key users who prefer `gpt-5.5-mini` can still pin it via `ASK_CODEX_FALLBACK_MODEL`. The codex-pair plugin default is updated to match. See ADR-126 (closes [#194](https://github.com/Lykhoyda/ask-llm/issues/194)).
+
+- [#198](https://github.com/Lykhoyda/ask-llm/pull/198) [`4938dba`](https://github.com/Lykhoyda/ask-llm/commit/4938dbaeb422e3c5dcfd5ed2780ad030b819a832) Thanks [@Lykhoyda](https://github.com/Lykhoyda)! - Surface an actionable error when a pinned `ASK_CODEX_FALLBACK_MODEL` is structurally unavailable for your Codex account type.
+
+  Previously, if the primary model hit a quota error and a pinned fallback (e.g. `ASK_CODEX_FALLBACK_MODEL=gpt-5.5-mini` on a ChatGPT-plan account) was rejected with `400 "not supported when using Codex with a ChatGPT account"`, the MCP executor surfaced a generic `…fallback also failed: <400>. Run \`codex doctor\``message — and`codex doctor`cannot diagnose an account-type model restriction. The executor now detects this case (porting`isModelUnavailableError`from the codex-pair hook, ADR-123) and throws a message that names the model, explains it isn't available for your account type, and points at`ASK_CODEX_FALLBACK_MODEL`(the default`gpt-5.4-mini` works on both ChatGPT-plan and API-key accounts). The default fallback already works everywhere (ADR-126), so this only affects users who deliberately pin an incompatible model. See ADR-127 (closes [#196](https://github.com/Lykhoyda/ask-llm/issues/196)).
+
 ## 0.4.0
 
 ### Minor Changes
