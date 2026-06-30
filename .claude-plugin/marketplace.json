@@ -17,7 +17,7 @@
         "path": "packages/claude-plugin"
       },
       "description": "AI-to-AI collaboration — review code, brainstorm ideas, and debate plans across Gemini, Codex, and Ollama providers",
-      "version": "0.9.2",
+      "version": "0.9.3",
       "author": {
         "name": "Anton Lykhoyda"
       },

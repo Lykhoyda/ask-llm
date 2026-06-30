@@ -1,5 +1,16 @@
 # @ask-llm/plugin
 
+## 0.9.3
+
+### Patch Changes
+
+- [#195](https://github.com/Lykhoyda/ask-llm/pull/195) [`f65e72f`](https://github.com/Lykhoyda/ask-llm/commit/f65e72f03b975a93d480091687729350b78788d6) Thanks [@Lykhoyda](https://github.com/Lykhoyda)! - Fix the Codex quota-fallback model: default to `gpt-5.4-mini` instead of `gpt-5.5-mini`.
+
+  `gpt-5.5-mini` is rejected with a `400 "not supported when using Codex with a ChatGPT account"` on ChatGPT-plan accounts — the common case for the `codex` CLI, where plan quota is account-wide — so when `gpt-5.5` hit a usage limit the fallback retry failed (`…fallback also failed`) instead of producing a cheaper answer. `gpt-5.4-mini` is confirmed to work on both ChatGPT-plan and API-key accounts and is now the default `ASK_CODEX_FALLBACK_MODEL`. The `gpt-5.5` primary default is unchanged, and API-key users who prefer `gpt-5.5-mini` can still pin it via `ASK_CODEX_FALLBACK_MODEL`. The codex-pair plugin default is updated to match. See ADR-126 (closes [#194](https://github.com/Lykhoyda/ask-llm/issues/194)).
+
+- Updated dependencies [[`f65e72f`](https://github.com/Lykhoyda/ask-llm/commit/f65e72f03b975a93d480091687729350b78788d6), [`4938dba`](https://github.com/Lykhoyda/ask-llm/commit/4938dbaeb422e3c5dcfd5ed2780ad030b819a832)]:
+  - ask-codex-mcp@0.4.1
+
 ## 0.9.2
 
 ### Patch Changes
