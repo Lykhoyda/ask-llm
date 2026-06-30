@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isQuotaError, parseCodexJsonlOutput } from "../utils/codexExecutor.js";
+import { isModelUnavailableError, isQuotaError, parseCodexJsonlOutput } from "../utils/codexExecutor.js";
 
 // ADR-117: codex 0.137 reports plan exhaustion as "You've hit your usage limit"
 // (on stdout JSONL), a format none of the pre-0.137 signals matched — so the
@@ -36,6 +36,38 @@ describe("isQuotaError — codex quota signal detection", () => {
   it("handles non-Error inputs by stringifying", () => {
     expect(isQuotaError("hit your usage limit")).toBe(true);
     expect(isQuotaError(undefined)).toBe(false);
+  });
+});
+
+// #196 / ADR-126 follow-up: a pinned ASK_CODEX_FALLBACK_MODEL can be structurally
+// unavailable on some account types — e.g. gpt-5.5-mini returns a 400 ("not
+// supported when using Codex with a ChatGPT account") on ChatGPT-plan accounts.
+// This is a 400, NOT a quota signal, so isQuotaError must NOT match it; a
+// dedicated predicate classifies it so the fallback leg can surface an actionable
+// message. Ports MODEL_UNAVAILABLE_SIGNALS from codex-pair-watch.mjs (ADR-123).
+describe("isModelUnavailableError — structural account-incompatibility detection", () => {
+  it("detects the ChatGPT-account 400 (case-insensitive)", () => {
+    expect(
+      isModelUnavailableError(
+        new Error("400 The model gpt-5.5-mini is not supported when using Codex with a ChatGPT account."),
+      ),
+    ).toBe(true);
+  });
+
+  it("does NOT classify a structural-unavailability 400 as a quota error", () => {
+    const err = new Error("gpt-5.5-mini is not supported when using Codex with a ChatGPT account");
+    expect(isQuotaError(err)).toBe(false);
+  });
+
+  it("does not match unrelated errors or plain quota signals", () => {
+    expect(isModelUnavailableError(new Error("rate_limit_exceeded"))).toBe(false);
+    expect(isModelUnavailableError(new Error("spawn codex ENOENT"))).toBe(false);
+    expect(isModelUnavailableError("session is archived")).toBe(false);
+  });
+
+  it("handles non-Error inputs by stringifying", () => {
+    expect(isModelUnavailableError("is not supported when using Codex with a ChatGPT account")).toBe(true);
+    expect(isModelUnavailableError(undefined)).toBe(false);
   });
 });
 
