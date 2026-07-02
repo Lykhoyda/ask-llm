@@ -2,6 +2,37 @@
 
 ## Open
 
+### `parseGitPorcelain` does not decode git's C-style quoted paths
+- **Severity:** Low (fail-open direction; affects only paths with quotes/backslashes/control chars)
+- **Discovered:** 2026-07-02, dogfood codex-pair review during the seamless-pairing pass
+- **File:** `packages/claude-plugin/scripts/lib/stop-gate.mjs:13`
+- **Description:** porcelain v1 quotes paths containing special characters; the parser strips the surrounding quotes but doesn't unescape the body, so such paths never match log-entry paths and the Stop-gate's `[B]` git-dirty filter drops their HIGH findings (fail-open, never a wrong block). Fix direction: `git status --porcelain=v1 -z` with a NUL parser.
+
+### ~~codex-pair auto-pause is sticky forever — a fixed provider stays paused until manual resume~~ FIXED (ADR-130)
+- **Severity:** High (silently disables the entire feature; empirically hit)
+- **Discovered:** 2026-07-02 seamless-pairing audit — the dogfood repo auto-paused 2026-06-14 on the pre-ADR-126 `gpt-5.5-mini` 400 and was still paused 18 days later, after the cause had shipped fixed; all 315 log entries in the trailing 14 days were `skipped — auto-paused`
+- **Files:** `packages/claude-plugin/scripts/lib/state.mjs`, `codex-pair-watch.mjs`, `codex-pair-session.mjs`
+- **Root cause:** ADR-120 shipped auto-pause with notify-once and "no expiry logic"; nothing reminded, retried, or expired
+- **Status:** **FIXED** (`feat/codex-pair-seamless-pairing`, ADR-130): TTL expiry (quota 6h / failures 24h, env-overridable), immediate expiry of failures-pauses on plugin-version change, SessionStart reminder/auto-resume via `additionalContext`, per-edit auto-resume with clean re-pause on continued failure
+
+### ~~codex-pair verdicts ride an undocumented channel — `systemMessage` is not the documented model-visible output~~ FIXED (ADR-130)
+- **Severity:** High (the pairing partner's visibility of every verdict depends on undocumented harness behavior)
+- **Discovered:** 2026-07-02 audit; verified against current Claude Code hooks docs, then empirically observed that the current build does relay `systemMessage` — i.e. working today, but by accident of an undocumented behavior
+- **File:** `packages/claude-plugin/scripts/codex-pair-watch.mjs` (`emitSystemMessage`)
+- **Status:** **FIXED** (ADR-130): every emission now carries both `systemMessage` (transcript) and PostToolUse `hookSpecificOutput.additionalContext` (the documented model channel)
+
+### ~~`/codex-pair-resume` leaves the failure counter at threshold — next single failure re-pauses instantly~~ FIXED (ADR-130)
+- **Severity:** Medium
+- **Discovered:** 2026-07-02 audit
+- **Files:** `packages/claude-plugin/skills/codex-pair-resume/SKILL.md`, `scripts/lib/state.mjs`
+- **Status:** **FIXED** (ADR-130): the skill removes `state/failures.json` alongside the sentinel; programmatic resume paths use `clearAutoPause`, which clears both (and never touches manual pauses)
+
+### ~~Stop-gate blind to in-flight reviews — HIGH findings land after turn-end~~ FIXED (ADR-130)
+- **Severity:** Medium (defeats the `blockOn: HIGH` guarantee in the common timing; measured p50 review latency 35.5s vs. sub-minute turns)
+- **Discovered:** 2026-07-02 audit; the worker-handoff sub-gap was then caught by the dogfood codex-pair review of this very fix branch
+- **Files:** `packages/claude-plugin/scripts/codex-pair-stop-gate.mjs`, `lib/stop-gate.mjs`, `lib/debounce-state.mjs`, `codex-pair-debounce-worker.mjs`
+- **Status:** **FIXED** (ADR-130): gate blocks once per turn on unconsumed debounce records, fresh inflight locks, and the new worker `reviewing` marker; queued verdicts drain at Stop for all projects
+
 ### ~~`ask-ollama` chat call has no timeout — a wedged Ollama server hangs the tool forever~~ FIXED
 - **Severity:** High (the only executor with no timeout of any kind; the MCP keep-alive makes the hang indefinite)
 - **Discovered:** 2026-07-02, repo-wide weak-spot audit (5-agent sweep; verified by reading the code)

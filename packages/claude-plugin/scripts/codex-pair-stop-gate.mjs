@@ -7,11 +7,27 @@
 // findMarkerUp is duplicated by design (zero-workspace-imports; see prompt-drain).
 
 import { execFileSync } from "node:child_process";
-import { existsSync, readFileSync, realpathSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync, realpathSync, statSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
-import { CONTEXT_FILENAME, PAIR_ROOT_DIR, contextPath, logPath, readAcks } from "./lib/state.mjs";
-import { collectBlockingHighs, formatBlockMessage, parseGitPorcelain, selectLatestEntries } from "./lib/stop-gate.mjs";
+import { debounceRoot, drainPending, joinPendingForSurface, reviewingRoot } from "./lib/debounce-state.mjs";
+import {
+  CONTEXT_FILENAME,
+  INFLIGHT_TTL_MIN_MS,
+  PAIR_ROOT_DIR,
+  contextPath,
+  inflightRoot,
+  logPath,
+  readAcks,
+} from "./lib/state.mjs";
+import {
+  collectBlockingHighs,
+  collectInFlight,
+  formatBlockMessage,
+  formatInFlightMessage,
+  parseGitPorcelain,
+  selectLatestEntries,
+} from "./lib/stop-gate.mjs";
 
 const MARKER_FILE = join(PAIR_ROOT_DIR, CONTEXT_FILENAME);
 
@@ -63,6 +79,55 @@ function gitDirtySet(markerDir) {
   }
 }
 
+// Read the raw inputs for collectInFlight: parsed debounce records + inflight
+// lock mtimes. Uses the RAW (pre-realpath) markerDir — the watch hook writes
+// this state under the same un-canonicalized root that findMarkerUp returns.
+function readInFlightInputs(markerDir) {
+  const records = [];
+  try {
+    const root = debounceRoot(markerDir);
+    for (const name of readdirSync(root)) {
+      if (!name.endsWith(".json")) continue;
+      try {
+        records.push(JSON.parse(readFileSync(join(root, name), "utf8")));
+      } catch {
+        // malformed record — collectInFlight tolerates junk anyway
+      }
+    }
+  } catch {
+    // no debounce dir yet
+  }
+  // Inflight locks AND worker `reviewing` markers count as running reviews —
+  // the marker covers the worker→forced-sync-hook handoff gap where the
+  // debounce record is already consumed but the lock not yet taken.
+  const lockMtimes = [];
+  for (const root of [inflightRoot(markerDir), reviewingRoot(markerDir)]) {
+    try {
+      for (const name of readdirSync(root)) {
+        try {
+          lockMtimes.push(statSync(join(root, name)).mtimeMs);
+        } catch {
+          // entry vanished between readdir and stat
+        }
+      }
+    } catch {
+      // dir doesn't exist yet
+    }
+  }
+  return { records, lockMtimes };
+}
+
+// Lock freshness mirrors the watch hook's inflight-lock TTL (env timeout vs
+// the 10-min floor, plus buffer) so the gate and the lock lifecycle agree on
+// what "still reviewing" means.
+function inflightFreshMs() {
+  return Math.max(Number(process.env.ASK_CODEX_TIMEOUT_MS ?? 800_000), INFLIGHT_TTL_MIN_MS) + 60_000;
+}
+
+function writeAndExit(obj) {
+  process.stdout.write(`${JSON.stringify(obj)}\n`, () => process.exit(0));
+}
+
 // Canonicalize file paths so they align with git's realpath'd repo root — on
 // macOS `/var` resolves to `/private/var`, which would otherwise make the [B]
 // git-status filter and the [E] relPath ack hash mismatch (ADR-118). Missing
@@ -94,7 +159,32 @@ async function main() {
 
   let markerDir = findMarkerUp(process.cwd());
   if (!markerDir) process.exit(0);
-  if (readBlockOn(markerDir) !== "HIGH") process.exit(0);
+
+  // Drain queued debounce verdicts at turn-end (2026-07-02 seamless-pairing
+  // design) — previously they waited for the NEXT edit or user prompt, i.e.
+  // after Claude already said "done". Delivered below on whichever path runs:
+  // folded into the block reason, or as non-blocking Stop additionalContext.
+  const pending = drainPending(markerDir);
+  const pendingText = pending.length > 0 ? joinPendingForSurface(pending) : null;
+
+  if (readBlockOn(markerDir) !== "HIGH") {
+    if (pendingText) {
+      writeAndExit({
+        hookSpecificOutput: { hookEventName: "Stop", additionalContext: pendingText },
+      });
+      return;
+    }
+    process.exit(0);
+  }
+
+  // In-flight detection reads the RAW markerDir (matches where the watch hook
+  // writes state); canonicalization below is only for git/log path alignment.
+  const inFlight = collectInFlight({
+    ...readInFlightInputs(markerDir),
+    now: Date.now(),
+    freshMs: inflightFreshMs(),
+  });
+
   // Canonicalize so markerDir aligns with git's realpath'd repo root (macOS).
   try {
     markerDir = realpathSync(markerDir);
@@ -106,7 +196,7 @@ async function main() {
   try {
     logText = readFileSync(logPath(markerDir), "utf8");
   } catch {
-    process.exit(0);
+    // no log yet — in-flight reviews (first ever review) can still block below
   }
 
   const blocking = collectBlockingHighs({
@@ -117,10 +207,29 @@ async function main() {
     markerDir,
   });
 
-  if (blocking.length === 0) process.exit(0);
+  if (blocking.length > 0) {
+    let reason = formatBlockMessage(blocking, markerDir);
+    if (inFlight.any) reason = `${formatInFlightMessage(inFlight, markerDir)}\n\n${reason}`;
+    if (pendingText) reason = `${pendingText}\n\n${reason}`;
+    writeAndExit({ decision: "block", reason });
+    return;
+  }
 
-  const out = JSON.stringify({ decision: "block", reason: formatBlockMessage(blocking, markerDir) });
-  process.stdout.write(`${out}\n`, () => process.exit(0));
+  if (inFlight.any) {
+    let reason = formatInFlightMessage(inFlight, markerDir);
+    if (pendingText) reason = `${pendingText}\n\n${reason}`;
+    writeAndExit({ decision: "block", reason });
+    return;
+  }
+
+  if (pendingText) {
+    writeAndExit({
+      hookSpecificOutput: { hookEventName: "Stop", additionalContext: pendingText },
+    });
+    return;
+  }
+
+  process.exit(0);
 }
 
 main().catch((err) => {

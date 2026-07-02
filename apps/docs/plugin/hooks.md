@@ -97,6 +97,17 @@ integer cents. Use integer minor units such as
 | `CODEX_PAIR_DISABLED` | unset | Set to `1` to bypass the hook entirely — beats marker file |
 | `CODEX_PAIR_MAX_FILE_BYTES` | `20000` | Skip files larger than this many UTF-8 bytes |
 | `ASK_CODEX_TIMEOUT_MS` | `800000` | Per-call Codex timeout (inherited from `ask-codex-mcp`, [ADR-074](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md)) |
+| `CODEX_PAIR_QUOTA_PAUSE_TTL_MS` | `21600000` (6h) | Quota auto-pauses self-heal after this long — the next edit (or session start) retries a live review |
+| `CODEX_PAIR_FAILURES_PAUSE_TTL_MS` | `86400000` (24h) | Failure auto-pauses self-heal after this long, or immediately when the plugin version changed since the pause |
+
+### Auto-pause is self-healing
+
+When the hook pauses itself (provider quota exhausted, or 3 consecutive review failures), the pause no longer requires a manual `/codex-pair-resume` to ever end:
+
+- **At session start** a paused project announces itself — a reminder if the pause is still fresh, or an automatic resume if it has expired. No more silently-dead pairing.
+- **On any edit** an expired auto-pause resumes in place and that edit gets reviewed; if the provider is still broken, the review fails and the hook re-pauses cleanly.
+- **Plugin updates heal failure-pauses immediately** — the pause sentinel records the plugin version that wrote it, and a version change is treated as "the cause was plausibly fixed".
+- **Manual pauses are untouched** — `/codex-pair-pause` still only ever resumes via `/codex-pair-resume`.
 
 ### Cost characteristics
 
@@ -233,6 +244,14 @@ Once enabled, the hook checks at turn-end whether any HIGH findings in `log.json
 - **File deleted or renamed** → finding skipped (no longer relevant)
 - **File clean vs HEAD** (`git status --porcelain`) → finding skipped (reverted or branch-switched away)
 - **Latest log entry for the file is indeterminate** (`skipped`/`error`/`retried`/`broker_fallback`) → fail-open, finding skipped (don't block on a stale HIGH from before a transient error)
+
+### In-flight reviews block too
+
+With the default 15s debounce plus 13–50s of review latency, a review is often still running when the turn ends — the log alone can't see it. When `blockOn: HIGH` is set, the gate also blocks (once per turn) while any review for a recent edit is still in flight — a settling debounce window, a worker mid-handoff, or a running Codex call — telling Claude to wait for the verdict before finishing. The `stop_hook_active` loop guard means a turn is never blocked twice for the same reason.
+
+### Queued verdicts drain at turn-end
+
+Debounced verdicts that finished mid-turn used to wait for the *next* edit or user prompt to surface. The Stop hook now drains them at turn-end for **every** codex-pair project (opt-in gate not required): as additional context when nothing blocks, or folded into the block message when it does.
 
 ### Defer a finding with `/codex-pair-ack`
 

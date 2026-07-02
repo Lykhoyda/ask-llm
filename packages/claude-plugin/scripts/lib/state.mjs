@@ -18,6 +18,7 @@ import { appendFile, mkdir, readFile, readdir, rename, stat, unlink, writeFile }
 import { mkdirSync, readFileSync, renameSync, statSync, unlinkSync, writeFileSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 
 // ADR-092 unified layout — everything lives under PAIR_ROOT_DIR.
 export const PAIR_ROOT_DIR = ".codex-pair";
@@ -121,12 +122,17 @@ export function isPaused(markerDir) {
   }
 }
 
-// ── Auto-pause (#176 / ADR-120) ───────────────────────────────────────────
+// ── Auto-pause (#176 / ADR-120, expiry added 2026-07-02) ─────────────────
 // The hook can pause ITSELF: on provider quota exhaustion, or after
 // AUTOPAUSE_FAILURE_THRESHOLD consecutive review failures of any kind.
 // Same sentinel file as the manual /codex-pair-pause skill — an EMPTY file
-// is a manual pause; a JSON body is an auto-pause with provenance. Resume
-// is always manual (/codex-pair-resume or rm); there is no expiry logic.
+// is a manual pause; a JSON body is an auto-pause with provenance.
+// Manual pauses only ever resume manually (/codex-pair-resume or rm).
+// AUTO-pauses self-heal: resolveAutoResume() expires them by TTL (quota:
+// CODEX_PAIR_QUOTA_PAUSE_TTL_MS, failures: CODEX_PAIR_FAILURES_PAUSE_TTL_MS)
+// or, for failures-kind, immediately when the plugin version changed since
+// the pause was written (an update plausibly fixed the failing code — the
+// exact scenario that left the dogfood repo silently dead for 18 days).
 
 export const FAILURES_FILENAME = "failures.json";
 export const AUTOPAUSE_FAILURE_THRESHOLD = 3;
@@ -163,16 +169,92 @@ export function readPauseInfo(markerDir) {
   return { manual: true };
 }
 
+// Best-effort read of the plugin's own package.json version, cached per
+// process. Used to stamp auto-pause sentinels so a later plugin update can
+// expire a failures-kind pause immediately. Returns null when unreadable
+// (the marketplace git-subdir install ships package.json, but stay tolerant).
+let _cachedPluginVersion;
+export function readPluginVersion() {
+  if (_cachedPluginVersion !== undefined) return _cachedPluginVersion;
+  try {
+    const here = dirname(fileURLToPath(import.meta.url));
+    const manifest = JSON.parse(readFileSync(join(here, "..", "..", "package.json"), "utf8"));
+    _cachedPluginVersion = typeof manifest?.version === "string" ? manifest.version : null;
+  } catch {
+    _cachedPluginVersion = null;
+  }
+  return _cachedPluginVersion;
+}
+
+export const QUOTA_PAUSE_TTL_MS = Number(process.env.CODEX_PAIR_QUOTA_PAUSE_TTL_MS ?? 6 * 3_600_000);
+export const FAILURES_PAUSE_TTL_MS = Number(
+  process.env.CODEX_PAIR_FAILURES_PAUSE_TTL_MS ?? 24 * 3_600_000,
+);
+
+// Pure decision: should an existing pause self-heal now? Manual pauses never
+// do. Auto-pauses expire by TTL from their `at` stamp; failures-kind also
+// expires on plugin-version change. A missing/unparseable `at` counts as
+// expired — liveness-biased, because the manual pause is the reliable
+// off-switch and a corrupt auto-sentinel must not kill pairing forever.
+export function resolveAutoResume(pauseInfo, { now, currentVersion, quotaTtlMs, failuresTtlMs } = {}) {
+  if (!pauseInfo || pauseInfo.manual) return { resume: false };
+  const { kind } = pauseInfo;
+  if (kind !== "quota" && kind !== "failures") return { resume: false };
+  if (
+    kind === "failures" &&
+    typeof pauseInfo.pluginVersion === "string" &&
+    typeof currentVersion === "string" &&
+    pauseInfo.pluginVersion !== currentVersion
+  ) {
+    return { resume: true, why: "plugin-updated" };
+  }
+  const at = Date.parse(pauseInfo.at);
+  const ttl = kind === "quota" ? (quotaTtlMs ?? QUOTA_PAUSE_TTL_MS) : (failuresTtlMs ?? FAILURES_PAUSE_TTL_MS);
+  if (!Number.isFinite(at) || (now ?? Date.now()) - at >= ttl) {
+    return { resume: true, why: "ttl-expired" };
+  }
+  return { resume: false };
+}
+
+// Undo an auto-pause: sentinel AND failure counter go together — resuming
+// with a counter already at threshold would re-pause on the next single
+// failure (the /codex-pair-resume skill had exactly this bug).
+// The sentinel is re-read and verified before unlinking: a manual pause is
+// NEVER removed here ("manual pauses only resume manually"), and when
+// `expected` (the pauseInfo the caller evaluated) is passed, a sentinel that
+// changed in the meantime — e.g. the user raced in a fresh pause — aborts the
+// resume with false (dogfood review findings, 2026-07-02).
+export function clearAutoPause(markerDir, expected) {
+  const current = readPauseInfo(markerDir);
+  if (!current || current.manual) return false;
+  if (
+    expected &&
+    typeof expected === "object" &&
+    (current.kind !== expected.kind || current.at !== expected.at)
+  ) {
+    return false;
+  }
+  try {
+    unlinkSync(pausePath(markerDir));
+  } catch {
+    // already gone
+  }
+  clearReviewFailures(markerDir);
+  return true;
+}
+
 // Write the auto-pause sentinel. `flag: "wx"` makes this atomic-exclusive:
 // an existing pause (manual OR auto, including a concurrent hook racing us)
 // is never overwritten — we return false and the caller skips its
 // notification, which is what makes "notify once" hold under concurrency.
 export function writeAutoPause(markerDir, { kind, reason, resetHint }) {
+  const pluginVersion = readPluginVersion();
   const body = JSON.stringify({
     v: 1,
     kind,
     reason: clampReason(typeof reason === "string" ? reason : String(reason)),
     ...(resetHint ? { resetHint } : {}),
+    ...(pluginVersion ? { pluginVersion } : {}),
     at: new Date().toISOString(),
   });
   try {

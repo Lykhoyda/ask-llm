@@ -70,6 +70,49 @@ export function formatBlockMessage(blocking, markerDir) {
   );
 }
 
+// In-flight review detection (2026-07-02 seamless-pairing design). A turn can
+// end while a debounce worker is still settling (record.reviewedGen <
+// record.generation) or a codex call is mid-review (fresh inflight lock) —
+// the log-based gate would pass and the verdict would land after "done".
+// Pure over pre-read inputs; the script does the I/O.
+//   records    parsed debounce-record JSONs (malformed entries tolerated)
+//   lockMtimes mtimeMs of files under state/inflight/
+//   now        clock
+//   freshMs    lock age beyond which a lock is crash junk, not a live review
+//   staleMs    burst age beyond which an unconsumed record is a crashed
+//              worker's orphan (sweepStaleDebounce fodder), not a live settle
+export function collectInFlight({ records, lockMtimes, now, freshMs, staleMs = 600_000 }) {
+  const settling = [];
+  for (const r of records) {
+    if (!r || typeof r !== "object" || typeof r.file !== "string") continue;
+    if (!(typeof r.generation === "number" && typeof r.reviewedGen === "number")) continue;
+    if (r.reviewedGen >= r.generation) continue;
+    if (Number.isFinite(r.burstStartedAt) && now - r.burstStartedAt > staleMs) continue;
+    settling.push(r.file);
+  }
+  const reviewing = lockMtimes.filter((m) => Number.isFinite(m) && now - m < freshMs).length;
+  return { settling, reviewing, any: settling.length > 0 || reviewing > 0 };
+}
+
+// Block reason for the in-flight case: tell Claude HOW to wait productively
+// instead of just refusing the stop.
+const MAX_SETTLING_LISTED = 5;
+export function formatInFlightMessage({ settling, reviewing }, markerDir) {
+  const parts = [];
+  if (settling.length > 0) {
+    const listed = settling.slice(0, MAX_SETTLING_LISTED).map((f) => relative(markerDir, f));
+    const extra = settling.length > MAX_SETTLING_LISTED ? ` (+${settling.length - MAX_SETTLING_LISTED} more)` : "";
+    parts.push(`${settling.length} edited file(s) awaiting review: ${listed.join(", ")}${extra}`);
+  }
+  if (reviewing > 0) parts.push(`${reviewing} review(s) running`);
+  return (
+    `⏳ codex-pair: review(s) still in flight — ${parts.join("; ")}. ` +
+    `Verdicts land in ${join(markerDir, ".codex-pair", "log.jsonl")}. ` +
+    `Wait for them (e.g. \`sleep 45\`), read the newest entries for the files you edited, ` +
+    `address any HIGH findings, then end the turn.`
+  );
+}
+
 // Parse log.jsonl text → Map<file, latestEntry>. Last write per file wins
 // (the log is append-only; the final entry is the file's latest review).
 export function selectLatestEntries(logText) {

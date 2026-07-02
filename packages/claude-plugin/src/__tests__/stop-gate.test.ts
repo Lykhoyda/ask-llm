@@ -1,10 +1,17 @@
-import { describe, expect, it } from "vitest";
+import { spawnSync } from "node:child_process";
+import * as fs from "node:fs";
+import * as os from "node:os";
+import * as path from "node:path";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   collectBlockingHighs,
+  collectInFlight,
   formatBlockMessage,
+  formatInFlightMessage,
   parseGitPorcelain,
   selectLatestEntries,
 } from "../../scripts/lib/stop-gate.mjs";
+import { PLUGIN_ROOT } from "./_helpers.js";
 
 describe("selectLatestEntries", () => {
   it("keeps the last entry per file and tolerates blank/garbage lines", () => {
@@ -125,5 +132,188 @@ describe("formatBlockMessage", () => {
     // relative() output uses native separators — join() keeps this portable.
     expect(msg).toContain(join("src", "auth.ts"));
     expect(msg).toContain("/codex-pair-ack a1b2c3d4e5");
+  });
+});
+
+describe("collectInFlight (2026-07-02 seamless-pairing design)", () => {
+  const NOW = 1_800_000_000_000;
+  const FRESH = 900_000;
+
+  it("lists unconsumed debounce records as settling files", () => {
+    const records = [
+      { file: "/r/a.ts", generation: 3, reviewedGen: 1 },
+      { file: "/r/b.ts", generation: 2, reviewedGen: 2 },
+    ];
+    const result = collectInFlight({ records, lockMtimes: [], now: NOW, freshMs: FRESH });
+    expect(result.settling).toEqual(["/r/a.ts"]);
+    expect(result.reviewing).toBe(0);
+    expect(result.any).toBe(true);
+  });
+
+  it("counts only fresh inflight locks; stale ones are crash junk", () => {
+    const result = collectInFlight({
+      records: [],
+      lockMtimes: [NOW - 60_000, NOW - FRESH - 1, Number.NaN],
+      now: NOW,
+      freshMs: FRESH,
+    });
+    expect(result.reviewing).toBe(1);
+    expect(result.settling).toEqual([]);
+    expect(result.any).toBe(true);
+  });
+
+  it("tolerates malformed records and reports quiet state", () => {
+    const result = collectInFlight({
+      records: [null, {}, { file: 42, generation: 1, reviewedGen: 0 }],
+      lockMtimes: [],
+      now: NOW,
+      freshMs: FRESH,
+    });
+    expect(result.any).toBe(false);
+  });
+});
+
+describe("formatInFlightMessage", () => {
+  it("names settling files, running count, and the log path with wait guidance", () => {
+    const msg = formatInFlightMessage({ settling: ["/r/src/a.ts", "/r/src/b.ts"], reviewing: 1 }, "/r");
+    expect(msg).toMatch(/in flight/i);
+    expect(msg).toMatch(/a\.ts/);
+    expect(msg).toMatch(/b\.ts/);
+    expect(msg).toMatch(/1 review\(s\) running/);
+    expect(msg).toMatch(/log\.jsonl/);
+    expect(msg).toMatch(/HIGH/);
+  });
+
+  it("caps the settling file list", () => {
+    const settling = Array.from({ length: 9 }, (_, i) => `/r/f${i}.ts`);
+    const msg = formatInFlightMessage({ settling, reviewing: 0 }, "/r");
+    expect(msg).toMatch(/\+4 more/);
+  });
+});
+
+describe("codex-pair-stop-gate.mjs — runtime (pending drain + in-flight block)", () => {
+  const GATE_PATH = path.join(PLUGIN_ROOT, "scripts", "codex-pair-stop-gate.mjs");
+  let dir: string;
+
+  beforeEach(() => {
+    dir = fs.mkdtempSync(path.join(os.tmpdir(), "stop-gate-rt-"));
+    fs.mkdirSync(path.join(dir, ".codex-pair"), { recursive: true });
+  });
+  afterEach(() => {
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+
+  function writeMarker(frontmatter = "") {
+    fs.writeFileSync(path.join(dir, ".codex-pair", "context.md"), `${frontmatter}# ctx`);
+  }
+  function seedPending(message: string) {
+    const pendingDir = path.join(dir, ".codex-pair", "state", "pending");
+    fs.mkdirSync(pendingDir, { recursive: true });
+    fs.writeFileSync(path.join(pendingDir, "seed.json"), JSON.stringify({ file: "/x", message }));
+  }
+  function runGate(payload: object = { hook_event_name: "Stop" }) {
+    return spawnSync("node", [GATE_PATH], {
+      input: JSON.stringify(payload),
+      cwd: dir,
+      encoding: "utf-8",
+      timeout: 10_000,
+    });
+  }
+
+  it("no blockOn: drained pending verdicts reach the model via Stop additionalContext", () => {
+    writeMarker();
+    seedPending("[codex-pair] reviewed x.ts — 1H/0M/0L");
+    const result = runGate();
+    expect(result.status).toBe(0);
+    const out = JSON.parse(result.stdout.trim());
+    expect(out.hookSpecificOutput?.hookEventName).toBe("Stop");
+    expect(out.hookSpecificOutput?.additionalContext).toMatch(/reviewed x\.ts/);
+    expect(out.decision).toBeUndefined();
+    // queue is cleared — surfaced exactly once
+    const files = fs.readdirSync(path.join(dir, ".codex-pair", "state", "pending"));
+    expect(files.filter((f) => f.endsWith(".json"))).toEqual([]);
+  });
+
+  it("no blockOn + nothing pending: silent exit (existing behavior preserved)", () => {
+    writeMarker();
+    const result = runGate();
+    expect(result.status).toBe(0);
+    expect(result.stdout.trim()).toBe("");
+  });
+
+  it("blockOn HIGH: unconsumed debounce record blocks once with wait guidance", () => {
+    writeMarker("---\nblockOn: HIGH\n---\n");
+    const debounceDir = path.join(dir, ".codex-pair", "state", "debounce");
+    fs.mkdirSync(debounceDir, { recursive: true });
+    const edited = path.join(dir, "src.ts");
+    fs.writeFileSync(
+      path.join(debounceDir, "aaaa.json"),
+      JSON.stringify({ file: edited, generation: 2, reviewedGen: 0, burstStartedAt: Date.now() }),
+    );
+    const result = runGate();
+    expect(result.status).toBe(0);
+    const out = JSON.parse(result.stdout.trim());
+    expect(out.decision).toBe("block");
+    expect(out.reason).toMatch(/in flight/i);
+    expect(out.reason).toMatch(/src\.ts/);
+  });
+
+  it("blockOn HIGH: a worker `reviewing` marker blocks (handoff-gap coverage)", () => {
+    writeMarker("---\nblockOn: HIGH\n---\n");
+    const reviewingDir = path.join(dir, ".codex-pair", "state", "reviewing");
+    fs.mkdirSync(reviewingDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(reviewingDir, "bbbb.json"),
+      JSON.stringify({ file: path.join(dir, "src.ts"), at: Date.now() }),
+    );
+    const result = runGate();
+    expect(result.status).toBe(0);
+    const out = JSON.parse(result.stdout.trim());
+    expect(out.decision).toBe("block");
+    expect(out.reason).toMatch(/in flight/i);
+  });
+
+  it("blockOn HIGH: fresh inflight lock blocks; stale lock does not", () => {
+    writeMarker("---\nblockOn: HIGH\n---\n");
+    const inflightDir = path.join(dir, ".codex-pair", "state", "inflight");
+    fs.mkdirSync(inflightDir, { recursive: true });
+    const lock = path.join(inflightDir, "abc123");
+    fs.writeFileSync(lock, "12345");
+    const fresh = runGate();
+    expect(JSON.parse(fresh.stdout.trim()).decision).toBe("block");
+    // age the lock beyond the freshness window → treated as crash junk
+    const old = new Date(Date.now() - 2 * 3_600_000);
+    fs.utimesSync(lock, old, old);
+    const stale = runGate();
+    expect(stale.status).toBe(0);
+    expect(stale.stdout.trim()).toBe("");
+  });
+
+  it("stop_hook_active exits 0 without draining or blocking (loop guard)", () => {
+    writeMarker("---\nblockOn: HIGH\n---\n");
+    seedPending("queued verdict");
+    const result = runGate({ hook_event_name: "Stop", stop_hook_active: true });
+    expect(result.status).toBe(0);
+    expect(result.stdout.trim()).toBe("");
+    // pending NOT consumed — it will surface on a later drain
+    const files = fs.readdirSync(path.join(dir, ".codex-pair", "state", "pending"));
+    expect(files.filter((f) => f.endsWith(".json"))).toHaveLength(1);
+  });
+
+  it("blockOn HIGH: unacked HIGH in log blocks and folds drained pending into the reason", () => {
+    writeMarker("---\nblockOn: HIGH\n---\n");
+    const edited = path.join(dir, "src.ts");
+    fs.writeFileSync(edited, "export const x = 1;");
+    fs.writeFileSync(
+      path.join(dir, ".codex-pair", "log.jsonl"),
+      `${JSON.stringify({ file: edited, verdict: "concerns", concerns: { high: ["H-finding"] } })}\n`,
+    );
+    seedPending("[codex-pair] queued verdict text");
+    const result = runGate();
+    expect(result.status).toBe(0);
+    const out = JSON.parse(result.stdout.trim());
+    expect(out.decision).toBe("block");
+    expect(out.reason).toMatch(/H-finding/);
+    expect(out.reason).toMatch(/queued verdict text/);
   });
 });

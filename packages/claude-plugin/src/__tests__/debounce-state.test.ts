@@ -5,12 +5,17 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   bumpEditRecord,
   clearAllDebounceState,
+  clearReviewing,
   decideReview,
   drainPending,
   joinPendingForSurface,
   MAX_SURFACE_VERDICTS,
   markReviewed,
+  markReviewing,
   readEditRecord,
+  reviewingPath,
+  reviewingRoot,
+  sweepStaleDebounce,
   writePending,
 } from "../../scripts/lib/debounce-state.mjs";
 
@@ -112,5 +117,39 @@ describe("lib/debounce-state.mjs", () => {
     clearAllDebounceState(dir);
     expect(readEditRecord(dir, "/x.ts")).toBeNull();
     expect(drainPending(dir)).toEqual([]);
+  });
+});
+
+describe("reviewing marker (worker handoff coverage, 2026-07-02)", () => {
+  let dir: string;
+  beforeEach(() => {
+    dir = fs.mkdtempSync(path.join(os.tmpdir(), "reviewing-"));
+  });
+  afterEach(() => {
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+
+  it("markReviewing writes a marker under state/reviewing; clearReviewing removes it", () => {
+    markReviewing(dir, "/r/a.ts");
+    const p = reviewingPath(dir, "/r/a.ts");
+    expect(fs.existsSync(p)).toBe(true);
+    const body = JSON.parse(fs.readFileSync(p, "utf8"));
+    expect(body.file).toBe("/r/a.ts");
+    expect(typeof body.at).toBe("number");
+    clearReviewing(dir, "/r/a.ts");
+    expect(fs.existsSync(p)).toBe(false);
+    expect(() => clearReviewing(dir, "/r/a.ts")).not.toThrow(); // idempotent
+  });
+
+  it("clearAllDebounceState and sweepStaleDebounce also cover the reviewing dir", () => {
+    markReviewing(dir, "/r/a.ts");
+    clearAllDebounceState(dir);
+    expect(fs.readdirSync(reviewingRoot(dir))).toEqual([]);
+    markReviewing(dir, "/r/b.ts");
+    const p = reviewingPath(dir, "/r/b.ts");
+    const old = new Date(Date.now() - 2 * 3_600_000);
+    fs.utimesSync(p, old, old);
+    sweepStaleDebounce(dir, 60_000);
+    expect(fs.existsSync(p)).toBe(false);
   });
 });

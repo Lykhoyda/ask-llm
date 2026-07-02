@@ -61,6 +61,7 @@ import {
 import {
   appendLog,
   AUTOPAUSE_FAILURE_THRESHOLD,
+  clearAutoPause,
   clearReviewFailures,
   computeCacheKey,
   CONTEXT_FILENAME,
@@ -74,8 +75,10 @@ import {
   logPath,
   PAIR_ROOT_DIR,
   readPauseInfo,
+  readPluginVersion,
   recordReviewFailure,
   releaseInflightLock,
+  resolveAutoResume,
   setCachedConcerns,
   tryAcquireInflightLock,
   updateRepetitions,
@@ -213,13 +216,32 @@ async function readStdin() {
   });
 }
 
-// Surface a one-line (or multi-line) notice to the Claude Code UI by emitting
-// hook JSON to stdout. Claude Code parses `systemMessage` and renders it as an
-// inline transcript message. We await the write-callback so the bytes are
-// flushed to the parent before process.exit terminates us.
+// One-shot prefix folded into the NEXT emission. A hook run may emit at most
+// ONE JSON object on stdout (two objects make the whole output unparseable to
+// Claude Code), so the mid-session auto-resume notice rides on whichever
+// single emission the run produces instead of being its own line.
+let noticePrefix = null;
+
+// Surface a one-line (or multi-line) notice on BOTH hook channels by emitting
+// hook JSON to stdout. `systemMessage` renders in the user's transcript only —
+// Claude Code does NOT inject it into the model's context — so the same text
+// also goes out as PostToolUse `hookSpecificOutput.additionalContext`, the
+// channel the model actually receives. Without the second channel every
+// verdict was invisible to the pairing partner (the whole point of the hook).
+// We await the write-callback so the bytes are flushed to the parent before
+// process.exit terminates us.
 function emitSystemMessage(text) {
+  let full = text;
+  if (noticePrefix) {
+    full = text ? `${noticePrefix}\n\n${text}` : noticePrefix;
+    noticePrefix = null;
+  }
   return new Promise((resolveWrite) => {
-    const payload = JSON.stringify({ continue: true, systemMessage: text });
+    const payload = JSON.stringify({
+      continue: true,
+      systemMessage: full,
+      hookSpecificOutput: { hookEventName: "PostToolUse", additionalContext: full },
+    });
     process.stdout.write(`${payload}\n`, () => resolveWrite());
   });
 }
@@ -971,21 +993,55 @@ async function main() {
 
   const pauseInfo = readPauseInfo(markerDir);
   if (pauseInfo) {
-    const pauseReason = pauseInfo.manual
-      ? "paused via /codex-pair-pause (rm .codex-pair/state/paused to resume)"
-      : `auto-paused (${pauseInfo.kind}${pauseInfo.resetHint ? `, resets ~${pauseInfo.resetHint}` : ""}) — resume with /codex-pair-resume`;
-    await appendLog(markerDir, {
-      timestamp: new Date().toISOString(),
-      tool: toolName,
-      file: filePath,
-      verdict: "skipped",
-      reason: pauseReason,
+    // Self-healing (2026-07-02 seamless-pairing design): an expired auto-pause
+    // resumes right here and the review proceeds. A failed retry re-pauses via
+    // the existing paths (the sentinel is gone, so the wx write succeeds) —
+    // notify-once still holds per pause episode.
+    const resumeDecision = resolveAutoResume(pauseInfo, {
+      now: Date.now(),
+      currentVersion: readPluginVersion(),
     });
-    process.exit(0);
+    // clearAutoPause aborts (false) when the sentinel changed since we read it.
+    // A false return can also mean another hook resumed concurrently (sentinel
+    // gone) — re-read before deciding, so a won-elsewhere resume proceeds to
+    // review and a raced-in NEW pause is reported from current state, not the
+    // stale pauseInfo (dogfood review finding).
+    const resumed = resumeDecision.resume && clearAutoPause(markerDir, pauseInfo);
+    const currentPause = resumed ? null : resumeDecision.resume ? readPauseInfo(markerDir) : pauseInfo;
+    if (resumed) {
+      await appendLog(markerDir, {
+        timestamp: new Date().toISOString(),
+        tool: toolName,
+        file: filePath,
+        verdict: "auto_resumed",
+        reason: `${resumeDecision.why} (paused ${pauseInfo.at ?? "unknown"}, kind: ${pauseInfo.kind})`,
+      });
+      noticePrefix = `codex-pair auto-resumed (${resumeDecision.why}): was ${pauseInfo.kind}-paused since ${pauseInfo.at ?? "unknown"}. Reviews are live again.`;
+      // fall through — this edit gets reviewed
+    } else if (currentPause) {
+      const pauseReason = currentPause.manual
+        ? "paused via /codex-pair-pause (rm .codex-pair/state/paused to resume)"
+        : `auto-paused (${currentPause.kind}${currentPause.resetHint ? `, resets ~${currentPause.resetHint}` : ""}) — resume with /codex-pair-resume`;
+      await appendLog(markerDir, {
+        timestamp: new Date().toISOString(),
+        tool: toolName,
+        file: filePath,
+        verdict: "skipped",
+        reason: pauseReason,
+      });
+      process.exit(0);
+    }
+    // currentPause null without `resumed`: a concurrent hook already resumed —
+    // proceed with the review, no notice (the winner emitted one).
   }
 
   const lower = filePath.toLowerCase();
-  if (SKIP_PATTERNS.some((p) => lower.includes(p))) process.exit(0);
+  if (SKIP_PATTERNS.some((p) => lower.includes(p))) {
+    // A skipped file must not swallow a just-set auto-resume notice — this
+    // path emits nothing else, so the notice is safely the run's single output.
+    if (noticePrefix) await emitSystemMessage("");
+    process.exit(0);
+  }
 
   // ADR-096: .codex-pair/include — inclusion-list scoping. When present + non-
   // empty, ONLY files matching at least one rule are reviewed. Lets users
@@ -1014,6 +1070,7 @@ async function main() {
         verdict: "skipped",
         reason: "file not in .codex-pair/include scope",
       });
+      if (noticePrefix) await emitSystemMessage("");
       process.exit(0);
     }
   } else if (includeRules.length > 0) {
@@ -1046,6 +1103,7 @@ async function main() {
       verdict: "skipped",
       reason: `matched .codex-pair/ignore: ${ignoreMatch.raw}`,
     });
+    if (noticePrefix) await emitSystemMessage("");
     process.exit(0);
   }
 
@@ -1104,6 +1162,10 @@ async function main() {
       const pendingMessages = drainPending(markerDir);
       if (pendingMessages.length > 0) {
         await emitSystemMessage(joinPendingForSurface(pendingMessages));
+      } else if (noticePrefix) {
+        // Nothing pending, but an auto-resume notice is waiting — emit it as
+        // the run's single JSON object so the resume isn't silent.
+        await emitSystemMessage("");
       }
       process.exit(0);
     }
