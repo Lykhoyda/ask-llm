@@ -8,6 +8,18 @@
 - **File:** `apps/docs/plugin/hooks.md` (marketplace-workaround "Form B" pipeline)
 - **Recommended:** replace with a portable Node one-liner version picker, or give separate macOS/Linux commands.
 
+### `apps/docs/plugin/hooks.md` workaround ends with `/reload-plugins`, which does not re-register hooks
+- **Severity:** Low (docs-only; users can follow the workaround exactly and still see zero PostToolUse executions)
+- **Discovered:** 2026-07-02, dogfood codex-pair review (second pass on the same page)
+- **File:** `apps/docs/plugin/hooks.md` (marketplace-workaround closing step)
+- **Description:** Claude Code binds hooks at session start; `/reload-plugins` doesn't re-register them in a live session (the plugin README says as much). The step should say "fully restart Claude Code", then verify with the `codex-pair-log` CLI that the hook fired.
+
+### `apps/docs/plugin/hooks.md` "CLI Binaries" section documents commands the marketplace install does not ship
+- **Severity:** Low (docs-only; misleading for normal plugin installs)
+- **Discovered:** 2026-07-02, dogfood codex-pair review (second pass on the same page)
+- **File:** `apps/docs/plugin/hooks.md` (CLI Binaries section)
+- **Description:** `ask-*-run` bin entries point at `dist/*` files that aren't tracked in the git-subdir marketplace install path, so the documented commands don't exist for marketplace users. Scope the section to source-built/local-dev installs, or point users at the published MCP package CLIs (`npx ask-codex-mcp` etc.).
+
 ### `parseGitPorcelain` does not decode git's C-style quoted paths
 - **Severity:** Low (fail-open direction; affects only paths with quotes/backslashes/control chars)
 - **Discovered:** 2026-07-02, dogfood codex-pair review during the seamless-pairing pass
