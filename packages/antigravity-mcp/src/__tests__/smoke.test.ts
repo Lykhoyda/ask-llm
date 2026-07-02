@@ -11,7 +11,9 @@ describe("ask-antigravity-mcp smoke", () => {
   it("ask-antigravity declares an outputSchema and includeDirs input", () => {
     const tool = toolRegistry.find((t) => t.name === "ask-antigravity");
     expect(tool?.outputSchema).toBeDefined();
-    const parsed = tool?.zodSchema.safeParse({ prompt: "x", includeDirs: ["/a"] });
+    // Relative path: includeDirs is validated via shared relativeDirSchema
+    // (absolute//..//~ rejected — see toolSchemas.test.ts).
+    const parsed = tool?.zodSchema.safeParse({ prompt: "x", includeDirs: ["packages/a"] });
     expect(parsed?.success).toBe(true);
   });
 });

@@ -1,4 +1,4 @@
-import { type AskResponse, askResponseSchema, type UnifiedTool } from "@ask-llm/shared";
+import { type AskResponse, askResponseSchema, relativeDirSchema, type UnifiedTool } from "@ask-llm/shared";
 import { z } from "zod";
 import { ERROR_MESSAGES, STATUS_MESSAGES } from "../constants.js";
 import { executeAntigravityCLI } from "../utils/antigravityExecutor.js";
@@ -10,10 +10,10 @@ const askAntigravityArgsSchema = z.object({
     .max(100000)
     .describe("The question, code review request, or analysis task to send to Antigravity (agy)"),
   includeDirs: z
-    .array(z.string())
+    .array(relativeDirSchema)
     .optional()
     .describe(
-      "Additional directories agy may access alongside the working directory (maps to agy `--add-dir`, repeatable). Useful in monorepos where relevant context spans sibling packages. Paths are forwarded to agy as-is and trusted (agy runs with --dangerously-skip-permissions), so only pass directories you intend the model to read.",
+      "Additional directories agy may access alongside the working directory (maps to agy `--add-dir`, repeatable). Must be relative paths (e.g., 'packages/api'). Useful in monorepos where relevant context spans sibling packages. agy runs with --dangerously-skip-permissions, so only pass directories you intend the model to read.",
     ),
 });
 
