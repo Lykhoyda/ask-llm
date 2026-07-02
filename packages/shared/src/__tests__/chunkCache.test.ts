@@ -34,6 +34,25 @@ describe("cacheChunks / getChunks round-trip", () => {
   });
 });
 
+describe("file permissions (owner-only — cached chunks contain user code)", () => {
+  it.skipIf(isWin)("creates the cache dir 0700 and chunk files 0600", () => {
+    const key = cacheChunks("permission probe prompt", sampleChunks);
+
+    const dirMode = fs.statSync(CACHE_DIR).mode & 0o777;
+    const fileMode = fs.statSync(path.join(CACHE_DIR, `${key}.json`)).mode & 0o777;
+    expect(dirMode).toBe(0o700);
+    expect(fileMode).toBe(0o600);
+  });
+
+  it.skipIf(isWin)("tightens a pre-existing cache dir created by older releases", () => {
+    fs.mkdirSync(CACHE_DIR, { recursive: true });
+    fs.chmodSync(CACHE_DIR, 0o755);
+
+    cacheChunks("upgrade path prompt", sampleChunks);
+    expect(fs.statSync(CACHE_DIR).mode & 0o777).toBe(0o700);
+  });
+});
+
 describe("getChunks resilience to concurrent partial writes", () => {
   it("returns null for a truncated (invalid-JSON) file WITHOUT deleting it", () => {
     fs.mkdirSync(CACHE_DIR, { recursive: true });

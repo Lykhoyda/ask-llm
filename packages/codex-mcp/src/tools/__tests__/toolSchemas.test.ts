@@ -1,0 +1,47 @@
+import { describe, expect, it } from "vitest";
+import { FACTORY_DEFAULT_MODEL } from "../../constants.js";
+import { askCodexTool } from "../ask-codex.tool.js";
+import { askCodexEditTool } from "../ask-codex-edit.tool.js";
+import { toolRegistry } from "../index.js";
+
+const tools = [
+  ["ask-codex", askCodexTool],
+  ["ask-codex-edit", askCodexEditTool],
+] as const;
+
+describe.each(tools)("%s includeDirs validation (parity with ask-gemini-edit)", (_name, tool) => {
+  it("rejects path traversal", () => {
+    expect(tool.zodSchema.safeParse({ prompt: "p", includeDirs: ["../secrets"] }).success).toBe(false);
+  });
+
+  it("rejects absolute paths", () => {
+    expect(tool.zodSchema.safeParse({ prompt: "p", includeDirs: ["/etc"] }).success).toBe(false);
+  });
+
+  it("rejects home-relative paths", () => {
+    expect(tool.zodSchema.safeParse({ prompt: "p", includeDirs: ["~/code"] }).success).toBe(false);
+  });
+
+  it("accepts relative monorepo paths", () => {
+    expect(tool.zodSchema.safeParse({ prompt: "p", includeDirs: ["packages/api"] }).success).toBe(true);
+  });
+});
+
+const EXPECTED_TOOLS = ["ask-codex", "ask-codex-edit", "ping"];
+
+describe("tool contract (drift guards)", () => {
+  it("registers exactly the expected tools", () => {
+    expect(toolRegistry.map((t) => t.name).sort()).toEqual([...EXPECTED_TOOLS].sort());
+  });
+
+  it.each(toolRegistry.map((t) => [t.name, t] as const))("%s exposes a complete MCP surface", (_name, tool) => {
+    expect(tool.description.length).toBeGreaterThan(20);
+    expect(tool.zodSchema).toBeDefined();
+    expect(tool.annotations?.title).toBeTruthy();
+    expect(typeof tool.annotations?.readOnlyHint).toBe("boolean");
+  });
+
+  it("ask-codex's description names the factory default model (env-invariant)", () => {
+    expect(askCodexTool.description).toContain(FACTORY_DEFAULT_MODEL);
+  });
+});

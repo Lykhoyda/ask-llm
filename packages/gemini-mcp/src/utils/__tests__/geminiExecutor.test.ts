@@ -1012,3 +1012,19 @@ describe("executeGeminiCLI per-provider timeout (#45)", () => {
     expect(mockExecuteCommand.mock.calls[1][5]).toBe(120_000);
   });
 });
+
+describe("session UX (empty-string sessionId must disable the cache — parity with codex/ollama ADR-063)", () => {
+  it("undefined sessionId hits the response cache on the second identical call", async () => {
+    await executeGeminiCLI({ prompt: "cache probe" });
+    await executeGeminiCLI({ prompt: "cache probe" });
+
+    expect(mockExecuteCommand).toHaveBeenCalledTimes(1);
+  });
+
+  it("empty-string sessionId DISABLES the cache so a fresh session can be created each call", async () => {
+    await executeGeminiCLI({ prompt: "cache probe", sessionId: "" });
+    await executeGeminiCLI({ prompt: "cache probe", sessionId: "" });
+
+    expect(mockExecuteCommand).toHaveBeenCalledTimes(2);
+  });
+});

@@ -161,6 +161,31 @@ describe("dispatchMultiLlm", () => {
     });
     expect(multiLlmReportSchema.safeParse(report).success).toBe(true);
   });
+
+  it("accepts antigravity usage stats in the report schema", () => {
+    const report = {
+      dispatchedAt: "2026-07-02T00:00:00.000Z",
+      totalDurationMs: 10,
+      successCount: 1,
+      failureCount: 0,
+      results: [
+        {
+          provider: "antigravity",
+          ok: true,
+          response: "hi",
+          model: "Gemini 3.1 Pro (High)",
+          usage: {
+            provider: "antigravity",
+            model: "Gemini 3.1 Pro (High)",
+            durationMs: 10,
+            fellBack: false,
+          },
+          durationMs: 10,
+        },
+      ],
+    };
+    expect(multiLlmReportSchema.safeParse(report).success).toBe(true);
+  });
 });
 
 describe("formatMultiLlmReport", () => {

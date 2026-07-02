@@ -541,8 +541,12 @@ ${promptProcessed}
   const args = buildArgs(promptProcessed, model || MODELS.PRO, sandbox, sessionId, includeDirs, useStdin);
 
   const resolvedModel = model || MODELS.PRO;
-  const isCacheable = !sessionId && !sandbox && !changeMode;
-  const extraContext = includeDirs?.length ? includeDirs.sort().join(":") : undefined;
+  // Session semantics follow codex/ollama (ADR-063): any sessionId — empty
+  // string included ("start a fresh session") — must bypass the cache, or the
+  // caller gets a cached body with sessionId: undefined instead of a session.
+  const wantsSession = sessionId !== undefined;
+  const isCacheable = !wantsSession && !sandbox && !changeMode;
+  const extraContext = includeDirs?.length ? [...includeDirs].sort().join(":") : undefined;
   const cacheKey = isCacheable ? ResponseCache.buildKey("gemini", options.prompt, resolvedModel, extraContext) : null;
 
   if (cacheKey) {

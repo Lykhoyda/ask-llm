@@ -2,6 +2,7 @@ import type { ToolAnnotations } from "@modelcontextprotocol/sdk/types.js";
 import type { ZodTypeAny } from "zod";
 import { ZodError } from "zod";
 import type { BaseToolArguments } from "./constants.js";
+import type { ProviderName } from "./providers.js";
 import type { UsageStats } from "./usage.js";
 
 export interface StructuredToolResult {
@@ -32,7 +33,7 @@ export interface UnifiedTool {
     onProgress?: (newOutput: string) => void,
     onUsage?: (stats: UsageStats) => void,
   ) => Promise<ToolResult>;
-  category?: "simple" | "gemini" | "codex" | "ollama" | "utility";
+  category?: "simple" | ProviderName | "utility";
 }
 
 export const toolRegistry: UnifiedTool[] = [];

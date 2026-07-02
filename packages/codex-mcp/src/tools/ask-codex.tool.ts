@@ -1,6 +1,6 @@
-import { type AskResponse, askResponseSchema, type UnifiedTool } from "@ask-llm/shared";
+import { type AskResponse, askResponseSchema, relativeDirSchema, type UnifiedTool } from "@ask-llm/shared";
 import { z } from "zod";
-import { ERROR_MESSAGES, MODELS, STATUS_MESSAGES } from "../constants.js";
+import { ERROR_MESSAGES, FACTORY_DEFAULT_MODEL, MODELS, STATUS_MESSAGES } from "../constants.js";
 import { executeCodexCLI } from "../utils/codexExecutor.js";
 
 const askCodexArgsSchema = z.object({
@@ -22,17 +22,16 @@ const askCodexArgsSchema = z.object({
       "Optional Codex thread ID to resume a prior conversation. Use the [Thread ID: ...] value from a previous response to continue the same chat with full prior context.",
     ),
   includeDirs: z
-    .array(z.string())
+    .array(relativeDirSchema)
     .optional()
     .describe(
-      "Additional directories Codex may access alongside the working directory (maps to codex `--add-dir`, repeatable). Useful in monorepos where relevant context spans sibling packages.",
+      "Additional directories Codex may access alongside the working directory (maps to codex `--add-dir`, repeatable). Must be relative paths (e.g., 'packages/api'). Useful in monorepos where relevant context spans sibling packages.",
     ),
 });
 
 export const askCodexTool: UnifiedTool = {
   name: "ask-codex",
-  description:
-    "Send a prompt to OpenAI Codex CLI (defaults to gpt-5.5 with automatic fallback on quota errors). Use for code review, second opinions, analysis, and AI-to-AI collaboration. Do not override the model parameter unless the user explicitly asks. Returns both human-readable text and a structured response (provider, model, sessionId, usage) via outputSchema. The returned sessionId field maps to Codex's thread_id and can be passed back as sessionId to continue the conversation.",
+  description: `Send a prompt to OpenAI Codex CLI (defaults to ${FACTORY_DEFAULT_MODEL} with automatic fallback on quota errors). Use for code review, second opinions, analysis, and AI-to-AI collaboration. Do not override the model parameter unless the user explicitly asks. Returns both human-readable text and a structured response (provider, model, sessionId, usage) via outputSchema. The returned sessionId field maps to Codex's thread_id and can be passed back as sessionId to continue the conversation.`,
   zodSchema: askCodexArgsSchema,
   outputSchema: askResponseSchema,
   annotations: {

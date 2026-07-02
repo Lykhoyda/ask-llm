@@ -40,8 +40,12 @@ export const STATUS_MESSAGES = {
   CODEX_RESPONSE: "Codex response:",
 } as const;
 
+// The out-of-box default, independent of any ASK_CODEX_MODEL override —
+// tool descriptions and drift-guard tests reference this, not the live value.
+export const FACTORY_DEFAULT_MODEL = "gpt-5.5";
+
 export const MODELS = {
-  DEFAULT: process.env.ASK_CODEX_MODEL || "gpt-5.5",
+  DEFAULT: process.env.ASK_CODEX_MODEL || FACTORY_DEFAULT_MODEL,
   // gpt-5.4-mini, not gpt-5.5-mini: the 5.5 "mini" is rejected with a 400
   // ("not supported when using Codex with a ChatGPT account") on ChatGPT-plan
   // accounts — the common case for the codex CLI — so the quota fallback never

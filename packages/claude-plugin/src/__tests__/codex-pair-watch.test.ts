@@ -680,14 +680,20 @@ describe("scripts/codex-pair-watch.mjs — structural invariants (ADR-077)", () 
     const constantsPath = path.join(PLUGIN_ROOT, "..", "codex-mcp", "src", "constants.ts");
     const constantsSource = fs.readFileSync(constantsPath, "utf-8");
 
-    const defaultMatch = constantsSource.match(/DEFAULT:\s*process\.env\.ASK_CODEX_MODEL\s*\|\|\s*"([^"]+)"/);
+    // The default literal lives in FACTORY_DEFAULT_MODEL (env-invariant source
+    // of truth); DEFAULT derives from it via the ASK_CODEX_MODEL override.
+    const factoryMatch = constantsSource.match(/export const FACTORY_DEFAULT_MODEL = "([^"]+)"/);
+    const defaultWiring = constantsSource.match(
+      /DEFAULT:\s*process\.env\.ASK_CODEX_MODEL\s*\|\|\s*FACTORY_DEFAULT_MODEL/,
+    );
     const fallbackMatch = constantsSource.match(
       /FALLBACK:\s*process\.env\.ASK_CODEX_FALLBACK_MODEL\s*\|\|\s*"([^"]+)"/,
     );
 
-    expect(defaultMatch).toBeTruthy();
+    expect(factoryMatch).toBeTruthy();
+    expect(defaultWiring).toBeTruthy();
     expect(fallbackMatch).toBeTruthy();
-    expect(defaults.model).toBe(defaultMatch?.[1]);
+    expect(defaults.model).toBe(factoryMatch?.[1]);
     expect(defaults.fallbackModel).toBe(fallbackMatch?.[1]);
   });
 

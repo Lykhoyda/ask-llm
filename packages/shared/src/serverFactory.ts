@@ -161,7 +161,14 @@ export function registerTools({
   progressMessages,
   sessionUsage,
 }: RegisterToolsOptions) {
+  const seen = new Set<string>();
   for (const tool of tools) {
+    // Fail fast: toolRegistry lookups take the first name match, so a silent
+    // duplicate would shadow the later tool at execute time.
+    if (seen.has(tool.name)) {
+      throw new Error(`Duplicate tool name "${tool.name}" — tool names must be unique within a server`);
+    }
+    seen.add(tool.name);
     const shape = (tool.zodSchema as z.ZodObject<z.ZodRawShape>).shape;
     const outputShape = tool.outputSchema ? (tool.outputSchema as z.ZodObject<z.ZodRawShape>).shape : undefined;
 

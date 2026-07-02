@@ -1,4 +1,4 @@
-import type { UsageStats } from "@ask-llm/shared";
+import { PROVIDERS, type UsageStats } from "@ask-llm/shared";
 import { z } from "zod";
 import type { ExecutorFn } from "./index.js";
 
@@ -22,7 +22,7 @@ export interface MultiLlmReport {
 }
 
 const usageStatsSchema = z.object({
-  provider: z.enum(["gemini", "codex", "ollama"]),
+  provider: z.enum(PROVIDERS),
   model: z.string(),
   inputTokens: z.number().optional(),
   outputTokens: z.number().optional(),
@@ -119,7 +119,7 @@ export function formatMultiLlmReport(report: MultiLlmReport): string {
 }
 
 export function buildMultiLlmInputSchema(availableProviders: string[]): z.ZodObject<z.ZodRawShape> {
-  const providerEnum = availableProviders.length > 0 ? availableProviders : ["gemini", "codex", "ollama"];
+  const providerEnum = availableProviders.length > 0 ? availableProviders : [...PROVIDERS];
   return z.object({
     prompt: z.string().min(1).max(100000).describe("The prompt to send to all selected providers in parallel."),
     providers: z

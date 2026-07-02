@@ -246,6 +246,35 @@ describe("listModels", () => {
   });
 });
 
+describe("chat timeout", () => {
+  it("passes an abort signal to the chat request", async () => {
+    await executeOllamaCLI({ prompt: "signal test" });
+
+    const [, options] = mockFetch.mock.calls[0];
+    expect(options.signal).toEqual(expect.any(AbortSignal));
+  });
+
+  it("aborts a stalled chat request with an actionable error naming ASK_OLLAMA_TIMEOUT_MS", async () => {
+    process.env.ASK_OLLAMA_TIMEOUT_MS = "30";
+    try {
+      mockFetch.mockImplementationOnce(
+        (_url: string, options: { signal: AbortSignal }) =>
+          new Promise((_resolve, reject) => {
+            options.signal.addEventListener("abort", () =>
+              reject(new DOMException("This operation was aborted", "AbortError")),
+            );
+          }),
+      );
+
+      await expect(executeOllamaCLI({ prompt: "stalled" })).rejects.toThrow(
+        /timed out after 30ms[\s\S]*ASK_OLLAMA_TIMEOUT_MS/,
+      );
+    } finally {
+      delete process.env.ASK_OLLAMA_TIMEOUT_MS;
+    }
+  });
+});
+
 describe("session UX (ADR-063 fix for empty-string sessionId)", () => {
   it("undefined sessionId hits the response cache (cache enabled by default)", async () => {
     responseCache.clear();

@@ -39,10 +39,17 @@ describe("plugin.json manifest", () => {
     expect(manifest.version).toMatch(/^\d+\.\d+\.\d+/);
   });
 
-  it("includes the standard keyword set", () => {
+  it("includes the standard keyword set (all four providers)", () => {
     expect(manifest.keywords).toContain("gemini");
     expect(manifest.keywords).toContain("codex");
     expect(manifest.keywords).toContain("ollama");
+    expect(manifest.keywords).toContain("antigravity");
+  });
+
+  it("description names all four providers", () => {
+    for (const provider of ["Gemini", "Codex", "Ollama", "Antigravity"]) {
+      expect(manifest.description).toContain(provider);
+    }
   });
 
   it("declares author and repository", () => {
@@ -70,6 +77,14 @@ describe("marketplace.json", () => {
   it("plugin entry version is in valid semver shape", () => {
     const entry = marketplace.plugins.find((p) => p.name === "ask-llm");
     expect(entry?.version).toMatch(/^\d+\.\d+\.\d+/);
+  });
+
+  it("plugin entry metadata names antigravity alongside the other providers", () => {
+    const entry = marketplace.plugins.find((p) => p.name === "ask-llm") as
+      | { description?: string; keywords?: string[] }
+      | undefined;
+    expect(entry?.description).toContain("Antigravity");
+    expect(entry?.keywords).toContain("antigravity");
   });
 });
 
@@ -128,15 +143,17 @@ describe("hooks.json", () => {
 describe("CLI binary references in package.json bin", () => {
   const pkg = readJson<{ bin: Record<string, string> }>("package.json");
 
-  it("declares all three runner binaries", () => {
+  it("declares all four runner binaries", () => {
     expect(pkg.bin["ask-gemini-run"]).toBe("dist/run.js");
     expect(pkg.bin["ask-codex-run"]).toBe("dist/codex-run.js");
     expect(pkg.bin["ask-ollama-run"]).toBe("dist/ollama-run.js");
+    expect(pkg.bin["ask-antigravity-run"]).toBe("dist/antigravity-run.js");
   });
 
   it("each declared binary source exists in src/", () => {
     expect(fs.existsSync(path.join(PLUGIN_ROOT, "src", "run.ts"))).toBe(true);
     expect(fs.existsSync(path.join(PLUGIN_ROOT, "src", "codex-run.ts"))).toBe(true);
     expect(fs.existsSync(path.join(PLUGIN_ROOT, "src", "ollama-run.ts"))).toBe(true);
+    expect(fs.existsSync(path.join(PLUGIN_ROOT, "src", "antigravity-run.ts"))).toBe(true);
   });
 });

@@ -2,6 +2,41 @@
 
 ## Open
 
+### ~~`ask-ollama` chat call has no timeout — a wedged Ollama server hangs the tool forever~~ FIXED
+- **Severity:** High (the only executor with no timeout of any kind; the MCP keep-alive makes the hang indefinite)
+- **Discovered:** 2026-07-02, repo-wide weak-spot audit (5-agent sweep; verified by reading the code)
+- **File:** `packages/ollama-mcp/src/utils/ollamaExecutor.ts:89-93`
+- **Root cause:** `callOllama()` POSTs to `/api/chat` via raw `globalThis.fetch` with no `AbortSignal`, while `isProviderAvailable()`/`listModels()` in the same file correctly use `AbortController` + `AVAILABILITY_TIMEOUT_MS`. Native fetch has no default timeout, so a hung Ollama server (model-load deadlock, GPU wedge) blocks the MCP call forever. Gemini defaults to 210s, Codex to 800s (`ASK_CODEX_TIMEOUT_MS`); Ollama has nothing.
+- **Recommended:** `AbortController` + env-configurable timeout (`ASK_OLLAMA_TIMEOUT_MS`, generous default — local models legitimately take minutes) mirroring the Codex precedent, plus timeout tests (the test file covers availability/listModels timeouts but has zero timeout assertions on the chat path).
+- **Status:** **FIXED** (`fix/audit-2026-07-02-hardening`): `callOllama()` now takes a timeout resolved via `ASK_OLLAMA_TIMEOUT_MS` > `GMCPT_TIMEOUT_MS` > 600s default; the timer stays armed through the body read (headers-then-stall also aborts); abort throws an actionable error naming the env var. TDD: signal-presence + stalled-request tests.
+
+### ~~Antigravity is not threaded through the llm-mcp/shared type layer (scattered provider enums drifted)~~ FIXED (ADR-128)
+- **Severity:** Medium (wrong public schema contract today; latent runtime validation break)
+- **Discovered:** 2026-07-02 audit; confirms the 2026-06-07 migration-scope note that shared/multiLlm/doctor keep their own provider enums independent of `askResponseSchema`.
+- **Files:** `packages/llm-mcp/src/multiLlm.ts:25,122`, `packages/shared/src/usage.ts:2`, `packages/shared/src/registry.ts:35`, `packages/llm-mcp/src/repl.ts:21`, `packages/claude-plugin/.claude-plugin/plugin.json:4`, `/.claude-plugin/marketplace.json`, `packages/claude-plugin/src/__tests__/manifest.test.ts:131`, `packages/claude-plugin/agents/brainstorm-coordinator.md:22`
+- **Description:** `usageStatsSchema.provider` is `z.enum(["gemini","codex","ollama"])` and is wired as the `multi-llm` tool's `outputSchema` (`llm-mcp/src/index.ts:268`) whose own description advertises Antigravity — the declared contract says antigravity usage is invalid. `UsageStats.provider` union omits `"antigravity"`; registry `category` omits it; REPL `/help` omits it; plugin.json + marketplace.json description/keywords still say "Gemini, Codex, and Ollama"; the manifest test asserts "declares all three runner binaries" while four exist (`ask-antigravity-run` never asserted); brainstorm-coordinator.md:22 names (Gemini, Codex, Ollama) though the default dispatch is `antigravity,codex`. Latent only because the antigravity executor never returns token `usage` (`dispatchMultiLlm`, multiLlm.ts:78,85, propagates usage only when present) — the moment antigravity reports usage, `structuredContent` violates the declared outputSchema.
+- **Root cause:** no single source of truth for the provider list — every surface hand-maintains its own enum/union/string.
+- **Recommended:** canonical `PROVIDERS` const in `@ask-llm/shared` with derived `z.enum`/type unions everywhere + a drift test (the `codex-pair-defaults.json` ↔ `constants.ts` parity guard is the in-repo precedent).
+- **Status:** **FIXED** (`fix/audit-2026-07-02-hardening`, ADR-128): shared `providers.ts` `PROVIDERS` tuple + `ProviderName`; all listed surfaces now derive or are pinned by drift-guard tests (llm-mcp `constants.test.ts`, per-package tool-contract tests, plugin manifest assertions).
+
+### ~~antigravity-mcp is the only server without the shared keep-alive progress tracker~~ WITHDRAWN (invalid finding)
+- **Status:** **Withdrawn 2026-07-02** during the fix pass — the finding was wrong. Every server, antigravity included, inherits the keep-alive progress tracker from shared `registerTools()` (`packages/shared/src/serverFactory.ts:178`; the ADR-053 centralization). The audit grep looked for a direct `createProgressTracker` import inside the package and missed the factory wiring. The ping's 5s ceiling is likewise deliberate and documented in-code (`simple-tools.ts`: "a hung agy must not block ping for minutes", #153 review) with a graceful agy-not-found fallback. No change needed.
+
+### ~~chunkCache writes world-readable files in shared /tmp~~ FIXED
+- **Severity:** Medium (info leak on multi-user machines; single-user dev boxes unaffected in practice)
+- **Discovered:** 2026-07-02 audit
+- **File:** `packages/shared/src/chunkCache.ts:20,43-44`
+- **Description:** `mkdirSync(CACHE_DIR, { recursive: true })` and `writeFileSync(tmpPath, ...)` omit `mode`, so with default umask the cache dir (`/tmp/gemini-mcp-chunks/`) is 0755 and chunk files 0644 — cached changeMode chunks contain user code/edit content readable by any local user. `sessions.ts` in the same package already does this right (`SESSION_DIR_MODE`/`SESSION_FILE_MODE` at :51/:139).
+- **Recommended:** mirror the sessions.ts modes; add a permissions test.
+- **Status:** **FIXED** (`fix/audit-2026-07-02-hardening`): dir created 0700 (and chmod-tightened when created by older releases), chunk files written 0600; permissions tests skip on win32.
+
+### ~~Gemini executor lacks the empty-string-sessionId cache guard Codex/Ollama have~~ VERIFIED + FIXED
+- **Severity:** Low-Medium — **needs verification before filing** (code-compared during the audit, not runtime-reproduced)
+- **Discovered:** 2026-07-02 audit
+- **Files:** `packages/gemini-mcp/src/utils/geminiExecutor.ts:546` vs `codexExecutor.ts:349-350` / `ollamaExecutor.ts:153-154`
+- **Description:** Codex/Ollama disable the response cache whenever `sessionId !== undefined` (empty string included — both behaviors tested); Gemini builds its cache key without an equivalent `wantsSession` guard, so `sessionId: ""` may serve a cached response instead of performing a session turn. No gemini test covers empty-string sessionId.
+- **Status:** **FIXED** (`fix/audit-2026-07-02-hardening`): verified real — `isCacheable = !sessionId` (falsy check) at `geminiExecutor.ts:544` meant `sessionId: ""` could return a cached body with `sessionId: undefined`. Now `wantsSession = sessionId !== undefined` gates caching, matching codex/ollama; regression test reproduced the bug first (TDD). Bonus: `includeDirs?.sort()` no longer mutates the caller's array.
+
 ### `agy` (Antigravity) can act during "review" calls — read-only guard is soft and raw calls bypass it
 - **Severity:** Medium — the provider's PRIMARY use case is read-only second-opinions/reviews, yet `agy` can silently modify the repo.
 - **Discovered:** 2026-06-09, while asking `agy` to *critique* the #142 stop-gate design. It went ahead and **implemented the whole feature** (created/edited 6 files on `main`, ran the test suite) instead of just reviewing. Changes were reverted; no harm, but the behavior is the concern.

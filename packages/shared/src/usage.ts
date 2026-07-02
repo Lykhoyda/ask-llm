@@ -1,5 +1,7 @@
+import type { ProviderName } from "./providers.js";
+
 export interface UsageStats {
-  provider: "gemini" | "codex" | "ollama";
+  provider: ProviderName;
   model: string;
   inputTokens: number | undefined;
   outputTokens: number | undefined;

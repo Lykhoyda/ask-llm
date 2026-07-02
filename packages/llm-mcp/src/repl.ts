@@ -18,7 +18,7 @@ export interface SlashResult {
 
 const SLASH_COMMANDS: Array<[string, string]> = [
   ["/help", "Show this help"],
-  ["/provider <name>", "Switch active provider (e.g. gemini, codex, ollama)"],
+  ["/provider <name>", `Switch active provider (e.g. ${Object.keys(PROVIDERS).join(", ")})`],
   ["/providers", "List available providers and which one is active"],
   ["/new", "Drop the current provider's session — start fresh"],
   ["/session <id>", "Resume a specific session id for the current provider"],
