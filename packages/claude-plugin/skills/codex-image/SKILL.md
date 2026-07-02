@@ -8,6 +8,14 @@ user_invocable: true
 
 Generate an image by delegating to the `ask-codex` MCP tool with a prompt-engineered template that triggers Codex's built-in `image_generation` tool. The result is saved to disk and the path is returned to the user.
 
+## Model capabilities (gpt-image-2)
+
+Codex's `image_generation` tool selects the image model server-side; as of 2026-04-21 that is **gpt-image-2**. Three capabilities are worth accounting for when building prompts:
+
+- **Legible in-image text** — gpt-image-2 renders text at ~99% accuracy across many scripts, so captions, labels, and UI copy are now reliable. gpt-image-1's weak text is no longer a reason to avoid asking for it.
+- **High resolution** — up to 4K and custom dimensions; ask for it explicitly in the prompt body when you need it (default renders are ~1024–1254px square).
+- **Provenance + watermark** — every render embeds a C2PA provenance manifest and an invisible AI-origin watermark. Flag this to the user when the image is destined for a context sensitive to AI-generated-content metadata.
+
 ## Prerequisites
 
 - `codex-cli` >= 0.125.0 installed and authenticated
