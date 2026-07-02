@@ -16,6 +16,9 @@ jobs:
     timeout-minutes: 15
 
     strategy:
+      # Don't cancel the ubuntu legs when the Windows leg fails (or vice versa) —
+      # cross-OS failures are exactly what this matrix exists to isolate.
+      fail-fast: false
       matrix:
         # tsdown (build toolchain) needs Node >=22.18 (ADR-119); Node 20 RUNTIME
         # support is verified by the global-install-smoke job below
