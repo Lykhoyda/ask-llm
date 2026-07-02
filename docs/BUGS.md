@@ -26,6 +26,13 @@
 - **File:** `packages/claude-plugin/scripts/lib/stop-gate.mjs:13`
 - **Description:** porcelain v1 quotes paths containing special characters; the parser strips the surrounding quotes but doesn't unescape the body, so such paths never match log-entry paths and the Stop-gate's `[B]` git-dirty filter drops their HIGH findings (fail-open, never a wrong block). Fix direction: `git status --porcelain=v1 -z` with a NUL parser.
 
+### ~~AI-readable docs (`llms.txt` / `llms-full.txt`) advertised a wrong `fetch-chunk` param name and other schema drift~~ FIXED
+- **Severity:** High for the headline (an AI agent following the reference sends an argument the Zod schema rejects); Medium for the rest
+- **Discovered:** 2026-07-02, dogfood codex-pair review during the AI-readable docs drift-fix pass (the HIGH was pre-existing in the original files, not introduced by the fix)
+- **Files:** `apps/docs/public/llms.txt`, `apps/docs/public/llms-full.txt`
+- **Description:** the `fetch-chunk` tool documented its cache-key parameter as `chunkCacheKey`, but the live schema (`packages/gemini-mcp/src/tools/fetch-chunk.tool.ts`) names it `cacheKey` — an agent passing `chunkCacheKey` fails validation and can never retrieve chunked edit output. Same pass corrected: a phantom per-call `model` param documented for `ask-antigravity` (schema is `{ prompt, includeDirs }` — model is env-only via `ASK_ANTIGRAVITY_MODEL`); omitted `sessionId` on `ask-gemini` / `ask-ollama` / `ask-llm` and omitted `sessionId` + `includeDirs` on `ask-codex-edit`. Root cause: these two files are hand-maintained with no drift guard (unlike tool descriptions, which embed `FACTORY_DEFAULT_MODEL` via template literals + contract tests), so they lagged the provider set (Antigravity added later) and the actual tool schemas.
+- **Status:** **FIXED** (`docs/llms-txt-antigravity-parity`): every documented tool now matches its `z.object` input schema; every quoted model name matches its `FACTORY_DEFAULT_MODEL`/fallback constant character-for-character (verified). Follow-up candidate: a drift-guard test that parses the tool tables in these `.txt` files against the registered tool schemas, closing the class permanently.
+
 ### ~~codex-pair auto-pause is sticky forever — a fixed provider stays paused until manual resume~~ FIXED (ADR-130)
 - **Severity:** High (silently disables the entire feature; empirically hit)
 - **Discovered:** 2026-07-02 seamless-pairing audit — the dogfood repo auto-paused 2026-06-14 on the pre-ADR-126 `gpt-5.5-mini` 400 and was still paused 18 days later, after the cause had shipped fixed; all 315 log entries in the trailing 14 days were `skipped — auto-paused`
