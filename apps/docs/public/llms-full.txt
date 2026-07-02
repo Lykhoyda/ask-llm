@@ -308,6 +308,8 @@ Ask Gemini to review @src/auth.ts for security issues
 Ask Gemini to summarize @. the current directory
 ```
 
+> Note: `@` file/directory syntax is a **Gemini-CLI feature only**. Codex, Ollama, and Antigravity receive `@paths` as literal prompt text — give them file context via `includeDirs` (codex / codex-edit / antigravity) or by pasting the code into the prompt (ollama has no file access).
+
 ### Architecture debate
 ```
 Ask Codex: should we use a message queue or direct HTTP calls for this service?
@@ -315,12 +317,14 @@ Ask Codex: should we use a message queue or direct HTTP calls for this service?
 
 ### Local private review
 ```
-Ask Ollama to review the changes in @src/payments.ts
+Ask Ollama to review this diff (paste the code — Ollama reads no files):
+<paste the changed lines of src/payments.ts here>
 ```
 
 ### Subscription-backed second opinion
 ```
-Ask Antigravity to critique the trade-offs in @src/scheduler.ts
+Ask Antigravity to critique the trade-offs in the scheduler module
+(pass its directory via includeDirs, e.g. includeDirs=["src/scheduler"], or paste the code)
 ```
 
 ### Multi-provider review (Claude Code plugin)
