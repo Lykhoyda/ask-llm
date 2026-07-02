@@ -251,7 +251,7 @@ With the default 15s debounce plus 13–50s of review latency, a review is often
 
 ### Queued verdicts drain at turn-end
 
-Debounced verdicts that finished mid-turn used to wait for the *next* edit or user prompt to surface. The Stop hook now drains them at turn-end for **every** codex-pair project (opt-in gate not required): as additional context when nothing blocks, or folded into the block message when it does.
+Debounced verdicts that finished mid-turn used to wait for the *next* edit or user prompt to surface. The Stop hook now drains them at turn-end — no `blockOn` opt-in required: as additional context when nothing blocks, or folded into the block message when it does. Like every Stop/prompt-scoped hook, the drain resolves the project from the session's working directory; verdicts queued by cross-repo edits (cwd in repo A, edit in repo B) still wait for the next edit or prompt in that repo — tracked in [#209](https://github.com/Lykhoyda/ask-llm/issues/209).
 
 ### Defer a finding with `/codex-pair-ack`
 

@@ -31,7 +31,7 @@
 - **Severity:** Medium (defeats the `blockOn: HIGH` guarantee in the common timing; measured p50 review latency 35.5s vs. sub-minute turns)
 - **Discovered:** 2026-07-02 audit; the worker-handoff sub-gap was then caught by the dogfood codex-pair review of this very fix branch
 - **Files:** `packages/claude-plugin/scripts/codex-pair-stop-gate.mjs`, `lib/stop-gate.mjs`, `lib/debounce-state.mjs`, `codex-pair-debounce-worker.mjs`
-- **Status:** **FIXED** (ADR-130): gate blocks once per turn on unconsumed debounce records, fresh inflight locks, and the new worker `reviewing` marker; queued verdicts drain at Stop for all projects
+- **Status:** **FIXED** (ADR-130): gate blocks once per turn on unconsumed debounce records, fresh inflight locks, and the new worker `reviewing` marker; queued verdicts drain at Stop without requiring the `blockOn` opt-in. The drain is cwd-anchored like all Stop/prompt hooks — cross-repo edits (cwd in repo A, edit in repo B) are the known residual gap, tracked in #209
 
 ### ~~`ask-ollama` chat call has no timeout — a wedged Ollama server hangs the tool forever~~ FIXED
 - **Severity:** High (the only executor with no timeout of any kind; the MCP keep-alive makes the hang indefinite)
