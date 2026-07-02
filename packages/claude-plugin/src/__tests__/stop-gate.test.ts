@@ -26,10 +26,12 @@ describe("parseGitPorcelain", () => {
   it("maps porcelain entries to absolute paths (modified, untracked, renamed)", () => {
     const out = [" M src/a.ts", "?? src/new.ts", "R  old.ts -> src/b.ts", ""].join("\n");
     const set = parseGitPorcelain(out, "/repo");
-    expect(set.has("/repo/src/a.ts")).toBe(true);
-    expect(set.has("/repo/src/new.ts")).toBe(true);
-    expect(set.has("/repo/src/b.ts")).toBe(true); // rename → new path is the dirty one
-    expect(set.has("/repo/old.ts")).toBe(false);
+    // join(): the impl builds paths with node:path, so expectations must use
+    // native separators to hold on Windows too (PR #200).
+    expect(set.has(join("/repo", "src/a.ts"))).toBe(true);
+    expect(set.has(join("/repo", "src/new.ts"))).toBe(true);
+    expect(set.has(join("/repo", "src/b.ts"))).toBe(true); // rename → new path is the dirty one
+    expect(set.has(join("/repo", "old.ts"))).toBe(false);
   });
 });
 
@@ -96,7 +98,7 @@ describe("acks state helpers", () => {
     const dir = mkdtempSync(join(tmpdir(), "ackstest-"));
     try {
       expect(readAcks(dir)).toEqual({});
-      expect(acksPath(dir).endsWith(".codex-pair/state/acks.json")).toBe(true);
+      expect(acksPath(dir).endsWith(join(".codex-pair", "state", "acks.json"))).toBe(true);
       addAck(dir, "abc123", { reason: "stale" });
       const acks = readAcks(dir);
       expect(acks.abc123.reason).toBe("stale");
@@ -120,7 +122,8 @@ describe("formatBlockMessage", () => {
     );
     expect(msg).toContain("2 unaddressed HIGH");
     expect(msg).toContain("[a1b2c3d4e5]");
-    expect(msg).toContain("src/auth.ts");
+    // relative() output uses native separators — join() keeps this portable.
+    expect(msg).toContain(join("src", "auth.ts"));
     expect(msg).toContain("/codex-pair-ack a1b2c3d4e5");
   });
 });
