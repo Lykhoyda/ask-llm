@@ -104,6 +104,8 @@ command = "npx"
 args = ["-y", "ask-gemini-mcp"]
 ```
 
+The block above registers Gemini as one example. Add a `[mcp_servers.<name>]` section per provider (swap `ask-gemini-mcp` for `ask-codex-mcp`, `ask-ollama-mcp`, `ask-antigravity-mcp`), or register the unified `ask-llm-mcp` to expose all installed providers through one server.
+
 ### Any MCP Client (STDIO transport)
 
 ```json
@@ -115,6 +117,8 @@ args = ["-y", "ask-gemini-mcp"]
   }
 }
 ```
+
+The `ask-gemini-mcp` argument above is just an example — the same STDIO block works for any package (`ask-codex-mcp`, `ask-ollama-mcp`, `ask-antigravity-mcp`, or the unified `ask-llm-mcp`).
 
 ### Unified Server (all providers in one)
 
@@ -202,7 +206,7 @@ Send prompts to a local Ollama LLM via HTTP. No API keys or network calls needed
 
 ### ask-antigravity
 
-Send prompts to Google's Antigravity CLI (`agy`) for a subscription-backed second opinion, code review, or analysis. Read-only by design (a soft preamble instructs the model not to modify anything). Single-turn only (no multi-turn sessions).
+Send prompts to Google's Antigravity CLI (`agy`) for a subscription-backed second opinion, code review, or analysis. Intended for read-only review, but note: `agy` is an agent that *can* act. ask-antigravity constrains it with a read-only prompt preamble **plus** a sandbox (`--sandbox`, on by default; disable with `ASK_ANTIGRAVITY_SANDBOX=0`) and runs `agy` with `--dangerously-skip-permissions` to avoid headless approval hangs — this is a soft, defense-in-depth guard, not a hard non-mutating execution mode, so treat workspace context passed via `includeDirs` accordingly. Single-turn only (no multi-turn sessions).
 
 - **Package:** ask-antigravity-mcp
 - **Parameters:**
@@ -396,6 +400,14 @@ All MCP servers handle errors gracefully:
 | GMCPT_TIMEOUT_MS | (per-provider default) | Cross-provider timeout fallback (lower precedence than ASK_*_TIMEOUT_MS) |
 | GMCPT_LOG_LEVEL | warn | Log level: debug, info, warn, error |
 | OLLAMA_HOST | http://localhost:11434 | Ollama server address |
+
+### Safety / behavior switches
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| ASK_CODEX_LOAD_USER_CONFIG | unset (isolated) | By default ask-codex-mcp passes `--ignore-user-config` + `--ignore-rules` so your `~/.codex` config, MCP servers, and hooks are NOT loaded. Set to `1` to load them. |
+| ASK_GEMINI_REQUIRE_WORKSPACE_TRUST | unset (auto-trust) | By default ask-gemini-mcp co-emits the workspace-trust env vars so the CWD is trusted. Set to `1` to require explicit workspace trust instead (Gemini blocks untrusted dirs). |
+| ASK_ANTIGRAVITY_SANDBOX | 1 (sandboxed) | Antigravity runs `agy` with `--sandbox` by default. Set to `0` to drop the sandbox flag. |
 
 ## Links
 
