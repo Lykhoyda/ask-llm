@@ -35,11 +35,13 @@ claude mcp add ask-llm -- npx -y ask-llm-mcp
 | ask-codex-edit | ask-codex-mcp | prompt (required), model (optional), sessionId (optional), includeDirs (optional) | Get read-only structured code edits from Codex (`--output-schema`). |
 | ask-ollama | ask-ollama-mcp | prompt (required), model (optional), sessionId (optional) | Send prompts to a local Ollama model. |
 | ask-antigravity | ask-antigravity-mcp | prompt (required), includeDirs (optional) | Subscription-backed second opinion via Google Antigravity (`agy`). Model is env-controlled (ASK_ANTIGRAVITY_MODEL), not a per-call param. |
-| ask-llm | ask-llm-mcp | prompt (required), provider (optional), model (optional), sessionId (optional) | Route a prompt to any installed provider. |
+| ask-llm | ask-llm-mcp | prompt (required), provider (required), model (optional), sessionId (optional) | Route a prompt to a chosen installed provider (gemini/codex/ollama/antigravity). |
 | multi-llm | ask-llm-mcp | prompt (required), providers (optional) | Dispatch one prompt to multiple providers in parallel; returns a structured report. |
 | get-usage-stats | all packages | (none) | Session usage aggregation (tokens, calls) for the provider. |
 | diagnose | ask-llm-mcp | (none) | Environment diagnostics — which provider CLIs are installed and reachable. |
 | ping | all packages | message (optional) | Test MCP server connectivity. Ollama's ping also lists installed models. |
+
+Note: every `includeDirs` parameter accepts **relative paths only** — no `..`, absolute paths, or `~` (rejected by schema validation).
 
 ## Claude Code Plugin
 

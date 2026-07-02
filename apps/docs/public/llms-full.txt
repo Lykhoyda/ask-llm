@@ -150,7 +150,7 @@ Send a code edit request to Gemini and get structured OLD/NEW edit blocks. Gemin
 - **Parameters:**
   - `prompt` (string, required): Describe the code changes you want. Reference files with @ syntax.
   - `model` (string, optional): Default: gemini-3.1-pro-preview.
-  - `includeDirs` (string[], optional): Additional directories to include in Gemini's context. Useful for monorepos.
+  - `includeDirs` (string[], optional): Additional directories to include in Gemini's context. Useful for monorepos. Paths must be relative — no `..`, absolute paths, or `~`.
 - **Returns:** Structured edit format with OLD/NEW blocks, or chunked response with cache key for large edits.
 - **Annotations:** readOnlyHint=false, destructiveHint=false, openWorldHint=true
 
@@ -174,7 +174,7 @@ Send prompts to OpenAI Codex CLI.
   - `prompt` (string, required): The question, code review request, or analysis task.
   - `model` (string, optional): Do not set unless user explicitly requests it. Default: gpt-5.5. Falls back to gpt-5.4-mini on quota errors.
   - `sessionId` (string, optional): A Codex thread_id to resume a prior multi-turn conversation.
-  - `includeDirs` (string[], optional): Additional directories to expose to Codex (`--add-dir`).
+  - `includeDirs` (string[], optional): Additional directories to expose to Codex (`--add-dir`). Paths must be relative — no `..`, absolute paths, or `~`.
 - **Returns:** Codex's text response plus a structured payload (provider, model, sessionId, usage).
 - **Annotations:** readOnlyHint=false, destructiveHint=false, openWorldHint=true
 
@@ -187,7 +187,7 @@ Get structured, read-only code edits from Codex via `--output-schema`. Codex ana
   - `prompt` (string, required): Describe the code changes you want.
   - `model` (string, optional): Default: gpt-5.5.
   - `sessionId` (string, optional): A Codex thread_id to continue a prior edit session.
-  - `includeDirs` (string[], optional): Additional directories to expose to Codex (`--add-dir`).
+  - `includeDirs` (string[], optional): Additional directories to expose to Codex (`--add-dir`). Paths must be relative — no `..`, absolute paths, or `~`.
 - **Returns:** Structured edit proposal (read-only — the caller applies the changes).
 - **Annotations:** readOnlyHint=false, destructiveHint=false, openWorldHint=true
 
@@ -211,7 +211,7 @@ Send prompts to Google's Antigravity CLI (`agy`) for a subscription-backed secon
 - **Package:** ask-antigravity-mcp
 - **Parameters:**
   - `prompt` (string, required): The question, code review request, or analysis task.
-  - `includeDirs` (string[], optional): Additional directories to expose to agy (`--add-dir`).
+  - `includeDirs` (string[], optional): Additional directories to expose to agy (`--add-dir`). Paths must be relative — no `..`, absolute paths, or `~`.
 - **Model selection:** There is NO per-call `model` parameter. The model is chosen via the `ASK_ANTIGRAVITY_MODEL` env var. Default: "Gemini 3.1 Pro (High)"; falls back to "Gemini 3.5 Flash (High)" on a subscription rate limit. Run `agy models` for available options.
 - **Returns:** Antigravity's text response plus a structured payload. Single-turn only — no sessionId.
 - **Annotations:** readOnlyHint=false, destructiveHint=false, openWorldHint=true
@@ -224,7 +224,7 @@ Route a single prompt to any one installed provider (unified server).
 - **Package:** ask-llm-mcp
 - **Parameters:**
   - `prompt` (string, required): The question or task.
-  - `provider` (string, optional): One of gemini, codex, ollama, antigravity. Defaults to the first detected provider.
+  - `provider` (string, required): Which provider to route to — one of gemini, codex, ollama, antigravity. Must be one that is installed/detected; there is no default.
   - `model` (string, optional): Provider-specific model override.
   - `sessionId` (string, optional): Resume a prior session with the chosen provider (maps to that provider's session/thread ID).
 - **Returns:** The chosen provider's text response plus a structured payload (including the resolved provider and model, so quota fallbacks are visible).
