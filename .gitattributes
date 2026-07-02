@@ -1,0 +1,4 @@
+# Force LF in every working tree regardless of platform: biome formats for LF,
+# so a CRLF checkout on the Windows CI leg fails lint on every file (ADR-129).
+# Git still auto-detects binaries via text=auto.
+* text=auto eol=lf
