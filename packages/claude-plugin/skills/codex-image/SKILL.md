@@ -1,6 +1,6 @@
 ---
 name: codex-image
-description: Generate an image via OpenAI's gpt-image-1 model through the Codex CLI. Use when user asks to "generate an image", "create an image", "make a picture of", "render a graphic", "draw something", or wants visual content via Codex. Requires codex-cli >= 0.125.0 with the `image_generation` feature flag enabled (stable + on-by-default since 0.125).
+description: Generate an image via OpenAI's gpt-image-2 model through the Codex CLI. Use when user asks to "generate an image", "create an image", "make a picture of", "render a graphic", "draw something", or wants visual content via Codex. Requires codex-cli >= 0.125.0 with the `image_generation` feature flag enabled (stable + on-by-default since 0.125).
 user_invocable: true
 ---
 
@@ -56,7 +56,7 @@ After saving, confirm the absolute path of the created file and its byte size in
 
 **Default model:** let `ask-codex` use its default (`gpt-5.5`, per ADR-067). The image_generation tool is invoked by the model regardless of which Codex chat model is selected — model selection here is about the orchestrating agent, not the image model itself.
 
-**Wall time expectation:** image generation typically takes **2–6 minutes** end-to-end (Codex orchestration + OpenAI server-side image render + tool reply). This is normal; do not retry assuming a hang. The first call in a session is slowest because the image_generation tool definitions aren't cached yet; subsequent calls in the same session are faster (Codex CLI prompt-caches aggressively).
+**Wall time expectation:** with gpt-image-2, simple images typically render in **under a minute** end-to-end; complex prompts or high-resolution (up to 4K) renders can take a **few minutes** because gpt-image-2's thinking mode plans layout and self-checks before generating. This is normal; do not retry assuming a hang. The first call in a session is slowest because the image_generation tool definitions aren't cached yet; subsequent calls in the same session are faster (Codex CLI prompt-caches aggressively).
 
 ### Phase 4: Verify and present
 
@@ -85,6 +85,6 @@ Phase 3 — `ask-codex` is called with the prompt template above.
 
 Phase 4 — `ls -la /tmp/codex-images/2026-04-24/cat-reading-a-book.png` shows a 248KB file. Skill returns:
 
-> Generated **/tmp/codex-images/2026-04-24/cat-reading-a-book.png** (248 KB) via gpt-image-1. Used Codex (gpt-5.5) as orchestrator. Refined prompt: *minimalist illustration of a cat reading a book, flat vector style, two-tone palette, no human figures, square framing, transparent background*. Reading inline below.
+> Generated **/tmp/codex-images/2026-04-24/cat-reading-a-book.png** (248 KB) via gpt-image-2. Used Codex (gpt-5.5) as orchestrator. Refined prompt: *minimalist illustration of a cat reading a book, flat vector style, two-tone palette, no human figures, square framing, transparent background*. Reading inline below.
 
 [image renders]
