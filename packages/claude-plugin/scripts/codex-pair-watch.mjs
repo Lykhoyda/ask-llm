@@ -46,6 +46,7 @@ import {
   bumpEditRecord,
   drainPending,
   joinPendingForSurface,
+  markReviewed,
   sweepStaleDebounce,
 } from "./lib/debounce-state.mjs";
 import { buildReviewPrompt } from "./lib/prompt.mjs";
@@ -244,6 +245,14 @@ function emitSystemMessage(text) {
     });
     process.stdout.write(`${payload}\n`, () => resolveWrite());
   });
+}
+
+// Flush a queued notice (auto-resume etc.) as the run's single JSON object.
+// No-op when nothing is queued, so every silent-exit path can call it
+// unconditionally — the emission is never empty (the notice IS the content).
+function flushNoticeOnly() {
+  if (!noticePrefix) return Promise.resolve();
+  return emitSystemMessage("");
 }
 
 // formatDuration + buildVerdictMessage live in ./lib/parser.mjs.
@@ -1039,7 +1048,7 @@ async function main() {
   if (SKIP_PATTERNS.some((p) => lower.includes(p))) {
     // A skipped file must not swallow a just-set auto-resume notice — this
     // path emits nothing else, so the notice is safely the run's single output.
-    if (noticePrefix) await emitSystemMessage("");
+    await flushNoticeOnly();
     process.exit(0);
   }
 
@@ -1070,7 +1079,7 @@ async function main() {
         verdict: "skipped",
         reason: "file not in .codex-pair/include scope",
       });
-      if (noticePrefix) await emitSystemMessage("");
+      await flushNoticeOnly();
       process.exit(0);
     }
   } else if (includeRules.length > 0) {
@@ -1103,7 +1112,7 @@ async function main() {
       verdict: "skipped",
       reason: `matched .codex-pair/ignore: ${ignoreMatch.raw}`,
     });
-    if (noticePrefix) await emitSystemMessage("");
+    await flushNoticeOnly();
     process.exit(0);
   }
 
@@ -1162,15 +1171,19 @@ async function main() {
       const pendingMessages = drainPending(markerDir);
       if (pendingMessages.length > 0) {
         await emitSystemMessage(joinPendingForSurface(pendingMessages));
-      } else if (noticePrefix) {
-        // Nothing pending, but an auto-resume notice is waiting — emit it as
-        // the run's single JSON object so the resume isn't silent.
-        await emitSystemMessage("");
+      } else {
+        // Flush any pending auto-resume notice instead of swallowing it
+        // (PR #208 review); no-op when nothing is queued.
+        await flushNoticeOnly();
       }
       process.exit(0);
     }
     // Worker spawn failed → fall through to a synchronous review (safety net),
-    // leaving any pending verdict queued to drain on a later hook.
+    // leaving any pending verdict queued to drain on a later hook. Consume the
+    // just-bumped debounce record: the sync review below covers this burst, and
+    // an unconsumed record would read as "still settling" to the Stop-gate's
+    // in-flight check for the whole stale window (PR #208 review).
+    markReviewed(markerDir, filePath, record.generation);
   }
 
   let fileContent;
@@ -1305,7 +1318,7 @@ async function main() {
       verdict: "skipped",
       reason: `coalesced — another review is in-flight for this file (${lockResult.reason})`,
     });
-    if (noticePrefix) await emitSystemMessage("");
+    await flushNoticeOnly();
     process.exit(0);
   }
   const acquiredLockPath = lockResult.lockPath;
@@ -1356,6 +1369,10 @@ async function main() {
         await emitSystemMessage(
           `codex-pair auto-paused: provider quota exhausted${resetClause}. Resume with /codex-pair-resume.`,
         );
+      } else {
+        // Flush any pending auto-resume notice instead of swallowing it
+        // (PR #208 review); no-op when nothing is queued.
+        await flushNoticeOnly();
       }
       process.exit(0);
     }
@@ -1382,6 +1399,10 @@ async function main() {
         await emitSystemMessage(
           `codex-pair auto-paused after ${AUTOPAUSE_FAILURE_THRESHOLD} consecutive review failures (last: ${reason}). Resume with /codex-pair-resume.`,
         );
+      } else {
+        // Flush any pending auto-resume notice instead of swallowing it
+        // (PR #208 review); no-op when nothing is queued.
+        await flushNoticeOnly();
       }
       process.exit(0);
     }

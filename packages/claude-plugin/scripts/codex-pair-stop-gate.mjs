@@ -52,9 +52,10 @@ function readStdin() {
   });
 }
 
-// Minimal frontmatter scalar read — only need `blockOn`. Looks for `blockOn: X`
-// inside the leading `---` block.
-function readBlockOn(markerDir) {
+// Minimal frontmatter scalar read — the gate needs `blockOn` and `timeoutMs`
+// only, so a full parser stays unnecessary. Looks for `<key>: X` inside the
+// leading `---` block.
+function readMarkerScalar(markerDir, key) {
   let text;
   try {
     text = readFileSync(contextPath(markerDir), "utf8");
@@ -63,8 +64,12 @@ function readBlockOn(markerDir) {
   }
   const fm = text.match(/^---\r?\n([\s\S]*?)\r?\n---/); // tolerate CRLF (Windows)
   if (!fm) return null;
-  const m = fm[1].match(/^\s*blockOn:\s*(\S+)\s*$/m);
+  const m = fm[1].match(new RegExp(`^\\s*${key}:\\s*(\\S+)\\s*$`, "m"));
   return m ? m[1].trim() : null;
+}
+
+function readBlockOn(markerDir) {
+  return readMarkerScalar(markerDir, "blockOn");
 }
 
 function gitDirtySet(markerDir) {
@@ -117,11 +122,18 @@ function readInFlightInputs(markerDir) {
   return { records, lockMtimes };
 }
 
-// Lock freshness mirrors the watch hook's inflight-lock TTL (env timeout vs
-// the 10-min floor, plus buffer) so the gate and the lock lifecycle agree on
-// what "still reviewing" means.
-function inflightFreshMs() {
-  return Math.max(Number(process.env.ASK_CODEX_TIMEOUT_MS ?? 800_000), INFLIGHT_TTL_MIN_MS) + 60_000;
+// Lock freshness mirrors the watch hook's inflight-lock TTL — same precedence
+// (marker frontmatter `timeoutMs` > ASK_CODEX_TIMEOUT_MS > 800s default, then
+// the 10-min floor plus buffer) so the gate and the lock lifecycle agree on
+// what "still reviewing" means even for projects that pin a longer per-review
+// timeout (PR #208 review).
+function inflightFreshMs(markerDir) {
+  const fmTimeout = Number(readMarkerScalar(markerDir, "timeoutMs"));
+  const timeout =
+    Number.isFinite(fmTimeout) && fmTimeout > 0
+      ? fmTimeout
+      : Number(process.env.ASK_CODEX_TIMEOUT_MS ?? 800_000);
+  return Math.max(timeout, INFLIGHT_TTL_MIN_MS) + 60_000;
 }
 
 function writeAndExit(obj) {
@@ -182,7 +194,7 @@ async function main() {
   const inFlight = collectInFlight({
     ...readInFlightInputs(markerDir),
     now: Date.now(),
-    freshMs: inflightFreshMs(),
+    freshMs: inflightFreshMs(markerDir),
   });
 
   // Canonicalize so markerDir aligns with git's realpath'd repo root (macOS).

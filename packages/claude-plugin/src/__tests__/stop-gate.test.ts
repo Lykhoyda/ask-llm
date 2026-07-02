@@ -289,6 +289,23 @@ describe("codex-pair-stop-gate.mjs — runtime (pending drain + in-flight block)
     expect(stale.stdout.trim()).toBe("");
   });
 
+  it("blockOn HIGH: marker frontmatter timeoutMs extends the lock freshness window (PR #208 review)", () => {
+    // A project pinning a 2h per-review timeout must keep a 1h-old lock
+    // registering as in-flight (default freshness is ~14.3 min).
+    writeMarker("---\nblockOn: HIGH\ntimeoutMs: 7200000\n---\n");
+    const inflightDir = path.join(dir, ".codex-pair", "state", "inflight");
+    fs.mkdirSync(inflightDir, { recursive: true });
+    const lock = path.join(inflightDir, "abc123");
+    fs.writeFileSync(lock, "12345");
+    const old = new Date(Date.now() - 3_600_000);
+    fs.utimesSync(lock, old, old);
+    const result = runGate();
+    expect(result.status).toBe(0);
+    const out = JSON.parse(result.stdout.trim());
+    expect(out.decision).toBe("block");
+    expect(out.reason).toMatch(/in flight/i);
+  });
+
   it("stop_hook_active exits 0 without draining or blocking (loop guard)", () => {
     writeMarker("---\nblockOn: HIGH\n---\n");
     seedPending("queued verdict");

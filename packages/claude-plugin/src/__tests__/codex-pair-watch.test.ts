@@ -606,22 +606,39 @@ describe("scripts/codex-pair-watch.mjs — structural invariants (ADR-077)", () 
     expect(script).toMatch(/readIncludeFile[\s\S]{0,2000}?readIgnoreFile/);
     expect(script).toMatch(/matchesIgnoreRule/);
     // On ignore match, log skip AND exit without a VERDICT emission. The only
-    // allowed emission is the noticePrefix-guarded flush (ADR-130: a pending
-    // auto-resume notice must not be swallowed by a skip path) — the skip
-    // itself stays silent when no notice is pending.
-    const guardedFlush = /if\s*\(noticePrefix\)\s*await emitSystemMessage\(""\)/;
+    // allowed emission is flushNoticeOnly() (ADR-130: a pending auto-resume
+    // notice must not be swallowed by a skip path; it no-ops when nothing is
+    // queued) — the skip itself stays silent when no notice is pending.
     const ignoreBlock = script.match(/if\s*\(\s*ignoreMatch[\s\S]*?process\.exit/);
     expect(ignoreBlock).toBeTruthy();
     expect(ignoreBlock?.[0]).toMatch(/matched \.codex-pair\/ignore/);
-    expect(ignoreBlock?.[0].replace(guardedFlush, "")).not.toMatch(/emitSystemMessage/);
-    // Same UX for non-inclusion: silent skip apart from the guarded flush.
+    expect(ignoreBlock?.[0]).toMatch(/await flushNoticeOnly\(\)/);
+    expect(ignoreBlock?.[0]).not.toMatch(/emitSystemMessage/);
+    // Same UX for non-inclusion: silent skip apart from the notice flush.
     // ADR-097: gate is now `positiveInclude.length` (ADR-096's
     // `includeRules.length` was widened so the negation-only branch can
     // re-use the read result without re-parsing the file).
     const includeBlock = script.match(/if\s*\(\s*positiveInclude\.length[\s\S]*?process\.exit/);
     expect(includeBlock).toBeTruthy();
     expect(includeBlock?.[0]).toMatch(/file not in \.codex-pair\/include scope/);
-    expect(includeBlock?.[0].replace(guardedFlush, "")).not.toMatch(/emitSystemMessage/);
+    expect(includeBlock?.[0]).toMatch(/await flushNoticeOnly\(\)/);
+    expect(includeBlock?.[0]).not.toMatch(/emitSystemMessage/);
+  });
+
+  it("auto-pause lost-race branches and sync-fallback consume state correctly (PR #208 round-2 review)", () => {
+    // Both writeAutoPause lost-wx-race sub-branches flush a pending notice
+    // instead of exiting silently.
+    const quotaBlock = script.match(/quotaExhausted\) \{[\s\S]*?process\.exit\(0\);/)?.[0];
+    expect(quotaBlock).toBeTruthy();
+    expect(quotaBlock).toMatch(/} else \{[\s\S]*?await flushNoticeOnly\(\);/);
+    const failuresBlock = script.match(
+      /failureCount >= AUTOPAUSE_FAILURE_THRESHOLD\) \{[\s\S]*?process\.exit\(0\);/,
+    )?.[0];
+    expect(failuresBlock).toBeTruthy();
+    expect(failuresBlock).toMatch(/} else \{[\s\S]*?await flushNoticeOnly\(\);/);
+    // The worker-spawn-failed sync fallback consumes the debounce record so
+    // the Stop-gate doesn't treat the already-reviewed burst as still settling.
+    expect(script).toMatch(/Worker spawn failed[\s\S]{0,500}markReviewed\(markerDir, filePath, record\.generation\)/);
   });
 
   // Phase 1 item #3: expanded skip patterns
