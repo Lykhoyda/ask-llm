@@ -2,6 +2,12 @@
 
 ## Open
 
+### `apps/docs/plugin/hooks.md` marketplace workaround relies on GNU-only `sort -V`
+- **Severity:** Low (docs-only; the workaround command silently misbehaves on macOS/BSD `sort`)
+- **Discovered:** 2026-07-02, dogfood codex-pair review of the hooks docs page during the seamless-pairing pass
+- **File:** `apps/docs/plugin/hooks.md` (marketplace-workaround "Form B" pipeline)
+- **Recommended:** replace with a portable Node one-liner version picker, or give separate macOS/Linux commands.
+
 ### `parseGitPorcelain` does not decode git's C-style quoted paths
 - **Severity:** Low (fail-open direction; affects only paths with quotes/backslashes/control chars)
 - **Discovered:** 2026-07-02, dogfood codex-pair review during the seamless-pairing pass
