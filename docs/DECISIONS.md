@@ -1,5 +1,13 @@
 # Architectural Decisions
 
+## ADR-129: Windows CI leg — the #1 upstream complaint class finally gets a gate
+
+- **Date:** 2026-07-02
+- **Status:** Accepted — implemented on `ci/windows-leg`.
+- **Context:** Windows spawn/`.cmd`/ENOENT breakage is the documented top upstream complaint class (upstream PRs #23/#27/#41/#43; issues #28/#30/#40) and the codebase carries dedicated Windows machinery (`quoteArgsForWindows`, `shell: IS_WINDOWS`) — yet `ci.yml` ran ubuntu-only on every job, so every Windows fix was manual and ungated and a Windows-only regression would ship to npm undetected. Flagged by the 2026-07-02 audit as the highest-leverage infra gap.
+- **Decision:** Add a single `windows-latest` leg (Node 22.x, the current LTS) to the `test` job via `matrix.include`, keeping the ubuntu legs unchanged — full build+lint+test on Windows per PR at the cost of one extra runner. Job timeout 10m → 15m (Windows runners are ~2-3x slower; the cap still fail-fasts hung runners per #155). Windows-inapplicable tests use `skipIf(process.platform === "win32")` (the chunkCache permissions tests introduced on `fix/audit-2026-07-02-hardening` follow this pattern). The `pack-tarballs`/`global-install-smoke` jobs stay ubuntu-only — they guard npm packaging shape (#115), which is platform-independent. Also: `deploy-docs.yml` Node 20 → 22 for toolchain-floor consistency (VitePress-only build, no functional change).
+- **Alternatives rejected:** (a) full os × node cross-product — doubles Windows cost for little marginal signal; one modern-LTS leg catches the spawn/path/quoting class; (b) Windows-only smoke subset — partial coverage would miss unit-level path/timing assumptions, which are exactly what break first on Windows.
+- **Reference:** `.github/workflows/ci.yml` (test job matrix), `.github/workflows/deploy-docs.yml`; ADR-119 (Node toolchain floor), #155 (hung-runner timeout).
 ## ADR-128: Canonical `PROVIDERS` list in `@ask-llm/shared` — provider enums/unions must derive, never be hand-copied
 
 - **Date:** 2026-07-02

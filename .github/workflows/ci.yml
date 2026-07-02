@@ -8,17 +8,26 @@ on:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
     # Cap each matrix leg so a hung runner fails fast instead of stalling up to the
-    # 6h default. Normal build+lint+test is <2m; #155 hit a 22.x runner that hung
-    # ~12m while 20.x passed the same commit in 77s. 10m leaves generous headroom.
-    timeout-minutes: 10
+    # 6h default. Normal build+lint+test is <2m on ubuntu; #155 hit a 22.x runner
+    # that hung ~12m while 20.x passed the same commit in 77s. Windows runners are
+    # ~2-3x slower, so 15m leaves headroom while still failing hung runners fast.
+    timeout-minutes: 15
 
     strategy:
       matrix:
         # tsdown (build toolchain) needs Node >=22.18 (ADR-119); Node 20 RUNTIME
         # support is verified by the global-install-smoke job below
         node-version: [22.x, 24.x]
+        os: [ubuntu-latest]
+        include:
+          # Windows spawn/.cmd/ENOENT bugs are the top upstream complaint class
+          # (upstream PRs #23/#27/#41/#43, issues #28/#30/#40) yet had zero CI
+          # coverage — a Windows-only regression shipped undetected. One leg on
+          # the current LTS bounds the added cost (ADR-129).
+          - node-version: 22.x
+            os: windows-latest
 
     steps:
     - uses: actions/checkout@v6
