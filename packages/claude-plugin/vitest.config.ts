@@ -9,7 +9,8 @@ const POSIX_ONLY_SUITES = [
   "src/__tests__/codex-pair-watch.test.ts",
   "src/__tests__/codex-pair-debounce-worker.test.ts",
   "src/__tests__/codex-pair-prompt-drain.test.ts",
-  "src/__tests__/stop-gate.test.ts",
+  // stop-gate.test.ts deliberately NOT listed: its logic is pure and runs on
+  // Windows — the one path assertion is join()-portable (PR #200 review).
 ];
 
 export default defineConfig({

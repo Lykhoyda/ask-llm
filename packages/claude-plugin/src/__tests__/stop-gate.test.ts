@@ -96,7 +96,7 @@ describe("acks state helpers", () => {
     const dir = mkdtempSync(join(tmpdir(), "ackstest-"));
     try {
       expect(readAcks(dir)).toEqual({});
-      expect(acksPath(dir).endsWith(".codex-pair/state/acks.json")).toBe(true);
+      expect(acksPath(dir).endsWith(join(".codex-pair", "state", "acks.json"))).toBe(true);
       addAck(dir, "abc123", { reason: "stale" });
       const acks = readAcks(dir);
       expect(acks.abc123.reason).toBe("stale");
