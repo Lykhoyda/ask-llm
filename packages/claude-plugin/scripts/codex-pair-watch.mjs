@@ -1305,6 +1305,7 @@ async function main() {
       verdict: "skipped",
       reason: `coalesced — another review is in-flight for this file (${lockResult.reason})`,
     });
+    if (noticePrefix) await emitSystemMessage("");
     process.exit(0);
   }
   const acquiredLockPath = lockResult.lockPath;

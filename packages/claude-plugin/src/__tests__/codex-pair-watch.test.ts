@@ -1,4 +1,5 @@
 import { spawn, spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
@@ -1540,6 +1541,41 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
     const hookOutput = JSON.parse(stdoutLines[0]);
     expect(hookOutput.systemMessage).toMatch(/auto-resumed/);
     expect(hookOutput.systemMessage).toMatch(/codex-pair OK:/);
+    expect(hookOutput.hookSpecificOutput?.additionalContext).toMatch(/auto-resumed/);
+  });
+
+  it("sync-mode coalesce skip still flushes a pending auto-resume notice (PR #208 review)", () => {
+    // debounceMs: 0 + expired auto-pause + a fresh inflight lock for the same
+    // file: the run auto-resumes (noticePrefix set), then hits the coalesce
+    // skip. The notice must be emitted as the run's single JSON object, not
+    // silently dropped like the pre-fix skip paths.
+    setupMarker(tempDir, "---\ndebounceMs: 0\n---\n# ctx");
+    const stateDir = path.join(tempDir, ".codex-pair/state");
+    fs.mkdirSync(path.join(stateDir, "inflight"), { recursive: true });
+    fs.writeFileSync(
+      path.join(stateDir, "paused"),
+      JSON.stringify({ v: 1, kind: "failures", reason: "r", at: "2026-06-14T13:23:04.000Z" }),
+    );
+    const filePath = path.join(tempDir, "src.ts");
+    fs.writeFileSync(filePath, "export const x = 1;");
+    const lockName = createHash("sha256").update(filePath).digest("hex").slice(0, 16);
+    fs.writeFileSync(path.join(stateDir, "inflight", lockName), "99999");
+    const payload = JSON.stringify({
+      tool_name: "Edit",
+      tool_input: { file_path: filePath },
+    });
+    const result = runHookWithFakeCodex(payload, tempDir, "none");
+    expect(result.status).toBe(0);
+    const log = fs.readFileSync(path.join(tempDir, ".codex-pair/log.jsonl"), "utf-8");
+    expect(log).toMatch(/auto_resumed/);
+    expect(log).toMatch(/coalesced/);
+    const stdoutLines = result.stdout
+      .trim()
+      .split("\n")
+      .filter((l: string) => l.trim().length > 0);
+    expect(stdoutLines).toHaveLength(1);
+    const hookOutput = JSON.parse(stdoutLines[0]);
+    expect(hookOutput.systemMessage).toMatch(/auto-resumed/);
     expect(hookOutput.hookSpecificOutput?.additionalContext).toMatch(/auto-resumed/);
   });
 
