@@ -16,7 +16,14 @@
 import { spawnSync } from "node:child_process";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { decideReview, markReviewed, readEditRecord, writePending } from "./lib/debounce-state.mjs";
+import {
+  clearReviewing,
+  decideReview,
+  markReviewed,
+  markReviewing,
+  readEditRecord,
+  writePending,
+} from "./lib/debounce-state.mjs";
 
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
 const HOOK_PATH = join(SCRIPT_DIR, "codex-pair-watch.mjs");
@@ -59,6 +66,12 @@ async function main() {
   const decision = decideReview({ record, myGeneration, now: Date.now(), maxMs });
   if (!decision.review) process.exit(0);
 
+  // Hold a `reviewing` marker across the whole handoff: markReviewed consumes
+  // the debounce record BEFORE the forced-sync hook acquires the inflight
+  // lock, and the Stop-gate's in-flight check would otherwise see neither
+  // signal in that gap (dogfood review finding, 2026-07-02). Marker first,
+  // then record advance — no instant where both are absent.
+  markReviewing(markerDir, file);
   // Advance the burst marker so the next edit starts a fresh burst. The actual
   // concurrency claim is the inflight lock acquired by the forced-sync hook.
   markReviewed(markerDir, file, myGeneration);
@@ -70,13 +83,18 @@ async function main() {
     session_id: process.env.CP_SESSION_ID || "",
   });
   const codexTimeout = Number(process.env.ASK_CODEX_TIMEOUT_MS ?? 800_000);
-  const res = spawnSync(process.execPath, [HOOK_PATH], {
-    input: payload,
-    cwd: markerDir,
-    encoding: "utf-8",
-    env: { ...process.env, CODEX_PAIR_FORCE_SYNC: "1" },
-    timeout: codexTimeout + 60_000,
-  });
+  let res;
+  try {
+    res = spawnSync(process.execPath, [HOOK_PATH], {
+      input: payload,
+      cwd: markerDir,
+      encoding: "utf-8",
+      env: { ...process.env, CODEX_PAIR_FORCE_SYNC: "1" },
+      timeout: codexTimeout + 60_000,
+    });
+  } finally {
+    clearReviewing(markerDir, file);
+  }
   const message = extractSystemMessage(res.stdout);
   if (message) writePending(markerDir, file, message);
   process.exit(0);

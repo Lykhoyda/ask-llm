@@ -13,7 +13,15 @@ import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { bootstrapBroker, clearStaleBrokerState, teardownBroker } from "./lib/broker-lifecycle.mjs";
 import { clearAllDebounceState } from "./lib/debounce-state.mjs";
-import { CONTEXT_FILENAME, PAIR_ROOT_DIR } from "./lib/state.mjs";
+import {
+  appendLog,
+  clearAutoPause,
+  CONTEXT_FILENAME,
+  PAIR_ROOT_DIR,
+  readPauseInfo,
+  readPluginVersion,
+  resolveAutoResume,
+} from "./lib/state.mjs";
 
 const MARKER_FILE = join(PAIR_ROOT_DIR, CONTEXT_FILENAME);
 
@@ -90,6 +98,56 @@ async function main() {
   const event = payload?.hook_event_name;
   if (event !== "SessionStart" && event !== "SessionEnd") {
     process.exit(0);
+  }
+
+  // SessionStart pause visibility (2026-07-02 seamless-pairing design; un-gated
+  // by the broker flag). An auto-pause used to be notify-ONCE and manual-resume-
+  // only — miss that single message and pairing is silently dead forever (the
+  // dogfood repo spent 18 days that way). Now: an expired auto-pause self-heals
+  // right here; a still-active pause gets a reminder the model actually sees
+  // (SessionStart supports additionalContext; it does NOT support systemMessage).
+  if (event === "SessionStart") {
+    try {
+      const markerDir = await findMarkerUp(process.cwd());
+      const pauseInfo = markerDir ? readPauseInfo(markerDir) : null;
+      if (pauseInfo) {
+        const decision = resolveAutoResume(pauseInfo, {
+          now: Date.now(),
+          currentVersion: readPluginVersion(),
+        });
+        let context = null;
+        // clearAutoPause aborts (false) when the sentinel changed since we
+        // read it — either a concurrent SessionStart already resumed (sentinel
+        // gone → say nothing; reviews are live) or a new pause raced in
+        // (render the reminder from CURRENT state, not the stale pauseInfo).
+        if (decision.resume && clearAutoPause(markerDir, pauseInfo)) {
+          await appendLog(markerDir, {
+            timestamp: new Date().toISOString(),
+            verdict: "auto_resumed",
+            reason: `${decision.why} (paused ${pauseInfo.at ?? "unknown"}, kind: ${pauseInfo.kind})`,
+          });
+          context = `codex-pair auto-resumed (${decision.why}): was ${pauseInfo.kind}-paused since ${pauseInfo.at ?? "unknown"}. Reviews are live again.`;
+        } else {
+          const current = decision.resume ? readPauseInfo(markerDir) : pauseInfo;
+          if (current) {
+            const since = current.manual ? "" : ` since ${current.at}`;
+            const kind = current.manual ? "manually" : `auto (${current.kind})`;
+            const reason = current.manual ? "" : ` Reason: ${current.reason}.`;
+            context = `codex-pair is paused — ${kind}${since}.${reason} Edits are NOT being reviewed. Resume with /codex-pair-resume.`;
+          }
+        }
+        if (context) {
+          await new Promise((resolveWrite) => {
+            const out = JSON.stringify({
+              hookSpecificOutput: { hookEventName: "SessionStart", additionalContext: context },
+            });
+            process.stdout.write(`${out}\n`, () => resolveWrite());
+          });
+        }
+      }
+    } catch {
+      // best-effort (ADR-077) — pause visibility must never break the session
+    }
   }
 
   // Edit-debounce cleanup runs on SessionEnd only (un-gated by the broker flag,

@@ -8,7 +8,7 @@ Hooks are automated actions that trigger on specific Claude Code events. The plu
 
 - **`PostToolUse` codex-pair hook** — always loaded, but **self-gates on a project marker file** and stays silent (zero cost, zero codex calls) unless you opt in. Covered in detail below.
 - **`Stop` codex-pair stop-gate hook** — **opt-in, default OFF**. Blocks turn-end while unaddressed HIGH codex-pair findings remain. Enabled by adding `blockOn: HIGH` to `.codex-pair/context.md` frontmatter. Covered in detail below.
-- **`SessionStart` / `SessionEnd` codex-pair-session hooks** — broker lifecycle scaffolding for the long-lived `codex app-server` (ADR-090 + ADR-093). No-op until `ASK_CODEX_BROKER=1` ships with the Tier 3 implementation.
+- **`SessionStart` / `SessionEnd` codex-pair-session hooks** — two jobs. Un-gated (runs whenever a project marker exists): SessionStart announces a paused project (reminder, or automatic resume of an expired auto-pause — ADR-130) and SessionEnd clears debounce state so orphaned workers self-cancel. Env-gated (`ASK_CODEX_BROKER=1` only): lifecycle for the experimental long-lived `codex app-server` broker (ADR-090 + ADR-093).
 
 > The plugin previously shipped two other hooks that have been removed:
 >
@@ -21,7 +21,7 @@ Hooks are automated actions that trigger on specific Claude Code events. The plu
 
 **Trigger:** After every `Edit`, `Write`, or `MultiEdit` that Claude performs.
 
-**Action:** If — and only if — a marker file named `.codex-pair/context.md` exists somewhere from the current directory up to the project root, a fresh Codex review of the just-edited file is run with the marker's content as project context. **HIGH** and **MED** concerns are surfaced back to Claude on the next turn as system reminders; **LOW** concerns and all timing/skip telemetry are logged to `.codex-pair/log.jsonl` alongside the marker file.
+**Action:** If — and only if — a marker file named `.codex-pair/context.md` exists somewhere from the edited file's directory up to the project root, the edit is queued for review with the marker's content as project context. By default edits are **debounced** ([ADR-112](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md)): a burst of edits to one file within the 15s settle window coalesces into a single review of the settled state, run by a detached worker — so one review per burst, not one per keystroke-level edit. Verdicts surface to Claude on both hook channels (transcript `systemMessage` + model-visible `additionalContext`, ADR-130) on the next edit, the next user prompt, or at turn-end via the Stop drain. Set `debounceMs: 0` in the marker frontmatter for synchronous per-edit review. **HIGH** and **MED** concerns are surfaced; **LOW** concerns and all timing/skip telemetry are logged to `.codex-pair/log.jsonl` alongside the marker file.
 
 > No marker file → the hook exits silently after one `fs.access()` call. **Zero codex calls, zero cost.** This is by design: the hook ships in every plugin install, but does nothing until a project opts in.
 
@@ -95,8 +95,21 @@ integer cents. Use integer minor units such as
 | Env var | Default | Effect |
 |---|---|---|
 | `CODEX_PAIR_DISABLED` | unset | Set to `1` to bypass the hook entirely — beats marker file |
-| `CODEX_PAIR_MAX_FILE_BYTES` | `20000` | Skip files larger than this many UTF-8 bytes |
+| `CODEX_PAIR_MAX_FILE_BYTES` | `20000` | Files larger than this many UTF-8 bytes get an adaptive **partial-view** review (header + git diff, or head+tail — [ADR-080](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md)), not a full-content one. Still a codex call — use `.codex-pair/ignore` to make big files free |
 | `ASK_CODEX_TIMEOUT_MS` | `800000` | Per-call Codex timeout (inherited from `ask-codex-mcp`, [ADR-074](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md)) |
+| `ASK_CODEX_DEBOUNCE_MS` | `15000` | Settle window: an edit burst to one file coalesces into a single review of the settled state ([ADR-112](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md)). `0` = synchronous per-edit review. Also settable per-marker via `debounceMs` frontmatter |
+| `ASK_CODEX_DEBOUNCE_MAX_MS` | `60000` | Hard cap from a burst's first edit — forces a review even under a continuous edit stream. Frontmatter: `debounceMaxMs` |
+| `CODEX_PAIR_QUOTA_PAUSE_TTL_MS` | `21600000` (6h) | Quota auto-pauses self-heal after this long — the next edit (or session start) retries a live review |
+| `CODEX_PAIR_FAILURES_PAUSE_TTL_MS` | `86400000` (24h) | Failure auto-pauses self-heal after this long, or immediately when the plugin version changed since the pause |
+
+### Auto-pause is self-healing
+
+When the hook pauses itself (provider quota exhausted, or 3 consecutive review failures), the pause no longer requires a manual `/codex-pair-resume` to ever end:
+
+- **At session start** a paused project announces itself — a reminder if the pause is still fresh, or an automatic resume if it has expired. No more silently-dead pairing.
+- **On any edit** an expired auto-pause resumes in place and that edit gets reviewed; if the provider is still broken, the review fails and the hook re-pauses cleanly.
+- **Plugin updates heal failure-pauses immediately** — the pause sentinel records the plugin version that wrote it, and a version change is treated as "the cause was plausibly fixed".
+- **Manual pauses are untouched** — `/codex-pair-pause` still only ever resumes via `/codex-pair-resume`.
 
 ### Cost characteristics
 
@@ -233,6 +246,14 @@ Once enabled, the hook checks at turn-end whether any HIGH findings in `log.json
 - **File deleted or renamed** → finding skipped (no longer relevant)
 - **File clean vs HEAD** (`git status --porcelain`) → finding skipped (reverted or branch-switched away)
 - **Latest log entry for the file is indeterminate** (`skipped`/`error`/`retried`/`broker_fallback`) → fail-open, finding skipped (don't block on a stale HIGH from before a transient error)
+
+### In-flight reviews block too
+
+With the default 15s debounce plus 13–50s of review latency, a review is often still running when the turn ends — the log alone can't see it. When `blockOn: HIGH` is set, the gate also blocks (once per turn) while any review for a recent edit is still in flight — a settling debounce window, a worker mid-handoff, or a running Codex call — telling Claude to wait for the verdict before finishing. The `stop_hook_active` loop guard means a turn is never blocked twice for the same reason.
+
+### Queued verdicts drain at turn-end
+
+Debounced verdicts that finished mid-turn used to wait for the *next* edit or user prompt to surface. The Stop hook now drains them at turn-end — no `blockOn` opt-in required: as additional context when nothing blocks, or folded into the block message when it does. Like every Stop/prompt-scoped hook, the drain resolves the project from the session's working directory; verdicts queued by cross-repo edits (cwd in repo A, edit in repo B) still wait for the next edit or prompt in that repo — tracked in [#209](https://github.com/Lykhoyda/ask-llm/issues/209).
 
 ### Defer a finding with `/codex-pair-ack`
 

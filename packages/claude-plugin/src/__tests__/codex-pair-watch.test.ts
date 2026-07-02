@@ -1,4 +1,5 @@
 import { spawn, spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
@@ -604,19 +605,40 @@ describe("scripts/codex-pair-watch.mjs — structural invariants (ADR-077)", () 
     expect(script).toMatch(/SKIP_PATTERNS[\s\S]{0,2000}?readIncludeFile/);
     expect(script).toMatch(/readIncludeFile[\s\S]{0,2000}?readIgnoreFile/);
     expect(script).toMatch(/matchesIgnoreRule/);
-    // On ignore match, log skip AND exit WITHOUT emitSystemMessage.
+    // On ignore match, log skip AND exit without a VERDICT emission. The only
+    // allowed emission is flushNoticeOnly() (ADR-130: a pending auto-resume
+    // notice must not be swallowed by a skip path; it no-ops when nothing is
+    // queued) — the skip itself stays silent when no notice is pending.
     const ignoreBlock = script.match(/if\s*\(\s*ignoreMatch[\s\S]*?process\.exit/);
     expect(ignoreBlock).toBeTruthy();
     expect(ignoreBlock?.[0]).toMatch(/matched \.codex-pair\/ignore/);
+    expect(ignoreBlock?.[0]).toMatch(/await flushNoticeOnly\(\)/);
     expect(ignoreBlock?.[0]).not.toMatch(/emitSystemMessage/);
-    // Same UX for non-inclusion: silent skip, no systemMessage.
+    // Same UX for non-inclusion: silent skip apart from the notice flush.
     // ADR-097: gate is now `positiveInclude.length` (ADR-096's
     // `includeRules.length` was widened so the negation-only branch can
     // re-use the read result without re-parsing the file).
     const includeBlock = script.match(/if\s*\(\s*positiveInclude\.length[\s\S]*?process\.exit/);
     expect(includeBlock).toBeTruthy();
     expect(includeBlock?.[0]).toMatch(/file not in \.codex-pair\/include scope/);
+    expect(includeBlock?.[0]).toMatch(/await flushNoticeOnly\(\)/);
     expect(includeBlock?.[0]).not.toMatch(/emitSystemMessage/);
+  });
+
+  it("auto-pause lost-race branches and sync-fallback consume state correctly (PR #208 round-2 review)", () => {
+    // Both writeAutoPause lost-wx-race sub-branches flush a pending notice
+    // instead of exiting silently.
+    const quotaBlock = script.match(/quotaExhausted\) \{[\s\S]*?process\.exit\(0\);/)?.[0];
+    expect(quotaBlock).toBeTruthy();
+    expect(quotaBlock).toMatch(/} else \{[\s\S]*?await flushNoticeOnly\(\);/);
+    const failuresBlock = script.match(
+      /failureCount >= AUTOPAUSE_FAILURE_THRESHOLD\) \{[\s\S]*?process\.exit\(0\);/,
+    )?.[0];
+    expect(failuresBlock).toBeTruthy();
+    expect(failuresBlock).toMatch(/} else \{[\s\S]*?await flushNoticeOnly\(\);/);
+    // The worker-spawn-failed sync fallback consumes the debounce record so
+    // the Stop-gate doesn't treat the already-reviewed burst as still settling.
+    expect(script).toMatch(/Worker spawn failed[\s\S]{0,500}markReviewed\(markerDir, filePath, record\.generation\)/);
   });
 
   // Phase 1 item #3: expanded skip patterns
@@ -955,6 +977,10 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
     expect(hookOutput.continue).toBe(true);
     expect(hookOutput.systemMessage).toMatch(/codex-pair SKIP/);
     expect(hookOutput.systemMessage).toMatch(/unreadable/i);
+    // Dual-channel contract: systemMessage reaches only the user; the model
+    // needs hookSpecificOutput.additionalContext to see the verdict at all.
+    expect(hookOutput.hookSpecificOutput?.hookEventName).toBe("PostToolUse");
+    expect(hookOutput.hookSpecificOutput?.additionalContext).toBe(hookOutput.systemMessage);
   });
 
   it("processes a file containing literal triple-backticks without breaking the gate", () => {
@@ -1494,6 +1520,102 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
     const hookOutput = JSON.parse(result.stdout.trim());
     expect(hookOutput.systemMessage).toMatch(/^codex-pair OK:/);
     expect(hookOutput.systemMessage).toMatch(/no concerns/);
+    // Dual-channel: the model sees the same verdict via additionalContext.
+    expect(hookOutput.hookSpecificOutput?.hookEventName).toBe("PostToolUse");
+    expect(hookOutput.hookSpecificOutput?.additionalContext).toBe(hookOutput.systemMessage);
+  });
+
+  it("expired failures auto-pause self-heals: hook resumes, reviews, and emits ONE JSON object", () => {
+    setupMarker(tempDir, "---\ndebounceMs: 0\n---\n# ctx");
+    const stateDir = path.join(tempDir, ".codex-pair/state");
+    fs.mkdirSync(stateDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(stateDir, "paused"),
+      JSON.stringify({ v: 1, kind: "failures", reason: "3 consecutive failures", at: "2026-06-14T13:23:04.000Z" }),
+    );
+    fs.writeFileSync(path.join(stateDir, "failures.json"), JSON.stringify({ v: 1, consecutive: 3 }));
+    const filePath = path.join(tempDir, "src.ts");
+    fs.writeFileSync(filePath, "export const x = 1;");
+    const payload = JSON.stringify({
+      tool_name: "Edit",
+      tool_input: { file_path: filePath },
+    });
+    const result = runHookWithFakeCodex(payload, tempDir, "none");
+    expect(result.status).toBe(0);
+    // Pause state is fully healed
+    expect(fs.existsSync(path.join(stateDir, "paused"))).toBe(false);
+    expect(fs.existsSync(path.join(stateDir, "failures.json"))).toBe(false);
+    // Both the transition AND the review are durable in the log
+    const log = fs.readFileSync(path.join(tempDir, ".codex-pair/log.jsonl"), "utf-8");
+    expect(log).toMatch(/auto_resumed/);
+    expect(log).toMatch(/"verdict":"none"/);
+    // Single-JSON-object contract: the notice rides as a prefix on the verdict
+    const stdoutLines = result.stdout
+      .trim()
+      .split("\n")
+      .filter((l: string) => l.trim().length > 0);
+    expect(stdoutLines).toHaveLength(1);
+    const hookOutput = JSON.parse(stdoutLines[0]);
+    expect(hookOutput.systemMessage).toMatch(/auto-resumed/);
+    expect(hookOutput.systemMessage).toMatch(/codex-pair OK:/);
+    expect(hookOutput.hookSpecificOutput?.additionalContext).toMatch(/auto-resumed/);
+  });
+
+  it("sync-mode coalesce skip still flushes a pending auto-resume notice (PR #208 review)", () => {
+    // debounceMs: 0 + expired auto-pause + a fresh inflight lock for the same
+    // file: the run auto-resumes (noticePrefix set), then hits the coalesce
+    // skip. The notice must be emitted as the run's single JSON object, not
+    // silently dropped like the pre-fix skip paths.
+    setupMarker(tempDir, "---\ndebounceMs: 0\n---\n# ctx");
+    const stateDir = path.join(tempDir, ".codex-pair/state");
+    fs.mkdirSync(path.join(stateDir, "inflight"), { recursive: true });
+    fs.writeFileSync(
+      path.join(stateDir, "paused"),
+      JSON.stringify({ v: 1, kind: "failures", reason: "r", at: "2026-06-14T13:23:04.000Z" }),
+    );
+    const filePath = path.join(tempDir, "src.ts");
+    fs.writeFileSync(filePath, "export const x = 1;");
+    const lockName = createHash("sha256").update(filePath).digest("hex").slice(0, 16);
+    fs.writeFileSync(path.join(stateDir, "inflight", lockName), "99999");
+    const payload = JSON.stringify({
+      tool_name: "Edit",
+      tool_input: { file_path: filePath },
+    });
+    const result = runHookWithFakeCodex(payload, tempDir, "none");
+    expect(result.status).toBe(0);
+    const log = fs.readFileSync(path.join(tempDir, ".codex-pair/log.jsonl"), "utf-8");
+    expect(log).toMatch(/auto_resumed/);
+    expect(log).toMatch(/coalesced/);
+    const stdoutLines = result.stdout
+      .trim()
+      .split("\n")
+      .filter((l: string) => l.trim().length > 0);
+    expect(stdoutLines).toHaveLength(1);
+    const hookOutput = JSON.parse(stdoutLines[0]);
+    expect(hookOutput.systemMessage).toMatch(/auto-resumed/);
+    expect(hookOutput.hookSpecificOutput?.additionalContext).toMatch(/auto-resumed/);
+  });
+
+  it("fresh failures auto-pause still skips (no premature resume)", () => {
+    setupMarker(tempDir, "# ctx");
+    const stateDir = path.join(tempDir, ".codex-pair/state");
+    fs.mkdirSync(stateDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(stateDir, "paused"),
+      JSON.stringify({ v: 1, kind: "failures", reason: "r", at: new Date().toISOString() }),
+    );
+    const filePath = path.join(tempDir, "src.ts");
+    fs.writeFileSync(filePath, "export const x = 1;");
+    const payload = JSON.stringify({
+      tool_name: "Edit",
+      tool_input: { file_path: filePath },
+    });
+    const result = runHookWithFakeCodex(payload, tempDir, "none");
+    expect(result.status).toBe(0);
+    expect(fs.existsSync(path.join(stateDir, "paused"))).toBe(true);
+    const log = fs.readFileSync(path.join(tempDir, ".codex-pair/log.jsonl"), "utf-8");
+    expect(log).toMatch(/auto-paused \(failures\)/);
+    expect(log).not.toMatch(/auto_resumed/);
   });
 
   it("debounceMs:0 → synchronous review surfaces inline, no worker, no pending", () => {
@@ -1551,6 +1673,10 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
     });
     expect(result.status).toBe(0);
     expect(result.stdout).toMatch(/reviewed y\.ts — 1H\/0M\/0L/);
+    // Drained verdicts must reach the model too, not just the transcript.
+    const drainOutput = JSON.parse(result.stdout.trim());
+    expect(drainOutput.hookSpecificOutput?.hookEventName).toBe("PostToolUse");
+    expect(drainOutput.hookSpecificOutput?.additionalContext).toMatch(/reviewed y\.ts/);
     // Pending was cleared (surfaced exactly once).
     expect(fs.readdirSync(path.join(cwd, ".codex-pair/state/pending")).filter((f) => f.endsWith(".json"))).toEqual([]);
     fs.rmSync(cwd, { recursive: true, force: true });

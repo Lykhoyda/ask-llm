@@ -1,3 +1,4 @@
+import { spawnSync } from "node:child_process";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
@@ -5,14 +6,18 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { parseResetHint } from "../../scripts/lib/parser.mjs";
 import {
   AUTOPAUSE_FAILURE_THRESHOLD,
+  clearAutoPause,
   clearReviewFailures,
   failuresPath,
   pausePath,
   readFailureCount,
   readPauseInfo,
+  readPluginVersion,
   recordReviewFailure,
+  resolveAutoResume,
   writeAutoPause,
 } from "../../scripts/lib/state.mjs";
+import { PLUGIN_ROOT } from "./_helpers.js";
 
 describe("lib/state.mjs — auto-pause sentinel (#176)", () => {
   let dir: string;
@@ -160,5 +165,192 @@ describe("lib/parser.mjs — parseResetHint (#176)", () => {
   it("caps absurdly long hints", () => {
     const hint = parseResetHint(`try again in ${"x".repeat(300)}`);
     expect(hint).toBeNull(); // > 80 chars is not a plausible reset time
+  });
+});
+
+describe("lib/state.mjs — self-healing auto-pause (2026-07-02 seamless-pairing design)", () => {
+  let dir: string;
+  beforeEach(() => {
+    dir = fs.mkdtempSync(path.join(os.tmpdir(), "auto-resume-"));
+  });
+  afterEach(() => {
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+
+  const HOUR = 3_600_000;
+  const NOW = Date.parse("2026-07-02T12:00:00Z");
+  const atHoursAgo = (h: number) => new Date(NOW - h * HOUR).toISOString();
+
+  it("manual pause never auto-resumes", () => {
+    expect(resolveAutoResume({ manual: true }, { now: NOW, currentVersion: "1.0.0" }).resume).toBe(false);
+    expect(resolveAutoResume(null, { now: NOW, currentVersion: "1.0.0" }).resume).toBe(false);
+  });
+
+  it("quota pause: fresh stays paused, past TTL resumes", () => {
+    const fresh = { kind: "quota", reason: "r", at: atHoursAgo(1) };
+    const stale = { kind: "quota", reason: "r", at: atHoursAgo(7) };
+    expect(resolveAutoResume(fresh, { now: NOW }).resume).toBe(false);
+    const decision = resolveAutoResume(stale, { now: NOW });
+    expect(decision.resume).toBe(true);
+    expect(decision.why).toBe("ttl-expired");
+  });
+
+  it("failures pause: fresh stays paused, past TTL resumes", () => {
+    const fresh = { kind: "failures", reason: "r", at: atHoursAgo(23) };
+    const stale = { kind: "failures", reason: "r", at: atHoursAgo(25) };
+    expect(resolveAutoResume(fresh, { now: NOW }).resume).toBe(false);
+    expect(resolveAutoResume(stale, { now: NOW }).resume).toBe(true);
+  });
+
+  it("failures pause resumes immediately when the plugin version changed", () => {
+    const fresh = { kind: "failures", reason: "r", at: atHoursAgo(1), pluginVersion: "0.9.0" };
+    const decision = resolveAutoResume(fresh, { now: NOW, currentVersion: "0.9.6" });
+    expect(decision.resume).toBe(true);
+    expect(decision.why).toBe("plugin-updated");
+  });
+
+  it("version match or missing version falls back to TTL", () => {
+    const same = { kind: "failures", reason: "r", at: atHoursAgo(1), pluginVersion: "0.9.6" };
+    const noVersion = { kind: "failures", reason: "r", at: atHoursAgo(1) };
+    expect(resolveAutoResume(same, { now: NOW, currentVersion: "0.9.6" }).resume).toBe(false);
+    expect(resolveAutoResume(noVersion, { now: NOW, currentVersion: "0.9.6" }).resume).toBe(false);
+    // quota pauses ignore the version shortcut entirely (quota is time-bound, not code-bound)
+    const quota = { kind: "quota", reason: "r", at: atHoursAgo(1), pluginVersion: "0.9.0" };
+    expect(resolveAutoResume(quota, { now: NOW, currentVersion: "0.9.6" }).resume).toBe(false);
+  });
+
+  it("unparseable `at` is liveness-biased (resumes)", () => {
+    expect(resolveAutoResume({ kind: "failures", reason: "r", at: "garbage" }, { now: NOW }).resume).toBe(true);
+    expect(resolveAutoResume({ kind: "quota", reason: "r" }, { now: NOW }).resume).toBe(true);
+  });
+
+  it("TTL overrides are honored (env-configurable knobs)", () => {
+    const p = { kind: "quota", reason: "r", at: atHoursAgo(1) };
+    expect(resolveAutoResume(p, { now: NOW, quotaTtlMs: 30 * 60_000 }).resume).toBe(true);
+    const f = { kind: "failures", reason: "r", at: atHoursAgo(1) };
+    expect(resolveAutoResume(f, { now: NOW, failuresTtlMs: 30 * 60_000 }).resume).toBe(true);
+  });
+
+  it("writeAutoPause stamps the running pluginVersion", () => {
+    writeAutoPause(dir, { kind: "failures", reason: "r" });
+    const body = JSON.parse(fs.readFileSync(pausePath(dir), "utf8"));
+    const manifest = JSON.parse(fs.readFileSync(path.join(PLUGIN_ROOT, "package.json"), "utf8")) as { version: string };
+    expect(body.pluginVersion).toBe(manifest.version);
+    expect(readPluginVersion()).toBe(manifest.version);
+  });
+
+  it("clearAutoPause removes sentinel AND failure counter", () => {
+    writeAutoPause(dir, { kind: "failures", reason: "r" });
+    recordReviewFailure(dir, "x");
+    recordReviewFailure(dir, "y");
+    expect(clearAutoPause(dir)).toBe(true);
+    expect(readPauseInfo(dir)).toBeNull();
+    expect(readFailureCount(dir)).toBe(0);
+    // idempotent on already-clear state
+    expect(clearAutoPause(dir)).toBe(false);
+  });
+
+  it("clearAutoPause never removes a manual pause", () => {
+    fs.mkdirSync(path.dirname(pausePath(dir)), { recursive: true });
+    fs.writeFileSync(pausePath(dir), ""); // manual pause
+    expect(clearAutoPause(dir)).toBe(false);
+    expect(clearAutoPause(dir, { kind: "failures", at: "2026-06-14T13:23:04.000Z" })).toBe(false);
+    expect(fs.existsSync(pausePath(dir))).toBe(true);
+  });
+
+  it("clearAutoPause aborts when the sentinel changed since it was evaluated", () => {
+    writeAutoPause(dir, { kind: "failures", reason: "old" });
+    const evaluated = readPauseInfo(dir);
+    // A different pause replaces the one the caller evaluated
+    fs.writeFileSync(
+      pausePath(dir),
+      JSON.stringify({ v: 1, kind: "quota", reason: "new", at: new Date().toISOString() }),
+    );
+    expect(clearAutoPause(dir, evaluated)).toBe(false);
+    expect(readPauseInfo(dir)?.kind).toBe("quota"); // untouched
+    // Matching identity clears
+    const current = readPauseInfo(dir);
+    expect(clearAutoPause(dir, current)).toBe(true);
+    expect(readPauseInfo(dir)).toBeNull();
+  });
+});
+
+describe("codex-pair-session.mjs — SessionStart pause notice / auto-resume (runtime)", () => {
+  const SESSION_PATH = path.join(PLUGIN_ROOT, "scripts", "codex-pair-session.mjs");
+  let dir: string;
+  beforeEach(() => {
+    dir = fs.mkdtempSync(path.join(os.tmpdir(), "session-pause-"));
+    fs.mkdirSync(path.join(dir, ".codex-pair"), { recursive: true });
+    fs.writeFileSync(path.join(dir, ".codex-pair", "context.md"), "# ctx");
+  });
+  afterEach(() => {
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+
+  function runSession(event: string) {
+    return spawnSync("node", [SESSION_PATH], {
+      input: JSON.stringify({ hook_event_name: event }),
+      cwd: dir,
+      encoding: "utf-8",
+      timeout: 10_000,
+    });
+  }
+
+  it("fresh auto-pause → paused reminder via SessionStart additionalContext", () => {
+    fs.mkdirSync(path.dirname(pausePath(dir)), { recursive: true });
+    fs.writeFileSync(
+      pausePath(dir),
+      JSON.stringify({ v: 1, kind: "quota", reason: "usage limit", at: new Date().toISOString() }),
+    );
+    const result = runSession("SessionStart");
+    expect(result.status).toBe(0);
+    const out = JSON.parse(result.stdout.trim());
+    expect(out.hookSpecificOutput?.hookEventName).toBe("SessionStart");
+    expect(out.hookSpecificOutput?.additionalContext).toMatch(/paused/i);
+    expect(out.hookSpecificOutput?.additionalContext).toMatch(/codex-pair-resume/);
+    // sentinel untouched (not expired)
+    expect(fs.existsSync(pausePath(dir))).toBe(true);
+  });
+
+  it("expired auto-pause → auto-resume at SessionStart (sentinel + failures cleared, notice emitted)", () => {
+    fs.mkdirSync(path.dirname(pausePath(dir)), { recursive: true });
+    fs.writeFileSync(
+      pausePath(dir),
+      JSON.stringify({ v: 1, kind: "failures", reason: "3 consecutive failures", at: "2026-06-14T13:23:04.000Z" }),
+    );
+    fs.writeFileSync(failuresPath(dir), JSON.stringify({ v: 1, consecutive: 3 }));
+    const result = runSession("SessionStart");
+    expect(result.status).toBe(0);
+    const out = JSON.parse(result.stdout.trim());
+    expect(out.hookSpecificOutput?.additionalContext).toMatch(/auto-resumed/i);
+    expect(fs.existsSync(pausePath(dir))).toBe(false);
+    expect(fs.existsSync(failuresPath(dir))).toBe(false);
+    // auto_resumed is durable in the log
+    const log = fs.readFileSync(path.join(dir, ".codex-pair", "log.jsonl"), "utf-8");
+    expect(log).toMatch(/auto_resumed/);
+  });
+
+  it("manual pause → reminder only, never auto-resumed", () => {
+    fs.mkdirSync(path.dirname(pausePath(dir)), { recursive: true });
+    fs.writeFileSync(pausePath(dir), "");
+    const result = runSession("SessionStart");
+    expect(result.status).toBe(0);
+    const out = JSON.parse(result.stdout.trim());
+    expect(out.hookSpecificOutput?.additionalContext).toMatch(/paused/i);
+    expect(fs.existsSync(pausePath(dir))).toBe(true);
+  });
+
+  it("no pause → no stdout emission (silent no-op preserved)", () => {
+    const result = runSession("SessionStart");
+    expect(result.status).toBe(0);
+    expect(result.stdout.trim()).toBe("");
+  });
+
+  it("SessionEnd never emits a pause notice", () => {
+    fs.mkdirSync(path.dirname(pausePath(dir)), { recursive: true });
+    fs.writeFileSync(pausePath(dir), "");
+    const result = runSession("SessionEnd");
+    expect(result.status).toBe(0);
+    expect(result.stdout.trim()).toBe("");
   });
 });

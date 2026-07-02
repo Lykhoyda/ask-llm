@@ -215,7 +215,9 @@ To onboard a new contributor, point them at this skill (or `apps/docs/plugin/hoo
 | Just this session | `/plugin disable ask-llm` |
 | Just this command | `CODEX_PAIR_DISABLED=1 <whatever command>` |
 
-`/codex-pair-pause` writes a `.codex-pair/state/paused` sentinel that the hook checks on every Edit/Write/MultiEdit; while present, the hook exits silently with a `verdict:"skipped"` log entry naming the pause. `/codex-pair-resume` removes the sentinel. The pause is per-project and per-developer — the single `.codex-pair/` gitignore entry already covers the sentinel (and every other state file) per [ADR-092](../../../../docs/DECISIONS.md).
+`/codex-pair-pause` writes a `.codex-pair/state/paused` sentinel that the hook checks on every Edit/Write/MultiEdit; while present, the hook exits silently with a `verdict:"skipped"` log entry naming the pause. `/codex-pair-resume` removes the sentinel (and the consecutive-failure counter, so a resumed project doesn't re-pause on the next single failure). The pause is per-project and per-developer — the single `.codex-pair/` gitignore entry already covers the sentinel (and every other state file) per [ADR-092](../../../../docs/DECISIONS.md).
+
+**Auto-pauses self-heal** (2026-07-02 design): a quota auto-pause expires after `CODEX_PAIR_QUOTA_PAUSE_TTL_MS` (default 6h); a failures auto-pause expires after `CODEX_PAIR_FAILURES_PAUSE_TTL_MS` (default 24h) or immediately when the plugin version changed since the pause was written. Expiry is checked at SessionStart (with a reminder or auto-resume notice injected into context) and on every edit. Manual pauses never auto-expire.
 
 ## Behavior when active
 
@@ -272,6 +274,8 @@ Use integer minor units such as `priceCents: z.number().int().nonnegative()`.
 | `ASK_CODEX_TIMEOUT_MS` | `800000` | Per-call codex timeout (inherited from ask-codex-mcp, ADR-074) |
 | `ASK_CODEX_DEBOUNCE_MS` | `15000` | Settle window: a burst of edits to one file within this window is collapsed into a single review of the settled state (ADR-112). Set to `0` to disable debounce and review every edit synchronously. |
 | `ASK_CODEX_DEBOUNCE_MAX_MS` | `60000` | Hard cap from the first edit of a burst — forces a review even under a continuous edit stream. |
+| `CODEX_PAIR_QUOTA_PAUSE_TTL_MS` | `21600000` (6h) | Quota auto-pauses self-heal after this long. |
+| `CODEX_PAIR_FAILURES_PAUSE_TTL_MS` | `86400000` (24h) | Failure auto-pauses self-heal after this long, or immediately on a plugin-version change. |
 
 Both debounce knobs are also settable per-marker via `context.md` frontmatter (`debounceMs` / `debounceMaxMs`), which takes precedence over the env vars. With debounce on (the default), a review fires shortly *after* you stop editing a file and its verdict surfaces on your next edit or next prompt (via the `UserPromptSubmit` drain) — not synchronously on the triggering edit. Set `debounceMs: 0` in the marker frontmatter for the old synchronous behavior.
 

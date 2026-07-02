@@ -15,6 +15,7 @@ import { stateRoot } from "./state.mjs";
 
 export const DEBOUNCE_DIR = "debounce";
 export const PENDING_DIR = "pending";
+export const REVIEWING_DIR = "reviewing";
 export const DEFAULT_DEBOUNCE_MS = 15_000;
 export const DEFAULT_DEBOUNCE_MAX_MS = 60_000;
 // Sweep records/pending older than maxMs + this buffer (junk from crashes).
@@ -22,6 +23,7 @@ export const DEBOUNCE_STALE_BUFFER_MS = 300_000;
 
 export const debounceRoot = (markerDir) => join(stateRoot(markerDir), DEBOUNCE_DIR);
 export const pendingRoot = (markerDir) => join(stateRoot(markerDir), PENDING_DIR);
+export const reviewingRoot = (markerDir) => join(stateRoot(markerDir), REVIEWING_DIR);
 
 function fileHash(file) {
   return createHash("sha256").update(String(file)).digest("hex").slice(0, 16);
@@ -100,6 +102,28 @@ export function writePending(markerDir, file, message) {
   writeAtomicSync(pendingPath(markerDir, file), { file, message });
 }
 
+// Worker handoff marker (2026-07-02 seamless-pairing design, dogfood finding).
+// The worker advances reviewedGen BEFORE the forced-sync hook acquires the
+// per-file inflight lock, so a Stop-gate check in that gap would see neither
+// "settling" nor "reviewing" and let the turn end mid-review. The worker holds
+// this marker across the whole handoff (markReviewing → spawn → clearReviewing)
+// so the gate always has an observable signal. Best-effort like all debounce
+// state; a leaked marker ages out via the gate's freshness window + TTL sweep.
+export const reviewingPath = (markerDir, file) =>
+  join(reviewingRoot(markerDir), `${fileHash(file)}.json`);
+
+export function markReviewing(markerDir, file) {
+  writeAtomicSync(reviewingPath(markerDir, file), { file, at: Date.now() });
+}
+
+export function clearReviewing(markerDir, file) {
+  try {
+    unlinkSync(reviewingPath(markerDir, file));
+  } catch {
+    // already gone
+  }
+}
+
 // Read + clear every pending verdict (surfaced exactly once). Returns messages.
 export function drainPending(markerDir) {
   const root = pendingRoot(markerDir);
@@ -145,7 +169,7 @@ export function joinPendingForSurface(messages) {
 // self-cancel (decideReview → record-missing) and no stale verdict leaks into
 // a later session.
 export function clearAllDebounceState(markerDir) {
-  for (const root of [debounceRoot(markerDir), pendingRoot(markerDir)]) {
+  for (const root of [debounceRoot(markerDir), pendingRoot(markerDir), reviewingRoot(markerDir)]) {
     let names;
     try {
       names = readdirSync(root);
@@ -165,7 +189,7 @@ export function clearAllDebounceState(markerDir) {
 // Probabilistic TTL sweep (mirrors ADR-097). Best-effort; never throws.
 export function sweepStaleDebounce(markerDir, maxMs) {
   const cutoff = Date.now() - (maxMs + DEBOUNCE_STALE_BUFFER_MS);
-  for (const root of [debounceRoot(markerDir), pendingRoot(markerDir)]) {
+  for (const root of [debounceRoot(markerDir), pendingRoot(markerDir), reviewingRoot(markerDir)]) {
     let names;
     try {
       names = readdirSync(root);

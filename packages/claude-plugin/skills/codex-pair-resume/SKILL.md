@@ -18,9 +18,11 @@ Removes the pause sentinel written by `/codex-pair-pause`, restoring normal code
      (quota exhaustion or repeated failures — see #176). `cat` it and show the user
      the `kind`, `reason`, and `resetHint` fields before removing, so they know
      whether the provider has likely recovered.
-   - Remove it:
+   - Remove it, together with the consecutive-failure counter — resuming while
+     the counter is still at threshold would re-pause on the very next single
+     failure. Quote the paths so marker directories with spaces work:
      ```bash
-     rm <marker-dir>/.codex-pair/state/paused
+     rm -f -- "<marker-dir>/.codex-pair/state/paused" "<marker-dir>/.codex-pair/state/failures.json"
      ```
 
 3. Confirm to the user with the marker directory path:
