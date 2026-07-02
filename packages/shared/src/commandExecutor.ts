@@ -121,7 +121,7 @@ export async function executeCommand(
     childProcess.stdin.end();
 
     const stdoutChunks: Buffer[] = [];
-    let stderr = "";
+    const stderrChunks: Buffer[] = [];
     let isResolved = false;
     // SIGKILL escalation timer scheduled after a timeout SIGTERM. Tracked so a
     // clean child exit can cancel it — otherwise it lingers ~5s, holding the
@@ -159,10 +159,9 @@ export async function executeCommand(
     });
 
     childProcess.stderr.on("data", (data: Buffer) => {
-      const chunk = data.toString();
-      stderr += chunk;
+      stderrChunks.push(data);
       if (onStderr) {
-        onStderr(chunk);
+        onStderr(data.toString());
       }
     });
 
@@ -193,7 +192,8 @@ export async function executeCommand(
           // additional input from stdin...") and still exit non-zero. Union
           // both streams (not stderr-or-stdout) so stdout-borne errors stay
           // visible to downstream quota/fallback detection. See ADR-117.
-          const rawError = [stderr.trim(), stdout.trim()].filter(Boolean).join("\n") || "Unknown error";
+          const stderrText = Buffer.concat(stderrChunks).toString();
+          const rawError = [stderrText.trim(), stdout.trim()].filter(Boolean).join("\n") || "Unknown error";
           const userMessage = sanitizeErrorForLLM(rawError, command);
           reject(new Error(userMessage));
         }

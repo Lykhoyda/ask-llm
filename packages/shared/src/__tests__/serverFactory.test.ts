@@ -1,6 +1,8 @@
-import { describe, expect, it } from "vitest";
-import type { z } from "zod";
-import { createUsageStatsTool } from "../serverFactory.js";
+import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { describe, expect, it, vi } from "vitest";
+import { z } from "zod";
+import type { UnifiedTool } from "../registry.js";
+import { createUsageStatsTool, registerTools } from "../serverFactory.js";
 import { createSessionUsage, type UsageStats } from "../usage.js";
 
 function makeStats(overrides: Partial<UsageStats> = {}): UsageStats {
@@ -16,6 +18,47 @@ function makeStats(overrides: Partial<UsageStats> = {}): UsageStats {
     ...overrides,
   };
 }
+
+function makeTool(name: string): UnifiedTool {
+  return {
+    name,
+    description: `${name} test tool`,
+    zodSchema: z.object({}),
+    annotations: { title: name, readOnlyHint: true, idempotentHint: true, openWorldHint: false },
+    category: "simple",
+    execute: async () => "ok",
+  };
+}
+
+describe("registerTools duplicate-name guard", () => {
+  it("throws at registration time when two tools share a name", () => {
+    const server = { registerTool: vi.fn() } as unknown as McpServer;
+
+    expect(() =>
+      registerTools({
+        server,
+        tools: [makeTool("ping"), makeTool("ping")],
+        executeTool: async () => "ok",
+        getPromptMessage: () => "",
+        progressMessages: () => [],
+      }),
+    ).toThrow(/duplicate tool name.*ping/i);
+  });
+
+  it("registers distinct names without throwing", () => {
+    const server = { registerTool: vi.fn() } as unknown as McpServer;
+
+    expect(() =>
+      registerTools({
+        server,
+        tools: [makeTool("ping"), makeTool("pong")],
+        executeTool: async () => "ok",
+        getPromptMessage: () => "",
+        progressMessages: () => [],
+      }),
+    ).not.toThrow();
+  });
+});
 
 describe("createUsageStatsTool", () => {
   it("returns a UnifiedTool with correct identity and metadata", () => {

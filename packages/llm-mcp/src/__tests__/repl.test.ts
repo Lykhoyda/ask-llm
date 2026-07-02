@@ -1,6 +1,6 @@
 import * as readline from "node:readline/promises";
 import { PassThrough, Writable } from "node:stream";
-import { createSessionUsage, type UsageStats } from "@ask-llm/shared";
+import { createSessionUsage, PROVIDERS, type UsageStats } from "@ask-llm/shared";
 import { describe, expect, it, vi } from "vitest";
 import { dispatchPrompt, formatBanner, formatHelp, handleSlash, type ReplState, runReplLoop } from "../repl.js";
 
@@ -37,6 +37,13 @@ describe("formatHelp", () => {
     expect(help).toContain("/usage");
     expect(help).toContain("/clear");
     expect(help).toContain("/quit");
+  });
+
+  it("names every provider (including antigravity) in the /provider example", () => {
+    const help = formatHelp();
+    for (const provider of PROVIDERS) {
+      expect(help).toContain(provider);
+    }
   });
 });
 

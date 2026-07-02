@@ -1,4 +1,4 @@
-import type { UnifiedTool } from "@ask-llm/shared";
+import { relativeDirSchema, type UnifiedTool } from "@ask-llm/shared";
 import { z } from "zod";
 import { ERROR_MESSAGES, MODELS } from "../constants.js";
 import { executeCodexCLI, processCodexEditOutput } from "../utils/codexExecutor.js";
@@ -24,10 +24,10 @@ const askCodexEditArgsSchema = z.object({
       "Optional Codex thread ID to resume a prior conversation. Use the [Thread ID: ...] value from a previous response to refine the same edit session.",
     ),
   includeDirs: z
-    .array(z.string())
+    .array(relativeDirSchema)
     .optional()
     .describe(
-      "Additional directories Codex may read alongside the working directory (maps to codex `--add-dir`). Useful in monorepos where relevant context spans sibling packages.",
+      "Additional directories Codex may read alongside the working directory (maps to codex `--add-dir`). Must be relative paths (e.g., 'packages/api'). Useful in monorepos where relevant context spans sibling packages.",
     ),
 });
 

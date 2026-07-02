@@ -1,6 +1,6 @@
 import { type AskResponse, askResponseSchema, type UnifiedTool } from "@ask-llm/shared";
 import { z } from "zod";
-import { ERROR_MESSAGES, MODELS, STATUS_MESSAGES } from "../constants.js";
+import { ERROR_MESSAGES, FACTORY_DEFAULT_MODEL, MODELS, STATUS_MESSAGES } from "../constants.js";
 import { executeOllamaCLI } from "../utils/ollamaExecutor.js";
 
 const askOllamaArgsSchema = z.object({
@@ -25,8 +25,7 @@ const askOllamaArgsSchema = z.object({
 
 export const askOllamaTool: UnifiedTool = {
   name: "ask-ollama",
-  description:
-    "Send a prompt to a local Ollama LLM (defaults to qwen3.6:27b; errors with a 'pull it first' message if the model isn't installed — no automatic substitution). Use for code review, second opinions, analysis, and AI-to-AI collaboration. Runs entirely locally — no API keys or network calls needed. Returns both human-readable text and a structured response (provider, model, sessionId, usage) via outputSchema.",
+  description: `Send a prompt to a local Ollama LLM (defaults to ${FACTORY_DEFAULT_MODEL}; errors with a 'pull it first' message if the model isn't installed — no automatic substitution). Use for code review, second opinions, analysis, and AI-to-AI collaboration. Runs entirely locally — no API keys or network calls needed. Returns both human-readable text and a structured response (provider, model, sessionId, usage) via outputSchema.`,
   zodSchema: askOllamaArgsSchema,
   outputSchema: askResponseSchema,
   annotations: {

@@ -1,8 +1,10 @@
 import {
   appendAndSaveSession,
   buildPriorMessages,
+  EXECUTION,
   Logger,
   ResponseCache,
+  resolveTimeoutMs,
   responseCache,
   type SessionMessage,
   type UsageStats,
@@ -81,33 +83,59 @@ function formatStats(promptEvalCount: number | undefined, evalCount: number | un
   return parts.length > 0 ? `\n\n[Ollama stats: ${parts.join(", ")}]` : "";
 }
 
-async function callOllama(baseUrl: string, model: string, messages: SessionMessage[]): Promise<OllamaChatResponse> {
+async function callOllama(
+  baseUrl: string,
+  model: string,
+  messages: SessionMessage[],
+  timeoutMs: number,
+): Promise<OllamaChatResponse> {
   const url = `${baseUrl}${API.CHAT}`;
-  let response: Response;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+  const timeoutError = () =>
+    new Error(
+      `Ollama request timed out after ${timeoutMs}ms (model "${model}"). ` +
+        `Local models can be slow to load or generate — raise ${EXECUTION.OLLAMA_TIMEOUT_ENV_VAR} if this model legitimately needs longer.`,
+    );
 
   try {
-    response = await globalThis.fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ model, messages, stream: false }),
-    });
-  } catch (error) {
-    const msg = error instanceof Error ? error.message : String(error);
-    throw new Error(`${ERROR_MESSAGES.SERVER_UNREACHABLE} (${msg})`);
-  }
-
-  if (!response.ok) {
-    let errorBody: OllamaErrorResponse = {};
+    let response: Response;
     try {
-      errorBody = (await response.json()) as OllamaErrorResponse;
-    } catch {
-      /* empty */
+      response = await globalThis.fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ model, messages, stream: false }),
+        signal: controller.signal,
+      });
+    } catch (error) {
+      if (controller.signal.aborted) throw timeoutError();
+      const msg = error instanceof Error ? error.message : String(error);
+      throw new Error(`${ERROR_MESSAGES.SERVER_UNREACHABLE} (${msg})`);
     }
-    const errorText = errorBody.error ?? `HTTP ${response.status}`;
-    throw new Error(errorText);
-  }
 
-  return (await response.json()) as OllamaChatResponse;
+    if (!response.ok) {
+      let errorBody: OllamaErrorResponse = {};
+      try {
+        errorBody = (await response.json()) as OllamaErrorResponse;
+      } catch {
+        /* empty */
+      }
+      const errorText = errorBody.error ?? `HTTP ${response.status}`;
+      throw new Error(errorText);
+    }
+
+    // The timer stays armed through the body read: a server that returns
+    // headers and then stalls the body would otherwise hang unbounded.
+    try {
+      return (await response.json()) as OllamaChatResponse;
+    } catch (error) {
+      if (controller.signal.aborted) throw timeoutError();
+      throw error;
+    }
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 export async function isProviderAvailable(baseUrl?: string): Promise<boolean> {
@@ -160,9 +188,10 @@ export async function executeOllamaCLI(options: OllamaExecutorOptions): Promise<
     }
   }
 
+  const timeoutMs = resolveTimeoutMs(EXECUTION.OLLAMA_TIMEOUT_ENV_VAR, EXECUTION.DEFAULT_OLLAMA_TIMEOUT_MS);
   const startedAt = Date.now();
   try {
-    const data = await callOllama(baseUrl, model, messages);
+    const data = await callOllama(baseUrl, model, messages, timeoutMs);
     const content = data.message?.content ?? "";
     const durationMs = Date.now() - startedAt;
 

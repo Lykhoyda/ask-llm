@@ -70,8 +70,12 @@ export const STATUS_MESSAGES = {
     "🔒 Gemini reported a workspace-trust block; not retrying with Flash (same directory will fail again).",
 } as const;
 
+// The out-of-box default, independent of any ASK_GEMINI_MODEL override —
+// tool descriptions and drift-guard tests reference this, not the live value.
+export const FACTORY_DEFAULT_MODEL = "gemini-3.1-pro-preview";
+
 export const MODELS = {
-  PRO: process.env.ASK_GEMINI_MODEL || "gemini-3.1-pro-preview",
+  PRO: process.env.ASK_GEMINI_MODEL || FACTORY_DEFAULT_MODEL,
   FLASH: process.env.ASK_GEMINI_FALLBACK_MODEL || "gemini-3.5-flash",
 };
 

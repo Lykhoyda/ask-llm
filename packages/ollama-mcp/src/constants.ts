@@ -1,10 +1,14 @@
 export const OLLAMA_HOST_ENV = "OLLAMA_HOST";
 export const DEFAULT_BASE_URL = "http://localhost:11434";
 
+// The out-of-box default, independent of any ASK_OLLAMA_MODEL override —
+// tool descriptions and drift-guard tests reference this, not the live value.
+export const FACTORY_DEFAULT_MODEL = "qwen3.6:27b";
+
 export const MODELS = {
   // Ollama is local — the user explicitly pulls the model they want, so there is no
   // automatic fallback to a different model. Override the default via ASK_OLLAMA_MODEL.
-  DEFAULT: process.env.ASK_OLLAMA_MODEL || "qwen3.6:27b",
+  DEFAULT: process.env.ASK_OLLAMA_MODEL || FACTORY_DEFAULT_MODEL,
 };
 
 export const API = {

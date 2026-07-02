@@ -36,6 +36,15 @@ describe("createSessionUsage", () => {
     expect(snap.totalDurationMs).toBe(1500);
   });
 
+  it("records antigravity usage under its own provider bucket", () => {
+    const session = createSessionUsage();
+    session.record(makeStats({ provider: "antigravity", model: "Gemini 3.1 Pro (High)", inputTokens: 42 }));
+
+    const snap = session.snapshot();
+    expect(snap.byProvider.antigravity.calls).toBe(1);
+    expect(snap.byProvider.antigravity.inputTokens).toBe(42);
+  });
+
   it("groups by provider and model independently", () => {
     const session = createSessionUsage();
     session.record(makeStats({ provider: "gemini", model: "gemini-3.1-pro-preview", inputTokens: 100 }));

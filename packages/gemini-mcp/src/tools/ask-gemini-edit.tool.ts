@@ -1,5 +1,4 @@
-import { isAbsolute } from "node:path";
-import type { UnifiedTool } from "@ask-llm/shared";
+import { relativeDirSchema, type UnifiedTool } from "@ask-llm/shared";
 import { z } from "zod";
 import { ERROR_MESSAGES, MODELS } from "../constants.js";
 import { executeGeminiCLI, processChangeModeOutput } from "../utils/geminiExecutor.js";
@@ -19,11 +18,7 @@ const askGeminiEditArgsSchema = z.object({
       `DO NOT set this parameter. The tool automatically uses ${MODELS.PRO} and falls back to ${MODELS.FLASH} on quota errors.`,
     ),
   includeDirs: z
-    .array(
-      z.string().refine((dir) => !dir.includes("..") && !isAbsolute(dir) && !dir.startsWith("~"), {
-        message: "Directory paths must be relative without '..' or '~'",
-      }),
-    )
+    .array(relativeDirSchema)
     .optional()
     .describe(
       "Additional directories to include in Gemini's context. Must be relative paths (e.g., 'packages/api'). Useful for monorepos.",

@@ -1,6 +1,6 @@
 import { type AskResponse, askResponseSchema, type UnifiedTool } from "@ask-llm/shared";
 import { z } from "zod";
-import { ERROR_MESSAGES, MODELS, STATUS_MESSAGES } from "../constants.js";
+import { ERROR_MESSAGES, FACTORY_DEFAULT_MODEL, MODELS, STATUS_MESSAGES } from "../constants.js";
 import { executeGeminiCLI } from "../utils/geminiExecutor.js";
 
 const askGeminiArgsSchema = z.object({
@@ -27,8 +27,7 @@ const askGeminiArgsSchema = z.object({
 
 export const askGeminiTool: UnifiedTool = {
   name: "ask-gemini",
-  description:
-    "Send a prompt to Gemini CLI (defaults to gemini-3.1-pro-preview with automatic Flash fallback on quota errors). Use for code review, second opinions, analysis, and AI-to-AI collaboration. Do not override the model parameter unless the user explicitly asks. Returns both human-readable text and a structured response (provider, model, sessionId, usage) via outputSchema.",
+  description: `Send a prompt to Gemini CLI (defaults to ${FACTORY_DEFAULT_MODEL} with automatic Flash fallback on quota errors). Use for code review, second opinions, analysis, and AI-to-AI collaboration. Do not override the model parameter unless the user explicitly asks. Returns both human-readable text and a structured response (provider, model, sessionId, usage) via outputSchema.`,
   zodSchema: askGeminiArgsSchema,
   outputSchema: askResponseSchema,
   annotations: {

@@ -134,6 +134,7 @@ export function parseCodexJsonlOutput(
   let threadId: string | undefined;
   let usage: CodexTurnCompleted["usage"];
   let lastError: string | undefined;
+  let sawJsonlEvent = false;
 
   for (const line of lines) {
     let parsed: CodexJsonLine;
@@ -141,6 +142,12 @@ export function parseCodexJsonlOutput(
       parsed = JSON.parse(line) as CodexJsonLine;
     } catch {
       continue;
+    }
+
+    // Only object lines with a string `type` count as codex events — a bare
+    // number or quoted string in plain-text output also survives JSON.parse.
+    if (parsed && typeof parsed === "object" && typeof (parsed as { type?: unknown }).type === "string") {
+      sawJsonlEvent = true;
     }
 
     if (parsed.type === "thread.started") {
@@ -175,7 +182,18 @@ export function parseCodexJsonlOutput(
   }
 
   if (!lastAgentMessage) {
-    Logger.debug("No agent_message found in Codex JSONL output, using raw text");
+    if (sawJsonlEvent) {
+      // Events parsed but no agent message: dumping the raw JSONL as the
+      // "response" reads as garbage to the consuming LLM — fail actionably.
+      const truncated =
+        raw.length > EXECUTION.ERROR_TRUNCATE_LENGTH ? `${raw.slice(0, EXECUTION.ERROR_TRUNCATE_LENGTH)}…` : raw;
+      throw new Error(
+        `Codex completed without an agent message${threadId ? ` (thread ${threadId})` : ""}. ` +
+          `The run ended before producing a response — retry, or resume the thread via sessionId. ` +
+          `Raw JSONL (truncated):\n${truncated}`,
+      );
+    }
+    Logger.debug("No parseable Codex JSONL events found, using raw text as the response");
     return { response: raw, threadId, usage: buildUsageStats(usage, model, durationMs, fellBack) };
   }
 

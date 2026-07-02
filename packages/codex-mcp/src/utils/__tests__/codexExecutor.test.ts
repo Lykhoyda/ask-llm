@@ -196,11 +196,24 @@ describe("JSONL output parsing", () => {
     expect(result.response).toContain("Valid response");
   });
 
-  it("falls back to raw text when no agent_message found", async () => {
+  it("returns raw text when output contains no parseable JSONL at all (plain-text mode)", async () => {
     mockExecuteCommand.mockResolvedValue("Plain text output with no JSON");
 
     const result = await executeCodexCLI({ prompt: "test" });
     expect(result.response).toBe("Plain text output with no JSON");
+  });
+
+  it("throws an actionable error when JSONL events parse but contain no agent message", async () => {
+    mockExecuteCommand.mockResolvedValue(
+      [
+        '{"type":"thread.started","thread_id":"th_123"}',
+        '{"type":"turn.completed","usage":{"input_tokens":10,"output_tokens":0}}',
+      ].join("\n"),
+    );
+
+    await expect(executeCodexCLI({ prompt: "test" })).rejects.toThrow(
+      /completed without an agent message[\s\S]*th_123/,
+    );
   });
 
   it("includes token stats from turn.completed in response", async () => {

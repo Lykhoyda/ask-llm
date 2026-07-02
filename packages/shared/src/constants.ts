@@ -29,9 +29,14 @@ export const EXECUTION = {
   // time on reasoning before emitting any output. 800s aligns with the
   // documented "≥800s for codex" guidance and addresses #45.
   DEFAULT_CODEX_TIMEOUT_MS: 800_000,
+  // Local Ollama models can spend minutes loading weights or generating on
+  // modest hardware (the default is a 27b model), so the bound is generous —
+  // its job is to catch a wedged server, not to police slow generation.
+  DEFAULT_OLLAMA_TIMEOUT_MS: 600_000,
   TIMEOUT_ENV_VAR: "GMCPT_TIMEOUT_MS",
   CODEX_TIMEOUT_ENV_VAR: "ASK_CODEX_TIMEOUT_MS",
   GEMINI_TIMEOUT_ENV_VAR: "ASK_GEMINI_TIMEOUT_MS",
+  OLLAMA_TIMEOUT_ENV_VAR: "ASK_OLLAMA_TIMEOUT_MS",
   ERROR_TRUNCATE_LENGTH: 2000,
   STDIN_THRESHOLD_BYTES: 16_384,
 } as const;

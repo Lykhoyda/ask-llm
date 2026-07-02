@@ -1,7 +1,8 @@
 import { z } from "zod";
+import { PROVIDERS } from "./providers.js";
 
 const usageStatsSchema = z.object({
-  provider: z.enum(["gemini", "codex", "ollama", "antigravity"]),
+  provider: z.enum(PROVIDERS),
   model: z.string(),
   inputTokens: z.number().optional(),
   outputTokens: z.number().optional(),
@@ -12,7 +13,7 @@ const usageStatsSchema = z.object({
 });
 
 export const askResponseSchema = z.object({
-  provider: z.enum(["gemini", "codex", "ollama", "antigravity"]),
+  provider: z.enum(PROVIDERS),
   response: z.string(),
   model: z.string(),
   sessionId: z.string().optional(),

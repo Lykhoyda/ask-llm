@@ -16,8 +16,17 @@ const CACHE_TTL = 10 * 60 * 1000;
 const MAX_CACHE_FILES = 50;
 
 function ensureCacheDir(): void {
+  // Owner-only: cached chunks contain user code, and the dir lives in the
+  // shared OS tmpdir. Mirrors sessions.ts. The chmod also tightens dirs
+  // created by older releases that omitted the mode (no-op on Windows).
   if (!fs.existsSync(CACHE_DIR)) {
-    fs.mkdirSync(CACHE_DIR, { recursive: true });
+    fs.mkdirSync(CACHE_DIR, { recursive: true, mode: 0o700 });
+    return;
+  }
+  try {
+    fs.chmodSync(CACHE_DIR, 0o700);
+  } catch {
+    /* best-effort — an unowned dir is caught by the write failing instead */
   }
 }
 
@@ -40,7 +49,7 @@ export function cacheChunks(prompt: string, chunks: EditChunk[]): string {
     // Atomic write: these cache dirs are shared across MCP processes, so a
     // concurrent reader must never observe a half-written file. rename() is
     // atomic on the same filesystem. Mirrors sessions.ts.
-    fs.writeFileSync(tmpPath, JSON.stringify(cacheData));
+    fs.writeFileSync(tmpPath, JSON.stringify(cacheData), { mode: 0o600 });
     fs.renameSync(tmpPath, filePath);
     Logger.debug(`Cached ${chunks.length} chunks to file: ${cacheKey}.json`);
   } catch (error) {
