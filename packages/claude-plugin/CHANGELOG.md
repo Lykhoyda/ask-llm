@@ -1,5 +1,11 @@
 # @ask-llm/plugin
 
+## 0.9.6
+
+### Patch Changes
+
+- [#206](https://github.com/Lykhoyda/ask-llm/pull/206) [`93b024c`](https://github.com/Lykhoyda/ask-llm/commit/93b024c640492d99ef1cc020752d560f957733bb) Thanks [@Lykhoyda](https://github.com/Lykhoyda)! - codex-image skill: document gpt-image-2 capabilities (legible in-image text ~99%, up to 4K + custom dimensions, embedded C2PA provenance manifest + invisible AI-origin watermark) so prompt-building accounts for them. Follow-up to the gpt-image-2 model correction; docs/prose only.
+
 ## 0.9.5
 
 ### Patch Changes
