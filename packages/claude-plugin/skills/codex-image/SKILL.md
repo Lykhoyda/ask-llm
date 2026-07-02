@@ -12,8 +12,8 @@ Generate an image by delegating to the `ask-codex` MCP tool with a prompt-engine
 
 Codex's `image_generation` tool selects the image model server-side; as of 2026-04-21 that is **gpt-image-2**. Three capabilities are worth accounting for when building prompts:
 
-- **Legible in-image text** — gpt-image-2 renders text at ~99% accuracy across many scripts, so captions, labels, and UI copy are now reliable. gpt-image-1's weak text is no longer a reason to avoid asking for it.
-- **High resolution** — up to 4K and custom dimensions; ask for it explicitly in the prompt body when you need it (default renders are ~1024–1254px square).
+- **Legible in-image text** — per OpenAI's launch materials, gpt-image-2 renders text at ~99% accuracy across many scripts, so captions, labels, and UI copy are now reliable. gpt-image-1's weak text is no longer a reason to avoid asking for it.
+- **High resolution** — up to 4K and custom dimensions; ask for it explicitly in the prompt body when you need it. Default square renders observed in testing varied (1024×1024 and 1254×1254), so don't hard-code an expected size — read it back from the file if it matters.
 - **Provenance + watermark** — every render embeds a C2PA provenance manifest and an invisible AI-origin watermark. Flag this to the user when the image is destined for a context sensitive to AI-generated-content metadata.
 
 ## Prerequisites
