@@ -167,11 +167,13 @@ function canonicalizeEntries(entries) {
 // Only blocking I/O is gitDirtySet (two git calls, each hard-capped at 5s), so
 // the sequential per-marker cost is bounded even for several registered repos.
 function evaluateMarker(markerDir) {
+  // Return the RAW drained verdicts — main() accumulates across markers and caps
+  // the surfaced blob ONCE via joinPendingForSurface, so the MAX_SURFACE_VERDICTS
+  // bound is global (not 8-per-marker). Matches codex-pair-prompt-drain.mjs.
   const pending = drainPending(markerDir);
-  const pendingText = pending.length > 0 ? joinPendingForSurface(pending) : null;
 
   if (readBlockOn(markerDir) !== "HIGH") {
-    return { pendingText, blockReason: null };
+    return { pending, blockReason: null };
   }
 
   const inFlight = collectInFlight({
@@ -209,7 +211,7 @@ function evaluateMarker(markerDir) {
   } else if (inFlight.any) {
     blockReason = formatInFlightMessage(inFlight, canonical);
   }
-  return { pendingText, blockReason };
+  return { pending, blockReason };
 }
 
 async function main() {
@@ -231,14 +233,16 @@ async function main() {
   const markers = collectSessionMarkers(cwdMarker, payload?.session_id);
   if (markers.length === 0) process.exit(0);
 
-  const pendingTexts = [];
+  const allPending = [];
   const blockReasons = [];
   for (const markerDir of markers) {
-    const { pendingText, blockReason } = evaluateMarker(markerDir);
-    if (pendingText) pendingTexts.push(pendingText);
+    const { pending, blockReason } = evaluateMarker(markerDir);
+    allPending.push(...pending);
     if (blockReason) blockReasons.push(blockReason);
   }
-  const pendingCombined = pendingTexts.length > 0 ? pendingTexts.join("\n\n") : null;
+  // Cap the surfaced blob ONCE across all markers (MAX_SURFACE_VERDICTS is global,
+  // not per-repo) — mirrors codex-pair-prompt-drain.mjs.
+  const pendingCombined = allPending.length > 0 ? joinPendingForSurface(allPending) : null;
 
   // Block if ANY marker blocks; each repo keeps its own blockOn/timeoutMs. The
   // block reason folds in every blocking marker's message plus all pending text;

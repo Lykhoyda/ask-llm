@@ -414,4 +414,32 @@ describe("codex-pair-stop-gate.mjs — cross-repo (#209)", () => {
     expect(res.status).toBe(0);
     expect(res.stdout.trim()).toBe("");
   });
+
+  it("caps surfaced verdicts globally across markers, not per-repo", () => {
+    // 5 pending in cwd repo + 5 in the registered repo = 10 total. The
+    // MAX_SURFACE_VERDICTS (8) cap must apply ONCE across markers → exactly one
+    // "+2 more" trailer. The pre-fix per-marker cap would show all 10 with no
+    // trailer (5 ≤ 8 in each repo).
+    fs.writeFileSync(path.join(otherRepo, ".codex-pair", "context.md"), "# ctx"); // no blockOn
+    const seed = (repo: string, n: number, tag: string) => {
+      const pend = path.join(repo, ".codex-pair", "state", "pending");
+      fs.mkdirSync(pend, { recursive: true });
+      for (let i = 0; i < n; i++) {
+        fs.writeFileSync(
+          path.join(pend, `${tag}-${i}.json`),
+          JSON.stringify({ file: `/x/${tag}${i}`, message: `[codex-pair] ${tag} verdict ${i}` }),
+        );
+      }
+    };
+    seed(cwdRepo, 5, "cwd");
+    seed(otherRepo, 5, "other");
+    registerMarker(SESSION, otherRepo);
+
+    const res = run(SESSION);
+    expect(res.status).toBe(0);
+    const out = JSON.parse(res.stdout.trim());
+    const ctx = out.hookSpecificOutput?.additionalContext ?? "";
+    expect(ctx).toMatch(/\+2 more verdict\(s\) drained/);
+    expect((ctx.match(/more verdict\(s\) drained/g) || []).length).toBe(1);
+  });
 });

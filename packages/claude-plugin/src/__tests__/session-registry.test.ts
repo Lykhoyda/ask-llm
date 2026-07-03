@@ -1,6 +1,6 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   clearSession,
   collectSessionMarkers,
@@ -102,5 +102,34 @@ describe("session-registry", () => {
     }
     sweepStaleSessions(Date.now(), 24 * 3600 * 1000, live);
     expect(readRegisteredMarkers(live)).toEqual(["/repo/live"]);
+  });
+
+  it("does not sweep a freshly-created empty session dir (mid-registration race)", () => {
+    // Simulate the window between registerMarker's mkdirSync and its writeFileSync:
+    // the dir exists but has no entry yet. A concurrent sweep must NOT delete it,
+    // or the pending write would ENOENT and the marker would be lost.
+    const s = track(sid());
+    fs.mkdirSync(sessionDir(s), { recursive: true });
+    sweepStaleSessions(Date.now(), 24 * 3600 * 1000);
+    expect(fs.existsSync(sessionDir(s))).toBe(true);
+  });
+
+  it("falls back to the default TTL when the env override is non-numeric", async () => {
+    // A non-numeric override → Number(...) is NaN, which would silently disable
+    // the sweep (newest < now-NaN is always false). The Number.isFinite guard
+    // must fall back to the 24h default. Re-import fresh so the module-level
+    // const re-evaluates against the overridden env.
+    const prev = process.env.CODEX_PAIR_SESSION_REGISTRY_TTL_MS;
+    process.env.CODEX_PAIR_SESSION_REGISTRY_TTL_MS = "not-a-number";
+    try {
+      vi.resetModules();
+      const mod = await import("../../scripts/lib/session-registry.mjs");
+      expect(Number.isFinite(mod.SESSION_REGISTRY_TTL_MS)).toBe(true);
+      expect(mod.SESSION_REGISTRY_TTL_MS).toBe(24 * 60 * 60 * 1000);
+    } finally {
+      if (prev === undefined) delete process.env.CODEX_PAIR_SESSION_REGISTRY_TTL_MS;
+      else process.env.CODEX_PAIR_SESSION_REGISTRY_TTL_MS = prev;
+      vi.resetModules();
+    }
   });
 });

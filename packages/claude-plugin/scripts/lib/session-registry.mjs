@@ -20,9 +20,13 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 export const SESSION_REGISTRY_DIRNAME = "codex-pair-sessions";
-export const SESSION_REGISTRY_TTL_MS = Number(
-  process.env.CODEX_PAIR_SESSION_REGISTRY_TTL_MS ?? 24 * 60 * 60 * 1000,
-);
+const DEFAULT_SESSION_REGISTRY_TTL_MS = 24 * 60 * 60 * 1000;
+// Guard a non-numeric env override: Number("nope") is NaN, which would make
+// sweepStaleSessions' `newest < (now - NaN)` always false and silently disable
+// the sweep (slow tmpdir leak). Mirrors the stop-gate's inflightFreshMs guard.
+const ttlOverride = Number(process.env.CODEX_PAIR_SESSION_REGISTRY_TTL_MS);
+export const SESSION_REGISTRY_TTL_MS =
+  Number.isFinite(ttlOverride) && ttlOverride > 0 ? ttlOverride : DEFAULT_SESSION_REGISTRY_TTL_MS;
 
 export const sessionRegistryRoot = () => join(tmpdir(), SESSION_REGISTRY_DIRNAME);
 
@@ -116,8 +120,15 @@ export function sweepStaleSessions(now, ttlMs, exceptSessionId) {
     if (s === skip) continue; // never sweep the live session that's reading us
     const sdir = join(sessionRegistryRoot(), s);
     try {
+      const names = readdirSync(sdir);
+      // An EMPTY dir is either mid-registration (a concurrent registerMarker
+      // caught between its mkdirSync and its first writeFileSync) or a transient
+      // leftover — never sweep it, or we'd delete the dir out from under that
+      // pending write and lose the marker (the write ENOENTs and best-effort-
+      // swallows). Non-empty dirs age out by their newest entry mtime.
+      if (names.length === 0) continue;
       let newest = 0;
-      for (const name of readdirSync(sdir)) {
+      for (const name of names) {
         try {
           newest = Math.max(newest, statSync(join(sdir, name)).mtimeMs);
         } catch {
