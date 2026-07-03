@@ -15,6 +15,7 @@ import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { CONTEXT_FILENAME, PAIR_ROOT_DIR } from "./lib/state.mjs";
 import { drainPending, joinPendingForSurface } from "./lib/debounce-state.mjs";
+import { collectSessionMarkers } from "./lib/session-registry.mjs";
 
 const MARKER_FILE = join(PAIR_ROOT_DIR, CONTEXT_FILENAME);
 
@@ -56,10 +57,14 @@ async function main() {
   }
   if (payload?.hook_event_name !== "UserPromptSubmit") process.exit(0);
 
-  const markerDir = await findMarkerUp(process.cwd());
-  if (!markerDir) process.exit(0);
+  // ADR-131 (#209): drain EVERY repo active this session, not just cwd's. The
+  // watch hook registers each edited repo under session_id; union it with the
+  // cwd marker so single-repo behavior is unchanged when no session_id is present.
+  const cwdMarker = await findMarkerUp(process.cwd());
+  const markers = collectSessionMarkers(cwdMarker, payload?.session_id);
+  if (markers.length === 0) process.exit(0);
 
-  const messages = drainPending(markerDir);
+  const messages = markers.flatMap((m) => drainPending(m));
   if (messages.length === 0) process.exit(0);
 
   // UserPromptSubmit context-injection contract: additionalContext is added to
