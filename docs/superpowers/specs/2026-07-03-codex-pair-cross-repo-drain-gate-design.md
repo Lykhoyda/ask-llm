@@ -89,10 +89,14 @@ Zero workspace imports (marketplace git-subdir install has no `node_modules`), m
 - `readRegisteredMarkers(sessionId)` → `string[]` of markerDirs (deduped, tolerant).
   Returns `[]` when `sessionId` is falsy or the dir is missing.
 - `clearSession(sessionId)` — remove the session's registry dir (SessionEnd).
-- `sweepStaleSessions(now, ttlMs)` — drop session dirs whose newest entry mtime is older
-  than `ttlMs`. TTL default 24h (`CODEX_PAIR_SESSION_REGISTRY_TTL_MS`). Called
-  probabilistically (~5%) from `readRegisteredMarkers` so a crash that skips SessionEnd
-  can't leak session dirs forever. Best-effort; never throws.
+- `sweepStaleSessions(now, ttlMs, exceptSessionId?)` — drop session dirs whose newest
+  entry mtime is older than `ttlMs`, **skipping `exceptSessionId`**. TTL default 24h
+  (`CODEX_PAIR_SESSION_REGISTRY_TTL_MS`). Called probabilistically (~5%) from
+  `readRegisteredMarkers`, always passing the **current** `sessionId` as `exceptSessionId`
+  so a read can never sweep its own live session (a session idle >24h since its last edit
+  would otherwise erase its registry mid-session and silently fall back to cwd-only,
+  reopening the must-be gap). Crash-orphaned *other* sessions are still swept by any later
+  session's reads. Best-effort; never throws.
 
 ## Changes to existing hooks
 
@@ -132,6 +136,23 @@ function evaluateMarker(markerDir) → { pendingText, blocked, blockReason }
    exists, emit it as non-blocking `Stop` `additionalContext` (today's behavior).
 4. Preserves every existing invariant: `stop_hook_active` short-circuit, exit-0-on-every-
    path, fail-open-and-loud, per-marker realpath canonicalization for git/log alignment.
+
+**Output channel (preserved from ADR-130):** the non-blocking drain surfaces via
+`hookSpecificOutput.additionalContext` only, and the blocking path via `decision:block`
++ `reason` — exactly as the shipped ADR-130 Stop gate does (and as `stop-gate.test.ts`
+pins). The dual-channel `systemMessage` + `additionalContext` pattern belongs to the
+*PostToolUse* watch hook, not the Stop hook; whether the Stop drain should also emit
+`systemMessage` for user-transcript visibility is a pre-existing ADR-130 question, **out
+of scope for #209** (this change must not alter the single-repo output surface). Noted as
+a possible follow-up.
+
+**Latency bound:** `evaluateMarker`'s only blocking I/O is `gitDirtySet` — two
+`execFileSync` git calls, each hard-capped at 5s by the existing `opts.timeout`. Markers
+are evaluated sequentially, so the worst case is `O(N_registered) × 10s` *only if git
+hangs on every repo*; the realistic case (1-3 registered repos, responsive git) is
+negligible. The per-call 5s cap already bounds a wedged Stop hook. If multi-repo latency
+ever proves painful, a shared Stop-hook deadline or async git is a follow-up — not needed
+for correctness here.
 
 ### `codex-pair-session.mjs`
 `handleSessionEnd` (and the un-gated SessionEnd branch) additionally call
