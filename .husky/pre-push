@@ -1,4 +1,4 @@
 echo "Running smoke tests..."
 echo ""
 
-sh scripts/smoke-test.sh
+bash scripts/smoke-test.sh
