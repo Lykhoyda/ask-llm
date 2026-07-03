@@ -9,7 +9,7 @@
     "build": "yarn workspaces foreach -A --topological-dev run build",
     "test": "yarn workspaces foreach -A run test",
     "lint": "yarn workspaces foreach -A run lint",
-    "smoke": "sh scripts/smoke-test.sh",
+    "smoke": "bash scripts/smoke-test.sh",
     "docs:dev": "yarn workspace docs run dev",
     "docs:build": "yarn workspace docs run build",
     "docs:preview": "yarn workspace docs run preview",

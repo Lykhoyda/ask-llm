@@ -1,4 +1,9 @@
-#!/bin/sh
+#!/usr/bin/env bash
+# bash (not /bin/sh): `set -o pipefail` is a bash builtin — under a POSIX
+# /bin/sh like Debian/Ubuntu dash it errors out ("illegal option -o pipefail")
+# and, with `set -e`, aborts before any smoke runs. pipefail is load-bearing
+# here: the `yarn … | tee` pipeline below relies on it to surface yarn's exit
+# code. Callers (.husky/pre-push, package.json "smoke") invoke via `bash` too.
 set -e
 set -o pipefail
 
