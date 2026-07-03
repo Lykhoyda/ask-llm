@@ -4,7 +4,7 @@ description: Install and configure Ask LLM MCP servers for Claude Code, Claude D
 
 # Getting Started
 
-Three steps: install Node, install at least one provider, register the MCP server with your client. You can start with one provider (Gemini, Codex, or Ollama) and add the others anytime.
+Three steps: install Node, install at least one provider, register the MCP server with your client. You can start with one provider (Codex, Antigravity, Ollama, or Gemini) and add the others anytime.
 
 ## Step 1: Install Prerequisites
 
@@ -34,13 +34,13 @@ ollama pull qwen3.6:27b
 npm install -g @google/gemini-cli && gemini login
 ```
 
-You can install one or all three. The MCP server auto-detects which providers are available and only registers tools for the ones it finds.
+You can install one or all of them. The MCP server auto-detects which providers are available and only registers tools for the ones it finds.
 
 ## Step 2: Configure Your MCP Client
 
 The recommended package is **`ask-llm-mcp`** — the unified orchestrator that auto-detects all installed providers and exposes them through a single `ask-llm` MCP tool plus `multi-llm`, `get-usage-stats`, `diagnose`, and `ping`.
 
-If you only want one provider, you can also install the per-provider packages directly: `ask-gemini-mcp`, `ask-codex-mcp`, `ask-ollama-mcp`. They expose provider-specific tools (`ask-gemini` with `@` file syntax + sandbox + edit mode, `ask-codex`, `ask-ollama`).
+If you only want one provider, you can also install the per-provider packages directly: `ask-codex-mcp`, `ask-antigravity-mcp`, `ask-ollama-mcp`, `ask-gemini-mcp`. They expose provider-specific tools (`ask-codex`, `ask-antigravity` (subscription-backed via `agy`), `ask-ollama`, and `ask-gemini` with `@` file syntax + sandbox + edit mode).
 
 ### Option A: Claude Code (Recommended)
 
@@ -49,9 +49,10 @@ If you only want one provider, you can also install the per-provider packages di
 claude mcp add --scope user ask-llm -- npx -y ask-llm-mcp
 
 # Or per-provider (longer tool names, more granular control)
-claude mcp add --scope user gemini -- npx -y ask-gemini-mcp
-claude mcp add --scope user codex  -- npx -y ask-codex-mcp
-claude mcp add --scope user ollama -- npx -y ask-ollama-mcp
+claude mcp add --scope user codex       -- npx -y ask-codex-mcp
+claude mcp add --scope user antigravity -- npx -y ask-antigravity-mcp
+claude mcp add --scope user ollama      -- npx -y ask-ollama-mcp
+claude mcp add --scope user gemini      -- npx -y ask-gemini-mcp
 ```
 
 ### Option B: Claude Desktop

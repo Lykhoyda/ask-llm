@@ -26,6 +26,13 @@
 - **File:** `packages/claude-plugin/scripts/lib/stop-gate.mjs:13`
 - **Description:** porcelain v1 quotes paths containing special characters; the parser strips the surrounding quotes but doesn't unescape the body, so such paths never match log-entry paths and the Stop-gate's `[B]` git-dirty filter drops their HIGH findings (fail-open, never a wrong block). Fix direction: `git status --porcelain=v1 -z` with a NUL parser.
 
+### ~~`apps/docs/getting-started.md` omitted Antigravity from provider lists + the Claude Code registration block~~ FIXED
+- **Severity:** Low (docs-only; the onboarding page under-documented a shipped provider, so a new user following Getting Started never saw how to register `agy`)
+- **Discovered:** 2026-07-04, docs pass ("update docs — it should register agy")
+- **File:** `apps/docs/getting-started.md`
+- **Description:** `installation.md`, `README.md`, and both AI-readable files (`public/llms.txt`, `public/llms-full.txt`) all register Antigravity (`claude mcp add … antigravity -- npx -y ask-antigravity-mcp`), but the older Getting Started onboarding page — written around the original 3-provider (Gemini/Codex/Ollama) story — was never backfilled after Antigravity shipped (ADR-125 / PR #192). The same drift left a hardcoded "install one or all three" count and a "(Gemini, Codex, or Ollama)" start-with example. Root cause matches the 2026-07-02 `llms.txt` drift bug: two pages document the same install story and only the newer one was kept current when the provider set grew.
+- **Status:** **FIXED** (`docs/getting-started-antigravity-register`): Antigravity added to the Step-2 per-provider package list and the Option A `claude mcp add` block (reordered Codex → Antigravity → Ollama → Gemini to match the page's own "which provider first?" tip); the two hardcoded provider counts made provider-neutral ("all of them", "(Codex, Antigravity, Ollama, or Gemini)") to resist recurrence. Registration parity verified across all five doc surfaces.
+
 ### ~~AI-readable docs (`llms.txt` / `llms-full.txt`) advertised a wrong `fetch-chunk` param name and other schema drift~~ FIXED
 - **Severity:** High for the headline (an AI agent following the reference sends an argument the Zod schema rejects); Medium for the rest
 - **Discovered:** 2026-07-02, dogfood codex-pair review during the AI-readable docs drift-fix pass (the HIGH was pre-existing in the original files, not introduced by the fix)
