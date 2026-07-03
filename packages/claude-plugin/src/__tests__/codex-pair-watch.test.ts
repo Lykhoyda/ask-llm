@@ -4,6 +4,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { clearSession, readRegisteredMarkers } from "../../scripts/lib/session-registry.mjs";
 import { PLUGIN_ROOT, readFile } from "./_helpers.js";
 
 const HOOK_PATH = path.join(PLUGIN_ROOT, "scripts", "codex-pair-watch.mjs");
@@ -4656,5 +4657,38 @@ describe("scripts/codex-pair-watch.mjs — MultiEdit + parallel-fire fixtures", 
     expect(elapsedMs).toBeLessThan(5000);
     const lines = readLog(tempDir);
     expect(lines.find((l) => l.verdict === "none")).toBeTruthy();
+  });
+});
+
+describe("codex-pair-watch.mjs — session registry (#209)", () => {
+  let repo: string;
+  const SESSION = `cp-watch-reg-${process.pid}`;
+
+  beforeEach(() => {
+    repo = fs.mkdtempSync(path.join(os.tmpdir(), "cp-watch-reg-"));
+    fs.mkdirSync(path.join(repo, ".codex-pair"), { recursive: true });
+    fs.writeFileSync(path.join(repo, ".codex-pair", "context.md"), "# ctx");
+  });
+  afterEach(() => {
+    clearSession(SESSION);
+    fs.rmSync(repo, { recursive: true, force: true });
+  });
+
+  it("registers the edited repo's marker under the payload session_id (skipped file → no codex call)", () => {
+    // A .png hits SKIP_PATTERNS, so the hook registers the marker and exits 0
+    // BEFORE any codex spawn — registration sits above the skip gate. The raw
+    // markerDir (dirname of the absolute file_path) is what gets registered.
+    const res = spawnSync("node", [HOOK_PATH], {
+      input: JSON.stringify({
+        tool_name: "Edit",
+        tool_input: { file_path: path.join(repo, "logo.png") },
+        session_id: SESSION,
+      }),
+      cwd: repo,
+      encoding: "utf-8",
+      timeout: 10_000,
+    });
+    expect(res.status).toBe(0);
+    expect(readRegisteredMarkers(SESSION)).toContain(repo);
   });
 });
