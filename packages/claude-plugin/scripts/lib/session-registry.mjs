@@ -33,7 +33,15 @@ const ttlOverride = Number(process.env.CODEX_PAIR_SESSION_REGISTRY_TTL_MS);
 export const SESSION_REGISTRY_TTL_MS =
   Number.isFinite(ttlOverride) && ttlOverride > 0 ? ttlOverride : DEFAULT_SESSION_REGISTRY_TTL_MS;
 
-export const sessionRegistryRoot = () => join(tmpdir(), SESSION_REGISTRY_DIRNAME);
+// Registry root: always `<base>/codex-pair-sessions`, where <base> is
+// CODEX_PAIR_SESSION_REGISTRY_ROOT (tests point it at an isolated fixture dir;
+// containerized setups relocate it) or os.tmpdir() by default. The env var is a
+// BASE dir, never used raw as the sweep root — sweepStaleSessions rmSyncs stale
+// child dirs, so pointing the root straight at /tmp, $HOME, or a repo would let
+// it delete unrelated data. Appending the dedicated SESSION_REGISTRY_DIRNAME
+// confines every sweep to a codex-pair-owned subdir it can't escape.
+export const sessionRegistryRoot = () =>
+  join(process.env.CODEX_PAIR_SESSION_REGISTRY_ROOT || tmpdir(), SESSION_REGISTRY_DIRNAME);
 
 function hash16(value) {
   return createHash("sha256").update(String(value)).digest("hex").slice(0, 16);

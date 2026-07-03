@@ -1,16 +1,34 @@
 import * as fs from "node:fs";
+import * as os from "node:os";
 import * as path from "node:path";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import {
   clearSession,
   collectSessionMarkers,
   readRegisteredMarkers,
   registerMarker,
   sessionDir,
+  sessionRegistryRoot,
   sweepStaleSessions,
 } from "../../scripts/lib/session-registry.mjs";
 
-// Unique session id per test keeps the shared os.tmpdir() registry isolated.
+// Point the registry root at a private fixture dir so the destructive TTL sweep
+// tests never touch the shared os.tmpdir() root — which holds this dev machine's
+// real codex-pair session state (and any parallel test run's fixtures).
+let registryRoot: string;
+let prevRoot: string | undefined;
+beforeAll(() => {
+  prevRoot = process.env.CODEX_PAIR_SESSION_REGISTRY_ROOT;
+  registryRoot = fs.mkdtempSync(path.join(os.tmpdir(), "cp-registry-root-"));
+  process.env.CODEX_PAIR_SESSION_REGISTRY_ROOT = registryRoot;
+});
+afterAll(() => {
+  if (prevRoot === undefined) delete process.env.CODEX_PAIR_SESSION_REGISTRY_ROOT;
+  else process.env.CODEX_PAIR_SESSION_REGISTRY_ROOT = prevRoot;
+  fs.rmSync(registryRoot, { recursive: true, force: true });
+});
+
+// Unique session id per test keeps fixtures within the isolated root distinct.
 let counter = 0;
 const sid = () => `cp-test-session-${process.pid}-${counter++}`;
 const sessions: string[] = [];
@@ -28,6 +46,14 @@ describe("session-registry", () => {
     const s = track(sid());
     registerMarker(s, "/repo/a");
     expect(readRegisteredMarkers(s)).toEqual(["/repo/a"]);
+  });
+
+  it("namespaces CODEX_PAIR_SESSION_REGISTRY_ROOT as a base dir, never the raw sweep root", () => {
+    // The destructive TTL sweep rmSyncs stale child dirs, so the env var must be
+    // treated as a BASE and suffixed with the dedicated subdir — otherwise
+    // pointing it at /tmp or $HOME would let the sweep delete unrelated data.
+    expect(sessionRegistryRoot()).toBe(path.join(registryRoot, "codex-pair-sessions"));
+    expect(path.basename(sessionRegistryRoot())).toBe("codex-pair-sessions");
   });
 
   it("is idempotent and dedupes across repeat + multi registrations", () => {
@@ -127,7 +153,7 @@ describe("session-registry", () => {
   it("falls back to the default TTL when the env override is non-numeric", async () => {
     // A non-numeric override → Number(...) is NaN, which would silently disable
     // the sweep (newest < now-NaN is always false). The Number.isFinite guard
-    // must fall back to the 24h default. Re-import fresh so the module-level
+    // must fall back to the 7-day default. Re-import fresh so the module-level
     // const re-evaluates against the overridden env.
     const prev = process.env.CODEX_PAIR_SESSION_REGISTRY_TTL_MS;
     process.env.CODEX_PAIR_SESSION_REGISTRY_TTL_MS = "not-a-number";

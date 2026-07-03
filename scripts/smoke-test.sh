@@ -78,6 +78,17 @@ run_smoke() {
   return "$rc"
 }
 
+# Optional git-ignored local overrides for contributors whose machine can't run
+# a factory-default provider model (e.g. Ollama's qwen3.6:27b is too big for this
+# box). Export env such as ASK_OLLAMA_MODEL here to steer just the smoke run — the
+# published FACTORY_DEFAULT_MODEL and CI are unaffected. See
+# scripts/smoke-test.local.sh.example for a template.
+SMOKE_LOCAL="$(CDPATH= cd "$(dirname "$0")" && pwd)/smoke-test.local.sh"
+if [ -f "$SMOKE_LOCAL" ]; then
+  echo ">> sourcing local smoke overrides: $SMOKE_LOCAL"
+  . "$SMOKE_LOCAL"
+fi
+
 echo "=== Smoke Tests ==="
 echo ""
 

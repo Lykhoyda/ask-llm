@@ -55,3 +55,8 @@ skills-lock.json
 # requires the directory to be gitignored so worktree contents don't
 # accidentally land in commits to main.
 .worktrees/
+
+# Local, per-developer smoke-test overrides (e.g. a smaller ASK_OLLAMA_MODEL for
+# machines that can't run the factory-default). Sourced by scripts/smoke-test.sh
+# if present; the committed .example is the template.
+scripts/smoke-test.local.sh
