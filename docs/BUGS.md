@@ -2,6 +2,13 @@
 
 ## Open
 
+### `/compare` excludes Antigravity while `/brainstorm-all` and `/multi-review` include it
+- **Severity:** Low (feature-parity gap, not a correctness bug — the skill's docs are self-consistent with its implementation)
+- **Discovered:** 2026-07-04, docs-consistency audit
+- **File:** `packages/claude-plugin/skills/compare/SKILL.md` (description + dispatch block)
+- **Description:** `/compare` dispatches to gemini/codex/ollama only — its bash has exactly three `*-run.js` legs and its description says "what do Gemini, Codex, and Ollama think." Since Antigravity became a first-class provider (ADR-125/128), `/brainstorm-all` and `/multi-review` both include it, but `/compare` was never extended. Not classed as docs drift because the docs match the code; closing it is a **behavior change** — add a fourth `GMCPT_TIMEOUT_MS=… node …/antigravity-run.js` dispatch + its wait/echo lines and update the description/prose.
+- **Decision needed:** include Antigravity in `/compare`'s default set (parity with `/brainstorm-all`), or keep it deliberately 3-provider and document why. Deferred pending maintainer call.
+
 ### `apps/docs/plugin/hooks.md` marketplace workaround relies on GNU-only `sort -V`
 - **Severity:** Low (docs-only; the workaround command silently misbehaves on macOS/BSD `sort`)
 - **Discovered:** 2026-07-02, dogfood codex-pair review of the hooks docs page during the seamless-pairing pass
@@ -25,6 +32,13 @@
 - **Discovered:** 2026-07-02, dogfood codex-pair review during the seamless-pairing pass
 - **File:** `packages/claude-plugin/scripts/lib/stop-gate.mjs:13`
 - **Description:** porcelain v1 quotes paths containing special characters; the parser strips the surrounding quotes but doesn't unescape the body, so such paths never match log-entry paths and the Stop-gate's `[B]` git-dirty filter drops their HIGH findings (fail-open, never a wrong block). Fix direction: `git status --porcelain=v1 -z` with a NUL parser.
+
+### ~~Docs omitted Antigravity + two factual errors across README env/tool tables (post-getting-started sweep)~~ FIXED
+- **Severity:** Medium for the two factual errors (a user configuring the codex timeout, or reading the orchestrator's tool surface, gets wrong information); Low for the parity omissions
+- **Discovered:** 2026-07-04, deterministic docs-consistency audit following the getting-started registration fix
+- **Files:** `packages/codex-mcp/README.md`, `packages/llm-mcp/README.md`, `docs/CONTRIBUTING.md`, `apps/docs/providers/unified.md`, `apps/docs/plugin/overview.md`, `apps/docs/plugin/hooks.md`, `apps/docs/resources/faq.md`, `packages/claude-plugin/README.md`
+- **Description:** (1) `codex-mcp/README.md` documented codex's per-call timeout as `GMCPT_TIMEOUT_MS`=`210000` (Gemini's default, copy-pasted) and omitted `ASK_CODEX_TIMEOUT_MS` — codex's real default is **800s**; (2) `llm-mcp/README.md`'s Tools table listed **per-provider** tools (`ask-gemini`, `ask-gemini-edit`, `fetch-chunk`, `ask-codex`, `ask-ollama`) as the orchestrator's surface, contradicting the single-`ask-llm`-tool design (ADR-029); (3) `CONTRIBUTING.md` listed the pre-push smoke legs as "Gemini, Codex, Ollama" after commit `8ff2b32` swapped the Gemini leg for Antigravity; (4) Antigravity (4th provider, ADR-128) was missing from several provider lists/counts ("all three" in unified/overview/hooks/plugin-README, the `ask-llm` provider param, `/brainstorm-all`'s "three external providers", the plugin CLI-binaries count). Same root cause as the getting-started and 2026-07-02 `llms.txt` drift: hand-written "Gemini, Codex, Ollama" trios and provider counts not backfilled when Antigravity landed.
+- **Status:** **FIXED** (`docs/getting-started-antigravity-register`, PR #218): 16 spots across 8 files corrected — timeout row now shows `ASK_CODEX_TIMEOUT_MS`=`800000`; the orchestrator Tools table rewritten to the real `ask-llm`/`multi-llm`/`get-usage-stats`/`diagnose`/`ping` surface; smoke legs corrected; Antigravity backfilled into every count/list; session-continuity claims reworded to name the three session-capable providers explicitly. Verified with `grep 'gemini, codex, ollama'` minus `antigravity` (only legitimate non-provider hits remain).
 
 ### ~~`apps/docs/getting-started.md` omitted Antigravity from provider lists + the Claude Code registration block~~ FIXED
 - **Severity:** Low (docs-only; the onboarding page under-documented a shipped provider, so a new user following Getting Started never saw how to register `agy`)

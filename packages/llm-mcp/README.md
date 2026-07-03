@@ -10,7 +10,7 @@
 
 </div>
 
-A unified [MCP](https://modelcontextprotocol.io/) server that auto-detects installed LLM providers (Gemini, Codex, Ollama) and registers only the available tools. One install, all providers. Works with Claude Code, Claude Desktop, Cursor, Warp, Copilot, and [40+ other MCP clients](https://modelcontextprotocol.io/clients).
+A unified [MCP](https://modelcontextprotocol.io/) server that auto-detects installed LLM providers (Gemini, Codex, Ollama, Antigravity) and registers only the available tools. One install, all providers. Works with Claude Code, Claude Desktop, Cursor, Warp, Copilot, and [40+ other MCP clients](https://modelcontextprotocol.io/clients).
 
 Part of the [Ask LLM](https://github.com/Lykhoyda/ask-llm) monorepo.
 
@@ -49,23 +49,22 @@ Add to `claude_desktop_config.json`:
 
 On startup, the unified server:
 
-1. Checks CLI availability via `which` (Gemini, Codex)
+1. Checks CLI availability via `which` (Gemini, Codex, Antigravity)
 2. Checks HTTP availability via health endpoints (Ollama)
 3. Dynamically imports and registers tools from available providers
 4. Exposes only the tools for providers that are actually installed
 
 ## Tools
 
-All tools from installed providers are registered. If you have all three:
+The orchestrator exposes a **single `ask-llm` tool** (not one tool per provider — ADR-029, for token efficiency); you pick the provider per call. When any provider is installed it registers:
 
-| Tool | Provider |
-|------|----------|
-| `ask-gemini` | Gemini |
-| `ask-gemini-edit` | Gemini |
-| `fetch-chunk` | Gemini |
-| `ask-codex` | Codex |
-| `ask-ollama` | Ollama |
-| `ping` | All |
+| Tool | Purpose |
+|------|---------|
+| `ask-llm` | Route a prompt to a provider via the `provider` param (`gemini`, `codex`, `ollama`, `antigravity`); optional `sessionId` for multi-turn |
+| `multi-llm` | Dispatch one prompt to multiple providers in parallel; structured per-provider report |
+| `get-usage-stats` | Per-session token totals + per-provider/model breakdowns (in-memory) |
+| `diagnose` | Environment diagnostics — provider CLI presence + versions |
+| `ping` | Connection test |
 
 ## Documentation
 

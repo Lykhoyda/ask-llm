@@ -15,7 +15,7 @@ A set of MCP servers that bridge your AI client (Claude Code, Claude Desktop, Cu
 - **One interface for every provider** — you don't switch between separate CLIs
 - **Multi-provider parallel dispatch** — `multi-llm` and `/compare` send the same prompt to multiple providers in one call
 - **Verified code review** — `/multi-review` cross-checks each finding against source before presenting (catches false positives)
-- **Session continuity across providers** — `sessionId` works the same way for all three
+- **Session continuity across providers** — `sessionId` works the same way for the three session-capable providers (Gemini, Codex, Ollama); Antigravity is single-turn
 - **Built-in operational hardening** — quota fallback, PATH resolution, stdin handling, stream-json output for live progressive content
 - **Diagnostic surface** — `npx ask-llm-mcp doctor` and the `diagnose` MCP tool tell you what's wrong before you have to investigate
 
