@@ -3,6 +3,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { clearSession, registerMarker } from "../../scripts/lib/session-registry.mjs";
 import {
   collectBlockingHighs,
   collectInFlight,
@@ -332,5 +333,113 @@ describe("codex-pair-stop-gate.mjs — runtime (pending drain + in-flight block)
     expect(out.decision).toBe("block");
     expect(out.reason).toMatch(/H-finding/);
     expect(out.reason).toMatch(/queued verdict text/);
+  });
+});
+
+describe("codex-pair-stop-gate.mjs — cross-repo (#209)", () => {
+  const GATE_PATH = path.join(PLUGIN_ROOT, "scripts", "codex-pair-stop-gate.mjs");
+  let cwdRepo: string;
+  let otherRepo: string;
+  const SESSION = `cp-gate-xrepo-${process.pid}`;
+
+  beforeEach(() => {
+    cwdRepo = fs.mkdtempSync(path.join(os.tmpdir(), "cp-gate-cwd-"));
+    otherRepo = fs.mkdtempSync(path.join(os.tmpdir(), "cp-gate-other-"));
+    for (const r of [cwdRepo, otherRepo]) fs.mkdirSync(path.join(r, ".codex-pair"), { recursive: true });
+    // cwd repo has a marker but no findings.
+    fs.writeFileSync(path.join(cwdRepo, ".codex-pair", "context.md"), "# ctx");
+  });
+  afterEach(() => {
+    clearSession(SESSION);
+    fs.rmSync(cwdRepo, { recursive: true, force: true });
+    fs.rmSync(otherRepo, { recursive: true, force: true });
+  });
+
+  function run(session?: string) {
+    return spawnSync("node", [GATE_PATH], {
+      input: JSON.stringify({ hook_event_name: "Stop", ...(session ? { session_id: session } : {}) }),
+      cwd: cwdRepo,
+      encoding: "utf-8",
+      timeout: 10_000,
+    });
+  }
+
+  it("drains a registered non-cwd repo's pending verdict via additionalContext", () => {
+    fs.writeFileSync(path.join(otherRepo, ".codex-pair", "context.md"), "# ctx"); // no blockOn
+    const pend = path.join(otherRepo, ".codex-pair", "state", "pending");
+    fs.mkdirSync(pend, { recursive: true });
+    fs.writeFileSync(
+      path.join(pend, "seed.json"),
+      JSON.stringify({ file: "/x", message: "[codex-pair] reviewed q.ts — 1H/0M/0L" }),
+    );
+    registerMarker(SESSION, otherRepo);
+
+    const res = run(SESSION);
+    expect(res.status).toBe(0);
+    const out = JSON.parse(res.stdout.trim());
+    expect(out.decision).toBeUndefined();
+    expect(out.hookSpecificOutput?.additionalContext).toMatch(/reviewed q\.ts/);
+    expect(fs.readdirSync(pend).filter((f) => f.endsWith(".json"))).toEqual([]);
+  });
+
+  it("blocks turn-end on an unaddressed HIGH in a registered non-cwd repo", () => {
+    fs.writeFileSync(path.join(otherRepo, ".codex-pair", "context.md"), "---\nblockOn: HIGH\n---\n# ctx");
+    const target = path.join(otherRepo, "auth.ts");
+    fs.writeFileSync(target, "export const x = 1;\n");
+    fs.writeFileSync(
+      path.join(otherRepo, ".codex-pair", "log.jsonl"),
+      `${JSON.stringify({ file: target, verdict: "concerns", concerns: { high: ["missing await on mutation"] } })}\n`,
+    );
+    registerMarker(SESSION, otherRepo);
+
+    const res = run(SESSION);
+    expect(res.status).toBe(0);
+    const out = JSON.parse(res.stdout.trim());
+    expect(out.decision).toBe("block");
+    expect(out.reason).toMatch(/unaddressed HIGH/);
+    expect(out.reason).toMatch(/auth\.ts/);
+  });
+
+  it("without session_id, the non-cwd HIGH does NOT block (cwd-only fallback)", () => {
+    fs.writeFileSync(path.join(otherRepo, ".codex-pair", "context.md"), "---\nblockOn: HIGH\n---\n# ctx");
+    const target = path.join(otherRepo, "auth.ts");
+    fs.writeFileSync(target, "export const x = 1;\n");
+    fs.writeFileSync(
+      path.join(otherRepo, ".codex-pair", "log.jsonl"),
+      `${JSON.stringify({ file: target, verdict: "concerns", concerns: { high: ["missing await"] } })}\n`,
+    );
+    registerMarker(SESSION, otherRepo);
+
+    const res = run(); // no session_id
+    expect(res.status).toBe(0);
+    expect(res.stdout.trim()).toBe("");
+  });
+
+  it("caps surfaced verdicts globally across markers, not per-repo", () => {
+    // 5 pending in cwd repo + 5 in the registered repo = 10 total. The
+    // MAX_SURFACE_VERDICTS (8) cap must apply ONCE across markers → exactly one
+    // "+2 more" trailer. The pre-fix per-marker cap would show all 10 with no
+    // trailer (5 ≤ 8 in each repo).
+    fs.writeFileSync(path.join(otherRepo, ".codex-pair", "context.md"), "# ctx"); // no blockOn
+    const seed = (repo: string, n: number, tag: string) => {
+      const pend = path.join(repo, ".codex-pair", "state", "pending");
+      fs.mkdirSync(pend, { recursive: true });
+      for (let i = 0; i < n; i++) {
+        fs.writeFileSync(
+          path.join(pend, `${tag}-${i}.json`),
+          JSON.stringify({ file: `/x/${tag}${i}`, message: `[codex-pair] ${tag} verdict ${i}` }),
+        );
+      }
+    };
+    seed(cwdRepo, 5, "cwd");
+    seed(otherRepo, 5, "other");
+    registerMarker(SESSION, otherRepo);
+
+    const res = run(SESSION);
+    expect(res.status).toBe(0);
+    const out = JSON.parse(res.stdout.trim());
+    const ctx = out.hookSpecificOutput?.additionalContext ?? "";
+    expect(ctx).toMatch(/\+2 more verdict\(s\) drained/);
+    expect((ctx.match(/more verdict\(s\) drained/g) || []).length).toBe(1);
   });
 });

@@ -85,6 +85,7 @@ import {
   updateRepetitions,
   writeAutoPause,
 } from "./lib/state.mjs";
+import { registerMarker } from "./lib/session-registry.mjs";
 
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
 const DEFAULTS_PATH = join(SCRIPT_DIR, "..", "codex-pair-defaults.json");
@@ -999,6 +1000,13 @@ async function main() {
   markerAnchor = dirname(filePath);
   const markerDir = await findMarkerUp(markerAnchor);
   if (!markerDir) process.exit(0);
+
+  // ADR-131 (#209): record this repo as active in this session so the
+  // cwd-anchored Stop/UserPromptSubmit drains + blockOn:HIGH gate can see it at
+  // turn-end even when Claude Code's cwd is a DIFFERENT repo. Placed above the
+  // skip/ignore gates so a repo with earlier HIGH findings still registers even
+  // when this particular edit is skipped. Best-effort; must not affect review.
+  registerMarker(payload?.session_id, markerDir);
 
   const pauseInfo = readPauseInfo(markerDir);
   if (pauseInfo) {

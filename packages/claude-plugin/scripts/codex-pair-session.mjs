@@ -22,6 +22,7 @@ import {
   readPluginVersion,
   resolveAutoResume,
 } from "./lib/state.mjs";
+import { clearSession } from "./lib/session-registry.mjs";
 
 const MARKER_FILE = join(PAIR_ROOT_DIR, CONTEXT_FILENAME);
 
@@ -163,6 +164,13 @@ async function main() {
       } catch {
         // best-effort (ADR-077)
       }
+    }
+    // ADR-131 (#209): drop this session's cross-repo marker registry. Keyed by
+    // session_id, not cwd — so it cleans up regardless of which repo cwd is.
+    try {
+      clearSession(payload?.session_id);
+    } catch {
+      // best-effort (ADR-077)
     }
   }
 
