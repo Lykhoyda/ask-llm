@@ -28,6 +28,7 @@ import {
   parseGitPorcelain,
   selectLatestEntries,
 } from "./lib/stop-gate.mjs";
+import { collectSessionMarkers } from "./lib/session-registry.mjs";
 
 const MARKER_FILE = join(PAIR_ROOT_DIR, CONTEXT_FILENAME);
 
@@ -158,6 +159,59 @@ function canonicalizeEntries(entries) {
   return out;
 }
 
+// Evaluate one project marker: drain its pending verdicts and, if it opted into
+// blockOn:HIGH, compute whether it wants to block (unaddressed HIGH and/or an
+// in-flight review). Returns marker-scoped text; aggregation happens in main().
+// Reads in-flight state from the RAW markerDir (matches where the watch hook
+// writes it); canonicalizes only for git/log path alignment (macOS /var).
+// Only blocking I/O is gitDirtySet (two git calls, each hard-capped at 5s), so
+// the sequential per-marker cost is bounded even for several registered repos.
+function evaluateMarker(markerDir) {
+  const pending = drainPending(markerDir);
+  const pendingText = pending.length > 0 ? joinPendingForSurface(pending) : null;
+
+  if (readBlockOn(markerDir) !== "HIGH") {
+    return { pendingText, blockReason: null };
+  }
+
+  const inFlight = collectInFlight({
+    ...readInFlightInputs(markerDir),
+    now: Date.now(),
+    freshMs: inflightFreshMs(markerDir),
+  });
+
+  let canonical = markerDir;
+  try {
+    canonical = realpathSync(markerDir);
+  } catch {
+    // keep raw on the rare realpath failure
+  }
+
+  let logText = "";
+  try {
+    logText = readFileSync(logPath(canonical), "utf8");
+  } catch {
+    // no log yet — an in-flight first-ever review can still block below
+  }
+
+  const blocking = collectBlockingHighs({
+    entries: canonicalizeEntries(selectLatestEntries(logText)),
+    acks: readAcks(canonical),
+    existsFn: existsSync,
+    gitDirty: gitDirtySet(canonical),
+    markerDir: canonical,
+  });
+
+  let blockReason = null;
+  if (blocking.length > 0) {
+    blockReason = formatBlockMessage(blocking, canonical);
+    if (inFlight.any) blockReason = `${formatInFlightMessage(inFlight, canonical)}\n\n${blockReason}`;
+  } else if (inFlight.any) {
+    blockReason = formatInFlightMessage(inFlight, canonical);
+  }
+  return { pendingText, blockReason };
+}
+
 async function main() {
   const raw = await readStdin();
   let payload;
@@ -169,74 +223,37 @@ async function main() {
   if (payload?.hook_event_name !== "Stop") process.exit(0);
   if (payload?.stop_hook_active) process.exit(0);
 
-  let markerDir = findMarkerUp(process.cwd());
-  if (!markerDir) process.exit(0);
+  // ADR-131 (#209): evaluate EVERY repo active this session, not just cwd. The
+  // cwd marker may even be null (cwd repo has no .codex-pair) while edits landed
+  // in a registered sibling repo — so we no longer early-exit on a missing cwd
+  // marker; collectSessionMarkers unions cwd (if any) with the registered set.
+  const cwdMarker = findMarkerUp(process.cwd());
+  const markers = collectSessionMarkers(cwdMarker, payload?.session_id);
+  if (markers.length === 0) process.exit(0);
 
-  // Drain queued debounce verdicts at turn-end (2026-07-02 seamless-pairing
-  // design) — previously they waited for the NEXT edit or user prompt, i.e.
-  // after Claude already said "done". Delivered below on whichever path runs:
-  // folded into the block reason, or as non-blocking Stop additionalContext.
-  const pending = drainPending(markerDir);
-  const pendingText = pending.length > 0 ? joinPendingForSurface(pending) : null;
-
-  if (readBlockOn(markerDir) !== "HIGH") {
-    if (pendingText) {
-      writeAndExit({
-        hookSpecificOutput: { hookEventName: "Stop", additionalContext: pendingText },
-      });
-      return;
-    }
-    process.exit(0);
+  const pendingTexts = [];
+  const blockReasons = [];
+  for (const markerDir of markers) {
+    const { pendingText, blockReason } = evaluateMarker(markerDir);
+    if (pendingText) pendingTexts.push(pendingText);
+    if (blockReason) blockReasons.push(blockReason);
   }
+  const pendingCombined = pendingTexts.length > 0 ? pendingTexts.join("\n\n") : null;
 
-  // In-flight detection reads the RAW markerDir (matches where the watch hook
-  // writes state); canonicalization below is only for git/log path alignment.
-  const inFlight = collectInFlight({
-    ...readInFlightInputs(markerDir),
-    now: Date.now(),
-    freshMs: inflightFreshMs(markerDir),
-  });
-
-  // Canonicalize so markerDir aligns with git's realpath'd repo root (macOS).
-  try {
-    markerDir = realpathSync(markerDir);
-  } catch {
-    // keep raw on the rare realpath failure
-  }
-
-  let logText = "";
-  try {
-    logText = readFileSync(logPath(markerDir), "utf8");
-  } catch {
-    // no log yet — in-flight reviews (first ever review) can still block below
-  }
-
-  const blocking = collectBlockingHighs({
-    entries: canonicalizeEntries(selectLatestEntries(logText)),
-    acks: readAcks(markerDir),
-    existsFn: existsSync,
-    gitDirty: gitDirtySet(markerDir),
-    markerDir,
-  });
-
-  if (blocking.length > 0) {
-    let reason = formatBlockMessage(blocking, markerDir);
-    if (inFlight.any) reason = `${formatInFlightMessage(inFlight, markerDir)}\n\n${reason}`;
-    if (pendingText) reason = `${pendingText}\n\n${reason}`;
+  // Block if ANY marker blocks; each repo keeps its own blockOn/timeoutMs. The
+  // block reason folds in every blocking marker's message plus all pending text;
+  // a non-blocking turn with pending verdicts surfaces them as Stop
+  // additionalContext (preserved ADR-130 channel — block path uses `reason`).
+  if (blockReasons.length > 0) {
+    let reason = blockReasons.join("\n\n");
+    if (pendingCombined) reason = `${pendingCombined}\n\n${reason}`;
     writeAndExit({ decision: "block", reason });
     return;
   }
 
-  if (inFlight.any) {
-    let reason = formatInFlightMessage(inFlight, markerDir);
-    if (pendingText) reason = `${pendingText}\n\n${reason}`;
-    writeAndExit({ decision: "block", reason });
-    return;
-  }
-
-  if (pendingText) {
+  if (pendingCombined) {
     writeAndExit({
-      hookSpecificOutput: { hookEventName: "Stop", additionalContext: pendingText },
+      hookSpecificOutput: { hookEventName: "Stop", additionalContext: pendingCombined },
     });
     return;
   }
