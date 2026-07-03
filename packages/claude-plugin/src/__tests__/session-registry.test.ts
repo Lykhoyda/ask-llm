@@ -68,6 +68,16 @@ describe("session-registry", () => {
     expect(collectSessionMarkers(null, s).sort()).toEqual(["/repo/a", "/repo/b"]);
   });
 
+  it("writes entries atomically — no lingering .tmp, entry is valid JSON", () => {
+    const s = track(sid());
+    registerMarker(s, "/repo/atomic");
+    const files = fs.readdirSync(sessionDir(s));
+    expect(files.filter((f) => f.endsWith(".json"))).toHaveLength(1);
+    expect(files.some((f) => f.includes(".tmp"))).toBe(false);
+    const entry = JSON.parse(fs.readFileSync(path.join(sessionDir(s), files[0]), "utf8"));
+    expect(entry.markerDir).toBe("/repo/atomic");
+  });
+
   it("clearSession removes the whole entry", () => {
     const s = track(sid());
     registerMarker(s, "/repo/a");
@@ -125,7 +135,7 @@ describe("session-registry", () => {
       vi.resetModules();
       const mod = await import("../../scripts/lib/session-registry.mjs");
       expect(Number.isFinite(mod.SESSION_REGISTRY_TTL_MS)).toBe(true);
-      expect(mod.SESSION_REGISTRY_TTL_MS).toBe(24 * 60 * 60 * 1000);
+      expect(mod.SESSION_REGISTRY_TTL_MS).toBe(7 * 24 * 60 * 60 * 1000);
     } finally {
       if (prev === undefined) delete process.env.CODEX_PAIR_SESSION_REGISTRY_TTL_MS;
       else process.env.CODEX_PAIR_SESSION_REGISTRY_TTL_MS = prev;

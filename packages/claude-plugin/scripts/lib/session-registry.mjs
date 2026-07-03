@@ -14,13 +14,18 @@
 // Zero workspace imports (marketplace git-subdir install has no node_modules).
 // Every export is best-effort and MUST NOT throw (ADR-077).
 
-import { mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, readdirSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 export const SESSION_REGISTRY_DIRNAME = "codex-pair-sessions";
-const DEFAULT_SESSION_REGISTRY_TTL_MS = 24 * 60 * 60 * 1000;
+// 7-day default. The sweep only reclaims crash-orphaned dirs (SessionEnd clears
+// them normally), so a long TTL is cheap — and it shrinks the window in which one
+// session's sweep could delete a *concurrent* live-but-idle session's registry
+// (see the accepted-limitation note in ADR-131; the case self-corrects on that
+// session's next edit). Override via CODEX_PAIR_SESSION_REGISTRY_TTL_MS.
+const DEFAULT_SESSION_REGISTRY_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 // Guard a non-numeric env override: Number("nope") is NaN, which would make
 // sweepStaleSessions' `newest < (now - NaN)` always false and silently disable
 // the sweep (slow tmpdir leak). Mirrors the stop-gate's inflightFreshMs guard.
@@ -45,12 +50,18 @@ export function registerMarker(sessionId, markerDir) {
   if (!sessionId || !markerDir) return;
   try {
     mkdirSync(sessionDir(sessionId), { recursive: true });
-    // Overwrite is fine (idempotent) — a single write, no read-modify-write,
-    // so concurrent registrations of DIFFERENT repos never clobber each other.
-    writeFileSync(
-      markerEntryPath(sessionId, markerDir),
-      JSON.stringify({ markerDir, at: new Date().toISOString() }),
-    );
+    const p = markerEntryPath(sessionId, markerDir);
+    // Atomic tmp+rename (ADR-086/091, matching state.mjs/debounce-state.mjs): a
+    // plain writeFileSync truncates the target before the new bytes are durable,
+    // so an interrupted write or a concurrent readRegisteredMarkers could see an
+    // empty/partial JSON file — which readRegisteredMarkers skips as malformed,
+    // silently dropping that repo from the session set (the exact gap this
+    // registry closes). rename is atomic, so readers see old-or-new, never torn.
+    // Overwrite is idempotent; per-(session,project) files mean concurrent
+    // registrations of DIFFERENT repos never clobber each other.
+    const tmp = `${p}.tmp.${process.pid}`;
+    writeFileSync(tmp, JSON.stringify({ markerDir, at: new Date().toISOString() }));
+    renameSync(tmp, p);
   } catch {
     // best-effort (ADR-077) — a registry write failure must never affect review
   }
