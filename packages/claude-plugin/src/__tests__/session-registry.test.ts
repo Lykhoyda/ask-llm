@@ -153,7 +153,7 @@ describe("session-registry", () => {
   it("falls back to the default TTL when the env override is non-numeric", async () => {
     // A non-numeric override → Number(...) is NaN, which would silently disable
     // the sweep (newest < now-NaN is always false). The Number.isFinite guard
-    // must fall back to the 24h default. Re-import fresh so the module-level
+    // must fall back to the 7-day default. Re-import fresh so the module-level
     // const re-evaluates against the overridden env.
     const prev = process.env.CODEX_PAIR_SESSION_REGISTRY_TTL_MS;
     process.env.CODEX_PAIR_SESSION_REGISTRY_TTL_MS = "not-a-number";
