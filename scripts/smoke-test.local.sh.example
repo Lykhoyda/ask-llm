@@ -1,0 +1,15 @@
+# Local, git-ignored smoke-test overrides. Copy to `smoke-test.local.sh`
+# (same dir) and edit — scripts/smoke-test.sh sources it if present.
+#
+# Use this when your machine can't run a provider's factory-default model.
+# The published defaults (pinned by contract tests) and CI stay unchanged;
+# only your local pre-push smoke run is affected.
+#
+# Example — the factory-default Ollama model (qwen3.6:27b) is too big for this
+# box, so point the smoke run at a small model you've already `ollama pull`ed:
+#
+#   export ASK_OLLAMA_MODEL="qwen2.5-coder:1.5b"
+#
+# Other knobs you might set locally (see docs/PROVIDER-PARITY.md):
+#   export ASK_OLLAMA_TIMEOUT_MS="120000"
+#   export ASK_CODEX_MODEL="..."
