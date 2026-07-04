@@ -260,10 +260,11 @@ describe("compare skill — load-bearing structure", () => {
     expect(body).toMatch(/verbatim|do NOT paraphrase|do not adjudicate|stay neutral/i);
   });
 
-  it("uses the dist/ runner binaries (not raw provider CLIs)", () => {
+  it("uses the dist/ runner binaries for all four providers (not raw provider CLIs)", () => {
     expect(body).toMatch(/dist\/run\.js/);
     expect(body).toMatch(/dist\/codex-run\.js/);
     expect(body).toMatch(/dist\/ollama-run\.js/);
+    expect(body).toMatch(/dist\/antigravity-run\.js/);
   });
 });
 
