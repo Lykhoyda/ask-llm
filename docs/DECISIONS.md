@@ -999,3 +999,40 @@ Roadmap/tracker: [`docs/plans/2026-05-30-upstream-issue-consolidation.md`](plans
 - **Context:** `ask-antigravity-mcp` was published (ADR-114) but had no Claude-plugin surface. The maintainer's gemini subscription lost value after the 2026-06-18 gemini-cli free/Pro/Ultra backend cutoff, while Antigravity (`agy`) is covered by the same Google AI Pro/Ultra subscription — so the subscription-backed "second opinion" workflow now lives on `agy`.
 - **Decision:** (1) Add a `/antigravity-review` skill + `antigravity-reviewer` agent at full `codex-reviewer` parity — confidence ≥80, verify-before-report, concrete MCP prompt template, anti-noise heuristics, reproduction-mandatory rule (PR #160). (2) Add `src/antigravity-run.ts` runner binary + `ask-antigravity-run` bin + plugin dependency on `ask-antigravity-mcp` + a `ProviderExecutor` entry (`name: antigravity`, `command: agy`). (3) **Replace gemini with antigravity in the DEFAULT participant set** of `/multi-review` (antigravity-reviewer + codex-reviewer) and `/brainstorm` (default external `antigravity,codex`); `/brainstorm-all` now spans all four external providers (PR #161). Gemini stays available via `/gemini-review`, explicit `/brainstorm` args, and `/brainstorm-all`.
 - **Consequences:** The two skills use two dispatch idioms — `/multi-review` via the `dist/*-run.js` runner binaries, the `brainstorm-coordinator` via raw CLIs (`agy -p`) — so antigravity was wired into each in its native idiom. Trade-off: antigravity is experimental and needs an `agy` login, so for users **without** `agy` these skills degrade to codex-only; this is an intentional, maintainer-chosen default, surfaced gracefully via the skills' Phase-4 resilient-failure handling rather than silently. `agy`'s `command` (`agy`) ≠ its provider `name` (`antigravity`), which broke a `providers.test.ts` invariant assuming name===command (now an explicit name→command map). The plugin is `private`, so there is no publish/bundling impact.
+
+## ADR-132: Preferred `gpt-5.5-pro` tier for /codex-review and /brainstorm
+
+**Status:** Accepted (2026-07-04)
+
+**Context:** ChatGPT Pro subscribers are entitled to `gpt-5.5-pro` ("maximum
+reasoning or quality"); standard plans are not (confirmed empirically — the slug
+is absent from a ChatGPT-plan account's `~/.codex/models_cache.json`). The
+second-opinion commands `/codex-review` and `/brainstorm` are exactly where the
+extra reasoning is worth the latency/cost, but the raw `ask-codex` tool,
+`codex-pair`, `/multi-review`, and `/codex-verify` should stay on `gpt-5.5`.
+
+**Decision:** Add an opt-in preferred tier scoped to those two commands.
+- `MODELS.PREFERRED = ASK_CODEX_PREFERRED_MODEL || "gpt-5.5-pro"`.
+- `executeCodexCLI({ preferred: true })` (fresh non-edit calls only) runs the
+  preferred model once and, on **any** failure, downgrades to `MODELS.DEFAULT`,
+  below which the existing quota-gated `DEFAULT → FALLBACK` rung is unchanged.
+  Ladder: `gpt-5.5-pro → gpt-5.5 → gpt-5.4-mini`.
+- `/codex-review` opts in via the `ask-codex` `preferred` arg; `/brainstorm`
+  (raw backgrounded `codex exec`) uses `-m "${ASK_CODEX_PREFERRED_MODEL:-gpt-5.5-pro}" || -m "${ASK_CODEX_MODEL:-gpt-5.5}"`.
+
+**Why unconditional (not signal-matched):** the existing `isModelUnavailableError`
+/ `isQuotaError` predicates are narrow substring matchers. The exact
+entitlement-rejection string for `gpt-5.5-pro` is unverified, so gating the
+downgrade on them would risk a hard failure for the exact non-Pro users the
+feature protects. Any preferred-leg failure downgrades; a WARN log carries the
+reason for observability. This also makes Path A symmetric with Path B's
+unconditional `||`.
+
+**Alternatives rejected:** env-only trigger (can't distinguish review from
+codex-pair in the shared long-lived MCP server); routing brainstorm through the
+`ask-codex-run` binary (adds a fragile `${CLAUDE_PLUGIN_ROOT}` dependency to the
+ADR-#23 background-lifecycle block); signal-matching bash fallback (duplicates
+`MODEL_UNAVAILABLE_SIGNALS` outside TypeScript, violating single-source-of-truth).
+
+**Consequence:** not a `packages/shared` change, so ADR-119's all-five-MCP
+changeset rule does not apply; the changeset covers `ask-codex-mcp` + `@ask-llm/plugin`.
