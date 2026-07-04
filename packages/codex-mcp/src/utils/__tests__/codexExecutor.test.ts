@@ -905,4 +905,15 @@ describe("preferred model tier (gpt-5.5-pro → default → mini)", () => {
     expect(mockExecuteCommand).toHaveBeenCalledOnce();
     expect(modelOf(0)).toBe(MODELS.DEFAULT);
   });
+
+  it("does not populate the DEFAULT-keyed cache on a preferred success (cross-tier cache guard)", async () => {
+    mockExecuteCommand.mockResolvedValue(AGENT("pro answer"));
+    // A preferred success must NOT write the DEFAULT-keyed response cache, or a
+    // later plain (base-model) call for the same prompt would be served a pro
+    // answer under the base key. Proof: the follow-up preferred:false call is a
+    // cache MISS and re-invokes codex → two calls total, not one.
+    await executeCodexCLI({ prompt: "same review prompt", preferred: true });
+    await executeCodexCLI({ prompt: "same review prompt", preferred: false });
+    expect(mockExecuteCommand).toHaveBeenCalledTimes(2);
+  });
 });
