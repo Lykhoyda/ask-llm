@@ -80,6 +80,10 @@ export interface CodexExecutorOptions {
   // returns structured search/replace edits instead of prose. #102.
   editMode?: boolean;
   onProgress?: (newOutput: string) => void;
+  // Opt-in for /codex-review and /brainstorm: try MODELS.PREFERRED first and
+  // downgrade to MODELS.DEFAULT on any failure. Honored only for fresh
+  // (no sessionId), non-edit calls with no explicit model. See ADR-132.
+  preferred?: boolean;
 }
 
 export interface CodexExecutorResult {
@@ -359,13 +363,20 @@ export async function executeCodexCLI(options: CodexExecutorOptions): Promise<Co
   const sessionId = options.sessionId;
   const editMode = options.editMode === true;
   const wantsSession = sessionId !== undefined;
+  // Preferred tier (opt-in): try MODELS.PREFERRED first for fresh, non-edit,
+  // no-explicit-model calls. Computed here — not only at the attempt below — so
+  // the response cache (keyed on MODELS.DEFAULT) cannot short-circuit and serve a
+  // stale base-model answer before the preferred attempt runs. See ADR-132.
+  const preferredEligible =
+    options.preferred === true && !options.model && !wantsSession && !editMode && MODELS.PREFERRED !== MODELS.DEFAULT;
   // includeDirs and editMode both change what codex sees/returns, so they must
   // distinguish cache entries (includeDirs sorted for order-independence).
   const dirsPart = options.includeDirs?.length ? [...options.includeDirs].sort().join(":") : "";
   // Labeled parts so the marker is unambiguous — a literal includeDir of "edit"
   // must never collide with edit-mode's cache partition.
   const extraContext = editMode || dirsPart ? `edit=${editMode ? 1 : 0};dirs=${dirsPart}` : undefined;
-  const cacheKey = wantsSession ? null : ResponseCache.buildKey("codex", options.prompt, model, extraContext);
+  const cacheKey =
+    wantsSession || preferredEligible ? null : ResponseCache.buildKey("codex", options.prompt, model, extraContext);
 
   if (cacheKey) {
     const cached = responseCache.get(cacheKey);
@@ -395,6 +406,41 @@ export async function executeCodexCLI(options: CodexExecutorOptions): Promise<Co
   // tighter global default for gemini while granting codex more headroom.
   const timeoutMs = resolveTimeoutMs(EXECUTION.CODEX_TIMEOUT_ENV_VAR, EXECUTION.DEFAULT_CODEX_TIMEOUT_MS);
 
+  // Try MODELS.PREFERRED once (opportunistic). ANY failure downgrades to the
+  // standard MODELS.DEFAULT path below (which carries the quota→FALLBACK ladder).
+  // Deliberately NOT signal-matched — an unknown entitlement-rejection string
+  // must still fall back. See ADR-132.
+  let downgradedFromPreferred = false;
+  if (preferredEligible) {
+    const preferredArgs = buildArgs(
+      options.prompt,
+      MODELS.PREFERRED,
+      undefined,
+      useStdin,
+      options.includeDirs,
+      false,
+      undefined,
+    );
+    const preferredStartedAt = Date.now();
+    try {
+      const raw = await executeCommand(
+        CLI.COMMANDS.CODEX,
+        preferredArgs,
+        options.onProgress,
+        undefined,
+        stdinPayload,
+        timeoutMs,
+      );
+      return parseCodexJsonlOutput(raw, MODELS.PREFERRED, Date.now() - preferredStartedAt, false);
+    } catch (preferredError) {
+      const reason = preferredError instanceof Error ? preferredError.message : String(preferredError);
+      Logger.warn(
+        `Preferred Codex model ${MODELS.PREFERRED} unavailable (${reason}); falling back to ${MODELS.DEFAULT}.`,
+      );
+      downgradedFromPreferred = true;
+    }
+  }
+
   const startedAt = Date.now();
   try {
     try {
@@ -406,7 +452,7 @@ export async function executeCodexCLI(options: CodexExecutorOptions): Promise<Co
         stdinPayload,
         timeoutMs,
       );
-      const result = parseCodexJsonlOutput(raw, model, Date.now() - startedAt, false);
+      const result = parseCodexJsonlOutput(raw, model, Date.now() - startedAt, downgradedFromPreferred);
       if (cacheKey) responseCache.set(cacheKey, result.response);
       return result;
     } catch (error) {

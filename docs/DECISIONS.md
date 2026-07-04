@@ -1,5 +1,46 @@
 # Architectural Decisions
 
+## ADR-132: Preferred `gpt-5.5-pro` tier for /codex-review and /brainstorm
+
+**Status:** Accepted (2026-07-04)
+
+**Context:** ChatGPT Pro subscribers are entitled to `gpt-5.5-pro` ("maximum
+reasoning or quality"); standard plans are not (confirmed empirically — the slug
+is absent from a ChatGPT-plan account's `~/.codex/models_cache.json`). The
+second-opinion commands `/codex-review` and `/brainstorm` are exactly where the
+extra reasoning is worth the latency/cost, while the raw `ask-codex` tool (unless
+opted in), `codex-pair`, and `/codex-verify` stay on `gpt-5.5`. `/multi-review`
+shares the `codex-reviewer` agent, so its primary-path Codex leg inherits the
+tier; its binary-fallback path (`codex-run.js`) stays on `gpt-5.5`.
+
+**Decision:** Add an opt-in preferred tier, enabled for `/codex-review` and
+`/brainstorm` (and inherited by `/multi-review` through the shared
+`codex-reviewer` agent).
+- `MODELS.PREFERRED = ASK_CODEX_PREFERRED_MODEL || "gpt-5.5-pro"`.
+- `executeCodexCLI({ preferred: true })` (fresh non-edit calls only) runs the
+  preferred model once and, on **any** failure, downgrades to `MODELS.DEFAULT`,
+  below which the existing quota-gated `DEFAULT → FALLBACK` rung is unchanged.
+  Ladder: `gpt-5.5-pro → gpt-5.5 → gpt-5.4-mini`.
+- `/codex-review` opts in via the `ask-codex` `preferred` arg; `/brainstorm`
+  (raw backgrounded `codex exec`) uses `-m "${ASK_CODEX_PREFERRED_MODEL:-gpt-5.5-pro}" || -m "${ASK_CODEX_MODEL:-gpt-5.5}"`.
+
+**Why unconditional (not signal-matched):** the existing `isModelUnavailableError`
+/ `isQuotaError` predicates are narrow substring matchers. The exact
+entitlement-rejection string for `gpt-5.5-pro` is unverified, so gating the
+downgrade on them would risk a hard failure for the exact non-Pro users the
+feature protects. Any preferred-leg failure downgrades; a WARN log carries the
+reason for observability. This also makes Path A symmetric with Path B's
+unconditional `||`.
+
+**Alternatives rejected:** env-only trigger (can't distinguish review from
+codex-pair in the shared long-lived MCP server); routing brainstorm through the
+`ask-codex-run` binary (adds a fragile `${CLAUDE_PLUGIN_ROOT}` dependency to the
+ADR-#23 background-lifecycle block); signal-matching bash fallback (duplicates
+`MODEL_UNAVAILABLE_SIGNALS` outside TypeScript, violating single-source-of-truth).
+
+**Consequence:** not a `packages/shared` change, so ADR-119's all-five-MCP
+changeset rule does not apply; the changeset covers `ask-codex-mcp` + `@ask-llm/plugin`.
+
 ## ADR-131: codex-pair cross-repo Stop drain + gate via a session-scoped marker registry
 
 - **Date:** 2026-07-03

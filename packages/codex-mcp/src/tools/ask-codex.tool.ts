@@ -27,6 +27,12 @@ const askCodexArgsSchema = z.object({
     .describe(
       "Additional directories Codex may access alongside the working directory (maps to codex `--add-dir`, repeatable). Must be relative paths (e.g., 'packages/api'). Useful in monorepos where relevant context spans sibling packages.",
     ),
+  preferred: z
+    .boolean()
+    .optional()
+    .describe(
+      `Prefer the higher-reasoning model (${MODELS.PREFERRED}) and fall back to ${MODELS.DEFAULT} automatically if it is unavailable. Used by /codex-review and /brainstorm; leave unset for normal calls.`,
+    ),
 });
 
 export const askCodexTool: UnifiedTool = {
@@ -46,7 +52,7 @@ export const askCodexTool: UnifiedTool = {
   },
   category: "codex",
   execute: async (args, onProgress, onUsage) => {
-    const { prompt, model, sessionId, includeDirs } = args;
+    const { prompt, model, sessionId, includeDirs, preferred } = args;
     if (!prompt?.trim()) {
       throw new Error(ERROR_MESSAGES.NO_PROMPT_PROVIDED);
     }
@@ -56,6 +62,7 @@ export const askCodexTool: UnifiedTool = {
       model: model as string | undefined,
       sessionId: sessionId as string | undefined,
       includeDirs: includeDirs as string[] | undefined,
+      preferred: preferred as boolean | undefined,
       onProgress,
     });
 

@@ -8,7 +8,7 @@ Factory defaults are literals (`FACTORY_DEFAULT_MODEL` in each package's `consta
 |---|---|---|---|---|
 | Transport | `gemini` CLI spawn | `codex exec --json` spawn | HTTP `POST /api/chat` (native fetch) | `agy -p` spawn |
 | Factory default model | `gemini-3.1-pro-preview` | `gpt-5.5` | `qwen3.6:27b` | `Gemini 3.1 Pro (High)` |
-| Fallback | quota → `gemini-3.5-flash` | quota → `gpt-5.4-mini` (ADR-126), pinned-incompatible 400 → actionable message (ADR-127) | **none by design** — local means the user pulls what they intend to run; actionable `ollama pull` error (#191) | rate-limit only → `Gemini 3.5 Flash (High)` (ADR-125) |
+| Fallback | quota → `gemini-3.5-flash` | quota → `gpt-5.4-mini` (ADR-126), pinned-incompatible 400 → actionable message (ADR-127); `/codex-review` + `/brainstorm` additionally have an opt-in preferred rung, unconditional `gpt-5.5-pro` → `gpt-5.5` above the quota fallback (ADR-132) | **none by design** — local means the user pulls what they intend to run; actionable `ollama pull` error (#191) | rate-limit only → `Gemini 3.5 Flash (High)` (ADR-125) |
 | Timeout default | 210s | **800s** — reasoning models spend real wall time before first output (#45) | 600s — 27b models load/generate slowly on modest hardware; the bound catches wedged servers, not slow generation | 300s |
 | Timeout env var | `ASK_GEMINI_TIMEOUT_MS` | `ASK_CODEX_TIMEOUT_MS` | `ASK_OLLAMA_TIMEOUT_MS` | `ASK_ANTIGRAVITY_TIMEOUT_MS` |
 | Session mechanism | CLI `--resume <id>`; surfaces as `[Session ID: ...]` | native threads (`thread_id`); surfaces as `[Thread ID: ...]` — codex's own terminology, deliberately not renamed | sessions stored on disk (`os.tmpdir()/ask-llm-sessions`, 24h, 0700/0600); `[Session ID: ...]` | **single-turn only** (agy has no resumable headless session) |
@@ -26,3 +26,12 @@ Known deliberate NON-alignments to leave alone unless a user asks:
 - **Timeout spread (210s–800s)** encodes real model behavior differences, not inconsistency.
 - **"Session ID" vs "Thread ID"** labels match each CLI's own vocabulary; renaming would break users' mental mapping to `codex resume`.
 - **Ollama's missing edit mode and no-fallback** are product decisions (#191, ADR history), not backlog.
+- **Codex review/brainstorm tier (ADR-132):** `/codex-review` and `/brainstorm`
+  prefer `gpt-5.5-pro` and downgrade unconditionally to `gpt-5.5`, then to
+  `gpt-5.4-mini` on quota. This preferred rung is opt-in via the `preferred`
+  arg (automatic for those two commands); `ASK_CODEX_PREFERRED_MODEL` only
+  customizes which model the preferred tier requests, it does not enable it.
+  `/multi-review` inherits the tier through the shared `codex-reviewer` agent
+  (primary path only); `codex-pair` and `/codex-verify` do not. The raw
+  `ask-codex` tool gets the tier only when explicitly opted in via the
+  `preferred` arg.

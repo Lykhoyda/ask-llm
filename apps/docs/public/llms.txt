@@ -31,7 +31,7 @@ claude mcp add ask-llm -- npx -y ask-llm-mcp
 | ask-gemini | ask-gemini-mcp | prompt (required), model (optional), sessionId (optional) | Send prompts to Gemini CLI. Use @ syntax for files. sessionId resumes a conversation. |
 | ask-gemini-edit | ask-gemini-mcp | prompt (required), model (optional), includeDirs (optional) | Get structured OLD/NEW code edit blocks from Gemini. |
 | fetch-chunk | ask-gemini-mcp | cacheKey (required), chunkIndex (required) | Retrieve subsequent chunks from cached large responses. |
-| ask-codex | ask-codex-mcp | prompt (required), model (optional), sessionId (optional), includeDirs (optional) | Send prompts to Codex CLI. sessionId resumes a Codex thread. |
+| ask-codex | ask-codex-mcp | prompt (required), model (optional), sessionId (optional), includeDirs (optional), preferred (optional) | Send prompts to Codex CLI. sessionId resumes a Codex thread. preferred=true prefers gpt-5.5-pro with automatic fallback (used by /codex-review, /brainstorm). |
 | ask-codex-edit | ask-codex-mcp | prompt (required), model (optional), sessionId (optional), includeDirs (optional) | Get read-only structured code edits from Codex (`--output-schema`). |
 | ask-ollama | ask-ollama-mcp | prompt (required), model (optional), sessionId (optional) | Send prompts to a local Ollama model. |
 | ask-antigravity | ask-antigravity-mcp | prompt (required), includeDirs (optional) | Subscription-backed second opinion via Google Antigravity (`agy`). Model is env-controlled (ASK_ANTIGRAVITY_MODEL), not a per-call param. |

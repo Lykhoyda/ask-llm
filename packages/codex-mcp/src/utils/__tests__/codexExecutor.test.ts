@@ -833,3 +833,98 @@ describe("executeCodexCLI archived-session resume (codex 0.136, #139)", () => {
     expect(err.message).not.toMatch(/codex unarchive/i);
   });
 });
+
+describe("preferred model tier (gpt-5.5-pro → default → mini)", () => {
+  const AGENT = (t: string) => `{"type":"item.completed","item":{"type":"agent_message","text":"${t}"}}`;
+  const modelOf = (call: number) => {
+    const [, args] = mockExecuteCommand.mock.calls[call];
+    return args[args.indexOf(CLI.FLAGS.MODEL) + 1];
+  };
+
+  it("runs MODELS.PREFERRED when preferred:true and it succeeds (no downgrade)", async () => {
+    mockExecuteCommand.mockResolvedValueOnce(AGENT("pro answer"));
+    const result = await executeCodexCLI({ prompt: "review", preferred: true });
+    expect(mockExecuteCommand).toHaveBeenCalledOnce();
+    expect(modelOf(0)).toBe(MODELS.PREFERRED);
+    expect(result.response).toContain("pro answer");
+    expect(result.usage?.model).toBe(MODELS.PREFERRED);
+    expect(result.usage?.fellBack).toBe(false);
+  });
+
+  it("downgrades to DEFAULT on an ARBITRARY (non-quota, non-signal) preferred failure", async () => {
+    mockExecuteCommand
+      .mockRejectedValueOnce(new Error("some totally unrecognized model access error"))
+      .mockResolvedValueOnce(AGENT("default answer"));
+    const result = await executeCodexCLI({ prompt: "review", preferred: true });
+    expect(mockExecuteCommand).toHaveBeenCalledTimes(2);
+    expect(modelOf(0)).toBe(MODELS.PREFERRED);
+    expect(modelOf(1)).toBe(MODELS.DEFAULT);
+    expect(result.response).toContain("default answer");
+    expect(result.usage?.model).toBe(MODELS.DEFAULT);
+    expect(result.usage?.fellBack).toBe(true);
+  });
+
+  it("full ladder: preferred quota → default quota → mini", async () => {
+    mockExecuteCommand
+      .mockRejectedValueOnce(new Error("rate_limit_exceeded"))
+      .mockRejectedValueOnce(new Error("rate_limit_exceeded"))
+      .mockResolvedValueOnce(AGENT("mini answer"));
+    const result = await executeCodexCLI({ prompt: "review", preferred: true });
+    expect(mockExecuteCommand).toHaveBeenCalledTimes(3);
+    expect([modelOf(0), modelOf(1), modelOf(2)]).toEqual([MODELS.PREFERRED, MODELS.DEFAULT, MODELS.FALLBACK]);
+    expect(result.response).toContain("mini answer");
+  });
+
+  it("surfaces a non-quota DEFAULT error after downgrade (base→mini stays quota-gated)", async () => {
+    mockExecuteCommand
+      .mockRejectedValueOnce(new Error("preferred boom"))
+      .mockRejectedValueOnce(new Error("hard parse error in prompt"));
+    await expect(executeCodexCLI({ prompt: "review", preferred: true })).rejects.toThrow("hard parse error in prompt");
+    expect(mockExecuteCommand).toHaveBeenCalledTimes(2);
+  });
+
+  it("preferred:false leaves behavior unchanged (single DEFAULT call)", async () => {
+    mockExecuteCommand.mockResolvedValueOnce(AGENT("x"));
+    await executeCodexCLI({ prompt: "review", preferred: false });
+    expect(mockExecuteCommand).toHaveBeenCalledOnce();
+    expect(modelOf(0)).toBe(MODELS.DEFAULT);
+  });
+
+  it("explicit model wins over preferred (no pro attempt)", async () => {
+    mockExecuteCommand.mockResolvedValueOnce(AGENT("x"));
+    await executeCodexCLI({ prompt: "review", preferred: true, model: "o3" });
+    expect(mockExecuteCommand).toHaveBeenCalledOnce();
+    const [, args] = mockExecuteCommand.mock.calls[0];
+    expect(args).toContain("o3");
+    expect(args).not.toContain(MODELS.PREFERRED);
+  });
+
+  it("skips the preferred attempt when preferred:true but a sessionId is present", async () => {
+    mockExecuteCommand.mockResolvedValueOnce(AGENT("resumed"));
+    await executeCodexCLI({ prompt: "review", preferred: true, sessionId: "thread-1" });
+    expect(mockExecuteCommand).toHaveBeenCalledOnce();
+    expect(modelOf(0)).toBe(MODELS.DEFAULT);
+  });
+
+  it("does not populate the DEFAULT-keyed cache on a preferred success (cross-tier cache guard)", async () => {
+    mockExecuteCommand.mockResolvedValue(AGENT("pro answer"));
+    // A preferred success must NOT write the DEFAULT-keyed response cache, or a
+    // later plain (base-model) call for the same prompt would be served a pro
+    // answer under the base key. Proof: the follow-up preferred:false call is a
+    // cache MISS and re-invokes codex → two calls total, not one.
+    await executeCodexCLI({ prompt: "same review prompt", preferred: true });
+    await executeCodexCLI({ prompt: "same review prompt", preferred: false });
+    expect(mockExecuteCommand).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not let a cached DEFAULT answer short-circuit a preferred:true call", async () => {
+    mockExecuteCommand.mockResolvedValue(AGENT("cached base answer"));
+    // Prime the DEFAULT-keyed cache with a plain (non-preferred) call...
+    await executeCodexCLI({ prompt: "same review prompt", preferred: false });
+    // ...a subsequent preferred call must still ATTEMPT gpt-5.5-pro rather than be
+    // served the cached base-model answer (the cache is keyed on MODELS.DEFAULT).
+    await executeCodexCLI({ prompt: "same review prompt", preferred: true });
+    expect(mockExecuteCommand).toHaveBeenCalledTimes(2);
+    expect(modelOf(1)).toBe(MODELS.PREFERRED);
+  });
+});
