@@ -8,10 +8,14 @@
 reasoning or quality"); standard plans are not (confirmed empirically — the slug
 is absent from a ChatGPT-plan account's `~/.codex/models_cache.json`). The
 second-opinion commands `/codex-review` and `/brainstorm` are exactly where the
-extra reasoning is worth the latency/cost, but the raw `ask-codex` tool,
-`codex-pair`, `/multi-review`, and `/codex-verify` should stay on `gpt-5.5`.
+extra reasoning is worth the latency/cost, while the raw `ask-codex` tool (unless
+opted in), `codex-pair`, and `/codex-verify` stay on `gpt-5.5`. `/multi-review`
+shares the `codex-reviewer` agent, so its primary-path Codex leg inherits the
+tier; its binary-fallback path (`codex-run.js`) stays on `gpt-5.5`.
 
-**Decision:** Add an opt-in preferred tier scoped to those two commands.
+**Decision:** Add an opt-in preferred tier, enabled for `/codex-review` and
+`/brainstorm` (and inherited by `/multi-review` through the shared
+`codex-reviewer` agent).
 - `MODELS.PREFERRED = ASK_CODEX_PREFERRED_MODEL || "gpt-5.5-pro"`.
 - `executeCodexCLI({ preferred: true })` (fresh non-edit calls only) runs the
   preferred model once and, on **any** failure, downgrades to `MODELS.DEFAULT`,

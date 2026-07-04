@@ -8,5 +8,6 @@ account is entitled, falling back transparently to `gpt-5.5` (then `gpt-5.4-mini
 on quota). Those two commands opt in automatically; the raw `ask-codex` tool can
 opt in with the new `preferred` arg. `ASK_CODEX_PREFERRED_MODEL` customizes which
 model the preferred tier uses (default `gpt-5.5-pro`) — it does not by itself
-enable preferred mode. `codex-pair`, `/multi-review`, and `/codex-verify` are
-unchanged. (ADR-132)
+enable preferred mode. `/multi-review`'s Codex leg inherits the preferred tier
+via the shared `codex-reviewer` agent (its binary-fallback path stays on
+`gpt-5.5`); `codex-pair` and `/codex-verify` are unchanged. (ADR-132)

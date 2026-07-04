@@ -31,5 +31,7 @@ Known deliberate NON-alignments to leave alone unless a user asks:
   `gpt-5.4-mini` on quota. This preferred rung is opt-in via the `preferred`
   arg (automatic for those two commands); `ASK_CODEX_PREFERRED_MODEL` only
   customizes which model the preferred tier requests, it does not enable it.
+  `/multi-review` inherits the tier through the shared `codex-reviewer` agent
+  (primary path only); `codex-pair` and `/codex-verify` do not.
   Preferred does NOT apply to the raw `ask-codex` tool, `codex-pair`,
   `/multi-review`, or `/codex-verify`.
