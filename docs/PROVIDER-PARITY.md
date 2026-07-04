@@ -28,6 +28,8 @@ Known deliberate NON-alignments to leave alone unless a user asks:
 - **Ollama's missing edit mode and no-fallback** are product decisions (#191, ADR history), not backlog.
 - **Codex review/brainstorm tier (ADR-132):** `/codex-review` and `/brainstorm`
   prefer `gpt-5.5-pro` and downgrade unconditionally to `gpt-5.5`, then to
-  `gpt-5.4-mini` on quota. This preferred rung is opt-in (`preferred` arg /
-  `ASK_CODEX_PREFERRED_MODEL`) and does NOT apply to the raw `ask-codex` tool,
-  `codex-pair`, `/multi-review`, or `/codex-verify`.
+  `gpt-5.4-mini` on quota. This preferred rung is opt-in via the `preferred`
+  arg (automatic for those two commands); `ASK_CODEX_PREFERRED_MODEL` only
+  customizes which model the preferred tier requests, it does not enable it.
+  Preferred does NOT apply to the raw `ask-codex` tool, `codex-pair`,
+  `/multi-review`, or `/codex-verify`.

@@ -14,8 +14,9 @@ Original plan reference: [`docs/plans/2026-05-18-codex-plugin-cc-adoption-roadma
 
 Codex review/brainstorm preferred model: `/codex-review` and `/brainstorm` now
 prefer `gpt-5.5-pro` (ChatGPT Pro) with unconditional fallback to `gpt-5.5`,
-then the existing `gpt-5.4-mini` quota rung. Opt-in `preferred` arg on
-`ask-codex` + `ASK_CODEX_PREFERRED_MODEL`. ADR-132.
+then the existing `gpt-5.4-mini` quota rung. Opt in via the `preferred` arg on
+`ask-codex` (automatic for both commands); `ASK_CODEX_PREFERRED_MODEL` only
+customizes which model the tier requests. ADR-132.
 
 ### 2026-07-04 — Docs: register Antigravity (`agy`) in the Getting Started onboarding page (branch `docs/getting-started-antigravity-register`)
 
