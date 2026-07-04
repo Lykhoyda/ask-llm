@@ -46,6 +46,10 @@ export const FACTORY_DEFAULT_MODEL = "gpt-5.5";
 
 export const MODELS = {
   DEFAULT: process.env.ASK_CODEX_MODEL || FACTORY_DEFAULT_MODEL,
+  // Opportunistic higher-reasoning tier for /codex-review and /brainstorm only.
+  // ChatGPT Pro subscribers are entitled to gpt-5.5-pro; everyone else is not,
+  // so the preferred leg downgrades to DEFAULT on any failure (ADR-132).
+  PREFERRED: process.env.ASK_CODEX_PREFERRED_MODEL || "gpt-5.5-pro",
   // gpt-5.4-mini, not gpt-5.5-mini: the 5.5 "mini" is rejected with a 400
   // ("not supported when using Codex with a ChatGPT account") on ChatGPT-plan
   // accounts — the common case for the codex CLI — so the quota fallback never
