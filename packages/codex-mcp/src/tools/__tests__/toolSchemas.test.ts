@@ -44,4 +44,10 @@ describe("tool contract (drift guards)", () => {
   it("ask-codex's description names the factory default model (env-invariant)", () => {
     expect(askCodexTool.description).toContain(FACTORY_DEFAULT_MODEL);
   });
+
+  it("ask-codex accepts an optional `preferred` boolean (default off)", () => {
+    expect(askCodexTool.zodSchema.safeParse({ prompt: "p" }).success).toBe(true);
+    expect(askCodexTool.zodSchema.safeParse({ prompt: "p", preferred: true }).success).toBe(true);
+    expect(askCodexTool.zodSchema.safeParse({ prompt: "p", preferred: "yes" }).success).toBe(false);
+  });
 });
