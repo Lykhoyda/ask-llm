@@ -32,6 +32,6 @@ Known deliberate NON-alignments to leave alone unless a user asks:
   arg (automatic for those two commands); `ASK_CODEX_PREFERRED_MODEL` only
   customizes which model the preferred tier requests, it does not enable it.
   `/multi-review` inherits the tier through the shared `codex-reviewer` agent
-  (primary path only); `codex-pair` and `/codex-verify` do not.
-  Preferred does NOT apply to the raw `ask-codex` tool, `codex-pair`,
-  `/multi-review`, or `/codex-verify`.
+  (primary path only); `codex-pair` and `/codex-verify` do not. The raw
+  `ask-codex` tool gets the tier only when explicitly opted in via the
+  `preferred` arg.
