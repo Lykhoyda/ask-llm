@@ -363,13 +363,20 @@ export async function executeCodexCLI(options: CodexExecutorOptions): Promise<Co
   const sessionId = options.sessionId;
   const editMode = options.editMode === true;
   const wantsSession = sessionId !== undefined;
+  // Preferred tier (opt-in): try MODELS.PREFERRED first for fresh, non-edit,
+  // no-explicit-model calls. Computed here — not only at the attempt below — so
+  // the response cache (keyed on MODELS.DEFAULT) cannot short-circuit and serve a
+  // stale base-model answer before the preferred attempt runs. See ADR-132.
+  const preferredEligible =
+    options.preferred === true && !options.model && !wantsSession && !editMode && MODELS.PREFERRED !== MODELS.DEFAULT;
   // includeDirs and editMode both change what codex sees/returns, so they must
   // distinguish cache entries (includeDirs sorted for order-independence).
   const dirsPart = options.includeDirs?.length ? [...options.includeDirs].sort().join(":") : "";
   // Labeled parts so the marker is unambiguous — a literal includeDir of "edit"
   // must never collide with edit-mode's cache partition.
   const extraContext = editMode || dirsPart ? `edit=${editMode ? 1 : 0};dirs=${dirsPart}` : undefined;
-  const cacheKey = wantsSession ? null : ResponseCache.buildKey("codex", options.prompt, model, extraContext);
+  const cacheKey =
+    wantsSession || preferredEligible ? null : ResponseCache.buildKey("codex", options.prompt, model, extraContext);
 
   if (cacheKey) {
     const cached = responseCache.get(cacheKey);
@@ -399,19 +406,12 @@ export async function executeCodexCLI(options: CodexExecutorOptions): Promise<Co
   // tighter global default for gemini while granting codex more headroom.
   const timeoutMs = resolveTimeoutMs(EXECUTION.CODEX_TIMEOUT_ENV_VAR, EXECUTION.DEFAULT_CODEX_TIMEOUT_MS);
 
-  // Preferred tier (opt-in, fresh non-edit calls only): try MODELS.PREFERRED
-  // once. The preferred model is opportunistic, so ANY failure downgrades to the
+  // Try MODELS.PREFERRED once (opportunistic). ANY failure downgrades to the
   // standard MODELS.DEFAULT path below (which carries the quota→FALLBACK ladder).
   // Deliberately NOT signal-matched — an unknown entitlement-rejection string
   // must still fall back. See ADR-132.
   let downgradedFromPreferred = false;
-  if (
-    options.preferred === true &&
-    !options.model &&
-    !wantsSession &&
-    !editMode &&
-    MODELS.PREFERRED !== MODELS.DEFAULT
-  ) {
+  if (preferredEligible) {
     const preferredArgs = buildArgs(
       options.prompt,
       MODELS.PREFERRED,

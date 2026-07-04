@@ -916,4 +916,15 @@ describe("preferred model tier (gpt-5.5-pro → default → mini)", () => {
     await executeCodexCLI({ prompt: "same review prompt", preferred: false });
     expect(mockExecuteCommand).toHaveBeenCalledTimes(2);
   });
+
+  it("does not let a cached DEFAULT answer short-circuit a preferred:true call", async () => {
+    mockExecuteCommand.mockResolvedValue(AGENT("cached base answer"));
+    // Prime the DEFAULT-keyed cache with a plain (non-preferred) call...
+    await executeCodexCLI({ prompt: "same review prompt", preferred: false });
+    // ...a subsequent preferred call must still ATTEMPT gpt-5.5-pro rather than be
+    // served the cached base-model answer (the cache is keyed on MODELS.DEFAULT).
+    await executeCodexCLI({ prompt: "same review prompt", preferred: true });
+    expect(mockExecuteCommand).toHaveBeenCalledTimes(2);
+    expect(modelOf(1)).toBe(MODELS.PREFERRED);
+  });
 });
