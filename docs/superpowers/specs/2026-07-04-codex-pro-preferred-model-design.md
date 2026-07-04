@@ -50,11 +50,15 @@ question and confirms the fallback is load-bearing, not hypothetical:
   that account's available set — it appears only in the docs reference. A
   ChatGPT Pro subscriber's model cache would include it.
 - **Implication:** on a non-Pro account, `codex exec -m gpt-5.5-pro` is rejected
-  as an unavailable/unentitled model (not a quota 429). The design therefore
-  triggers the downgrade on **both** an availability rejection and a quota
-  error, so it is robust regardless of which class Codex returns. The exact
-  rejection *string* was not captured (would require a live run on this account);
-  catching both predicates removes the need to know it.
+  as an unavailable/unentitled model. The exact rejection *string* was not
+  captured (would require a live run on this account), and the repo's existing
+  detectors (`isModelUnavailableError`, `isQuotaError`) are **narrow substring
+  matchers** — neither is guaranteed to match an arbitrary entitlement-rejection
+  phrasing. Relying on them would risk a hard failure for the exact non-Pro users
+  the feature protects. The design therefore does **not** signal-match on the
+  preferred leg: any primary-leg failure downgrades to the base model
+  (see "The 3-tier ladder"). Correctness does not depend on knowing the string;
+  the string only matters for optional telemetry (§Open risks).
 
 ## Design
 
@@ -65,14 +69,21 @@ The executor today has a 2-tier *downward* quota ladder. This design stacks one
 behavior is unchanged:
 
 ```
-PREFERRED (gpt-5.5-pro) ─[unavailable OR quota]→ DEFAULT (gpt-5.5) ─[quota]→ FALLBACK (gpt-5.4-mini)
+PREFERRED (gpt-5.5-pro) ─[ANY primary failure]→ DEFAULT (gpt-5.5) ─[quota]→ FALLBACK (gpt-5.4-mini)
         │                                              │
   only when opt-in `preferred:true`          existing behavior, unchanged
 ```
 
 The bottom edge (`DEFAULT → FALLBACK`) is the current, already-tested quota
-fallback — untouched. The new edge (`PREFERRED → DEFAULT`) is the only added
-branch.
+fallback — **still quota-gated, untouched**. The new top edge
+(`PREFERRED → DEFAULT`) is the only added branch, and it is **unconditional**:
+because the preferred tier is opportunistic/best-effort, *any* failure of the
+preferred attempt (entitlement rejection, quota, transient error) downgrades to
+the base default rather than signal-matching a specific string. This is what
+makes the fallback robust to an unverified rejection phrasing, and it makes
+Path A symmetric with Path B's unconditional `||`. A downgrade emits a WARN log
+with the failure reason so a misconfigured `ASK_CODEX_PREFERRED_MODEL` (e.g. a
+typo) surfaces in logs instead of silently always-downgrading.
 
 ### Path A — `/codex-review` (executor-backed)
 
@@ -86,11 +97,12 @@ branch.
 2. **`packages/codex-mcp/src/utils/codexExecutor.ts`** — add
    `preferred?: boolean` to `CodexExecutorOptions`. When `preferred` is true and
    no explicit `model` was supplied, the primary model is `MODELS.PREFERRED`. Add
-   a primary-leg catch: if the primary attempt fails and
-   `isModelUnavailableError(err) || isQuotaError(err)`, downgrade to
-   `MODELS.DEFAULT` and retry; below that, the existing `DEFAULT → FALLBACK`
-   quota leg still applies. When `preferred` is falsy, behavior is byte-for-byte
-   unchanged.
+   a primary-leg catch that runs **after** the existing archived-session guard:
+   on *any* failure of the preferred attempt, WARN-log the reason and retry once
+   with `MODELS.DEFAULT`; below that, the existing (quota-gated) `DEFAULT →
+   FALLBACK` leg still applies. The downgrade is intentionally **not**
+   signal-matched — see "The 3-tier ladder" for why. When `preferred` is falsy,
+   behavior is byte-for-byte unchanged.
 3. **`packages/codex-mcp/src/tools/ask-codex.tool.ts`** — add an opt-in
    `preferred?: boolean` arg (default off; described as "prefer the
    higher-reasoning model and fall back automatically"), forwarded to the
@@ -115,15 +127,20 @@ it cannot inherit Path A's ladder.
 Change the codex leg to a grouped, unconditional bash fallback:
 
 ```bash
-{ codex exec --sandbox workspace-write -m gpt-5.5-pro - < "$workdir/prompt.md" \
-  || codex exec --sandbox workspace-write -m gpt-5.5 - < "$workdir/prompt.md"; } \
+codex_pref="${ASK_CODEX_PREFERRED_MODEL:-gpt-5.5-pro}"
+codex_base="${ASK_CODEX_MODEL:-gpt-5.5}"
+{ codex exec --sandbox workspace-write -m "$codex_pref" - < "$workdir/prompt.md" \
+  || codex exec --sandbox workspace-write -m "$codex_base" - < "$workdir/prompt.md"; } \
   > "$workdir/codex.out" 2> "$workdir/codex.err" &
 pid_codex=$!
 ```
 
+- The `${ASK_CODEX_PREFERRED_MODEL:-gpt-5.5-pro}` / `${ASK_CODEX_MODEL:-gpt-5.5}`
+  shell defaults give Path B the **same env-overridability as Path A** — the
+  slug-rename escape hatch covers both commands, not just review.
 - Pro accounts: the first attempt succeeds; the fallback never runs.
-- Non-Pro accounts: `-m gpt-5.5-pro` **fails fast** (a request-time
-  availability rejection, seconds), then `-m gpt-5.5` runs.
+- Non-Pro accounts: `-m "$codex_pref"` **fails fast** (a request-time
+  availability rejection, seconds), then `-m "$codex_base"` runs.
 - `prompt.md` is a **file**, not a pipe, so both attempts can re-read stdin.
 - The `{ ...; }` group is backgrounded as one job so `pid_codex=$!` and the
   existing `wait "$pid_codex"` capture the whole leg's exit code.
@@ -155,16 +172,24 @@ mitigated, in v1.
 | `ASK_CODEX_MODEL` | `gpt-5.5` | Unchanged. Base default; second rung of the ladder. |
 | `ASK_CODEX_FALLBACK_MODEL` | `gpt-5.4-mini` | Unchanged. Quota fallback; third rung. |
 
-Brainstorm (Path B) uses literal `gpt-5.5-pro`/`gpt-5.5` in the bash template
-(the raw path bypasses the executor and its env resolution, matching how the
-antigravity model is already restated literally in the same template).
+Brainstorm (Path B) reads the same two env vars via shell `${VAR:-default}`
+expansion in the bash template, so both `ASK_CODEX_PREFERRED_MODEL` and
+`ASK_CODEX_MODEL` apply to `/brainstorm` as well as `/codex-review`.
+`ASK_CODEX_FALLBACK_MODEL` (the mini quota rung) is executor-only and does not
+apply to the raw brainstorm path.
 
 ## Tests
 
 - **Executor unit tests** (`packages/codex-mcp/src/utils/__tests__`):
   - `preferred:true`, preferred model succeeds → runs `gpt-5.5-pro`, `fellBack: false` (used the intended top model).
-  - `preferred:true`, preferred model unavailable → downgrades to `gpt-5.5`, succeeds, `fellBack: true` (a downgrade occurred).
+  - `preferred:true`, preferred fails with an **arbitrary/unknown error string**
+    (not a quota or known-unavailable signal) → still downgrades to `gpt-5.5`,
+    succeeds, `fellBack: true`. This is the key regression guard for finding-1:
+    the downgrade must not depend on signal matching.
   - `preferred:true`, preferred quota → `gpt-5.5` → `gpt-5.5` quota → `gpt-5.4-mini` (full ladder).
+  - `preferred:true`, preferred fails → `gpt-5.5` fails with a **non-quota** error
+    → error surfaced (the base→mini rung stays quota-gated; a real error is not
+    masked by a third attempt).
   - `preferred:false`/absent → identical to today (regression guard).
   - Explicit `model` supplied with `preferred:true` → explicit model wins (no override).
 - **Tool-contract drift test** (`packages/codex-mcp/src/tools/__tests__`): assert
@@ -187,10 +212,12 @@ antigravity model is already restated literally in the same template).
 ## Open risks
 
 1. **Exact rejection string** for an unentitled `gpt-5.5-pro` request is
-   unverified (no live Pro/non-Pro run captured). Mitigation: catch both
-   `isModelUnavailableError` and `isQuotaError` on the primary leg; if neither
-   matches in practice, add the observed substring to `MODEL_UNAVAILABLE_SIGNALS`
-   (a one-line, drift-guarded change).
-2. **Slug rename** by OpenAI. Mitigation: `ASK_CODEX_PREFERRED_MODEL` override
-   (Path A) and a single literal in the brainstorm template (Path B).
-```
+   unverified. This is **no longer a correctness risk** — the preferred leg
+   downgrades unconditionally, so an unknown string still falls back. Residual
+   impact is telemetry only: a WARN log will carry the raw reason. If we later
+   want to distinguish "expected: not entitled" from "unexpected: real error" in
+   logs/metrics, capture the live string and add it to `MODEL_UNAVAILABLE_SIGNALS`
+   (a one-line, drift-guarded change). Not required to ship.
+2. **Slug rename** by OpenAI. Mitigation: `ASK_CODEX_PREFERRED_MODEL` (with
+   `ASK_CODEX_MODEL` as base) overrides **both** paths — Path A via the executor,
+   Path B via `${VAR:-default}` shell expansion in the brainstorm template.
