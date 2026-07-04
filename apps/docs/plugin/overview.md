@@ -1,5 +1,5 @@
 ---
-description: Claude Code plugin for AI-to-AI collaboration. Multi-provider code review, brainstorming agents, continuous codex-pair review hook, and CLI binaries for Gemini, Codex, and Ollama.
+description: Claude Code plugin for AI-to-AI collaboration. Multi-provider code review, brainstorming agents, continuous codex-pair review hook, and CLI binaries for Gemini, Codex, Ollama, and Antigravity.
 ---
 
 # Claude Code Plugin
@@ -50,7 +50,7 @@ This gives you `gemini:ask-gemini` rather than `plugin:ask-llm:gemini:ask-gemini
 | `/ollama-review` | Ollama | Local review — no data leaves your machine |
 | `/antigravity-review` | Antigravity | Subscription-backed second opinion via Google `agy` (experimental) |
 | `/brainstorm` | Multi + Claude Opus | Claude Opus researches the topic against real files in parallel with external providers, then synthesizes findings |
-| `/brainstorm-all` | All + Claude Opus | Brainstorm with all three external providers plus Claude Opus research |
+| `/brainstorm-all` | All + Claude Opus | Brainstorm with all four external providers (Gemini, Codex, Ollama, Antigravity) plus Claude Opus research |
 | `/compare` | Multi (configurable) | Side-by-side raw responses from selected providers — no synthesis, no consensus extraction. Use when you want to see how each provider phrases the same answer |
 
 > `/codex-review`, `/ollama-review`, `/antigravity-review`, and `/brainstorm` require the respective CLI tools to be installed and authenticated.

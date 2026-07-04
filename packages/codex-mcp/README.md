@@ -72,7 +72,8 @@ Add to `claude_desktop_config.json`:
 | `ASK_CODEX_MODEL` | `gpt-5.5` | Override the default model |
 | `ASK_CODEX_FALLBACK_MODEL` | `gpt-5.4-mini` | Override the quota-fallback model |
 | `ASK_CODEX_LOAD_USER_CONFIG` | _(unset)_ | Set to `1` to opt back into loading `~/.codex/config.toml` (hooks, MCP servers, preferences) and execpolicy `.rules` files. By default the wrapper passes `--ignore-user-config --ignore-rules` so behavior stays deterministic across host machines. Auth credentials in `CODEX_HOME` always load regardless. See ADR-071. |
-| `GMCPT_TIMEOUT_MS` | `210000` | Per-call timeout for the spawned codex process |
+| `ASK_CODEX_TIMEOUT_MS` | `800000` | Per-call timeout for the spawned codex process (13.3 min — reasoning models routinely take 5–10 min on substantive prompts; raised in ADR-074) |
+| `GMCPT_TIMEOUT_MS` | _(unset)_ | Cross-provider timeout override; lower precedence than `ASK_CODEX_TIMEOUT_MS` |
 | `GMCPT_LOG_LEVEL` | `warn` | `debug`, `info`, `warn`, or `error` |
 
 ## Documentation

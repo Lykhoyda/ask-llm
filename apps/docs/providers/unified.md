@@ -1,5 +1,5 @@
 ---
-description: All LLM providers in one MCP server. Auto-detects installed CLIs (Gemini, Codex, Ollama) and registers available tools behind runtime checks.
+description: All LLM providers in one MCP server. Auto-detects installed CLIs (Gemini, Codex, Ollama, Antigravity) and registers available tools behind runtime checks.
 ---
 
 # Unified (ask-llm-mcp)
@@ -38,11 +38,11 @@ On startup, the unified server:
 
 ## Tools
 
-All tools from installed providers are registered. If you have all three:
+The orchestrator exposes a single `ask-llm` tool (not one per provider — ADR-029), so the same tool surface is registered whenever any provider is installed:
 
 | Tool | Purpose |
 |------|---------|
-| `ask-llm` | Single unified tool — picks the provider via `provider` parameter (`gemini`, `codex`, `ollama`). Optional `sessionId` for multi-turn continuation |
+| `ask-llm` | Single unified tool — picks the provider via `provider` parameter (`gemini`, `codex`, `ollama`, `antigravity`). Optional `sessionId` for multi-turn continuation |
 | `multi-llm` | Dispatch the same prompt to multiple providers in parallel; returns per-provider responses + usage in one call |
 | `get-usage-stats` | Per-session token totals + breakdowns by provider/model — in-memory, no persistence |
 | `diagnose` | Self-diagnosis: Node version, PATH, provider CLI presence + versions. Read-only |
@@ -67,7 +67,7 @@ npx ask-llm-mcp doctor   # diagnose Node version, PATH, provider CLIs, env vars 
 - **Auto-detection** of installed CLIs
 - **Single unified `ask-llm` tool** for token efficiency
 - **Multi-provider parallel dispatch** via `multi-llm` (Promise.all internally; per-provider failure isolation)
-- **Session continuity** across all 3 providers — Gemini (`--resume`), Codex (`exec resume`), Ollama (server-side replay)
+- **Session continuity** across the three session-capable providers — Gemini (`--resume`), Codex (`exec resume`), Ollama (server-side replay); Antigravity is single-turn
 - **Graceful degradation** if a provider is unavailable
 
 ## npm

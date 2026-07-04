@@ -1,6 +1,6 @@
 ---
 name: compare
-description: This skill should be used when the user asks to "compare LLMs", "see how each provider answers", "side-by-side response", "what do Gemini, Codex, and Ollama think", or wants raw responses from multiple providers without synthesis. Unlike /brainstorm (which synthesizes findings) or /multi-review (which validates code reviews), /compare just shows each provider's answer side-by-side.
+description: This skill should be used when the user asks to "compare LLMs", "see how each provider answers", "side-by-side response", "what do Gemini, Codex, Ollama, and Antigravity think", or wants raw responses from multiple providers without synthesis. Unlike /brainstorm (which synthesizes findings) or /multi-review (which validates code reviews), /compare just shows each provider's answer side-by-side.
 user_invocable: true
 ---
 
@@ -23,7 +23,7 @@ If you're reviewing a code diff → use `/multi-review` instead.
 
 Extract from the user's message:
 1. **The question/prompt** to send to all providers (the meaningful payload)
-2. **Optional provider filter** — if the user says "compare gemini and codex", only those two; otherwise default to all three (gemini, codex, ollama)
+2. **Optional provider filter** — if the user says "compare gemini and codex", only those two; otherwise default to all four (gemini, codex, ollama, antigravity)
 3. **Optional context files** — if the user references files (`@path/to/file`), preserve the `@` syntax in the per-provider prompt
 
 If the question is missing or ambiguous, ask the user to clarify before dispatching.
@@ -44,12 +44,16 @@ codex_pid=$!
 GMCPT_TIMEOUT_MS=480000 node ${CLAUDE_PLUGIN_ROOT}/dist/ollama-run.js "$PROMPT" > /tmp/ask-llm-compare-ollama.out 2> /tmp/ask-llm-compare-ollama.err &
 ollama_pid=$!
 
+GMCPT_TIMEOUT_MS=480000 node ${CLAUDE_PLUGIN_ROOT}/dist/antigravity-run.js "$PROMPT" > /tmp/ask-llm-compare-antigravity.out 2> /tmp/ask-llm-compare-antigravity.err &
+antigravity_pid=$!
+
 gem_rc=0; wait $gem_pid || gem_rc=$?
 codex_rc=0; wait $codex_pid || codex_rc=$?
 ollama_rc=0; wait $ollama_pid || ollama_rc=$?
+antigravity_rc=0; wait $antigravity_pid || antigravity_rc=$?
 
-echo "exits: gemini=$gem_rc codex=$codex_rc ollama=$ollama_rc"
-echo "bytes: gemini=$(wc -c < /tmp/ask-llm-compare-gemini.out) codex=$(wc -c < /tmp/ask-llm-compare-codex.out) ollama=$(wc -c < /tmp/ask-llm-compare-ollama.out)"
+echo "exits: gemini=$gem_rc codex=$codex_rc ollama=$ollama_rc antigravity=$antigravity_rc"
+echo "bytes: gemini=$(wc -c < /tmp/ask-llm-compare-gemini.out) codex=$(wc -c < /tmp/ask-llm-compare-codex.out) ollama=$(wc -c < /tmp/ask-llm-compare-ollama.out) antigravity=$(wc -c < /tmp/ask-llm-compare-antigravity.out)"
 ```
 
 Set the Bash tool's `timeout` parameter to **600000ms** (10 minutes, the max). Default 2-minute Bash timeouts will SIGKILL the providers mid-response — this is the same bug class that ADR-050 fixed for the brainstorm-coordinator.
@@ -74,6 +78,9 @@ Output structure:
 > <verbatim provider response>
 
 ### Ollama
+> <verbatim provider response>
+
+### Antigravity
 > <verbatim provider response>
 
 ### Where they differ

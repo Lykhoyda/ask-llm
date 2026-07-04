@@ -6,7 +6,7 @@
 
 </div>
 
-A [Claude Code plugin](https://code.claude.com/docs/en/plugins) that adds multi-provider code review, brainstorming, and automated hooks. Get second opinions from Gemini, Codex, and Ollama without leaving Claude Code.
+A [Claude Code plugin](https://code.claude.com/docs/en/plugins) that adds multi-provider code review, brainstorming, and automated hooks. Get second opinions from Gemini, Codex, Ollama, and Antigravity without leaving Claude Code.
 
 Part of the [Ask LLM](https://github.com/Lykhoyda/ask-llm) monorepo.
 
@@ -38,7 +38,7 @@ claude mcp add --scope user ollama -- npx -y ask-ollama-mcp
 | `/codex-review` | Codex-only code review (precision-first, ≥80 confidence — default for routine PR review) |
 | `/ollama-review` | Local review — no data leaves your machine |
 | `/brainstorm` | Multi-LLM brainstorm with Claude Opus as a first-class research participant (default external: gemini,codex) |
-| `/brainstorm-all` | Brainstorm with all three external providers + Claude Opus research |
+| `/brainstorm-all` | Brainstorm with all four external providers (Gemini, Codex, Ollama, Antigravity) + Claude Opus research |
 | `/compare` | Side-by-side raw responses from multiple providers (no synthesis, no consensus extraction) |
 
 ## Agents

@@ -282,9 +282,12 @@ git diff --staged | ask-codex-run "Any bugs in these staged changes?"
 
 # Pipe to local Ollama
 cat src/auth.ts | ask-ollama-run "Review this auth implementation"
+
+# Pipe to Antigravity (subscription-backed via agy)
+git diff | ask-antigravity-run "Second opinion on these changes?"
 ```
 
-All three binaries accept:
+All four binaries accept:
 - **Positional argument:** The prompt
 - **Stdin:** Piped content (code, diffs, files)
 - **Combined:** `echo 'code' | ask-gemini-run "review this"`

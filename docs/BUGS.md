@@ -2,6 +2,14 @@
 
 ## Open
 
+### `/compare` skill: two pre-existing robustness gaps (file context + temp-file race)
+- **Severity:** Low–Medium (pre-existing; surfaced by the codex-pair review of the 2026-07-04 Antigravity-parity edit, not introduced by it)
+- **Discovered:** 2026-07-04, codex-pair review of `skills/compare/SKILL.md`
+- **File:** `packages/claude-plugin/skills/compare/SKILL.md`
+- **Gap 1 — `@file` context silently dropped for non-Gemini providers (Medium):** the skill (line ~27) tells Claude to "preserve the `@path/to/file` syntax in the per-provider prompt," but `@file` expansion is a **Gemini-CLI-only** feature. `codex-run.js` / `ollama-run.js` / `antigravity-run.js` receive `@path` as literal prompt text, so a compare that relies on file context sends only a path string to those providers. Fix: instruct the skill to read referenced files and inline their contents (or pipe via stdin) rather than relying on `@` for non-Gemini legs.
+- **Gap 2 — shared `/tmp` filenames race across concurrent runs (Low):** the dispatch `rm -f /tmp/ask-llm-compare-*.out` + fixed per-provider filenames mean two overlapping `/compare` runs (or two sessions) can wipe/overwrite each other's outputs and surface the wrong provider response or a false failure. Fix: allocate a per-run dir via `mktemp -d` and thread it through the dispatch/read/present phases.
+- **Note:** both are independent of the Antigravity leg added in PR #218; fixing either is a skill-behavior change (own PR).
+
 ### `apps/docs/plugin/hooks.md` marketplace workaround relies on GNU-only `sort -V`
 - **Severity:** Low (docs-only; the workaround command silently misbehaves on macOS/BSD `sort`)
 - **Discovered:** 2026-07-02, dogfood codex-pair review of the hooks docs page during the seamless-pairing pass
@@ -25,6 +33,27 @@
 - **Discovered:** 2026-07-02, dogfood codex-pair review during the seamless-pairing pass
 - **File:** `packages/claude-plugin/scripts/lib/stop-gate.mjs:13`
 - **Description:** porcelain v1 quotes paths containing special characters; the parser strips the surrounding quotes but doesn't unescape the body, so such paths never match log-entry paths and the Stop-gate's `[B]` git-dirty filter drops their HIGH findings (fail-open, never a wrong block). Fix direction: `git status --porcelain=v1 -z` with a NUL parser.
+
+### ~~`/compare` excluded Antigravity while `/brainstorm-all` and `/multi-review` included it~~ FIXED
+- **Severity:** Low (feature-parity gap; the skill's docs had been self-consistent with its implementation)
+- **Discovered:** 2026-07-04, docs-consistency audit (flagged for a maintainer decision, then approved to fix)
+- **File:** `packages/claude-plugin/skills/compare/SKILL.md`
+- **Description:** `/compare` dispatched to gemini/codex/ollama only — three `*-run.js` legs — while `/brainstorm-all` and `/multi-review` both included Antigravity after it became a first-class provider (ADR-125/128). Not originally classed as docs drift (docs matched code); closing it was a deliberate behavior change.
+- **Status:** **FIXED** (`docs/getting-started-antigravity-register`, PR #218): added the `antigravity-run.js` dispatch leg (ADR-050 backgrounding + per-PID wait), a fourth `### Antigravity` output section, and updated the description + default-set prose. The load-bearing contract test in `skills-and-agents.test.ts` now pins the `dist/antigravity-run.js` leg so it can't silently regress. Patch changeset for `@ask-llm/plugin`; 473 plugin tests green. (The same review surfaced two *pre-existing* robustness gaps in the skill — logged separately under Open.)
+
+### ~~Docs omitted Antigravity + two factual errors across README env/tool tables (post-getting-started sweep)~~ FIXED
+- **Severity:** Medium for the two factual errors (a user configuring the codex timeout, or reading the orchestrator's tool surface, gets wrong information); Low for the parity omissions
+- **Discovered:** 2026-07-04, deterministic docs-consistency audit following the getting-started registration fix
+- **Files:** `packages/codex-mcp/README.md`, `packages/llm-mcp/README.md`, `docs/CONTRIBUTING.md`, `apps/docs/providers/unified.md`, `apps/docs/plugin/overview.md`, `apps/docs/plugin/hooks.md`, `apps/docs/resources/faq.md`, `packages/claude-plugin/README.md`
+- **Description:** (1) `codex-mcp/README.md` documented codex's per-call timeout as `GMCPT_TIMEOUT_MS`=`210000` (Gemini's default, copy-pasted) and omitted `ASK_CODEX_TIMEOUT_MS` — codex's real default is **800s**; (2) `llm-mcp/README.md`'s Tools table listed **per-provider** tools (`ask-gemini`, `ask-gemini-edit`, `fetch-chunk`, `ask-codex`, `ask-ollama`) as the orchestrator's surface, contradicting the single-`ask-llm`-tool design (ADR-029); (3) `CONTRIBUTING.md` listed the pre-push smoke legs as "Gemini, Codex, Ollama" after commit `8ff2b32` swapped the Gemini leg for Antigravity; (4) Antigravity (4th provider, ADR-128) was missing from several provider lists/counts ("all three" in unified/overview/hooks/plugin-README, the `ask-llm` provider param, `/brainstorm-all`'s "three external providers", the plugin CLI-binaries count). Same root cause as the getting-started and 2026-07-02 `llms.txt` drift: hand-written "Gemini, Codex, Ollama" trios and provider counts not backfilled when Antigravity landed.
+- **Status:** **FIXED** (`docs/getting-started-antigravity-register`, PR #218): 16 spots across 8 files corrected — timeout row now shows `ASK_CODEX_TIMEOUT_MS`=`800000`; the orchestrator Tools table rewritten to the real `ask-llm`/`multi-llm`/`get-usage-stats`/`diagnose`/`ping` surface; smoke legs corrected; Antigravity backfilled into every count/list; session-continuity claims reworded to name the three session-capable providers explicitly. Verified with `grep 'gemini, codex, ollama'` minus `antigravity` (only legitimate non-provider hits remain).
+
+### ~~`apps/docs/getting-started.md` omitted Antigravity from provider lists + the Claude Code registration block~~ FIXED
+- **Severity:** Low (docs-only; the onboarding page under-documented a shipped provider, so a new user following Getting Started never saw how to register `agy`)
+- **Discovered:** 2026-07-04, docs pass ("update docs — it should register agy")
+- **File:** `apps/docs/getting-started.md`
+- **Description:** `installation.md`, `README.md`, and both AI-readable files (`public/llms.txt`, `public/llms-full.txt`) all register Antigravity (`claude mcp add … antigravity -- npx -y ask-antigravity-mcp`), but the older Getting Started onboarding page — written around the original 3-provider (Gemini/Codex/Ollama) story — was never backfilled after Antigravity shipped (ADR-125 / PR #192). The same drift left a hardcoded "install one or all three" count and a "(Gemini, Codex, or Ollama)" start-with example. Root cause matches the 2026-07-02 `llms.txt` drift bug: two pages document the same install story and only the newer one was kept current when the provider set grew.
+- **Status:** **FIXED** (`docs/getting-started-antigravity-register`): Antigravity added to the Step-2 per-provider package list and the Option A `claude mcp add` block (reordered Codex → Antigravity → Ollama → Gemini to match the page's own "which provider first?" tip); the two hardcoded provider counts made provider-neutral ("all of them", "(Codex, Antigravity, Ollama, or Gemini)") to resist recurrence. Registration parity verified across all five doc surfaces.
 
 ### ~~AI-readable docs (`llms.txt` / `llms-full.txt`) advertised a wrong `fetch-chunk` param name and other schema drift~~ FIXED
 - **Severity:** High for the headline (an AI agent following the reference sends an argument the Zod schema rejects); Medium for the rest
