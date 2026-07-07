@@ -1,5 +1,12 @@
 # ask-llm-mcp
 
+## 0.4.5
+
+### Patch Changes
+
+- Updated dependencies [[`1089a21`](https://github.com/Lykhoyda/ask-llm/commit/1089a215657594a1c569dcd6c180d94750b1dab6)]:
+  - ask-codex-mcp@0.6.0
+
 ## 0.4.4
 
 ### Patch Changes
