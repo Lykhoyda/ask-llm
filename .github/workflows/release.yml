@@ -104,8 +104,8 @@ jobs:
       - name: Publish ask-claude to MCP Registry
         if: steps.changesets.outputs.published == 'true'
         run: ./mcp-publisher publish packages/claude-mcp/server.json
-
         continue-on-error: true
+
       - name: Publish ask-ollama to MCP Registry
         if: steps.changesets.outputs.published == 'true'
         run: ./mcp-publisher publish packages/ollama-mcp/server.json
