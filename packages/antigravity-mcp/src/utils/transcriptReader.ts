@@ -18,6 +18,12 @@ interface TranscriptEntry {
   message?: string;
 }
 
+export interface TranscriptResult {
+  response: string;
+  path: string;
+  conversationId: string;
+}
+
 // last_conversations.json shape is undocumented. Tolerate: array of ids, array
 // of {id}, or an object (keyed by id, or with lastId / conversations). Unknown → null.
 function pickMostRecentId(parsed: unknown): string | null {
@@ -82,19 +88,15 @@ function extractText(entry: TranscriptEntry): string | null {
   return typeof text === "string" && text.length > 0 ? text : null;
 }
 
-function readFileOrNull(path: string): string | null {
+function readFileOrNull(path: string): { contents: string; path: string } | null {
   try {
-    return readFileSync(path, "utf8");
+    return { contents: readFileSync(path, "utf8"), path };
   } catch {
     return null;
   }
 }
 
-// Read agy's transcript for the resolved conversation and return the last
-// completed model response, or null if absent/unreadable. Never throws.
-// Schema validated against agy 1.0.6 (#153 dogfood): the answer is the last entry
-// with source=MODEL, status=DONE, type=PLANNER_RESPONSE, and its text in `content`.
-export function readLatestResponse(sinceMs: number, baseDir: string = defaultBaseDir()): string | null {
+export function readLatestTranscript(sinceMs: number, baseDir: string = defaultBaseDir()): TranscriptResult | null {
   const convId = resolveConversationId(baseDir, sinceMs);
   if (!convId) {
     Logger.debug("antigravity: could not resolve a conversation id from cache or brain dir");
@@ -108,14 +110,14 @@ export function readLatestResponse(sinceMs: number, baseDir: string = defaultBas
   // exists it wins even if it yields no model entry (e.g. agy crashed mid-write) —
   // we return null rather than fall back to the truncated copy. Intentional:
   // full > truncated; a full file with no model entry means the run didn't finish (#154).
-  const raw =
+  const transcript =
     readFileOrNull(join(logsDir, "transcript_full.jsonl")) ?? readFileOrNull(join(logsDir, "transcript.jsonl"));
-  if (raw === null) {
+  if (transcript === null) {
     Logger.debug(`antigravity: no transcript (full or truncated) under ${logsDir}`);
     return null;
   }
   let answer: string | null = null;
-  for (const line of raw.split("\n")) {
+  for (const line of transcript.contents.split("\n")) {
     const trimmed = line.trim();
     if (!trimmed.startsWith("{")) continue;
     let entry: TranscriptEntry;
@@ -131,6 +133,11 @@ export function readLatestResponse(sinceMs: number, baseDir: string = defaultBas
   }
   if (!answer) {
     Logger.debug("antigravity: transcript present but no MODEL/DONE/PLANNER_RESPONSE entry found (schema change?)");
+    return null;
   }
-  return answer;
+  return { response: answer, path: transcript.path, conversationId: convId };
+}
+
+export function readLatestResponse(sinceMs: number, baseDir: string = defaultBaseDir()): string | null {
+  return readLatestTranscript(sinceMs, baseDir)?.response ?? null;
 }

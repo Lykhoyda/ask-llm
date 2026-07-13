@@ -11,15 +11,15 @@ vi.mock("@ask-llm/shared", async (importOriginal) => {
 });
 
 vi.mock("../transcriptReader.js", () => ({
-  readLatestResponse: vi.fn(),
+  readLatestTranscript: vi.fn(),
 }));
 
 import { executeCommand } from "@ask-llm/shared";
 import { buildArgs, executeAntigravityCLI } from "../antigravityExecutor.js";
-import { readLatestResponse } from "../transcriptReader.js";
+import { readLatestTranscript } from "../transcriptReader.js";
 
 const mockExec = vi.mocked(executeCommand);
-const mockReadLatest = vi.mocked(readLatestResponse);
+const mockReadLatestTranscript = vi.mocked(readLatestTranscript);
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -27,7 +27,7 @@ beforeEach(() => {
   delete process.env[ANTIGRAVITY.TIMEOUT_ENV_VAR];
   delete process.env[ANTIGRAVITY.MODEL_ENV_VAR];
   mockExec.mockResolvedValue("");
-  mockReadLatest.mockReturnValue(null);
+  mockReadLatestTranscript.mockReturnValue(null);
 });
 
 describe("buildArgs", () => {
@@ -71,16 +71,19 @@ describe("buildArgs", () => {
 describe("executeAntigravityCLI response sources", () => {
   it("uses plain stdout only as a last resort, after the transcript", async () => {
     mockExec.mockResolvedValue("direct answer");
-    mockReadLatest.mockReturnValue(null);
     const result = await executeAntigravityCLI({ prompt: "q" });
     expect(result.response).toBe("direct answer");
     // transcript is consulted before plain stdout
-    expect(mockReadLatest).toHaveBeenCalledOnce();
+    expect(mockReadLatestTranscript).toHaveBeenCalledOnce();
   });
 
   it("prefers the transcript over non-JSON stdout banners (#153)", async () => {
     mockExec.mockResolvedValue("Initializing model...");
-    mockReadLatest.mockReturnValue("real answer");
+    mockReadLatestTranscript.mockReturnValue({
+      response: "real answer",
+      path: "/agy/transcript.jsonl",
+      conversationId: "conversation-1",
+    });
     const result = await executeAntigravityCLI({ prompt: "q" });
     expect(result.response).toBe("real answer");
   });
@@ -89,21 +92,38 @@ describe("executeAntigravityCLI response sources", () => {
     mockExec.mockResolvedValue('{"response":"json answer"}');
     const result = await executeAntigravityCLI({ prompt: "q" });
     expect(result.response).toBe("json answer");
-    expect(mockReadLatest).not.toHaveBeenCalled();
+    expect(mockReadLatestTranscript).not.toHaveBeenCalled();
   });
 
   it("falls back to transcript scrape when stdout is empty (today's bug)", async () => {
     mockExec.mockResolvedValue("");
-    mockReadLatest.mockReturnValue("scraped answer");
+    mockReadLatestTranscript.mockReturnValue({
+      response: "scraped answer",
+      path: "/agy/transcript.jsonl",
+      conversationId: "conversation-1",
+    });
     const result = await executeAntigravityCLI({ prompt: "q" });
     expect(result.response).toBe("scraped answer");
-    expect(mockReadLatest).toHaveBeenCalledOnce();
-    expect(typeof mockReadLatest.mock.calls[0][0]).toBe("number");
+    expect(mockReadLatestTranscript).toHaveBeenCalledOnce();
+    expect(typeof mockReadLatestTranscript.mock.calls[0][0]).toBe("number");
+  });
+
+  it("returns the durable transcript path when the response comes from the transcript", async () => {
+    mockExec.mockResolvedValue("");
+    mockReadLatestTranscript.mockReturnValue({
+      response: "scraped answer",
+      path: "/agy/brain/conversation-1/.system_generated/logs/transcript_full.jsonl",
+      conversationId: "conversation-1",
+    });
+
+    const result = await executeAntigravityCLI({ prompt: "q", readOnly: true });
+
+    expect(result.response).toBe("scraped answer");
+    expect(result.transcriptPath).toBe("/agy/brain/conversation-1/.system_generated/logs/transcript_full.jsonl");
   });
 
   it("throws NO_OUTPUT when stdout is empty and no transcript is found", async () => {
     mockExec.mockResolvedValue("");
-    mockReadLatest.mockReturnValue(null);
     await expect(executeAntigravityCLI({ prompt: "q" })).rejects.toThrow(ERROR_MESSAGES.NO_OUTPUT);
   });
 
