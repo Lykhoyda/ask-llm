@@ -22,7 +22,7 @@ describe("PROVIDERS registry", () => {
   it("registers Claude as a Claude Code CLI-backed provider", () => {
     expect(PROVIDERS.claude).toBeDefined();
     expect(PROVIDERS.claude.command).toBe("claude");
-    expect(PROVIDERS.claude.executorModule).toBe("ask-claude-mcp/executor");
+    expect(PROVIDERS.claude.executorModule).toBe("@anton-lykhoyda/ask-claude-mcp/executor");
     expect(PROVIDERS.claude.executorFn).toBe("executeClaudeCLI");
     expect(PROVIDERS.claude.disabledWhenEnvVar).toBe("CLAUDECODE");
   });

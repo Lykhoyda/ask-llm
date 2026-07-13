@@ -45,7 +45,7 @@ You can install one or all of them. The MCP server auto-detects which providers 
 
 The recommended package is **`ask-llm-mcp`** — the unified orchestrator that auto-detects all installed providers and exposes them through a single `ask-llm` MCP tool plus `multi-llm`, `get-usage-stats`, `diagnose`, and `ping`.
 
-If you only want one provider, you can also install the per-provider packages directly: `ask-codex-mcp`, `ask-claude-mcp`, `ask-antigravity-mcp`, `ask-ollama-mcp`, `ask-gemini-mcp`. They expose provider-specific tools (`ask-codex`, `ask-claude`, `ask-antigravity` (subscription-backed via `agy`), `ask-ollama`, and `ask-gemini` with `@` file syntax + sandbox + edit mode).
+If you only want one provider, you can also install the per-provider packages directly: `ask-codex-mcp`, `@anton-lykhoyda/ask-claude-mcp`, `ask-antigravity-mcp`, `ask-ollama-mcp`, `ask-gemini-mcp`. They expose provider-specific tools (`ask-codex`, `ask-claude`, `ask-antigravity` (subscription-backed via `agy`), `ask-ollama`, and `ask-gemini` with `@` file syntax + sandbox + edit mode).
 
 ### Option A: Claude Code (Recommended)
 
@@ -60,7 +60,7 @@ claude mcp add --scope user ollama      -- npx -y ask-ollama-mcp
 claude mcp add --scope user gemini      -- npx -y ask-gemini-mcp
 ```
 
-Claude is not listed as a Claude Code per-provider registration because nested Claude sessions are unsupported. From Codex, register it with `codex mcp add claude -- npx -y ask-claude-mcp`.
+Claude is not listed as a Claude Code per-provider registration because nested Claude sessions are unsupported. From Codex, register it with `codex mcp add claude -- npx -y @anton-lykhoyda/ask-claude-mcp`.
 
 ### Option B: Claude Desktop
 

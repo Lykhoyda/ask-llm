@@ -23,7 +23,7 @@ Multiple ways to install Ask LLM, depending on whether you want the unified orch
 |---------|---------|---------------|
 | [`ask-llm-mcp`](https://www.npmjs.com/package/ask-llm-mcp) | **Unified orchestrator (recommended)** — auto-detects all installed providers | `ask-llm`, `multi-llm`, `get-usage-stats`, `diagnose`, `ping` |
 | [`ask-codex-mcp`](https://www.npmjs.com/package/ask-codex-mcp) | Codex-only | `ask-codex`, `get-usage-stats`, `ping` |
-| [`ask-claude-mcp`](https://www.npmjs.com/package/ask-claude-mcp) | Claude-only — designed for Codex and other non-Claude hosts; read-only file tools | `ask-claude`, `get-usage-stats`, `ping` |
+| [`@anton-lykhoyda/ask-claude-mcp`](https://www.npmjs.com/package/@anton-lykhoyda/ask-claude-mcp) | Claude-only — designed for Codex and other non-Claude hosts; read-only file tools | `ask-claude`, `get-usage-stats`, `ping` |
 | [`ask-antigravity-mcp`](https://www.npmjs.com/package/ask-antigravity-mcp) | Antigravity-only (experimental) — subscription-backed via `agy` | `ask-antigravity`, `get-usage-stats`, `ping` |
 | [`ask-ollama-mcp`](https://www.npmjs.com/package/ask-ollama-mcp) | Ollama-only (local) | `ask-ollama`, `get-usage-stats`, `ping` |
 | [`ask-gemini-mcp`](https://www.npmjs.com/package/ask-gemini-mcp) | Gemini-only — full feature set including `@` file syntax, sandbox, edit mode. [Enterprise-gated from 2026-06-18](/providers/gemini) | `ask-gemini`, `ask-gemini-edit`, `fetch-chunk`, `get-usage-stats`, `ping` |
@@ -68,7 +68,7 @@ The unified server suppresses its Claude provider when the MCP host is already C
 For the reverse collaboration path—Codex asking Claude for a second opinion:
 
 ```bash
-codex mcp add claude -- npx -y ask-claude-mcp
+codex mcp add claude -- npx -y @anton-lykhoyda/ask-claude-mcp
 ```
 
 Claude runs in safe mode with only `Read`, `Glob`, and `Grep`; Codex remains responsible for edits.

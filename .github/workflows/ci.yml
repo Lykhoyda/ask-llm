@@ -125,7 +125,11 @@ jobs:
         set -eu
         npm cache clean --force
         for bin in ask-gemini-mcp ask-codex-mcp ask-claude-mcp ask-ollama-mcp ask-antigravity-mcp; do
-          npm install -g /tmp/tarballs/${bin}-*.tgz
+          tarball_prefix="$bin"
+          if [ "$bin" = "ask-claude-mcp" ]; then
+            tarball_prefix="anton-lykhoyda-ask-claude-mcp"
+          fi
+          npm install -g /tmp/tarballs/${tarball_prefix}-*.tgz
           printf '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"smoke","version":"0.0.0"}}}\n' \
             | timeout 20 "$bin" > /tmp/out.json 2> /tmp/err.txt || true
           if grep -q 'ERR_MODULE_NOT_FOUND' /tmp/err.txt; then echo "FAIL: $bin crashed at import"; cat /tmp/err.txt; exit 1; fi

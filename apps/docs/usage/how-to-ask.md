@@ -84,7 +84,7 @@ Self-diagnosis: Node version, PATH resolution, provider CLI presence + versions.
 
 Zero-cost connection test. Lists detected providers.
 
-### Per-provider servers (`ask-gemini-mcp`, `ask-codex-mcp`, `ask-claude-mcp`, `ask-ollama-mcp`, `ask-antigravity-mcp`)
+### Per-provider servers (`ask-gemini-mcp`, `ask-codex-mcp`, `@anton-lykhoyda/ask-claude-mcp`, `ask-ollama-mcp`, `ask-antigravity-mcp`)
 
 Each per-provider server exposes its provider's `ask-*` tool with the richer per-provider parameter set, plus the shared `get-usage-stats` and `ping`.
 

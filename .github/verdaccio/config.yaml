@@ -9,6 +9,10 @@ uplinks:
   npmjs:
     url: https://registry.npmjs.org/
 packages:
+  '@anton-lykhoyda/*':
+    access: $all
+    publish: $all
+    # NO proxy: the scoped Claude tarball published locally must always win.
   'ask-*':
     access: $all
     publish: $all

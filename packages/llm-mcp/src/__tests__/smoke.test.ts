@@ -12,7 +12,7 @@ vi.mock("ask-codex-mcp/executor", () => ({
   executeCodexCLI: vi.fn().mockResolvedValue({ response: "codex response", threadId: undefined }),
 }));
 
-vi.mock("ask-claude-mcp/executor", () => ({
+vi.mock("@anton-lykhoyda/ask-claude-mcp/executor", () => ({
   executeClaudeCLI: vi.fn().mockResolvedValue({ response: "claude response", sessionId: undefined }),
 }));
 
@@ -25,7 +25,7 @@ vi.mock("ask-antigravity-mcp/executor", () => ({
   executeAntigravityCLI: vi.fn().mockResolvedValue({ response: "antigravity response" }),
 }));
 
-import { executeClaudeCLI } from "ask-claude-mcp/executor";
+import { executeClaudeCLI } from "@anton-lykhoyda/ask-claude-mcp/executor";
 import { executeCodexCLI } from "ask-codex-mcp/executor";
 import { executeGeminiCLI } from "ask-gemini-mcp/executor";
 import { executeOllamaCLI, isProviderAvailable as mockIsOllamaAvailable } from "ask-ollama-mcp/executor";
