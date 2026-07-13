@@ -54,10 +54,17 @@ function clock(...timestamps: number[]): () => number {
   return now;
 }
 
-function deps(executor: ExecutorFn | undefined, now: () => number = clock(100, 145)): MachineDeps {
+function deps(
+  executor: ExecutorFn | undefined,
+  options: {
+    now?: () => number;
+    env?: Readonly<Record<string, string | undefined>>;
+  } = {},
+): MachineDeps {
   return {
     loadExecutor: vi.fn().mockResolvedValue(executor),
-    now,
+    now: options.now ?? clock(100, 145),
+    env: options.env ?? {},
   };
 }
 
@@ -275,6 +282,88 @@ describe("runMachineRequest", () => {
         requestedModel: "Gemini 3.1 Pro (High)",
         actualModel: "Gemini 3.5 Flash (High)",
       },
+    });
+  });
+
+  it.each([
+    {
+      label: "Codex override without fallback",
+      provider: "codex" as const,
+      writerProvider: "claude" as const,
+      envVar: "ASK_CODEX_MODEL",
+      configuredModel: "codex-stable-alias",
+      actualModel: "gpt-5.6-sol",
+      fellBack: false,
+    },
+    {
+      label: "Codex override with fallback",
+      provider: "codex" as const,
+      writerProvider: "claude" as const,
+      envVar: "ASK_CODEX_MODEL",
+      configuredModel: "gpt-custom-primary",
+      actualModel: "gpt-5.6-terra",
+      fellBack: true,
+    },
+    {
+      label: "Antigravity override without fallback",
+      provider: "antigravity" as const,
+      writerProvider: "claude" as const,
+      envVar: "ASK_ANTIGRAVITY_MODEL",
+      configuredModel: "Custom Pro",
+      actualModel: "Custom Pro",
+      fellBack: false,
+    },
+    {
+      label: "Antigravity override with fallback",
+      provider: "antigravity" as const,
+      writerProvider: "claude" as const,
+      envVar: "ASK_ANTIGRAVITY_MODEL",
+      configuredModel: "Custom Pro",
+      actualModel: "Gemini 3.5 Flash (High)",
+      fellBack: true,
+    },
+  ])("uses the injected effective model for $label", async (testCase) => {
+    const executor: ExecutorFn = vi.fn().mockResolvedValue({
+      response: JSON.stringify(reviewPayload),
+      model: testCase.actualModel,
+      usage:
+        testCase.provider === "codex"
+          ? {
+              provider: "codex",
+              model: testCase.actualModel,
+              inputTokens: 20,
+              outputTokens: 10,
+              cachedTokens: 0,
+              thinkingTokens: 0,
+              durationMs: 40,
+              fellBack: testCase.fellBack,
+            }
+          : undefined,
+    });
+
+    const result = await runMachineRequest(
+      request({
+        provider: testCase.provider,
+        writerProvider: testCase.writerProvider,
+        model: undefined,
+      }),
+      deps(executor, { env: { [testCase.envVar]: testCase.configuredModel } }),
+    );
+
+    expect(executor).toHaveBeenCalledWith(expect.objectContaining({ model: testCase.configuredModel }));
+    expect(result).toMatchObject({
+      actualModel: testCase.actualModel,
+      fallback: testCase.fellBack
+        ? {
+            occurred: true,
+            requestedModel: testCase.configuredModel,
+            actualModel: testCase.actualModel,
+          }
+        : {
+            occurred: false,
+            requestedModel: testCase.actualModel,
+            actualModel: testCase.actualModel,
+          },
     });
   });
 

@@ -26,6 +26,7 @@ type JsonSchema = Record<string, unknown>;
 export interface MachineDeps {
   loadExecutor: (provider: MachineProvider) => ExecutorFn | undefined | Promise<ExecutorFn | undefined>;
   now: () => number;
+  env?: Readonly<Record<string, string | undefined>>;
 }
 
 export interface MachineJsonSchemaBundle {
@@ -99,20 +100,29 @@ function normalizeUsage(result: ExecutorResult | undefined): NormalizedTokenUsag
   return { inputTokens, outputTokens, totalTokens: inputTokens + outputTokens };
 }
 
-function fallbackFor(request: MachineRequest, result: ExecutorResult | undefined): MachineFallback {
+function resolveEffectiveModel(request: MachineRequest, env: Readonly<Record<string, string | undefined>>): string {
+  const provider = PROVIDERS[request.provider];
+  const configuredModel = provider?.modelEnvVar ? env[provider.modelEnvVar] : undefined;
+  return nonEmptyString(request.model) ?? nonEmptyString(configuredModel) ?? provider.defaultModel;
+}
+
+function fallbackFor(
+  request: MachineRequest,
+  result: ExecutorResult | undefined,
+  effectiveRequestedModel: string,
+): MachineFallback {
   const resolvedModel = actualModel(result);
   if (resolvedModel === null) return { occurred: false, requestedModel: null, actualModel: null };
 
-  const requestedModel = nonEmptyString(request.model) ?? nonEmptyString(PROVIDERS[request.provider]?.defaultModel);
   if (request.provider === "antigravity") {
-    if (requestedModel !== null && requestedModel !== resolvedModel) {
-      return { occurred: true, requestedModel, actualModel: resolvedModel };
+    if (effectiveRequestedModel !== resolvedModel) {
+      return { occurred: true, requestedModel: effectiveRequestedModel, actualModel: resolvedModel };
     }
     return { occurred: false, requestedModel: resolvedModel, actualModel: resolvedModel };
   }
 
-  if (result?.usage?.fellBack === true && requestedModel !== null) {
-    return { occurred: true, requestedModel, actualModel: resolvedModel };
+  if (result?.usage?.fellBack === true) {
+    return { occurred: true, requestedModel: effectiveRequestedModel, actualModel: resolvedModel };
   }
   return { occurred: false, requestedModel: resolvedModel, actualModel: resolvedModel };
 }
@@ -137,6 +147,7 @@ function resultEnvelope(
   result: ExecutorResult | undefined,
   elapsedMs: number,
   rawResponseSha256: string | null,
+  effectiveRequestedModel: string,
 ) {
   return {
     schemaVersion: 1 as const,
@@ -146,7 +157,7 @@ function resultEnvelope(
     rawResponseSha256,
     durationMs: durationMs(elapsedMs),
     usage: normalizeUsage(result),
-    fallback: fallbackFor(request, result),
+    fallback: fallbackFor(request, result, effectiveRequestedModel),
     session: sessionFor(request, result),
     quotaSignal: { kind: "runtime_proxy_required" as const },
   };
@@ -156,12 +167,13 @@ function failureResult(
   request: MachineRequest,
   kind: ProviderFailureKind,
   elapsedMs: number,
+  effectiveRequestedModel: string,
   result?: ExecutorResult,
   rawResponseSha256: string | null = null,
   message = failureMessages[kind],
 ): MachineResult {
   return machineResultSchema.parse({
-    ...resultEnvelope(request, result, elapsedMs, rawResponseSha256),
+    ...resultEnvelope(request, result, elapsedMs, rawResponseSha256, effectiveRequestedModel),
     status: "failed",
     role: request.role,
     payload: null,
@@ -169,15 +181,28 @@ function failureResult(
   });
 }
 
-function successResult(request: MachineRequest, result: ExecutorResult, elapsedMs: number): MachineResult {
+function successResult(
+  request: MachineRequest,
+  result: ExecutorResult,
+  elapsedMs: number,
+  effectiveRequestedModel: string,
+): MachineResult {
   const rawResponse = typeof result.response === "string" ? result.response : "";
   const rawResponseSha256 = createHash("sha256").update(rawResponse).digest("hex");
   const parsed = parseRolePayload(request.role, rawResponse);
   if (!parsed.ok) {
-    return failureResult(request, "schema_invalid", elapsedMs, result, rawResponseSha256, parsed.failure.message);
+    return failureResult(
+      request,
+      "schema_invalid",
+      elapsedMs,
+      effectiveRequestedModel,
+      result,
+      rawResponseSha256,
+      parsed.failure.message,
+    );
   }
   return machineResultSchema.parse({
-    ...resultEnvelope(request, result, elapsedMs, rawResponseSha256),
+    ...resultEnvelope(request, result, elapsedMs, rawResponseSha256, effectiveRequestedModel),
     status: "success",
     role: request.role,
     payload: parsed.payload,
@@ -187,22 +212,23 @@ function successResult(request: MachineRequest, result: ExecutorResult, elapsedM
 
 export async function runMachineRequest(input: unknown, deps: MachineDeps): Promise<MachineResult> {
   const request = machineRequestSchema.parse(input);
+  const effectiveRequestedModel = resolveEffectiveModel(request, deps.env ?? process.env);
   const executor = await deps.loadExecutor(request.provider);
-  if (!executor) return failureResult(request, "tool_unavailable", 0);
+  if (!executor) return failureResult(request, "tool_unavailable", 0, effectiveRequestedModel);
 
   const started = deps.now();
   try {
     const result = await executor({
       prompt: buildRolePrompt(request),
-      model: request.model,
+      model: effectiveRequestedModel,
       includeDirs: request.includeDirs,
       sandbox: "read-only",
       readOnly: true,
       outputSchema: roleJsonSchema(request.role),
     });
-    return successResult(request, result, deps.now() - started);
+    return successResult(request, result, deps.now() - started, effectiveRequestedModel);
   } catch (error) {
-    return failureResult(request, classifyProviderFailure(error), deps.now() - started);
+    return failureResult(request, classifyProviderFailure(error), deps.now() - started, effectiveRequestedModel);
   }
 }
 

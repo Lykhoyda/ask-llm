@@ -4,6 +4,7 @@ export interface ProviderConfig {
   executorModule: string;
   executorFn: string;
   defaultModel: string;
+  modelEnvVar?: string;
   availabilityModule?: string;
   availabilityFn?: string;
   enrichModule?: string;
@@ -25,6 +26,7 @@ export const PROVIDERS: Record<string, ProviderConfig> = {
     executorModule: "@ask-llm/codex-mcp/executor",
     executorFn: "executeCodexCLI",
     defaultModel: "gpt-5.6-sol",
+    modelEnvVar: "ASK_CODEX_MODEL",
     enrichModule: "@ask-llm/codex-mcp/executor",
     enrichFn: "enrichCodexDoctor",
   },
@@ -34,6 +36,7 @@ export const PROVIDERS: Record<string, ProviderConfig> = {
     executorModule: "@ask-llm/claude-mcp/executor",
     executorFn: "executeClaudeCLI",
     defaultModel: "opus",
+    modelEnvVar: "ASK_CLAUDE_MODEL",
     disabledWhenEnvVar: "CLAUDECODE",
   },
   ollama: {
@@ -51,6 +54,7 @@ export const PROVIDERS: Record<string, ProviderConfig> = {
     executorModule: "@ask-llm/antigravity-mcp/executor",
     executorFn: "executeAntigravityCLI",
     defaultModel: "Gemini 3.1 Pro (High)",
+    modelEnvVar: "ASK_ANTIGRAVITY_MODEL",
   },
 };
 
