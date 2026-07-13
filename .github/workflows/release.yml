@@ -67,6 +67,17 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NODE_AUTH_TOKEN: ${{ secrets.NODE_AUTH_TOKEN }}
 
+      # Scoped packages default to restricted visibility. Keep this explicit even
+      # though the manifest requests public access: the first 0.1.1 publish was
+      # accepted by npm but remained invisible to unauthenticated installs.
+      - name: Ensure ask-claude is public on npm
+        if: steps.changesets.outputs.published == 'true' || github.event_name == 'workflow_dispatch'
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NODE_AUTH_TOKEN }}
+        run: |
+          npm access set status=public @anton-lykhoyda/ask-claude-mcp
+          test "$(npm access get status @anton-lykhoyda/ask-claude-mcp --json | jq -r '."@anton-lykhoyda/ask-claude-mcp"')" = "public"
+
       # Everything below this line runs ONLY when changesets actually published to npm
       # (i.e., the Version Packages PR just merged). On every other push to main —
       # including "pending changesets but no version commit yet" — these steps skip.
