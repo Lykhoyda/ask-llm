@@ -165,6 +165,11 @@ describe("machineResultSchema", () => {
         actualModel: null,
         rawResponseSha256: null,
         usage: null,
+        fallback: {
+          occurred: false,
+          requestedModel: null,
+          actualModel: null,
+        },
         session: null,
         quotaSignal: { kind: "runtime_proxy_required" },
         payload: null,
@@ -174,6 +179,39 @@ describe("machineResultSchema", () => {
         },
       }).success,
     ).toBe(true);
+  });
+
+  it("rejects a failure result whose envelope and fallback actual models contradict", () => {
+    expect(
+      machineResultSchema.safeParse({
+        ...resultProvenance,
+        status: "failed",
+        role: "review",
+        actualModel: null,
+        payload: null,
+        failure: {
+          kind: "unavailable",
+          message: "Provider is unavailable",
+        },
+      }).success,
+    ).toBe(false);
+  });
+
+  it("rejects a non-fallback result with different requested and actual models", () => {
+    expect(
+      machineResultSchema.safeParse({
+        ...resultProvenance,
+        status: "success",
+        role: "review",
+        fallback: {
+          occurred: false,
+          requestedModel: "gpt-5.5",
+          actualModel: "gpt-5.6",
+        },
+        payload: reviewPayload,
+        failure: null,
+      }).success,
+    ).toBe(false);
   });
 
   it("does not allow an unknown quota signal to invent a percentage", () => {
@@ -239,6 +277,15 @@ describe("parseRolePayload", () => {
         ],
       },
     });
+  });
+
+  it("ignores quoted braces in provider preamble text", () => {
+    const payload = parseRolePayload(
+      "review",
+      `Provider note: the token "{example}" is illustrative. ${JSON.stringify(reviewPayload)}`,
+    );
+
+    expect(payload).toEqual({ ok: true, payload: reviewPayload });
   });
 
   it("returns a normalized schema failure without parser details", () => {

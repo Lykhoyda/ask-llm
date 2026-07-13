@@ -97,22 +97,27 @@ export const normalizedTokenUsageSchema = z
   })
   .strict();
 
-export const fallbackSchema = z.discriminatedUnion("occurred", [
-  z
-    .object({
-      occurred: z.literal(false),
-      requestedModel: z.string().min(1).nullable(),
-      actualModel: z.string().min(1).nullable(),
-    })
-    .strict(),
-  z
-    .object({
-      occurred: z.literal(true),
-      requestedModel: z.string().min(1),
-      actualModel: z.string().min(1),
-    })
-    .strict(),
-]);
+export const fallbackSchema = z
+  .discriminatedUnion("occurred", [
+    z
+      .object({
+        occurred: z.literal(false),
+        requestedModel: z.string().min(1).nullable(),
+        actualModel: z.string().min(1).nullable(),
+      })
+      .strict(),
+    z
+      .object({
+        occurred: z.literal(true),
+        requestedModel: z.string().min(1),
+        actualModel: z.string().min(1),
+      })
+      .strict(),
+  ])
+  .refine((value) => value.occurred || value.requestedModel === value.actualModel, {
+    message: "requested and actual models must match when fallback did not occur",
+    path: ["actualModel"],
+  });
 
 export const sessionLocatorSchema = z
   .object({
@@ -188,11 +193,16 @@ const verificationSuccessResultSchema = z
   })
   .strict();
 
-export const machineSuccessResultSchema = z.discriminatedUnion("role", [
-  brainstormSuccessResultSchema,
-  reviewSuccessResultSchema,
-  verificationSuccessResultSchema,
-]);
+export const machineSuccessResultSchema = z
+  .discriminatedUnion("role", [
+    brainstormSuccessResultSchema,
+    reviewSuccessResultSchema,
+    verificationSuccessResultSchema,
+  ])
+  .refine((value) => value.actualModel === value.fallback.actualModel, {
+    message: "result and fallback actual models must match",
+    path: ["fallback", "actualModel"],
+  });
 
 export const machineFailureResultSchema = z
   .object({
@@ -202,7 +212,11 @@ export const machineFailureResultSchema = z
     payload: z.null(),
     failure: normalizedProviderFailureSchema,
   })
-  .strict();
+  .strict()
+  .refine((value) => value.actualModel === value.fallback.actualModel, {
+    message: "result and fallback actual models must match",
+    path: ["fallback", "actualModel"],
+  });
 
 export const machineResultSchema = z.discriminatedUnion("status", [
   machineSuccessResultSchema,
@@ -272,7 +286,17 @@ function extractFirstJsonObject(raw: string): string | null {
     const character = raw[index];
 
     if (start === -1) {
-      if (character === "{") {
+      if (inString) {
+        if (escaped) {
+          escaped = false;
+        } else if (character === "\\") {
+          escaped = true;
+        } else if (character === '"') {
+          inString = false;
+        }
+      } else if (character === '"') {
+        inString = true;
+      } else if (character === "{") {
         start = index;
         depth = 1;
       }
