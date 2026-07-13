@@ -47,7 +47,7 @@ hero:
   <a href="/ask-llm/providers/claude" class="provider-card" data-provider="claude">
     <span class="provider-name">Claude</span>
     <span class="provider-desc">Anthropic Claude Code CLI (Opus → Sonnet). The reverse path for Codex and other MCP clients to request a read-only Claude second opinion.</span>
-    <span class="provider-pkg">npx ask-claude-mcp</span>
+    <span class="provider-pkg">npx @anton-lykhoyda/ask-claude-mcp</span>
   </a>
   <a href="/ask-llm/providers/antigravity" class="provider-card" data-provider="antigravity">
     <span class="provider-name">Antigravity</span>

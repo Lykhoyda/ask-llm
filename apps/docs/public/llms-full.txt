@@ -12,7 +12,7 @@ Ask LLM is a monorepo with 6 published npm packages + 1 shared library + 1 Claud
 packages/shared/         @ask-llm/shared      Internal shared code (inlined into each MCP at build — registry, executor, sessions, usage)
 packages/gemini-mcp/     ask-gemini-mcp       MCP server for Google Gemini CLI
 packages/codex-mcp/      ask-codex-mcp        MCP server for OpenAI Codex CLI
-packages/claude-mcp/     ask-claude-mcp       MCP server for Anthropic Claude Code CLI
+packages/claude-mcp/     @anton-lykhoyda/ask-claude-mcp       MCP server for Anthropic Claude Code CLI
 packages/ollama-mcp/     ask-ollama-mcp       MCP server for local Ollama LLMs
 packages/antigravity-mcp ask-antigravity-mcp  MCP server for Google Antigravity CLI (agy)
 packages/llm-mcp/        ask-llm-mcp          Unified MCP server (auto-detects providers)
@@ -103,7 +103,7 @@ claude mcp add antigravity -- npx -y ask-antigravity-mcp
 ```toml
 [mcp_servers.claude]
 command = "npx"
-args = ["-y", "ask-claude-mcp"]
+args = ["-y", "@anton-lykhoyda/ask-claude-mcp"]
 ```
 
 The block above registers the focused Codex → Claude second-opinion path. Add a `[mcp_servers.<name>]` section per provider, or register the unified `ask-llm-mcp` to expose all installed providers through one server.
@@ -120,7 +120,7 @@ The block above registers the focused Codex → Claude second-opinion path. Add 
 }
 ```
 
-The `ask-gemini-mcp` argument above is just an example — the same STDIO block works for any package (`ask-codex-mcp`, `ask-claude-mcp`, `ask-ollama-mcp`, `ask-antigravity-mcp`, or the unified `ask-llm-mcp`).
+The `ask-gemini-mcp` argument above is just an example — the same STDIO block works for any package (`ask-codex-mcp`, `@anton-lykhoyda/ask-claude-mcp`, `ask-ollama-mcp`, `ask-antigravity-mcp`, or the unified `ask-llm-mcp`).
 
 ### Unified Server (all providers in one)
 
@@ -199,7 +199,7 @@ Get structured, read-only code edits from Codex via `--output-schema`. Codex ana
 
 Send prompts to Anthropic Claude Code CLI from Codex or another non-Claude MCP host. Claude runs in safe mode with only Read, Glob, and Grep tools; it cannot execute commands or modify files.
 
-- **Package:** ask-claude-mcp
+- **Package:** @anton-lykhoyda/ask-claude-mcp
 - **Parameters:**
   - `prompt` (string, required): The question, review, or analysis task. Delivered over stdin.
   - `model` (string, optional): Default `opus`; Claude Code natively falls back to `sonnet` when unavailable or overloaded.
@@ -442,7 +442,7 @@ All MCP servers handle errors gracefully:
 - Docs: https://lykhoyda.github.io/ask-llm/
 - npm (gemini): https://www.npmjs.com/package/ask-gemini-mcp
 - npm (codex): https://www.npmjs.com/package/ask-codex-mcp
-- npm (claude): https://www.npmjs.com/package/ask-claude-mcp
+- npm (claude): https://www.npmjs.com/package/@anton-lykhoyda/ask-claude-mcp
 - npm (ollama): https://www.npmjs.com/package/ask-ollama-mcp
 - npm (antigravity): https://www.npmjs.com/package/ask-antigravity-mcp
 - npm (unified): https://www.npmjs.com/package/ask-llm-mcp

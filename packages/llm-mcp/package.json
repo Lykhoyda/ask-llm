@@ -60,9 +60,9 @@
     "LICENSE"
   ],
   "dependencies": {
+    "@anton-lykhoyda/ask-claude-mcp": "^0.1.0",
     "@modelcontextprotocol/sdk": "^1.27.1",
     "ask-antigravity-mcp": "^0.4.1",
-    "ask-claude-mcp": "^0.1.0",
     "ask-codex-mcp": "^0.6.1",
     "ask-gemini-mcp": "^1.6.14",
     "ask-ollama-mcp": "^0.5.1",

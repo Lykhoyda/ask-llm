@@ -8,7 +8,7 @@ import fs from "node:fs";
 const REQUIRED = [
   "ask-gemini-mcp",
   "ask-codex-mcp",
-  "ask-claude-mcp",
+  "@anton-lykhoyda/ask-claude-mcp",
   "ask-ollama-mcp",
   "ask-antigravity-mcp",
   "ask-llm-mcp",

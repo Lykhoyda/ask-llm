@@ -31,7 +31,7 @@ export const PROVIDERS: Record<string, ProviderConfig> = {
   claude: {
     name: "Claude",
     command: "claude",
-    executorModule: "ask-claude-mcp/executor",
+    executorModule: "@anton-lykhoyda/ask-claude-mcp/executor",
     executorFn: "executeClaudeCLI",
     defaultModel: "opus",
     disabledWhenEnvVar: "CLAUDECODE",

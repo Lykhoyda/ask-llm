@@ -11,7 +11,7 @@
 |---------|------|---------|-----------|
 | [`ask-gemini-mcp`](https://www.npmjs.com/package/ask-gemini-mcp) | MCP Server | [![npm](https://img.shields.io/npm/v/ask-gemini-mcp)](https://www.npmjs.com/package/ask-gemini-mcp) | [![downloads](https://img.shields.io/npm/dt/ask-gemini-mcp)](https://www.npmjs.com/package/ask-gemini-mcp) |
 | [`ask-codex-mcp`](https://www.npmjs.com/package/ask-codex-mcp) | MCP Server | [![npm](https://img.shields.io/npm/v/ask-codex-mcp)](https://www.npmjs.com/package/ask-codex-mcp) | [![downloads](https://img.shields.io/npm/dt/ask-codex-mcp)](https://www.npmjs.com/package/ask-codex-mcp) |
-| [`ask-claude-mcp`](https://www.npmjs.com/package/ask-claude-mcp) | MCP Server | [![npm](https://img.shields.io/npm/v/ask-claude-mcp)](https://www.npmjs.com/package/ask-claude-mcp) | [![downloads](https://img.shields.io/npm/dt/ask-claude-mcp)](https://www.npmjs.com/package/ask-claude-mcp) |
+| [`@anton-lykhoyda/ask-claude-mcp`](https://www.npmjs.com/package/@anton-lykhoyda/ask-claude-mcp) | MCP Server | [![npm](https://img.shields.io/npm/v/@anton-lykhoyda/ask-claude-mcp)](https://www.npmjs.com/package/@anton-lykhoyda/ask-claude-mcp) | [![downloads](https://img.shields.io/npm/dt/@anton-lykhoyda/ask-claude-mcp)](https://www.npmjs.com/package/@anton-lykhoyda/ask-claude-mcp) |
 | [`ask-ollama-mcp`](https://www.npmjs.com/package/ask-ollama-mcp) | MCP Server | [![npm](https://img.shields.io/npm/v/ask-ollama-mcp)](https://www.npmjs.com/package/ask-ollama-mcp) | [![downloads](https://img.shields.io/npm/dt/ask-ollama-mcp)](https://www.npmjs.com/package/ask-ollama-mcp) |
 | [`ask-antigravity-mcp`](https://www.npmjs.com/package/ask-antigravity-mcp) | MCP Server | [![npm](https://img.shields.io/npm/v/ask-antigravity-mcp)](https://www.npmjs.com/package/ask-antigravity-mcp) | [![downloads](https://img.shields.io/npm/dt/ask-antigravity-mcp)](https://www.npmjs.com/package/ask-antigravity-mcp) |
 | [`ask-llm-mcp`](https://www.npmjs.com/package/ask-llm-mcp) | MCP Server | [![npm](https://img.shields.io/npm/v/ask-llm-mcp)](https://www.npmjs.com/package/ask-llm-mcp) | [![downloads](https://img.shields.io/npm/dt/ask-llm-mcp)](https://www.npmjs.com/package/ask-llm-mcp) |
@@ -128,7 +128,7 @@ args = ["-y", "ask-llm-mcp"]
 For the focused Codex → Claude second-opinion path:
 
 ```bash
-codex mcp add claude -- npx -y ask-claude-mcp
+codex mcp add claude -- npx -y @anton-lykhoyda/ask-claude-mcp
 ```
 
 **Any MCP Client** (STDIO transport):
@@ -136,7 +136,7 @@ codex mcp add claude -- npx -y ask-claude-mcp
 { "command": "npx", "args": ["-y", "ask-llm-mcp"] }
 ```
 
-Replace `ask-llm-mcp` with `ask-codex-mcp`, `ask-claude-mcp`, `ask-antigravity-mcp`, `ask-ollama-mcp`, or `ask-gemini-mcp` for a single provider.
+Replace `ask-llm-mcp` with `ask-codex-mcp`, `@anton-lykhoyda/ask-claude-mcp`, `ask-antigravity-mcp`, `ask-ollama-mcp`, or `ask-gemini-mcp` for a single provider.
 
 </details>
 
@@ -195,7 +195,7 @@ See the [plugin docs](https://lykhoyda.github.io/ask-llm/plugin/overview) for de
 | `ask-gemini-edit` | ask-gemini-mcp | Get structured OLD/NEW code edit blocks from Gemini |
 | `fetch-chunk` | ask-gemini-mcp | Retrieve chunks from cached large responses |
 | `ask-codex` | ask-codex-mcp | Send prompts to Codex CLI. GPT-5.6 Sol with Terra fallback; optional reasoning effort; native session resume via `sessionId` |
-| `ask-claude` | ask-claude-mcp | Send prompts to Claude Code CLI. Opus with Sonnet fallback; native sessions; Read/Glob/Grep-only workspace access |
+| `ask-claude` | @anton-lykhoyda/ask-claude-mcp | Send prompts to Claude Code CLI. Opus with Sonnet fallback; native sessions; Read/Glob/Grep-only workspace access |
 | `ask-ollama` | ask-ollama-mcp | Send prompts to local Ollama. Fully private, zero cost. Server-side conversation replay via `sessionId` |
 | `ask-antigravity` | ask-antigravity-mcp | Send a prompt to Google Antigravity (`agy`) for a subscription-backed second opinion. Experimental; one-shot |
 | `ask-llm` | ask-llm-mcp | Unified orchestrator — pick provider per call. Fan out to all installed providers |

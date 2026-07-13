@@ -68,7 +68,7 @@ Yes — any STDIO MCP client works. See [Installation](/installation) for client
 
 ### Can Codex ask Claude for a second opinion?
 
-Yes. Register the dedicated provider with `codex mcp add claude -- npx -y ask-claude-mcp`, then ask Codex to call `ask-claude`. The Claude subprocess is restricted to Read, Glob, and Grep; Codex applies any resulting changes. The provider is not exposed when Claude Code itself is the host because Claude Code rejects nested sessions.
+Yes. Register the dedicated provider with `codex mcp add claude -- npx -y @anton-lykhoyda/ask-claude-mcp`, then ask Codex to call `ask-claude`. The Claude subprocess is restricted to Read, Glob, and Grep; Codex applies any resulting changes. The provider is not exposed when Claude Code itself is the host because Claude Code rejects nested sessions.
 
 ---
 

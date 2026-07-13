@@ -100,6 +100,6 @@ echo ""
 run_smoke "Ollama"      "ask-ollama-mcp"
 run_smoke "Antigravity" "ask-antigravity-mcp"
 run_smoke "Codex"       "ask-codex-mcp"
-run_smoke "Claude"      "ask-claude-mcp"
+run_smoke "Claude"      "@anton-lykhoyda/ask-claude-mcp"
 
 echo "=== Smoke tests done (any quota-skipped providers were warned above) ==="
