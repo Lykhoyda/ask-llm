@@ -60,7 +60,7 @@ Use ask-llm to ask Codex to fix the issue you found, sessionId abc-123-...
 # → Codex remembers the prior review
 ```
 
-Gemini, Codex, and Ollama support sessions — Gemini and Codex use native CLI resume, Ollama uses server-side conversation replay (Antigravity is single-turn). See [Multi-Turn Sessions](/usage/multi-turn-sessions) for details.
+Claude, Gemini, Codex, and Ollama support sessions — Claude/Gemini/Codex use native CLI resume, Ollama uses server-side conversation replay (Antigravity is single-turn). Claude sessions are available from Codex and other non-Claude hosts. See [Multi-Turn Sessions](/usage/multi-turn-sessions) for details.
 
 ## Interactive REPL
 

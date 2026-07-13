@@ -51,6 +51,7 @@ export interface DiagnosticReport {
     askLlmPath: string | undefined;
     timeoutMs: number;
     codexTimeoutMs: number;
+    claudeTimeoutMs: number;
     geminiTimeoutMs: number;
   };
   providers: ProviderProbe[];
@@ -235,6 +236,7 @@ export async function runDiagnostics(providers: ProviderSpec[]): Promise<Diagnos
   const timeoutEnv = process.env.GMCPT_TIMEOUT_MS;
   const timeoutMs = timeoutEnv ? Number.parseInt(timeoutEnv, 10) : 210_000;
   const codexTimeoutMs = resolveTimeoutMs(EXECUTION.CODEX_TIMEOUT_ENV_VAR, EXECUTION.DEFAULT_CODEX_TIMEOUT_MS);
+  const claudeTimeoutMs = resolveTimeoutMs(EXECUTION.CLAUDE_TIMEOUT_ENV_VAR, EXECUTION.DEFAULT_CLAUDE_TIMEOUT_MS);
   const geminiTimeoutMs = resolveTimeoutMs(EXECUTION.GEMINI_TIMEOUT_ENV_VAR, EXECUTION.DEFAULT_TIMEOUT_MS);
 
   const hasFailure = checks.some((c) => c.status === "fail");
@@ -253,6 +255,7 @@ export async function runDiagnostics(providers: ProviderSpec[]): Promise<Diagnos
       askLlmPath,
       timeoutMs,
       codexTimeoutMs,
+      claudeTimeoutMs,
       geminiTimeoutMs,
     },
     providers: providerProbes,
@@ -281,7 +284,7 @@ export function formatDiagnosticReport(report: DiagnosticReport): string {
   lines.push(`  Node:     ${report.environment.nodeVersion}${report.environment.nodeOk ? "" : " (TOO OLD)"}`);
   lines.push(`  Platform: ${report.environment.platform}/${report.environment.arch}`);
   lines.push(
-    `  Timeouts: codex=${report.environment.codexTimeoutMs}ms, gemini=${report.environment.geminiTimeoutMs}ms`,
+    `  Timeouts: codex=${report.environment.codexTimeoutMs}ms, claude=${report.environment.claudeTimeoutMs}ms, gemini=${report.environment.geminiTimeoutMs}ms`,
   );
   if (report.environment.askLlmPath) {
     lines.push(`  ASK_LLM_PATH: set (${report.environment.askLlmPath.split(":").length} entries)`);

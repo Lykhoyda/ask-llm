@@ -29,4 +29,4 @@ For **recall-first** review on hot-path code (money handling, security paths, sp
 
 2. If the diff is empty, inform the user there are no changes to review.
 
-3. Launch the `codex-reviewer` agent with the diff content. The agent handles the Codex prompt structure and output formatting, and requests the preferred higher-reasoning model (`gpt-5.5-pro`, auto-falling back to `gpt-5.5`).
+3. Launch the `codex-reviewer` agent with the diff content. The agent handles the Codex prompt structure and output formatting, using GPT-5.6 Sol at `high` reasoning effort with automatic Terra fallback.

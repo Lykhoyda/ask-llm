@@ -1,9 +1,11 @@
 import type { ProviderSpec } from "@ask-llm/shared";
-import { INSTALL_HINTS, PROVIDERS } from "../constants.js";
+import { INSTALL_HINTS, isProviderEligible, PROVIDERS } from "../constants.js";
 
 export async function buildProviderSpecs(): Promise<ProviderSpec[]> {
   const specs: ProviderSpec[] = [];
   for (const [key, config] of Object.entries(PROVIDERS)) {
+    if (!isProviderEligible(config)) continue;
+
     const installHint = INSTALL_HINTS[key];
     let probeAvailability: ProviderSpec["probeAvailability"];
     if (config.availabilityModule && config.availabilityFn) {

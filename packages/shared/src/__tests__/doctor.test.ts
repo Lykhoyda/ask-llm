@@ -14,6 +14,7 @@ function makeReport(overrides: Partial<DiagnosticReport> = {}): DiagnosticReport
       askLlmPath: undefined,
       timeoutMs: 210000,
       codexTimeoutMs: 800000,
+      claudeTimeoutMs: 600000,
       geminiTimeoutMs: 210000,
     },
     providers: [],
@@ -42,7 +43,7 @@ describe("formatDiagnosticReport", () => {
     // Per-provider line replaces the old single "Timeout:" line. Diagnose
     // output is what users paste into bug reports — the provider breakdown
     // makes "why did codex time out at 210s?" answerable at a glance.
-    expect(out).toContain("Timeouts: codex=800000ms, gemini=210000ms");
+    expect(out).toContain("Timeouts: codex=800000ms, claude=600000ms, gemini=210000ms");
   });
 
   it("flags Node version as TOO OLD when nodeOk is false", () => {
@@ -57,6 +58,7 @@ describe("formatDiagnosticReport", () => {
           askLlmPath: undefined,
           timeoutMs: 210000,
           codexTimeoutMs: 800000,
+          claudeTimeoutMs: 600000,
           geminiTimeoutMs: 210000,
         },
       }),

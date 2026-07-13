@@ -114,7 +114,7 @@ Call 3: Ask Gemini to write tests for the fix, sessionId abc-123
         → continues the same thread
 ```
 
-Gemini, Codex, and Ollama support sessions ([ADR-058](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md)); Antigravity is single-turn. For programmatic clients, the `sessionId` is also exposed structurally via `result.structuredContent.sessionId` — no need to regex-parse the response footer ([ADR-065](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md)).
+Claude, Gemini, Codex, and Ollama support sessions; Antigravity is single-turn. Claude sessions are available from Codex and other non-Claude hosts. For programmatic clients, the `sessionId` is also exposed structurally via `result.structuredContent.sessionId` — no need to regex-parse the response footer ([ADR-065](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md)).
 
 ### 6. Quick Sanity Check via REPL
 

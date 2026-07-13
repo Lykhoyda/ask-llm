@@ -256,8 +256,9 @@ describe("buildMultiLlmInputSchema", () => {
     expect(schema.safeParse({ prompt: "", providers: ["gemini"] }).success).toBe(false);
   });
 
-  it("falls back to all 3 providers when availableProviders is empty", () => {
+  it("falls back to all canonical providers when availableProviders is empty", () => {
     const schema = buildMultiLlmInputSchema([]);
     expect(schema.safeParse({ prompt: "p", providers: ["ollama"] }).success).toBe(true);
+    expect(schema.safeParse({ prompt: "p", providers: ["claude"] }).success).toBe(true);
   });
 });

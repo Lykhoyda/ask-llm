@@ -8,6 +8,7 @@ export interface ProviderConfig {
   availabilityFn?: string;
   enrichModule?: string;
   enrichFn?: string;
+  disabledWhenEnvVar?: string;
 }
 
 export const PROVIDERS: Record<string, ProviderConfig> = {
@@ -23,9 +24,17 @@ export const PROVIDERS: Record<string, ProviderConfig> = {
     command: "codex",
     executorModule: "ask-codex-mcp/executor",
     executorFn: "executeCodexCLI",
-    defaultModel: "gpt-5.5",
+    defaultModel: "gpt-5.6-sol",
     enrichModule: "ask-codex-mcp/executor",
     enrichFn: "enrichCodexDoctor",
+  },
+  claude: {
+    name: "Claude",
+    command: "claude",
+    executorModule: "ask-claude-mcp/executor",
+    executorFn: "executeClaudeCLI",
+    defaultModel: "opus",
+    disabledWhenEnvVar: "CLAUDECODE",
   },
   ollama: {
     name: "Ollama",
@@ -48,6 +57,17 @@ export const PROVIDERS: Record<string, ProviderConfig> = {
 export const INSTALL_HINTS: Record<string, string> = {
   gemini: "npm install -g @google/gemini-cli",
   codex: "npm install -g @openai/codex",
+  claude: "npm install -g @anthropic-ai/claude-code, then run `claude` once to authenticate",
   ollama: "https://ollama.com — then: ollama pull qwen3.6:27b",
   antigravity: "Install Google Antigravity (agy) from https://antigravity.google, then run `agy` once to log in",
 };
+
+export function isProviderEligible(provider: ProviderConfig): boolean {
+  return !(provider.disabledWhenEnvVar && process.env[provider.disabledWhenEnvVar]);
+}
+
+export function getEligibleProviderKeys(): string[] {
+  return Object.entries(PROVIDERS)
+    .filter(([, provider]) => isProviderEligible(provider))
+    .map(([key]) => key);
+}

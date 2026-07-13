@@ -8,9 +8,10 @@ You don't need to memorize commands or rigid syntax to use Ask LLM. The MCP tool
 
 ## Just Ask Naturally
 
-Because Claude (and any other MCP-enabled assistant) natively integrates MCP tools, it knows when to route requests to Codex, Antigravity, Ollama, or Gemini based on what you say:
+Because your MCP-enabled assistant natively integrates these tools, it knows when to route requests to Codex, Claude, Antigravity, Ollama, or Gemini based on what you say:
 
 - *"Ask Codex to review my staged changes for security issues before I commit."*
+- *"Ask Claude for an independent critique of this plan before Codex implements it."*
 - *"Have Antigravity debate this architecture plan and suggest alternatives."*
 - *"Ask Ollama to explain how this auth flow works (keep it local)."*
 - *"Ask Gemini to scan @routes/\*\*/\*.js for OWASP issues."*
@@ -39,7 +40,7 @@ Ask Gemini to give me a high-level overview of @. (current directory)
 Ask Gemini to scan @routes/**/*.js for OWASP issues
 ```
 
-This is a Gemini CLI feature — `@` syntax is interpreted by `gemini`, not by the MCP server. Codex, Antigravity, and Ollama don't interpret `@` — quote or paste the relevant code into the prompt (Antigravity takes file context via `includeDirs` → `--add-dir`).
+This is a Gemini CLI feature — `@` syntax is interpreted by `gemini`, not by the MCP server. Codex, Claude, Antigravity, and Ollama don't interpret `@` — quote or paste the relevant code into the prompt (Claude and Antigravity can take file context via `includeDirs` → `--add-dir`).
 
 ---
 
@@ -55,7 +56,7 @@ Send a prompt to any installed provider, picked via the `provider` parameter.
 
 **Parameters:**
 - `prompt` (required): The question, code review request, or analysis task.
-- `provider` (required): One of `codex`, `antigravity`, `ollama`, `gemini` (only providers detected at startup are accepted).
+- `provider` (required): One of `codex`, `claude`, `antigravity`, `ollama`, `gemini` (only providers detected at startup are accepted). Claude is intentionally unavailable when Claude Code itself is the host because nested Claude sessions are unsupported.
 - `model` (optional): Override the default model. Usually unnecessary — defaults are sensible per provider with auto-fallback.
 - `sessionId` (optional): Resume a previous conversation. Pass the value from a prior response's `[Session ID: ...]` or `[Thread ID: ...]` footer (or `result.structuredContent.sessionId` for programmatic clients).
 
@@ -83,7 +84,7 @@ Self-diagnosis: Node version, PATH resolution, provider CLI presence + versions.
 
 Zero-cost connection test. Lists detected providers.
 
-### Per-provider servers (`ask-gemini-mcp`, `ask-codex-mcp`, `ask-ollama-mcp`, `ask-antigravity-mcp`)
+### Per-provider servers (`ask-gemini-mcp`, `ask-codex-mcp`, `ask-claude-mcp`, `ask-ollama-mcp`, `ask-antigravity-mcp`)
 
 Each per-provider server exposes its provider's `ask-*` tool with the richer per-provider parameter set, plus the shared `get-usage-stats` and `ping`.
 
@@ -102,6 +103,10 @@ Returns structured OLD/NEW edit blocks rather than free-form text. Use this when
 #### `fetch-chunk`
 
 Used automatically when Gemini's response is larger than a single MCP message allows. Returns subsequent chunks from the cached response.
+
+#### `ask-claude`
+
+Pre-bound to Anthropic Claude Code CLI for use by Codex and other non-Claude hosts. Accepts `prompt`, `model`, native `sessionId`, and validated relative `includeDirs`. It runs with `--safe-mode` and only Read, Glob, and Grep tools; Bash/Edit/Write and nested MCP tools are unavailable.
 
 #### `ask-codex` / `ask-ollama` / `ask-antigravity`
 

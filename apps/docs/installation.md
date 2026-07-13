@@ -9,9 +9,10 @@ Multiple ways to install Ask LLM, depending on whether you want the unified orch
 ## Prerequisites
 
 - **Node.js** v20.0.0 or higher (LTS 20 or 22)
-- **An MCP client** — Claude Code, Claude Desktop, Cursor, Warp, Copilot, or any of the [40+ compatible clients](https://modelcontextprotocol.io/clients)
+- **An MCP client** — Claude Code, Codex CLI, Claude Desktop, Cursor, Warp, Copilot, or any of the [40+ compatible clients](https://modelcontextprotocol.io/clients)
 - **At least one provider CLI** installed and authenticated:
   - `npm install -g @openai/codex` (then follow CLI auth) for Codex
+  - `npm install -g @anthropic-ai/claude-code` (then authenticate) for Claude
   - [Antigravity CLI](https://antigravity.google) (`agy`) installed and logged in once for Antigravity
   - [Ollama](https://ollama.com) running locally with a model pulled (`ollama pull qwen3.6:27b`)
   - `npm install -g @google/gemini-cli && gemini login` for Gemini ([enterprise-gated from 2026-06-18](/providers/gemini))
@@ -22,6 +23,7 @@ Multiple ways to install Ask LLM, depending on whether you want the unified orch
 |---------|---------|---------------|
 | [`ask-llm-mcp`](https://www.npmjs.com/package/ask-llm-mcp) | **Unified orchestrator (recommended)** — auto-detects all installed providers | `ask-llm`, `multi-llm`, `get-usage-stats`, `diagnose`, `ping` |
 | [`ask-codex-mcp`](https://www.npmjs.com/package/ask-codex-mcp) | Codex-only | `ask-codex`, `get-usage-stats`, `ping` |
+| [`ask-claude-mcp`](https://www.npmjs.com/package/ask-claude-mcp) | Claude-only — designed for Codex and other non-Claude hosts; read-only file tools | `ask-claude`, `get-usage-stats`, `ping` |
 | [`ask-antigravity-mcp`](https://www.npmjs.com/package/ask-antigravity-mcp) | Antigravity-only (experimental) — subscription-backed via `agy` | `ask-antigravity`, `get-usage-stats`, `ping` |
 | [`ask-ollama-mcp`](https://www.npmjs.com/package/ask-ollama-mcp) | Ollama-only (local) | `ask-ollama`, `get-usage-stats`, `ping` |
 | [`ask-gemini-mcp`](https://www.npmjs.com/package/ask-gemini-mcp) | Gemini-only — full feature set including `@` file syntax, sandbox, edit mode. [Enterprise-gated from 2026-06-18](/providers/gemini) | `ask-gemini`, `ask-gemini-edit`, `fetch-chunk`, `get-usage-stats`, `ping` |
@@ -59,7 +61,19 @@ claude mcp add --scope user antigravity -- npx -y ask-antigravity-mcp
 
 `--scope user` registers globally for all projects. Drop the flag for per-project scope.
 
-## Method 3: Plain npm global
+The unified server suppresses its Claude provider when the MCP host is already Claude Code because Claude Code does not permit nested Claude sessions.
+
+## Method 3: Codex CLI → Claude
+
+For the reverse collaboration path—Codex asking Claude for a second opinion:
+
+```bash
+codex mcp add claude -- npx -y ask-claude-mcp
+```
+
+Claude runs in safe mode with only `Read`, `Glob`, and `Grep`; Codex remains responsible for edits.
+
+## Method 4: Plain npm global
 
 ```bash
 npm install -g ask-llm-mcp
@@ -76,7 +90,7 @@ Then point your MCP config at the binary path or just use `ask-llm-mcp` directly
 }
 ```
 
-## Method 4: Claude Code Plugin (richer experience)
+## Method 5: Claude Code Plugin (richer experience)
 
 If you're a Claude Code user, the plugin adds slash commands (`/multi-review`, `/brainstorm`, `/compare`, `/gemini-review`, `/codex-review`, `/ollama-review`, `/antigravity-review`), reviewer subagents with confidence-based filtering, and an opt-in continuous `codex-pair` review hook:
 

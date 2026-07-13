@@ -135,9 +135,9 @@ Render a status table:
 codex-pair status — <MARKER_DIR>
 
   State:           ACTIVE ✓
-  Marker model:    <model from frontmatter of context.md, or "default (gpt-5.5)">
+  Marker model:    <model from frontmatter of context.md, or "default (gpt-5.6-sol)">
   Surface threshold: <surfaceThreshold from frontmatter, or "med">
-  Cost/review:     ~$0.04–0.07 (gpt-5.5) / ~13–50s wall-clock
+  Cost/review:     varies by Codex plan and workload / ~13–50s wall-clock
 
   Recent reviews (last 5):
   <timestamp>  <verdict>  <file>  <H#/M#/L# concerns>
@@ -242,7 +242,7 @@ Claude edits src/billing/charge.ts
 
 ## Cost characteristics
 
-- ~$0.04–0.07 per file reviewed (gpt-5.5 with reasoning tokens)
+- Usage varies by Codex plan and workload (`gpt-5.6-sol` with reasoning tokens)
 - ~13–50s per file wall-clock
 - Files >20 KB skipped (override with `CODEX_PAIR_MAX_FILE_BYTES`)
 - node_modules, dist, lockfiles, images skipped automatically
@@ -272,6 +272,7 @@ Use integer minor units such as `priceCents: z.number().int().nonnegative()`.
 | `CODEX_PAIR_DISABLED` | unset | Set to `1` to bypass the hook entirely (kill switch) |
 | `CODEX_PAIR_MAX_FILE_BYTES` | `20000` | Skip files larger than this many bytes |
 | `ASK_CODEX_TIMEOUT_MS` | `800000` | Per-call codex timeout (inherited from ask-codex-mcp, ADR-074) |
+| `ASK_CODEX_REASONING_EFFORT` | `medium` | Codex reasoning effort for continuous per-edit reviews; `/codex-review` and `/brainstorm` default to `high` instead. |
 | `ASK_CODEX_DEBOUNCE_MS` | `15000` | Settle window: a burst of edits to one file within this window is collapsed into a single review of the settled state (ADR-112). Set to `0` to disable debounce and review every edit synchronously. |
 | `ASK_CODEX_DEBOUNCE_MAX_MS` | `60000` | Hard cap from the first edit of a burst — forces a review even under a continuous edit stream. |
 | `CODEX_PAIR_QUOTA_PAUSE_TTL_MS` | `21600000` (6h) | Quota auto-pauses self-heal after this long. |

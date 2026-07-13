@@ -10,6 +10,6 @@ export default defineConfig({
   fixedExtension: false,
   deps: {
     alwaysBundle: ["@ask-llm/shared"],
-    neverBundle: ["ask-gemini-mcp", "ask-codex-mcp", "ask-ollama-mcp", "ask-antigravity-mcp"],
+    neverBundle: ["ask-gemini-mcp", "ask-codex-mcp", "ask-claude-mcp", "ask-ollama-mcp", "ask-antigravity-mcp"],
   },
 });

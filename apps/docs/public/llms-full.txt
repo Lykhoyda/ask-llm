@@ -1,17 +1,18 @@
 # Ask LLM — Full Reference for AI Agents
 
-> MCP servers for AI-to-AI collaboration — bridge your AI client with Gemini, Codex, Ollama, and Antigravity.
+> MCP servers for AI-to-AI collaboration — bridge your AI client with Gemini, Codex, Claude, Ollama, and Antigravity.
 
 This file contains everything an AI agent needs to integrate with Ask LLM MCP servers: tool schemas, configuration examples, provider details, and plugin setup.
 
 ## Architecture
 
-Ask LLM is a monorepo with 5 published npm packages + 1 shared library + 1 Claude Code plugin:
+Ask LLM is a monorepo with 6 published npm packages + 1 shared library + 1 Claude Code plugin:
 
 ```
 packages/shared/         @ask-llm/shared      Internal shared code (inlined into each MCP at build — registry, executor, sessions, usage)
 packages/gemini-mcp/     ask-gemini-mcp       MCP server for Google Gemini CLI
 packages/codex-mcp/      ask-codex-mcp        MCP server for OpenAI Codex CLI
+packages/claude-mcp/     ask-claude-mcp       MCP server for Anthropic Claude Code CLI
 packages/ollama-mcp/     ask-ollama-mcp       MCP server for local Ollama LLMs
 packages/antigravity-mcp ask-antigravity-mcp  MCP server for Google Antigravity CLI (agy)
 packages/llm-mcp/        ask-llm-mcp          Unified MCP server (auto-detects providers)
@@ -23,6 +24,7 @@ packages/claude-plugin   @ask-llm/plugin      Claude Code plugin (agents, skills
 - Node.js >= 20.0.0 (runtime)
 - For Gemini: `npm install -g @google/gemini-cli && gemini login` (enterprise-gated since 2026-06-18)
 - For Codex: Codex CLI installed and authenticated
+- For Claude: `npm install -g @anthropic-ai/claude-code`, then authenticate (provider is for Codex and other non-Claude hosts)
 - For Ollama: Ollama running locally (`https://ollama.com`) with a model pulled (`ollama pull qwen3.6:27b`)
 - For Antigravity: `agy` installed and logged in once (run `agy` interactively to authenticate)
 
@@ -99,12 +101,12 @@ claude mcp add antigravity -- npx -y ask-antigravity-mcp
 ### Codex CLI (~/.codex/config.toml)
 
 ```toml
-[mcp_servers.gemini]
+[mcp_servers.claude]
 command = "npx"
-args = ["-y", "ask-gemini-mcp"]
+args = ["-y", "ask-claude-mcp"]
 ```
 
-The block above registers Gemini as one example. Add a `[mcp_servers.<name>]` section per provider (swap `ask-gemini-mcp` for `ask-codex-mcp`, `ask-ollama-mcp`, `ask-antigravity-mcp`), or register the unified `ask-llm-mcp` to expose all installed providers through one server.
+The block above registers the focused Codex → Claude second-opinion path. Add a `[mcp_servers.<name>]` section per provider, or register the unified `ask-llm-mcp` to expose all installed providers through one server.
 
 ### Any MCP Client (STDIO transport)
 
@@ -118,7 +120,7 @@ The block above registers Gemini as one example. Add a `[mcp_servers.<name>]` se
 }
 ```
 
-The `ask-gemini-mcp` argument above is just an example — the same STDIO block works for any package (`ask-codex-mcp`, `ask-ollama-mcp`, `ask-antigravity-mcp`, or the unified `ask-llm-mcp`).
+The `ask-gemini-mcp` argument above is just an example — the same STDIO block works for any package (`ask-codex-mcp`, `ask-claude-mcp`, `ask-ollama-mcp`, `ask-antigravity-mcp`, or the unified `ask-llm-mcp`).
 
 ### Unified Server (all providers in one)
 
@@ -172,10 +174,11 @@ Send prompts to OpenAI Codex CLI.
 - **Package:** ask-codex-mcp
 - **Parameters:**
   - `prompt` (string, required): The question, code review request, or analysis task.
-  - `model` (string, optional): Do not set unless user explicitly requests it. Default: gpt-5.5. Falls back to gpt-5.4-mini on quota errors.
+  - `model` (string, optional): Do not set unless user explicitly requests it. Default: gpt-5.6-sol. Falls back to gpt-5.6-terra on quota errors.
+  - `reasoningEffort` (string, optional): low, medium, high, xhigh, or max. Default: medium. /codex-review and /brainstorm use high.
   - `sessionId` (string, optional): A Codex thread_id to resume a prior multi-turn conversation.
   - `includeDirs` (string[], optional): Additional directories to expose to Codex (`--add-dir`). Paths must be relative — no `..`, absolute paths, or `~`.
-  - `preferred` (boolean, optional): Prefer the higher-reasoning model (gpt-5.5-pro) and fall back to gpt-5.5 automatically if unavailable. Used by /codex-review and /brainstorm; leave unset for normal calls.
+  - `preferred` (boolean, optional): Opt into ASK_CODEX_PREFERRED_MODEL only when configured to differ from the gpt-5.6-sol default. Review skills leave it unset.
 - **Returns:** Codex's text response plus a structured payload (provider, model, sessionId, usage).
 - **Annotations:** readOnlyHint=false, destructiveHint=false, openWorldHint=true
 
@@ -186,11 +189,25 @@ Get structured, read-only code edits from Codex via `--output-schema`. Codex ana
 - **Package:** ask-codex-mcp
 - **Parameters:**
   - `prompt` (string, required): Describe the code changes you want.
-  - `model` (string, optional): Default: gpt-5.5.
+  - `model` (string, optional): Default: gpt-5.6-sol.
   - `sessionId` (string, optional): A Codex thread_id to continue a prior edit session.
   - `includeDirs` (string[], optional): Additional directories to expose to Codex (`--add-dir`). Paths must be relative — no `..`, absolute paths, or `~`.
 - **Returns:** Structured edit proposal (read-only — the caller applies the changes).
 - **Annotations:** readOnlyHint=false, destructiveHint=false, openWorldHint=true
+
+### ask-claude
+
+Send prompts to Anthropic Claude Code CLI from Codex or another non-Claude MCP host. Claude runs in safe mode with only Read, Glob, and Grep tools; it cannot execute commands or modify files.
+
+- **Package:** ask-claude-mcp
+- **Parameters:**
+  - `prompt` (string, required): The question, review, or analysis task. Delivered over stdin.
+  - `model` (string, optional): Default `opus`; Claude Code natively falls back to `sonnet` when unavailable or overloaded.
+  - `sessionId` (string, optional): Resume a native Claude conversation with `--resume`.
+  - `includeDirs` (string[], optional): Additional relative directories Claude may read. No `..`, absolute paths, or `~`.
+- **Returns:** Claude's response plus actual model, native session ID, and token usage.
+- **Annotations:** readOnlyHint=true, destructiveHint=false, openWorldHint=true
+- **Host constraint:** unavailable when `CLAUDECODE` indicates Claude Code is already the host, because nested Claude sessions are unsupported.
 
 ### ask-ollama
 
@@ -225,7 +242,7 @@ Route a single prompt to any one installed provider (unified server).
 - **Package:** ask-llm-mcp
 - **Parameters:**
   - `prompt` (string, required): The question or task.
-  - `provider` (string, required): Which provider to route to — one of gemini, codex, ollama, antigravity. Must be one that is installed/detected; there is no default.
+  - `provider` (string, required): Which provider to route to — one of gemini, codex, claude, ollama, antigravity. Must be one that is installed/detected; there is no default.
   - `model` (string, optional): Provider-specific model override.
   - `sessionId` (string, optional): Resume a prior session with the chosen provider (maps to that provider's session/thread ID).
 - **Returns:** The chosen provider's text response plus a structured payload (including the resolved provider and model, so quota fallbacks are visible).
@@ -279,8 +296,8 @@ Test MCP server connectivity. Available in all packages.
 ### Codex
 | Model | Use Case |
 |-------|----------|
-| gpt-5.5 | Default — highest capability |
-| gpt-5.4-mini | Automatic fallback on quota errors |
+| gpt-5.6-sol | Default — flagship capability |
+| gpt-5.6-terra | Automatic balanced fallback on quota errors |
 
 ### Ollama
 | Model | Use Case |
@@ -383,9 +400,9 @@ Launches Antigravity and Codex reviews in parallel with a validation pipeline an
 ## Error Handling
 
 All MCP servers handle errors gracefully:
-- **Quota / rate-limit errors:** Automatic fallback to a cheaper model for hosted providers (gemini pro→flash, codex gpt-5.5→gpt-5.4-mini, antigravity Pro→Flash). Ollama is local and never substitutes — a missing model returns a clear "ollama pull" error.
+- **Quota / rate-limit errors:** Automatic fallback to a lighter model for hosted providers (gemini pro→flash, codex GPT-5.6 Sol→Terra, claude opus→sonnet, antigravity Pro→Flash). Ollama is local and never substitutes — a missing model returns a clear "ollama pull" error.
 - **CLI not found:** Clear error message with installation instructions.
-- **Timeout:** Per-provider defaults (gemini 210s, codex 800s, ollama 600s, antigravity 300s). Resolution order: `ASK_{PROVIDER}_TIMEOUT_MS` > `GMCPT_TIMEOUT_MS` > the provider default.
+- **Timeout:** Per-provider defaults (gemini 210s, codex 800s, claude 600s, ollama 600s, antigravity 300s). Resolution order: `ASK_{PROVIDER}_TIMEOUT_MS` > `GMCPT_TIMEOUT_MS` > the provider default.
 - **Large responses:** Automatic chunking with fetch-chunk retrieval (Gemini only).
 
 ## Environment Variables
@@ -394,13 +411,17 @@ All MCP servers handle errors gracefully:
 |----------|---------|-------------|
 | ASK_GEMINI_MODEL | gemini-3.1-pro-preview | Override the Gemini default model |
 | ASK_GEMINI_FALLBACK_MODEL | gemini-3.5-flash | Override the Gemini quota fallback model |
-| ASK_CODEX_MODEL | gpt-5.5 | Override the Codex default model |
-| ASK_CODEX_PREFERRED_MODEL | gpt-5.5-pro | Preferred model for /codex-review and /brainstorm; falls back to ASK_CODEX_MODEL if unavailable |
-| ASK_CODEX_FALLBACK_MODEL | gpt-5.4-mini | Override the Codex quota fallback model |
+| ASK_CODEX_MODEL | gpt-5.6-sol | Override the Codex default model |
+| ASK_CODEX_PREFERRED_MODEL | gpt-5.6-sol | Legacy review-tier escape hatch; only attempted separately when it differs from ASK_CODEX_MODEL |
+| ASK_CODEX_FALLBACK_MODEL | gpt-5.6-terra | Override the Codex quota fallback model |
+| ASK_CODEX_REASONING_EFFORT | medium | Default Codex reasoning effort; per-call reasoningEffort wins |
+| ASK_CLAUDE_MODEL | opus | Override the Claude default model |
+| ASK_CLAUDE_FALLBACK_MODEL | sonnet | Override Claude Code's native fallback model |
 | ASK_OLLAMA_MODEL | qwen3.6:27b | Override the Ollama model (no fallback) |
 | ASK_ANTIGRAVITY_MODEL | Gemini 3.1 Pro (High) | Override the Antigravity model |
 | ASK_GEMINI_TIMEOUT_MS | 210000 (210s) | Gemini process timeout |
 | ASK_CODEX_TIMEOUT_MS | 800000 (800s) | Codex process timeout |
+| ASK_CLAUDE_TIMEOUT_MS | 600000 (600s) | Claude process timeout |
 | ASK_OLLAMA_TIMEOUT_MS | 600000 (600s) | Ollama request timeout |
 | ASK_ANTIGRAVITY_TIMEOUT_MS | 300000 (300s) | Antigravity process timeout |
 | GMCPT_TIMEOUT_MS | (per-provider default) | Cross-provider timeout fallback (lower precedence than ASK_*_TIMEOUT_MS) |
@@ -421,6 +442,7 @@ All MCP servers handle errors gracefully:
 - Docs: https://lykhoyda.github.io/ask-llm/
 - npm (gemini): https://www.npmjs.com/package/ask-gemini-mcp
 - npm (codex): https://www.npmjs.com/package/ask-codex-mcp
+- npm (claude): https://www.npmjs.com/package/ask-claude-mcp
 - npm (ollama): https://www.npmjs.com/package/ask-ollama-mcp
 - npm (antigravity): https://www.npmjs.com/package/ask-antigravity-mcp
 - npm (unified): https://www.npmjs.com/package/ask-llm-mcp

@@ -1,5 +1,5 @@
 ---
-description: All LLM providers in one MCP server. Auto-detects installed CLIs (Gemini, Codex, Ollama, Antigravity) and registers available tools behind runtime checks.
+description: All LLM providers in one MCP server. Auto-detects installed CLIs (Gemini, Codex, Claude, Ollama, Antigravity) and registers available tools behind runtime checks.
 ---
 
 # Unified (ask-llm-mcp)
@@ -25,13 +25,14 @@ npm install -g ask-llm-mcp
 2. **At least one provider** installed and authenticated:
    - [Gemini CLI](https://github.com/google-gemini/gemini-cli) for `ask-gemini` tools
    - [Codex CLI](https://github.com/openai/codex) for `ask-codex` tools
+   - [Claude Code CLI](https://docs.anthropic.com/en/docs/claude-code/getting-started) for Codex and other non-Claude hosts to consult Claude
    - [Ollama](https://ollama.com) running locally for `ask-ollama` tools
 
 ## How It Works
 
 On startup, the unified server:
 
-1. Checks for CLI availability via `which` (Gemini, Codex)
+1. Checks for CLI availability (Gemini, Codex, Claude, Antigravity)
 2. Checks for HTTP availability via health endpoints (Ollama)
 3. Dynamically imports and registers tools from available providers
 4. Exposes only the tools for providers that are actually installed
@@ -42,7 +43,7 @@ The orchestrator exposes a single `ask-llm` tool (not one per provider — ADR-0
 
 | Tool | Purpose |
 |------|---------|
-| `ask-llm` | Single unified tool — picks the provider via `provider` parameter (`gemini`, `codex`, `ollama`, `antigravity`). Optional `sessionId` for multi-turn continuation |
+| `ask-llm` | Single unified tool — picks the provider via `provider` parameter (`gemini`, `codex`, `claude`, `ollama`, `antigravity`). Optional `sessionId` for multi-turn continuation |
 | `multi-llm` | Dispatch the same prompt to multiple providers in parallel; returns per-provider responses + usage in one call |
 | `get-usage-stats` | Per-session token totals + breakdowns by provider/model — in-memory, no persistence |
 | `diagnose` | Self-diagnosis: Node version, PATH, provider CLI presence + versions. Read-only |
@@ -65,9 +66,10 @@ npx ask-llm-mcp doctor   # diagnose Node version, PATH, provider CLIs, env vars 
 
 - **Single server** for all providers
 - **Auto-detection** of installed CLIs
+- **Host-aware Claude routing** — Claude is available to Codex and other clients, but suppressed when the host is Claude Code because nested Claude sessions are unsupported
 - **Single unified `ask-llm` tool** for token efficiency
 - **Multi-provider parallel dispatch** via `multi-llm` (Promise.all internally; per-provider failure isolation)
-- **Session continuity** across the three session-capable providers — Gemini (`--resume`), Codex (`exec resume`), Ollama (server-side replay); Antigravity is single-turn
+- **Session continuity** across four session-capable providers — Claude/Gemini (`--resume`), Codex (`exec resume`), Ollama (server-side replay); Antigravity is single-turn
 - **Graceful degradation** if a provider is unavailable
 
 ## npm

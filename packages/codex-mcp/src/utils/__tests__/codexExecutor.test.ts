@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { CLI, CODEX_EDIT_SCHEMA, MODELS } from "../../constants.js";
+import { CLI, CODEX_EDIT_SCHEMA, DEFAULT_REASONING_EFFORT, MODELS } from "../../constants.js";
 
 vi.mock("@ask-llm/shared", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@ask-llm/shared")>();
@@ -47,6 +47,8 @@ describe("executeCodexCLI argument construction", () => {
       CLI.FLAGS.IGNORE_RULES,
       CLI.FLAGS.SANDBOX,
       CLI.FLAGS.SANDBOX_WORKSPACE_WRITE,
+      CLI.FLAGS.CONFIG,
+      `model_reasoning_effort="${DEFAULT_REASONING_EFFORT}"`,
       CLI.FLAGS.JSON,
       CLI.FLAGS.MODEL,
       MODELS.DEFAULT,
@@ -66,6 +68,8 @@ describe("executeCodexCLI argument construction", () => {
       CLI.FLAGS.IGNORE_RULES,
       CLI.FLAGS.SANDBOX,
       CLI.FLAGS.SANDBOX_WORKSPACE_WRITE,
+      CLI.FLAGS.CONFIG,
+      `model_reasoning_effort="${DEFAULT_REASONING_EFFORT}"`,
       CLI.FLAGS.JSON,
       CLI.FLAGS.MODEL,
       MODELS.DEFAULT,
@@ -103,6 +107,27 @@ describe("model pinning (#75)", () => {
     const [, args] = mockExecuteCommand.mock.calls[0];
     expect(args).toContain(CLI.FLAGS.MODEL);
     expect(args[args.indexOf(CLI.FLAGS.MODEL) + 1]).toBe(MODELS.DEFAULT);
+  });
+});
+
+describe("reasoning effort", () => {
+  it("passes the behavior-preserving medium default as a per-call config override", async () => {
+    await executeCodexCLI({ prompt: "x" });
+    const [, args] = mockExecuteCommand.mock.calls[0];
+    expect(args[args.indexOf(CLI.FLAGS.CONFIG) + 1]).toBe('model_reasoning_effort="medium"');
+  });
+
+  it("passes an explicit high effort to Codex", async () => {
+    await executeCodexCLI({ prompt: "review", reasoningEffort: "high" });
+    const [, args] = mockExecuteCommand.mock.calls[0];
+    expect(args[args.indexOf(CLI.FLAGS.CONFIG) + 1]).toBe('model_reasoning_effort="high"');
+  });
+
+  it("partitions response-cache entries by reasoning effort", async () => {
+    mockExecuteCommand.mockResolvedValue('{"type":"item.completed","item":{"type":"agent_message","text":"R"}}');
+    await executeCodexCLI({ prompt: "same prompt", reasoningEffort: "medium" });
+    await executeCodexCLI({ prompt: "same prompt", reasoningEffort: "high" });
+    expect(mockExecuteCommand).toHaveBeenCalledTimes(2);
   });
 });
 
@@ -333,12 +358,13 @@ describe("quota fallback", () => {
       .mockRejectedValueOnce(new Error("rate_limit_exceeded"))
       .mockResolvedValueOnce('{"type":"item.completed","item":{"type":"agent_message","text":"Fallback response"}}');
 
-    const result = await executeCodexCLI({ prompt: "test" });
+    const result = await executeCodexCLI({ prompt: "test", reasoningEffort: "high" });
     expect(result.response).toContain("Fallback response");
     expect(mockExecuteCommand).toHaveBeenCalledTimes(2);
 
     const [, fallbackArgs] = mockExecuteCommand.mock.calls[1];
     expect(fallbackArgs).toContain(MODELS.FALLBACK);
+    expect(fallbackArgs[fallbackArgs.indexOf(CLI.FLAGS.CONFIG) + 1]).toBe('model_reasoning_effort="high"');
   });
 
   it("retries with fallback model on 429 error", async () => {
@@ -432,8 +458,7 @@ describe("quota fallback", () => {
   });
 });
 
-// #196 / ADR-126 follow-up: the DEFAULT fallback (gpt-5.4-mini) works on every
-// account type, but a user can pin an incompatible model via
+// #196 / ADR-126 follow-up: a user can pin an incompatible model via
 // ASK_CODEX_FALLBACK_MODEL (e.g. gpt-5.5-mini on a ChatGPT-plan account). When
 // the primary hits quota AND that pinned fallback fails structurally (a 400, not
 // a quota), the ladder is broken — surface an actionable message naming the
@@ -502,7 +527,7 @@ describe("fallback model structurally unavailable for the account (#196)", () =>
 
       const err = await executeCodexCLI({ prompt: "test" }).catch((e) => e as Error);
       expect(err.message).toMatch(/unset it to use the default/i);
-      expect(err.message).toMatch(/gpt-5\.4-mini/);
+      expect(err.message).toMatch(/gpt-5\.6-terra/);
     });
   });
 });
@@ -613,6 +638,8 @@ describe("executeCodexCLI ASK_CODEX_LOAD_USER_CONFIG opt-out (#31 follow-up)", (
       CLI.FLAGS.EPHEMERAL,
       CLI.FLAGS.SANDBOX,
       CLI.FLAGS.SANDBOX_WORKSPACE_WRITE,
+      CLI.FLAGS.CONFIG,
+      `model_reasoning_effort="${DEFAULT_REASONING_EFFORT}"`,
       CLI.FLAGS.JSON,
       CLI.FLAGS.MODEL,
       MODELS.DEFAULT,
@@ -834,21 +861,35 @@ describe("executeCodexCLI archived-session resume (codex 0.136, #139)", () => {
   });
 });
 
-describe("preferred model tier (gpt-5.5-pro → default → mini)", () => {
+describe("configured preferred model tier", () => {
+  const defaultPreferred = MODELS.PREFERRED;
   const AGENT = (t: string) => `{"type":"item.completed","item":{"type":"agent_message","text":"${t}"}}`;
   const modelOf = (call: number) => {
     const [, args] = mockExecuteCommand.mock.calls[call];
     return args[args.indexOf(CLI.FLAGS.MODEL) + 1];
   };
 
+  beforeEach(() => {
+    // GPT-5.6 Sol is both DEFAULT and PREFERRED out of the box. Give the legacy
+    // escape hatch a distinct value so this suite continues to exercise its
+    // opt-in downgrade and cache-isolation behavior.
+    MODELS.PREFERRED = "test-preferred-model";
+  });
+
+  afterEach(() => {
+    MODELS.PREFERRED = defaultPreferred;
+  });
+
   it("runs MODELS.PREFERRED when preferred:true and it succeeds (no downgrade)", async () => {
     mockExecuteCommand.mockResolvedValueOnce(AGENT("pro answer"));
-    const result = await executeCodexCLI({ prompt: "review", preferred: true });
+    const result = await executeCodexCLI({ prompt: "review", preferred: true, reasoningEffort: "high" });
     expect(mockExecuteCommand).toHaveBeenCalledOnce();
     expect(modelOf(0)).toBe(MODELS.PREFERRED);
     expect(result.response).toContain("pro answer");
     expect(result.usage?.model).toBe(MODELS.PREFERRED);
     expect(result.usage?.fellBack).toBe(false);
+    const [, preferredArgs] = mockExecuteCommand.mock.calls[0];
+    expect(preferredArgs[preferredArgs.indexOf(CLI.FLAGS.CONFIG) + 1]).toBe('model_reasoning_effort="high"');
   });
 
   it("downgrades to DEFAULT on an ARBITRARY (non-quota, non-signal) preferred failure", async () => {
@@ -921,7 +962,7 @@ describe("preferred model tier (gpt-5.5-pro → default → mini)", () => {
     mockExecuteCommand.mockResolvedValue(AGENT("cached base answer"));
     // Prime the DEFAULT-keyed cache with a plain (non-preferred) call...
     await executeCodexCLI({ prompt: "same review prompt", preferred: false });
-    // ...a subsequent preferred call must still ATTEMPT gpt-5.5-pro rather than be
+    // ...a subsequent preferred call must still ATTEMPT the configured preferred model rather than be
     // served the cached base-model answer (the cache is keyed on MODELS.DEFAULT).
     await executeCodexCLI({ prompt: "same review prompt", preferred: true });
     expect(mockExecuteCommand).toHaveBeenCalledTimes(2);

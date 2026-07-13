@@ -79,7 +79,7 @@ Interactive prompt asks (a) which packages your change affects, (b) the bump typ
 
 **You don't need to manually bump `package.json` versions.** The bot does that.
 
-You can pick "patch" for any package even if your change doesn't directly touch it. IMPORTANT (ADR-119): `@ask-llm/shared` is private and INLINED into each MCP's `dist/` at build time by tsdown — and because shared is only a devDependency of the MCPs, the changesets internal-dependents cascade does NOT fire for it (verified empirically 2026-06-10). Any change to `packages/shared/src/**` MUST ship with a changeset that explicitly lists all five publishable packages (`ask-gemini-mcp`, `ask-codex-mcp`, `ask-ollama-mcp`, `ask-antigravity-mcp`, `ask-llm-mcp`) — otherwise the fix never reaches npm. CI enforces this via `scripts/check-shared-changeset.mjs`.
+You can pick "patch" for any package even if your change doesn't directly touch it. IMPORTANT (ADR-119): `@ask-llm/shared` is private and INLINED into each MCP's `dist/` at build time by tsdown — and because shared is only a devDependency of the MCPs, the changesets internal-dependents cascade does NOT fire for it (verified empirically 2026-06-10). Any change to `packages/shared/src/**` MUST ship with a changeset that explicitly lists all six publishable packages (`ask-gemini-mcp`, `ask-codex-mcp`, `ask-claude-mcp`, `ask-ollama-mcp`, `ask-antigravity-mcp`, `ask-llm-mcp`) — otherwise the fix never reaches npm. CI enforces this via `scripts/check-shared-changeset.mjs`.
 
 `@ask-llm/plugin` is excluded from changesets (it's distributed via the Claude Code plugin marketplace, not npm; tracked in `.claude-plugin/marketplace.json`).
 

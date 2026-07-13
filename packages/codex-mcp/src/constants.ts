@@ -21,8 +21,8 @@ export const ERROR_MESSAGES = {
   ARCHIVED_SESSION_SIGNALS: ["archived_sessions", "archived session", "session is archived"],
   // A pinned ASK_CODEX_FALLBACK_MODEL can be structurally unavailable on some
   // account types — e.g. gpt-5.5-mini is rejected with a 400 ("not supported when
-  // using Codex with a ChatGPT account") on ChatGPT-plan accounts. The default
-  // fallback (gpt-5.4-mini) works everywhere (ADR-126), but this guard keeps a
+  // using Codex with a ChatGPT account") on ChatGPT-plan accounts. The built-in
+  // GPT-5.6 Terra fallback avoids that legacy pin, while this guard keeps any
   // user-pinned-incompatible fallback graceful. Matched only on the FALLBACK leg
   // after a primary quota error → the ladder is broken (same "no usable model"
   // exhaustion). Ports MODEL_UNAVAILABLE_SIGNALS from codex-pair-watch.mjs
@@ -42,21 +42,31 @@ export const STATUS_MESSAGES = {
 
 // The out-of-box default, independent of any ASK_CODEX_MODEL override —
 // tool descriptions and drift-guard tests reference this, not the live value.
-export const FACTORY_DEFAULT_MODEL = "gpt-5.5";
+export const FACTORY_DEFAULT_MODEL = "gpt-5.6-sol";
+
+export const CODEX_REASONING_EFFORTS = ["low", "medium", "high", "xhigh", "max"] as const;
+export type CodexReasoningEffort = (typeof CODEX_REASONING_EFFORTS)[number];
+export const FACTORY_DEFAULT_REASONING_EFFORT: CodexReasoningEffort = "medium";
+
+export function isCodexReasoningEffort(value: string | undefined): value is CodexReasoningEffort {
+  return value !== undefined && (CODEX_REASONING_EFFORTS as readonly string[]).includes(value);
+}
+
+const configuredReasoningEffort = process.env.ASK_CODEX_REASONING_EFFORT;
+export const DEFAULT_REASONING_EFFORT = isCodexReasoningEffort(configuredReasoningEffort)
+  ? configuredReasoningEffort
+  : FACTORY_DEFAULT_REASONING_EFFORT;
 
 export const MODELS = {
   DEFAULT: process.env.ASK_CODEX_MODEL || FACTORY_DEFAULT_MODEL,
-  // Opportunistic higher-reasoning tier for /codex-review and /brainstorm only.
-  // ChatGPT Pro subscribers are entitled to gpt-5.5-pro; everyone else is not,
-  // so the preferred leg downgrades to DEFAULT on any failure (ADR-132).
-  PREFERRED: process.env.ASK_CODEX_PREFERRED_MODEL || "gpt-5.5-pro",
-  // gpt-5.4-mini, not gpt-5.5-mini: the 5.5 "mini" is rejected with a 400
-  // ("not supported when using Codex with a ChatGPT account") on ChatGPT-plan
-  // accounts — the common case for the codex CLI — so the quota fallback never
-  // produced a cheaper answer there. gpt-5.4-mini works on both ChatGPT-plan and
-  // API-key accounts. API-key users who prefer 5.5-mini can pin it via the env
-  // var. See ADR-126 (supersedes ADR-067's gpt-5.5-mini fallback choice; #194).
-  FALLBACK: process.env.ASK_CODEX_FALLBACK_MODEL || "gpt-5.4-mini",
+  // GPT-5.6 replaces the separate Pro slug with the Sol flagship model. Keep
+  // the preferred escape hatch for existing integrations; by default it now
+  // collapses to DEFAULT, and the executor avoids a duplicate attempt.
+  PREFERRED: process.env.ASK_CODEX_PREFERRED_MODEL || FACTORY_DEFAULT_MODEL,
+  // Terra is the balanced/lower-cost GPT-5.6 tier and the role-preserving
+  // successor to the previous gpt-5.4-mini quota fallback. Users can still pin
+  // another supported model through ASK_CODEX_FALLBACK_MODEL.
+  FALLBACK: process.env.ASK_CODEX_FALLBACK_MODEL || "gpt-5.6-terra",
 };
 
 export const CLI = {
@@ -67,6 +77,7 @@ export const CLI = {
   },
   FLAGS: {
     MODEL: "-m",
+    CONFIG: "-c",
     SKIP_GIT: "--skip-git-repo-check",
     EPHEMERAL: "--ephemeral",
     JSON: "--json",

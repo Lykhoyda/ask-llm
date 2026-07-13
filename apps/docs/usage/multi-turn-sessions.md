@@ -1,17 +1,18 @@
 ---
-description: Continue conversations across multiple tool calls using session IDs. Gemini, Codex, and Ollama support multi-turn — Gemini and Codex use native CLI resume, Ollama uses server-side conversation replay (Antigravity is single-turn).
+description: Continue conversations across multiple tool calls using session IDs. Claude, Gemini, Codex, and Ollama support multi-turn; Antigravity is single-turn.
 ---
 
 # Multi-Turn Sessions
 
 Continue conversations across multiple tool calls. Instead of starting fresh every time, pass a session ID to resume where you left off — the provider retains the full conversation history.
 
-**Gemini, Codex, and Ollama support sessions** as of ADR-058 (with hardening in ADR-063):
+**Claude, Gemini, Codex, and Ollama support sessions:**
 
 | Provider | Mechanism | Replay cost |
 |---|---|---|
 | Gemini | Native `--resume <id>` | Zero — provider retains state |
 | Codex | Native `codex exec resume <id> <prompt>` | Zero — provider retains state |
+| Claude | Native `claude --resume <id>` | Zero — provider retains state |
 | Ollama | Server-side `messages[]` replay (40-message cap) | Linear in conversation length, but local (free) |
 
 ## How It Works
@@ -33,13 +34,13 @@ Call 2:  ask-gemini { prompt: "Now fix the XSS vulnerability you found",
          → Gemini remembers the review and generates targeted fixes
 ```
 
-The same pattern works for `ask-codex`, `ask-ollama`, and the orchestrator's `ask-llm` (which routes the sessionId to the appropriate provider's mechanism).
+The same pattern works for `ask-claude`, `ask-codex`, `ask-ollama`, and the orchestrator's `ask-llm` (which routes the sessionId to the appropriate provider's mechanism).
 
 For programmatic clients, `ask-*` tools also return a structured `AskResponse` via MCP `outputSchema` — `result.structuredContent.sessionId` works for any provider, no need to regex-parse the response footer.
 
 ## Provider-specific notes
 
-**Gemini and Codex** use their CLIs' native session-resume features. Sessions live in the provider's own storage (typically `~/.gemini/sessions/` and `~/.codex/sessions/` respectively). Cost is zero — the provider already has the prior turns.
+**Claude, Gemini, and Codex** use their CLIs' native session-resume features. Sessions live in each provider CLI's own storage. Cost is zero — the provider retains the prior turns. Claude sessions are intended for Codex and other non-Claude hosts; the unified server suppresses Claude inside Claude Code to prevent unsupported nested sessions.
 
 **Ollama** has no native session support. The MCP server stores conversation history at `/tmp/ask-llm-sessions/<id>.json` with **24-hour TTL**, **40-message cap** (oldest dropped on overflow), **owner-only file permissions** (0o600 file / 0o700 directory), and **atomic temp+rename writes** to avoid partial-read races. Each turn replays the full prior conversation, which costs input tokens proportional to depth — bounded by the 40-message cap and acceptable for local-only inference.
 
@@ -52,6 +53,7 @@ To start a fresh Ollama session explicitly, pass `sessionId: ""` (empty string) 
 You don't need to manually manage session IDs. Just tell your AI assistant to continue the conversation:
 
 - *"Ask Codex to review my auth module, then follow up asking it to fix what it found."*
+- *"Ask Claude to critique this plan, then use the same session to challenge its riskiest assumption."*
 - *"Have Gemini analyze @src/ — then in a second call, ask it which files need refactoring."*
 - *"Get Codex's opinion on this PR, then ask it to elaborate on the performance concerns."*
 
@@ -109,7 +111,7 @@ Sessions are especially useful for **large codebases** — the provider's contex
 |----------|-------|
 | Type | `string` (optional) |
 | Format | UUID (e.g., `bcc639e4-3415-4270-9fe9-260e6a15203a`) |
-| Source | Extracted from `[Session ID: ...]` in the response |
+| Source | Extracted from `[Session ID: ...]` or Codex's `[Thread ID: ...]` in the response |
 | CLI flag | `--resume <sessionId>` |
 
 ### Session lifetime

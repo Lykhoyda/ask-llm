@@ -7,15 +7,15 @@ describe("askResponseSchema", () => {
     expect(askResponseSchema.safeParse(sample).success).toBe(true);
   });
 
-  it("accepts all three providers", () => {
-    for (const provider of ["gemini", "codex", "ollama"] as const) {
+  it("accepts all providers", () => {
+    for (const provider of ["gemini", "codex", "claude", "ollama", "antigravity"] as const) {
       const sample: AskResponse = { provider, response: "x", model: "m" };
       expect(askResponseSchema.safeParse(sample).success).toBe(true);
     }
   });
 
   it("rejects unknown provider strings", () => {
-    expect(askResponseSchema.safeParse({ provider: "claude", response: "x", model: "m" }).success).toBe(false);
+    expect(askResponseSchema.safeParse({ provider: "unknown", response: "x", model: "m" }).success).toBe(false);
   });
 
   it("accepts optional sessionId", () => {

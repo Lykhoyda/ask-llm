@@ -1,10 +1,10 @@
 ---
-description: Bridge Claude with OpenAI Codex CLI for GPT-5.5 code review and analysis. Automatic fallback to GPT-5.4-mini on quota limits.
+description: Bridge Claude with OpenAI Codex CLI for GPT-5.6 Sol code review and analysis. Automatic fallback to GPT-5.6 Terra on quota limits.
 ---
 
 # Codex
 
-Bridge Claude with OpenAI's Codex CLI. Access GPT-5.5 for code generation, analysis, and review with automatic fallback to GPT-5.4-mini on quota limits.
+Bridge Claude with OpenAI's Codex CLI. Access GPT-5.6 Sol for code generation, analysis, and review with automatic fallback to GPT-5.6 Terra on quota limits.
 
 > **Best for:** targeted code reasoning, architecture critique, and security review of specific files — the default workhorse reviewer.
 > **Not for:** whole-repository reads beyond its context window (use Gemini or Antigravity), or fully offline/air-gapped use (it's a hosted model — use Ollama).
@@ -28,7 +28,7 @@ npm install -g ask-codex-mcp
 
 | Tool | Purpose |
 |------|---------|
-| `ask-codex` | Send prompts to Codex CLI. Optional `sessionId` for multi-turn — maps to Codex's native `thread_id` and uses `codex exec resume <id>` under the hood ([ADR-058](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md)) |
+| `ask-codex` | Send prompts to Codex CLI. Optional `reasoningEffort` and `sessionId` for multi-turn — the latter maps to Codex's native `thread_id` and uses `codex exec resume <id>` under the hood ([ADR-058](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md)) |
 | `get-usage-stats` | Per-session token totals + breakdowns. In-memory ([ADR-054](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md)) |
 | `ping` | Fast connection test to verify MCP setup |
 
@@ -36,16 +36,17 @@ npm install -g ask-codex-mcp
 
 ## Models
 
-- **Default:** `gpt-5.5` (highest capability)
-- **Fallback:** `gpt-5.4-mini` (automatic on quota errors per [ADR-028](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md), model bumped in [ADR-067](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md))
+- **Default:** `gpt-5.6-sol` (flagship capability)
+- **Fallback:** `gpt-5.6-terra` (balanced tier, automatic on quota errors per [ADR-028](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md))
 
 ## Key Features
 
-- **GPT-5.5 access** via the official Codex CLI
+- **GPT-5.6 Sol access** via the official Codex CLI
+- **Reasoning control** — ordinary calls default to `medium`; `/codex-review` and `/brainstorm` use `high`; direct calls can request `low`, `medium`, `high`, `xhigh`, or `max`
 - **Native session continuity** — `sessionId` parameter maps to Codex's `thread_id`; `codex exec resume <id>` is used internally for follow-up turns (zero replay cost — Codex retains state)
 - **Non-interactive sandbox** — `codex exec --sandbox workspace-write` so Codex never hangs on approval prompts in MCP subprocess context (`--full-auto` was removed upstream in codex 0.128; `exec` is non-interactive by definition — [ADR-075](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md))
 - **JSONL output parsing** for structured responses + token usage
-- **Automatic quota fallback** from GPT-5.5 to mini
+- **Automatic quota fallback** from GPT-5.6 Sol to Terra
 - **Structured AskResponse** via outputSchema for programmatic clients
 - **Standard MCP transport** works with 40+ clients
 
