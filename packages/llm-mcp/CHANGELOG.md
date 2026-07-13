@@ -1,5 +1,32 @@
 # ask-llm-mcp
 
+## 0.5.0
+
+### Minor Changes
+
+- [#222](https://github.com/Lykhoyda/ask-llm/pull/222) [`ae7780c`](https://github.com/Lykhoyda/ask-llm/commit/ae7780c67327224eea760ade42b61df3d9a32b54) Thanks [@Lykhoyda](https://github.com/Lykhoyda)! - Add a first-class Claude Code CLI provider so Codex and other MCP clients can
+  ask Claude for a read-only second opinion. The new `ask-claude-mcp` package
+  supports native sessions, Opus-to-Sonnet fallback, usage reporting, relative
+  context directories, and a hard Read/Glob/Grep-only tool boundary. The unified
+  orchestrator now auto-detects Claude and can include it in `ask-llm`,
+  `multi-llm`, diagnostics, and the REPL.
+
+### Patch Changes
+
+- [#222](https://github.com/Lykhoyda/ask-llm/pull/222) [`ae7780c`](https://github.com/Lykhoyda/ask-llm/commit/ae7780c67327224eea760ade42b61df3d9a32b54) Thanks [@Lykhoyda](https://github.com/Lykhoyda)! - Update Codex defaults to the GPT-5.6 family: GPT-5.6 Sol is now the
+  quality-first model for MCP calls, reviews, brainstorming, image orchestration,
+  and codex-pair, with GPT-5.6 Terra as the balanced quota fallback. The legacy
+  preferred-model escape hatch remains available, but no longer adds a redundant
+  attempt when it resolves to the Sol default. `ask-codex` now accepts an optional
+  `reasoningEffort`; general calls preserve `medium`, while `/codex-review` and
+  `/brainstorm` use `high`.
+- Updated dependencies [[`ae7780c`](https://github.com/Lykhoyda/ask-llm/commit/ae7780c67327224eea760ade42b61df3d9a32b54), [`ae7780c`](https://github.com/Lykhoyda/ask-llm/commit/ae7780c67327224eea760ade42b61df3d9a32b54)]:
+  - ask-claude-mcp@0.1.0
+  - ask-gemini-mcp@1.6.14
+  - ask-codex-mcp@0.6.1
+  - ask-ollama-mcp@0.5.1
+  - ask-antigravity-mcp@0.4.1
+
 ## 0.4.5
 
 ### Patch Changes
