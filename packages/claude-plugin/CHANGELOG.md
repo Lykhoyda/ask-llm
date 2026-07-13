@@ -1,5 +1,23 @@
 # @ask-llm/plugin
 
+## 0.11.0
+
+### Minor Changes
+
+- [#220](https://github.com/Lykhoyda/ask-llm/pull/220) [`1089a21`](https://github.com/Lykhoyda/ask-llm/commit/1089a215657594a1c569dcd6c180d94750b1dab6) Thanks [@Lykhoyda](https://github.com/Lykhoyda)! - Codex `/codex-review` and `/brainstorm` now prefer `gpt-5.5-pro` when the Codex
+  account is entitled, falling back transparently to `gpt-5.5` (then `gpt-5.4-mini`
+  on quota). Those two commands opt in automatically; the raw `ask-codex` tool can
+  opt in with the new `preferred` arg. `ASK_CODEX_PREFERRED_MODEL` customizes which
+  model the preferred tier uses (default `gpt-5.5-pro`) — it does not by itself
+  enable preferred mode. `/multi-review`'s Codex leg inherits the preferred tier
+  via the shared `codex-reviewer` agent (its binary-fallback path stays on
+  `gpt-5.5`); `codex-pair` and `/codex-verify` are unchanged. (ADR-132)
+
+### Patch Changes
+
+- Updated dependencies [[`1089a21`](https://github.com/Lykhoyda/ask-llm/commit/1089a215657594a1c569dcd6c180d94750b1dab6)]:
+  - ask-codex-mcp@0.6.0
+
 ## 0.10.2
 
 ### Patch Changes

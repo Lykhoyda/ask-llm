@@ -2857,7 +2857,7 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"ask-codex-mcp@npm:^0.5.0, ask-codex-mcp@workspace:*, ask-codex-mcp@workspace:packages/codex-mcp":
+"ask-codex-mcp@npm:^0.6.0, ask-codex-mcp@workspace:*, ask-codex-mcp@workspace:packages/codex-mcp":
   version: 0.0.0-use.local
   resolution: "ask-codex-mcp@workspace:packages/codex-mcp"
   dependencies:
@@ -2901,7 +2901,7 @@ __metadata:
     "@types/node": "npm:^22.19.13"
     ask-antigravity-mcp: "npm:^0.4.0"
     ask-claude-mcp: "npm:^0.0.1"
-    ask-codex-mcp: "npm:^0.5.0"
+    ask-codex-mcp: "npm:^0.6.0"
     ask-gemini-mcp: "npm:^1.6.13"
     ask-ollama-mcp: "npm:^0.5.0"
     tsdown: "npm:^0.22.2"
