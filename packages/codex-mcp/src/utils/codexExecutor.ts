@@ -394,12 +394,12 @@ export async function executeCodexCLI(options: CodexExecutorOptions): Promise<Co
   // stale base-model answer before the preferred attempt runs. See ADR-132.
   const preferredEligible =
     options.preferred === true && !options.model && !wantsSession && !editMode && MODELS.PREFERRED !== MODELS.DEFAULT;
-  // includeDirs and editMode both change what codex sees/returns, so they must
-  // distinguish cache entries (includeDirs sorted for order-independence).
+  // includeDirs, editMode, and sandbox mode change what codex sees/returns, so
+  // they must distinguish cache entries (includeDirs sorted for order-independence).
   const dirsPart = options.includeDirs?.length ? [...options.includeDirs].sort().join(":") : "";
   // Labeled parts so the marker is unambiguous — a literal includeDir of "edit"
   // must never collide with edit-mode's cache partition.
-  const extraContext = `effort=${reasoningEffort};edit=${editMode ? 1 : 0};dirs=${dirsPart}`;
+  const extraContext = `effort=${reasoningEffort};edit=${editMode ? 1 : 0};sandbox=${sandboxMode};dirs=${dirsPart}`;
   const cacheKey =
     wantsSession || preferredEligible || outputSchema
       ? null

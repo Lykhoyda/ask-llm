@@ -77,16 +77,33 @@ describe("executeCodexCLI machine options", () => {
     expect(existsSync(observedPath)).toBe(false);
   });
 
-  it("never reads or writes the response cache for structured output", async () => {
+  it("does not read a cached plain response for structured output", async () => {
     mockExecuteCommand
       .mockResolvedValueOnce(agentMessage("plain response"))
-      .mockResolvedValue(agentMessage('{"verdict":"structured"}'));
+      .mockResolvedValueOnce(agentMessage('{"verdict":"structured"}'));
 
     await executeCodexCLI({ prompt: "same prompt" });
-    await executeCodexCLI({ prompt: "same prompt", sandbox: "read-only", outputSchema });
-    await executeCodexCLI({ prompt: "same prompt", sandbox: "read-only", outputSchema });
+    const result = await executeCodexCLI({ prompt: "same prompt", sandbox: "read-only", outputSchema });
 
-    expect(mockExecuteCommand).toHaveBeenCalledTimes(3);
+    expect(mockExecuteCommand).toHaveBeenCalledTimes(2);
+    expect(result.response).toContain("structured");
+  });
+
+  it("does not write a structured response to the response cache", async () => {
+    await executeCodexCLI({ prompt: "classify", sandbox: "read-only", outputSchema });
+
+    expect(responseCache.size).toBe(0);
+  });
+
+  it("partitions response-cache entries by sandbox mode", async () => {
+    mockExecuteCommand.mockResolvedValue(agentMessage("sandbox response"));
+
+    await executeCodexCLI({ prompt: "same prompt", sandbox: "workspace-write" });
+    await executeCodexCLI({ prompt: "same prompt", sandbox: "read-only" });
+
+    expect(mockExecuteCommand).toHaveBeenCalledTimes(2);
+    expect(mockExecuteCommand.mock.calls[0][1]).toContain(CLI.FLAGS.SANDBOX_WORKSPACE_WRITE);
+    expect(mockExecuteCommand.mock.calls[1][1]).toContain(CLI.FLAGS.SANDBOX_READ_ONLY);
   });
 
   it("passes the same schema file and read-only sandbox to the quota fallback leg", async () => {
