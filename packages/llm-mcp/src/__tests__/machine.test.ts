@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import {
   brainstormPayloadSchema,
+  machineFailureResultSchema,
   machineRequestSchema,
   machineResultSchema,
   reviewPayloadSchema,
@@ -169,6 +170,114 @@ describe("runMachineRequest", () => {
     });
   });
 
+  it("does not report Claude alias canonicalization as a fallback", async () => {
+    const executor: ExecutorFn = vi.fn().mockResolvedValue({
+      response: JSON.stringify(reviewPayload),
+      model: "claude-opus-4-6",
+      sessionId: "session-claude",
+      usage: {
+        provider: "claude",
+        model: "claude-opus-4-6",
+        inputTokens: 20,
+        outputTokens: 10,
+        cachedTokens: 0,
+        thinkingTokens: 0,
+        durationMs: 40,
+        fellBack: false,
+      },
+    });
+
+    const result = await runMachineRequest(
+      request({ provider: "claude", model: "opus", writerProvider: "codex" }),
+      deps(executor),
+    );
+
+    expect(result).toMatchObject({
+      actualModel: "claude-opus-4-6",
+      fallback: {
+        occurred: false,
+        requestedModel: "claude-opus-4-6",
+        actualModel: "claude-opus-4-6",
+      },
+    });
+  });
+
+  it.each([
+    {
+      provider: "codex" as const,
+      writerProvider: "claude" as const,
+      actualModel: "gpt-5.5-mini",
+      requestedModel: "gpt-5.6-sol",
+    },
+    {
+      provider: "claude" as const,
+      writerProvider: "codex" as const,
+      actualModel: "claude-sonnet-4-6",
+      requestedModel: "opus",
+    },
+  ])("preserves $provider fallback evidence when the request omits model", async (testCase) => {
+    const executor: ExecutorFn = vi.fn().mockResolvedValue({
+      response: JSON.stringify(reviewPayload),
+      model: testCase.actualModel,
+      usage: {
+        provider: testCase.provider,
+        model: testCase.actualModel,
+        inputTokens: 20,
+        outputTokens: 10,
+        cachedTokens: 0,
+        thinkingTokens: 0,
+        durationMs: 40,
+        fellBack: true,
+      },
+    });
+
+    const result = await runMachineRequest(
+      request({
+        provider: testCase.provider,
+        writerProvider: testCase.writerProvider,
+        model: undefined,
+      }),
+      deps(executor),
+    );
+
+    expect(result).toMatchObject({
+      actualModel: testCase.actualModel,
+      fallback: {
+        occurred: true,
+        requestedModel: testCase.requestedModel,
+        actualModel: testCase.actualModel,
+      },
+    });
+  });
+
+  it("derives an omitted-model Antigravity fallback from its configured default", async () => {
+    const executor: ExecutorFn = vi.fn().mockResolvedValue({
+      response: JSON.stringify(brainstormPayload),
+      model: "Gemini 3.5 Flash (High)",
+      usage: undefined,
+    });
+
+    const result = await runMachineRequest(
+      request({
+        requestId: "run-123-brainstorm-2",
+        role: "brainstorm",
+        provider: "antigravity",
+        model: undefined,
+        writerProvider: undefined,
+      }),
+      deps(executor),
+    );
+
+    expect(result).toMatchObject({
+      actualModel: "Gemini 3.5 Flash (High)",
+      fallback: {
+        occurred: true,
+        requestedModel: "Gemini 3.1 Pro (High)",
+        actualModel: "Gemini 3.5 Flash (High)",
+      },
+    });
+  });
+
   it("rejects a writer reviewing itself before loading an executor", async () => {
     const machineDeps = deps(vi.fn());
 
@@ -204,6 +313,7 @@ describe("runMachineRequest", () => {
       session: { sessionId: "session-claude", transcriptPath: null },
     });
     expect(machineResultSchema.safeParse(result).success).toBe(true);
+    expect(machineFailureResultSchema.safeParse(result).success).toBe(true);
     expect(JSON.stringify(result)).not.toContain(rawResponse);
     expect(JSON.stringify(result)).not.toContain("Review the supplied diff.");
   });
@@ -238,6 +348,7 @@ describe("runMachineRequest", () => {
       failure: { kind: "tool_unavailable" },
     });
     expect(machineResultSchema.safeParse(result).success).toBe(true);
+    expect(machineFailureResultSchema.safeParse(result).success).toBe(true);
   });
 
   it("represents unknown subscription quota without inventing a percentage", async () => {
@@ -274,6 +385,7 @@ describe("machineJsonSchemaBundle", () => {
 
     expect(first).toEqual(second);
     expect(first).toEqual(canonicalize(first));
+    expect(JSON.stringify(first)).toBe(JSON.stringify(canonicalize(first)));
     expect(digest).toMatch(/^[a-f0-9]{64}$/);
     expect(digest).toBe(
       createHash("sha256")
@@ -282,6 +394,7 @@ describe("machineJsonSchemaBundle", () => {
     );
     expect(first.request).toEqual(canonicalize(z.toJSONSchema(machineRequestSchema)));
     expect(first.result).toEqual(canonicalize(z.toJSONSchema(machineResultSchema)));
+    expect(first.failure).toEqual(canonicalize(z.toJSONSchema(machineFailureResultSchema)));
     expect(first.rolePayloads).toEqual({
       brainstorm: canonicalize(z.toJSONSchema(brainstormPayloadSchema)),
       review: canonicalize(z.toJSONSchema(reviewPayloadSchema)),

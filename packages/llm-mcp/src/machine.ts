@@ -17,6 +17,7 @@ import {
   verificationPayloadSchema,
 } from "@ask-llm/shared";
 import { z } from "zod";
+import { PROVIDERS } from "./constants.js";
 import type { ExecutorFn } from "./index.js";
 
 type ExecutorResult = Awaited<ReturnType<ExecutorFn>>;
@@ -99,18 +100,21 @@ function normalizeUsage(result: ExecutorResult | undefined): NormalizedTokenUsag
 }
 
 function fallbackFor(request: MachineRequest, result: ExecutorResult | undefined): MachineFallback {
-  const requestedModel = nonEmptyString(request.model);
   const resolvedModel = actualModel(result);
-  if (requestedModel !== null && resolvedModel !== null) {
-    if (requestedModel !== resolvedModel || result?.usage?.fellBack === true) {
+  if (resolvedModel === null) return { occurred: false, requestedModel: null, actualModel: null };
+
+  const requestedModel = nonEmptyString(request.model) ?? nonEmptyString(PROVIDERS[request.provider]?.defaultModel);
+  if (request.provider === "antigravity") {
+    if (requestedModel !== null && requestedModel !== resolvedModel) {
       return { occurred: true, requestedModel, actualModel: resolvedModel };
     }
-    return { occurred: false, requestedModel, actualModel: resolvedModel };
-  }
-  if (requestedModel === null && resolvedModel !== null) {
     return { occurred: false, requestedModel: resolvedModel, actualModel: resolvedModel };
   }
-  return { occurred: false, requestedModel: null, actualModel: null };
+
+  if (result?.usage?.fellBack === true && requestedModel !== null) {
+    return { occurred: true, requestedModel, actualModel: resolvedModel };
+  }
+  return { occurred: false, requestedModel: resolvedModel, actualModel: resolvedModel };
 }
 
 function sessionFor(request: MachineRequest, result: ExecutorResult | undefined): SessionLocator | null {
