@@ -24,6 +24,48 @@ export type {
 } from "./doctor.js";
 export { formatDiagnosticReport, runDiagnostics } from "./doctor.js";
 export { Logger } from "./logger.js";
+export type {
+  ActorProvider,
+  BrainstormPayload,
+  MachineFailureResult,
+  MachineFallback,
+  MachineProvider,
+  MachineRequest,
+  MachineResult,
+  MachineRole,
+  MachineSuccessResult,
+  NormalizedProviderFailure,
+  NormalizedTokenUsage,
+  ParsedRolePayload,
+  ProviderFailureKind,
+  QuotaSignal,
+  ReviewFinding,
+  ReviewPayload,
+  SessionLocator,
+  VerificationPayload,
+} from "./machine.js";
+export {
+  actorProviderSchema,
+  brainstormPayloadSchema,
+  classifyProviderFailure,
+  fallbackSchema,
+  MACHINE_PROVIDERS,
+  machineFailureResultSchema,
+  machineProviderSchema,
+  machineRequestSchema,
+  machineResultSchema,
+  machineRoleSchema,
+  machineSuccessResultSchema,
+  normalizedProviderFailureSchema,
+  normalizedTokenUsageSchema,
+  parseRolePayload,
+  providerFailureKindSchema,
+  quotaSignalSchema,
+  reviewFindingSchema,
+  reviewPayloadSchema,
+  sessionLocatorSchema,
+  verificationPayloadSchema,
+} from "./machine.js";
 export { relativeDirSchema } from "./pathValidation.js";
 export type { ProgressHandle } from "./progressTracker.js";
 export { createProgressTracker } from "./progressTracker.js";

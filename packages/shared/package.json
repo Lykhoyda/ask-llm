@@ -13,7 +13,8 @@
     "./command-executor": "./dist/commandExecutor.js",
     "./registry": "./dist/registry.js",
     "./change-mode": "./dist/changeMode/index.js",
-    "./chunk-cache": "./dist/chunkCache.js"
+    "./chunk-cache": "./dist/chunkCache.js",
+    "./machine": "./dist/machine.js"
   },
   "scripts": {
     "build": "tsc -b",
