@@ -1,5 +1,15 @@
 import { spawn } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, utimesSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  utimesSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
@@ -24,6 +34,9 @@ describe("withAntigravityInvocationLock", () => {
     await withAntigravityInvocationLock(baseDir, async () => {
       expect(statSync(lockPath).mode & 0o777).toBe(0o700);
       expect(statSync(join(lockPath, "owner.json")).mode & 0o777).toBe(0o600);
+      const heartbeat = readdirSync(lockPath).find((name) => name.startsWith(".heartbeat-"));
+      expect(heartbeat).toBeDefined();
+      expect(statSync(join(lockPath, heartbeat as string)).mode & 0o777).toBe(0o600);
     });
 
     expect(existsSync(lockPath)).toBe(false);
@@ -81,12 +94,14 @@ describe("withAntigravityInvocationLock", () => {
 
   it("does not recover a lock owned by a live process", async () => {
     const lockPath = antigravityInvocationLockPath(baseDir);
+    const token = "live-owner";
     mkdirSync(lockPath, { recursive: true, mode: 0o700 });
     writeFileSync(
       join(lockPath, "owner.json"),
-      JSON.stringify({ pid: process.pid, token: "live-owner", createdAt: Date.now() }),
+      JSON.stringify({ pid: process.pid, token, createdAt: Date.now(), leaseDurationMs: 60_000 }),
       { mode: 0o600 },
     );
+    writeFileSync(join(lockPath, `.heartbeat-${token}`), "", { mode: 0o600 });
 
     await expect(
       withAntigravityInvocationLock(baseDir, async () => undefined, {
@@ -95,6 +110,54 @@ describe("withAntigravityInvocationLock", () => {
       }),
     ).rejects.toThrow("Timed out waiting for the Antigravity invocation lock");
     expect(readFileSync(join(lockPath, "owner.json"), "utf8")).toContain("live-owner");
+  });
+
+  it("recovers a stale lease even when the recorded PID is live or reused", async () => {
+    const lockPath = antigravityInvocationLockPath(baseDir);
+    const ownerPath = join(lockPath, "owner.json");
+    const token = "reused-pid";
+    mkdirSync(lockPath, { recursive: true, mode: 0o700 });
+    writeFileSync(ownerPath, JSON.stringify({ pid: process.pid, token, createdAt: 1, leaseDurationMs: 50 }), {
+      mode: 0o600,
+    });
+    const heartbeatPath = join(lockPath, `.heartbeat-${token}`);
+    writeFileSync(heartbeatPath, "", { mode: 0o600 });
+    utimesSync(heartbeatPath, new Date(1), new Date(1));
+
+    let entered = false;
+    await withAntigravityInvocationLock(
+      baseDir,
+      async () => {
+        entered = true;
+      },
+      { acquireTimeoutMs: 200, pollIntervalMs: 5 },
+    );
+
+    expect(entered).toBe(true);
+    expect(existsSync(lockPath)).toBe(false);
+  });
+
+  it("refreshes its heartbeat while the critical section is active", async () => {
+    const lockPath = antigravityInvocationLockPath(baseDir);
+    let initialHeartbeat = 0;
+
+    await withAntigravityInvocationLock(
+      baseDir,
+      async () => {
+        const heartbeatName = readdirSync(lockPath).find((name) => name.startsWith(".heartbeat-"));
+        if (!heartbeatName) throw new Error("heartbeat file missing");
+        const heartbeatPath = join(lockPath, heartbeatName);
+        initialHeartbeat = statSync(heartbeatPath).mtimeMs;
+        for (let attempt = 0; attempt < 100; attempt++) {
+          if (statSync(heartbeatPath).mtimeMs > initialHeartbeat) return;
+          await delay(5);
+        }
+        throw new Error("heartbeat did not refresh");
+      },
+      { leaseDurationMs: 60 },
+    );
+
+    expect(initialHeartbeat).toBeGreaterThan(0);
   });
 
   it("serializes critical sections across two OS processes", async () => {

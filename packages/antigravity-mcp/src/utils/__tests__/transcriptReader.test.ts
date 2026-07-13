@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, rmSync, utimesSync, writeFileSync } from "node:fs";
+import { appendFileSync, mkdirSync, mkdtempSync, rmSync, utimesSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -11,6 +11,11 @@ function writeTranscript(convId: string, lines: object[], filename = "transcript
   mkdirSync(dir, { recursive: true });
   writeFileSync(join(dir, filename), lines.map((l) => JSON.stringify(l)).join("\n"));
   return join(baseDir, "brain", convId);
+}
+
+function appendTranscript(convId: string, lines: object[], filename = "transcript.jsonl"): void {
+  const path = join(baseDir, "brain", convId, ".system_generated", "logs", filename);
+  appendFileSync(path, `\n${lines.map((line) => JSON.stringify(line)).join("\n")}`);
 }
 
 beforeEach(() => {
@@ -187,5 +192,69 @@ describe("readLatestResponse", () => {
     writeTranscript("conv2", [{ source: "MODEL", status: "DONE", type: "PLANNER_RESPONSE", text: "answer two" }]);
 
     expect(readLatestResponse(0, before)).toBeNull();
+  });
+
+  it("rejects an old completion when only a user entry is appended", () => {
+    writeTranscript("conv1", [{ source: "MODEL", status: "DONE", type: "PLANNER_RESPONSE", text: "OLD ANSWER" }]);
+    const before = snapshotTranscriptState(baseDir);
+    appendTranscript("conv1", [{ source: "USER", status: "DONE", type: "USER_MESSAGE", text: "follow-up" }]);
+
+    expect(JSON.stringify(before)).not.toContain("OLD ANSWER");
+    expect(readLatestResponse(0, before)).toBeNull();
+  });
+
+  it("rejects an old completion when only running and error entries are appended", () => {
+    writeTranscript("conv1", [{ source: "MODEL", status: "DONE", type: "PLANNER_RESPONSE", text: "OLD ANSWER" }]);
+    const before = snapshotTranscriptState(baseDir);
+    appendTranscript("conv1", [
+      { source: "MODEL", status: "RUNNING", type: "PLANNER_RESPONSE", text: "partial" },
+      { source: "SYSTEM", status: "ERROR", type: "MODEL_ERROR", message: "quota" },
+    ]);
+
+    expect(readLatestResponse(0, before)).toBeNull();
+  });
+
+  it("rejects a metadata rewrite without a new completed response", () => {
+    writeTranscript("conv1", [{ source: "MODEL", status: "DONE", type: "PLANNER_RESPONSE", text: "OLD ANSWER" }]);
+    const before = snapshotTranscriptState(baseDir);
+    writeTranscript("conv1", [
+      { source: "USER", status: "DONE", type: "USER_MESSAGE", text: "rewritten metadata" },
+      { source: "MODEL", status: "DONE", type: "PLANNER_RESPONSE", text: "OLD ANSWER" },
+    ]);
+
+    expect(readLatestResponse(0, before)).toBeNull();
+  });
+
+  it("returns a genuinely appended completed response", () => {
+    writeTranscript("conv1", [{ source: "MODEL", status: "DONE", type: "PLANNER_RESPONSE", text: "OLD ANSWER" }]);
+    const before = snapshotTranscriptState(baseDir);
+    appendTranscript("conv1", [{ source: "MODEL", status: "DONE", type: "PLANNER_RESPONSE", text: "NEW ANSWER" }]);
+
+    expect(readLatestResponse(0, before)).toBe("NEW ANSWER");
+  });
+
+  it("accepts identical response text only after a new completed occurrence", () => {
+    writeTranscript("conv1", [{ source: "MODEL", status: "DONE", type: "PLANNER_RESPONSE", text: "SAME ANSWER" }]);
+    const before = snapshotTranscriptState(baseDir);
+    appendTranscript("conv1", [{ source: "USER", status: "DONE", type: "USER_MESSAGE", text: "metadata" }]);
+    expect(readLatestResponse(0, before)).toBeNull();
+
+    appendTranscript("conv1", [{ source: "MODEL", status: "DONE", type: "PLANNER_RESPONSE", text: "SAME ANSWER" }]);
+    expect(readLatestResponse(0, before)).toBe("SAME ANSWER");
+  });
+
+  it("carries the completion boundary across an authoritative transcript path switch", () => {
+    writeTranscript("conv1", [{ source: "MODEL", status: "DONE", type: "PLANNER_RESPONSE", text: "OLD ANSWER" }]);
+    const before = snapshotTranscriptState(baseDir);
+    writeTranscript(
+      "conv1",
+      [
+        { source: "MODEL", status: "DONE", type: "PLANNER_RESPONSE", text: "OLD ANSWER" },
+        { source: "MODEL", status: "DONE", type: "PLANNER_RESPONSE", text: "NEW FULL ANSWER" },
+      ],
+      "transcript_full.jsonl",
+    );
+
+    expect(readLatestResponse(0, before)).toBe("NEW FULL ANSWER");
   });
 });

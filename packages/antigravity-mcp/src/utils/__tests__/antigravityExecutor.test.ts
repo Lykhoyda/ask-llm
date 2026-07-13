@@ -1,4 +1,4 @@
-import { existsSync, mkdtempSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -298,6 +298,10 @@ describe("executeAntigravityCLI concurrency", () => {
     });
     mockExec.mockImplementation(async () => {
       expect(existsSync(lockPath)).toBe(true);
+      const owner = JSON.parse(readFileSync(join(lockPath, "owner.json"), "utf8")) as {
+        leaseDurationMs?: number;
+      };
+      expect(owner.leaseDurationMs).toBe(ANTIGRAVITY.DEFAULT_TIMEOUT_MS * 2 + 30_000);
       return "";
     });
     mockReadLatestTranscript.mockImplementation(() => {

@@ -90,6 +90,7 @@ export async function executeAntigravityCLI(options: AntigravityExecutorOptions)
   const baseDir = defaultBaseDir();
   const sandbox = process.env[ANTIGRAVITY.SANDBOX_ENV_VAR] !== "0";
   const timeoutMs = resolveTimeoutMs(ANTIGRAVITY.TIMEOUT_ENV_VAR, ANTIGRAVITY.DEFAULT_TIMEOUT_MS);
+  const lockLeaseDurationMs = timeoutMs * 2 + 30_000;
   // Tell agy to wait slightly less than our hard process timeout so agy's own
   // --print-timeout fires first with a cleaner message when the model is slow.
   // For very small configured timeouts (<=6s), don't subtract — otherwise agy's
@@ -171,33 +172,37 @@ export async function executeAntigravityCLI(options: AntigravityExecutorOptions)
   };
 
   return withMutex(() =>
-    withAntigravityInvocationLock(baseDir, async () => {
-      try {
-        return await runWithModel(primaryModel);
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        if (!isRateLimitError(message)) {
-          // not-found / spawn / NO_OUTPUT — already actionable, and a different model
-          // wouldn't help (auth / not-installed fail identically on every model).
-          throw error;
-        }
-        // Primary hit a subscription rate limit. Retry once on the cheaper Flash
-        // tier, unless we were already on it (or the caller pinned a model equal to
-        // the fallback) — in which case there is nothing left to fall back to.
-        if (primaryModel === MODELS.FALLBACK) {
-          throw new Error(ERROR_MESSAGES.RATE_LIMITED);
-        }
-        Logger.warn(`Antigravity rate limited on "${primaryModel}". Falling back to "${MODELS.FALLBACK}".`);
+    withAntigravityInvocationLock(
+      baseDir,
+      async () => {
         try {
-          return await runWithModel(MODELS.FALLBACK);
-        } catch (fallbackError) {
-          const fbMessage = fallbackError instanceof Error ? fallbackError.message : String(fallbackError);
-          // Both tiers throttled → the actionable quota message. A non-rate-limit
-          // fallback failure (timeout, crash) is surfaced as-is, not masked.
-          if (isRateLimitError(fbMessage)) throw new Error(ERROR_MESSAGES.RATE_LIMITED);
-          throw fallbackError;
+          return await runWithModel(primaryModel);
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          if (!isRateLimitError(message)) {
+            // not-found / spawn / NO_OUTPUT — already actionable, and a different model
+            // wouldn't help (auth / not-installed fail identically on every model).
+            throw error;
+          }
+          // Primary hit a subscription rate limit. Retry once on the cheaper Flash
+          // tier, unless we were already on it (or the caller pinned a model equal to
+          // the fallback) — in which case there is nothing left to fall back to.
+          if (primaryModel === MODELS.FALLBACK) {
+            throw new Error(ERROR_MESSAGES.RATE_LIMITED);
+          }
+          Logger.warn(`Antigravity rate limited on "${primaryModel}". Falling back to "${MODELS.FALLBACK}".`);
+          try {
+            return await runWithModel(MODELS.FALLBACK);
+          } catch (fallbackError) {
+            const fbMessage = fallbackError instanceof Error ? fallbackError.message : String(fallbackError);
+            // Both tiers throttled → the actionable quota message. A non-rate-limit
+            // fallback failure (timeout, crash) is surfaced as-is, not masked.
+            if (isRateLimitError(fbMessage)) throw new Error(ERROR_MESSAGES.RATE_LIMITED);
+            throw fallbackError;
+          }
         }
-      }
-    }),
+      },
+      { leaseDurationMs: lockLeaseDurationMs },
+    ),
   );
 }

@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
@@ -30,6 +31,7 @@ interface TranscriptFingerprint {
   path: string;
   mtimeMs: number;
   size: number;
+  completedResponseHashes: readonly string[];
 }
 
 export interface TranscriptStateSnapshot {
@@ -78,21 +80,37 @@ function listConversationIds(baseDir: string): string[] {
 
 function readFileOrNull(path: string): TranscriptFile | null {
   try {
+    const before = statSync(path);
     const contents = readFileSync(path, "utf8");
-    const stat = statSync(path);
-    return { contents, path, mtimeMs: stat.mtimeMs, size: stat.size };
+    const after = statSync(path);
+    if (before.mtimeMs !== after.mtimeMs || before.size !== after.size) return null;
+    return { contents, path, mtimeMs: after.mtimeMs, size: after.size };
   } catch {
     return null;
   }
 }
 
-function fingerprintFileOrNull(path: string): TranscriptFingerprint | null {
-  try {
-    const fileStat = statSync(path);
-    return fileStat.isFile() ? { path, mtimeMs: fileStat.mtimeMs, size: fileStat.size } : null;
-  } catch {
-    return null;
+function extractText(entry: TranscriptEntry): string | null {
+  const text = entry.text ?? entry.content ?? entry.message;
+  return typeof text === "string" && text.length > 0 ? text : null;
+}
+
+function completedResponses(contents: string): Array<{ hash: string; text: string }> {
+  const responses: Array<{ hash: string; text: string }> = [];
+  for (const line of contents.split("\n")) {
+    const trimmed = line.trim();
+    if (!trimmed.startsWith("{")) continue;
+    let entry: TranscriptEntry;
+    try {
+      entry = JSON.parse(trimmed) as TranscriptEntry;
+    } catch {
+      continue;
+    }
+    if (entry.source !== "MODEL" || entry.status !== "DONE" || entry.type !== "PLANNER_RESPONSE") continue;
+    const text = extractText(entry);
+    if (text) responses.push({ hash: createHash("sha256").update(text).digest("hex"), text });
   }
+  return responses;
 }
 
 function readAuthoritativeTranscript(baseDir: string, conversationId: string): TranscriptFile | null {
@@ -101,11 +119,14 @@ function readAuthoritativeTranscript(baseDir: string, conversationId: string): T
 }
 
 function fingerprintAuthoritativeTranscript(baseDir: string, conversationId: string): TranscriptFingerprint | null {
-  const logsDir = join(baseDir, "brain", conversationId, ".system_generated", "logs");
-  return (
-    fingerprintFileOrNull(join(logsDir, "transcript_full.jsonl")) ??
-    fingerprintFileOrNull(join(logsDir, "transcript.jsonl"))
-  );
+  const transcript = readAuthoritativeTranscript(baseDir, conversationId);
+  if (!transcript) return null;
+  return {
+    path: transcript.path,
+    mtimeMs: transcript.mtimeMs,
+    size: transcript.size,
+    completedResponseHashes: completedResponses(transcript.contents).map(({ hash }) => hash),
+  };
 }
 
 export function snapshotTranscriptState(baseDir: string = defaultBaseDir()): TranscriptStateSnapshot {
@@ -124,47 +145,52 @@ function readCachedConversationId(baseDir: string): string | null {
   }
 }
 
-function changedSinceSnapshot(
-  conversationId: string,
+function latestNewCompletedResponse(
   transcript: TranscriptFile,
-  snapshot: TranscriptStateSnapshot,
-): boolean {
-  const before = snapshot.transcripts[conversationId];
-  if (before === undefined || before === null) return true;
-  return before.path !== transcript.path || before.mtimeMs !== transcript.mtimeMs || before.size !== transcript.size;
+  before: TranscriptFingerprint | null | undefined,
+): string | null {
+  const previousCounts = new Map<string, number>();
+  for (const hash of before?.completedResponseHashes ?? []) {
+    previousCounts.set(hash, (previousCounts.get(hash) ?? 0) + 1);
+  }
+
+  const currentCounts = new Map<string, number>();
+  let latest: string | null = null;
+  for (const response of completedResponses(transcript.contents)) {
+    const occurrence = (currentCounts.get(response.hash) ?? 0) + 1;
+    currentCounts.set(response.hash, occurrence);
+    if (occurrence > (previousCounts.get(response.hash) ?? 0)) latest = response.text;
+  }
+  return latest;
 }
 
 function readCorrelatedTranscript(
   conversationId: string,
   sinceMs: number,
   snapshot: TranscriptStateSnapshot,
-): TranscriptFile | null {
+): { file: TranscriptFile; response: string } | null {
   const transcript = readAuthoritativeTranscript(snapshot.baseDir, conversationId);
   if (!transcript) return null;
   if (transcript.mtimeMs + TIMESTAMP_TOLERANCE_MS < sinceMs) return null;
-  return changedSinceSnapshot(conversationId, transcript, snapshot) ? transcript : null;
+  const response = latestNewCompletedResponse(transcript, snapshot.transcripts[conversationId]);
+  return response ? { file: transcript, response } : null;
 }
 
 function resolveTranscript(
   sinceMs: number,
   snapshot: TranscriptStateSnapshot,
-): { id: string; file: TranscriptFile } | null {
+): { id: string; file: TranscriptFile; response: string } | null {
   const cachedId = readCachedConversationId(snapshot.baseDir);
   if (cachedId) {
     const cached = readCorrelatedTranscript(cachedId, sinceMs, snapshot);
-    return cached ? { id: cachedId, file: cached } : null;
+    return cached ? { id: cachedId, ...cached } : null;
   }
 
   const candidates = listConversationIds(snapshot.baseDir).flatMap((id) => {
     const file = readCorrelatedTranscript(id, sinceMs, snapshot);
-    return file ? [{ id, file }] : [];
+    return file ? [{ id, ...file }] : [];
   });
   return candidates.length === 1 ? candidates[0] : null;
-}
-
-function extractText(entry: TranscriptEntry): string | null {
-  const text = entry.text ?? entry.content ?? entry.message;
-  return typeof text === "string" && text.length > 0 ? text : null;
 }
 
 export function readLatestTranscript(sinceMs: number, snapshot: TranscriptStateSnapshot): TranscriptResult | null {
@@ -174,26 +200,7 @@ export function readLatestTranscript(sinceMs: number, snapshot: TranscriptStateS
     return null;
   }
 
-  let answer: string | null = null;
-  for (const line of resolved.file.contents.split("\n")) {
-    const trimmed = line.trim();
-    if (!trimmed.startsWith("{")) continue;
-    let entry: TranscriptEntry;
-    try {
-      entry = JSON.parse(trimmed) as TranscriptEntry;
-    } catch {
-      continue;
-    }
-    if (entry.source === "MODEL" && entry.status === "DONE" && entry.type === "PLANNER_RESPONSE") {
-      const text = extractText(entry);
-      if (text) answer = text;
-    }
-  }
-  if (!answer) {
-    Logger.debug("antigravity: transcript present but no MODEL/DONE/PLANNER_RESPONSE entry found (schema change?)");
-    return null;
-  }
-  return { response: answer, path: resolved.file.path, conversationId: resolved.id };
+  return { response: resolved.response, path: resolved.file.path, conversationId: resolved.id };
 }
 
 export function readLatestResponse(sinceMs: number, snapshot: TranscriptStateSnapshot): string | null {

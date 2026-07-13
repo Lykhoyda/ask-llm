@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { mkdir, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rename, rm, stat, utimes, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 
@@ -7,17 +7,22 @@ const LOCK_NAME = ".ask-llm-invocation.lock";
 const OWNER_FILE = "owner.json";
 const DEFAULT_ACQUIRE_TIMEOUT_MS = 30_000;
 const DEFAULT_POLL_INTERVAL_MS = 50;
+const DEFAULT_LEASE_DURATION_MS = 10 * 60_000;
+const LEGACY_LEASE_DURATION_MS = 15 * 60_000;
+const MAX_LEASE_DURATION_MS = 2 * 60 * 60_000;
 const MALFORMED_LOCK_STALE_MS = 5 * 60_000;
 
 interface LockOwner {
   pid: number;
   token: string;
   createdAt: number;
+  leaseDurationMs: number;
 }
 
 export interface AntigravityInvocationLockOptions {
   acquireTimeoutMs?: number;
   pollIntervalMs?: number;
+  leaseDurationMs?: number;
 }
 
 export function antigravityInvocationLockPath(baseDir: string): string {
@@ -30,7 +35,10 @@ function parseOwner(raw: string): LockOwner | null {
     if (!Number.isInteger(owner.pid) || (owner.pid ?? 0) <= 0) return null;
     if (typeof owner.token !== "string" || owner.token.length === 0) return null;
     if (typeof owner.createdAt !== "number" || !Number.isFinite(owner.createdAt)) return null;
-    return owner as LockOwner;
+    const leaseDurationMs = owner.leaseDurationMs ?? LEGACY_LEASE_DURATION_MS;
+    if (!Number.isFinite(leaseDurationMs) || leaseDurationMs <= 0 || leaseDurationMs > MAX_LEASE_DURATION_MS)
+      return null;
+    return { pid: owner.pid as number, token: owner.token, createdAt: owner.createdAt, leaseDurationMs };
   } catch {
     return null;
   }
@@ -53,9 +61,28 @@ async function readOwner(lockPath: string): Promise<LockOwner | null> {
   }
 }
 
+function heartbeatPath(lockPath: string, token: string): string {
+  return join(lockPath, `.heartbeat-${token}`);
+}
+
+async function heartbeatMtimeMs(lockPath: string, owner: LockOwner): Promise<number | null> {
+  try {
+    return (await stat(heartbeatPath(lockPath, owner.token))).mtimeMs;
+  } catch {
+    try {
+      return (await stat(join(lockPath, OWNER_FILE))).mtimeMs;
+    } catch {
+      return null;
+    }
+  }
+}
+
 async function recoverAbandonedLock(lockPath: string): Promise<boolean> {
   const owner = await readOwner(lockPath);
-  if (owner && isProcessAlive(owner.pid)) return false;
+  if (owner && isProcessAlive(owner.pid)) {
+    const heartbeatMs = await heartbeatMtimeMs(lockPath, owner);
+    if (heartbeatMs !== null && Date.now() - heartbeatMs <= owner.leaseDurationMs) return false;
+  }
   if (!owner) {
     try {
       const lockStat = await stat(lockPath);
@@ -79,9 +106,11 @@ async function recoverAbandonedLock(lockPath: string): Promise<boolean> {
 async function acquireLock(
   baseDir: string,
   options: AntigravityInvocationLockOptions,
-): Promise<{ lockPath: string; token: string }> {
+): Promise<{ heartbeatPath: string; leaseDurationMs: number; lockPath: string; token: string }> {
   const acquireTimeoutMs = options.acquireTimeoutMs ?? DEFAULT_ACQUIRE_TIMEOUT_MS;
   const pollIntervalMs = options.pollIntervalMs ?? DEFAULT_POLL_INTERVAL_MS;
+  const requestedLease = options.leaseDurationMs ?? DEFAULT_LEASE_DURATION_MS;
+  const leaseDurationMs = Math.min(MAX_LEASE_DURATION_MS, Math.max(25, Math.floor(requestedLease)));
   const deadline = Date.now() + Math.max(0, acquireTimeoutMs);
   const lockPath = antigravityInvocationLockPath(baseDir);
   await mkdir(baseDir, { recursive: true, mode: 0o700 });
@@ -91,12 +120,11 @@ async function acquireLock(
     try {
       await mkdir(lockPath, { mode: 0o700 });
       try {
-        await writeFile(
-          join(lockPath, OWNER_FILE),
-          JSON.stringify({ pid: process.pid, token, createdAt: Date.now() } satisfies LockOwner),
-          { flag: "wx", mode: 0o600 },
-        );
-        return { lockPath, token };
+        const owner = { pid: process.pid, token, createdAt: Date.now(), leaseDurationMs } satisfies LockOwner;
+        await writeFile(join(lockPath, OWNER_FILE), JSON.stringify(owner), { flag: "wx", mode: 0o600 });
+        const ownerHeartbeatPath = heartbeatPath(lockPath, token);
+        await writeFile(ownerHeartbeatPath, "", { flag: "wx", mode: 0o600 });
+        return { heartbeatPath: ownerHeartbeatPath, leaseDurationMs, lockPath, token };
       } catch (error) {
         await rm(lockPath, { recursive: true, force: true });
         throw error;
@@ -110,6 +138,26 @@ async function acquireLock(
     if (remainingMs <= 0) throw new Error("Timed out waiting for the Antigravity invocation lock");
     await delay(Math.min(Math.max(1, pollIntervalMs), remainingMs));
   }
+}
+
+function startHeartbeat(path: string, leaseDurationMs: number): () => Promise<void> {
+  const intervalMs = Math.min(5000, Math.max(10, Math.floor(leaseDurationMs / 3)));
+  let inFlight: Promise<void> | null = null;
+  const refresh = () => {
+    if (inFlight) return;
+    const now = new Date();
+    const update = utimes(path, now, now).catch(() => undefined);
+    inFlight = update;
+    void update.finally(() => {
+      if (inFlight === update) inFlight = null;
+    });
+  };
+  const timer = setInterval(refresh, intervalMs);
+  timer.unref();
+  return async () => {
+    clearInterval(timer);
+    await inFlight;
+  };
 }
 
 async function releaseLock(lockPath: string, token: string): Promise<void> {
@@ -132,9 +180,11 @@ export async function withAntigravityInvocationLock<T>(
   options: AntigravityInvocationLockOptions = {},
 ): Promise<T> {
   const lock = await acquireLock(baseDir, options);
+  const stopHeartbeat = startHeartbeat(lock.heartbeatPath, lock.leaseDurationMs);
   try {
     return await fn();
   } finally {
+    await stopHeartbeat();
     await releaseLock(lock.lockPath, lock.token);
   }
 }
