@@ -62,8 +62,12 @@ export const INSTALL_HINTS: Record<string, string> = {
   antigravity: "Install Google Antigravity (agy) from https://antigravity.google, then run `agy` once to log in",
 };
 
+export function isProviderEligible(provider: ProviderConfig): boolean {
+  return !(provider.disabledWhenEnvVar && process.env[provider.disabledWhenEnvVar]);
+}
+
 export function getEligibleProviderKeys(): string[] {
   return Object.entries(PROVIDERS)
-    .filter(([, provider]) => !(provider.disabledWhenEnvVar && process.env[provider.disabledWhenEnvVar]))
+    .filter(([, provider]) => isProviderEligible(provider))
     .map(([key]) => key);
 }

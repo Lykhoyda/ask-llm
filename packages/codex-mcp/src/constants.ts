@@ -47,8 +47,15 @@ export const FACTORY_DEFAULT_MODEL = "gpt-5.6-sol";
 export const CODEX_REASONING_EFFORTS = ["low", "medium", "high", "xhigh", "max"] as const;
 export type CodexReasoningEffort = (typeof CODEX_REASONING_EFFORTS)[number];
 export const FACTORY_DEFAULT_REASONING_EFFORT: CodexReasoningEffort = "medium";
-export const DEFAULT_REASONING_EFFORT =
-  (process.env.ASK_CODEX_REASONING_EFFORT as CodexReasoningEffort | undefined) || FACTORY_DEFAULT_REASONING_EFFORT;
+
+export function isCodexReasoningEffort(value: string | undefined): value is CodexReasoningEffort {
+  return value !== undefined && (CODEX_REASONING_EFFORTS as readonly string[]).includes(value);
+}
+
+const configuredReasoningEffort = process.env.ASK_CODEX_REASONING_EFFORT;
+export const DEFAULT_REASONING_EFFORT = isCodexReasoningEffort(configuredReasoningEffort)
+  ? configuredReasoningEffort
+  : FACTORY_DEFAULT_REASONING_EFFORT;
 
 export const MODELS = {
   DEFAULT: process.env.ASK_CODEX_MODEL || FACTORY_DEFAULT_MODEL,
