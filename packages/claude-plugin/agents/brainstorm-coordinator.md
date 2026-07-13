@@ -142,15 +142,16 @@ gemini -p "@$workdir/prompt.md" > "$workdir/gemini.out" 2> "$workdir/gemini.err"
 pid_gemini=$!
 
 # Only include this block if codex was requested (in the default set).
-# Prefer gpt-5.5-pro (ChatGPT Pro subscribers); on ANY failure fall back to the
-# base model. Both models honor env overrides via ${VAR:-default} so the escape
-# hatch matches the ask-codex executor (ADR-132). prompt.md is a FILE (not a
+# GPT-5.6 Sol at high effort is the quality-first default for brainstorming;
+# Terra preserves the lower-cost fallback role. ASK_CODEX_PREFERRED_MODEL and
+# ASK_CODEX_REASONING_EFFORT remain escape hatches. prompt.md is a FILE (not a
 # pipe), so both attempts can re-read it. The whole `{ ...; }` group is
-# backgrounded as one job so pid_codex/`wait` capture the leg's final exit code.
-codex_pref="${ASK_CODEX_PREFERRED_MODEL:-gpt-5.5-pro}"
-codex_base="${ASK_CODEX_MODEL:-gpt-5.5}"
-{ codex exec --sandbox workspace-write -m "$codex_pref" - < "$workdir/prompt.md" \
-  || codex exec --sandbox workspace-write -m "$codex_base" - < "$workdir/prompt.md"; } \
+# backgrounded as one job so pid_codex/`wait` capture the final code.
+codex_model="${ASK_CODEX_PREFERRED_MODEL:-${ASK_CODEX_MODEL:-gpt-5.6-sol}}"
+codex_fallback="${ASK_CODEX_FALLBACK_MODEL:-gpt-5.6-terra}"
+codex_effort="${ASK_CODEX_REASONING_EFFORT:-high}"
+{ codex exec --sandbox workspace-write -c "model_reasoning_effort=\"$codex_effort\"" -m "$codex_model" - < "$workdir/prompt.md" \
+  || codex exec --sandbox workspace-write -c "model_reasoning_effort=\"$codex_effort\"" -m "$codex_fallback" - < "$workdir/prompt.md"; } \
   > "$workdir/codex.out" 2> "$workdir/codex.err" &
 pid_codex=$!
 

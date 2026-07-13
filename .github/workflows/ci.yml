@@ -59,7 +59,7 @@ jobs:
     - name: Run tests
       run: yarn test
 
-    - name: Guard — shared changes must changeset all five MCPs (ADR-119)
+    - name: Guard — shared changes must changeset all six MCPs (ADR-119)
       if: github.event_name == 'pull_request'
       run: node scripts/check-shared-changeset.mjs
 
@@ -88,7 +88,7 @@ jobs:
     - name: Pack all publishable tarballs (npm pack — the real publish shape)
       run: |
         mkdir -p tarballs
-        for p in gemini-mcp codex-mcp ollama-mcp antigravity-mcp llm-mcp; do
+        for p in gemini-mcp codex-mcp claude-mcp ollama-mcp antigravity-mcp llm-mcp; do
           (cd "packages/$p" && npm pack --pack-destination "$GITHUB_WORKSPACE/tarballs")
         done
         ls -la tarballs
@@ -124,7 +124,7 @@ jobs:
       run: |
         set -eu
         npm cache clean --force
-        for bin in ask-gemini-mcp ask-codex-mcp ask-ollama-mcp ask-antigravity-mcp; do
+        for bin in ask-gemini-mcp ask-codex-mcp ask-claude-mcp ask-ollama-mcp ask-antigravity-mcp; do
           npm install -g /tmp/tarballs/${bin}-*.tgz
           printf '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"smoke","version":"0.0.0"}}}\n' \
             | timeout 20 "$bin" > /tmp/out.json 2> /tmp/err.txt || true

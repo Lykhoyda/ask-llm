@@ -95,7 +95,7 @@ const DEFAULTS_PATH = join(SCRIPT_DIR, "..", "codex-pair-defaults.json");
 // without duplicating literals across files. A structural test links the
 // JSON values to constants.ts so drift fails CI. If the file is missing or
 // malformed, fall through to env vars and hardcoded literals.
-let CODEX_PAIR_DEFAULTS = { model: "gpt-5.5", fallbackModel: "gpt-5.4-mini" };
+let CODEX_PAIR_DEFAULTS = { model: "gpt-5.6-sol", fallbackModel: "gpt-5.6-terra" };
 try {
   CODEX_PAIR_DEFAULTS = JSON.parse(readFileSync(DEFAULTS_PATH, "utf8"));
 } catch {
@@ -109,6 +109,7 @@ const MARKER_FILE = join(PAIR_ROOT_DIR, CONTEXT_FILENAME);
 const WATCHED_TOOLS = new Set(["Edit", "Write", "MultiEdit"]);
 const DEFAULT_MODEL = process.env.ASK_CODEX_MODEL ?? CODEX_PAIR_DEFAULTS.model;
 const FALLBACK_MODEL = process.env.ASK_CODEX_FALLBACK_MODEL ?? CODEX_PAIR_DEFAULTS.fallbackModel;
+const DEFAULT_REASONING_EFFORT = process.env.ASK_CODEX_REASONING_EFFORT ?? "medium";
 const DEFAULT_TIMEOUT_MS = Number(process.env.ASK_CODEX_TIMEOUT_MS ?? 800_000);
 const MAX_FILE_BYTES = Number(process.env.CODEX_PAIR_MAX_FILE_BYTES ?? 20_000);
 const DEBOUNCE_MS = Number(process.env.ASK_CODEX_DEBOUNCE_MS ?? DEFAULT_DEBOUNCE_MS);
@@ -126,9 +127,9 @@ const QUOTA_SIGNALS = [
 // A configured fallback model can be structurally unavailable on some Codex
 // account types — e.g. gpt-5.5-mini is rejected with a 400 on ChatGPT-plan
 // accounts (where quota is account-wide, so a cheaper fallback never applied).
-// The default fallback is now gpt-5.4-mini, which works on ChatGPT-plan accounts
-// (ADR-126), but a user can still pin an unavailable model via
-// ASK_CODEX_FALLBACK_MODEL — this guard keeps that case graceful. Matched only on
+// The built-in GPT-5.6 Terra fallback avoids that legacy pin, but a user can
+// still configure an unavailable model via ASK_CODEX_FALLBACK_MODEL — this guard
+// keeps that case graceful. Matched only on
 // the FALLBACK leg after a primary quota error: it means the fallback ladder is
 // broken, i.e. the same "no usable model" exhaustion.
 const MODEL_UNAVAILABLE_SIGNALS = ["is not supported when using codex with a chatgpt"];
@@ -577,7 +578,15 @@ function buildCodexArgs(model) {
   if (process.env.ASK_CODEX_LOAD_USER_CONFIG !== "1") {
     args.push("--ignore-user-config", "--ignore-rules");
   }
-  args.push("--sandbox", "workspace-write", "--json", "-m", model);
+  args.push(
+    "--sandbox",
+    "workspace-write",
+    "-c",
+    `model_reasoning_effort="${DEFAULT_REASONING_EFFORT}"`,
+    "--json",
+    "-m",
+    model,
+  );
   return args;
 }
 

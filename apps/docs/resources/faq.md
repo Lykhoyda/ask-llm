@@ -8,14 +8,14 @@ description: Frequently asked questions about Ask LLM MCP servers — setup, mul
 
 ### What is Ask LLM?
 
-A set of MCP servers that bridge your AI client (Claude Code, Claude Desktop, Cursor, Warp, Copilot — any of [40+ MCP-compatible clients](https://modelcontextprotocol.io/clients)) with up to four LLM providers through their local CLIs: OpenAI Codex, Google Antigravity (`agy`), Ollama (fully local), and Google Gemini. Plus a Claude Code plugin layer with slash commands, reviewer subagents, and the opt-in continuous `codex-pair` review hook.
+A set of MCP servers that bridge your AI client (Claude Code, Codex CLI, Cursor, Warp, Copilot — any of [40+ MCP-compatible clients](https://modelcontextprotocol.io/clients)) with up to five LLM providers through their local CLIs: OpenAI Codex, Anthropic Claude, Google Antigravity (`agy`), Ollama (fully local), and Google Gemini. Plus a Claude Code plugin layer with slash commands, reviewer subagents, and the opt-in continuous `codex-pair` review hook.
 
 ### Why use this instead of the providers directly?
 
 - **One interface for every provider** — you don't switch between separate CLIs
 - **Multi-provider parallel dispatch** — `multi-llm` and `/compare` send the same prompt to multiple providers in one call
 - **Verified code review** — `/multi-review` cross-checks each finding against source before presenting (catches false positives)
-- **Session continuity across providers** — `sessionId` works the same way for the three session-capable providers (Gemini, Codex, Ollama); Antigravity is single-turn
+- **Session continuity across providers** — `sessionId` works across four session-capable providers (Claude, Gemini, Codex, Ollama); Antigravity is single-turn
 - **Built-in operational hardening** — quota fallback, PATH resolution, stdin handling, stream-json output for live progressive content
 - **Diagnostic surface** — `npx ask-llm-mcp doctor` and the `diagnose` MCP tool tell you what's wrong before you have to investigate
 
@@ -23,13 +23,14 @@ A set of MCP servers that bridge your AI client (Claude Code, Claude Desktop, Cu
 
 The MCP servers are MIT-licensed and free. Provider costs depend on which provider you use:
 - **Codex** — per OpenAI billing
+- **Claude** — covered by your Claude subscription or Anthropic billing, depending on Claude Code authentication
 - **Antigravity** — covered by your Google AI Pro/Ultra subscription (no per-token billing)
 - **Ollama** — free (runs locally on your machine)
 - **Gemini** — requires a Gemini Code Assist Standard/Enterprise seat ([enterprise-gated from 2026-06-18](/providers/gemini))
 
 ### Why is Gemini enterprise-gated, and what should I use instead?
 
-From 2026-06-18, Google restricts Gemini CLI to Gemini Code Assist Standard/Enterprise seats, and free, Google AI Pro, and Ultra accounts lose access. `ask-gemini-mcp` still installs, but a non-enterprise account will then see actionable guidance instead of output. Use **Antigravity** (`ask-antigravity` — the Google-sanctioned successor, subscription-backed via Google AI Pro/Ultra), **Codex** (`ask-codex`), or **Ollama** (`ask-ollama`) instead. See [Antigravity](/providers/antigravity).
+From 2026-06-18, Google restricts Gemini CLI to Gemini Code Assist Standard/Enterprise seats, and free, Google AI Pro, and Ultra accounts lose access. `ask-gemini-mcp` still installs, but a non-enterprise account will then see actionable guidance instead of output. Use **Antigravity** (`ask-antigravity` — the Google-sanctioned successor, subscription-backed via Google AI Pro/Ultra), **Codex** (`ask-codex`), **Claude** (`ask-claude` from a non-Claude host), or **Ollama** (`ask-ollama`) instead. See [Antigravity](/providers/antigravity).
 
 ### Does it work on Windows?
 
@@ -65,6 +66,10 @@ Yes — that's the primary client. Use `claude mcp add --scope user ask-llm -- n
 
 Yes — any STDIO MCP client works. See [Installation](/installation) for client-specific config.
 
+### Can Codex ask Claude for a second opinion?
+
+Yes. Register the dedicated provider with `codex mcp add claude -- npx -y ask-claude-mcp`, then ask Codex to call `ask-claude`. The Claude subprocess is restricted to Read, Glob, and Grep; Codex applies any resulting changes. The provider is not exposed when Claude Code itself is the host because Claude Code rejects nested sessions.
+
 ---
 
 ## Usage
@@ -81,7 +86,7 @@ It works with the `ask-gemini` tool (and the underlying Gemini CLI). Codex and O
 
 ### How do multi-turn sessions work?
 
-Every `ask-*` tool returns a session ID. Pass it back via the `sessionId` parameter to continue. Gemini and Codex use native CLI resume; Ollama uses server-side message replay. See [Multi-Turn Sessions](/usage/multi-turn-sessions) for details.
+Every session-capable `ask-*` tool returns a session ID. Pass it back via the `sessionId` parameter to continue. Claude, Gemini, and Codex use native CLI resume; Ollama uses server-side message replay. See [Multi-Turn Sessions](/usage/multi-turn-sessions) for details.
 
 ### How do I send a prompt to multiple providers at once?
 
@@ -118,12 +123,13 @@ A dedicated GitHub Action was built and then withdrawn ([ADR-061](https://github
 
 ### Is my code sent to Google / OpenAI?
 
-Only when you explicitly use `ask-codex` (OpenAI) or `ask-gemini` / `ask-antigravity` (Google). For private code, use `ask-ollama` — it runs entirely locally and never makes external network calls.
+Only when you explicitly use `ask-codex` (OpenAI), `ask-claude` (Anthropic), or `ask-gemini` / `ask-antigravity` (Google). For private code, use `ask-ollama` — it runs entirely locally and never makes external network calls.
 
 ### Where do session files live?
 
 - **Gemini sessions** — managed by the Gemini CLI in its own storage (`~/.gemini/`)
 - **Codex sessions** — managed by Codex CLI in `~/.codex/`
+- **Claude sessions** — managed by Claude Code CLI in its own local session storage
 - **Ollama sessions** — server-side replay store at `/tmp/ask-llm-sessions/<id>.json`, owner-only permissions (0o600 file / 0o700 dir), 24-hour TTL, atomic temp+rename writes ([ADR-063](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md))
 
 The Ollama session permissions specifically prevent other users on shared systems from reading your prompts.

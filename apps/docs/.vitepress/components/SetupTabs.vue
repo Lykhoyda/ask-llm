@@ -179,6 +179,7 @@ interface ProviderConfig {
 const providerConfigs: Record<string, ProviderConfig> = {
   gemini: { pkg: "ask-gemini-mcp", serverName: "gemini-cli" },
   codex: { pkg: "ask-codex-mcp", serverName: "codex-cli" },
+  claude: { pkg: "ask-claude-mcp", serverName: "claude" },
   ollama: { pkg: "ask-ollama-mcp", serverName: "ollama" },
   antigravity: { pkg: "ask-antigravity-mcp", serverName: "antigravity" },
   unified: { pkg: "ask-llm-mcp", serverName: "ask-llm" },
@@ -190,7 +191,7 @@ const props = withDefaults(defineProps<{ provider?: string }>(), {
 
 const cfg = computed(() => providerConfigs[props.provider] ?? providerConfigs.gemini);
 
-const activeTab = ref("claude-code");
+const activeTab = ref(props.provider === "claude" ? "codex" : "claude-code");
 
 const tabs = [
   { id: "claude-code", label: "Claude Code" },

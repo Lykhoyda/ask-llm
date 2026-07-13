@@ -51,7 +51,16 @@ describe("tool contract (drift guards)", () => {
     expect(askCodexTool.zodSchema.safeParse({ prompt: "p", preferred: false }).success).toBe(true);
     expect(askCodexTool.zodSchema.safeParse({ prompt: "p", preferred: "yes" }).success).toBe(false);
     // Omitting it must stay undefined, never silently default to true — otherwise
-    // the opt-in contract would flip and every ask-codex call would prefer pro.
+    // the opt-in contract would flip and every ask-codex call would prefer an
+    // ASK_CODEX_PREFERRED_MODEL override.
     expect(askCodexTool.zodSchema.parse({ prompt: "p" }).preferred).toBeUndefined();
+  });
+
+  it("ask-codex accepts documented GPT-5.6 reasoning efforts", () => {
+    for (const reasoningEffort of ["low", "medium", "high", "xhigh", "max"]) {
+      expect(askCodexTool.zodSchema.safeParse({ prompt: "p", reasoningEffort }).success).toBe(true);
+    }
+    expect(askCodexTool.zodSchema.safeParse({ prompt: "p", reasoningEffort: "ultra" }).success).toBe(false);
+    expect(askCodexTool.zodSchema.safeParse({ prompt: "p", reasoningEffort: "extreme" }).success).toBe(false);
   });
 });

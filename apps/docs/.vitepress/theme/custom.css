@@ -544,6 +544,13 @@
   box-shadow: inset 0 20px 40px -20px var(--color-codex-glow);
 }
 
+.provider-card[data-provider="claude"]:hover::after {
+  background: var(--color-claude);
+}
+.provider-card[data-provider="claude"]:hover::before {
+  box-shadow: inset 0 20px 40px -20px var(--color-claude-glow);
+}
+
 .provider-card[data-provider="ollama"]:hover::after {
   background: var(--color-ollama);
 }

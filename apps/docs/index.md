@@ -4,7 +4,7 @@ layout: home
 hero:
   name: "Ask LLM"
   text: "Get a second opinion before you ship"
-  tagline: "Let your AI assistant consult Codex, Antigravity, Ollama, or Gemini for an independent code review, a plan debate, or a fresh pair of eyes on a diff. Standard MCP — works in Claude Code, Cursor, Claude Desktop, and 40+ clients."
+  tagline: "Let your AI assistant consult Codex, Claude, Antigravity, Ollama, or Gemini for an independent code review, a plan debate, or a fresh pair of eyes on a diff. Standard MCP — works in Claude Code, Codex CLI, Cursor, and 40+ clients."
   actions:
     - theme: brand
       text: Install Plugin
@@ -43,6 +43,11 @@ hero:
     <span class="provider-name">Codex</span>
     <span class="provider-desc">OpenAI's Codex CLI (GPT-5.5). Strongest code reasoning — the default workhorse reviewer.</span>
     <span class="provider-pkg">npx ask-codex-mcp</span>
+  </a>
+  <a href="/ask-llm/providers/claude" class="provider-card" data-provider="claude">
+    <span class="provider-name">Claude</span>
+    <span class="provider-desc">Anthropic Claude Code CLI (Opus → Sonnet). The reverse path for Codex and other MCP clients to request a read-only Claude second opinion.</span>
+    <span class="provider-pkg">npx ask-claude-mcp</span>
   </a>
   <a href="/ask-llm/providers/antigravity" class="provider-card" data-provider="antigravity">
     <span class="provider-name">Antigravity</span>

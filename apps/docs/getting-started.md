@@ -4,7 +4,7 @@ description: Install and configure Ask LLM MCP servers for Claude Code, Claude D
 
 # Getting Started
 
-Three steps: install Node, install at least one provider, register the MCP server with your client. You can start with one provider (Codex, Antigravity, Ollama, or Gemini) and add the others anytime.
+Three steps: install Node, install at least one provider, register the MCP server with your client. You can start with one provider (Codex, Claude, Antigravity, Ollama, or Gemini) and add the others anytime.
 
 ## Step 1: Install Prerequisites
 
@@ -13,6 +13,7 @@ Three steps: install Node, install at least one provider, register the MCP serve
 
 ::: tip Which provider should I install first?
 - **Codex** — strong code reasoning (GPT-5.5). The default workhorse for targeted reviews and architecture critique.
+- **Claude** — Opus with Sonnet fallback. Use from Codex or another non-Claude host for an independent Claude review.
 - **Antigravity** — subscription-backed via Google AI Pro/Ultra (`agy`). The Gemini CLI successor; good for a second opinion and larger-context reads.
 - **Ollama** — local, private, zero cost. Best when data can't leave your machine.
 - **Gemini** — huge 1M+ token context, but [enterprise-gated from 2026-06-18](/providers/gemini).
@@ -22,6 +23,10 @@ Three steps: install Node, install at least one provider, register the MCP serve
 # Codex (requires OpenAI account)
 npm install -g @openai/codex
 # follow the codex CLI's auth instructions
+
+# Claude (for Codex and other non-Claude MCP hosts)
+npm install -g @anthropic-ai/claude-code
+# run claude once and authenticate
 
 # Antigravity (requires Google AI Pro/Ultra)
 # install agy from https://antigravity.google, then log in once
@@ -40,7 +45,7 @@ You can install one or all of them. The MCP server auto-detects which providers 
 
 The recommended package is **`ask-llm-mcp`** — the unified orchestrator that auto-detects all installed providers and exposes them through a single `ask-llm` MCP tool plus `multi-llm`, `get-usage-stats`, `diagnose`, and `ping`.
 
-If you only want one provider, you can also install the per-provider packages directly: `ask-codex-mcp`, `ask-antigravity-mcp`, `ask-ollama-mcp`, `ask-gemini-mcp`. They expose provider-specific tools (`ask-codex`, `ask-antigravity` (subscription-backed via `agy`), `ask-ollama`, and `ask-gemini` with `@` file syntax + sandbox + edit mode).
+If you only want one provider, you can also install the per-provider packages directly: `ask-codex-mcp`, `ask-claude-mcp`, `ask-antigravity-mcp`, `ask-ollama-mcp`, `ask-gemini-mcp`. They expose provider-specific tools (`ask-codex`, `ask-claude`, `ask-antigravity` (subscription-backed via `agy`), `ask-ollama`, and `ask-gemini` with `@` file syntax + sandbox + edit mode).
 
 ### Option A: Claude Code (Recommended)
 
@@ -54,6 +59,8 @@ claude mcp add --scope user antigravity -- npx -y ask-antigravity-mcp
 claude mcp add --scope user ollama      -- npx -y ask-ollama-mcp
 claude mcp add --scope user gemini      -- npx -y ask-gemini-mcp
 ```
+
+Claude is not listed as a Claude Code per-provider registration because nested Claude sessions are unsupported. From Codex, register it with `codex mcp add claude -- npx -y ask-claude-mcp`.
 
 ### Option B: Claude Desktop
 
@@ -140,7 +147,9 @@ You can configure the server with env vars in your MCP client's configuration bl
 | ------------------ | -------- | ----------- |
 | `GMCPT_LOG_LEVEL`  | `warn`   | Minimum log level: `debug`, `info`, `warn`, `error`. Bump to `debug` if troubleshooting. |
 | `GMCPT_TIMEOUT_MS` | (none)   | **Global** wall-clock timeout override for subprocess-spawned providers. When set, lifts both per-provider defaults below. Kept for backward compatibility — prefer the per-provider knobs for finer control. |
-| `ASK_CODEX_TIMEOUT_MS` | `800000` | Codex-specific timeout (13.3 min). Codex with reasoning models (`gpt-5.5` family) runs multi-turn tool-use loops where each turn includes reasoning, so substantive prompts routinely take 5–10 min. Default raised in [ADR-074](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md) (closes #45). |
+| `ASK_CODEX_TIMEOUT_MS` | `800000` | Codex-specific timeout (13.3 min). Codex with reasoning models (`gpt-5.6` family) runs multi-turn tool-use loops where each turn includes reasoning, so substantive prompts routinely take 5–10 min. Default raised in [ADR-074](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md) (closes #45). |
+| `ASK_CODEX_REASONING_EFFORT` | `medium` | Default Codex reasoning effort. Direct `ask-codex` calls can override it with `reasoningEffort`; `/codex-review` and `/brainstorm` use `high`. |
+| `ASK_CLAUDE_TIMEOUT_MS` | `600000` | Claude-specific timeout (10 min) for Opus reviews with read-only workspace inspection. |
 | `ASK_GEMINI_TIMEOUT_MS` | `210000` | Gemini-specific timeout (3.5 min). Gemini's stream-json mode emits tokens incrementally, so the existing default is usually adequate. Provided for symmetry with `ASK_CODEX_TIMEOUT_MS`. |
 | `OLLAMA_HOST`      | `http://localhost:11434` | Ollama server URL. Override if running Ollama elsewhere. |
 | `ASK_LLM_PATH`     | (auto)   | Override the resolved PATH used to find provider CLIs. Auto-resolved from your login shell on macOS GUI clients ([ADR-047](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md)) — only set explicitly if your shell setup is unusual. |

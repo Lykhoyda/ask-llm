@@ -18,6 +18,14 @@ describe("PROVIDERS registry", () => {
     expect(PROVIDERS.antigravity.executorModule).toBe("ask-antigravity-mcp/executor");
     expect(PROVIDERS.antigravity.executorFn).toBe("executeAntigravityCLI");
   });
+
+  it("registers Claude as a Claude Code CLI-backed provider", () => {
+    expect(PROVIDERS.claude).toBeDefined();
+    expect(PROVIDERS.claude.command).toBe("claude");
+    expect(PROVIDERS.claude.executorModule).toBe("ask-claude-mcp/executor");
+    expect(PROVIDERS.claude.executorFn).toBe("executeClaudeCLI");
+    expect(PROVIDERS.claude.disabledWhenEnvVar).toBe("CLAUDECODE");
+  });
 });
 
 describe("isCommandAvailable", () => {

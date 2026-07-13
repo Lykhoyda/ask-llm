@@ -1,6 +1,14 @@
 import { type AskResponse, askResponseSchema, relativeDirSchema, type UnifiedTool } from "@ask-llm/shared";
 import { z } from "zod";
-import { ERROR_MESSAGES, FACTORY_DEFAULT_MODEL, MODELS, STATUS_MESSAGES } from "../constants.js";
+import {
+  CODEX_REASONING_EFFORTS,
+  type CodexReasoningEffort,
+  ERROR_MESSAGES,
+  FACTORY_DEFAULT_MODEL,
+  FACTORY_DEFAULT_REASONING_EFFORT,
+  MODELS,
+  STATUS_MESSAGES,
+} from "../constants.js";
 import { executeCodexCLI } from "../utils/codexExecutor.js";
 
 const askCodexArgsSchema = z.object({
@@ -14,6 +22,12 @@ const askCodexArgsSchema = z.object({
     .optional()
     .describe(
       `DO NOT set this parameter. The tool automatically uses ${MODELS.DEFAULT} and falls back to ${MODELS.FALLBACK} on quota errors. Only set this if the user explicitly requests a specific model.`,
+    ),
+  reasoningEffort: z
+    .enum(CODEX_REASONING_EFFORTS)
+    .optional()
+    .describe(
+      `Codex reasoning effort for this call. Defaults to ${FACTORY_DEFAULT_REASONING_EFFORT}; /codex-review and /brainstorm use high for quality-first work.`,
     ),
   sessionId: z
     .string()
@@ -31,7 +45,7 @@ const askCodexArgsSchema = z.object({
     .boolean()
     .optional()
     .describe(
-      `Prefer the higher-reasoning model (${MODELS.PREFERRED}) and fall back to ${MODELS.DEFAULT} automatically if it is unavailable. Used by /codex-review and /brainstorm; leave unset for normal calls.`,
+      `Opt into ASK_CODEX_PREFERRED_MODEL when it is configured to differ from the ${MODELS.DEFAULT} default. The built-in preferred value is also ${MODELS.PREFERRED}, so normal calls and review skills should leave this unset.`,
     ),
 });
 
@@ -52,7 +66,7 @@ export const askCodexTool: UnifiedTool = {
   },
   category: "codex",
   execute: async (args, onProgress, onUsage) => {
-    const { prompt, model, sessionId, includeDirs, preferred } = args;
+    const { prompt, model, reasoningEffort, sessionId, includeDirs, preferred } = args;
     if (!prompt?.trim()) {
       throw new Error(ERROR_MESSAGES.NO_PROMPT_PROVIDED);
     }
@@ -60,6 +74,7 @@ export const askCodexTool: UnifiedTool = {
     const result = await executeCodexCLI({
       prompt: prompt as string,
       model: model as string | undefined,
+      reasoningEffort: reasoningEffort as CodexReasoningEffort | undefined,
       sessionId: sessionId as string | undefined,
       includeDirs: includeDirs as string[] | undefined,
       preferred: preferred as boolean | undefined,

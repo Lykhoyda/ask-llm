@@ -7,6 +7,7 @@ import {
   createSessionUsage,
   createUsageStatsTool,
   Logger,
+  type ProviderName,
   registerSessionUsageResource,
   type UsageStats,
 } from "@ask-llm/shared";
@@ -15,7 +16,7 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import type { RequestHandlerExtra } from "@modelcontextprotocol/sdk/shared/protocol.js";
 import type { CallToolResult, ServerNotification, ServerRequest } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
-import { INSTALL_HINTS, PROVIDERS } from "./constants.js";
+import { getEligibleProviderKeys, INSTALL_HINTS, PROVIDERS } from "./constants.js";
 import { buildMultiLlmInputSchema, dispatchMultiLlm, formatMultiLlmReport, multiLlmReportSchema } from "./multiLlm.js";
 import { isCommandAvailable } from "./utils/availability.js";
 import { buildProviderSpecs } from "./utils/providerSpecs.js";
@@ -64,7 +65,10 @@ export async function detectProviders(): Promise<ProviderStatus> {
   const checks = await Promise.all(
     Object.entries(PROVIDERS).map(async ([key, provider]) => {
       let found: boolean;
-      if (provider.availabilityModule && provider.availabilityFn) {
+      const disabled = Boolean(provider.disabledWhenEnvVar && process.env[provider.disabledWhenEnvVar]);
+      if (disabled) {
+        found = false;
+      } else if (provider.availabilityModule && provider.availabilityFn) {
         try {
           const mod = await import(provider.availabilityModule);
           found = await (mod[provider.availabilityFn] as () => Promise<boolean>)();
@@ -74,11 +78,11 @@ export async function detectProviders(): Promise<ProviderStatus> {
       } else {
         found = await isCommandAvailable(provider.command);
       }
-      return { key, provider, found };
+      return { key, provider, found, disabled };
     }),
   );
 
-  for (const { key, provider, found } of checks) {
+  for (const { key, provider, found, disabled } of checks) {
     if (found) {
       try {
         const mod = await import(provider.executorModule);
@@ -91,6 +95,12 @@ export async function detectProviders(): Promise<ProviderStatus> {
       }
     } else {
       missing.push(key);
+      if (disabled) {
+        Logger.warn(
+          `Provider ${provider.name} (${provider.command}) — disabled because ${provider.disabledWhenEnvVar} identifies the current MCP host`,
+        );
+        continue;
+      }
       const hint = INSTALL_HINTS[key] ?? "";
       Logger.warn(`Provider ${provider.name} (${provider.command}) — not found${hint ? `. Install: ${hint}` : ""}`);
     }
@@ -107,7 +117,7 @@ export async function detectProviders(): Promise<ProviderStatus> {
 }
 
 function buildAskLlmSchema(availableProviders: string[]) {
-  const providerEnum = availableProviders.length > 0 ? availableProviders : Object.keys(PROVIDERS);
+  const providerEnum = availableProviders.length > 0 ? availableProviders : getEligibleProviderKeys();
   const providerDescriptions = providerEnum
     .map((k) => {
       const p = PROVIDERS[k];
@@ -125,7 +135,7 @@ function buildAskLlmSchema(availableProviders: string[]) {
       .string()
       .optional()
       .describe(
-        "Optional session ID to resume a prior conversation. Pass the [Session ID: ...] or [Thread ID: ...] value from a previous response. Each provider handles sessions natively (Gemini --resume, Codex exec resume) or via server-side replay (Ollama).",
+        "Optional session ID to resume a prior conversation. Pass the [Session ID: ...] or [Thread ID: ...] value from a previous response. Each provider handles sessions natively (Claude/Gemini --resume, Codex exec resume) or via server-side replay (Ollama).",
       ),
   });
 }
@@ -154,7 +164,7 @@ export async function startServer() {
     "ask-llm",
     {
       description:
-        "Send a prompt to an LLM provider (Codex, Antigravity, Ollama, Gemini). Specify which provider to use. Each provider auto-selects its best model with fallback on errors. Returns both human-readable text and a structured response (provider, model, sessionId, usage) via outputSchema.",
+        "Send a prompt to an LLM provider (Codex, Claude, Antigravity, Ollama, Gemini). Specify which provider to use. Each provider auto-selects its best model with fallback on errors. Returns both human-readable text and a structured response (provider, model, sessionId, usage) via outputSchema.",
       inputSchema: askLlmSchema.shape,
       outputSchema: (askResponseSchema as z.ZodObject<z.ZodRawShape>).shape,
       annotations: { title: "Ask LLM", readOnlyHint: false, destructiveHint: false, openWorldHint: true },
@@ -193,7 +203,7 @@ export async function startServer() {
             ? `\n\n[Thread ID: ${result.threadId}]`
             : "";
         const structured: AskResponse = {
-          provider: provider as "gemini" | "codex" | "ollama" | "antigravity",
+          provider: provider as ProviderName,
           response: result.response,
           model: result.usage?.model ?? result.model ?? model ?? PROVIDERS[provider]?.defaultModel ?? "unknown",
           sessionId: resolvedSessionId,
@@ -258,12 +268,12 @@ export async function startServer() {
   );
   registerSessionUsageResource(server, sessionUsage);
 
-  const multiLlmInputSchema = buildMultiLlmInputSchema(available);
+  const multiLlmInputSchema = buildMultiLlmInputSchema(available.length > 0 ? available : getEligibleProviderKeys());
   server.registerTool(
     "multi-llm",
     {
       description:
-        "Dispatch the same prompt to multiple LLM providers in parallel and return all responses in one structured payload. Use when you want to compare answers across Codex, Antigravity, Ollama, and Gemini, or when you want a multi-provider sanity check on a question. Returns per-provider success/failure, response text, model, sessionId, and token usage. Each call is fresh — no session continuity (use ask-llm for individual session-bearing calls).",
+        "Dispatch the same prompt to multiple LLM providers in parallel and return all responses in one structured payload. Use when you want to compare answers across Codex, Claude, Antigravity, Ollama, and Gemini, or when you want a multi-provider sanity check on a question. Returns per-provider success/failure, response text, model, sessionId, and token usage. Each call is fresh — no session continuity (use ask-llm for individual session-bearing calls).",
       inputSchema: multiLlmInputSchema.shape,
       outputSchema: (multiLlmReportSchema as z.ZodObject<z.ZodRawShape>).shape,
       annotations: {

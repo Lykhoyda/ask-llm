@@ -1,0 +1,54 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.Lykhoyda/ask-claude",
+  "description": "Bridge Codex and other MCP clients with Anthropic Claude Code CLI for read-only second opinions",
+  "repository": {
+    "url": "https://github.com/Lykhoyda/ask-llm",
+    "source": "github"
+  },
+  "version": "0.0.1",
+  "packages": [
+    {
+      "registryType": "npm",
+      "identifier": "ask-claude-mcp",
+      "version": "0.0.1",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "ASK_CLAUDE_MODEL",
+          "description": "Default Claude model alias or full model name (default: opus)",
+          "isRequired": false,
+          "format": "string",
+          "isSecret": false,
+          "default": "opus"
+        },
+        {
+          "name": "ASK_CLAUDE_FALLBACK_MODEL",
+          "description": "Claude CLI fallback when the default is overloaded or unavailable (default: sonnet)",
+          "isRequired": false,
+          "format": "string",
+          "isSecret": false,
+          "default": "sonnet"
+        },
+        {
+          "name": "ASK_CLAUDE_TIMEOUT_MS",
+          "description": "Timeout for Claude CLI execution in milliseconds (default: 600000 = 10 minutes)",
+          "isRequired": false,
+          "format": "string",
+          "isSecret": false,
+          "default": "600000"
+        },
+        {
+          "name": "GMCPT_LOG_LEVEL",
+          "description": "Log verbosity: debug, info, warn, error (default: warn)",
+          "isRequired": false,
+          "format": "string",
+          "isSecret": false,
+          "default": "warn"
+        }
+      ]
+    }
+  ]
+}

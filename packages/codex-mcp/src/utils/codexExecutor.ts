@@ -15,7 +15,15 @@ import {
   type UsageStats,
   validateChangeModeEdits,
 } from "@ask-llm/shared";
-import { CLI, CODEX_EDIT_SCHEMA, ERROR_MESSAGES, MODELS, STATUS_MESSAGES } from "../constants.js";
+import {
+  CLI,
+  CODEX_EDIT_SCHEMA,
+  type CodexReasoningEffort,
+  DEFAULT_REASONING_EFFORT,
+  ERROR_MESSAGES,
+  MODELS,
+  STATUS_MESSAGES,
+} from "../constants.js";
 
 // Re-exported on the `ask-codex-mcp/executor` surface so the llm-mcp orchestrator
 // can load the doctor enrichment by name (mirrors how executeCodexCLI is loaded).
@@ -36,8 +44,8 @@ interface CodexTurnCompleted {
     input_tokens?: number;
     cached_input_tokens?: number;
     output_tokens?: number;
-    // codex rust-v0.125+ ships reasoning-token counts for reasoning models
-    // (gpt-5.5 family). Optional + backward compatible: older codex versions
+    // codex rust-v0.125+ ships reasoning-token counts for reasoning models.
+    // Optional + backward compatible: older codex versions
     // simply don't emit the field, so older deserializations get undefined.
     reasoning_output_tokens?: number;
   };
@@ -72,6 +80,10 @@ type CodexJsonLine =
 export interface CodexExecutorOptions {
   prompt: string;
   model?: string;
+  // Per-call Codex Responses reasoning override. Passed through `-c
+  // model_reasoning_effort=...`; omitted callers use the behavior-preserving
+  // medium default rather than GPT-5.6 Sol's lighter CLI default.
+  reasoningEffort?: CodexReasoningEffort;
   sessionId?: string;
   // Additional directories codex may access alongside the workspace (codex
   // `--add-dir`, repeatable) — monorepo parity with gemini's includeDirs. #59.
@@ -332,6 +344,7 @@ function buildArgs(
   includeDirs?: string[],
   editMode?: boolean,
   schemaPath?: string,
+  reasoningEffort: CodexReasoningEffort = DEFAULT_REASONING_EFFORT,
 ): string[] {
   const base: string[] = [CLI.COMMANDS.EXEC];
   if (sessionId) base.push(CLI.COMMANDS.RESUME);
@@ -348,7 +361,15 @@ function buildArgs(
   }
   // ask-codex-edit only proposes edits (Claude applies), so it runs read-only.
   const sandboxMode = editMode ? CLI.FLAGS.SANDBOX_READ_ONLY : CLI.FLAGS.SANDBOX_WORKSPACE_WRITE;
-  base.push(CLI.FLAGS.SANDBOX, sandboxMode, CLI.FLAGS.JSON, CLI.FLAGS.MODEL, model);
+  base.push(
+    CLI.FLAGS.SANDBOX,
+    sandboxMode,
+    CLI.FLAGS.CONFIG,
+    `model_reasoning_effort="${reasoningEffort}"`,
+    CLI.FLAGS.JSON,
+    CLI.FLAGS.MODEL,
+    model,
+  );
   if (editMode && schemaPath) base.push(CLI.FLAGS.OUTPUT_SCHEMA, schemaPath);
   if (includeDirs?.length) {
     for (const dir of includeDirs) base.push(CLI.FLAGS.ADD_DIR, dir);
@@ -360,6 +381,7 @@ function buildArgs(
 
 export async function executeCodexCLI(options: CodexExecutorOptions): Promise<CodexExecutorResult> {
   const model = options.model || MODELS.DEFAULT;
+  const reasoningEffort = options.reasoningEffort || DEFAULT_REASONING_EFFORT;
   const sessionId = options.sessionId;
   const editMode = options.editMode === true;
   const wantsSession = sessionId !== undefined;
@@ -374,7 +396,7 @@ export async function executeCodexCLI(options: CodexExecutorOptions): Promise<Co
   const dirsPart = options.includeDirs?.length ? [...options.includeDirs].sort().join(":") : "";
   // Labeled parts so the marker is unambiguous — a literal includeDir of "edit"
   // must never collide with edit-mode's cache partition.
-  const extraContext = editMode || dirsPart ? `edit=${editMode ? 1 : 0};dirs=${dirsPart}` : undefined;
+  const extraContext = `effort=${reasoningEffort};edit=${editMode ? 1 : 0};dirs=${dirsPart}`;
   const cacheKey =
     wantsSession || preferredEligible ? null : ResponseCache.buildKey("codex", options.prompt, model, extraContext);
 
@@ -399,7 +421,16 @@ export async function executeCodexCLI(options: CodexExecutorOptions): Promise<Co
 
   const useStdin = options.prompt.length > EXECUTION.STDIN_THRESHOLD_BYTES;
   const stdinPayload = useStdin ? options.prompt : undefined;
-  const args = buildArgs(options.prompt, model, sessionId, useStdin, options.includeDirs, editMode, schemaPath);
+  const args = buildArgs(
+    options.prompt,
+    model,
+    sessionId,
+    useStdin,
+    options.includeDirs,
+    editMode,
+    schemaPath,
+    reasoningEffort,
+  );
   // Codex with reasoning models routinely needs >210s for substantive prompts
   // (issue #45). Resolution order: ASK_CODEX_TIMEOUT_MS > GMCPT_TIMEOUT_MS >
   // DEFAULT_CODEX_TIMEOUT_MS. The provider-specific knob lets users keep a
@@ -420,6 +451,7 @@ export async function executeCodexCLI(options: CodexExecutorOptions): Promise<Co
       options.includeDirs,
       false,
       undefined,
+      reasoningEffort,
     );
     const preferredStartedAt = Date.now();
     try {
@@ -475,6 +507,7 @@ export async function executeCodexCLI(options: CodexExecutorOptions): Promise<Co
           options.includeDirs,
           editMode,
           schemaPath,
+          reasoningEffort,
         );
         const fallbackStartedAt = Date.now();
         try {
@@ -502,7 +535,7 @@ export async function executeCodexCLI(options: CodexExecutorOptions): Promise<Co
             // self-contradictory (PR #198 review). The pin is the same env var
             // MODELS.FALLBACK resolves from, so its presence distinguishes them.
             const remediation = process.env.ASK_CODEX_FALLBACK_MODEL
-              ? "Set ASK_CODEX_FALLBACK_MODEL to a model your account supports, or unset it to use the default (gpt-5.4-mini, which works on both ChatGPT-plan and API-key accounts)."
+              ? "Set ASK_CODEX_FALLBACK_MODEL to a model your account supports, or unset it to use the default (gpt-5.6-terra)."
               : "Set ASK_CODEX_FALLBACK_MODEL to a model your account supports.";
             throw new Error(
               `${MODELS.DEFAULT} quota exceeded and the fallback model "${MODELS.FALLBACK}" is not available for this Codex account type (${fallbackMsg}). ${remediation}`,

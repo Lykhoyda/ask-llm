@@ -1,0 +1,31 @@
+import { executeCommand, type UnifiedTool } from "@ask-llm/shared";
+import { z } from "zod";
+
+const pingArgsSchema = z.object({
+  message: z.string().optional().describe("A message to echo back while testing Claude CLI availability"),
+});
+
+export const pingTool: UnifiedTool = {
+  name: "ping",
+  description: "Test connectivity with the Claude MCP server and check whether Claude Code CLI is installed",
+  zodSchema: pingArgsSchema,
+  annotations: {
+    title: "Ping",
+    readOnlyHint: true,
+    idempotentHint: true,
+    openWorldHint: false,
+  },
+  prompt: {
+    description: "Verify the Claude MCP server is working and Claude Code CLI is reachable",
+  },
+  category: "simple",
+  execute: async (args) => {
+    const message = (args.message as string) || "Pong from Claude MCP Server!";
+    try {
+      const version = await executeCommand("claude", ["--version"], undefined, undefined, undefined, 5_000);
+      return `${message} (Claude Code detected: ${version.trim()})`;
+    } catch {
+      return `${message} (warning: claude not found on PATH — install @anthropic-ai/claude-code and authenticate)`;
+    }
+  },
+};

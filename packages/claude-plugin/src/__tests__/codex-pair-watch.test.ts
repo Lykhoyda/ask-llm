@@ -55,7 +55,7 @@ describe("scripts/codex-pair-watch.mjs — structural invariants (ADR-077)", () 
     expect(script).toMatch(/stdin\.on\(["']error["']/);
   });
 
-  it("preserves quota fallback (gpt-5.5 → gpt-5.4-mini on rate_limit_exceeded)", () => {
+  it("preserves quota fallback (gpt-5.6-sol → gpt-5.6-terra on rate_limit_exceeded)", () => {
     expect(script).toMatch(/isQuotaError/);
     expect(script).toMatch(/rate_limit_exceeded/);
     expect(script).toMatch(/FALLBACK_MODEL/);
@@ -681,6 +681,8 @@ describe("scripts/codex-pair-watch.mjs — structural invariants (ADR-077)", () 
     expect(script).toMatch(
       /FALLBACK_MODEL\s*=\s*process\.env\.ASK_CODEX_FALLBACK_MODEL\s*\?\?\s*CODEX_PAIR_DEFAULTS\.fallbackModel/,
     );
+    expect(script).toMatch(/DEFAULT_REASONING_EFFORT\s*=\s*process\.env\.ASK_CODEX_REASONING_EFFORT\s*\?\?\s*"medium"/);
+    expect(script).toMatch(/model_reasoning_effort="\$\{DEFAULT_REASONING_EFFORT\}"/);
   });
 
   it("codex-pair-defaults.json exists and contains model+fallbackModel keys", () => {
@@ -1151,8 +1153,8 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
       tempDir,
       [
         "---",
-        "model: gpt-5.5",
-        "fallbackModel: gpt-5.4-mini",
+        "model: gpt-5.6-sol",
+        "fallbackModel: gpt-5.6-terra",
         "timeoutMs: 800000",
         "maxFileBytes: 50",
         "surfaceThreshold: med",

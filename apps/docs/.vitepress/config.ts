@@ -5,7 +5,7 @@ const SITE_URL = "https://lykhoyda.github.io/ask-llm";
 const SITE_HOSTNAME = "https://lykhoyda.github.io/ask-llm/";
 const SITE_TITLE = "Ask LLM";
 const SITE_DESCRIPTION =
-  "MCP servers for AI-to-AI collaboration — Gemini, Codex, Ollama, Antigravity";
+  "MCP servers for AI-to-AI collaboration — Gemini, Codex, Claude, Ollama, Antigravity";
 
 export default withMermaid(
   defineConfig({
@@ -113,6 +113,7 @@ export default withMermaid(
           text: "Providers",
           items: [
             { text: "Codex", link: "/providers/codex" },
+            { text: "Claude", link: "/providers/claude" },
             { text: "Antigravity", link: "/providers/antigravity" },
             { text: "Ollama", link: "/providers/ollama" },
             { text: "Gemini", link: "/providers/gemini" },
@@ -138,6 +139,7 @@ export default withMermaid(
           collapsed: false,
           items: [
             { text: "Codex", link: "/providers/codex" },
+            { text: "Claude", link: "/providers/claude" },
             { text: "Antigravity", link: "/providers/antigravity" },
             { text: "Ollama", link: "/providers/ollama" },
             { text: "Gemini", link: "/providers/gemini" },

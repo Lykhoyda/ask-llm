@@ -17,7 +17,7 @@ set -o pipefail
 # status text ("quota exceeded", logged whenever isQuotaError fires + the
 # fallback). The executor signal is the robust anchor — the raw CLI message is
 # caught internally during fallback and may not reach the smoke output (ADR-117).
-QUOTA_PATTERN='rateLimitExceeded|RESOURCE_EXHAUSTED|TerminalQuotaError|exhausted your capacity|code=429|usage limit|quota exceeded|rate limit|too many requests'
+QUOTA_PATTERN='rateLimitExceeded|RESOURCE_EXHAUSTED|TerminalQuotaError|exhausted your capacity|code=429|usage limit|hit your limit|quota exceeded|rate limit|too many requests|overloaded'
 
 # Live API calls occasionally fail with transient errors (network blips, brief
 # 5xx, upstream-API hiccups) that succeed on retry. Default behavior: one
@@ -100,5 +100,6 @@ echo ""
 run_smoke "Ollama"      "ask-ollama-mcp"
 run_smoke "Antigravity" "ask-antigravity-mcp"
 run_smoke "Codex"       "ask-codex-mcp"
+run_smoke "Claude"      "ask-claude-mcp"
 
 echo "=== Smoke tests done (any quota-skipped providers were warned above) ==="

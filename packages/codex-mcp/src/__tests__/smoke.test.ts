@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { MODELS } from "../constants.js";
+import { DEFAULT_REASONING_EFFORT, MODELS } from "../constants.js";
 import { toolRegistry } from "../tools/index.js";
 
 describe("MCP server smoke test", () => {
@@ -23,14 +23,24 @@ describe("MCP server smoke test", () => {
   }
 });
 
-describe("Codex default model version (ADR-067)", () => {
-  it("defaults to gpt-5.5 when ASK_CODEX_MODEL is not set", () => {
+describe("Codex default model version", () => {
+  it("defaults to gpt-5.6-sol when ASK_CODEX_MODEL is not set", () => {
     if (process.env.ASK_CODEX_MODEL) return;
-    expect(MODELS.DEFAULT).toBe("gpt-5.5");
+    expect(MODELS.DEFAULT).toBe("gpt-5.6-sol");
   });
 
-  it("falls back to gpt-5.4-mini when ASK_CODEX_FALLBACK_MODEL is not set", () => {
+  it("falls back to gpt-5.6-terra when ASK_CODEX_FALLBACK_MODEL is not set", () => {
     if (process.env.ASK_CODEX_FALLBACK_MODEL) return;
-    expect(MODELS.FALLBACK).toBe("gpt-5.4-mini");
+    expect(MODELS.FALLBACK).toBe("gpt-5.6-terra");
+  });
+
+  it("uses the Sol default for the legacy preferred tier unless overridden", () => {
+    if (process.env.ASK_CODEX_MODEL || process.env.ASK_CODEX_PREFERRED_MODEL) return;
+    expect(MODELS.PREFERRED).toBe(MODELS.DEFAULT);
+  });
+
+  it("preserves medium reasoning effort unless overridden", () => {
+    if (process.env.ASK_CODEX_REASONING_EFFORT) return;
+    expect(DEFAULT_REASONING_EFFORT).toBe("medium");
   });
 });

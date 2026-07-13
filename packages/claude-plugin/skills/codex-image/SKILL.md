@@ -62,7 +62,7 @@ Save the file to this absolute path: <path from Phase 2>
 After saving, confirm the absolute path of the created file and its byte size in your reply. If image_generation fails or the file cannot be written, explain what went wrong and do not invent a fake path.
 ```
 
-**Default model:** let `ask-codex` use its default (`gpt-5.5`, per ADR-067). The image_generation tool is invoked by the model regardless of which Codex chat model is selected — model selection here is about the orchestrating agent, not the image model itself.
+**Default model:** let `ask-codex` use its default (`gpt-5.6-sol`). The image_generation tool is invoked by the model regardless of which Codex chat model is selected — model selection here is about the orchestrating agent, not the image model itself.
 
 **Wall time expectation:** with gpt-image-2, simple images typically render in **under a minute** end-to-end; complex prompts or high-resolution (up to 4K) renders can take a **few minutes** because gpt-image-2's thinking mode plans layout and self-checks before generating. This is normal; do not retry assuming a hang. The first call in a session is slowest because the image_generation tool definitions aren't cached yet; subsequent calls in the same session are faster (Codex CLI prompt-caches aggressively).
 
@@ -93,6 +93,6 @@ Phase 3 — `ask-codex` is called with the prompt template above.
 
 Phase 4 — `ls -la /tmp/codex-images/2026-04-24/cat-reading-a-book.png` shows a 248KB file. Skill returns:
 
-> Generated **/tmp/codex-images/2026-04-24/cat-reading-a-book.png** (248 KB) via gpt-image-2. Used Codex (gpt-5.5) as orchestrator. Refined prompt: *minimalist illustration of a cat reading a book, flat vector style, two-tone palette, no human figures, square framing, transparent background*. Reading inline below.
+> Generated **/tmp/codex-images/2026-04-24/cat-reading-a-book.png** (248 KB) via gpt-image-2. Used Codex (gpt-5.6-sol) as orchestrator. Refined prompt: *minimalist illustration of a cat reading a book, flat vector style, two-tone palette, no human figures, square framing, transparent background*. Reading inline below.
 
 [image renders]

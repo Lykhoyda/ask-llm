@@ -48,7 +48,7 @@ You are a code review coordinator that leverages OpenAI Codex for independent an
 
 ### Phase 2: Review Prompt Construction
 
-When calling `ask-codex`, set `preferred: true` (this reviews with the higher-reasoning model `gpt-5.5-pro` when your Codex account is entitled, and transparently falls back to `gpt-5.5` otherwise). Structure the prompt to request confidence scoring AND severity classification:
+When calling `ask-codex`, leave `model` and `preferred` unset and set `reasoningEffort: "high"`. This uses GPT-5.6 Sol at high effort and transparently falls back to GPT-5.6 Terra on quota. Structure the prompt to request confidence scoring AND severity classification:
 
 ```
 Review the following code changes. For each issue found, rate:

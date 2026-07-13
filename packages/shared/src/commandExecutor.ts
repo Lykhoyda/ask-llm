@@ -145,7 +145,7 @@ export async function executeCommand(
         new Error(
           `Command timed out after ${timeoutSec}s. The LLM provider took too long to respond. ` +
             `Try a shorter prompt or increase the timeout via the provider env var ` +
-            `(ASK_CODEX_TIMEOUT_MS / ASK_GEMINI_TIMEOUT_MS) or the global ` +
+            `(ASK_CODEX_TIMEOUT_MS / ASK_CLAUDE_TIMEOUT_MS / ASK_GEMINI_TIMEOUT_MS) or the global ` +
             `${EXECUTION.TIMEOUT_ENV_VAR} (current: ${effectiveTimeoutMs}ms).`,
         ),
       );
