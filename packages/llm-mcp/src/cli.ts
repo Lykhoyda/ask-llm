@@ -69,6 +69,15 @@ async function withDiagnosticsOnStderr<T>(run: () => Promise<T>): Promise<T> {
   }
 }
 
+function writeMachineDocument(document: unknown): Promise<void> {
+  return new Promise((resolve, reject) => {
+    process.stdout.write(`${JSON.stringify(document)}\n`, (error) => {
+      if (error) reject(error);
+      else resolve();
+    });
+  });
+}
+
 async function runMachineCli(): Promise<number> {
   try {
     if (process.argv.length > 3) throw new MachineInputError();
@@ -82,7 +91,7 @@ async function runMachineCli(): Promise<number> {
         now: Date.now,
       }),
     );
-    process.stdout.write(`${JSON.stringify(result)}\n`);
+    await writeMachineDocument(result);
     return 0;
   } catch (error) {
     if (!(error instanceof MachineInputError)) throw error;
@@ -107,8 +116,13 @@ async function runDoctor(jsonOutput: boolean): Promise<number> {
 const subcommand = process.argv[2];
 
 if (subcommand === "machine-schema") {
-  process.stdout.write(`${JSON.stringify(machineJsonSchemaBundle())}\n`);
-  process.exit(0);
+  writeMachineDocument(machineJsonSchemaBundle()).then(
+    () => process.exit(0),
+    (error) => {
+      process.stderr.write(`machine schema failed: ${String(error)}\n`);
+      process.exit(3);
+    },
+  );
 } else if (subcommand === "machine") {
   runMachineCli().then(
     (code) => process.exit(code),

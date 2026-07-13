@@ -11,6 +11,9 @@ const cliPath = fileURLToPath(new URL("../../dist/cli.js", import.meta.url));
 const requestPath = fileURLToPath(new URL("./fixtures/review-request.json", import.meta.url));
 const successPayloadPath = fileURLToPath(new URL("./fixtures/review-success.json", import.meta.url));
 const successExecutorPath = fileURLToPath(new URL("./fixtures/machine-success-executor.mjs", import.meta.url));
+const largeSuccessExecutorPath = fileURLToPath(
+  new URL("./fixtures/machine-large-success-executor.mjs", import.meta.url),
+);
 const failureExecutorPath = fileURLToPath(new URL("./fixtures/machine-failure-executor.mjs", import.meta.url));
 
 const request = JSON.parse(readFileSync(requestPath, "utf8")) as Record<string, unknown>;
@@ -39,7 +42,7 @@ function runCli(args: string[], input = "", options: { executorPath?: string; ma
       ...(options.marker ? { ASK_LLM_MACHINE_FIXTURE_LOAD_MARKER: options.marker } : {}),
     },
     input,
-    maxBuffer: 1024 * 1024,
+    maxBuffer: 8 * 1024 * 1024,
     timeout: 5_000,
   });
 
@@ -95,6 +98,18 @@ describe("ask-llm-mcp machine", () => {
     });
     expect(result.stdout).not.toContain("fixture-secret");
     expect(result.stderr).toContain("fixture provider reported a quota failure");
+  });
+
+  it("flushes one complete result when stdout applies backpressure", () => {
+    const result = runCli(["machine"], JSON.stringify(request), { executorPath: largeSuccessExecutorPath });
+    const output = JSON.parse(result.stdout);
+    const evidence = output.payload.findings[0].evidence as string;
+
+    expect(result.status).toBe(0);
+    expect(result.stdout).toBe(`${JSON.stringify(output)}\n`);
+    expect(Buffer.byteLength(evidence)).toBeGreaterThan(2 * 1024 * 1024);
+    expect(evidence.startsWith("begin-")).toBe(true);
+    expect(evidence.endsWith("-end")).toBe(true);
   });
 
   it("rejects malformed and concatenated JSON with exit 2 and empty stdout", () => {
