@@ -212,7 +212,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@anton-lykhoyda/ask-claude-mcp@npm:^0.1.0, @anton-lykhoyda/ask-claude-mcp@workspace:packages/claude-mcp":
+"@anton-lykhoyda/ask-claude-mcp@npm:^0.1.1, @anton-lykhoyda/ask-claude-mcp@workspace:packages/claude-mcp":
   version: 0.0.0-use.local
   resolution: "@anton-lykhoyda/ask-claude-mcp@workspace:packages/claude-mcp"
   dependencies:
@@ -2895,7 +2895,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "ask-llm-mcp@workspace:packages/llm-mcp"
   dependencies:
-    "@anton-lykhoyda/ask-claude-mcp": "npm:^0.1.0"
+    "@anton-lykhoyda/ask-claude-mcp": "npm:^0.1.1"
     "@ask-llm/shared": "workspace:*"
     "@biomejs/biome": "npm:^2.4.4"
     "@modelcontextprotocol/sdk": "npm:^1.27.1"
