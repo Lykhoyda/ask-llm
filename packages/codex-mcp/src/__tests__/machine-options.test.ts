@@ -41,6 +41,16 @@ beforeEach(() => {
 });
 
 describe("executeCodexCLI machine options", () => {
+  it("keeps a small structured prompt out of argv and sends it through stdin", async () => {
+    const prompt = "private structured review prompt";
+
+    await executeCodexCLI({ prompt, sandbox: "read-only", outputSchema });
+
+    const [, args, , , stdin] = mockExecuteCommand.mock.calls[0];
+    expect(args).not.toContain(prompt);
+    expect(stdin).toBe(prompt);
+  });
+
   it("uses unique 0600 schema files with read-only sandbox and removes them after success", async () => {
     const observedPaths: string[] = [];
     mockExecuteCommand.mockImplementation(async (_command, args) => {
@@ -107,11 +117,12 @@ describe("executeCodexCLI machine options", () => {
   });
 
   it("passes the same schema file and read-only sandbox to the quota fallback leg", async () => {
+    const prompt = "private structured fallback prompt";
     mockExecuteCommand
       .mockRejectedValueOnce(new Error("rate_limit_exceeded"))
       .mockResolvedValueOnce(agentMessage('{"verdict":"fallback"}'));
 
-    await executeCodexCLI({ prompt: "classify", sandbox: "read-only", outputSchema });
+    await executeCodexCLI({ prompt, sandbox: "read-only", outputSchema });
 
     expect(mockExecuteCommand).toHaveBeenCalledTimes(2);
     const primaryArgs = mockExecuteCommand.mock.calls[0][1];
@@ -120,6 +131,32 @@ describe("executeCodexCLI machine options", () => {
     expect(getOutputSchemaPath(fallbackArgs)).toBe(schemaPath);
     expect(fallbackArgs).toContain(CLI.FLAGS.SANDBOX_READ_ONLY);
     expect(fallbackArgs).toContain(MODELS.FALLBACK);
+    expect(primaryArgs).not.toContain(prompt);
+    expect(fallbackArgs).not.toContain(prompt);
+    expect(mockExecuteCommand.mock.calls[0][4]).toBe(prompt);
+    expect(mockExecuteCommand.mock.calls[1][4]).toBe(prompt);
     expect(existsSync(schemaPath)).toBe(false);
+  });
+
+  it("keeps structured prompts on stdin through preferred, default, and fallback attempts", async () => {
+    const prompt = "private structured preferred prompt";
+    const originalPreferred = MODELS.PREFERRED;
+    MODELS.PREFERRED = "test-structured-preferred";
+    mockExecuteCommand
+      .mockRejectedValueOnce(new Error("preferred unavailable"))
+      .mockRejectedValueOnce(new Error("rate_limit_exceeded"))
+      .mockResolvedValueOnce(agentMessage('{"verdict":"fallback"}'));
+
+    try {
+      await executeCodexCLI({ prompt, sandbox: "read-only", outputSchema, preferred: true });
+    } finally {
+      MODELS.PREFERRED = originalPreferred;
+    }
+
+    expect(mockExecuteCommand).toHaveBeenCalledTimes(3);
+    for (const call of mockExecuteCommand.mock.calls) {
+      expect(call[1]).not.toContain(prompt);
+      expect(call[4]).toBe(prompt);
+    }
   });
 });

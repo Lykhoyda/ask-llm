@@ -420,7 +420,7 @@ export async function executeCodexCLI(options: CodexExecutorOptions): Promise<Co
       writeFileSync(schemaPath, JSON.stringify(outputSchema), { mode: 0o600 });
     }
 
-    const useStdin = options.prompt.length > EXECUTION.STDIN_THRESHOLD_BYTES;
+    const useStdin = outputSchema !== undefined || options.prompt.length > EXECUTION.STDIN_THRESHOLD_BYTES;
     const stdinPayload = useStdin ? options.prompt : undefined;
     const args = buildArgs(
       options.prompt,

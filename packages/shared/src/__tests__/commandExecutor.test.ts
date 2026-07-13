@@ -1,6 +1,6 @@
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { executeCommand, quoteArgsForWindows, resolveTimeoutMs, sanitizeErrorForLLM } from "../commandExecutor.js";
-import { EXECUTION } from "../constants.js";
+import { EXECUTION, LOG_LEVEL_ENV_VAR } from "../constants.js";
 
 describe("quoteArgsForWindows", () => {
   it("leaves simple args unchanged", () => {
@@ -262,6 +262,38 @@ describe("executeCommand stdin payload (issue #30)", () => {
     async () => {
       const result = await executeCommand("node", ["-e", "console.log('hi')"], undefined, undefined, "");
       expect(result).toBe("hi");
+    },
+    SPAWN_TIMEOUT_MS,
+  );
+
+  it(
+    "redacts sensitive command-log values without changing child argv",
+    async () => {
+      const sensitive = "sensitive-machine-prompt-7d3e";
+      const originalLogLevel = process.env[LOG_LEVEL_ENV_VAR];
+      process.env[LOG_LEVEL_ENV_VAR] = "warn";
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+      try {
+        const result = await executeCommand(
+          "node",
+          ["-e", "process.stdout.write(process.argv[1])", sensitive],
+          undefined,
+          undefined,
+          undefined,
+          SPAWN_TIMEOUT_MS,
+          { sensitiveValues: [sensitive] },
+        );
+        const logs = warn.mock.calls.flat().map(String).join(" ");
+
+        expect(result).toBe(sensitive);
+        expect(logs).toContain("<redacted>");
+        expect(logs).not.toContain(sensitive);
+      } finally {
+        warn.mockRestore();
+        if (originalLogLevel === undefined) delete process.env[LOG_LEVEL_ENV_VAR];
+        else process.env[LOG_LEVEL_ENV_VAR] = originalLogLevel;
+      }
     },
     SPAWN_TIMEOUT_MS,
   );

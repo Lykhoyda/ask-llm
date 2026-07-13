@@ -4,6 +4,11 @@ import { Logger } from "./logger.js";
 import { getSpawnEnv } from "./shellPath.js";
 
 const IS_WINDOWS = process.platform === "win32";
+const REDACTED_COMMAND_ARGUMENT = "<redacted>";
+
+export interface CommandLoggingOptions {
+  sensitiveValues: readonly string[];
+}
 
 const QUOTA_PASSTHROUGH_PATTERNS = [
   "RESOURCE_EXHAUSTED",
@@ -90,6 +95,12 @@ export function quoteArgsForWindows(args: string[]): string[] {
   });
 }
 
+function argsForLogging(args: string[], options: CommandLoggingOptions | undefined): string[] {
+  if (!options) return args;
+  const sensitiveValues = new Set(options.sensitiveValues);
+  return args.map((arg) => (sensitiveValues.has(arg) ? REDACTED_COMMAND_ARGUMENT : arg));
+}
+
 export async function executeCommand(
   command: string,
   args: string[],
@@ -97,9 +108,10 @@ export async function executeCommand(
   onStderr?: (stderr: string) => void,
   stdinPayload?: string,
   timeoutMs?: number,
+  commandLogging?: CommandLoggingOptions,
 ): Promise<string> {
   return new Promise((resolve, reject) => {
-    const commandId = Logger.commandExecution(command, args);
+    const commandId = Logger.commandExecution(command, argsForLogging(args, commandLogging));
 
     const safeArgs = IS_WINDOWS ? quoteArgsForWindows(args) : args;
 

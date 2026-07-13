@@ -95,6 +95,7 @@ export async function executeAntigravityCLI(options: AntigravityExecutorOptions)
   const agyTimeoutSec = timeoutMs > 6000 ? Math.round(timeoutMs / 1000) - 5 : Math.max(1, Math.round(timeoutMs / 1000));
 
   const fullPrompt = `${READ_ONLY_PREAMBLE}\n\n${options.prompt}`;
+  const commandLogging = options.readOnly ? { sensitiveValues: [fullPrompt] } : undefined;
   if (fullPrompt.length > EXECUTION.STDIN_THRESHOLD_BYTES) {
     // v1 passes the prompt as a -p argument; very large prompts risk the ARG_MAX
     // ceiling. stdin/temp-file handling is a documented open item (spec §10.1).
@@ -112,7 +113,15 @@ export async function executeAntigravityCLI(options: AntigravityExecutorOptions)
   const runWithModel = async (model: string): Promise<AntigravityExecutorResult> => {
     const args = buildArgs(fullPrompt, options.includeDirs, agyTimeoutSec, sandbox, model, options.readOnly);
     const startedAt = Date.now();
-    const raw = await executeCommand(CLI.COMMANDS.AGY, args, options.onProgress, undefined, undefined, timeoutMs);
+    const raw = await executeCommand(
+      CLI.COMMANDS.AGY,
+      args,
+      options.onProgress,
+      undefined,
+      undefined,
+      timeoutMs,
+      commandLogging,
+    );
 
     // First non-null wins. Order matters: structured stdout JSON (if agy ever adds
     // it, #27466) is unambiguous; the transcript is the authoritative record; raw

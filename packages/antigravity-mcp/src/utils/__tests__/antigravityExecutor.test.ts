@@ -136,6 +136,17 @@ describe("executeAntigravityCLI response sources", () => {
 });
 
 describe("executeAntigravityCLI argument wiring", () => {
+  it("marks the exact full read-only prompt as sensitive command-log data", async () => {
+    mockExec.mockResolvedValue("answer");
+    await executeAntigravityCLI({ prompt: "private machine review", readOnly: true });
+
+    const [, args, , , , , commandLogging] = mockExec.mock.calls[0];
+    const fullPrompt = args[1];
+    expect(fullPrompt).toContain(READ_ONLY_PREAMBLE);
+    expect(fullPrompt).toContain("private machine review");
+    expect(commandLogging).toEqual({ sensitiveValues: [fullPrompt] });
+  });
+
   it("prepends the read-only preamble to the prompt", async () => {
     mockExec.mockResolvedValue("answer");
     await executeAntigravityCLI({ prompt: "review this" });
@@ -212,6 +223,19 @@ describe("executeAntigravityCLI error handling", () => {
 });
 
 describe("executeAntigravityCLI rate-limit fallback", () => {
+  it("redacts the read-only prompt on both primary and fallback command logs", async () => {
+    mockExec.mockRejectedValueOnce(new Error("RESOURCE_EXHAUSTED: quota")).mockResolvedValueOnce("flash answer");
+
+    await executeAntigravityCLI({ prompt: "private fallback review", readOnly: true });
+
+    expect(mockExec).toHaveBeenCalledTimes(2);
+    for (const call of mockExec.mock.calls) {
+      const fullPrompt = call[1][1];
+      expect(call[6]).toEqual({ sensitiveValues: [fullPrompt] });
+      expect(fullPrompt).toContain("private fallback review");
+    }
+  });
+
   it("retries on the Flash fallback when the default Pro model is rate limited", async () => {
     mockExec.mockRejectedValueOnce(new Error("RESOURCE_EXHAUSTED: quota")).mockResolvedValueOnce("flash answer");
     const result = await executeAntigravityCLI({ prompt: "q" });
