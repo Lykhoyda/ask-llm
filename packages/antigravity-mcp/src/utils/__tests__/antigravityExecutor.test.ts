@@ -318,6 +318,21 @@ describe("executeAntigravityCLI concurrency", () => {
     expect(existsSync(lockPath)).toBe(false);
   });
 
+  it("preserves a lease covering two one-hour attempts plus cleanup grace", async () => {
+    process.env[ANTIGRAVITY.TIMEOUT_ENV_VAR] = "3600000";
+    const lockPath = antigravityInvocationLockPath(baseDir);
+    mockExec.mockImplementation(async () => {
+      const owner = JSON.parse(readFileSync(join(lockPath, "owner.json"), "utf8")) as {
+        leaseDurationMs?: number;
+      };
+      expect(owner.leaseDurationMs).toBe(7_230_000);
+      return "answer";
+    });
+
+    await expect(executeAntigravityCLI({ prompt: "q" })).resolves.toMatchObject({ response: "answer" });
+    expect(existsSync(lockPath)).toBe(false);
+  });
+
   it("removes the base-directory lock when agy fails", async () => {
     const lockPath = antigravityInvocationLockPath(baseDir);
     mockExec.mockImplementation(async () => {

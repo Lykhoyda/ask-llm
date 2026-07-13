@@ -9,7 +9,6 @@ const DEFAULT_ACQUIRE_TIMEOUT_MS = 30_000;
 const DEFAULT_POLL_INTERVAL_MS = 50;
 const DEFAULT_LEASE_DURATION_MS = 10 * 60_000;
 const LEGACY_LEASE_DURATION_MS = 15 * 60_000;
-const MAX_LEASE_DURATION_MS = 2 * 60 * 60_000;
 const MALFORMED_LOCK_STALE_MS = 5 * 60_000;
 
 interface LockOwner {
@@ -36,8 +35,7 @@ function parseOwner(raw: string): LockOwner | null {
     if (typeof owner.token !== "string" || owner.token.length === 0) return null;
     if (typeof owner.createdAt !== "number" || !Number.isFinite(owner.createdAt)) return null;
     const leaseDurationMs = owner.leaseDurationMs ?? LEGACY_LEASE_DURATION_MS;
-    if (!Number.isFinite(leaseDurationMs) || leaseDurationMs <= 0 || leaseDurationMs > MAX_LEASE_DURATION_MS)
-      return null;
+    if (!Number.isSafeInteger(leaseDurationMs) || leaseDurationMs <= 0) return null;
     return { pid: owner.pid as number, token: owner.token, createdAt: owner.createdAt, leaseDurationMs };
   } catch {
     return null;
@@ -110,7 +108,10 @@ async function acquireLock(
   const acquireTimeoutMs = options.acquireTimeoutMs ?? DEFAULT_ACQUIRE_TIMEOUT_MS;
   const pollIntervalMs = options.pollIntervalMs ?? DEFAULT_POLL_INTERVAL_MS;
   const requestedLease = options.leaseDurationMs ?? DEFAULT_LEASE_DURATION_MS;
-  const leaseDurationMs = Math.min(MAX_LEASE_DURATION_MS, Math.max(25, Math.floor(requestedLease)));
+  if (!Number.isFinite(requestedLease) || requestedLease <= 0 || requestedLease > Number.MAX_SAFE_INTEGER) {
+    throw new Error("Antigravity lock lease duration must be a positive safe finite number");
+  }
+  const leaseDurationMs = Math.ceil(requestedLease);
   const deadline = Date.now() + Math.max(0, acquireTimeoutMs);
   const lockPath = antigravityInvocationLockPath(baseDir);
   await mkdir(baseDir, { recursive: true, mode: 0o700 });

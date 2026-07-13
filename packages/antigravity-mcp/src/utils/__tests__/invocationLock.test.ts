@@ -160,6 +160,22 @@ describe("withAntigravityInvocationLock", () => {
     expect(initialHeartbeat).toBeGreaterThan(0);
   });
 
+  it.each([
+    Number.NaN,
+    Number.POSITIVE_INFINITY,
+    Number.NEGATIVE_INFINITY,
+    Number.MAX_VALUE,
+    0,
+    -1,
+  ])("rejects invalid lease duration %s without leaving a lock", async (leaseDurationMs) => {
+    const lockPath = antigravityInvocationLockPath(baseDir);
+
+    await expect(withAntigravityInvocationLock(baseDir, async () => undefined, { leaseDurationMs })).rejects.toThrow(
+      "Antigravity lock lease duration must be a positive safe finite number",
+    );
+    expect(existsSync(lockPath)).toBe(false);
+  });
+
   it("serializes critical sections across two OS processes", async () => {
     const markerDir = join(baseDir, "markers");
     mkdirSync(markerDir, { mode: 0o700 });
