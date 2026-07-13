@@ -454,4 +454,11 @@ describe("agents/ — no removed codex CLI flags (#37/#38/#52)", () => {
   it("brainstorm-coordinator dispatches codex with `--sandbox workspace-write`", () => {
     expect(readFile("agents/brainstorm-coordinator.md")).toMatch(/codex exec --sandbox workspace-write/);
   });
+
+  it("validates the brainstorm reasoning-effort override before invoking Codex", () => {
+    const coordinator = readFile("agents/brainstorm-coordinator.md");
+    expect(coordinator).toContain('case "$codex_effort" in');
+    expect(coordinator).toContain("low|medium|high|xhigh|max) ;;");
+    expect(coordinator).toContain('*) codex_effort="high" ;;');
+  });
 });

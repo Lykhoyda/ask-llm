@@ -150,6 +150,12 @@ pid_gemini=$!
 codex_model="${ASK_CODEX_PREFERRED_MODEL:-${ASK_CODEX_MODEL:-gpt-5.6-sol}}"
 codex_fallback="${ASK_CODEX_FALLBACK_MODEL:-gpt-5.6-terra}"
 codex_effort="${ASK_CODEX_REASONING_EFFORT:-high}"
+# Keep the raw env override aligned with ask-codex's public enum so malformed
+# config fragments never reach the Codex CLI.
+case "$codex_effort" in
+  low|medium|high|xhigh|max) ;;
+  *) codex_effort="high" ;;
+esac
 { codex exec --sandbox workspace-write -c "model_reasoning_effort=\"$codex_effort\"" -m "$codex_model" - < "$workdir/prompt.md" \
   || codex exec --sandbox workspace-write -c "model_reasoning_effort=\"$codex_effort\"" -m "$codex_fallback" - < "$workdir/prompt.md"; } \
   > "$workdir/codex.out" 2> "$workdir/codex.err" &
