@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, rmSync, utimesSync, writeFileSync } from "node:
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { readLatestResponse } from "../transcriptReader.js";
+import { readLatestResponse, snapshotTranscriptState } from "../transcriptReader.js";
 
 let baseDir: string;
 
@@ -22,58 +22,71 @@ afterEach(() => {
 
 describe("readLatestResponse", () => {
   it("returns the last MODEL/DONE/PLANNER_RESPONSE text", () => {
+    const before = snapshotTranscriptState(baseDir);
     writeTranscript("conv1", [
       { source: "MODEL", status: "RUNNING", type: "PLANNER_RESPONSE", text: "partial" },
       { source: "USER", status: "DONE", type: "USER_MESSAGE", text: "the question" },
       { source: "MODEL", status: "DONE", type: "PLANNER_RESPONSE", text: "first answer" },
       { source: "MODEL", status: "DONE", type: "PLANNER_RESPONSE", text: "final answer" },
     ]);
-    expect(readLatestResponse(0, baseDir)).toBe("final answer");
+    expect(readLatestResponse(0, before)).toBe("final answer");
   });
 
   it("returns null when the transcript dir is missing", () => {
-    expect(readLatestResponse(0, baseDir)).toBeNull();
+    expect(readLatestResponse(0, snapshotTranscriptState(baseDir))).toBeNull();
   });
 
   it("returns null when no DONE model entry exists (schema change)", () => {
+    const before = snapshotTranscriptState(baseDir);
     writeTranscript("conv1", [{ source: "MODEL", status: "RUNNING", type: "PLANNER_RESPONSE", text: "x" }]);
-    expect(readLatestResponse(0, baseDir)).toBeNull();
+    expect(readLatestResponse(0, before)).toBeNull();
   });
 
   it("returns null for a .db-only conversation dir (future agy format)", () => {
+    const before = snapshotTranscriptState(baseDir);
     const dir = join(baseDir, "brain", "conv1", ".system_generated", "logs");
     mkdirSync(dir, { recursive: true });
     writeFileSync(join(dir, "transcript.db"), "binary");
-    expect(readLatestResponse(0, baseDir)).toBeNull();
+    expect(readLatestResponse(0, before)).toBeNull();
   });
 
   it("uses the id from cache/last_conversations.json when present", () => {
+    const before = snapshotTranscriptState(baseDir);
     writeTranscript("convA", [{ source: "MODEL", status: "DONE", type: "PLANNER_RESPONSE", text: "A answer" }]);
     writeTranscript("convB", [{ source: "MODEL", status: "DONE", type: "PLANNER_RESPONSE", text: "B answer" }]);
     mkdirSync(join(baseDir, "cache"), { recursive: true });
     writeFileSync(join(baseDir, "cache", "last_conversations.json"), JSON.stringify(["convB"]));
-    expect(readLatestResponse(0, baseDir)).toBe("B answer");
+    expect(readLatestResponse(0, before)).toBe("B answer");
   });
 
   it("falls through to the newest brain dir when the cache file is a bare keyed object", () => {
     const oldDir = writeTranscript("old", [
       { source: "MODEL", status: "DONE", type: "PLANNER_RESPONSE", text: "old answer" },
     ]);
+    const before = snapshotTranscriptState(baseDir);
     const newDir = writeTranscript("new", [
       { source: "MODEL", status: "DONE", type: "PLANNER_RESPONSE", text: "new answer" },
     ]);
     utimesSync(oldDir, new Date(1000), new Date(1000));
     utimesSync(newDir, new Date(5000), new Date(5000));
     mkdirSync(join(baseDir, "cache"), { recursive: true });
-    // last key is "old" — proves we do NOT trust object-key order; mtime scan picks "new".
+    // Object-key order is not attribution; only the conversation changed after the snapshot.
     writeFileSync(
       join(baseDir, "cache", "last_conversations.json"),
       JSON.stringify({ new: { ts: 2 }, old: { ts: 1 } }),
     );
-    expect(readLatestResponse(0, baseDir)).toBe("new answer");
+    expect(readLatestResponse(0, before)).toBe("new answer");
   });
 
-  it("falls back to the newest brain dir modified since the run", () => {
+  it("falls back to the only brain conversation changed since the snapshot", () => {
+    writeTranscript("old", [{ source: "MODEL", status: "DONE", type: "PLANNER_RESPONSE", text: "old answer" }]);
+    const before = snapshotTranscriptState(baseDir);
+    writeTranscript("new", [{ source: "MODEL", status: "DONE", type: "PLANNER_RESPONSE", text: "new answer" }]);
+    expect(readLatestResponse(0, before)).toBe("new answer");
+  });
+
+  it("ignores transcript files older than sinceMs", () => {
+    const before = snapshotTranscriptState(baseDir);
     const oldDir = writeTranscript("old", [
       { source: "MODEL", status: "DONE", type: "PLANNER_RESPONSE", text: "old answer" },
     ]);
@@ -82,33 +95,25 @@ describe("readLatestResponse", () => {
     ]);
     utimesSync(oldDir, new Date(1000), new Date(1000));
     utimesSync(newDir, new Date(5000), new Date(5000));
-    expect(readLatestResponse(0, baseDir)).toBe("new answer");
-  });
-
-  it("ignores brain dirs older than sinceMs", () => {
-    const oldDir = writeTranscript("old", [
-      { source: "MODEL", status: "DONE", type: "PLANNER_RESPONSE", text: "old answer" },
-    ]);
-    const newDir = writeTranscript("new", [
-      { source: "MODEL", status: "DONE", type: "PLANNER_RESPONSE", text: "new answer" },
-    ]);
-    utimesSync(oldDir, new Date(1000), new Date(1000));
-    utimesSync(newDir, new Date(5000), new Date(5000));
-    // sinceMs=3000 → "old" (mtime 1000) is excluded, "new" (mtime 5000) wins.
-    expect(readLatestResponse(3000, baseDir)).toBe("new answer");
+    utimesSync(join(oldDir, ".system_generated", "logs", "transcript.jsonl"), new Date(1000), new Date(1000));
+    utimesSync(join(newDir, ".system_generated", "logs", "transcript.jsonl"), new Date(5000), new Date(5000));
+    // sinceMs=3000 excludes the old transcript; the new transcript is unambiguous.
+    expect(readLatestResponse(3000, before)).toBe("new answer");
   });
 
   it("prefers transcript_full.jsonl over the truncated transcript.jsonl", () => {
+    const before = snapshotTranscriptState(baseDir);
     writeTranscript("conv1", [{ source: "MODEL", status: "DONE", type: "PLANNER_RESPONSE", content: "TRUNCATED" }]);
     writeTranscript(
       "conv1",
       [{ source: "MODEL", status: "DONE", type: "PLANNER_RESPONSE", content: "FULL ANSWER" }],
       "transcript_full.jsonl",
     );
-    expect(readLatestResponse(0, baseDir)).toBe("FULL ANSWER");
+    expect(readLatestResponse(0, before)).toBe("FULL ANSWER");
   });
 
   it("ignores non-directory entries in brain/ (e.g. .DS_Store)", () => {
+    const before = snapshotTranscriptState(baseDir);
     const dir = writeTranscript("conv1", [
       { source: "MODEL", status: "DONE", type: "PLANNER_RESPONSE", content: "real answer" },
     ]);
@@ -116,10 +121,11 @@ describe("readLatestResponse", () => {
     writeFileSync(stray, "junk");
     utimesSync(dir, new Date(1000), new Date(1000));
     utimesSync(stray, new Date(9000), new Date(9000)); // newer than the real dir
-    expect(readLatestResponse(0, baseDir)).toBe("real answer");
+    expect(readLatestResponse(0, before)).toBe("real answer");
   });
 
   it("returns null when transcript_full.jsonl exists but has no model entry (no fallback to truncated)", () => {
+    const before = snapshotTranscriptState(baseDir);
     // truncated copy HAS a usable answer...
     writeTranscript("conv1", [
       { source: "MODEL", status: "DONE", type: "PLANNER_RESPONSE", content: "truncated answer" },
@@ -131,6 +137,55 @@ describe("readLatestResponse", () => {
       "transcript_full.jsonl",
     );
     // full > truncated: a full file with no model entry means the run didn't finish → null (#154)
-    expect(readLatestResponse(0, baseDir)).toBeNull();
+    expect(readLatestResponse(0, before)).toBeNull();
+  });
+
+  it("rejects an unchanged cached transcript from before the invocation", () => {
+    const transcriptDir = writeTranscript("stale", [
+      { source: "MODEL", status: "DONE", type: "PLANNER_RESPONSE", text: "stale answer" },
+    ]);
+    mkdirSync(join(baseDir, "cache"), { recursive: true });
+    writeFileSync(join(baseDir, "cache", "last_conversations.json"), JSON.stringify(["stale"]));
+    const startedAt = Date.now();
+    utimesSync(transcriptDir, new Date(startedAt), new Date(startedAt));
+    const before = snapshotTranscriptState(baseDir);
+
+    expect(readLatestResponse(startedAt, before)).toBeNull();
+  });
+
+  it("rejects a stale cached conversation despite a recent unrelated brain directory", () => {
+    writeTranscript("stale", [{ source: "MODEL", status: "DONE", type: "PLANNER_RESPONSE", text: "stale answer" }]);
+    mkdirSync(join(baseDir, "cache"), { recursive: true });
+    writeFileSync(join(baseDir, "cache", "last_conversations.json"), JSON.stringify(["stale"]));
+    const before = snapshotTranscriptState(baseDir);
+
+    writeTranscript("unrelated", [
+      { source: "MODEL", status: "DONE", type: "PLANNER_RESPONSE", text: "unrelated answer" },
+    ]);
+
+    expect(readLatestResponse(0, before)).toBeNull();
+  });
+
+  it("rejects a changed transcript whose mtime predates this invocation", () => {
+    writeTranscript("conv1", [{ source: "MODEL", status: "DONE", type: "PLANNER_RESPONSE", text: "before" }]);
+    mkdirSync(join(baseDir, "cache"), { recursive: true });
+    writeFileSync(join(baseDir, "cache", "last_conversations.json"), JSON.stringify(["conv1"]));
+    const before = snapshotTranscriptState(baseDir);
+    const startedAt = Date.now();
+    const transcriptDir = writeTranscript("conv1", [
+      { source: "MODEL", status: "DONE", type: "PLANNER_RESPONSE", text: "rewritten too early" },
+    ]);
+    const transcriptPath = join(transcriptDir, ".system_generated", "logs", "transcript.jsonl");
+    utimesSync(transcriptPath, new Date(startedAt - 100), new Date(startedAt - 100));
+
+    expect(readLatestResponse(startedAt, before)).toBeNull();
+  });
+
+  it("fails closed when multiple changed brain conversations are ambiguous", () => {
+    const before = snapshotTranscriptState(baseDir);
+    writeTranscript("conv1", [{ source: "MODEL", status: "DONE", type: "PLANNER_RESPONSE", text: "answer one" }]);
+    writeTranscript("conv2", [{ source: "MODEL", status: "DONE", type: "PLANNER_RESPONSE", text: "answer two" }]);
+
+    expect(readLatestResponse(0, before)).toBeNull();
   });
 });

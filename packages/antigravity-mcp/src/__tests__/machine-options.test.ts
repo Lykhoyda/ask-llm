@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { CLI } from "../constants.js";
 import { buildArgs } from "../utils/antigravityExecutor.js";
-import { readLatestTranscript } from "../utils/transcriptReader.js";
+import { readLatestTranscript, snapshotTranscriptState } from "../utils/transcriptReader.js";
 
 describe("Antigravity machine options", () => {
   it("uses plan+sandbox without dangerous permission bypass for machine review", () => {
@@ -43,6 +43,7 @@ describe("Antigravity machine transcript result", () => {
   it("returns the response with a durable transcript path and conversation id", () => {
     const baseDir = mkdtempSync(join(tmpdir(), "agy-machine-test-"));
     temporaryDirs.push(baseDir);
+    const before = snapshotTranscriptState(baseDir);
     const conversationId = "conversation-1";
     const logsDir = join(baseDir, "brain", conversationId, ".system_generated", "logs");
     const transcriptPath = join(logsDir, "transcript_full.jsonl");
@@ -54,7 +55,7 @@ describe("Antigravity machine transcript result", () => {
     mkdirSync(join(baseDir, "cache"), { recursive: true });
     writeFileSync(join(baseDir, "cache", "last_conversations.json"), JSON.stringify([conversationId]));
 
-    expect(readLatestTranscript(0, baseDir)).toEqual({
+    expect(readLatestTranscript(0, before)).toEqual({
       response: "review",
       path: transcriptPath,
       conversationId,

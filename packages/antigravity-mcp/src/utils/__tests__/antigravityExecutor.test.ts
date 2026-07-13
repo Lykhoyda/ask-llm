@@ -1,4 +1,7 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { existsSync, mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ANTIGRAVITY, CLI, ERROR_MESSAGES, MODELS, READ_ONLY_PREAMBLE } from "../../constants.js";
 
 vi.mock("@ask-llm/shared", async (importOriginal) => {
@@ -10,24 +13,40 @@ vi.mock("@ask-llm/shared", async (importOriginal) => {
   };
 });
 
-vi.mock("../transcriptReader.js", () => ({
-  readLatestTranscript: vi.fn(),
-}));
+vi.mock("../transcriptReader.js", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../transcriptReader.js")>();
+  return {
+    ...actual,
+    readLatestTranscript: vi.fn(),
+    snapshotTranscriptState: vi.fn(),
+  };
+});
 
 import { executeCommand } from "@ask-llm/shared";
 import { buildArgs, executeAntigravityCLI } from "../antigravityExecutor.js";
-import { readLatestTranscript } from "../transcriptReader.js";
+import { antigravityInvocationLockPath } from "../invocationLock.js";
+import { readLatestTranscript, snapshotTranscriptState } from "../transcriptReader.js";
 
 const mockExec = vi.mocked(executeCommand);
 const mockReadLatestTranscript = vi.mocked(readLatestTranscript);
+const mockSnapshotTranscriptState = vi.mocked(snapshotTranscriptState);
+let baseDir: string;
 
 beforeEach(() => {
+  baseDir = mkdtempSync(join(tmpdir(), "agy-executor-test-"));
   vi.clearAllMocks();
   delete process.env[ANTIGRAVITY.SANDBOX_ENV_VAR];
   delete process.env[ANTIGRAVITY.TIMEOUT_ENV_VAR];
   delete process.env[ANTIGRAVITY.MODEL_ENV_VAR];
+  process.env.ASK_ANTIGRAVITY_BASE_DIR = baseDir;
   mockExec.mockResolvedValue("");
   mockReadLatestTranscript.mockReturnValue(null);
+  mockSnapshotTranscriptState.mockReturnValue({ baseDir, transcripts: {} });
+});
+
+afterEach(() => {
+  delete process.env.ASK_ANTIGRAVITY_BASE_DIR;
+  rmSync(baseDir, { recursive: true, force: true });
 });
 
 describe("buildArgs", () => {
@@ -106,6 +125,7 @@ describe("executeAntigravityCLI response sources", () => {
     expect(result.response).toBe("scraped answer");
     expect(mockReadLatestTranscript).toHaveBeenCalledOnce();
     expect(typeof mockReadLatestTranscript.mock.calls[0][0]).toBe("number");
+    expect(mockReadLatestTranscript.mock.calls[0][1]).toEqual({ baseDir, transcripts: {} });
   });
 
   it("returns the durable transcript path when the response comes from the transcript", async () => {
@@ -270,6 +290,41 @@ describe("executeAntigravityCLI rate-limit fallback", () => {
 });
 
 describe("executeAntigravityCLI concurrency", () => {
+  it("holds the base-directory lock while snapshotting, invoking agy, and resolving the transcript", async () => {
+    const lockPath = antigravityInvocationLockPath(baseDir);
+    mockSnapshotTranscriptState.mockImplementation(() => {
+      expect(existsSync(lockPath)).toBe(true);
+      return { baseDir, transcripts: {} };
+    });
+    mockExec.mockImplementation(async () => {
+      expect(existsSync(lockPath)).toBe(true);
+      return "";
+    });
+    mockReadLatestTranscript.mockImplementation(() => {
+      expect(existsSync(lockPath)).toBe(true);
+      return {
+        response: "correlated answer",
+        path: join(baseDir, "brain", "conversation-1", "transcript.jsonl"),
+        conversationId: "conversation-1",
+      };
+    });
+
+    await expect(executeAntigravityCLI({ prompt: "q" })).resolves.toMatchObject({ response: "correlated answer" });
+    expect(mockSnapshotTranscriptState.mock.invocationCallOrder[0]).toBeLessThan(mockExec.mock.invocationCallOrder[0]);
+    expect(existsSync(lockPath)).toBe(false);
+  });
+
+  it("removes the base-directory lock when agy fails", async () => {
+    const lockPath = antigravityInvocationLockPath(baseDir);
+    mockExec.mockImplementation(async () => {
+      expect(existsSync(lockPath)).toBe(true);
+      throw new Error("agy failed");
+    });
+
+    await expect(executeAntigravityCLI({ prompt: "q" })).rejects.toThrow("agy failed");
+    expect(existsSync(lockPath)).toBe(false);
+  });
+
   it("serializes concurrent calls via the mutex (never more than one agy active)", async () => {
     let active = 0;
     let maxActive = 0;
@@ -285,13 +340,20 @@ describe("executeAntigravityCLI concurrency", () => {
           });
         }),
     );
+    const waitForReleases = async (count: number) => {
+      for (let attempt = 0; attempt < 100; attempt++) {
+        if (releases.length === count) return;
+        await new Promise((resolve) => setTimeout(resolve, 5));
+      }
+      throw new Error(`Timed out waiting for ${count} agy invocation(s)`);
+    };
     const p1 = executeAntigravityCLI({ prompt: "a" });
     const p2 = executeAntigravityCLI({ prompt: "b" });
-    await new Promise((r) => setTimeout(r, 0));
+    await waitForReleases(1);
     expect(releases.length).toBe(1); // only the first call has reached agy
     expect(maxActive).toBe(1);
     releases[0]();
-    await new Promise((r) => setTimeout(r, 0));
+    await waitForReleases(2);
     expect(releases.length).toBe(2); // second starts only after the first finished
     releases[1]();
     await Promise.all([p1, p2]);
