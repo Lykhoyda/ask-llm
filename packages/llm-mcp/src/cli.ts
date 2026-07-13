@@ -71,10 +71,36 @@ async function withDiagnosticsOnStderr<T>(run: () => Promise<T>): Promise<T> {
 
 function writeMachineDocument(document: unknown): Promise<void> {
   return new Promise((resolve, reject) => {
-    process.stdout.write(`${JSON.stringify(document)}\n`, (error) => {
-      if (error) reject(error);
-      else resolve();
-    });
+    const output = process.stdout;
+    let serialized: string;
+    let settled = false;
+    let callbackCheck: NodeJS.Immediate | undefined;
+
+    function finish(error?: unknown): void {
+      if (settled) return;
+      settled = true;
+      if (callbackCheck) clearImmediate(callbackCheck);
+      output.off("error", handleError);
+      if (error === undefined || error === null) resolve();
+      else reject(error);
+    }
+
+    function handleError(error: Error): void {
+      finish(error);
+    }
+
+    function handleWrite(error?: Error | null): void {
+      if (callbackCheck) return;
+      callbackCheck = setImmediate(() => finish(error));
+    }
+
+    try {
+      serialized = `${JSON.stringify(document)}\n`;
+      output.once("error", handleError);
+      output.write(serialized, handleWrite);
+    } catch (error) {
+      finish(error);
+    }
   });
 }
 
@@ -118,16 +144,16 @@ const subcommand = process.argv[2];
 if (subcommand === "machine-schema") {
   writeMachineDocument(machineJsonSchemaBundle()).then(
     () => process.exit(0),
-    (error) => {
-      process.stderr.write(`machine schema failed: ${String(error)}\n`);
+    () => {
+      process.stderr.write("machine schema failed\n");
       process.exit(3);
     },
   );
 } else if (subcommand === "machine") {
   runMachineCli().then(
     (code) => process.exit(code),
-    (error) => {
-      process.stderr.write(`machine dispatcher failed: ${String(error)}\n`);
+    () => {
+      process.stderr.write("machine dispatcher failed\n");
       process.exit(3);
     },
   );

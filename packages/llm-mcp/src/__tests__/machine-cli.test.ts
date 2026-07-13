@@ -1,5 +1,6 @@
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
+import { once } from "node:events";
 import { existsSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -26,6 +27,12 @@ interface CliResult {
   stderr: string;
 }
 
+interface ClosedStdoutCliResult {
+  status: number | null;
+  stdoutBytesBeforeClose: number;
+  stderr: string;
+}
+
 function markerPath(): string {
   const path = join(tmpdir(), `ask-llm-machine-${randomUUID()}.marker`);
   temporaryFiles.push(path);
@@ -48,6 +55,35 @@ function runCli(args: string[], input = "", options: { executorPath?: string; ma
 
   expect(result.error).toBeUndefined();
   return { status: result.status, stdout: result.stdout, stderr: result.stderr };
+}
+
+async function runCliWithClosedStdout(input: string, executorPath: string): Promise<ClosedStdoutCliResult> {
+  const child = spawn(process.execPath, [cliPath, "machine"], {
+    env: {
+      ...process.env,
+      ASK_LLM_LOG_LEVEL: "debug",
+      ASK_LLM_MACHINE_EXECUTOR_MODULE: pathToFileURL(executorPath).href,
+    },
+    stdio: ["pipe", "pipe", "pipe"],
+  });
+  let stderr = "";
+  let stdoutBytesBeforeClose = 0;
+
+  child.stderr.setEncoding("utf8");
+  child.stderr.on("data", (chunk: string) => {
+    stderr += chunk;
+  });
+  child.stdout.once("data", (chunk: Buffer) => {
+    stdoutBytesBeforeClose = chunk.byteLength;
+    child.stdout.destroy();
+  });
+  child.stdin.end(input);
+
+  const timeout = setTimeout(() => child.kill("SIGKILL"), 5_000);
+  const [status] = (await once(child, "close")) as [number | null, NodeJS.Signals | null];
+  clearTimeout(timeout);
+
+  return { status, stdoutBytesBeforeClose, stderr };
 }
 
 afterEach(() => {
@@ -110,6 +146,14 @@ describe("ask-llm-mcp machine", () => {
     expect(Buffer.byteLength(evidence)).toBeGreaterThan(2 * 1024 * 1024);
     expect(evidence.startsWith("begin-")).toBe(true);
     expect(evidence.endsWith("-end")).toBe(true);
+  });
+
+  it("reports a closed output pipe as a generic infrastructure failure", async () => {
+    const result = await runCliWithClosedStdout(JSON.stringify(request), largeSuccessExecutorPath);
+
+    expect(result.stdoutBytesBeforeClose).toBeGreaterThan(0);
+    expect(result.stderr).toBe("machine dispatcher failed\n");
+    expect(result.status).toBe(3);
   });
 
   it("rejects malformed and concatenated JSON with exit 2 and empty stdout", () => {
