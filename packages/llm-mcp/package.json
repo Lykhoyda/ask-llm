@@ -10,6 +10,10 @@
     ".": {
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
+    },
+    "./machine": {
+      "types": "./dist/machine.d.ts",
+      "default": "./dist/machine.js"
     }
   },
   "bin": {
