@@ -1,0 +1,108 @@
+import { existsSync, readFileSync, statSync } from "node:fs";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { CLI, MODELS } from "../constants.js";
+
+vi.mock("@ask-llm/shared", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@ask-llm/shared")>();
+  return {
+    ...actual,
+    executeCommand: vi.fn(),
+    Logger: {
+      warn: vi.fn(),
+      debug: vi.fn(),
+      error: vi.fn(),
+    },
+  };
+});
+
+import { executeCommand, responseCache } from "@ask-llm/shared";
+import { executeCodexCLI } from "../utils/codexExecutor.js";
+
+const mockExecuteCommand = vi.mocked(executeCommand);
+const outputSchema = {
+  type: "object",
+  additionalProperties: false,
+  properties: { verdict: { type: "string" } },
+  required: ["verdict"],
+};
+const agentMessage = (text: string) =>
+  JSON.stringify({ type: "item.completed", item: { type: "agent_message", text } });
+
+function getOutputSchemaPath(args: string[]): string {
+  const flagIndex = args.indexOf(CLI.FLAGS.OUTPUT_SCHEMA);
+  expect(flagIndex).toBeGreaterThanOrEqual(0);
+  return args[flagIndex + 1];
+}
+
+beforeEach(() => {
+  vi.clearAllMocks();
+  responseCache.clear();
+  mockExecuteCommand.mockResolvedValue(agentMessage('{"verdict":"ok"}'));
+});
+
+describe("executeCodexCLI machine options", () => {
+  it("uses unique 0600 schema files with read-only sandbox and removes them after success", async () => {
+    const observedPaths: string[] = [];
+    mockExecuteCommand.mockImplementation(async (_command, args) => {
+      const schemaPath = getOutputSchemaPath(args);
+      observedPaths.push(schemaPath);
+      expect(JSON.parse(readFileSync(schemaPath, "utf8"))).toEqual(outputSchema);
+      expect(statSync(schemaPath).mode & 0o777).toBe(0o600);
+      expect(args).toContain(CLI.FLAGS.SANDBOX_READ_ONLY);
+      expect(args).not.toContain(CLI.FLAGS.SANDBOX_WORKSPACE_WRITE);
+      return agentMessage('{"verdict":"ok"}');
+    });
+
+    await executeCodexCLI({ prompt: "classify", sandbox: "read-only", outputSchema });
+    await executeCodexCLI({ prompt: "classify", sandbox: "read-only", outputSchema });
+
+    expect(observedPaths).toHaveLength(2);
+    expect(observedPaths[0]).not.toBe(observedPaths[1]);
+    expect(observedPaths.every((schemaPath) => !existsSync(schemaPath))).toBe(true);
+  });
+
+  it("removes the temporary schema file after command failure", async () => {
+    let observedPath: string | undefined;
+    mockExecuteCommand.mockImplementationOnce(async (_command, args) => {
+      observedPath = getOutputSchemaPath(args);
+      expect(existsSync(observedPath)).toBe(true);
+      throw new Error("command failed");
+    });
+
+    await expect(executeCodexCLI({ prompt: "classify", sandbox: "read-only", outputSchema })).rejects.toThrow(
+      "command failed",
+    );
+
+    if (observedPath === undefined) throw new Error("Codex was not given an output schema path");
+    expect(existsSync(observedPath)).toBe(false);
+  });
+
+  it("never reads or writes the response cache for structured output", async () => {
+    mockExecuteCommand
+      .mockResolvedValueOnce(agentMessage("plain response"))
+      .mockResolvedValue(agentMessage('{"verdict":"structured"}'));
+
+    await executeCodexCLI({ prompt: "same prompt" });
+    await executeCodexCLI({ prompt: "same prompt", sandbox: "read-only", outputSchema });
+    await executeCodexCLI({ prompt: "same prompt", sandbox: "read-only", outputSchema });
+
+    expect(mockExecuteCommand).toHaveBeenCalledTimes(3);
+  });
+
+  it("passes the same schema file and read-only sandbox to the quota fallback leg", async () => {
+    mockExecuteCommand
+      .mockRejectedValueOnce(new Error("rate_limit_exceeded"))
+      .mockResolvedValueOnce(agentMessage('{"verdict":"fallback"}'));
+
+    await executeCodexCLI({ prompt: "classify", sandbox: "read-only", outputSchema });
+
+    expect(mockExecuteCommand).toHaveBeenCalledTimes(2);
+    const primaryArgs = mockExecuteCommand.mock.calls[0][1];
+    const fallbackArgs = mockExecuteCommand.mock.calls[1][1];
+    const schemaPath = getOutputSchemaPath(primaryArgs);
+    expect(getOutputSchemaPath(fallbackArgs)).toBe(schemaPath);
+    expect(fallbackArgs).toContain(CLI.FLAGS.SANDBOX_READ_ONLY);
+    expect(fallbackArgs).toContain(MODELS.FALLBACK);
+    expect(existsSync(schemaPath)).toBe(false);
+  });
+});
