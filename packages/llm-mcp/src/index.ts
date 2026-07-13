@@ -57,8 +57,20 @@ export type ExecutorFn = (options: {
   transcriptPath?: string;
 }>;
 
-export type { MachineDeps, MachineJsonSchemaBundle } from "./machine.js";
-export { buildRolePrompt, machineJsonSchemaBundle, runMachineRequest } from "./machine.js";
+export type {
+  MachineDeps,
+  MachineJsonSchemaBundle,
+  MachineSchemaRefinement,
+  MachineSchemaRefinementSet,
+  MachineSchemaRefinementViolation,
+  MachineSchemaTarget,
+} from "./machine.js";
+export {
+  buildRolePrompt,
+  machineJsonSchemaBundle,
+  runMachineRequest,
+  validateMachineSchemaRefinements,
+} from "./machine.js";
 
 const loadedExecutors = new Map<string, ExecutorFn>();
 

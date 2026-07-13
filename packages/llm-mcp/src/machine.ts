@@ -29,10 +29,38 @@ export interface MachineDeps {
   env?: Readonly<Record<string, string | undefined>>;
 }
 
+export type MachineSchemaTarget = "request" | "result" | "failure";
+
+export interface MachineSchemaRefinement {
+  id: string;
+  targets: MachineSchemaTarget[];
+  when?: {
+    pointer: string;
+    equals: string | number | boolean | null;
+  };
+  assertion: {
+    leftPointer: string;
+    operator: "equals" | "notEquals";
+    rightPointer: string;
+  };
+  message: string;
+}
+
+export interface MachineSchemaRefinementSet {
+  version: 1;
+  rules: MachineSchemaRefinement[];
+}
+
+export interface MachineSchemaRefinementViolation {
+  id: string;
+  message: string;
+}
+
 export interface MachineJsonSchemaBundle {
   digest: string;
   failure: JsonSchema;
   request: JsonSchema;
+  refinements: MachineSchemaRefinementSet;
   result: JsonSchema;
   rolePayloads: {
     brainstorm: JsonSchema;
@@ -56,6 +84,44 @@ const failureMessages: Record<ProviderFailureKind, string> = {
   tool_unavailable: "Provider tool is unavailable",
 };
 
+const machineSchemaRefinements: MachineSchemaRefinementSet = {
+  version: 1,
+  rules: [
+    {
+      id: "review-provider-differs-from-writer",
+      targets: ["request"],
+      when: { pointer: "/role", equals: "review" },
+      assertion: {
+        leftPointer: "/provider",
+        operator: "notEquals",
+        rightPointer: "/writerProvider",
+      },
+      message: "review provider must differ from writer",
+    },
+    {
+      id: "non-fallback-models-match",
+      targets: ["failure", "result"],
+      when: { pointer: "/fallback/occurred", equals: false },
+      assertion: {
+        leftPointer: "/fallback/requestedModel",
+        operator: "equals",
+        rightPointer: "/fallback/actualModel",
+      },
+      message: "requested and actual models must match when fallback did not occur",
+    },
+    {
+      id: "envelope-and-fallback-models-match",
+      targets: ["failure", "result"],
+      assertion: {
+        leftPointer: "/actualModel",
+        operator: "equals",
+        rightPointer: "/fallback/actualModel",
+      },
+      message: "result and fallback actual models must match",
+    },
+  ],
+};
+
 function canonicalize(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(canonicalize);
   if (value !== null && typeof value === "object") {
@@ -68,6 +134,41 @@ function canonicalize(value: unknown): unknown {
   return value;
 }
 
+function jsonPointerValue(document: unknown, pointer: string): unknown {
+  if (pointer === "") return document;
+  if (!pointer.startsWith("/")) return undefined;
+
+  return pointer
+    .slice(1)
+    .split("/")
+    .map((segment) => segment.replaceAll("~1", "/").replaceAll("~0", "~"))
+    .reduce<unknown>((value, segment) => {
+      if (value === null || typeof value !== "object") return undefined;
+      return (value as Record<string, unknown>)[segment];
+    }, document);
+}
+
+export function validateMachineSchemaRefinements(
+  target: MachineSchemaTarget,
+  document: unknown,
+  refinements: MachineSchemaRefinementSet,
+): MachineSchemaRefinementViolation[] {
+  const violations: MachineSchemaRefinementViolation[] = [];
+
+  for (const rule of refinements.rules) {
+    if (!rule.targets.includes(target)) continue;
+    if (rule.when && !Object.is(jsonPointerValue(document, rule.when.pointer), rule.when.equals)) continue;
+
+    const left = jsonPointerValue(document, rule.assertion.leftPointer);
+    const right = jsonPointerValue(document, rule.assertion.rightPointer);
+    const equal = Object.is(left, right);
+    const accepted = rule.assertion.operator === "equals" ? equal : !equal;
+    if (!accepted) violations.push({ id: rule.id, message: rule.message });
+  }
+
+  return violations;
+}
+
 function roleJsonSchema(role: MachineRequest["role"]): JsonSchema {
   return canonicalize(z.toJSONSchema(rolePayloadSchemas[role])) as JsonSchema;
 }
@@ -77,7 +178,9 @@ export function buildRolePrompt(request: MachineRequest): string {
 }
 
 function nonEmptyString(value: unknown): string | null {
-  return typeof value === "string" && value.length > 0 ? value : null;
+  if (typeof value !== "string") return null;
+  const normalized = value.trim();
+  return normalized.length > 0 ? normalized : null;
 }
 
 function actualModel(result: ExecutorResult | undefined): string | null {
@@ -135,7 +238,9 @@ function sessionFor(request: MachineRequest, result: ExecutorResult | undefined)
         ? nonEmptyString(result?.sessionId)
         : null;
   const transcriptPath = request.provider === "antigravity" ? nonEmptyString(result?.transcriptPath) : null;
-  return sessionId === null && transcriptPath === null ? null : { sessionId, transcriptPath };
+  if (sessionId !== null) return { sessionId, transcriptPath };
+  if (transcriptPath !== null) return { sessionId, transcriptPath };
+  return null;
 }
 
 function durationMs(value: number): number {
@@ -235,7 +340,8 @@ export async function runMachineRequest(input: unknown, deps: MachineDeps): Prom
 export function machineJsonSchemaBundle(): MachineJsonSchemaBundle {
   const schemas = canonicalize({
     failure: z.toJSONSchema(machineFailureResultSchema),
-    request: z.toJSONSchema(machineRequestSchema),
+    request: z.toJSONSchema(machineRequestSchema, { io: "input" }),
+    refinements: machineSchemaRefinements,
     result: z.toJSONSchema(machineResultSchema),
     rolePayloads: {
       brainstorm: z.toJSONSchema(brainstormPayloadSchema),

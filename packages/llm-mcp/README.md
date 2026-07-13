@@ -140,12 +140,15 @@ npx -y ask-llm-mcp machine-schema > machine-schema.json
   "digest": "<redacted sha256>",
   "failure": { "<redacted>": true },
   "request": { "<redacted>": true },
+  "refinements": { "version": 1, "rules": [] },
   "result": { "<redacted>": true },
   "rolePayloads": { "brainstorm": {}, "review": {}, "verify": {} }
 }
 ```
 
-`machine-schema` is provider-independent: it neither detects nor loads a provider and does not require a provider CLI to be installed.
+The whole bundle is authoritative. Validate a document against its Draft 2020-12 `request`, `result`, or `failure` schema first, then run `validateMachineSchemaRefinements(target, document, bundle.refinements)`. The portable refinement descriptors cover sibling-field equality rules that standard JSON Schema cannot express, including self-review and fallback provenance checks. The digest covers every base schema, role payload schema, and refinement descriptor.
+
+`machine-schema` is provider-independent: it neither detects nor loads a provider and does not require a provider CLI to be installed. The refinement interpreter and its `MachineSchemaRefinement`, `MachineSchemaRefinementSet`, `MachineSchemaRefinementViolation`, and `MachineSchemaTarget` types are exported from `ask-llm-mcp/machine` and the package root.
 
 ## Documentation
 

@@ -17,6 +17,11 @@ export const machineProviderSchema = z.enum(MACHINE_PROVIDERS);
 export const actorProviderSchema = z.enum(PROVIDERS);
 
 const requestIdSchema = z.string().regex(/^[A-Za-z0-9._:-]{8,160}$/);
+const nonBlankStringSchema = z.string().regex(/\S/, "Value must contain a non-whitespace character");
+const machineRelativeDirSchema = relativeDirSchema.regex(
+  /^(?!.*\.\.)(?!~)(?!\/)(?![A-Za-z]:[\\/])(?!\\).*$/,
+  "Directory paths must be relative without '..' or '~'",
+);
 
 export const machineRequestSchema = z
   .object({
@@ -25,10 +30,10 @@ export const machineRequestSchema = z
     role: machineRoleSchema,
     provider: machineProviderSchema,
     prompt: z.string().min(1).max(150_000),
-    model: z.string().min(1).optional(),
+    model: nonBlankStringSchema.optional(),
     readOnly: z.literal(true),
     writerProvider: actorProviderSchema.optional(),
-    includeDirs: z.array(relativeDirSchema).max(16).default([]),
+    includeDirs: z.array(machineRelativeDirSchema).max(16).default([]),
   })
   .strict()
   .superRefine((value, ctx) => {
@@ -102,15 +107,15 @@ export const fallbackSchema = z
     z
       .object({
         occurred: z.literal(false),
-        requestedModel: z.string().min(1).nullable(),
-        actualModel: z.string().min(1).nullable(),
+        requestedModel: nonBlankStringSchema.nullable(),
+        actualModel: nonBlankStringSchema.nullable(),
       })
       .strict(),
     z
       .object({
         occurred: z.literal(true),
-        requestedModel: z.string().min(1),
-        actualModel: z.string().min(1),
+        requestedModel: nonBlankStringSchema,
+        actualModel: nonBlankStringSchema,
       })
       .strict(),
   ])
@@ -119,15 +124,20 @@ export const fallbackSchema = z
     path: ["actualModel"],
   });
 
-export const sessionLocatorSchema = z
-  .object({
-    sessionId: z.string().min(1).nullable(),
-    transcriptPath: z.string().min(1).nullable(),
-  })
-  .strict()
-  .refine((value) => value.sessionId !== null || value.transcriptPath !== null, {
-    message: "session locator must contain a session id or transcript path",
-  });
+export const sessionLocatorSchema = z.union([
+  z
+    .object({
+      sessionId: nonBlankStringSchema,
+      transcriptPath: nonBlankStringSchema.nullable(),
+    })
+    .strict(),
+  z
+    .object({
+      sessionId: nonBlankStringSchema.nullable(),
+      transcriptPath: nonBlankStringSchema,
+    })
+    .strict(),
+]);
 
 export const quotaSignalSchema = z.discriminatedUnion("kind", [
   z
@@ -151,7 +161,7 @@ const resultEnvelopeShape = {
   schemaVersion: z.literal(1),
   requestId: requestIdSchema,
   provider: machineProviderSchema,
-  actualModel: z.string().min(1).nullable(),
+  actualModel: nonBlankStringSchema.nullable(),
   rawResponseSha256: z
     .string()
     .regex(/^[a-f0-9]{64}$/)

@@ -7,10 +7,17 @@ import {
   reviewPayloadSchema,
   verificationPayloadSchema,
 } from "@ask-llm/shared";
+import Ajv2020 from "ajv/dist/2020.js";
 import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 import type { ExecutorFn } from "../index.js";
-import { buildRolePrompt, type MachineDeps, machineJsonSchemaBundle, runMachineRequest } from "../machine.js";
+import {
+  buildRolePrompt,
+  type MachineDeps,
+  machineJsonSchemaBundle,
+  runMachineRequest,
+  validateMachineSchemaRefinements,
+} from "../machine.js";
 
 const reviewPayload = {
   summary: "One issue",
@@ -44,6 +51,40 @@ function request(overrides: Record<string, unknown> = {}) {
     readOnly: true,
     writerProvider: "claude",
     includeDirs: ["packages/core"],
+    ...overrides,
+  };
+}
+
+function successResult(overrides: Record<string, unknown> = {}) {
+  return {
+    schemaVersion: 1,
+    requestId: "run-123-review-1",
+    status: "success",
+    role: "review",
+    provider: "codex",
+    actualModel: "gpt-primary",
+    rawResponseSha256: "a".repeat(64),
+    durationMs: 45,
+    usage: null,
+    fallback: {
+      occurred: false,
+      requestedModel: "gpt-primary",
+      actualModel: "gpt-primary",
+    },
+    session: { sessionId: "thread-abc", transcriptPath: null },
+    quotaSignal: { kind: "runtime_proxy_required" },
+    payload: reviewPayload,
+    failure: null,
+    ...overrides,
+  };
+}
+
+function failureResult(overrides: Record<string, unknown> = {}) {
+  return {
+    ...successResult(),
+    status: "failed",
+    payload: null,
+    failure: { kind: "unavailable", message: "Provider execution failed" },
     ...overrides,
   };
 }
@@ -367,6 +408,29 @@ describe("runMachineRequest", () => {
     });
   });
 
+  it("normalizes a padded Antigravity model override before dispatch and provenance comparison", async () => {
+    const executor: ExecutorFn = vi.fn().mockResolvedValue({
+      response: JSON.stringify(reviewPayload),
+      model: "Custom Pro",
+      usage: undefined,
+    });
+
+    const result = await runMachineRequest(
+      request({ provider: "antigravity", writerProvider: "claude", model: undefined }),
+      deps(executor, { env: { ASK_ANTIGRAVITY_MODEL: " Custom Pro " } }),
+    );
+
+    expect(executor).toHaveBeenCalledWith(expect.objectContaining({ model: "Custom Pro" }));
+    expect(result).toMatchObject({
+      actualModel: "Custom Pro",
+      fallback: {
+        occurred: false,
+        requestedModel: "Custom Pro",
+        actualModel: "Custom Pro",
+      },
+    });
+  });
+
   it("rejects a writer reviewing itself before loading an executor", async () => {
     const machineDeps = deps(vi.fn());
 
@@ -467,6 +531,122 @@ describe("runMachineRequest", () => {
 });
 
 describe("machineJsonSchemaBundle", () => {
+  const parityCorpus = [
+    {
+      label: "request with omitted defaulted includeDirs",
+      target: "request" as const,
+      document: request({ includeDirs: undefined }),
+      expected: true,
+    },
+    {
+      label: "request with a traversal directory",
+      target: "request" as const,
+      document: request({ includeDirs: ["../secrets"] }),
+      expected: false,
+    },
+    {
+      label: "request with an absolute directory",
+      target: "request" as const,
+      document: request({ includeDirs: ["/etc"] }),
+      expected: false,
+    },
+    {
+      label: "self-review request",
+      target: "request" as const,
+      document: request({ writerProvider: "codex" }),
+      expected: false,
+    },
+    {
+      label: "request with a blank model",
+      target: "request" as const,
+      document: request({ model: "   " }),
+      expected: false,
+    },
+    {
+      label: "result with a blank session locator",
+      target: "result" as const,
+      document: successResult({ session: { sessionId: "   ", transcriptPath: null } }),
+      expected: false,
+    },
+    {
+      label: "result with an empty session locator",
+      target: "result" as const,
+      document: successResult({ session: { sessionId: null, transcriptPath: null } }),
+      expected: false,
+    },
+    {
+      label: "result with a blank model",
+      target: "result" as const,
+      document: successResult({
+        actualModel: "   ",
+        fallback: { occurred: false, requestedModel: "   ", actualModel: "   " },
+      }),
+      expected: false,
+    },
+    {
+      label: "result with contradictory no-fallback models",
+      target: "result" as const,
+      document: successResult({
+        fallback: { occurred: false, requestedModel: "gpt-primary", actualModel: "gpt-secondary" },
+      }),
+      expected: false,
+    },
+    {
+      label: "success result with contradictory envelope and fallback models",
+      target: "result" as const,
+      document: successResult({
+        actualModel: "gpt-secondary",
+        fallback: { occurred: true, requestedModel: "gpt-primary", actualModel: "gpt-fallback" },
+      }),
+      expected: false,
+    },
+    {
+      label: "failure result with contradictory envelope and fallback models",
+      target: "failure" as const,
+      document: failureResult({
+        actualModel: "gpt-secondary",
+        fallback: { occurred: true, requestedModel: "gpt-primary", actualModel: "gpt-fallback" },
+      }),
+      expected: false,
+    },
+  ];
+
+  it.each(parityCorpus)("keeps runtime and public-schema parity for $label", ({ target, document, expected }) => {
+    const bundle = machineJsonSchemaBundle();
+    const validate = new Ajv2020({ strict: true }).compile(bundle[target]);
+    const runtimeSchema =
+      target === "request"
+        ? machineRequestSchema
+        : target === "failure"
+          ? machineFailureResultSchema
+          : machineResultSchema;
+    const runtimeAccepted = runtimeSchema.safeParse(document).success;
+    const publicContractAccepted =
+      validate(document) && validateMachineSchemaRefinements(target, document, bundle.refinements).length === 0;
+
+    expect(runtimeAccepted).toBe(expected);
+    expect(publicContractAccepted).toBe(runtimeAccepted);
+  });
+
+  it("reports refinement violations deterministically", () => {
+    const bundle = machineJsonSchemaBundle();
+    const document = successResult({
+      actualModel: "gpt-primary",
+      fallback: { occurred: false, requestedModel: "gpt-requested", actualModel: "gpt-fallback" },
+    });
+
+    expect(validateMachineSchemaRefinements("result", document, bundle.refinements)).toEqual([
+      {
+        id: "non-fallback-models-match",
+        message: "requested and actual models must match when fallback did not occur",
+      },
+      {
+        id: "envelope-and-fallback-models-match",
+        message: "result and fallback actual models must match",
+      },
+    ]);
+  });
+
   it("exports canonical request, result, failure, and role schemas with a stable digest", () => {
     const first = machineJsonSchemaBundle();
     const second = machineJsonSchemaBundle();
@@ -481,9 +661,48 @@ describe("machineJsonSchemaBundle", () => {
         .update(JSON.stringify(canonicalize(schemas)))
         .digest("hex"),
     );
-    expect(first.request).toEqual(canonicalize(z.toJSONSchema(machineRequestSchema)));
+    expect(first.request).toEqual(canonicalize(z.toJSONSchema(machineRequestSchema, { io: "input" })));
     expect(first.result).toEqual(canonicalize(z.toJSONSchema(machineResultSchema)));
     expect(first.failure).toEqual(canonicalize(z.toJSONSchema(machineFailureResultSchema)));
+    expect(first.refinements).toEqual(
+      canonicalize({
+        version: 1,
+        rules: [
+          {
+            id: "review-provider-differs-from-writer",
+            targets: ["request"],
+            when: { pointer: "/role", equals: "review" },
+            assertion: {
+              leftPointer: "/provider",
+              operator: "notEquals",
+              rightPointer: "/writerProvider",
+            },
+            message: "review provider must differ from writer",
+          },
+          {
+            id: "non-fallback-models-match",
+            targets: ["failure", "result"],
+            when: { pointer: "/fallback/occurred", equals: false },
+            assertion: {
+              leftPointer: "/fallback/requestedModel",
+              operator: "equals",
+              rightPointer: "/fallback/actualModel",
+            },
+            message: "requested and actual models must match when fallback did not occur",
+          },
+          {
+            id: "envelope-and-fallback-models-match",
+            targets: ["failure", "result"],
+            assertion: {
+              leftPointer: "/actualModel",
+              operator: "equals",
+              rightPointer: "/fallback/actualModel",
+            },
+            message: "result and fallback actual models must match",
+          },
+        ],
+      }),
+    );
     expect(first.rolePayloads).toEqual({
       brainstorm: canonicalize(z.toJSONSchema(brainstormPayloadSchema)),
       review: canonicalize(z.toJSONSchema(reviewPayloadSchema)),

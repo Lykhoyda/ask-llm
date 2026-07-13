@@ -78,6 +78,7 @@
     "@ask-llm/shared": "workspace:*",
     "@biomejs/biome": "^2.4.4",
     "@types/node": "^22.19.13",
+    "ajv": "8.18.0",
     "tsdown": "^0.22.2",
     "typescript": "^5.0.0",
     "vitest": "^4.0.18"
