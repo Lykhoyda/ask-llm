@@ -1,6 +1,7 @@
 <template>
   <section class="noir-hero">
-    <p class="command" aria-label="claude mcp add ask-llm -- npx -y ask-llm-mcp">
+    <p class="command">
+      <span class="visually-hidden">claude mcp add ask-llm -- npx -y ask-llm-mcp</span>
       <span aria-hidden="true">$ {{ typed }}</span><span class="cursor" aria-hidden="true">▌</span>
     </p>
     <h1>Every diff deserves<br />a second opinion.</h1>
@@ -49,6 +50,17 @@ onBeforeUnmount(() => clearInterval(timer));
   color: var(--accent);
   min-height: 1.5em;
   margin: 0 0 var(--space-4);
+}
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
 }
 .cursor { animation: blink 1s steps(1) infinite; }
 @keyframes blink { 50% { opacity: 0; } }
