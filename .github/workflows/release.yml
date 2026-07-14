@@ -7,9 +7,20 @@ on:
   push:
     branches: ["main"]
   # Manual dispatch for dry-runs against feature branches and for re-running
-  # publishes after a workflow-side hotfix. Manual runs on main may also retry
-  # npm visibility and MCP Registry publication without republishing npm versions.
+  # publishes after a workflow-side hotfix. Manual main-branch runs expose only
+  # explicit, opt-in maintenance operations.
   workflow_dispatch:
+    inputs:
+      retry_registry_publish:
+        description: Reapply npm visibility and retry all MCP Registry publishes
+        required: false
+        type: boolean
+        default: false
+      deprecate_legacy_packages:
+        description: Deprecate the six package names replaced by the @ask-llm scope
+        required: false
+        type: boolean
+        default: false
 
 concurrency: ${{ github.workflow }}-${{ github.ref }}
 
@@ -70,7 +81,7 @@ jobs:
       # though every manifest requests public access; a publish can otherwise be
       # accepted by npm but remain invisible to unauthenticated installs.
       - name: Ensure Ask LLM packages are public on npm
-        if: steps.changesets.outputs.published == 'true' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')
+        if: steps.changesets.outputs.published == 'true' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.retry_registry_publish)
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NODE_AUTH_TOKEN }}
         run: |
@@ -85,17 +96,29 @@ jobs:
             test "$(npm access get status "$pkg" --json | jq -r --arg pkg "$pkg" '.[$pkg]')" = "public"
           done
 
+      - name: Deprecate legacy npm package names
+        if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.deprecate_legacy_packages
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NODE_AUTH_TOKEN }}
+        run: |
+          npm deprecate "ask-gemini-mcp@*" "Moved to @ask-llm/gemini-mcp. The ask-gemini-mcp executable name is unchanged."
+          npm deprecate "ask-codex-mcp@*" "Moved to @ask-llm/codex-mcp. The ask-codex-mcp executable name is unchanged."
+          npm deprecate "@anton-lykhoyda/ask-claude-mcp@*" "Moved to @ask-llm/claude-mcp. The ask-claude-mcp executable name is unchanged."
+          npm deprecate "ask-ollama-mcp@*" "Moved to @ask-llm/ollama-mcp. The ask-ollama-mcp executable name is unchanged."
+          npm deprecate "ask-antigravity-mcp@*" "Moved to @ask-llm/antigravity-mcp. The ask-antigravity-mcp executable name is unchanged."
+          npm deprecate "ask-llm-mcp@*" "Moved to @ask-llm/mcp. The ask-llm-mcp executable name is unchanged."
+
       # Registry steps run after a real npm publish or an explicit manual retry.
       # Ordinary main pushes with no published versions still skip them.
       - name: Install mcp-publisher
-        if: steps.changesets.outputs.published == 'true' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')
+        if: steps.changesets.outputs.published == 'true' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.retry_registry_publish)
         run: curl -sL "https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_linux_amd64.tar.gz" | tar xz mcp-publisher
 
       # server.json + marketplace.json track the same versions as package.json but live in
       # separate files for the MCP Registry's input schema. Sync them after changesets'
       # version bump so the Registry publish picks up the freshly-bumped numbers.
       - name: Sync versions from package.json to server.json and marketplace.json
-        if: steps.changesets.outputs.published == 'true' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')
+        if: steps.changesets.outputs.published == 'true' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.retry_registry_publish)
         run: |
           for entry in "gemini-mcp:server.json" "codex-mcp:packages/codex-mcp/server.json" "claude-mcp:packages/claude-mcp/server.json" "ollama-mcp:packages/ollama-mcp/server.json" "antigravity-mcp:packages/antigravity-mcp/server.json" "llm-mcp:packages/llm-mcp/server.json"; do
             pkg="${entry%%:*}"
@@ -106,36 +129,36 @@ jobs:
           PLUGIN_VERSION=$(node -p "require('./packages/claude-plugin/package.json').version")
           jq --arg v "$PLUGIN_VERSION" '(.plugins[0].version = $v)' .claude-plugin/marketplace.json > .claude-plugin/marketplace.json.tmp && mv .claude-plugin/marketplace.json.tmp .claude-plugin/marketplace.json
 
-      - if: steps.changesets.outputs.published == 'true' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')
+      - if: steps.changesets.outputs.published == 'true' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.retry_registry_publish)
         run: ./mcp-publisher login github-oidc
 
       - name: Publish ask-gemini to MCP Registry
-        if: steps.changesets.outputs.published == 'true' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')
+        if: steps.changesets.outputs.published == 'true' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.retry_registry_publish)
         run: ./mcp-publisher publish server.json
         continue-on-error: true
 
       - name: Publish ask-codex to MCP Registry
-        if: steps.changesets.outputs.published == 'true' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')
+        if: steps.changesets.outputs.published == 'true' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.retry_registry_publish)
         run: ./mcp-publisher publish packages/codex-mcp/server.json
         continue-on-error: true
 
       - name: Publish ask-claude to MCP Registry
-        if: steps.changesets.outputs.published == 'true' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')
+        if: steps.changesets.outputs.published == 'true' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.retry_registry_publish)
         run: ./mcp-publisher publish packages/claude-mcp/server.json
         continue-on-error: true
 
       - name: Publish ask-ollama to MCP Registry
-        if: steps.changesets.outputs.published == 'true' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')
+        if: steps.changesets.outputs.published == 'true' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.retry_registry_publish)
         run: ./mcp-publisher publish packages/ollama-mcp/server.json
         continue-on-error: true
 
       - name: Publish ask-antigravity to MCP Registry
-        if: steps.changesets.outputs.published == 'true' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')
+        if: steps.changesets.outputs.published == 'true' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.retry_registry_publish)
         run: ./mcp-publisher publish packages/antigravity-mcp/server.json
         continue-on-error: true
 
       - name: Publish ask-llm to MCP Registry
-        if: steps.changesets.outputs.published == 'true' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')
+        if: steps.changesets.outputs.published == 'true' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.retry_registry_publish)
         run: ./mcp-publisher publish packages/llm-mcp/server.json
         continue-on-error: true
 
