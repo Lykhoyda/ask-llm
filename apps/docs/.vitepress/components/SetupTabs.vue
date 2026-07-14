@@ -10,13 +10,13 @@
         >
           <button
             v-for="(tab, index) in tabs"
-            :id="`setup-tab-${tab}`"
+            :id="`${uid}-tab-${tab}`"
             :key="tab"
             :ref="(el) => setTabRef(el, index)"
             role="tab"
             type="button"
             :aria-selected="activeTab === tab"
-            :aria-controls="`setup-panel-${tab}`"
+            :aria-controls="`${uid}-panel-${tab}`"
             :tabindex="activeTab === tab ? 0 : -1"
             :class="['tab-button', { active: activeTab === tab }]"
             @click="activeTab = tab"
@@ -30,9 +30,9 @@
         <transition name="fade" mode="out-in">
           <div
             v-if="activeTab === 'claude-code'"
-            id="setup-panel-claude-code"
+            :id="`${uid}-panel-claude-code`"
             role="tabpanel"
-            aria-labelledby="setup-tab-claude-code"
+            :aria-labelledby="`${uid}-tab-claude-code`"
             class="tab-panel"
             key="claude-code"
           >
@@ -68,9 +68,9 @@
           </div>
           <div
             v-else-if="activeTab === 'codex'"
-            id="setup-panel-codex"
+            :id="`${uid}-panel-codex`"
             role="tabpanel"
-            aria-labelledby="setup-tab-codex"
+            :aria-labelledby="`${uid}-tab-codex`"
             class="tab-panel"
             key="codex"
           >
@@ -87,9 +87,9 @@
           </div>
           <div
             v-else-if="activeTab === 'cursor'"
-            id="setup-panel-cursor"
+            :id="`${uid}-panel-cursor`"
             role="tabpanel"
-            aria-labelledby="setup-tab-cursor"
+            :aria-labelledby="`${uid}-tab-cursor`"
             class="tab-panel"
             key="cursor"
           >
@@ -111,9 +111,9 @@
           </div>
           <div
             v-else
-            id="setup-panel-json"
+            :id="`${uid}-panel-json`"
             role="tabpanel"
-            aria-labelledby="setup-tab-json"
+            :aria-labelledby="`${uid}-tab-json`"
             class="tab-panel"
             key="json"
           >
@@ -145,8 +145,14 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, nextTick, onMounted } from "vue";
+import { ref, computed, watch, nextTick, onMounted, useId } from "vue";
 import { PROVIDER_DOCS, type ProviderId } from "../theme/providers";
+
+// Per-instance ID prefix so multiple SetupTabs on one page never emit
+// duplicate ids. useId() (Vue 3.5+) is SSR-hydration-safe, unlike a
+// module-level counter, which accumulates across pages during the
+// vitepress build's shared SSR pass and mismatches on hydration.
+const uid = `setup-${useId()}`;
 
 const tabs = ["claude-code", "codex", "cursor", "json"] as const;
 type TabId = (typeof tabs)[number];
