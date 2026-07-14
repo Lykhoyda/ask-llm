@@ -101,12 +101,14 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NODE_AUTH_TOKEN }}
         run: |
-          npm deprecate "ask-gemini-mcp@*" "Moved to @ask-llm/gemini-mcp. The ask-gemini-mcp executable name is unchanged."
-          npm deprecate "ask-codex-mcp@*" "Moved to @ask-llm/codex-mcp. The ask-codex-mcp executable name is unchanged."
-          npm deprecate "@anton-lykhoyda/ask-claude-mcp@*" "Moved to @ask-llm/claude-mcp. The ask-claude-mcp executable name is unchanged."
-          npm deprecate "ask-ollama-mcp@*" "Moved to @ask-llm/ollama-mcp. The ask-ollama-mcp executable name is unchanged."
-          npm deprecate "ask-antigravity-mcp@*" "Moved to @ask-llm/antigravity-mcp. The ask-antigravity-mcp executable name is unchanged."
-          npm deprecate "ask-llm-mcp@*" "Moved to @ask-llm/mcp. The ask-llm-mcp executable name is unchanged."
+          failed=0
+          npm deprecate "ask-gemini-mcp@*" "Moved to @ask-llm/gemini-mcp. The ask-gemini-mcp executable name is unchanged." || failed=1
+          npm deprecate "ask-codex-mcp@*" "Moved to @ask-llm/codex-mcp. The ask-codex-mcp executable name is unchanged." || failed=1
+          npm deprecate "@anton-lykhoyda/ask-claude-mcp@*" "Moved to @ask-llm/claude-mcp. The ask-claude-mcp executable name is unchanged." || failed=1
+          npm deprecate "ask-ollama-mcp@*" "Moved to @ask-llm/ollama-mcp. The ask-ollama-mcp executable name is unchanged." || failed=1
+          npm deprecate "ask-antigravity-mcp@*" "Moved to @ask-llm/antigravity-mcp. The ask-antigravity-mcp executable name is unchanged." || failed=1
+          npm deprecate "ask-llm-mcp@*" "Moved to @ask-llm/mcp. The ask-llm-mcp executable name is unchanged." || failed=1
+          exit "$failed"
 
       # Registry steps run after a real npm publish or an explicit manual retry.
       # Ordinary main pushes with no published versions still skip them.
