@@ -57,7 +57,7 @@ Install the plugin for review skills, brainstorm agents, and automated hooks:
 /plugin install ask-llm@ask-llm-plugins
 ```
 
-Skills: /multi-review, /gemini-review, /codex-review, /ollama-review, /antigravity-review, /brainstorm, /brainstorm-all, /compare, /codex-verify, /codex-image, /codex-pair (+ -ack, -pause, -resume)
+Skills: /multi-review, /gemini-review, /codex-review, /fable-review, /sol-review, /ollama-review, /antigravity-review, /brainstorm, /brainstorm-all, /compare, /codex-verify, /codex-image, /codex-pair (+ -ack, -pause, -resume)
 
 ## Links
 
