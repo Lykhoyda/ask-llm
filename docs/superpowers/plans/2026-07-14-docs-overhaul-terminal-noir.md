@@ -784,6 +784,8 @@ code {
 </style>
 ```
 
+Claude special case (added after Task 6 review): the Claude provider cannot be hosted by Claude Code (nested sessions are rejected; the orchestrator suppresses it there). For `provider="claude"`, InstallSnippet's registration block must render `codex mcp add claude -- npx -y ask-claude-mcp` with the label "2. Register the MCP server (Codex CLI shown; Claude Code cannot host this provider)".
+
 - [ ] **Step 2: Write `ProviderStatus.vue`**
 
 ```vue
@@ -855,7 +857,7 @@ Panel content per tab (all interpolating `doc.serverName` and `doc.pkg`):
 - Claude Code: project-scope and user-scope `claude mcp add` commands, plus the plugin install block (`/plugin marketplace add Lykhoyda/ask-llm`, `/plugin install ask-llm@ask-llm-plugins`) kept verbatim from the current component.
 - Codex CLI: `codex mcp add {server} -- npx -y {pkg}`.
 - Cursor: `.cursor/mcp.json` JSON snippet.
-- JSON config: generic `mcpServers` JSON (covers Claude Desktop, Warp, and other JSON-config clients; hint text names them).
+- JSON config: generic `mcpServers` JSON (covers Claude Desktop `claude_desktop_config.json`, Warp, Antigravity `~/.gemini/mcp.json`, and other JSON-config clients; hint text names them).
 
 Scoped styles: noir tokens, active tab = accent text + 2px accent underline that slides via `transition: transform` on an underline element (static under reduced motion).
 
