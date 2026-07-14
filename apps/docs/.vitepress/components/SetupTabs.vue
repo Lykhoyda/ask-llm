@@ -119,8 +119,10 @@
           >
             <div class="panel-inner">
               <p class="config-hint">
-                Generic <code>mcpServers</code> config for Claude Desktop, Warp,
-                and other JSON-config clients:
+                Generic <code>mcpServers</code> config for Claude Desktop
+                (<code>claude_desktop_config.json</code>), Warp, Antigravity
+                (<code>~/.gemini/mcp.json</code>), and other JSON-config MCP
+                clients:
               </p>
               <div class="language-json">
                 <button title="Copy Code" class="copy"></button>
