@@ -1,16 +1,36 @@
 ---
-description: Slash commands for AI code review, brainstorming, and side-by-side multi-provider comparison — /gemini-review, /codex-review, /ollama-review, /antigravity-review, /multi-review (with verification), /brainstorm, /brainstorm-all, and /compare.
+description: Slash commands for AI code review, brainstorming, and side-by-side comparison, including native /fable-review, model-pinned /sol-review, provider reviews, /multi-review, /brainstorm, and /compare.
 ---
 
 # Skills
 
-Skills are slash commands you can invoke directly in Claude Code. Each skill triggers a structured workflow that gathers context, calls a provider, and returns prioritized findings.
+Skills are slash commands you can invoke directly in Claude Code. Each skill triggers a structured workflow that gathers context, runs a native agent or provider, and returns prioritized findings.
 
-> `/gemini-review` works out of the box with the plugin. `/codex-review`, `/ollama-review`, and `/antigravity-review` require their MCP servers to be added separately — see [Plugin Overview](/plugin/overview#installation).
+> `/fable-review` runs as a native isolated agent and needs no MCP server. `/sol-review` and `/codex-review` require the Codex MCP server; `/ollama-review` and `/antigravity-review` require their respective MCP servers; see [Plugin Overview](/plugin/overview#installation).
 
-## Review Skills
+## Native Model Review Skills
 
-All four review skills follow the same pattern:
+### `/fable-review`
+
+Review the current diff directly with a read-only agent pinned to Fable. Findings are checked against the source and filtered at 80% confidence.
+
+```text
+/fable-review
+```
+
+### `/sol-review`
+
+Run the same independent review contract with an isolated coordinator that explicitly requests `gpt-5.6-sol` at high reasoning from the Codex provider. `/codex-review` instead follows the configured Codex default.
+
+```text
+/sol-review
+```
+
+`/fable-review` requires a Claude Code runtime/account that exposes Fable. `/sol-review` requires an installed, authenticated Codex CLI and registered Codex MCP server. If Sol falls back to Terra on quota, the result says so explicitly.
+
+## Provider Review Skills
+
+Provider review skills follow the same pattern:
 
 1. Gather staged and unstaged git changes
 2. Read project conventions from `CLAUDE.md`
@@ -40,7 +60,7 @@ Falls back to GPT-5.4-mini automatically if you hit quota limits.
 
 ### `/ollama-review`
 
-Get a second opinion from a local Ollama model. No API keys needed — all processing stays on your machine.
+Get a second opinion from a local Ollama model. No API keys needed; all processing stays on your machine.
 
 ```text
 /ollama-review
@@ -50,7 +70,7 @@ Requires Ollama running locally with a model pulled (e.g., `qwen3.6:27b`).
 
 ### `/antigravity-review`
 
-Get a **subscription-backed** second opinion from Google Antigravity (`agy`) — uses your Google AI Pro/Ultra plan, no per-token API billing.
+Get a **subscription-backed** second opinion from Google Antigravity (`agy`): uses your Google AI Pro/Ultra plan, no per-token API billing.
 
 ```text
 /antigravity-review
@@ -64,11 +84,11 @@ Experimental and one-shot (no multi-turn). Requires `agy` installed + logged in 
 
 Send a topic to multiple LLM providers AND have Claude Opus perform its own independent research in the same run, then synthesize all findings. The coordinator agent runs:
 
-1. **Phase 3B — Claude Opus research.** Claude reads the actual files, traces real code paths, fetches any referenced external docs, and forms independent findings tagged Verified or Inferred. Always runs — Claude is a first-class participant, not just an orchestrator (see [ADR-049](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md)).
-2. **Phase 3A — External dispatch.** A single foreground blocking Bash call sends the topic to each requested external provider in parallel and waits for all of them. Up to 10 minutes total (Bash tool max). See [ADR-050](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md) for why this isn't a background-job dispatch.
-3. **Phase 4 — Synthesis.** Combines Claude's findings with the external responses:
+1. **Phase 3B: Claude Opus research.** Claude reads the actual files, traces real code paths, fetches any referenced external docs, and forms independent findings tagged Verified or Inferred. Always runs; Claude is a first-class participant, not just an orchestrator (see [ADR-049](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md)).
+2. **Phase 3A: External dispatch.** A single foreground blocking Bash call sends the topic to each requested external provider in parallel and waits for all of them. Up to 10 minutes total (Bash tool max). See [ADR-050](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md) for why this isn't a background-job dispatch.
+3. **Phase 4: Synthesis.** Combines Claude's findings with the external responses:
 
-- Consensus points (where multiple participants agree — Claude verified + external = highest confidence)
+- Consensus points (where multiple participants agree; Claude verified + external = highest confidence)
 - Unique insights (findings from only one participant)
 - Contradictions (verified findings outrank inferred ones)
 - Actionable recommendations (prioritized by impact and confidence)
@@ -81,11 +101,11 @@ Send a topic to multiple LLM providers AND have Claude Opus perform its own inde
 /brainstorm gemini,codex,ollama Review this authentication approach
 ```
 
-**Default external providers:** `gemini,codex` (avoids unnecessary Ollama calls if not needed). **Claude Opus is always a participant** because it runs inside the coordinator — it isn't in the provider list.
+**Default external providers:** `gemini,codex` (avoids unnecessary Ollama calls if not needed). **Claude Opus is always a participant** because it runs inside the coordinator; it isn't in the provider list.
 
 ### `/brainstorm-all`
 
-Shortcut for `/brainstorm gemini,codex,ollama,antigravity <topic>`. Sends to all four external providers (Gemini, Codex, Ollama, Antigravity) plus the always-on Claude Opus research phase — up to five participants total.
+Shortcut for `/brainstorm gemini,codex,ollama,antigravity <topic>`. Sends to all four external providers (Gemini, Codex, Ollama, Antigravity) plus the always-on Claude Opus research phase; up to five participants total.
 
 ```text
 /brainstorm-all What's the best caching strategy for our API?
@@ -105,17 +125,17 @@ Run independent code reviews from Antigravity and Codex in parallel, **verify** 
 
 Pipeline:
 
-1. **Gather and prepare the diff** — `git status` first; `git add -N` for untracked files; pathspec exclusion of docs/binaries (`:!docs/` `:!*.md` `:!yarn.lock` `:!*.png`); 3-tier size policy (`<50KB` send as-is, `50–150KB` warn about expected wall time, `>150KB` ask before sending).
-2. **Dispatch with fallback** — preferred path is the `gemini-reviewer` and `codex-reviewer` agents in parallel; falls back to direct Bash dispatch via the plugin's `dist/run.js` and `dist/codex-run.js` runners using the [ADR-050](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md) dispatch pattern when agents are unavailable.
-3. **Verify each finding** — for every finding above 80/100 confidence, Read the file at the cited line and check whether the claim is actually true. Classifies as **VERIFIED** (claim holds), **REJECTED** (false positive), or **UNVERIFIABLE** (cannot confirm without runtime). This step exists specifically because confidence scores aren't an oracle — see [ADR-064](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md).
-4. **Resilient failure handling** — when a provider fails (timeout, exit ≠ 0, 0-byte output), surface the failure inline with stderr instead of silently dropping. Partial results are explicit.
-5. **Synthesis** — combined output with `Verified by both`, `Verified by Gemini only`, `Verified by Codex only`, `Rejected (false positives)`, `Unverifiable`, and per-provider stats including verification counts.
+1. **Gather and prepare the diff**: `git status` first; `git add -N` for untracked files; pathspec exclusion of docs/binaries (`:!docs/` `:!*.md` `:!yarn.lock` `:!*.png`); 3-tier size policy (`<50KB` send as-is, `50–150KB` warn about expected wall time, `>150KB` ask before sending).
+2. **Dispatch with fallback**: preferred path is the `gemini-reviewer` and `codex-reviewer` agents in parallel; falls back to direct Bash dispatch via the plugin's `dist/run.js` and `dist/codex-run.js` runners using the [ADR-050](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md) dispatch pattern when agents are unavailable.
+3. **Verify each finding**: for every finding above 80/100 confidence, Read the file at the cited line and check whether the claim is actually true. Classifies as **VERIFIED** (claim holds), **REJECTED** (false positive), or **UNVERIFIABLE** (cannot confirm without runtime). This step exists specifically because confidence scores aren't an oracle; see [ADR-064](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md).
+4. **Resilient failure handling**: when a provider fails (timeout, exit ≠ 0, 0-byte output), surface the failure inline with stderr instead of silently dropping. Partial results are explicit.
+5. **Synthesis**: combined output with `Verified by both`, `Verified by Gemini only`, `Verified by Codex only`, `Rejected (false positives)`, `Unverifiable`, and per-provider stats including verification counts.
 
-The verification step protects against the failure mode where one provider returns a high-confidence claim that's contradicted by the actual source — caught and rejected before reaching the user.
+The verification step protects against the failure mode where one provider returns a high-confidence claim that's contradicted by the actual source; caught and rejected before reaching the user.
 
 ### `/compare`
 
-Side-by-side raw responses from multiple providers. **No synthesis**, no consensus extraction, no validation pipeline — just verbatim outputs so you can compare directly.
+Side-by-side raw responses from multiple providers. **No synthesis**, no consensus extraction, no validation pipeline; just verbatim outputs so you can compare directly.
 
 ```text
 /compare what's the difference between Server-Sent Events and WebSockets?
@@ -132,16 +152,16 @@ If you're reviewing a code diff → use `/multi-review` instead.
 
 ## Background Continuous Review
 
-### `codex-pair` — PostToolUse hook + `/codex-pair` dashboard
+### `codex-pair`: PostToolUse hook + `/codex-pair` dashboard
 
 `codex-pair` has two surfaces:
 
-- **The PostToolUse hook** — fires automatically after every `Edit` / `Write` / `MultiEdit` whenever a project has opted in via a `.codex-pair/context.md` marker. HIGH and MED concerns appear to Claude as a system reminder on the next turn; LOW concerns are logged. This is the workhorse — the actual review surface.
-- **`/codex-pair`** — a user-invocable slash command that shows current status (active / paused / not configured) and runs interactive setup on first use. Use this when you want to enable codex-pair on a new project (auto-detects context from your README + manifests, drafts the marker, asks you to confirm) or check whether it's currently running. Pairs with `/codex-pair-pause` and `/codex-pair-resume` (the imperative toggles).
+- **The PostToolUse hook**: fires automatically after every `Edit` / `Write` / `MultiEdit` whenever a project has opted in via a `.codex-pair/context.md` marker. HIGH and MED concerns appear to Claude as a system reminder on the next turn; LOW concerns are logged. This is the workhorse: the actual review surface.
+- **`/codex-pair`**: a user-invocable slash command that shows current status (active / paused / not configured) and runs interactive setup on first use. Use this when you want to enable codex-pair on a new project (auto-detects context from your README + manifests, drafts the marker, asks you to confirm) or check whether it's currently running. Pairs with `/codex-pair-pause` and `/codex-pair-resume` (the imperative toggles).
 
 > This is the "hidden" surface of the plugin: the hook ships in every install but is disabled by default until a project opts in. The full mechanism, env vars, and cost characteristics live in [Hooks → PostToolUse Hook: codex-pair](/plugin/hooks#posttooluse-hook-codex-pair-opt-in-continuous-review).
 
-**Quick enable** — either run `/codex-pair` (recommended; it auto-detects your project and asks before writing) or create the marker manually:
+**Quick enable**: either run `/codex-pair` (recommended; it auto-detects your project and asks before writing) or create the marker manually:
 
 ```bash
 mkdir -p .codex-pair
@@ -152,15 +172,15 @@ cat > .codex-pair/context.md <<'EOF'
 
 ## Domain invariants Codex can't infer from a single file
 
-- <invariant 1 — something the model can't see by reading one file>
-- <invariant 2 — a written spec or protocol your code implements>
-- <invariant 3 — a concurrency or state-coordination rule>
+- <invariant 1: something the model can't see by reading one file>
+- <invariant 2: a written spec or protocol your code implements>
+- <invariant 3: a concurrency or state-coordination rule>
 EOF
 ```
 
 Once the marker exists at the project root, every file edit triggers a Codex review with the marker's content as project context. `rm -rf .codex-pair/` to disable.
 
-**How it differs from `/codex-review`** — in the [ADR-077](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md) four-task benchmark (four structurally different task types — CRUD, URL parsing, RFC-spec implementation, stateful business logic — picked so the result would generalize across domains): Claude alone caught **2 of 10** probes; Claude + `/codex-review` caught **7 of 10**; Claude + `codex-pair` caught **10 of 10**. The three probes `/codex-review` missed exemplified the "looks fine, runs wrong" class its ≥80-confidence filter structurally suppresses — code that compiles and type-checks but produces wrong results at runtime. **The recall improvement is task-agnostic**; the two surfaces are complementary, not competing.
+**How it differs from `/codex-review`**: in the [ADR-077](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md) four-task benchmark (four structurally different task types: CRUD, URL parsing, RFC-spec implementation, stateful business logic, picked so the result would generalize across domains): Claude alone caught **2 of 10** probes; Claude + `/codex-review` caught **7 of 10**; Claude + `codex-pair` caught **10 of 10**. The three probes `/codex-review` missed exemplified the "looks fine, runs wrong" class its ≥80-confidence filter structurally suppresses; code that compiles and type-checks but produces wrong results at runtime. **The recall improvement is task-agnostic**; the two surfaces are complementary, not competing.
 
 The decision about when to use the hook is about **code characteristics**, not project domain:
 
