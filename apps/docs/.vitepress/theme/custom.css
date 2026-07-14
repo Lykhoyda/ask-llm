@@ -323,3 +323,26 @@ button:focus-visible {
   font-size: 13px;
   color: var(--noir-text-3);
 }
+
+/* ─── Home ─────────────────────────────────────── */
+.home-content { max-width: 960px; margin: 0 auto; padding: 0 var(--space-6) var(--space-16); }
+/* Scoped to .home-content so it outranks the global `.vp-doc h2` divider rule. */
+.home-content .home-h2 {
+  font-family: var(--font-mono);
+  font-size: 20px;
+  font-weight: 700;
+  border: none;
+  margin: var(--space-16) 0 var(--space-2);
+  padding: 0;
+}
+.home-verify { color: var(--noir-text-2); font-size: 14px; max-width: 65ch; }
+.home-explore { list-style: none; padding: 0; margin: var(--space-4) 0 0; }
+.home-explore li {
+  display: flex;
+  gap: var(--space-3);
+  align-items: baseline;
+  padding: var(--space-3) 0;
+  border-bottom: 1px solid var(--noir-border);
+}
+.home-explore a { font-family: var(--font-mono); font-size: 14px; }
+.home-explore span { color: var(--noir-text-3); font-size: 13px; }
