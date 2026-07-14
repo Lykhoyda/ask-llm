@@ -15,9 +15,10 @@ Hosted providers (Gemini, Codex, Claude) auto-select a sensible default model wi
 | Gemini | `gemini-3.1-pro-preview` | `gemini-3.5-flash` | `RESOURCE_EXHAUSTED` quota error or "exhausted your capacity" pattern ([ADR-044](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md)) |
 | Codex | `gpt-5.6-sol` | `gpt-5.6-terra` | Quota errors (`rate_limit_exceeded`, `429`, `insufficient_quota`) ([ADR-028](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md)) |
 | Claude | `opus` | `sonnet` | Claude Code native fallback when Opus is overloaded or unavailable |
+| Antigravity | `Gemini 3.1 Pro (High)` | `Gemini 3.5 Flash (High)` | Subscription rate limit only ([ADR-125](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md)) |
 | Ollama | `qwen3.6:27b` | none | Local, no fallback; a missing model returns a clear `ollama pull` error |
 
-For Gemini, Codex, and Claude, fallback is automatic: your client sees the actual model and `usage.fellBack` in structured output. Ollama never falls back, so its `fellBack` is always `false`.
+For Gemini, Codex, Claude, and Antigravity, fallback is automatic. Gemini, Codex, and Claude expose the actual model and `usage.fellBack` in structured output; Antigravity reports the actual fallback model through the top-level `model` field only (it returns no usage statistics). Ollama never falls back, so its `fellBack` is always `false`.
 
 Codex uses `medium` reasoning effort for ordinary calls to preserve the previous default behavior. The quality-first `/codex-review` and `/brainstorm` skills use `high`. Direct `ask-codex` calls can override this with `reasoningEffort` (`low`, `medium`, `high`, `xhigh`, or `max`).
 
