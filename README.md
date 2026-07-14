@@ -140,6 +140,25 @@ Replace `@ask-llm/mcp` with `@ask-llm/codex-mcp`, `@ask-llm/claude-mcp`, `@ask-l
 
 </details>
 
+### Migrating from the old package names
+
+All public MCP packages now live in the `@ask-llm` npm organization. The old
+package names are deprecated, but their executable names are unchanged. Update
+the package argument in your MCP config; commands such as `ask-codex-mcp` and
+`ask-llm-mcp doctor` keep working after a global install.
+
+| Old package | Use instead |
+|-------------|-------------|
+| `ask-gemini-mcp` | `@ask-llm/gemini-mcp` |
+| `ask-codex-mcp` | `@ask-llm/codex-mcp` |
+| `@anton-lykhoyda/ask-claude-mcp` | `@ask-llm/claude-mcp` |
+| `ask-ollama-mcp` | `@ask-llm/ollama-mcp` |
+| `ask-antigravity-mcp` | `@ask-llm/antigravity-mcp` |
+| `ask-llm-mcp` | `@ask-llm/mcp` |
+
+See the [installation guide](https://lykhoyda.github.io/ask-llm/installation) for
+the complete package-to-executable mapping.
+
 ## Choose your reviewer
 
 | Provider | Best for | Model (default → fallback) | Notes |

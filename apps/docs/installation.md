@@ -30,6 +30,25 @@ Multiple ways to install Ask LLM, depending on whether you want the unified orch
 
 The unified orchestrator uses a single `ask-llm` tool with a `provider` parameter for token efficiency ([ADR-029](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md)) — you pick the provider per call. Per-provider packages expose the richer per-provider tool surface (`ask-gemini-edit` for structured edits, `fetch-chunk` for large response pagination, etc.).
 
+## Migrating from the legacy names
+
+The six public MCP packages moved to the `@ask-llm` npm organization. Their old
+package names are deprecated and point to these replacements:
+
+| Deprecated package | Replacement |
+|--------------------|-------------|
+| `ask-gemini-mcp` | `@ask-llm/gemini-mcp` |
+| `ask-codex-mcp` | `@ask-llm/codex-mcp` |
+| `@anton-lykhoyda/ask-claude-mcp` | `@ask-llm/claude-mcp` |
+| `ask-ollama-mcp` | `@ask-llm/ollama-mcp` |
+| `ask-antigravity-mcp` | `@ask-llm/antigravity-mcp` |
+| `ask-llm-mcp` | `@ask-llm/mcp` |
+
+Existing installations are not forcibly removed, but npm warns when a deprecated
+name is installed. Replace only the package name in `npx`/`npm install` commands
+and MCP configuration. The executable names remain unchanged, so globally
+installed commands and scripts do not need to be renamed.
+
 ## Method 1: NPX (recommended)
 
 No install needed — `npx` downloads on first invocation and caches:
