@@ -64,7 +64,7 @@ Yes — that's the primary client. Use `claude mcp add --scope user ask-llm -- n
 
 ### Can I use this with Claude Desktop, Cursor, Warp, etc.?
 
-Yes — any STDIO MCP client works. See [Installation](/installation) for client-specific config.
+Yes — any STDIO MCP client works. See the [Quick Start](/getting-started#2-register-the-mcp-server) for client-specific config.
 
 ### Can Codex ask Claude for a second opinion?
 

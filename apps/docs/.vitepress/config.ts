@@ -130,8 +130,6 @@ export default withMermaid(
           items: [
             { text: "Overview", link: "/" },
             { text: "Quick Start", link: "/getting-started" },
-            { text: "Installation", link: "/installation" },
-            { text: "First Steps", link: "/first-steps" },
           ],
         },
         {
