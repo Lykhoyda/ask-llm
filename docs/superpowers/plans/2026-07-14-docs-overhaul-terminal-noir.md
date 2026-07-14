@@ -349,6 +349,27 @@ Rewrite `custom.css` keeping ONLY these concerns, each expressed with the new to
     transition: none;
   }
 }
+
+/* Shared shell for all animated diagram figures (components add only
+   their own node/wire/keyframe rules in scoped styles) */
+.noir-diagram {
+  margin: var(--space-6) 0;
+  padding: var(--space-6);
+  border: 1px solid var(--noir-border);
+  border-radius: var(--radius);
+  background: var(--noir-raised);
+}
+.noir-diagram svg {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+.noir-diagram figcaption {
+  margin-top: var(--space-3);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  color: var(--noir-text-3);
+}
 ```
 
 DELETE outright: hero glow backgrounds, gradient hero text, `.feature-card`, `.provider-card`, `.next-step-card`, `.provider-grid`, `.features-grid`, `.next-steps-grid`, per-provider hover glows, anti-grid corner clip-paths, terminal CTA styles. (Their replacements are scoped inside new components; the homepage markdown that references the old classes is rewritten in Task 7, so expect the homepage to look broken until then. Content pages must look correct after this task.)
@@ -454,7 +475,7 @@ git commit -m "docs(theme): add one-shot useInView composable with reduced-motio
 - Produces: global components `<RequestFlow />` and `<PairLoop />`, no props. Registered names are used verbatim in markdown by Tasks 7, 9, 10.
 
 Shared diagram conventions (all diagram components in this plan follow them):
-- Root `<figure class="noir-diagram" ref="root">` with `useInView(root)` toggling class `run` on an inner `<svg role="img" :aria-label="...">`.
+- Root `<figure class="noir-diagram" ref="root">` with `useInView(root)` toggling class `run` on an inner `<svg role="img" :aria-label="...">`. The figure/svg/figcaption chrome is styled by the global `.noir-diagram` rules added to `custom.css` in Task 2; scoped styles contain ONLY the component's own node/wire/pulse/keyframe rules.
 - Animations are CSS keyframes scoped in the SFC, all selectors under `.run` so nothing moves until in view; a `@media (prefers-reduced-motion: reduce)` block forces every animated element to its final state (the composable also short-circuits, this is belt and braces).
 - `<figcaption>` carries a one-sentence prose explanation so the SVG is never the sole carrier of meaning.
 
@@ -506,24 +527,7 @@ const inView = useInView(root);
 </script>
 
 <style scoped>
-.noir-diagram {
-  margin: var(--space-6) 0;
-  padding: var(--space-6);
-  border: 1px solid var(--noir-border);
-  border-radius: var(--radius);
-  background: var(--noir-raised);
-}
-svg {
-  width: 100%;
-  height: auto;
-  display: block;
-}
-figcaption {
-  margin-top: var(--space-3);
-  font-family: var(--font-sans);
-  font-size: 13px;
-  color: var(--noir-text-3);
-}
+/* figure/svg/figcaption chrome comes from the global .noir-diagram rules (custom.css) */
 .node rect {
   fill: transparent;
   stroke: var(--noir-border-strong);
@@ -608,20 +612,7 @@ const inView = useInView(root);
 </script>
 
 <style scoped>
-.noir-diagram {
-  margin: var(--space-6) 0;
-  padding: var(--space-6);
-  border: 1px solid var(--noir-border);
-  border-radius: var(--radius);
-  background: var(--noir-raised);
-}
-svg { width: 100%; height: auto; display: block; }
-figcaption {
-  margin-top: var(--space-3);
-  font-family: var(--font-sans);
-  font-size: 13px;
-  color: var(--noir-text-3);
-}
+/* figure/svg/figcaption chrome comes from the global .noir-diagram rules (custom.css) */
 .node text {
   font-family: var(--font-mono);
   font-size: 15px;
@@ -689,7 +680,7 @@ git commit -m "docs(diagrams): add animated RequestFlow and PairLoop SVG compone
 - Consumes: `useInView` (Task 3), tokens (Task 2), `PROVIDER_DOCS` (Task 1: FanOut and FallbackChain read provider names/models so copy cannot drift).
 - Produces: global components `<FanOut />`, `<SessionThread />`, and `<FallbackChain provider="codex" />` (prop `provider: "codex" | "claude" | "antigravity" | "gemini"`; providers with a `fallbackModel`).
 
-All three reuse the exact `.noir-diagram` figure shell, `useInView` wiring, scoped-style conventions, and reduced-motion block shown in Task 4 (copy them; they are small). Only the SVG content and keyframes differ:
+All three reuse the `.noir-diagram` figure shell (global CSS from Task 2), the `useInView` wiring, and the reduced-motion block shown in Task 4. Scoped styles contain only each component's own node/wire/keyframe rules; only the SVG content and keyframes differ:
 
 - [ ] **Step 1: Write `FanOut.vue`**
 
