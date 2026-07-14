@@ -28,6 +28,14 @@ const CANONICAL_PACKAGES = {
   "llm-mcp": { name: "@ask-llm/mcp", bin: "ask-llm-mcp" },
   "ollama-mcp": { name: "@ask-llm/ollama-mcp", bin: "ask-ollama-mcp" },
 };
+const MCP_REGISTRY_MANIFESTS = [
+  "server.json",
+  "packages/antigravity-mcp/server.json",
+  "packages/claude-mcp/server.json",
+  "packages/codex-mcp/server.json",
+  "packages/llm-mcp/server.json",
+  "packages/ollama-mcp/server.json",
+];
 
 function findPublishablePackages() {
   const packagesDir = path.join(REPO_ROOT, "packages");
@@ -95,6 +103,16 @@ if (publishable.length !== Object.keys(CANONICAL_PACKAGES).length) {
   console.error(
     `[preflight] ERROR: expected ${Object.keys(CANONICAL_PACKAGES).length} canonical publishable packages, found ${publishable.length}`,
   );
+}
+
+for (const relativePath of MCP_REGISTRY_MANIFESTS) {
+  const manifest = JSON.parse(fs.readFileSync(path.join(REPO_ROOT, relativePath), "utf8"));
+  if (typeof manifest.description !== "string" || manifest.description.length > 100) {
+    failed = true;
+    console.error(
+      `[preflight] ERROR: ${relativePath} description must be a string of at most 100 characters (found ${manifest.description?.length ?? "missing"})`,
+    );
+  }
 }
 
 if (failed) {
