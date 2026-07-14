@@ -647,7 +647,7 @@ const inView = useInView(root);
 </style>
 ```
 
-This is the one deliberately looping animation on the site (homepage hero section). Every other diagram plays once.
+Looping animations are limited to the review-loop motif: this PairLoop diagram and the homepage ReviewLoop arrow pulse. Every concept diagram other than PairLoop plays once. (Clarified after Task 7 review; PairLoop itself is embedded on concepts/how-it-works in Task 10, since the homepage realizes the loop with ReviewLoop's arrows.)
 
 - [ ] **Step 3: Register both components**
 
@@ -899,7 +899,8 @@ Typed-command hero. Behavior: the command string types itself character by chara
 ```vue
 <template>
   <section class="noir-hero">
-    <p class="command" aria-label="claude mcp add ask-llm -- npx -y ask-llm-mcp">
+    <p class="command">
+      <span class="visually-hidden">claude mcp add ask-llm -- npx -y ask-llm-mcp</span>
       <span aria-hidden="true">$ {{ typed }}</span><span class="cursor" aria-hidden="true">▌</span>
     </p>
     <h1>Every diff deserves<br />a second opinion.</h1>
@@ -1313,7 +1314,7 @@ git commit -m "docs(providers): shared template with InstallSnippet and animated
 
 - [ ] **Step 1: `concepts/how-it-works.md`**
 
-Replace the request-flow Mermaid diagram (the page's primary diagram) with `<RequestFlow />`. Keep surrounding prose; trim any paragraph that only restates what the diagram caption now says. If the page has a second Mermaid for multi-provider dispatch, replace with `<FanOut />`; other Mermaids stay.
+Add `<PairLoop />` under the page's intro (the Claude/Codex mutual-review concept; the homepage uses arrow glyphs, so this page is the diagram's home). Replace the request-flow Mermaid diagram (the page's primary diagram) with `<RequestFlow />`. Keep surrounding prose; trim any paragraph that only restates what the diagram caption now says. If the page has a second Mermaid for multi-provider dispatch, replace with `<FanOut />`; other Mermaids stay.
 
 - [ ] **Step 2: `concepts/models.md`**
 
