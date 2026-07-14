@@ -1,123 +1,88 @@
 /* ================================================================
-   Ask LLM — Design Token System
-   Dark-only, monospace-first, indigo accent
-   Inspired by mastra.ai aesthetic
+   Ask LLM: Terminal Noir token system
+   Dark-only, monospace-led, phosphor accent.
+   Spec: docs/superpowers/specs/2026-07-13-docs-overhaul-design.md
    ================================================================ */
 
 :root {
-  /* ─── Brand ─────────────────────────────────── */
-  --color-brand: #818cf8;
-  --color-brand-dim: #6366f1;
-  --color-brand-deep: #4f46e5;
-  --color-brand-glow-faint: rgba(129, 140, 248, 0.08);
-  --color-brand-glow: rgba(129, 140, 248, 0.12);
-  --color-brand-glow-subtle: rgba(129, 140, 248, 0.15);
-  --color-brand-glow-medium: rgba(129, 140, 248, 0.18);
-  --color-brand-glow-strong: rgba(129, 140, 248, 0.25);
-  --color-brand-glow-hover: rgba(129, 140, 248, 0.3);
+  /* Surfaces */
+  --noir-bg: #0a0b0c;
+  --noir-raised: #0e1012;
+  --noir-border: #1c2126;
+  --noir-border-strong: #2a3138;
 
-  /* ─── Provider accents ───────────────────────── */
-  --color-gemini: #4285f4;
-  --color-codex: #10a37f;
-  --color-claude: #d97757;
-  --color-ollama: #ff6b35;
-  --color-unified: #818cf8;
-  --color-plugin: #a855f7;
-  --color-antigravity: #22d3ee;
+  /* Text */
+  --noir-text: #e8eaed;
+  --noir-text-2: #9aa3ab;
+  --noir-text-3: #565f68;
 
-  /* ─── Surface ────────────────────────────────── */
-  --color-bg: #0a0a0b;
-  --color-bg-raised: #111113;
-  --color-bg-hover: #18181b;
-  --color-bg-elevated: #1c1c1f;
-  --color-bg-border: rgba(255, 255, 255, 0.08);
-  --color-bg-border-subtle: rgba(255, 255, 255, 0.05);
-  --color-bg-border-hover: rgba(255, 255, 255, 0.16);
+  /* Accent: phosphor green, shared by the site brand and Codex */
+  --accent: #7ee787;
+  --accent-dim: #56c76a;
+  --accent-tint: rgba(126, 231, 135, 0.06);
+  /* Claude coral: used only in Claude contexts */
+  --claude: #d97757;
+  --claude-tint: rgba(217, 119, 87, 0.06);
 
-  /* ─── Text ───────────────────────────────────── */
-  --color-text-primary: #ededed;
-  --color-text-secondary: #a1a1aa;
-  --color-text-muted: #82828c; /* WCAG AA: ~5.2:1 on --color-bg (was #52525b ~2.5:1) */
-
-  /* ─── Status ─────────────────────────────────── */
+  /* Status */
   --color-error: #f87171;
-  --color-success: #34d399;
 
-  /* ─── Typography ─────────────────────────────── */
+  /* Geometry: one radius everywhere */
+  --radius: 4px;
+
+  /* Typography */
   --font-sans: "Geist", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
-  --font-mono: "Geist Mono", "SF Mono", Monaco, "Cascadia Code", ui-monospace,
-    monospace;
-  --font-heading: var(--font-sans);
+  --font-mono: "Geist Mono", "SF Mono", Monaco, "Cascadia Code", ui-monospace, monospace;
 
-  /* ─── Spacing (4px base) ─────────────────────── */
+  /* Spacing (4px base) */
   --space-1: 4px;
   --space-2: 8px;
   --space-3: 12px;
   --space-4: 16px;
   --space-6: 24px;
   --space-8: 32px;
-  --space-10: 40px;
   --space-12: 48px;
   --space-16: 64px;
 
-  /* ─── Radius ─────────────────────────────────── */
-  --radius-sm: 4px;
-  --radius-md: 8px;
-  --radius-lg: 12px;
+  /* VitePress remaps: content pages inherit the language from these */
+  --vp-c-brand-1: var(--accent);
+  --vp-c-brand-2: var(--accent-dim);
+  --vp-c-brand-3: var(--accent-dim);
+  --vp-c-brand-soft: var(--accent-tint);
 
-  /* ─── Provider glow variants ──────────────────── */
-  --color-gemini-glow: rgba(66, 133, 244, 0.1);
-  --color-codex-glow: rgba(16, 163, 127, 0.1);
-  --color-claude-glow: rgba(217, 119, 87, 0.1);
-  --color-ollama-glow: rgba(255, 107, 53, 0.1);
-  --color-unified-glow: rgba(129, 140, 248, 0.1);
-  --color-plugin-glow: rgba(168, 85, 247, 0.1);
-  --color-antigravity-glow: rgba(34, 211, 238, 0.1);
+  --vp-c-bg: var(--noir-bg);
+  --vp-c-bg-soft: var(--noir-raised);
+  --vp-c-bg-mute: var(--noir-raised);
+  --vp-c-bg-alt: var(--noir-bg);
 
-  /* ─── Anti-grid corner ───────────────────────── */
-  --corner-size: 10px;
-  --corner-size-sm: 6px;
-  --corner-size-lg: 12px;
+  --vp-c-text-1: var(--noir-text);
+  --vp-c-text-2: var(--noir-text-2);
+  --vp-c-text-3: var(--noir-text-3);
 
-  /* ─── VitePress token remaps ─────────────────── */
-  --vp-c-brand-1: var(--color-brand);
-  --vp-c-brand-2: var(--color-brand-dim);
-  --vp-c-brand-3: var(--color-brand-deep);
-  --vp-c-brand-soft: var(--color-brand-glow);
-
-  --vp-c-bg: var(--color-bg);
-  --vp-c-bg-soft: var(--color-bg-raised);
-  --vp-c-bg-mute: var(--color-bg-hover);
-  --vp-c-bg-alt: var(--color-bg);
-
-  --vp-c-text-1: var(--color-text-primary);
-  --vp-c-text-2: var(--color-text-secondary);
-  --vp-c-text-3: var(--color-text-muted);
-
-  --vp-c-divider: var(--color-bg-border);
-  --vp-c-divider-light: var(--color-bg-border);
+  --vp-c-divider: var(--noir-border);
+  --vp-c-divider-light: var(--noir-border);
 
   --vp-font-family-base: var(--font-sans);
   --vp-font-family-mono: var(--font-mono);
 
-  --vp-code-block-bg: #0d0d10;
+  --vp-code-block-bg: var(--noir-raised);
+  --vp-border-radius: var(--radius);
 
-  /* ─── Misc VitePress overrides ───────────────── */
-  --vp-c-default-1: var(--color-text-primary);
-  --vp-c-default-2: var(--color-text-secondary);
-  --vp-c-default-3: var(--color-text-muted);
-  --vp-c-default-soft: var(--color-bg-raised);
+  --vp-c-default-1: var(--noir-text);
+  --vp-c-default-2: var(--noir-text-2);
+  --vp-c-default-3: var(--noir-text-3);
+  --vp-c-default-soft: var(--noir-raised);
 
-  --vp-button-brand-bg: var(--color-brand);
-  --vp-button-brand-hover-bg: var(--color-brand-dim);
-  --vp-button-brand-active-bg: var(--color-brand-deep);
+  --vp-button-brand-bg: var(--accent);
+  --vp-button-brand-hover-bg: var(--accent-dim);
+  --vp-button-brand-active-bg: var(--accent-dim);
   --vp-button-brand-border: transparent;
   --vp-button-brand-hover-border: transparent;
-  --vp-button-brand-text: #fff;
+  --vp-button-brand-text: var(--noir-bg);
 
-  --vp-button-alt-bg: var(--color-bg-hover);
-  --vp-button-alt-hover-bg: var(--color-bg-elevated);
-  --vp-button-alt-border: var(--color-bg-border);
-  --vp-button-alt-hover-border: var(--color-bg-border);
-  --vp-button-alt-text: var(--color-text-primary);
+  --vp-button-alt-bg: transparent;
+  --vp-button-alt-hover-bg: var(--noir-raised);
+  --vp-button-alt-border: var(--noir-border-strong);
+  --vp-button-alt-hover-border: var(--accent);
+  --vp-button-alt-text: var(--noir-text);
 }
