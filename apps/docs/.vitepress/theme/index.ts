@@ -7,6 +7,9 @@ import InAction from "../components/InAction.vue";
 import TroubleshootingModal from "../components/TroubleshootingModal.vue";
 import RequestFlow from "../components/diagrams/RequestFlow.vue";
 import PairLoop from "../components/diagrams/PairLoop.vue";
+import FanOut from "../components/diagrams/FanOut.vue";
+import FallbackChain from "../components/diagrams/FallbackChain.vue";
+import SessionThread from "../components/diagrams/SessionThread.vue";
 import "./custom.css";
 
 export default {
@@ -19,5 +22,8 @@ export default {
     app.component("TroubleshootingModal", TroubleshootingModal);
     app.component("RequestFlow", RequestFlow);
     app.component("PairLoop", PairLoop);
+    app.component("FanOut", FanOut);
+    app.component("FallbackChain", FallbackChain);
+    app.component("SessionThread", SessionThread);
   },
 } satisfies Theme;

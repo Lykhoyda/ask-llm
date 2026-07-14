@@ -42,9 +42,9 @@ for (const provider of providers) {
   }
 }
 
-// providers.data.ts must quote the same default/fallback models as package constants.
+// providers.ts must quote the same default/fallback models as package constants.
 const dataSource = readFileSync(
-  join(root, "apps/docs/.vitepress/theme/providers.data.ts"),
+  join(root, "apps/docs/.vitepress/theme/providers.ts"),
   "utf8",
 );
 const modelChecks = [
@@ -62,7 +62,7 @@ for (const [provider, constantsPath, pattern] of modelChecks) {
   }
   if (!dataSource.includes(`defaultModel: "${constant}"`)) {
     errors.push(
-      `providers.data.ts defaultModel for ${provider} is out of sync with ${constantsPath} (expected "${constant}")`,
+      `providers.ts defaultModel for ${provider} is out of sync with ${constantsPath} (expected "${constant}")`,
     );
   }
 }

@@ -1,5 +1,7 @@
-// apps/docs/.vitepress/theme/providers.data.ts
+// apps/docs/.vitepress/theme/providers.ts
 // Single source of truth for provider facts shown anywhere on the docs site.
+// NOTE: must NOT be named *.data.ts — VitePress reserves that suffix for
+// build-time data loaders, which strips named exports and breaks importers.
 // Values are drift-checked against packages/*/src/constants.ts by
 // scripts/check-docs-drift.mjs. Update BOTH when a default model changes.
 
