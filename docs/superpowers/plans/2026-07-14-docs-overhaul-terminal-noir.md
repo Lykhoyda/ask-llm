@@ -316,7 +316,7 @@ Replace the whole file:
 }
 ```
 
-Note the deliberate deletions: all `--color-brand*` indigo tokens, all per-provider glow tokens, `--corner-size*`. Task 2 Step 2 removes their consumers.
+Note the deliberate deletions: all `--color-brand*` indigo tokens, all per-provider glow tokens, `--corner-size*`. Task 2 Step 2 removes their consumers in custom.css, BUT the not-yet-migrated Vue components (SetupTabs, InAction, DiagramModal, TroubleshootingModal) still consume old token names until Tasks 6-7. Append a clearly-marked TEMPORARY compatibility block at the end of design-tokens.css aliasing every old token name still referenced by `.vitepress/components/*.vue` to the nearest noir token (corner sizes alias to 0). The block is removed in Task 7 after the last consumer is migrated; content pages must render correctly at every task boundary.
 
 - [ ] **Step 2: Rebase `custom.css`**
 
@@ -859,14 +859,18 @@ Panel content per tab (all interpolating `doc.serverName` and `doc.pkg`):
 
 Scoped styles: noir tokens, active tab = accent text + 2px accent underline that slides via `transition: transform` on an underline element (static under reduced motion).
 
-- [ ] **Step 4: Register and verify**
+- [ ] **Step 4: Restyle the kept modals to noir tokens**
+
+Update the scoped styles of `apps/docs/.vitepress/components/DiagramModal.vue` and `TroubleshootingModal.vue` to consume noir tokens directly (`--noir-raised`, `--noir-border`, `--radius`, `--accent`, text tokens), removing every reference to old `--color-*`/`--corner-*`/`--radius-*` names.
+
+- [ ] **Step 5: Register and verify**
 
 Register `InstallSnippet` and `ProviderStatus` in `theme/index.ts`. Run `yarn docs:dev`, check `/getting-started` (still the old page; its `<SetupTabs>` embed must render the reworked component correctly) and keyboard-switch tabs. Run `yarn docs:build && yarn lint`.
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 6: Commit**
 
 ```bash
-git add apps/docs/.vitepress/components/InstallSnippet.vue apps/docs/.vitepress/components/ProviderStatus.vue apps/docs/.vitepress/components/SetupTabs.vue apps/docs/.vitepress/theme/index.ts
+git add apps/docs/.vitepress/components/InstallSnippet.vue apps/docs/.vitepress/components/ProviderStatus.vue apps/docs/.vitepress/components/SetupTabs.vue apps/docs/.vitepress/components/DiagramModal.vue apps/docs/.vitepress/components/TroubleshootingModal.vue apps/docs/.vitepress/theme/index.ts
 git commit -m "docs(components): data-driven InstallSnippet, ProviderStatus, and SetupTabs rework"
 ```
 
@@ -1061,9 +1065,9 @@ Add to `custom.css` (homepage-global helpers; keep them together under a `/* Hom
 .home-explore span { color: var(--noir-text-3); font-size: 13px; }
 ```
 
-- [ ] **Step 5: Delete `InAction.vue` and update registrations**
+- [ ] **Step 5: Delete `InAction.vue`, update registrations, remove the compat aliases**
 
-Remove the file, its import, and its `app.component("InAction", ...)` line. Register `NoirHero`, `ReviewLoop`, `ProviderChips`.
+Remove the file, its import, and its `app.component("InAction", ...)` line. Register `NoirHero`, `ReviewLoop`, `ProviderChips`. Then delete the TEMPORARY compatibility alias block from `design-tokens.css` (added in Task 2) and verify no component still references old token names: `grep -rn "var(--color-\|var(--corner-\|var(--radius-" apps/docs/.vitepress/components apps/docs/.vitepress/theme` must return nothing (the `--radius` token itself doesn't match these prefixes). Include design-tokens.css in this task's commit.
 
 - [ ] **Step 6: Verify**
 
