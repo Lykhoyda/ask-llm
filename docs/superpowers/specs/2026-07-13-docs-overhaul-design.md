@@ -86,9 +86,9 @@ Color rules:
 5. **User Guide**: How to Ask, Multi-Turn Sessions, Strategies & Examples
 6. **Resources**: Troubleshooting, FAQ
 
-### Single source of truth: `providers.data.ts`
+### Single source of truth: `providers.ts`
 
-New module in `.vitepress/theme/` exporting per-provider records:
+New module in `.vitepress/theme/` exporting per-provider records (NOT named `providers.data.ts`: the `.data.ts` suffix is VitePress-reserved for build-time data loaders and breaks page imports; discovered in Task 5):
 
 ```ts
 interface ProviderDoc {
@@ -110,7 +110,7 @@ Every card, chip, table, tab, and snippet on the site renders from this module. 
 
 - codex: default `gpt-5.6-sol`, package `ask-codex-mcp`
 - claude: default `opus`, fallback `sonnet`, package `ask-claude-mcp`, read-only tool surface, positioned as the reverse path for Codex/non-Claude hosts
-- Model names must be re-checked against `packages/*/src/constants.ts` at implementation time, and `scripts/check-docs-drift.mjs` extended to diff `providers.data.ts` against package constants in CI.
+- Model names must be re-checked against `packages/*/src/constants.ts` at implementation time, and `scripts/check-docs-drift.mjs` extended to diff `providers.ts` against package constants in CI.
 
 ### Provider page template
 
@@ -118,7 +118,7 @@ Every provider page follows one structure (implemented as shared components + ma
 
 1. Status strip: name, package, tier badge, default/fallback models
 2. `<InstallSnippet provider="x" />` (client-tabbed install)
-3. Tools table (from `providers.data.ts`)
+3. Tools table (from `providers.ts`)
 4. Model & fallback section (with `<FallbackChain>` diagram where a fallback exists)
 5. Provider-specific notes (free-form markdown)
 
@@ -130,7 +130,7 @@ Section order (each a distinct layout family, per taste-skill section-repetition
 2. **The review loop**: Claude and Codex hero cards flanking animated exchange arrows (`<PairLoop>`). Copy: "Claude and Codex review each other's work. The other model reads, your agent edits."
 3. **Supporting providers**: single chip row "Also speaks: antigravity (agy) / ollama (local) / gemini (enterprise) / unified: all of them →".
 4. **How a request flows**: `<RequestFlow>` animated diagram in a raised panel.
-5. **Quick start tabs**: reworked `<SetupTabs>` (Claude Code / Codex CLI / Cursor / JSON config) driven by `providers.data.ts`.
+5. **Quick start tabs**: reworked `<SetupTabs>` (Claude Code / Codex CLI / Cursor / JSON config) driven by `providers.ts`.
 6. **Explore grid**: compact links to concepts/guide pages (text links, not icon cards).
 
 Removed from homepage: the 4-icon features grid (folds into Quick Start copy), duplicate install snippets, hand-rolled SVG icons.
@@ -160,7 +160,7 @@ Micro-motion (all CSS-only, reduced-motion gated): typed hero command, staggered
 
 | Component | Fate |
 |---|---|
-| `SetupTabs.vue` | Rework: data from `providers.data.ts`, new visual system, per-client tabs |
+| `SetupTabs.vue` | Rework: data from `providers.ts`, new visual system, per-client tabs |
 | `InAction.vue` | Rework into the typed-command hero (or fold into `index.md` hero slot) |
 | `DiagramModal.vue` | Keep for Mermaid zoom on remaining Mermaid diagrams; restyle tokens |
 | `TroubleshootingModal.vue` | Keep, restyle tokens |
@@ -173,7 +173,7 @@ CSS: rebuild `design-tokens.css` around the noir tokens; rewrite `custom.css` se
 
 ## Content Rules (applies to every rewritten page)
 
-- Model names, packages, and commands come from `providers.data.ts` or are quoted from package constants; never hand-typed twice.
+- Model names, packages, and commands come from `providers.ts` or are quoted from package constants; never hand-typed twice.
 - Claude/Codex are the examples in all usage copy; other providers appear in provider-specific pages and one comparative mention each.
 - Section headline + max 25-word sub-paragraph by default; no data-dump tables on landing surfaces.
 - No em-dashes, no fake-precise numbers, no scroll cues, no decorative status dots, max 1 eyebrow per 3 sections.
@@ -189,7 +189,7 @@ CSS: rebuild `design-tokens.css` around the noir tokens; rewrite `custom.css` se
 ## Implementation Notes
 
 - Build on the current `agent/add-claude-provider` branch state (it contains the Claude provider docs and GPT-5.6 defaults the content depends on). Docs overhaul commits stay separate from the existing uncommitted provider work.
-- Extend `scripts/check-docs-drift.mjs` to validate `providers.data.ts` against `packages/*/src/constants.ts`.
+- Extend `scripts/check-docs-drift.mjs` to validate `providers.ts` against `packages/*/src/constants.ts`.
 - Redirect stubs: minimal `.md` pages with frontmatter layout rendering `<meta http-equiv="refresh">` + canonical link + visible fallback link.
 
 ## Verification

@@ -4,7 +4,7 @@
 
 **Goal:** Rebuild the `apps/docs/` VitePress site in the approved Terminal Noir design language with zero duplicated install content, Claude+Codex hero positioning, and five animated SVG concept diagrams.
 
-**Architecture:** A `providers.data.ts` module becomes the single source of truth for every provider fact; new scoped-style Vue components (hero, review loop, install snippets, diagrams) replace copy-pasted markdown and hand-rolled icons; `design-tokens.css` is rewritten around the noir palette so VitePress content pages inherit the language; three onboarding pages merge into one Quick Start with meta-refresh redirect stubs.
+**Architecture:** A `providers.ts` module becomes the single source of truth for every provider fact; new scoped-style Vue components (hero, review loop, install snippets, diagrams) replace copy-pasted markdown and hand-rolled icons; `design-tokens.css` is rewritten around the noir palette so VitePress content pages inherit the language; three onboarding pages merge into one Quick Start with meta-refresh redirect stubs.
 
 **Tech Stack:** VitePress 1.x, Vue 3 SFCs (scoped CSS), CSS keyframes + IntersectionObserver (no animation libraries), Node scripts for drift checks.
 
@@ -18,7 +18,7 @@
 - Palette tokens exactly as specified: bg `#0a0b0c`, raised `#0e1012`, border `#1c2126`, border-strong `#2a3138`, text `#e8eaed`, text-2 `#9aa3ab`, text-3 `#7d8590`, accent `#7ee787`, claude `#d97757`. One radius: 4px. No gradients, no glows, no pure `#000`/`#fff`.
 - Phosphor green `#7ee787` is BOTH the site accent AND Codex's color. Claude coral `#d97757` appears only in Claude contexts. Antigravity/Ollama/Gemini render monochrome.
 - No em-dash characters anywhere in visible site copy (use commas, colons, periods).
-- Model names, package names, and install commands in page content come ONLY from `providers.data.ts` or verbatim quotes of `packages/*/src/constants.ts`. Never hand-typed twice. Current verified values: codex `gpt-5.6-sol`→`gpt-5.6-terra`, claude `opus`→`sonnet`, antigravity `Gemini 3.1 Pro (High)`→`Gemini 3.5 Flash (High)`, gemini `gemini-3.1-pro-preview`→`gemini-3.5-flash`, ollama `qwen3.6:27b` (no fallback).
+- Model names, package names, and install commands in page content come ONLY from `providers.ts` or verbatim quotes of `packages/*/src/constants.ts`. Never hand-typed twice. Current verified values: codex `gpt-5.6-sol`→`gpt-5.6-terra`, claude `opus`→`sonnet`, antigravity `Gemini 3.1 Pro (High)`→`Gemini 3.5 Flash (High)`, gemini `gemini-3.1-pro-preview`→`gemini-3.5-flash`, ollama `qwen3.6:27b` (no fallback).
 - Every animation is gated behind `@media (prefers-reduced-motion: reduce)` (CSS) or a `matchMedia` check (JS), degrading to the final static frame.
 - Typographic glyphs (`▮`, `→`, `$`, `⇀`, `↽`) instead of SVG icons. No hand-rolled icon paths.
 - All internal links use the `/ask-llm/` base path convention VitePress applies automatically (write root-relative `/getting-started` style links in markdown; hardcode `/ask-llm/` only in raw HTML `href`s, matching current `index.md` practice).
@@ -33,10 +33,10 @@
 
 ---
 
-### Task 1: `providers.data.ts` single source of truth + drift-check extension
+### Task 1: `providers.ts` single source of truth + drift-check extension
 
 **Files:**
-- Create: `apps/docs/.vitepress/theme/providers.data.ts`
+- Create: `apps/docs/.vitepress/theme/providers.ts`
 - Modify: `scripts/check-docs-drift.mjs`
 
 **Interfaces:**
@@ -45,7 +45,7 @@
 - [ ] **Step 1: Create the data module**
 
 ```ts
-// apps/docs/.vitepress/theme/providers.data.ts
+// apps/docs/.vitepress/theme/providers.ts
 // Single source of truth for provider facts shown anywhere on the docs site.
 // Values are drift-checked against packages/*/src/constants.ts by
 // scripts/check-docs-drift.mjs. Update BOTH when a default model changes.
@@ -168,9 +168,9 @@ export function providerList(): ProviderDoc[] {
 Append to `scripts/check-docs-drift.mjs`, immediately BEFORE the `if (errors.length > 0)` block:
 
 ```js
-// providers.data.ts must quote the same default/fallback models as package constants.
+// providers.ts must quote the same default/fallback models as package constants.
 const dataSource = readFileSync(
-  join(root, "apps/docs/.vitepress/theme/providers.data.ts"),
+  join(root, "apps/docs/.vitepress/theme/providers.ts"),
   "utf8",
 );
 const modelChecks = [
@@ -188,7 +188,7 @@ for (const [provider, constantsPath, pattern] of modelChecks) {
   }
   if (!dataSource.includes(`defaultModel: "${constant}"`)) {
     errors.push(
-      `providers.data.ts defaultModel for ${provider} is out of sync with ${constantsPath} (expected "${constant}")`,
+      `providers.ts defaultModel for ${provider} is out of sync with ${constantsPath} (expected "${constant}")`,
     );
   }
 }
@@ -199,14 +199,14 @@ for (const [provider, constantsPath, pattern] of modelChecks) {
 Run: `node scripts/check-docs-drift.mjs`
 Expected: `Documentation drift checks passed (...)`.
 
-Then temporarily change `defaultModel: "gpt-5.6-sol"` to `"gpt-5.5"` in `providers.data.ts`, re-run, expect a failing exit with the sync error, and revert the temporary change.
+Then temporarily change `defaultModel: "gpt-5.6-sol"` to `"gpt-5.5"` in `providers.ts`, re-run, expect a failing exit with the sync error, and revert the temporary change.
 
 - [ ] **Step 4: Lint and commit**
 
 ```bash
 yarn lint
-git add apps/docs/.vitepress/theme/providers.data.ts scripts/check-docs-drift.mjs
-git commit -m "docs(theme): add providers.data.ts single source of truth with model drift guard"
+git add apps/docs/.vitepress/theme/providers.ts scripts/check-docs-drift.mjs
+git commit -m "docs(theme): add providers.ts single source of truth with model drift guard"
 ```
 
 ---
@@ -693,7 +693,7 @@ Animation (play once): beams draw via `stroke-dasharray: 300; stroke-dashoffset:
 ```vue
 <script setup lang="ts">
 import { computed, ref } from "vue";
-import { PROVIDER_DOCS, type ProviderId } from "../../theme/providers.data";
+import { PROVIDER_DOCS, type ProviderId } from "../../theme/providers";
 import { useInView } from "../../theme/useInView";
 
 const props = defineProps<{ provider: ProviderId }>();
@@ -748,7 +748,7 @@ git commit -m "docs(diagrams): add FanOut, FallbackChain, and SessionThread anim
 
 <script setup lang="ts">
 import { computed } from "vue";
-import { PROVIDER_DOCS, type ProviderId } from "../theme/providers.data";
+import { PROVIDER_DOCS, type ProviderId } from "../theme/providers";
 
 const props = defineProps<{ provider: ProviderId }>();
 const doc = computed(() => PROVIDER_DOCS[props.provider]);
@@ -800,7 +800,7 @@ code {
 
 <script setup lang="ts">
 import { computed } from "vue";
-import { PROVIDER_DOCS, type ProviderId } from "../theme/providers.data";
+import { PROVIDER_DOCS, type ProviderId } from "../theme/providers";
 
 const props = defineProps<{ provider: ProviderId }>();
 const doc = computed(() => PROVIDER_DOCS[props.provider]);
@@ -1286,7 +1286,7 @@ Per page:
 - `ollama.md`: `<InstallSnippet provider="ollama" />`; NO FallbackChain (no fallback by design); keep/add the sentence `There is deliberately no model fallback: a missing model fails fast with an actionable ollama pull command.`
 - `unified.md`: `<InstallSnippet provider="unified" />`; add `<FanOut />` under a `## Parallel dispatch` heading with one sentence of prose; keep provider-detection notes.
 
-Every page: ensure the Tools table rows exactly match the `tools` array in `providers.data.ts` for that provider; scan and remove any em-dashes in copy.
+Every page: ensure the Tools table rows exactly match the `tools` array in `providers.ts` for that provider; scan and remove any em-dashes in copy.
 
 - [ ] **Step 3: Verify and commit**
 
@@ -1315,7 +1315,7 @@ Replace the request-flow Mermaid diagram (the page's primary diagram) with `<Req
 
 - [ ] **Step 2: `concepts/models.md`**
 
-Add `<FallbackChain provider="codex" />` directly under the fallback-behavior heading. Rewrite any hardcoded model names to the current constants (`gpt-5.6-sol`, `gpt-5.6-terra`, etc. per the Global Constraints list). Ensure the per-provider defaults table matches `providers.data.ts` exactly.
+Add `<FallbackChain provider="codex" />` directly under the fallback-behavior heading. Rewrite any hardcoded model names to the current constants (`gpt-5.6-sol`, `gpt-5.6-terra`, etc. per the Global Constraints list). Ensure the per-provider defaults table matches `providers.ts` exactly.
 
 - [ ] **Step 3: `usage/multi-turn-sessions.md`**
 
@@ -1384,8 +1384,8 @@ Fix anything surfaced, amend into the relevant area, re-run.
 
 - [ ] **Step 2: Update project docs**
 
-- `docs/ROADMAP.md`: dated entry summarizing the overhaul (IA merge, Terminal Noir system, five animated diagrams, providers.data.ts drift guard).
-- `docs/DECISIONS.md`: new ADR (next free number): "Docs site Terminal Noir redesign with providers.data.ts single source of truth". Context: duplication drift + hero repositioning; Decision: data-module-driven docs, animated SVG concept diagrams, CSS-only motion; Alternatives: motion library (rejected: dependency weight), keeping three onboarding pages (rejected: triplicated content); Consequences: model changes require providers.data.ts update enforced by check-docs-drift.mjs.
+- `docs/ROADMAP.md`: dated entry summarizing the overhaul (IA merge, Terminal Noir system, five animated diagrams, providers.ts drift guard).
+- `docs/DECISIONS.md`: new ADR (next free number): "Docs site Terminal Noir redesign with providers.ts single source of truth". Context: duplication drift + hero repositioning; Decision: data-module-driven docs, animated SVG concept diagrams, CSS-only motion; Alternatives: motion library (rejected: dependency weight), keeping three onboarding pages (rejected: triplicated content); Consequences: model changes require providers.ts update enforced by check-docs-drift.mjs.
 
 - [ ] **Step 3: Commit**
 
