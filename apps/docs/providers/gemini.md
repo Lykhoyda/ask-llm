@@ -4,12 +4,14 @@ description: Bridge Claude with Google Gemini via the official CLI. 1M+ token co
 
 # Gemini
 
+<ProviderStatus provider="gemini" />
+
 Bridge Claude with Google's Gemini via the official Gemini CLI. Leverages Gemini's massive 1M+ token context window for large file and codebase analysis while Claude handles interaction and code editing.
 
-::: danger Discontinued on consumer tiers — migrate to Antigravity
-**From 2026-06-18**, Google restricts Gemini CLI access to **Gemini Code Assist Standard/Enterprise** seats; **free, Google AI Pro, and Ultra** accounts lose access. `ask-gemini-mcp` still installs and launches — the failure is a runtime auth/quota error from Google's backend, not a missing binary.
+::: danger Discontinued on consumer tiers: migrate to Antigravity
+**From 2026-06-18**, Google restricts Gemini CLI access to **Gemini Code Assist Standard/Enterprise** seats; **free, Google AI Pro, and Ultra** accounts lose access. `ask-gemini-mcp` still installs and launches; the failure is a runtime auth/quota error from Google's backend, not a missing binary.
 
-**On a subscription tier?** Migrate to **[Antigravity (`agy`)](./antigravity)** — Google's successor CLI, covered by the same AI Pro/Ultra subscription with no per-token billing. Install [`ask-antigravity-mcp`](./antigravity), or switch to [`ask-codex`](./codex) / [`ask-ollama`](./ollama). The **2026-06-18 tier change** section below covers what happens at runtime.
+**On a subscription tier?** Migrate to **[Antigravity (`agy`)](/providers/antigravity)**, Google's successor CLI, covered by the same AI Pro/Ultra subscription with no per-token billing. Install [`ask-antigravity-mcp`](/providers/antigravity), or switch to [`ask-codex`](/providers/codex) / [`ask-ollama`](/providers/ollama). The **2026-06-18 tier change** section below covers what happens at runtime.
 :::
 
 ## 2026-06-18 tier change
@@ -18,25 +20,21 @@ From **2026-06-18**, Google serves Gemini CLI requests only for **Gemini Code As
 
 What this means for `ask-gemini-mcp`:
 
-- The npm package **still installs and launches** — the binary is unchanged. The failure for non-enterprise accounts is a **runtime auth/quota error**, not a missing binary, so reinstalling will not help.
-- On or after the cutoff, an auth/quota-class failure now surfaces an actionable notice (cutoff date + options) instead of a raw error. The note is **advisory** ("likely caused by the tier change") — a genuine auth, billing, or quota error can also trigger it.
-- Google's successor is the **Antigravity CLI (`agy`)** — a separate, closed-source binary that `ask-gemini-mcp` does **not** wrap. Use the dedicated **[`ask-antigravity-mcp`](./antigravity)** package (covered by the same Google AI Pro/Ultra subscription, no per-token billing), run `agy` directly, or switch to [`ask-codex`](./codex) / [`ask-ollama`](./ollama).
+- The npm package **still installs and launches**; the binary is unchanged. The failure for non-enterprise accounts is a **runtime auth/quota error**, not a missing binary, so reinstalling will not help.
+- On or after the cutoff, an auth/quota-class failure now surfaces an actionable notice (cutoff date + options) instead of a raw error. The note is **advisory** ("likely caused by the tier change"); a genuine auth, billing, or quota error can also trigger it.
+- Google's successor is the **Antigravity CLI (`agy`)**, a separate, closed-source binary that `ask-gemini-mcp` does **not** wrap. Use the dedicated **[`ask-antigravity-mcp`](/providers/antigravity)** package (covered by the same Google AI Pro/Ultra subscription, no per-token billing), run `agy` directly, or switch to [`ask-codex`](/providers/codex) / [`ask-ollama`](/providers/ollama).
 - **Testing the guidance:** set `ASK_GEMINI_TIER_CUTOFF` to a past UTC instant (e.g. `2020-01-01T00:00:00Z`) to force the post-cutoff gate on; an auth/quota failure will then prepend the notice. The default cutoff is `2026-06-18T00:00:00Z`.
 
 [Google's announcement](https://developers.googleblog.com/an-important-update-transitioning-gemini-cli-to-antigravity-cli/).
 
 > **Best for:** whole-codebase reads using the 1M+ token context window, if you have an eligible Gemini Code Assist Standard/Enterprise seat.
-> **Not for:** most users from 2026-06-18 (see the notice above). For large-context reads without an enterprise seat, use [Antigravity](./antigravity).
+> **Not for:** most users from 2026-06-18 (see the notice above). For large-context reads without an enterprise seat, use [Antigravity](/providers/antigravity).
 
 ## Installation
 
-<SetupTabs provider="gemini" />
+<InstallSnippet provider="gemini" />
 
-Or install globally:
-
-```bash
-npm install -g ask-gemini-mcp
-```
+Or install globally: `npm install -g ask-gemini-mcp`
 
 ## Prerequisites
 
@@ -58,19 +56,22 @@ gemini login
 | `get-usage-stats` | Per-session token totals + breakdowns by provider/model. In-memory ([ADR-054](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md)) |
 | `ping` | Fast connection test to verify MCP setup |
 
-`ask-gemini` returns both human-readable text and a structured `AskResponse` (provider, response, model, sessionId, usage) via MCP `outputSchema` — programmatic clients can extract the sessionId and usage fields directly without parsing the response footer ([ADR-065](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md)).
+`ask-gemini` returns both human-readable text and a structured `AskResponse` (provider, response, model, sessionId, usage) via MCP `outputSchema`; programmatic clients can extract the sessionId and usage fields directly without parsing the response footer ([ADR-065](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md)).
 
 ## Models
 
+<FallbackChain provider="gemini" />
+
 - **Default:** `gemini-3.1-pro-preview` (latest, highest capability)
-- **Fallback:** `gemini-3.5-flash` (automatic on quota errors per [ADR-044](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md))
+- **Quota fallback:** `gemini-3.5-flash`, automatic on `RESOURCE_EXHAUSTED` ([ADR-044](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md))
+- **Overrides:** `ASK_GEMINI_MODEL`, `ASK_GEMINI_FALLBACK_MODEL`, or the per-call `model` parameter
 
 ## Key Features
 
 - **1M+ token context** for analyzing entire codebases
-- **Multi-turn sessions** via `sessionId` — native `--resume <id>` (zero replay cost)
+- **Multi-turn sessions** via `sessionId`: native `--resume <id>` (zero replay cost)
 - **Include directories** for monorepo context (`includeDirs` parameter on `ask-gemini-edit`)
-- **Live progressive output** — assistant message deltas stream to MCP progress notifications, no frozen waits on long calls
+- **Live progressive output:** assistant message deltas stream to MCP progress notifications, no frozen waits on long calls
 - **Structured AskResponse** via outputSchema for programmatic clients
 - **Automatic quota fallback** from Pro to Flash on `RESOURCE_EXHAUSTED`
 
