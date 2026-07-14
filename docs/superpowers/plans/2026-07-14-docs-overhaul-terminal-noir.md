@@ -1025,6 +1025,8 @@ description: MCP servers for AI-to-AI collaboration. Claude and Codex review eac
 
 <h2 class="home-h2">Quick start</h2>
 
+<p class="home-verify">Prerequisite: at least one provider CLI installed and authenticated. The <a href="/ask-llm/getting-started">Quick Start</a> covers that in step 1.</p>
+
 <SetupTabs provider="unified" />
 
 <p class="home-verify">Then ask your agent: <code>Use ask-llm ping to test the connection</code>. A <em>Pong!</em> reply lists every provider it detected. Something off? Run <code>npx ask-llm-mcp doctor</code>.</p>
