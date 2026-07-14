@@ -13,17 +13,21 @@ const expectedSkills = [
   "codex-review",
   "codex-verify",
   "compare",
+  "fable-review",
   "gemini-review",
   "multi-review",
   "ollama-review",
+  "sol-review",
 ];
 const expectedAgents = [
   "antigravity-reviewer.md",
   "brainstorm-coordinator.md",
   "codex-reviewer.md",
   "codex-verifier.md",
+  "fable-reviewer.md",
   "gemini-reviewer.md",
   "ollama-reviewer.md",
+  "sol-reviewer.md",
 ];
 
 describe("skills/", () => {
@@ -88,6 +92,7 @@ describe("agents/", () => {
       { file: "codex-reviewer.md", tool: "mcp__codex__ask-codex" },
       { file: "ollama-reviewer.md", tool: "mcp__ollama__ask-ollama" },
       { file: "antigravity-reviewer.md", tool: "mcp__antigravity__ask-antigravity" },
+      { file: "sol-reviewer.md", tool: "mcp__codex__ask-codex" },
     ];
     for (const { file, tool } of cases) {
       const { frontmatter } = parseMarkdownFrontmatter(readFile(`agents/${file}`));
@@ -98,7 +103,14 @@ describe("agents/", () => {
   });
 
   it("review agents are restricted from edit/write tools", () => {
-    const reviewerAgents = ["gemini-reviewer.md", "codex-reviewer.md", "ollama-reviewer.md", "antigravity-reviewer.md"];
+    const reviewerAgents = [
+      "gemini-reviewer.md",
+      "codex-reviewer.md",
+      "ollama-reviewer.md",
+      "antigravity-reviewer.md",
+      "fable-reviewer.md",
+      "sol-reviewer.md",
+    ];
     for (const file of reviewerAgents) {
       const { frontmatter } = parseMarkdownFrontmatter(readFile(`agents/${file}`));
       const tools = frontmatter.tools as string[] | undefined;
@@ -107,6 +119,30 @@ describe("agents/", () => {
       expect(tools).not.toContain("Write");
       expect(tools).not.toContain("NotebookEdit");
     }
+  });
+
+  it("pins the native Fable reviewer and the Sol provider request", () => {
+    const fable = parseMarkdownFrontmatter(readFile("agents/fable-reviewer.md")).frontmatter;
+    const solContent = readFile("agents/sol-reviewer.md");
+    const sol = parseMarkdownFrontmatter(solContent).frontmatter;
+    expect(fable.model).toBe("fable");
+    expect(fable.effort).toBe("high");
+    expect(sol.model).toBe("opus");
+    expect(sol.effort).toBe("high");
+    expect(solContent).toContain('model: "gpt-5.6-sol"');
+    expect(solContent).toContain('reasoningEffort: "high"');
+  });
+});
+
+describe("native model review skills", () => {
+  it.each([
+    ["fable-review", "fable-reviewer", "model: fable"],
+    ["sol-review", "sol-reviewer", 'model: "gpt-5.6-sol"'],
+  ])("%s delegates to its model-pinned reviewer path", (skill, reviewer, modelPin) => {
+    const content = readFile(`skills/${skill}/SKILL.md`);
+    expect(content).toContain(reviewer);
+    expect(content).toContain(modelPin);
+    expect(content).toMatch(/distinguishes|Do not substitute|Do not route/i);
   });
 });
 
