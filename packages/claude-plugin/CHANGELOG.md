@@ -1,5 +1,14 @@
 # @ask-llm/plugin
 
+## 0.12.0
+
+### Minor Changes
+
+- [#228](https://github.com/Lykhoyda/ask-llm/pull/228) [`b27b69e`](https://github.com/Lykhoyda/ask-llm/commit/b27b69ef6a83d1fe03c51da2b90cc98f0994fbb8) Thanks [@Lykhoyda](https://github.com/Lykhoyda)! - Add `/fable-review` and `/sol-review`, two read-only review skills that launch
+  isolated reviewer agents that request native Fable and explicitly pin OpenAI GPT-5.6 Sol,
+  respectively. Both workflows validate findings against the source and report
+  only high-confidence issues.
+
 ## 0.11.1
 
 ### Patch Changes
