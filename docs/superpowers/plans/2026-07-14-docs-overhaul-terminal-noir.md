@@ -15,7 +15,7 @@
 - Work on the current `agent/add-claude-provider` branch. Commit only files this plan names; the branch has unrelated uncommitted work that must not be swept into commits.
 - No new npm dependencies anywhere.
 - Force-dark stays (`appearance: "force-dark"` in config.ts is untouched).
-- Palette tokens exactly as specified: bg `#0a0b0c`, raised `#0e1012`, border `#1c2126`, border-strong `#2a3138`, text `#e8eaed`, text-2 `#9aa3ab`, text-3 `#565f68`, accent `#7ee787`, claude `#d97757`. One radius: 4px. No gradients, no glows, no pure `#000`/`#fff`.
+- Palette tokens exactly as specified: bg `#0a0b0c`, raised `#0e1012`, border `#1c2126`, border-strong `#2a3138`, text `#e8eaed`, text-2 `#9aa3ab`, text-3 `#7d8590`, accent `#7ee787`, claude `#d97757`. One radius: 4px. No gradients, no glows, no pure `#000`/`#fff`.
 - Phosphor green `#7ee787` is BOTH the site accent AND Codex's color. Claude coral `#d97757` appears only in Claude contexts. Antigravity/Ollama/Gemini render monochrome.
 - No em-dash characters anywhere in visible site copy (use commas, colons, periods).
 - Model names, package names, and install commands in page content come ONLY from `providers.data.ts` or verbatim quotes of `packages/*/src/constants.ts`. Never hand-typed twice. Current verified values: codex `gpt-5.6-sol`→`gpt-5.6-terra`, claude `opus`→`sonnet`, antigravity `Gemini 3.1 Pro (High)`→`Gemini 3.5 Flash (High)`, gemini `gemini-3.1-pro-preview`→`gemini-3.5-flash`, ollama `qwen3.6:27b` (no fallback).
@@ -242,7 +242,7 @@ Replace the whole file:
   /* Text */
   --noir-text: #e8eaed;
   --noir-text-2: #9aa3ab;
-  --noir-text-3: #565f68;
+  --noir-text-3: #7d8590;
 
   /* Accent: phosphor green, shared by the site brand and Codex */
   --accent: #7ee787;

@@ -43,7 +43,7 @@ Dials (design-taste-frontend): `DESIGN_VARIANCE 6 / MOTION_INTENSITY 6 / VISUAL_
 | `--noir-border-strong` | `#2a3138` | interactive borders, secondary buttons |
 | `--noir-text` | `#e8eaed` | primary text |
 | `--noir-text-2` | `#9aa3ab` | secondary text (passes AA on bg) |
-| `--noir-text-3` | `#565f68` | muted labels, command prompts |
+| `--noir-text-3` | `#7d8590` | muted labels, command prompts (bumped from #565f68 during Task 2: ~3:1 failed the AA constraint; #7d8590 is ~5.2:1) |
 | `--accent` | `#7ee787` | phosphor green: site accent AND Codex color |
 | `--claude` | `#d97757` | Claude coral: used only in Claude contexts |
 
