@@ -1,5 +1,5 @@
 ---
-description: Isolated sub-agents for AI code review and multi-LLM brainstorming. Confidence-based filtering (80%+ threshold) across Codex, Antigravity, Ollama, and Gemini.
+description: Isolated sub-agents for native Fable review, model-pinned GPT-5.6 Sol review, provider-backed code review, and multi-LLM brainstorming.
 ---
 
 # Agents
@@ -8,7 +8,17 @@ Agents are specialized sub-processes that Claude Code dispatches to handle compl
 
 ## Review Agents
 
-All review agents use a 3-phase workflow with confidence-based filtering:
+### `fable-reviewer`
+
+This native reviewer analyzes the current diff directly in an isolated context pinned to `fable`. It has read-only tools, verifies every candidate against the source, and reports only findings at 80% confidence or higher.
+
+Invoke it with `/fable-review`.
+
+### `sol-reviewer`
+
+This reviewer uses an isolated Opus coordinator to request `gpt-5.6-sol` explicitly from `ask-codex` at high reasoning, then validates Sol's findings against the source. Invoke it with `/sol-review`. A quota fallback to Terra is disclosed instead of being presented as a Sol result.
+
+Provider-backed review agents use a 3-phase workflow with confidence-based filtering:
 
 **Phase 1: Context Gathering**
 - Read the project's `CLAUDE.md` for conventions

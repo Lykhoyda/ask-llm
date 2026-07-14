@@ -47,6 +47,8 @@ This gives you `gemini:ask-gemini` rather than `plugin:ask-llm:gemini:ask-gemini
 | `/multi-review` | Antigravity + Codex | Parallel review with 4-phase validation pipeline and consensus highlighting |
 | `/gemini-review` | Gemini | Get a second opinion on your current changes |
 | `/codex-review` | Codex | Get a second opinion from GPT-5.5 |
+| `/fable-review` | Fable | Native isolated review that requests Fable and discloses runtime verification limits |
+| `/sol-review` | GPT-5.6 Sol | Model-pinned review through Codex |
 | `/ollama-review` | Ollama | Local review — no data leaves your machine |
 | `/antigravity-review` | Antigravity | Subscription-backed second opinion via Google `agy` (experimental) |
 | `/brainstorm` | Multi + Claude Opus | Claude Opus researches the topic against real files in parallel with external providers, then synthesizes findings |
@@ -63,6 +65,8 @@ This gives you `gemini:ask-gemini` rather than `plugin:ask-llm:gemini:ask-gemini
 |-------|-------------|
 | `gemini-reviewer` | Isolated Gemini code review with confidence-based filtering |
 | `codex-reviewer` | Isolated Codex code review with confidence-based filtering |
+| `fable-reviewer` | Native read-only review configured to request Fable, with source validation |
+| `sol-reviewer` | GPT-5.6 Sol review through Codex with source validation |
 | `ollama-reviewer` | Local Ollama code review — no data leaves your machine |
 | `antigravity-reviewer` | Subscription-backed Antigravity (`agy`) code review — experimental |
 | `brainstorm-coordinator` | First-class research participant: runs its own Claude Opus research (reads real files, traces code, fetches docs) in parallel with external providers, then synthesizes consensus. Verified findings weighted higher than inferred ones. |

@@ -1,16 +1,36 @@
 ---
-description: Slash commands for AI code review, brainstorming, and side-by-side multi-provider comparison — /gemini-review, /codex-review, /ollama-review, /antigravity-review, /multi-review (with verification), /brainstorm, /brainstorm-all, and /compare.
+description: Slash commands for AI code review, brainstorming, and side-by-side comparison — including native /fable-review, model-pinned /sol-review, provider reviews, /multi-review, /brainstorm, and /compare.
 ---
 
 # Skills
 
-Skills are slash commands you can invoke directly in Claude Code. Each skill triggers a structured workflow that gathers context, calls a provider, and returns prioritized findings.
+Skills are slash commands you can invoke directly in Claude Code. Each skill triggers a structured workflow that gathers context, runs a native agent or provider, and returns prioritized findings.
 
-> `/gemini-review` works out of the box with the plugin. `/codex-review`, `/ollama-review`, and `/antigravity-review` require their MCP servers to be added separately — see [Plugin Overview](/plugin/overview#installation).
+> `/fable-review` runs as a native isolated agent and needs no MCP server. `/sol-review` and `/codex-review` require the Codex MCP server; `/ollama-review` and `/antigravity-review` require their respective MCP servers — see [Plugin Overview](/plugin/overview#installation).
 
-## Review Skills
+## Native Model Review Skills
 
-All four review skills follow the same pattern:
+### `/fable-review`
+
+Review the current diff with a read-only agent configured to request Fable. Findings are checked against the source and filtered at 80% confidence.
+
+```text
+/fable-review
+```
+
+### `/sol-review`
+
+Run the same independent review contract with an isolated coordinator that explicitly requests `gpt-5.6-sol` at high reasoning from the Codex provider. `/codex-review` instead follows the configured Codex default.
+
+```text
+/sol-review
+```
+
+`/fable-review` requires a Claude Code runtime/account that exposes Fable. It rejects an explicit non-Fable `CLAUDE_CODE_SUBAGENT_MODEL` override, but Claude Code does not expose the resolved subagent model to skills, so the result discloses that organization-policy fallback could not be independently verified. `/sol-review` requires an installed, authenticated Codex CLI and registered Codex MCP server. If Sol falls back to Terra on quota, the result says so explicitly.
+
+## Provider Review Skills
+
+Provider review skills follow the same pattern:
 
 1. Gather staged and unstaged git changes
 2. Read project conventions from `CLAUDE.md`

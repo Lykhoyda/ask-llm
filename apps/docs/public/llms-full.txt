@@ -367,6 +367,8 @@ Launches Antigravity and Codex reviews in parallel with a validation pipeline an
 | /multi-review | Parallel Antigravity + Codex code review with validation pipeline and consensus highlighting |
 | /gemini-review | Gemini-only code review with confidence filtering |
 | /codex-review | Codex-only code review with confidence filtering |
+| /fable-review | Isolated code review that requests Fable and discloses runtime verification limits |
+| /sol-review | Codex code review explicitly pinned to GPT-5.6 Sol at high reasoning effort |
 | /ollama-review | Local Ollama code review — no data leaves machine |
 | /antigravity-review | Antigravity-only code review (subscription-backed) |
 | /brainstorm [providers] topic | Multi-LLM brainstorm; Claude researches in parallel (default external providers: antigravity,codex) |
@@ -382,6 +384,8 @@ Launches Antigravity and Codex reviews in parallel with a validation pipeline an
 |-------|-------------|
 | gemini-reviewer | Isolated Gemini review, confidence-filtered findings |
 | codex-reviewer | Isolated Codex review, confidence-filtered findings |
+| fable-reviewer | Isolated, read-only review configured to request Fable |
+| sol-reviewer | Isolated, read-only Codex review pinned to GPT-5.6 Sol |
 | ollama-reviewer | Isolated local Ollama review, confidence-filtered findings |
 | antigravity-reviewer | Isolated Antigravity review, confidence-filtered findings |
 | codex-verifier | Verifies the assistant's claims against actual state (STATUS + CONFIDENCE) |
