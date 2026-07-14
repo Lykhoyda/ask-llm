@@ -170,7 +170,9 @@ const props = withDefaults(defineProps<{ provider?: ProviderId }>(), {
 
 const doc = computed(() => PROVIDER_DOCS[props.provider]);
 
-const activeTab = ref<TabId>("claude-code");
+// The Claude provider cannot be hosted by Claude Code (nested sessions
+// rejected), so its page opens on the Codex CLI tab instead.
+const activeTab = ref<TabId>(props.provider === "claude" ? "codex" : "claude-code");
 const tabRefs = ref<(HTMLButtonElement | null)[]>([]);
 const underlineStyle = ref<Record<string, string>>({
   transform: "translateX(0px)",
