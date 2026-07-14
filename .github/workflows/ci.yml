@@ -124,11 +124,14 @@ jobs:
       run: |
         set -eu
         npm cache clean --force
-        for bin in ask-gemini-mcp ask-codex-mcp ask-claude-mcp ask-ollama-mcp ask-antigravity-mcp; do
-          tarball_prefix="$bin"
-          if [ "$bin" = "ask-claude-mcp" ]; then
-            tarball_prefix="anton-lykhoyda-ask-claude-mcp"
-          fi
+        for entry in \
+          "ask-llm-gemini-mcp:ask-gemini-mcp" \
+          "ask-llm-codex-mcp:ask-codex-mcp" \
+          "ask-llm-claude-mcp:ask-claude-mcp" \
+          "ask-llm-ollama-mcp:ask-ollama-mcp" \
+          "ask-llm-antigravity-mcp:ask-antigravity-mcp"; do
+          tarball_prefix="${entry%%:*}"
+          bin="${entry#*:}"
           npm install -g /tmp/tarballs/${tarball_prefix}-*.tgz
           printf '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"smoke","version":"0.0.0"}}}\n' \
             | timeout 20 "$bin" > /tmp/out.json 2> /tmp/err.txt || true
@@ -136,7 +139,7 @@ jobs:
           grep -q '"serverInfo"' /tmp/out.json || { echo "FAIL: $bin no initialize response"; cat /tmp/err.txt; exit 1; }
           echo "OK: $bin boots on Node ${{ matrix.node-version }}"
         done
-    - name: Global-install + doctor smoke — ask-llm-mcp via local registry
+    - name: Global-install + doctor smoke — @ask-llm/mcp via local registry
       run: |
         set -eu
         # Defensive: stale verdaccio storage caches npmjs copies of ask-* and would
@@ -146,8 +149,8 @@ jobs:
         npx wait-on@9 -t 30000 http://localhost:4873
         npm config set //localhost:4873/:_authToken fake
         for t in /tmp/tarballs/*.tgz; do npm publish --registry http://localhost:4873 "$t"; done
-        npm install -g ask-llm-mcp --registry http://localhost:4873
+        npm install -g @ask-llm/mcp --registry http://localhost:4873
         ask-llm-mcp doctor --json > /tmp/doctor.json 2> /tmp/doctor-err.txt || true
         if grep -q 'ERR_MODULE_NOT_FOUND' /tmp/doctor-err.txt; then echo "FAIL: doctor crashed at import"; cat /tmp/doctor-err.txt; exit 1; fi
         grep -q '"status"' /tmp/doctor.json || { echo "FAIL: doctor produced no report"; cat /tmp/doctor-err.txt; cat /tmp/doctor.json; exit 1; }
-        echo "OK: ask-llm-mcp global install + doctor on Node ${{ matrix.node-version }}"
+        echo "OK: @ask-llm/mcp global install + ask-llm-mcp doctor on Node ${{ matrix.node-version }}"

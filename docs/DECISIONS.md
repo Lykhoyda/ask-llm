@@ -1,5 +1,13 @@
 # Architectural Decisions
 
+## ADR-133: Canonical npm packages live under the `@ask-llm` organization
+
+- **Date:** 2026-07-14
+- **Status:** Accepted
+- **Context:** Five MCP packages used unrelated unscoped names while the Claude provider used the personal scope `@anton-lykhoyda`. The mixed ownership model made the package family harder to discover and made the Claude package look unofficial. The `@ask-llm` npm organization now exists and the maintainer is its owner.
+- **Decision:** Publish every public MCP package under one canonical namespace: `@ask-llm/gemini-mcp`, `@ask-llm/codex-mcp`, `@ask-llm/claude-mcp`, `@ask-llm/ollama-mcp`, `@ask-llm/antigravity-mcp`, and `@ask-llm/mcp`. Preserve the existing executable names (`ask-gemini-mcp`, etc.) so global-install configurations remain compatible. Update all internal runtime dependencies, MCP Registry manifests, release checks, CI tarball smoke tests, documentation, and plugin references atomically. After all six scoped packages are publicly installable, deprecate the former npm names with migration messages.
+- **Consequences:** Package install specs change, but commands and MCP configuration binaries do not. Scoped packages explicitly publish with public visibility. The release preflight pins the canonical package-to-binary mapping so a future manifest edit cannot silently rename an executable or reintroduce a personal or unscoped package. Historical changelog entries and ADR text retain the names that were accurate when written.
+
 ## ADR-132: Preferred `gpt-5.5-pro` tier for /codex-review and /brainstorm
 
 **Status:** Accepted (2026-07-04)

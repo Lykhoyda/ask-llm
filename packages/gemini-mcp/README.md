@@ -2,8 +2,8 @@
 
 <div align="center">
 
-[![npm version](https://img.shields.io/npm/v/ask-gemini-mcp)](https://www.npmjs.com/package/ask-gemini-mcp)
-[![npm downloads](https://img.shields.io/npm/dt/ask-gemini-mcp)](https://www.npmjs.com/package/ask-gemini-mcp)
+[![npm version](https://img.shields.io/npm/v/@ask-llm/gemini-mcp)](https://www.npmjs.com/package/@ask-llm/gemini-mcp)
+[![npm downloads](https://img.shields.io/npm/dt/@ask-llm/gemini-mcp)](https://www.npmjs.com/package/@ask-llm/gemini-mcp)
 [![GitHub Release](https://img.shields.io/github/v/release/Lykhoyda/ask-llm?logo=github&label=GitHub)](https://github.com/Lykhoyda/ask-llm/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 
@@ -11,10 +11,10 @@
 
 </div>
 
-An [MCP](https://modelcontextprotocol.io/) server for AI-to-AI collaboration via the Gemini CLI. Available on npm: [`ask-gemini-mcp`](https://www.npmjs.com/package/ask-gemini-mcp). Works with Claude Code, Claude Desktop, Cursor, Warp, Copilot, and [40+ other MCP clients](https://modelcontextprotocol.io/clients). Leverage Gemini's massive 1M+ token context window for large file and codebase analysis while your primary AI handles interaction and code editing.
+An [MCP](https://modelcontextprotocol.io/) server for AI-to-AI collaboration via the Gemini CLI. Available on npm: [`@ask-llm/gemini-mcp`](https://www.npmjs.com/package/@ask-llm/gemini-mcp). Works with Claude Code, Claude Desktop, Cursor, Warp, Copilot, and [40+ other MCP clients](https://modelcontextprotocol.io/clients). Leverage Gemini's massive 1M+ token context window for large file and codebase analysis while your primary AI handles interaction and code editing.
 
 <a href="https://glama.ai/mcp/servers/@Lykhoyda/ask-llm">
-  <img width="380" height="200" src="https://glama.ai/mcp/servers/@Lykhoyda/ask-llm/badge" alt="ask-gemini-mcp MCP server" />
+  <img width="380" height="200" src="https://glama.ai/mcp/servers/@Lykhoyda/ask-llm/badge" alt="@ask-llm/gemini-mcp MCP server" />
 </a>
 
 ## Why?
@@ -30,10 +30,10 @@ An [MCP](https://modelcontextprotocol.io/) server for AI-to-AI collaboration via
 
 ```bash
 # Project scope (available in current project only)
-claude mcp add gemini-cli -- npx -y ask-gemini-mcp
+claude mcp add gemini-cli -- npx -y @ask-llm/gemini-mcp
 
 # User scope (available across all projects)
-claude mcp add --scope user gemini-cli -- npx -y ask-gemini-mcp
+claude mcp add --scope user gemini-cli -- npx -y @ask-llm/gemini-mcp
 ```
 
 ### Claude Desktop
@@ -45,7 +45,7 @@ Add to your config file (`~/Library/Application Support/Claude/claude_desktop_co
   "mcpServers": {
     "gemini-cli": {
       "command": "npx",
-      "args": ["-y", "ask-gemini-mcp"]
+      "args": ["-y", "@ask-llm/gemini-mcp"]
     }
   }
 }
@@ -68,7 +68,7 @@ Add to `.cursor/mcp.json` in your project (or `~/.cursor/mcp.json` for global):
   "mcpServers": {
     "gemini-cli": {
       "command": "npx",
-      "args": ["-y", "ask-gemini-mcp"]
+      "args": ["-y", "@ask-llm/gemini-mcp"]
     }
   }
 }
@@ -81,13 +81,13 @@ Add to `~/.codex/config.toml` (or `.codex/config.toml` in your project):
 ```toml
 [mcp_servers.gemini-cli]
 command = "npx"
-args = ["-y", "ask-gemini-mcp"]
+args = ["-y", "@ask-llm/gemini-mcp"]
 ```
 
 Or via CLI:
 
 ```bash
-codex mcp add gemini-cli -- npx -y ask-gemini-mcp
+codex mcp add gemini-cli -- npx -y @ask-llm/gemini-mcp
 ```
 
 ### OpenCode
@@ -99,7 +99,7 @@ Add to `opencode.json` in your project (or `~/.config/opencode/opencode.json` fo
   "mcp": {
     "gemini-cli": {
       "type": "local",
-      "command": ["npx", "-y", "ask-gemini-mcp"]
+      "command": ["npx", "-y", "@ask-llm/gemini-mcp"]
     }
   }
 }
@@ -112,7 +112,7 @@ Add to `opencode.json` in your project (or `~/.config/opencode/opencode.json` fo
   "transport": {
     "type": "stdio",
     "command": "npx",
-    "args": ["-y", "ask-gemini-mcp"]
+    "args": ["-y", "@ask-llm/gemini-mcp"]
   }
 }
 ```

@@ -68,15 +68,23 @@ jobs:
           NODE_AUTH_TOKEN: ${{ secrets.NODE_AUTH_TOKEN }}
 
       # Scoped packages default to restricted visibility. Keep this explicit even
-      # though the manifest requests public access: the first 0.1.1 publish was
-      # accepted by npm but remained invisible to unauthenticated installs.
-      - name: Ensure ask-claude is public on npm
+      # though every manifest requests public access; a publish can otherwise be
+      # accepted by npm but remain invisible to unauthenticated installs.
+      - name: Ensure Ask LLM packages are public on npm
         if: steps.changesets.outputs.published == 'true' || github.event_name == 'workflow_dispatch'
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NODE_AUTH_TOKEN }}
         run: |
-          npm access set status=public @anton-lykhoyda/ask-claude-mcp
-          test "$(npm access get status @anton-lykhoyda/ask-claude-mcp --json | jq -r '."@anton-lykhoyda/ask-claude-mcp"')" = "public"
+          for pkg in \
+            @ask-llm/gemini-mcp \
+            @ask-llm/codex-mcp \
+            @ask-llm/claude-mcp \
+            @ask-llm/ollama-mcp \
+            @ask-llm/antigravity-mcp \
+            @ask-llm/mcp; do
+            npm access set status=public "$pkg"
+            test "$(npm access get status "$pkg" --json | jq -r --arg pkg "$pkg" '.[$pkg]')" = "public"
+          done
 
       # Everything below this line runs ONLY when changesets actually published to npm
       # (i.e., the Version Packages PR just merged). On every other push to main —
@@ -135,7 +143,7 @@ jobs:
 
       # Unified GitHub Release tagged at gemini's version (legacy convention from when this
       # was a fork of gemini-mcp-tool). The per-package tags created by changesets/action
-      # also exist (ask-gemini-mcp@1.6.4 etc.) — both are kept so URL-bookmarked release
+      # also exist (@ask-llm/gemini-mcp@1.6.4 etc.) — both are kept so URL-bookmarked release
       # pages from v1.5.x..v1.6.x still resolve.
       - name: Get gemini version for unified release tag
         if: steps.changesets.outputs.published == 'true'
@@ -198,7 +206,7 @@ jobs:
               ``,
               `Likely causes:`,
               `- NODE_AUTH_TOKEN expired, revoked, or wrong type (must be Classic "Automation" or 2FA-bypass Granular)`,
-              `- Package permission changed on npm (token no longer covers ask-gemini-mcp / ask-codex-mcp / @anton-lykhoyda/ask-claude-mcp / ask-ollama-mcp / ask-antigravity-mcp / ask-llm-mcp)`,
+              `- Package permission changed on npm (token no longer covers @ask-llm/gemini-mcp / @ask-llm/codex-mcp / @ask-llm/claude-mcp / @ask-llm/ollama-mcp / @ask-llm/antigravity-mcp / @ask-llm/mcp)`,
               `- npm registry outage`,
               ``,
               `**Fix path:**`,

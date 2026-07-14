@@ -6,12 +6,12 @@ This guide helps you choose the right way to consult external LLMs (Gemini, Code
 
 ```
 Are you using Claude Code?
-|-- No --> Orchestrator (ask-llm-mcp) or Standalone MCP
+|-- No --> Orchestrator (@ask-llm/mcp) or Standalone MCP
 |          Works with any MCP client: Cursor, Windsurf, Cline, etc.
 |
 +-- Yes
     |-- Want both Gemini AND Codex?
-    |   --> Orchestrator (ask-llm-mcp) — RECOMMENDED
+    |   --> Orchestrator (@ask-llm/mcp) — RECOMMENDED
     |       Lowest token overhead, one install, auto-detects CLIs
     |
     |-- Want a one-command review workflow?
@@ -19,7 +19,7 @@ Are you using Claude Code?
     |       Gathers your diff automatically, delegates to Gemini
     |
     +-- Want provider-specific features (sandbox, changeMode)?
-        --> Standalone MCP (ask-gemini-mcp)
+        --> Standalone MCP (@ask-llm/gemini-mcp)
             Full Gemini-specific parameter access
 ```
 
@@ -27,9 +27,9 @@ Are you using Claude Code?
 
 | Approach | Install | Token Overhead | Works Outside Claude Code |
 |----------|---------|---------------|--------------------------|
-| **Orchestrator** | `npx -y ask-llm-mcp` | **312 tokens (-68%)** | Yes |
-| **Standalone Codex** | `npx -y ask-codex-mcp` | 411 tokens (-58%) | Yes |
-| **Standalone Gemini** | `npx -y ask-gemini-mcp` | 973 tokens (baseline) | Yes |
+| **Orchestrator** | `npx -y @ask-llm/mcp` | **312 tokens (-68%)** | Yes |
+| **Standalone Codex** | `npx -y @ask-llm/codex-mcp` | 411 tokens (-58%) | Yes |
+| **Standalone Gemini** | `npx -y @ask-llm/gemini-mcp` | 973 tokens (baseline) | Yes |
 | **Subagent** | Plugin install | 1274 tokens (+31%) | No |
 | **Skill** | Plugin install | 1430 tokens (+47%, primary context) | No |
 
@@ -39,17 +39,17 @@ The orchestrator uses a single unified `ask-llm` tool with a `provider` paramete
 
 ## When to Use Each
 
-### Orchestrator (ask-llm-mcp) — Recommended Default
+### Orchestrator (@ask-llm/mcp) — Recommended Default
 Best for: Most users. Lowest token overhead with access to all installed providers.
 - Single `ask-llm` tool with `provider` parameter (gemini/codex)
 - Auto-detects installed CLIs at startup
 - 312 tokens total (68% less than standalone Gemini)
-- Install: `claude mcp add ask-llm -- npx -y ask-llm-mcp`
+- Install: `claude mcp add ask-llm -- npx -y @ask-llm/mcp`
 
-### Standalone MCP (ask-gemini-mcp / ask-codex-mcp)
+### Standalone MCP (@ask-llm/gemini-mcp / @ask-llm/codex-mcp)
 Best for: Users who need provider-specific features (Gemini sandbox mode, changeMode, sessions).
 - Full provider-specific parameters exposed
-- Install: `claude mcp add gemini-cli -- npx -y ask-gemini-mcp`
+- Install: `claude mcp add gemini-cli -- npx -y @ask-llm/gemini-mcp`
 
 ### Skill (/gemini-review)
 Best for: Claude Code users who want a one-command code review workflow.

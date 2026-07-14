@@ -37,32 +37,32 @@ hero:
   <a href="/ask-llm/providers/unified" class="provider-card unified-featured" data-provider="unified">
     <span class="provider-name">Unified — start here</span>
     <span class="provider-desc">All providers in one server. Auto-detects the CLIs you have installed and routes each request, or fans the same prompt out to several at once.</span>
-    <span class="provider-pkg">npx ask-llm-mcp</span>
+    <span class="provider-pkg">npx @ask-llm/mcp</span>
   </a>
   <a href="/ask-llm/providers/codex" class="provider-card" data-provider="codex">
     <span class="provider-name">Codex</span>
     <span class="provider-desc">OpenAI's Codex CLI (GPT-5.5). Strongest code reasoning — the default workhorse reviewer.</span>
-    <span class="provider-pkg">npx ask-codex-mcp</span>
+    <span class="provider-pkg">npx @ask-llm/codex-mcp</span>
   </a>
   <a href="/ask-llm/providers/claude" class="provider-card" data-provider="claude">
     <span class="provider-name">Claude</span>
     <span class="provider-desc">Anthropic Claude Code CLI (Opus → Sonnet). The reverse path for Codex and other MCP clients to request a read-only Claude second opinion.</span>
-    <span class="provider-pkg">npx @anton-lykhoyda/ask-claude-mcp</span>
+    <span class="provider-pkg">npx @ask-llm/claude-mcp</span>
   </a>
   <a href="/ask-llm/providers/antigravity" class="provider-card" data-provider="antigravity">
     <span class="provider-name">Antigravity</span>
     <span class="provider-desc">Google Antigravity (agy) — a subscription-backed second opinion via your Google AI Pro/Ultra plan. The Gemini CLI successor.</span>
-    <span class="provider-pkg">npx ask-antigravity-mcp</span>
+    <span class="provider-pkg">npx @ask-llm/antigravity-mcp</span>
   </a>
   <a href="/ask-llm/providers/ollama" class="provider-card" data-provider="ollama">
     <span class="provider-name">Ollama</span>
     <span class="provider-desc">Local models via Ollama. No API keys, fully private, zero cost — for code that can't leave your machine.</span>
-    <span class="provider-pkg">npx ask-ollama-mcp</span>
+    <span class="provider-pkg">npx @ask-llm/ollama-mcp</span>
   </a>
   <a href="/ask-llm/providers/gemini" class="provider-card" data-provider="gemini">
     <span class="provider-name">Gemini <span class="provider-tag">enterprise</span></span>
     <span class="provider-desc">Google's Gemini CLI. 1M+ token context for whole-codebase reads. Gated to enterprise seats from 2026-06-18.</span>
-    <span class="provider-pkg">npx ask-gemini-mcp</span>
+    <span class="provider-pkg">npx @ask-llm/gemini-mcp</span>
   </a>
 </div>
 

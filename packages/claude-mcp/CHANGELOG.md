@@ -1,4 +1,4 @@
-# @anton-lykhoyda/ask-claude-mcp
+# @ask-llm/claude-mcp
 
 ## 0.1.1
 
@@ -6,7 +6,7 @@
 
 - [#224](https://github.com/Lykhoyda/ask-llm/pull/224) [`4717bd8`](https://github.com/Lykhoyda/ask-llm/commit/4717bd8cd9b30715deb8e1beaef0797f7623b242) Thanks [@Lykhoyda](https://github.com/Lykhoyda)! - Publish the Claude provider under the `@anton-lykhoyda` npm scope because npm
   rejects the unscoped name as too similar to an existing package. The executable
-  remains `ask-claude-mcp`, and the unified server now imports the scoped package.
+  remains `@anton-lykhoyda/ask-claude-mcp`, and the unified server now imports the scoped package.
 
 ## 0.1.0
 

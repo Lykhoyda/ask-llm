@@ -31,9 +31,9 @@ claude --plugin-dir ./packages/claude-plugin
 Add the MCP servers at user scope for short tool names (recommended):
 
 ```bash
-claude mcp add --scope user gemini -- npx -y ask-gemini-mcp
-claude mcp add --scope user codex -- npx -y ask-codex-mcp
-claude mcp add --scope user ollama -- npx -y ask-ollama-mcp
+claude mcp add --scope user gemini -- npx -y @ask-llm/gemini-mcp
+claude mcp add --scope user codex -- npx -y @ask-llm/codex-mcp
+claude mcp add --scope user ollama -- npx -y @ask-llm/ollama-mcp
 ```
 
 This gives you `gemini:ask-gemini` rather than `plugin:ask-llm:gemini:ask-gemini`.

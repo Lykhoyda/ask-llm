@@ -2,7 +2,7 @@
 description: All LLM providers in one MCP server. Auto-detects installed CLIs (Gemini, Codex, Claude, Ollama, Antigravity) and registers available tools behind runtime checks.
 ---
 
-# Unified (ask-llm-mcp)
+# Unified (@ask-llm/mcp)
 
 All providers in one MCP server. Auto-detects which CLIs are installed and registers only the available tools. One install, all providers.
 
@@ -16,7 +16,7 @@ All providers in one MCP server. Auto-detects which CLIs are installed and regis
 Or install globally:
 
 ```bash
-npm install -g ask-llm-mcp
+npm install -g @ask-llm/mcp
 ```
 
 ## Prerequisites
@@ -55,11 +55,11 @@ It also exposes `usage://current-session` as an MCP Resource for live JSON snaps
 
 ## CLI Subcommands
 
-The `ask-llm-mcp` binary supports two CLI modes alongside the default MCP server:
+The `ask-llm-mcp` executable supports two CLI modes alongside the default MCP server:
 
 ```bash
-npx ask-llm-mcp repl     # interactive multi-provider REPL with sessions, usage tracking, slash commands
-npx ask-llm-mcp doctor   # diagnose Node version, PATH, provider CLIs, env vars (--json for machine output)
+npx @ask-llm/mcp repl     # interactive multi-provider REPL with sessions, usage tracking, slash commands
+npx @ask-llm/mcp doctor   # diagnose Node version, PATH, provider CLIs, env vars (--json for machine output)
 ```
 
 ## Key Features
@@ -74,5 +74,5 @@ npx ask-llm-mcp doctor   # diagnose Node version, PATH, provider CLIs, env vars 
 
 ## npm
 
-- **Package:** [ask-llm-mcp](https://www.npmjs.com/package/ask-llm-mcp)
+- **Package:** [@ask-llm/mcp](https://www.npmjs.com/package/@ask-llm/mcp)
 - **Binary:** `ask-llm-mcp`

@@ -1,4 +1,4 @@
-# ask-antigravity-mcp (EXPERIMENTAL)
+# @ask-llm/antigravity-mcp (EXPERIMENTAL)
 
 MCP server for Google's Antigravity CLI (`agy`). Lets Claude get a
 subscription-backed second opinion / code review from Antigravity.

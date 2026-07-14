@@ -18,7 +18,7 @@ describe("scripts/codex-pair-debounce-worker.mjs — structural invariants", () 
   });
 
   it("has zero workspace imports", () => {
-    expect(script).not.toMatch(/from\s+["']@ask-llm/);
+    expect(script).not.toMatch(/from\s+["']@ask-llm\//);
     expect(script).not.toMatch(/from\s+["']ask-(codex|gemini|ollama)-mcp/);
   });
 

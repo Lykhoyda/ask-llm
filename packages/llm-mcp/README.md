@@ -2,8 +2,8 @@
 
 <div align="center">
 
-[![npm version](https://img.shields.io/npm/v/ask-llm-mcp)](https://www.npmjs.com/package/ask-llm-mcp)
-[![npm downloads](https://img.shields.io/npm/dt/ask-llm-mcp)](https://www.npmjs.com/package/ask-llm-mcp)
+[![npm version](https://img.shields.io/npm/v/@ask-llm/mcp)](https://www.npmjs.com/package/@ask-llm/mcp)
+[![npm downloads](https://img.shields.io/npm/dt/@ask-llm/mcp)](https://www.npmjs.com/package/@ask-llm/mcp)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 
 **All LLM providers in one MCP server — auto-detects what's installed**
@@ -19,7 +19,7 @@ Part of the [Ask LLM](https://github.com/Lykhoyda/ask-llm) monorepo.
 ### Claude Code
 
 ```bash
-claude mcp add ask-llm -- npx -y ask-llm-mcp
+claude mcp add ask-llm -- npx -y @ask-llm/mcp
 ```
 
 ### Claude Desktop
@@ -31,7 +31,7 @@ Add to `claude_desktop_config.json`:
   "mcpServers": {
     "ask-llm": {
       "command": "npx",
-      "args": ["-y", "ask-llm-mcp"]
+      "args": ["-y", "@ask-llm/mcp"]
     }
   }
 }

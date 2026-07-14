@@ -4,31 +4,31 @@ vi.mock("../utils/availability.js", () => ({
   isCommandAvailable: vi.fn().mockResolvedValue(false),
 }));
 
-vi.mock("ask-gemini-mcp/executor", () => ({
+vi.mock("@ask-llm/gemini-mcp/executor", () => ({
   executeGeminiCLI: vi.fn().mockResolvedValue({ response: "gemini response", sessionId: undefined }),
 }));
 
-vi.mock("ask-codex-mcp/executor", () => ({
+vi.mock("@ask-llm/codex-mcp/executor", () => ({
   executeCodexCLI: vi.fn().mockResolvedValue({ response: "codex response", threadId: undefined }),
 }));
 
-vi.mock("@anton-lykhoyda/ask-claude-mcp/executor", () => ({
+vi.mock("@ask-llm/claude-mcp/executor", () => ({
   executeClaudeCLI: vi.fn().mockResolvedValue({ response: "claude response", sessionId: undefined }),
 }));
 
-vi.mock("ask-ollama-mcp/executor", () => ({
+vi.mock("@ask-llm/ollama-mcp/executor", () => ({
   executeOllamaCLI: vi.fn().mockResolvedValue({ response: "ollama response", model: "qwen3.6:27b" }),
   isProviderAvailable: vi.fn().mockResolvedValue(false),
 }));
 
-vi.mock("ask-antigravity-mcp/executor", () => ({
+vi.mock("@ask-llm/antigravity-mcp/executor", () => ({
   executeAntigravityCLI: vi.fn().mockResolvedValue({ response: "antigravity response" }),
 }));
 
-import { executeClaudeCLI } from "@anton-lykhoyda/ask-claude-mcp/executor";
-import { executeCodexCLI } from "ask-codex-mcp/executor";
-import { executeGeminiCLI } from "ask-gemini-mcp/executor";
-import { executeOllamaCLI, isProviderAvailable as mockIsOllamaAvailable } from "ask-ollama-mcp/executor";
+import { executeClaudeCLI } from "@ask-llm/claude-mcp/executor";
+import { executeCodexCLI } from "@ask-llm/codex-mcp/executor";
+import { executeGeminiCLI } from "@ask-llm/gemini-mcp/executor";
+import { executeOllamaCLI, isProviderAvailable as mockIsOllamaAvailable } from "@ask-llm/ollama-mcp/executor";
 import { detectProviders } from "../index.js";
 import { isCommandAvailable } from "../utils/availability.js";
 

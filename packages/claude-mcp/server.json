@@ -10,7 +10,7 @@
   "packages": [
     {
       "registryType": "npm",
-      "identifier": "@anton-lykhoyda/ask-claude-mcp",
+      "identifier": "@ask-llm/claude-mcp",
       "version": "0.0.1",
       "transport": {
         "type": "stdio"

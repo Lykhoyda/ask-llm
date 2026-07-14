@@ -17,7 +17,7 @@ You should see a `Pong!` reply listing the providers your server detected.
 If something's off, run the doctor from your terminal — it works even when the MCP server can't start:
 
 ```bash
-npx ask-llm-mcp doctor
+npx @ask-llm/mcp doctor
 ```
 
 ## Single-Provider Calls
@@ -67,7 +67,7 @@ Claude, Gemini, Codex, and Ollama support sessions — Claude/Gemini/Codex use n
 For quick sanity checks without setting up an MCP client:
 
 ```bash
-npx ask-llm-mcp repl
+npx @ask-llm/mcp repl
 ```
 
 Multi-provider shell with `/provider <name>`, `/new`, `/usage`, `/sessions`, `/help`, `/quit` slash commands. Streams Gemini responses live.

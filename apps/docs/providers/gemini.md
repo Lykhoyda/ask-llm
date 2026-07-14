@@ -7,20 +7,20 @@ description: Bridge Claude with Google Gemini via the official CLI. 1M+ token co
 Bridge Claude with Google's Gemini via the official Gemini CLI. Leverages Gemini's massive 1M+ token context window for large file and codebase analysis while Claude handles interaction and code editing.
 
 ::: danger Discontinued on consumer tiers — migrate to Antigravity
-**From 2026-06-18**, Google restricts Gemini CLI access to **Gemini Code Assist Standard/Enterprise** seats; **free, Google AI Pro, and Ultra** accounts lose access. `ask-gemini-mcp` still installs and launches — the failure is a runtime auth/quota error from Google's backend, not a missing binary.
+**From 2026-06-18**, Google restricts Gemini CLI access to **Gemini Code Assist Standard/Enterprise** seats; **free, Google AI Pro, and Ultra** accounts lose access. `@ask-llm/gemini-mcp` still installs and launches — the failure is a runtime auth/quota error from Google's backend, not a missing binary.
 
-**On a subscription tier?** Migrate to **[Antigravity (`agy`)](./antigravity)** — Google's successor CLI, covered by the same AI Pro/Ultra subscription with no per-token billing. Install [`ask-antigravity-mcp`](./antigravity), or switch to [`ask-codex`](./codex) / [`ask-ollama`](./ollama). The **2026-06-18 tier change** section below covers what happens at runtime.
+**On a subscription tier?** Migrate to **[Antigravity (`agy`)](./antigravity)** — Google's successor CLI, covered by the same AI Pro/Ultra subscription with no per-token billing. Install [`@ask-llm/antigravity-mcp`](./antigravity), or switch to [`ask-codex`](./codex) / [`ask-ollama`](./ollama). The **2026-06-18 tier change** section below covers what happens at runtime.
 :::
 
 ## 2026-06-18 tier change
 
 From **2026-06-18**, Google serves Gemini CLI requests only for **Gemini Code Assist Standard/Enterprise** accounts; free, Google AI Pro, and Ultra accounts lose access. The surviving tiers keep working with the same `gemini` binary and backend.
 
-What this means for `ask-gemini-mcp`:
+What this means for `@ask-llm/gemini-mcp`:
 
 - The npm package **still installs and launches** — the binary is unchanged. The failure for non-enterprise accounts is a **runtime auth/quota error**, not a missing binary, so reinstalling will not help.
 - On or after the cutoff, an auth/quota-class failure now surfaces an actionable notice (cutoff date + options) instead of a raw error. The note is **advisory** ("likely caused by the tier change") — a genuine auth, billing, or quota error can also trigger it.
-- Google's successor is the **Antigravity CLI (`agy`)** — a separate, closed-source binary that `ask-gemini-mcp` does **not** wrap. Use the dedicated **[`ask-antigravity-mcp`](./antigravity)** package (covered by the same Google AI Pro/Ultra subscription, no per-token billing), run `agy` directly, or switch to [`ask-codex`](./codex) / [`ask-ollama`](./ollama).
+- Google's successor is the **Antigravity CLI (`agy`)** — a separate, closed-source binary that `@ask-llm/gemini-mcp` does **not** wrap. Use the dedicated **[`@ask-llm/antigravity-mcp`](./antigravity)** package (covered by the same Google AI Pro/Ultra subscription, no per-token billing), run `agy` directly, or switch to [`ask-codex`](./codex) / [`ask-ollama`](./ollama).
 - **Testing the guidance:** set `ASK_GEMINI_TIER_CUTOFF` to a past UTC instant (e.g. `2020-01-01T00:00:00Z`) to force the post-cutoff gate on; an auth/quota failure will then prepend the notice. The default cutoff is `2026-06-18T00:00:00Z`.
 
 [Google's announcement](https://developers.googleblog.com/an-important-update-transitioning-gemini-cli-to-antigravity-cli/).
@@ -35,7 +35,7 @@ What this means for `ask-gemini-mcp`:
 Or install globally:
 
 ```bash
-npm install -g ask-gemini-mcp
+npm install -g @ask-llm/gemini-mcp
 ```
 
 ## Prerequisites
@@ -76,5 +76,5 @@ gemini login
 
 ## npm
 
-- **Package:** [ask-gemini-mcp](https://www.npmjs.com/package/ask-gemini-mcp)
+- **Package:** [@ask-llm/gemini-mcp](https://www.npmjs.com/package/@ask-llm/gemini-mcp)
 - **Binary:** `ask-gemini-mcp`

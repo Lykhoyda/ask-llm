@@ -2,8 +2,8 @@
 
 <div align="center">
 
-[![npm version](https://img.shields.io/npm/v/ask-ollama-mcp)](https://www.npmjs.com/package/ask-ollama-mcp)
-[![npm downloads](https://img.shields.io/npm/dt/ask-ollama-mcp)](https://www.npmjs.com/package/ask-ollama-mcp)
+[![npm version](https://img.shields.io/npm/v/@ask-llm/ollama-mcp)](https://www.npmjs.com/package/@ask-llm/ollama-mcp)
+[![npm downloads](https://img.shields.io/npm/dt/@ask-llm/ollama-mcp)](https://www.npmjs.com/package/@ask-llm/ollama-mcp)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 
 **MCP server for local Ollama LLMs — no API keys, fully private**
@@ -19,7 +19,7 @@ Part of the [Ask LLM](https://github.com/Lykhoyda/ask-llm) monorepo.
 ### Claude Code
 
 ```bash
-claude mcp add ollama -- npx -y ask-ollama-mcp
+claude mcp add ollama -- npx -y @ask-llm/ollama-mcp
 ```
 
 ### Claude Desktop
@@ -31,7 +31,7 @@ Add to `claude_desktop_config.json`:
   "mcpServers": {
     "ollama": {
       "command": "npx",
-      "args": ["-y", "ask-ollama-mcp"]
+      "args": ["-y", "@ask-llm/ollama-mcp"]
     }
   }
 }
@@ -42,7 +42,7 @@ Add to `claude_desktop_config.json`:
 ```json
 {
   "command": "npx",
-  "args": ["-y", "ask-ollama-mcp"]
+  "args": ["-y", "@ask-llm/ollama-mcp"]
 }
 ```
 

@@ -9,12 +9,12 @@
 
 | Package | Type | Version | Downloads |
 |---------|------|---------|-----------|
-| [`ask-gemini-mcp`](https://www.npmjs.com/package/ask-gemini-mcp) | MCP Server | [![npm](https://img.shields.io/npm/v/ask-gemini-mcp)](https://www.npmjs.com/package/ask-gemini-mcp) | [![downloads](https://img.shields.io/npm/dt/ask-gemini-mcp)](https://www.npmjs.com/package/ask-gemini-mcp) |
-| [`ask-codex-mcp`](https://www.npmjs.com/package/ask-codex-mcp) | MCP Server | [![npm](https://img.shields.io/npm/v/ask-codex-mcp)](https://www.npmjs.com/package/ask-codex-mcp) | [![downloads](https://img.shields.io/npm/dt/ask-codex-mcp)](https://www.npmjs.com/package/ask-codex-mcp) |
-| [`@anton-lykhoyda/ask-claude-mcp`](https://www.npmjs.com/package/@anton-lykhoyda/ask-claude-mcp) | MCP Server | [![npm](https://img.shields.io/npm/v/@anton-lykhoyda/ask-claude-mcp)](https://www.npmjs.com/package/@anton-lykhoyda/ask-claude-mcp) | [![downloads](https://img.shields.io/npm/dt/@anton-lykhoyda/ask-claude-mcp)](https://www.npmjs.com/package/@anton-lykhoyda/ask-claude-mcp) |
-| [`ask-ollama-mcp`](https://www.npmjs.com/package/ask-ollama-mcp) | MCP Server | [![npm](https://img.shields.io/npm/v/ask-ollama-mcp)](https://www.npmjs.com/package/ask-ollama-mcp) | [![downloads](https://img.shields.io/npm/dt/ask-ollama-mcp)](https://www.npmjs.com/package/ask-ollama-mcp) |
-| [`ask-antigravity-mcp`](https://www.npmjs.com/package/ask-antigravity-mcp) | MCP Server | [![npm](https://img.shields.io/npm/v/ask-antigravity-mcp)](https://www.npmjs.com/package/ask-antigravity-mcp) | [![downloads](https://img.shields.io/npm/dt/ask-antigravity-mcp)](https://www.npmjs.com/package/ask-antigravity-mcp) |
-| [`ask-llm-mcp`](https://www.npmjs.com/package/ask-llm-mcp) | MCP Server | [![npm](https://img.shields.io/npm/v/ask-llm-mcp)](https://www.npmjs.com/package/ask-llm-mcp) | [![downloads](https://img.shields.io/npm/dt/ask-llm-mcp)](https://www.npmjs.com/package/ask-llm-mcp) |
+| [`@ask-llm/gemini-mcp`](https://www.npmjs.com/package/@ask-llm/gemini-mcp) | MCP Server | [![npm](https://img.shields.io/npm/v/@ask-llm/gemini-mcp)](https://www.npmjs.com/package/@ask-llm/gemini-mcp) | [![downloads](https://img.shields.io/npm/dt/@ask-llm/gemini-mcp)](https://www.npmjs.com/package/@ask-llm/gemini-mcp) |
+| [`@ask-llm/codex-mcp`](https://www.npmjs.com/package/@ask-llm/codex-mcp) | MCP Server | [![npm](https://img.shields.io/npm/v/@ask-llm/codex-mcp)](https://www.npmjs.com/package/@ask-llm/codex-mcp) | [![downloads](https://img.shields.io/npm/dt/@ask-llm/codex-mcp)](https://www.npmjs.com/package/@ask-llm/codex-mcp) |
+| [`@ask-llm/claude-mcp`](https://www.npmjs.com/package/@ask-llm/claude-mcp) | MCP Server | [![npm](https://img.shields.io/npm/v/@ask-llm/claude-mcp)](https://www.npmjs.com/package/@ask-llm/claude-mcp) | [![downloads](https://img.shields.io/npm/dt/@ask-llm/claude-mcp)](https://www.npmjs.com/package/@ask-llm/claude-mcp) |
+| [`@ask-llm/ollama-mcp`](https://www.npmjs.com/package/@ask-llm/ollama-mcp) | MCP Server | [![npm](https://img.shields.io/npm/v/@ask-llm/ollama-mcp)](https://www.npmjs.com/package/@ask-llm/ollama-mcp) | [![downloads](https://img.shields.io/npm/dt/@ask-llm/ollama-mcp)](https://www.npmjs.com/package/@ask-llm/ollama-mcp) |
+| [`@ask-llm/antigravity-mcp`](https://www.npmjs.com/package/@ask-llm/antigravity-mcp) | MCP Server | [![npm](https://img.shields.io/npm/v/@ask-llm/antigravity-mcp)](https://www.npmjs.com/package/@ask-llm/antigravity-mcp) | [![downloads](https://img.shields.io/npm/dt/@ask-llm/antigravity-mcp)](https://www.npmjs.com/package/@ask-llm/antigravity-mcp) |
+| [`@ask-llm/mcp`](https://www.npmjs.com/package/@ask-llm/mcp) | MCP Server | [![npm](https://img.shields.io/npm/v/@ask-llm/mcp)](https://www.npmjs.com/package/@ask-llm/mcp) | [![downloads](https://img.shields.io/npm/dt/@ask-llm/mcp)](https://www.npmjs.com/package/@ask-llm/mcp) |
 | [`@ask-llm/plugin`](https://github.com/Lykhoyda/ask-llm/tree/main/packages/claude-plugin) | Claude Code Plugin | [![GitHub](https://img.shields.io/github/v/release/Lykhoyda/ask-llm?label=latest)](https://github.com/Lykhoyda/ask-llm/releases) | `/plugin install` |
 
 **MCP servers + Claude Code plugin for AI-to-AI collaboration**
@@ -23,7 +23,7 @@
 
 **Get a second opinion before you ship.** Ask LLM lets your AI assistant — Claude Code, Codex CLI, Cursor, Claude Desktop, or any of [40+ MCP clients](https://modelcontextprotocol.io/clients) — consult a _second_ model to review your code, debate a plan, or catch a bug it might have missed. Pick the reviewer that fits: OpenAI **Codex** (GPT-5.6 Sol → Terra), Anthropic **Claude** (Opus → Sonnet), Google **Antigravity** (`agy`), a local **Ollama** model, or **Gemini** (1M+ token context). Standard [MCP](https://modelcontextprotocol.io/), no prompt hacks.
 
-> **⚠️ Gemini CLI goes enterprise-only on 2026-06-18:** From that date Google restricts Gemini CLI to **Gemini Code Assist Standard/Enterprise** seats, and free, Google AI Pro, and Ultra accounts lose access. `ask-gemini-mcp` still installs, but a non-enterprise account then surfaces actionable guidance instead of output. Free/Pro users: switch to **`ask-antigravity`** (the Google-sanctioned successor, subscription-backed via Google AI Pro/Ultra), **`ask-codex`**, **`ask-claude`**, or **`ask-ollama`**. [Announcement](https://developers.googleblog.com/an-important-update-transitioning-gemini-cli-to-antigravity-cli/)
+> **⚠️ Gemini CLI goes enterprise-only on 2026-06-18:** From that date Google restricts Gemini CLI to **Gemini Code Assist Standard/Enterprise** seats, and free, Google AI Pro, and Ultra accounts lose access. `@ask-llm/gemini-mcp` still installs, but a non-enterprise account then surfaces actionable guidance instead of output. Free/Pro users: switch to **`ask-antigravity`** (the Google-sanctioned successor, subscription-backed via Google AI Pro/Ultra), **`ask-codex`**, **`ask-claude`**, or **`ask-ollama`**. [Announcement](https://developers.googleblog.com/an-important-update-transitioning-gemini-cli-to-antigravity-cli/)
 
 ## Why a second opinion?
 
@@ -52,17 +52,17 @@ One prompt. A second model reviews independently; your assistant applies the fix
 
 ```bash
 # All-in-one — auto-detects installed providers
-claude mcp add --scope user ask-llm -- npx -y ask-llm-mcp
+claude mcp add --scope user ask-llm -- npx -y @ask-llm/mcp
 ```
 
 <details>
 <summary>Or install providers individually</summary>
 
 ```bash
-claude mcp add --scope user gemini -- npx -y ask-gemini-mcp
-claude mcp add --scope user codex -- npx -y ask-codex-mcp
-claude mcp add --scope user ollama -- npx -y ask-ollama-mcp
-claude mcp add --scope user antigravity -- npx -y ask-antigravity-mcp
+claude mcp add --scope user gemini -- npx -y @ask-llm/gemini-mcp
+claude mcp add --scope user codex -- npx -y @ask-llm/codex-mcp
+claude mcp add --scope user ollama -- npx -y @ask-llm/ollama-mcp
+claude mcp add --scope user antigravity -- npx -y @ask-llm/antigravity-mcp
 ```
 
 </details>
@@ -76,7 +76,7 @@ Add to `claude_desktop_config.json`:
   "mcpServers": {
     "ask-llm": {
       "command": "npx",
-      "args": ["-y", "ask-llm-mcp"]
+      "args": ["-y", "@ask-llm/mcp"]
     }
   }
 }
@@ -90,15 +90,15 @@ Add to `claude_desktop_config.json`:
   "mcpServers": {
     "gemini": {
       "command": "npx",
-      "args": ["-y", "ask-gemini-mcp"]
+      "args": ["-y", "@ask-llm/gemini-mcp"]
     },
     "codex": {
       "command": "npx",
-      "args": ["-y", "ask-codex-mcp"]
+      "args": ["-y", "@ask-llm/codex-mcp"]
     },
     "ollama": {
       "command": "npx",
-      "args": ["-y", "ask-ollama-mcp"]
+      "args": ["-y", "@ask-llm/ollama-mcp"]
     }
   }
 }
@@ -113,7 +113,7 @@ Add to `claude_desktop_config.json`:
 ```json
 {
   "mcpServers": {
-    "ask-llm": { "command": "npx", "args": ["-y", "ask-llm-mcp"] }
+    "ask-llm": { "command": "npx", "args": ["-y", "@ask-llm/mcp"] }
   }
 }
 ```
@@ -122,21 +122,21 @@ Add to `claude_desktop_config.json`:
 ```toml
 [mcp_servers.ask-llm]
 command = "npx"
-args = ["-y", "ask-llm-mcp"]
+args = ["-y", "@ask-llm/mcp"]
 ```
 
 For the focused Codex → Claude second-opinion path:
 
 ```bash
-codex mcp add claude -- npx -y @anton-lykhoyda/ask-claude-mcp
+codex mcp add claude -- npx -y @ask-llm/claude-mcp
 ```
 
 **Any MCP Client** (STDIO transport):
 ```json
-{ "command": "npx", "args": ["-y", "ask-llm-mcp"] }
+{ "command": "npx", "args": ["-y", "@ask-llm/mcp"] }
 ```
 
-Replace `ask-llm-mcp` with `ask-codex-mcp`, `@anton-lykhoyda/ask-claude-mcp`, `ask-antigravity-mcp`, `ask-ollama-mcp`, or `ask-gemini-mcp` for a single provider.
+Replace `@ask-llm/mcp` with `@ask-llm/codex-mcp`, `@ask-llm/claude-mcp`, `@ask-llm/antigravity-mcp`, `@ask-llm/ollama-mcp`, or `@ask-llm/gemini-mcp` for a single provider.
 
 </details>
 
@@ -193,20 +193,20 @@ See the [plugin docs](https://lykhoyda.github.io/ask-llm/plugin/overview) for de
 
 | Tool | Package | Purpose |
 |------|---------|---------|
-| `ask-gemini` | ask-gemini-mcp | Send prompts to Gemini CLI with `@` file syntax. 1M+ token context. Live progressive output via `stream-json` |
-| `ask-gemini-edit` | ask-gemini-mcp | Get structured OLD/NEW code edit blocks from Gemini |
-| `fetch-chunk` | ask-gemini-mcp | Retrieve chunks from cached large responses |
-| `ask-codex` | ask-codex-mcp | Send prompts to Codex CLI. GPT-5.6 Sol with Terra fallback; optional reasoning effort; native session resume via `sessionId` |
-| `ask-claude` | @anton-lykhoyda/ask-claude-mcp | Send prompts to Claude Code CLI. Opus with Sonnet fallback; native sessions; Read/Glob/Grep-only workspace access |
-| `ask-ollama` | ask-ollama-mcp | Send prompts to local Ollama. Fully private, zero cost. Server-side conversation replay via `sessionId` |
-| `ask-antigravity` | ask-antigravity-mcp | Send a prompt to Google Antigravity (`agy`) for a subscription-backed second opinion. Experimental; one-shot |
-| `ask-llm` | ask-llm-mcp | Unified orchestrator — pick provider per call. Fan out to all installed providers |
-| `multi-llm` | ask-llm-mcp | Dispatch the same prompt to multiple providers in parallel; returns per-provider responses + usage in one call |
+| `ask-gemini` | @ask-llm/gemini-mcp | Send prompts to Gemini CLI with `@` file syntax. 1M+ token context. Live progressive output via `stream-json` |
+| `ask-gemini-edit` | @ask-llm/gemini-mcp | Get structured OLD/NEW code edit blocks from Gemini |
+| `fetch-chunk` | @ask-llm/gemini-mcp | Retrieve chunks from cached large responses |
+| `ask-codex` | @ask-llm/codex-mcp | Send prompts to Codex CLI. GPT-5.6 Sol with Terra fallback; optional reasoning effort; native session resume via `sessionId` |
+| `ask-claude` | @ask-llm/claude-mcp | Send prompts to Claude Code CLI. Opus with Sonnet fallback; native sessions; Read/Glob/Grep-only workspace access |
+| `ask-ollama` | @ask-llm/ollama-mcp | Send prompts to local Ollama. Fully private, zero cost. Server-side conversation replay via `sessionId` |
+| `ask-antigravity` | @ask-llm/antigravity-mcp | Send a prompt to Google Antigravity (`agy`) for a subscription-backed second opinion. Experimental; one-shot |
+| `ask-llm` | @ask-llm/mcp | Unified orchestrator — pick provider per call. Fan out to all installed providers |
+| `multi-llm` | @ask-llm/mcp | Dispatch the same prompt to multiple providers in parallel; returns per-provider responses + usage in one call |
 | `get-usage-stats` | all | Per-session token totals, fallback counts, breakdowns by provider/model — all in-memory, no persistence |
-| `diagnose` | ask-llm-mcp | Self-diagnosis: Node version, PATH resolution, provider CLI presence + versions. Read-only |
+| `diagnose` | @ask-llm/mcp | Self-diagnosis: Node version, PATH resolution, provider CLI presence + versions. Read-only |
 | `ping` | all | Connection test — verify MCP setup |
 
-All `ask-*` tools accept an optional `sessionId` parameter for multi-turn conversations and now return a structured `AskResponse` (provider, response, model, sessionId, usage) via MCP `outputSchema` alongside the human-readable text. The orchestrator (`ask-llm-mcp`) also exposes `usage://current-session` as an MCP Resource for live JSON snapshots.
+All `ask-*` tools accept an optional `sessionId` parameter for multi-turn conversations and now return a structured `AskResponse` (provider, response, model, sessionId, usage) via MCP `outputSchema` alongside the human-readable text. The orchestrator (`@ask-llm/mcp`) also exposes `usage://current-session` as an MCP Resource for live JSON snapshots.
 
 ### Usage Examples
 
@@ -221,15 +221,15 @@ use multi-llm to compare what codex and gemini think about this approach
 
 ## CLI Subcommands
 
-The orchestrator binary (`ask-llm-mcp`) supports two CLI modes alongside the default MCP server:
+The orchestrator binary (`@ask-llm/mcp`) supports two CLI modes alongside the default MCP server:
 
 ```bash
 # Interactive multi-provider REPL — switch providers, persist sessions, see usage live
-npx ask-llm-mcp repl
+npx @ask-llm/mcp repl
 
 # Diagnose your setup — Node version, PATH, provider CLI versions, env vars
-npx ask-llm-mcp doctor          # human-readable
-npx ask-llm-mcp doctor --json   # machine-readable, exit 1 on error
+npx @ask-llm/mcp doctor          # human-readable
+npx @ask-llm/mcp doctor --json   # machine-readable, exit 1 on error
 ```
 
 The REPL ships sessions per provider (`/provider gemini`, `/provider codex`, `/new`, `/sessions`, `/usage`) and inherits all the executor behavior (quota fallback, stream-json output for Gemini, native session resume).

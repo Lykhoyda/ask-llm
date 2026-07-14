@@ -442,7 +442,7 @@ function ensureWorkspaceTrustEnv(): void {
   // gemini-cli renamed the trust env var in main → 0.42:
   //   - gemini ≤ 0.41 reads GEMINI_TRUST_WORKSPACE
   //   - gemini ≥ 0.42 reads GEMINI_CLI_TRUST_WORKSPACE only (no backward alias)
-  // Co-emit both names so one ask-gemini-mcp release works against any gemini-cli
+  // Co-emit both names so one @ask-llm/gemini-mcp release works against any gemini-cli
   // version in current rotation, with zero runtime version detection. The old
   // name is dropped in a future major release. Issue #46 / ADR-075.
   if (process.env.ASK_GEMINI_REQUIRE_WORKSPACE_TRUST === "1") return;

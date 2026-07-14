@@ -16,7 +16,7 @@ Run local LLMs via Ollama's HTTP API. No API keys needed, fully private, zero co
 Or install globally:
 
 ```bash
-npm install -g ask-ollama-mcp
+npm install -g @ask-llm/ollama-mcp
 ```
 
 ## Prerequisites
@@ -72,5 +72,5 @@ Each turn replays the full prior conversation (input tokens grow linearly with d
 
 ## npm
 
-- **Package:** [ask-ollama-mcp](https://www.npmjs.com/package/ask-ollama-mcp)
+- **Package:** [@ask-llm/ollama-mcp](https://www.npmjs.com/package/@ask-llm/ollama-mcp)
 - **Binary:** `ask-ollama-mcp`

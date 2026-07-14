@@ -32,13 +32,13 @@ describe("scripts/codex-pair-watch.mjs — structural invariants (ADR-077)", () 
   });
 
   it("has zero workspace imports (must work on marketplace install without node_modules)", () => {
-    // git-subdir install doesn't run npm install; any workspace import (ask-codex-mcp,
-    // ask-gemini-mcp, @ask-llm/shared) would fail with ERR_MODULE_NOT_FOUND and the
+    // git-subdir install doesn't run npm install; any workspace import (@ask-llm/codex-mcp,
+    // @ask-llm/gemini-mcp, @ask-llm/shared) would fail with ERR_MODULE_NOT_FOUND and the
     // top-level import error would crash the hook BEFORE main().catch can protect Claude.
-    expect(script).not.toMatch(/from\s+["']ask-codex-mcp/);
-    expect(script).not.toMatch(/from\s+["']ask-gemini-mcp/);
-    expect(script).not.toMatch(/from\s+["']ask-ollama-mcp/);
-    expect(script).not.toMatch(/from\s+["']@ask-llm/);
+    expect(script).not.toMatch(/from\s+["']@ask-llm\/codex-mcp/);
+    expect(script).not.toMatch(/from\s+["']@ask-llm\/gemini-mcp/);
+    expect(script).not.toMatch(/from\s+["']@ask-llm\/ollama-mcp/);
+    expect(script).not.toMatch(/from\s+["']@ask-llm\//);
   });
 
   it("inlines the codex spawn (mirrors codexExecutor.ts buildArgs)", () => {
@@ -502,10 +502,10 @@ describe("scripts/codex-pair-watch.mjs — structural invariants (ADR-077)", () 
 
   it("codex-pair-log CLI has zero workspace imports", () => {
     const cli = fs.readFileSync(path.join(PLUGIN_ROOT, "scripts", "codex-pair-log.mjs"), "utf-8");
-    expect(cli).not.toMatch(/from\s+["']ask-codex-mcp/);
-    expect(cli).not.toMatch(/from\s+["']ask-gemini-mcp/);
-    expect(cli).not.toMatch(/from\s+["']ask-ollama-mcp/);
-    expect(cli).not.toMatch(/from\s+["']@ask-llm/);
+    expect(cli).not.toMatch(/from\s+["']@ask-llm\/codex-mcp/);
+    expect(cli).not.toMatch(/from\s+["']@ask-llm\/gemini-mcp/);
+    expect(cli).not.toMatch(/from\s+["']@ask-llm\/ollama-mcp/);
+    expect(cli).not.toMatch(/from\s+["']@ask-llm\//);
   });
 
   // Phase 3 item #10: failure-class retry with jitter

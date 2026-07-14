@@ -15,7 +15,7 @@ function readPackageJson(): { name: string; version: string } {
     const require = createRequire(import.meta.url);
     return require("../package.json") as { name: string; version: string };
   } catch {
-    return { name: "ask-ollama-mcp", version: "0.0.0" };
+    return { name: "@ask-llm/ollama-mcp", version: "0.0.0" };
   }
 }
 
@@ -43,9 +43,9 @@ registerTools({
 registerSessionUsageResource(server, sessionUsage);
 
 export async function startServer() {
-  Logger.debug("init ask-ollama-mcp");
+  Logger.debug("init @ask-llm/ollama-mcp");
   Logger.checkNodeVersion();
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  Logger.debug("ask-ollama-mcp listening on stdio");
+  Logger.debug("@ask-llm/ollama-mcp listening on stdio");
 }

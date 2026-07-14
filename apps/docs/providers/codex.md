@@ -16,7 +16,7 @@ Bridge Claude with OpenAI's Codex CLI. Access GPT-5.6 Sol for code generation, a
 Or install globally:
 
 ```bash
-npm install -g ask-codex-mcp
+npm install -g @ask-llm/codex-mcp
 ```
 
 ## Prerequisites
@@ -52,5 +52,5 @@ npm install -g ask-codex-mcp
 
 ## npm
 
-- **Package:** [ask-codex-mcp](https://www.npmjs.com/package/ask-codex-mcp)
+- **Package:** [@ask-llm/codex-mcp](https://www.npmjs.com/package/@ask-llm/codex-mcp)
 - **Binary:** `ask-codex-mcp`

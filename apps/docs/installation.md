@@ -21,12 +21,12 @@ Multiple ways to install Ask LLM, depending on whether you want the unified orch
 
 | Package | Purpose | Tools exposed |
 |---------|---------|---------------|
-| [`ask-llm-mcp`](https://www.npmjs.com/package/ask-llm-mcp) | **Unified orchestrator (recommended)** — auto-detects all installed providers | `ask-llm`, `multi-llm`, `get-usage-stats`, `diagnose`, `ping` |
-| [`ask-codex-mcp`](https://www.npmjs.com/package/ask-codex-mcp) | Codex-only | `ask-codex`, `get-usage-stats`, `ping` |
-| [`@anton-lykhoyda/ask-claude-mcp`](https://www.npmjs.com/package/@anton-lykhoyda/ask-claude-mcp) | Claude-only — designed for Codex and other non-Claude hosts; read-only file tools | `ask-claude`, `get-usage-stats`, `ping` |
-| [`ask-antigravity-mcp`](https://www.npmjs.com/package/ask-antigravity-mcp) | Antigravity-only (experimental) — subscription-backed via `agy` | `ask-antigravity`, `get-usage-stats`, `ping` |
-| [`ask-ollama-mcp`](https://www.npmjs.com/package/ask-ollama-mcp) | Ollama-only (local) | `ask-ollama`, `get-usage-stats`, `ping` |
-| [`ask-gemini-mcp`](https://www.npmjs.com/package/ask-gemini-mcp) | Gemini-only — full feature set including `@` file syntax, sandbox, edit mode. [Enterprise-gated from 2026-06-18](/providers/gemini) | `ask-gemini`, `ask-gemini-edit`, `fetch-chunk`, `get-usage-stats`, `ping` |
+| [`@ask-llm/mcp`](https://www.npmjs.com/package/@ask-llm/mcp) | **Unified orchestrator (recommended)** — auto-detects all installed providers | `ask-llm`, `multi-llm`, `get-usage-stats`, `diagnose`, `ping` |
+| [`@ask-llm/codex-mcp`](https://www.npmjs.com/package/@ask-llm/codex-mcp) | Codex-only | `ask-codex`, `get-usage-stats`, `ping` |
+| [`@ask-llm/claude-mcp`](https://www.npmjs.com/package/@ask-llm/claude-mcp) | Claude-only — designed for Codex and other non-Claude hosts; read-only file tools | `ask-claude`, `get-usage-stats`, `ping` |
+| [`@ask-llm/antigravity-mcp`](https://www.npmjs.com/package/@ask-llm/antigravity-mcp) | Antigravity-only (experimental) — subscription-backed via `agy` | `ask-antigravity`, `get-usage-stats`, `ping` |
+| [`@ask-llm/ollama-mcp`](https://www.npmjs.com/package/@ask-llm/ollama-mcp) | Ollama-only (local) | `ask-ollama`, `get-usage-stats`, `ping` |
+| [`@ask-llm/gemini-mcp`](https://www.npmjs.com/package/@ask-llm/gemini-mcp) | Gemini-only — full feature set including `@` file syntax, sandbox, edit mode. [Enterprise-gated from 2026-06-18](/providers/gemini) | `ask-gemini`, `ask-gemini-edit`, `fetch-chunk`, `get-usage-stats`, `ping` |
 
 The unified orchestrator uses a single `ask-llm` tool with a `provider` parameter for token efficiency ([ADR-029](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md)) — you pick the provider per call. Per-provider packages expose the richer per-provider tool surface (`ask-gemini-edit` for structured edits, `fetch-chunk` for large response pagination, etc.).
 
@@ -39,24 +39,24 @@ No install needed — `npx` downloads on first invocation and caches:
   "mcpServers": {
     "ask-llm": {
       "command": "npx",
-      "args": ["-y", "ask-llm-mcp"]
+      "args": ["-y", "@ask-llm/mcp"]
     }
   }
 }
 ```
 
-For per-provider packages, swap `ask-llm-mcp` for the package you want.
+For per-provider packages, swap `@ask-llm/mcp` for the package you want.
 
 ## Method 2: Global install via Claude Code
 
 ```bash
-claude mcp add --scope user ask-llm -- npx -y ask-llm-mcp
+claude mcp add --scope user ask-llm -- npx -y @ask-llm/mcp
 
 # Or per-provider
-claude mcp add --scope user gemini -- npx -y ask-gemini-mcp
-claude mcp add --scope user codex  -- npx -y ask-codex-mcp
-claude mcp add --scope user ollama -- npx -y ask-ollama-mcp
-claude mcp add --scope user antigravity -- npx -y ask-antigravity-mcp
+claude mcp add --scope user gemini -- npx -y @ask-llm/gemini-mcp
+claude mcp add --scope user codex  -- npx -y @ask-llm/codex-mcp
+claude mcp add --scope user ollama -- npx -y @ask-llm/ollama-mcp
+claude mcp add --scope user antigravity -- npx -y @ask-llm/antigravity-mcp
 ```
 
 `--scope user` registers globally for all projects. Drop the flag for per-project scope.
@@ -68,7 +68,7 @@ The unified server suppresses its Claude provider when the MCP host is already C
 For the reverse collaboration path—Codex asking Claude for a second opinion:
 
 ```bash
-codex mcp add claude -- npx -y @anton-lykhoyda/ask-claude-mcp
+codex mcp add claude -- npx -y @ask-llm/claude-mcp
 ```
 
 Claude runs in safe mode with only `Read`, `Glob`, and `Grep`; Codex remains responsible for edits.
@@ -76,11 +76,11 @@ Claude runs in safe mode with only `Read`, `Glob`, and `Grep`; Codex remains res
 ## Method 4: Plain npm global
 
 ```bash
-npm install -g ask-llm-mcp
-# Binary is at: $(npm bin -g)/ask-llm-mcp
+npm install -g @ask-llm/mcp
+# Installs the ask-llm-mcp executable on your global PATH
 ```
 
-Then point your MCP config at the binary path or just use `ask-llm-mcp` directly:
+Then point your MCP config at the installed executable:
 
 ```json
 {
@@ -89,6 +89,18 @@ Then point your MCP config at the binary path or just use `ask-llm-mcp` directly
   }
 }
 ```
+
+The npm packages moved into the `@ask-llm` organization, but their executable
+names remain unchanged for existing global-install and MCP configurations:
+
+| Package | Executable |
+|---------|------------|
+| `@ask-llm/mcp` | `ask-llm-mcp` |
+| `@ask-llm/gemini-mcp` | `ask-gemini-mcp` |
+| `@ask-llm/codex-mcp` | `ask-codex-mcp` |
+| `@ask-llm/claude-mcp` | `ask-claude-mcp` |
+| `@ask-llm/ollama-mcp` | `ask-ollama-mcp` |
+| `@ask-llm/antigravity-mcp` | `ask-antigravity-mcp` |
 
 ## Method 5: Claude Code Plugin (richer experience)
 
@@ -105,7 +117,7 @@ See [Plugin Overview](/plugin/overview) for details.
 
 ```bash
 # From terminal — works even if MCP isn't configured yet
-npx ask-llm-mcp doctor
+npx @ask-llm/mcp doctor
 ```
 
 The doctor reports Node version, resolved PATH, every provider CLI's presence + version, and active env vars — your first stop when something doesn't work.

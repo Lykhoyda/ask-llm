@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { executeOllamaCLI } from "ask-ollama-mcp/executor";
+import { executeOllamaCLI } from "@ask-llm/ollama-mcp/executor";
 
 const args = process.argv.slice(2);
 const prompt = args.join(" ");

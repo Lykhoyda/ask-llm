@@ -9,7 +9,7 @@ export const providers: ProviderExecutor[] = [
     name: "gemini",
     command: "gemini",
     async execute(prompt: string) {
-      const { executeGeminiCLI } = await import("ask-gemini-mcp/executor");
+      const { executeGeminiCLI } = await import("@ask-llm/gemini-mcp/executor");
       const result = await executeGeminiCLI({ prompt });
       return result.response;
     },
@@ -18,7 +18,7 @@ export const providers: ProviderExecutor[] = [
     name: "codex",
     command: "codex",
     async execute(prompt: string) {
-      const { executeCodexCLI } = await import("ask-codex-mcp/executor");
+      const { executeCodexCLI } = await import("@ask-llm/codex-mcp/executor");
       const result = await executeCodexCLI({ prompt });
       return result.response;
     },
@@ -27,7 +27,7 @@ export const providers: ProviderExecutor[] = [
     name: "ollama",
     command: "ollama",
     async execute(prompt: string) {
-      const { executeOllamaCLI } = await import("ask-ollama-mcp/executor");
+      const { executeOllamaCLI } = await import("@ask-llm/ollama-mcp/executor");
       const result = await executeOllamaCLI({ prompt });
       return result.response;
     },
@@ -36,7 +36,7 @@ export const providers: ProviderExecutor[] = [
     name: "antigravity",
     command: "agy",
     async execute(prompt: string) {
-      const { executeAntigravityCLI } = await import("ask-antigravity-mcp/executor");
+      const { executeAntigravityCLI } = await import("@ask-llm/antigravity-mcp/executor");
       const result = await executeAntigravityCLI({ prompt });
       return result.response;
     },
