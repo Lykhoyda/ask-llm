@@ -144,6 +144,15 @@ describe("native model review skills", () => {
     expect(content).toContain(modelPin);
     expect(content).toMatch(/distinguishes|Do not substitute|Do not route/i);
   });
+
+  it("rejects a Fable review when Claude Code resolves the agent to another model", () => {
+    const content = readFile("skills/fable-review/SKILL.md");
+    expect(content).toContain('model: "fable"');
+    expect(content).toContain("resolvedModel");
+    expect(content).toContain("claude-fable-");
+    expect(content).toMatch(/absent or names any other model, abort/i);
+    expect(content).toMatch(/do not return.+findings as a Fable review/i);
+  });
 });
 
 describe("multi-review skill — load-bearing polish (ADR-064)", () => {
