@@ -13,7 +13,7 @@
 //
 // Why no workspace imports: this script ships via marketplace as part of a
 // `git-subdir` extraction with no `npm install` step, so workspace deps
-// (`ask-codex-mcp/executor`, `@ask-llm/shared`) don't resolve. The codex
+// (`@ask-llm/codex-mcp/executor`, `@ask-llm/shared`) don't resolve. The codex
 // invocation is inlined; semantics mirror `codexExecutor.ts` deliberately.
 
 import { spawn } from "node:child_process";

@@ -1,5 +1,5 @@
 {
-  "name": "ask-ollama-mcp",
+  "name": "@ask-llm/ollama-mcp",
   "version": "0.5.1",
   "mcpName": "io.github.Lykhoyda/ask-ollama",
   "description": "MCP server for local Ollama LLM integration - for Claude IDE and other IDEs",
@@ -20,7 +20,9 @@
       "default": "./dist/register.js"
     }
   },
-  "bin": "dist/cli.js",
+  "bin": {
+    "ask-ollama-mcp": "dist/cli.js"
+  },
   "scripts": {
     "build": "tsdown",
     "start": "node dist/cli.js",

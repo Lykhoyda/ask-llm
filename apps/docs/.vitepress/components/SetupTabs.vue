@@ -177,12 +177,12 @@ interface ProviderConfig {
 }
 
 const providerConfigs: Record<string, ProviderConfig> = {
-  gemini: { pkg: "ask-gemini-mcp", serverName: "gemini-cli" },
-  codex: { pkg: "ask-codex-mcp", serverName: "codex-cli" },
-  claude: { pkg: "@anton-lykhoyda/ask-claude-mcp", serverName: "claude" },
-  ollama: { pkg: "ask-ollama-mcp", serverName: "ollama" },
-  antigravity: { pkg: "ask-antigravity-mcp", serverName: "antigravity" },
-  unified: { pkg: "ask-llm-mcp", serverName: "ask-llm" },
+  gemini: { pkg: "@ask-llm/gemini-mcp", serverName: "gemini-cli" },
+  codex: { pkg: "@ask-llm/codex-mcp", serverName: "codex-cli" },
+  claude: { pkg: "@ask-llm/claude-mcp", serverName: "claude" },
+  ollama: { pkg: "@ask-llm/ollama-mcp", serverName: "ollama" },
+  antigravity: { pkg: "@ask-llm/antigravity-mcp", serverName: "antigravity" },
+  unified: { pkg: "@ask-llm/mcp", serverName: "ask-llm" },
 };
 
 const props = withDefaults(defineProps<{ provider?: string }>(), {

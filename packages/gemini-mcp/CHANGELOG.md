@@ -1,4 +1,4 @@
-# ask-gemini-mcp
+# @ask-llm/gemini-mcp
 
 ## 1.6.14
 

@@ -10,7 +10,7 @@
   "packages": [
     {
       "registryType": "npm",
-      "identifier": "ask-llm-mcp",
+      "identifier": "@ask-llm/mcp",
       "version": "0.2.0",
       "transport": {
         "type": "stdio"

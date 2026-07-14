@@ -20,6 +20,14 @@ import { fileURLToPath } from "node:url";
 
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const DEPS_FIELDS = ["dependencies", "peerDependencies", "optionalDependencies"];
+const CANONICAL_PACKAGES = {
+  "antigravity-mcp": { name: "@ask-llm/antigravity-mcp", bin: "ask-antigravity-mcp" },
+  "claude-mcp": { name: "@ask-llm/claude-mcp", bin: "ask-claude-mcp" },
+  "codex-mcp": { name: "@ask-llm/codex-mcp", bin: "ask-codex-mcp" },
+  "gemini-mcp": { name: "@ask-llm/gemini-mcp", bin: "ask-gemini-mcp" },
+  "llm-mcp": { name: "@ask-llm/mcp", bin: "ask-llm-mcp" },
+  "ollama-mcp": { name: "@ask-llm/ollama-mcp", bin: "ask-ollama-mcp" },
+};
 
 function findPublishablePackages() {
   const packagesDir = path.join(REPO_ROOT, "packages");
@@ -45,6 +53,21 @@ console.log(`[preflight] scanning ${publishable.length} publishable package(s): 
 
 for (const { dir, pkg } of publishable) {
   const findings = [];
+  const canonical = CANONICAL_PACKAGES[dir];
+  if (!canonical) {
+    findings.push(`unexpected publishable package directory: ${dir}`);
+  } else {
+    if (pkg.name !== canonical.name) {
+      findings.push(`name must be "${canonical.name}" (found "${pkg.name}")`);
+    }
+    const bins = Object.keys(pkg.bin ?? {});
+    if (bins.length !== 1 || bins[0] !== canonical.bin) {
+      findings.push(`bin must preserve the executable name "${canonical.bin}" (found ${JSON.stringify(bins)})`);
+    }
+    if (pkg.publishConfig?.access !== "public") {
+      findings.push('publishConfig.access must be "public" for scoped packages');
+    }
+  }
   for (const field of DEPS_FIELDS) {
     for (const [name, spec] of Object.entries(pkg[field] ?? {})) {
       if (typeof spec === "string" && spec.startsWith("workspace:")) {
@@ -65,6 +88,13 @@ for (const { dir, pkg } of publishable) {
   } else {
     console.log(`[preflight] ✓ ${dir}`);
   }
+}
+
+if (publishable.length !== Object.keys(CANONICAL_PACKAGES).length) {
+  failed = true;
+  console.error(
+    `[preflight] ERROR: expected ${Object.keys(CANONICAL_PACKAGES).length} canonical publishable packages, found ${publishable.length}`,
+  );
 }
 
 if (failed) {

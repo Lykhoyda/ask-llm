@@ -10,7 +10,7 @@
   "packages": [
     {
       "registryType": "npm",
-      "identifier": "ask-antigravity-mcp",
+      "identifier": "@ask-llm/antigravity-mcp",
       "version": "0.0.1",
       "transport": {
         "type": "stdio"

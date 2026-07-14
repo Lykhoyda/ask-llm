@@ -2,7 +2,7 @@
  * Static-analysis benchmark: measures token overhead for each deployment approach.
  *
  * NOTE: This script only works inside the dev workspace (yarn workspaces)
- * where @ask-llm/shared, ask-gemini-mcp, and ask-codex-mcp resolve as
+ * where @ask-llm/shared, @ask-llm/gemini-mcp, and @ask-llm/codex-mcp resolve as
  * symlinked workspace packages. It will NOT work with published
  * bundledDependencies or after `npm pack`.
  */
@@ -128,13 +128,13 @@ async function main() {
   const baselineCount = toolRegistry.length;
 
   // Step 2: Import gemini-mcp/register (side-effect: pushes tools)
-  await import("ask-gemini-mcp/register");
+  await import("@ask-llm/gemini-mcp/register");
   const geminiToolCount = toolRegistry.length - baselineCount;
   const geminiTools = toolRegistry.slice(baselineCount, baselineCount + geminiToolCount) as ToolLike[];
 
   // Step 3: Import codex-mcp/register (side-effect: pushes tools)
   const preCodexCount = toolRegistry.length;
-  await import("ask-codex-mcp/register");
+  await import("@ask-llm/codex-mcp/register");
   const codexToolCount = toolRegistry.length - preCodexCount;
   const codexTools = toolRegistry.slice(preCodexCount, preCodexCount + codexToolCount) as ToolLike[];
 
@@ -177,9 +177,9 @@ async function main() {
 
   const approachHeaders = ["Approach", "Tools", "Tool Tokens", "MD Tokens", "Total Tokens"];
   const approachRows: (string | number)[][] = [
-    ["Standalone Gemini (ask-gemini-mcp)", geminiToolCount, geminiTotal, 0, geminiTotal],
-    ["Standalone Codex (ask-codex-mcp)", codexToolCount, codexTotal, 0, codexTotal],
-    ["Orchestrator (ask-llm-mcp)", geminiToolCount + codexToolCount, orchestratorTotal, 0, orchestratorTotal],
+    ["Standalone Gemini (@ask-llm/gemini-mcp)", geminiToolCount, geminiTotal, 0, geminiTotal],
+    ["Standalone Codex (@ask-llm/codex-mcp)", codexToolCount, codexTotal, 0, codexTotal],
+    ["Orchestrator (@ask-llm/mcp)", geminiToolCount + codexToolCount, orchestratorTotal, 0, orchestratorTotal],
     ["Skill (/gemini-review)", geminiToolCount, geminiTotal, skillMd.tokens + agentMd.tokens, skillTotal],
     ["Subagent (gemini-reviewer)", geminiToolCount, geminiTotal, agentMd.tokens, subagentTotal],
   ];

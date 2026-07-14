@@ -1,5 +1,9 @@
 # Roadmap
 
+### 2026-07-14 — Canonical `@ask-llm` npm organization migration (ADR-133)
+
+Moved all six public MCP packages into the `@ask-llm` npm organization while preserving their existing executable names. Updated the monorepo dependency graph, Registry manifests, release/public-access checks, CI tarball installation, plugin references, and user documentation together. The release is complete only after clean public installs of every scoped package; the former package names are then deprecated with pointers to their replacements.
+
 ## Active plan: post-v0.7.0 — empirical-discipline maintenance (2026-05-27)
 
 The v0.6.3 → v0.7.0 codex-pair stability cadence (planned 2026-05-18) is **complete**. v0.7.0 family shipped to npm 2026-05-27 (`ask-gemini-mcp@1.6.5`, `ask-codex-mcp@0.3.7`, `ask-ollama-mcp@0.3.2`, `ask-llm-mcp@0.3.8`, `@ask-llm/plugin@0.7.2`) along with the unified GitHub Release v1.6.5. The original plan's three tiers all landed:

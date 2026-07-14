@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { MODELS } from "../constants.js";
 import { toolRegistry } from "../tools/index.js";
 
-describe("@anton-lykhoyda/ask-claude-mcp smoke", () => {
+describe("@ask-llm/claude-mcp smoke", () => {
   it("registers ask-claude and ping", () => {
     expect(toolRegistry.map((tool) => tool.name).sort()).toEqual(["ask-claude", "ping"]);
   });

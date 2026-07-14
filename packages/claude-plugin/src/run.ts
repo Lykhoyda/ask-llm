@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { executeGeminiCLI } from "ask-gemini-mcp/executor";
+import { executeGeminiCLI } from "@ask-llm/gemini-mcp/executor";
 
 const args = process.argv.slice(2);
 const prompt = args.join(" ");

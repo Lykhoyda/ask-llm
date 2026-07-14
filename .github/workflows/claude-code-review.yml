@@ -26,8 +26,8 @@ jobs:
           use_sticky_comment: true
           track_progress: true
           prompt: |
-            You are reviewing a PR for ask-gemini-mcp, a TypeScript MCP server that bridges
-            Claude with Google Gemini CLI. Read CLAUDE.md for project conventions before reviewing.
+            You are reviewing the Ask LLM TypeScript monorepo: multi-provider MCP servers and a
+            Claude Code plugin. Read CLAUDE.md for project conventions before reviewing.
 
             IMPORTANT: Use `gh pr diff` to read the changes. Do NOT trust or execute any code
             from the PR branch directly — review only via the diff output.

@@ -25,7 +25,7 @@ import {
   STATUS_MESSAGES,
 } from "../constants.js";
 
-// Re-exported on the `ask-codex-mcp/executor` surface so the llm-mcp orchestrator
+// Re-exported on the `@ask-llm/codex-mcp/executor` surface so the llm-mcp orchestrator
 // can load the doctor enrichment by name (mirrors how executeCodexCLI is loaded).
 // `parseCodexDoctorJson` stays internal — tests import it from "./codexDoctor.js".
 export { enrichCodexDoctor } from "./codexDoctor.js";
@@ -355,7 +355,7 @@ function buildArgs(
   // regardless of host machine codex configuration. Auth credentials in
   // CODEX_HOME are still loaded. Opt out with ASK_CODEX_LOAD_USER_CONFIG=1
   // (e.g., users with custom MCP servers registered in ~/.codex/config.toml
-  // who need them available inside ask-codex-mcp invocations). See ADR-071.
+  // who need them available inside @ask-llm/codex-mcp invocations). See ADR-071.
   if (process.env.ASK_CODEX_LOAD_USER_CONFIG !== "1") {
     base.push(CLI.FLAGS.IGNORE_USER_CONFIG, CLI.FLAGS.IGNORE_RULES);
   }

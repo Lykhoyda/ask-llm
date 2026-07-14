@@ -96,7 +96,7 @@ integer cents. Use integer minor units such as
 |---|---|---|
 | `CODEX_PAIR_DISABLED` | unset | Set to `1` to bypass the hook entirely — beats marker file |
 | `CODEX_PAIR_MAX_FILE_BYTES` | `20000` | Files larger than this many UTF-8 bytes get an adaptive **partial-view** review (header + git diff, or head+tail — [ADR-080](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md)), not a full-content one. Still a codex call — use `.codex-pair/ignore` to make big files free |
-| `ASK_CODEX_TIMEOUT_MS` | `800000` | Per-call Codex timeout (inherited from `ask-codex-mcp`, [ADR-074](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md)) |
+| `ASK_CODEX_TIMEOUT_MS` | `800000` | Per-call Codex timeout (inherited from `@ask-llm/codex-mcp`, [ADR-074](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md)) |
 | `ASK_CODEX_DEBOUNCE_MS` | `15000` | Settle window: an edit burst to one file coalesces into a single review of the settled state ([ADR-112](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md)). `0` = synchronous per-edit review. Also settable per-marker via `debounceMs` frontmatter |
 | `ASK_CODEX_DEBOUNCE_MAX_MS` | `60000` | Hard cap from a burst's first edit — forces a review even under a continuous edit stream. Frontmatter: `debounceMaxMs` |
 | `CODEX_PAIR_QUOTA_PAUSE_TTL_MS` | `21600000` (6h) | Quota auto-pauses self-heal after this long — the next edit (or session start) retries a live review |

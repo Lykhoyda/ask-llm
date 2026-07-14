@@ -20,7 +20,7 @@ On `agy` ≥ 1.0.6 the headless `-p` mode prints the response to stdout (used di
 Or install globally:
 
 ```bash
-npm install -g ask-antigravity-mcp
+npm install -g @ask-llm/antigravity-mcp
 ```
 
 ## Prerequisites
@@ -58,5 +58,5 @@ npm install -g ask-antigravity-mcp
 
 ## npm
 
-- **Package:** [ask-antigravity-mcp](https://www.npmjs.com/package/ask-antigravity-mcp)
+- **Package:** [@ask-llm/antigravity-mcp](https://www.npmjs.com/package/@ask-llm/antigravity-mcp)
 - **Binary:** `ask-antigravity-mcp`

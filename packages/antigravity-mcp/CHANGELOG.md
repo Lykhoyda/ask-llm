@@ -1,4 +1,4 @@
-# ask-antigravity-mcp
+# @ask-llm/antigravity-mcp
 
 ## 0.4.1
 

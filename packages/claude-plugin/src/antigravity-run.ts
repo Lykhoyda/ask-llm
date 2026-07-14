@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { executeAntigravityCLI } from "ask-antigravity-mcp/executor";
+import { executeAntigravityCLI } from "@ask-llm/antigravity-mcp/executor";
 
 const args = process.argv.slice(2);
 const prompt = args.join(" ");

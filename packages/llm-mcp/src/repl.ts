@@ -211,7 +211,7 @@ export async function startRepl(): Promise<number> {
   const { available } = await detectProviders();
 
   if (available.length === 0) {
-    process.stdout.write("\nNo providers available. Run `npx ask-llm-mcp doctor` for diagnostics.\n");
+    process.stdout.write("\nNo providers available. Run `npx @ask-llm/mcp doctor` for diagnostics.\n");
     return 1;
   }
 

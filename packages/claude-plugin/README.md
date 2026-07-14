@@ -24,9 +24,9 @@ Part of the [Ask LLM](https://github.com/Lykhoyda/ask-llm) monorepo.
 ### MCP Servers (user scope for short tool names)
 
 ```bash
-claude mcp add --scope user gemini -- npx -y ask-gemini-mcp
-claude mcp add --scope user codex -- npx -y ask-codex-mcp
-claude mcp add --scope user ollama -- npx -y ask-ollama-mcp
+claude mcp add --scope user gemini -- npx -y @ask-llm/gemini-mcp
+claude mcp add --scope user codex -- npx -y @ask-llm/codex-mcp
+claude mcp add --scope user ollama -- npx -y @ask-llm/ollama-mcp
 ```
 
 ## Skills

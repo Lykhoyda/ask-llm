@@ -17,7 +17,7 @@ A set of MCP servers that bridge your AI client (Claude Code, Codex CLI, Cursor,
 - **Verified code review** — `/multi-review` cross-checks each finding against source before presenting (catches false positives)
 - **Session continuity across providers** — `sessionId` works across four session-capable providers (Claude, Gemini, Codex, Ollama); Antigravity is single-turn
 - **Built-in operational hardening** — quota fallback, PATH resolution, stdin handling, stream-json output for live progressive content
-- **Diagnostic surface** — `npx ask-llm-mcp doctor` and the `diagnose` MCP tool tell you what's wrong before you have to investigate
+- **Diagnostic surface** — `npx @ask-llm/mcp doctor` and the `diagnose` MCP tool tell you what's wrong before you have to investigate
 
 ### Is it free?
 
@@ -30,11 +30,11 @@ The MCP servers are MIT-licensed and free. Provider costs depend on which provid
 
 ### Why is Gemini enterprise-gated, and what should I use instead?
 
-From 2026-06-18, Google restricts Gemini CLI to Gemini Code Assist Standard/Enterprise seats, and free, Google AI Pro, and Ultra accounts lose access. `ask-gemini-mcp` still installs, but a non-enterprise account will then see actionable guidance instead of output. Use **Antigravity** (`ask-antigravity` — the Google-sanctioned successor, subscription-backed via Google AI Pro/Ultra), **Codex** (`ask-codex`), **Claude** (`ask-claude` from a non-Claude host), or **Ollama** (`ask-ollama`) instead. See [Antigravity](/providers/antigravity).
+From 2026-06-18, Google restricts Gemini CLI to Gemini Code Assist Standard/Enterprise seats, and free, Google AI Pro, and Ultra accounts lose access. `@ask-llm/gemini-mcp` still installs, but a non-enterprise account will then see actionable guidance instead of output. Use **Antigravity** (`ask-antigravity` — the Google-sanctioned successor, subscription-backed via Google AI Pro/Ultra), **Codex** (`ask-codex`), **Claude** (`ask-claude` from a non-Claude host), or **Ollama** (`ask-ollama`) instead. See [Antigravity](/providers/antigravity).
 
 ### Does it work on Windows?
 
-Yes for the per-provider packages. The orchestrator (`ask-llm-mcp`) and plugin should work too but get less Windows testing. Open an issue if you hit a Windows-specific bug.
+Yes for the per-provider packages. The orchestrator (`@ask-llm/mcp`) and plugin should work too but get less Windows testing. Open an issue if you hit a Windows-specific bug.
 
 ---
 
@@ -42,15 +42,15 @@ Yes for the per-provider packages. The orchestrator (`ask-llm-mcp`) and plugin s
 
 ### Do I need every provider?
 
-No. The orchestrator (`ask-llm-mcp`) auto-detects which CLIs are installed and only registers tools for available providers. Install one and add others anytime.
+No. The orchestrator (`@ask-llm/mcp`) auto-detects which CLIs are installed and only registers tools for available providers. Install one and add others anytime.
 
 ### What Node.js version do I need?
 
-Node v20.0.0 or higher (LTS 20 or 22). The doctor command (`npx ask-llm-mcp doctor`) will warn if you're on an older version — Gemini CLI 0.36+ uses ES2024 regex features that crash on Node 18 ([ADR-046](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md)).
+Node v20.0.0 or higher (LTS 20 or 22). The doctor command (`npx @ask-llm/mcp doctor`) will warn if you're on an older version — Gemini CLI 0.36+ uses ES2024 regex features that crash on Node 18 ([ADR-046](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md)).
 
 ### Should I use the orchestrator or per-provider packages?
 
-| Choose orchestrator (`ask-llm-mcp`) when | Choose per-provider when |
+| Choose orchestrator (`@ask-llm/mcp`) when | Choose per-provider when |
 |---|---|
 | You want one MCP server, all providers | You only use one provider |
 | You want `multi-llm` parallel dispatch | You need provider-specific tools (`ask-gemini-edit`, `fetch-chunk`) |
@@ -60,7 +60,7 @@ Both can coexist — install whatever fits your workflow.
 
 ### Can I use this with Claude Code?
 
-Yes — that's the primary client. Use `claude mcp add --scope user ask-llm -- npx -y ask-llm-mcp`. The Claude Code plugin (`/plugin marketplace add Lykhoyda/ask-llm`) adds slash commands, subagents, and hooks on top.
+Yes — that's the primary client. Use `claude mcp add --scope user ask-llm -- npx -y @ask-llm/mcp`. The Claude Code plugin (`/plugin marketplace add Lykhoyda/ask-llm`) adds slash commands, subagents, and hooks on top.
 
 ### Can I use this with Claude Desktop, Cursor, Warp, etc.?
 
@@ -68,7 +68,7 @@ Yes — any STDIO MCP client works. See [Installation](/installation) for client
 
 ### Can Codex ask Claude for a second opinion?
 
-Yes. Register the dedicated provider with `codex mcp add claude -- npx -y @anton-lykhoyda/ask-claude-mcp`, then ask Codex to call `ask-claude`. The Claude subprocess is restricted to Read, Glob, and Grep; Codex applies any resulting changes. The provider is not exposed when Claude Code itself is the host because Claude Code rejects nested sessions.
+Yes. Register the dedicated provider with `codex mcp add claude -- npx -y @ask-llm/claude-mcp`, then ask Codex to call `ask-claude`. The Claude subprocess is restricted to Read, Glob, and Grep; Codex applies any resulting changes. The provider is not exposed when Claude Code itself is the host because Claude Code rejects nested sessions.
 
 ---
 
@@ -111,7 +111,7 @@ Yes — every `ask-*` response includes `result.structuredContent.usage` with to
 The MCP server is designed for interactive development. For CI workflows, you can call the executor packages directly via Node:
 
 ```js
-import { executeGeminiCLI } from "ask-gemini-mcp/executor";
+import { executeGeminiCLI } from "@ask-llm/gemini-mcp/executor";
 const result = await executeGeminiCLI({ prompt: "review this diff" });
 ```
 
@@ -155,7 +155,7 @@ Set `GMCPT_LOG_LEVEL=debug` in your MCP client's env config to see verbose serve
 Run the doctor:
 
 ```bash
-npx ask-llm-mcp doctor
+npx @ask-llm/mcp doctor
 ```
 
 It checks Node version, PATH, every provider CLI's presence and version, and key env vars. It works even when MCP itself can't start. 90%+ of setup issues show up here as a clear failed-check line.

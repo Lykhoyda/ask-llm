@@ -1,4 +1,4 @@
-# ask-ollama-mcp
+# @ask-llm/ollama-mcp
 
 ## 0.5.1
 

@@ -27,10 +27,10 @@ describe("tier-discontinuation constants", () => {
     expect(OPERATIONAL_PATTERNS).toContain("timed out");
   });
 
-  it("the discontinuation message contains the marker, the cutoff date, and the ask-antigravity-mcp migration path", () => {
+  it("the discontinuation message contains the marker, the cutoff date, and the @ask-llm/antigravity-mcp migration path", () => {
     expect(ERROR_MESSAGES.TIER_DISCONTINUED).toContain(TIER_NOTE_MARKER);
     expect(ERROR_MESSAGES.TIER_DISCONTINUED).toContain("2026-06-18");
-    expect(ERROR_MESSAGES.TIER_DISCONTINUED).toMatch(/ask-antigravity-mcp/);
+    expect(ERROR_MESSAGES.TIER_DISCONTINUED).toMatch(/@ask-llm\/antigravity-mcp/);
     expect(ERROR_MESSAGES.TIER_DISCONTINUED).toMatch(/ask-codex|ask-ollama/);
   });
 });

@@ -15,7 +15,7 @@ describe("provider registry drift guard", () => {
   it("registers Claude Code as the Claude provider executor", () => {
     expect(PROVIDERS.claude).toMatchObject({
       command: "claude",
-      executorModule: "@anton-lykhoyda/ask-claude-mcp/executor",
+      executorModule: "@ask-llm/claude-mcp/executor",
       executorFn: "executeClaudeCLI",
       defaultModel: "opus",
       disabledWhenEnvVar: "CLAUDECODE",

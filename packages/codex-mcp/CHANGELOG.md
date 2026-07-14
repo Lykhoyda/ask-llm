@@ -1,4 +1,4 @@
-# ask-codex-mcp
+# @ask-llm/codex-mcp
 
 ## 0.6.1
 

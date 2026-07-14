@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { executeCodexCLI } from "ask-codex-mcp/executor";
+import { executeCodexCLI } from "@ask-llm/codex-mcp/executor";
 
 const args = process.argv.slice(2);
 const prompt = args.join(" ");

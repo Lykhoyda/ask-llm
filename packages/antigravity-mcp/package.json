@@ -1,5 +1,5 @@
 {
-  "name": "ask-antigravity-mcp",
+  "name": "@ask-llm/antigravity-mcp",
   "version": "0.4.1",
   "mcpName": "io.github.Lykhoyda/ask-antigravity",
   "description": "EXPERIMENTAL MCP server for Google's Antigravity CLI (agy) — subscription-backed second opinions",
@@ -20,7 +20,9 @@
       "default": "./dist/register.js"
     }
   },
-  "bin": "dist/cli.js",
+  "bin": {
+    "ask-antigravity-mcp": "dist/cli.js"
+  },
   "scripts": {
     "build": "tsdown",
     "start": "node dist/cli.js",

@@ -43,24 +43,24 @@ You can install one or all of them. The MCP server auto-detects which providers 
 
 ## Step 2: Configure Your MCP Client
 
-The recommended package is **`ask-llm-mcp`** — the unified orchestrator that auto-detects all installed providers and exposes them through a single `ask-llm` MCP tool plus `multi-llm`, `get-usage-stats`, `diagnose`, and `ping`.
+The recommended package is **`@ask-llm/mcp`** — the unified orchestrator that auto-detects all installed providers and exposes them through a single `ask-llm` MCP tool plus `multi-llm`, `get-usage-stats`, `diagnose`, and `ping`.
 
-If you only want one provider, you can also install the per-provider packages directly: `ask-codex-mcp`, `@anton-lykhoyda/ask-claude-mcp`, `ask-antigravity-mcp`, `ask-ollama-mcp`, `ask-gemini-mcp`. They expose provider-specific tools (`ask-codex`, `ask-claude`, `ask-antigravity` (subscription-backed via `agy`), `ask-ollama`, and `ask-gemini` with `@` file syntax + sandbox + edit mode).
+If you only want one provider, you can also install the per-provider packages directly: `@ask-llm/codex-mcp`, `@ask-llm/claude-mcp`, `@ask-llm/antigravity-mcp`, `@ask-llm/ollama-mcp`, `@ask-llm/gemini-mcp`. They expose provider-specific tools (`ask-codex`, `ask-claude`, `ask-antigravity` (subscription-backed via `agy`), `ask-ollama`, and `ask-gemini` with `@` file syntax + sandbox + edit mode).
 
 ### Option A: Claude Code (Recommended)
 
 ```bash
 # Unified — picks up all installed providers
-claude mcp add --scope user ask-llm -- npx -y ask-llm-mcp
+claude mcp add --scope user ask-llm -- npx -y @ask-llm/mcp
 
 # Or per-provider (longer tool names, more granular control)
-claude mcp add --scope user codex       -- npx -y ask-codex-mcp
-claude mcp add --scope user antigravity -- npx -y ask-antigravity-mcp
-claude mcp add --scope user ollama      -- npx -y ask-ollama-mcp
-claude mcp add --scope user gemini      -- npx -y ask-gemini-mcp
+claude mcp add --scope user codex       -- npx -y @ask-llm/codex-mcp
+claude mcp add --scope user antigravity -- npx -y @ask-llm/antigravity-mcp
+claude mcp add --scope user ollama      -- npx -y @ask-llm/ollama-mcp
+claude mcp add --scope user gemini      -- npx -y @ask-llm/gemini-mcp
 ```
 
-Claude is not listed as a Claude Code per-provider registration because nested Claude sessions are unsupported. From Codex, register it with `codex mcp add claude -- npx -y @anton-lykhoyda/ask-claude-mcp`.
+Claude is not listed as a Claude Code per-provider registration because nested Claude sessions are unsupported. From Codex, register it with `codex mcp add claude -- npx -y @ask-llm/claude-mcp`.
 
 ### Option B: Claude Desktop
 
@@ -80,7 +80,7 @@ Add to `claude_desktop_config.json`:
   "mcpServers": {
     "ask-llm": {
       "command": "npx",
-      "args": ["-y", "ask-llm-mcp"]
+      "args": ["-y", "@ask-llm/mcp"]
     }
   }
 }
@@ -97,7 +97,7 @@ Ask LLM works with [40+ MCP-compatible clients](https://modelcontextprotocol.io/
 ```json
 {
   "command": "npx",
-  "args": ["-y", "ask-llm-mcp"]
+  "args": ["-y", "@ask-llm/mcp"]
 }
 ```
 
@@ -118,7 +118,7 @@ Use ask-llm ping to test the connection
 **From the terminal directly** — run the doctor:
 
 ```bash
-npx ask-llm-mcp doctor
+npx @ask-llm/mcp doctor
 ```
 
 The doctor checks Node version, PATH resolution, every provider CLI's presence and version, and key env vars. Use it when MCP itself can't start (server not registered, broken auth, wrong Node version) — it works outside the MCP transport.
@@ -132,7 +132,7 @@ If everything looks good, head to [First Steps](/first-steps) to send your first
 The orchestrator binary also exposes a multi-provider REPL — switch providers, persist sessions, see token usage live:
 
 ```bash
-npx ask-llm-mcp repl
+npx @ask-llm/mcp repl
 ```
 
 Slash commands include `/provider <name>`, `/new` (fresh session), `/sessions`, `/usage`, `/help`, `/quit`. Useful for quick sanity checks and side-by-side provider comparison without setting up an MCP client.
