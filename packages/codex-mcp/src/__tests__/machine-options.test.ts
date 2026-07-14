@@ -56,8 +56,9 @@ describe("executeCodexCLI machine options", () => {
     mockExecuteCommand.mockImplementation(async (_command, args) => {
       const schemaPath = getOutputSchemaPath(args);
       observedPaths.push(schemaPath);
+      expect(existsSync(schemaPath)).toBe(true);
       expect(JSON.parse(readFileSync(schemaPath, "utf8"))).toEqual(outputSchema);
-      expect(statSync(schemaPath).mode & 0o777).toBe(0o600);
+      if (process.platform !== "win32") expect(statSync(schemaPath).mode & 0o777).toBe(0o600);
       expect(args).toContain(CLI.FLAGS.SANDBOX_READ_ONLY);
       expect(args).not.toContain(CLI.FLAGS.SANDBOX_WORKSPACE_WRITE);
       return agentMessage('{"verdict":"ok"}');
