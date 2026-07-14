@@ -32,11 +32,19 @@ describe("withAntigravityInvocationLock", () => {
     const lockPath = antigravityInvocationLockPath(baseDir);
 
     await withAntigravityInvocationLock(baseDir, async () => {
-      expect(statSync(lockPath).mode & 0o777).toBe(0o700);
-      expect(statSync(join(lockPath, "owner.json")).mode & 0o777).toBe(0o600);
+      const ownerPath = join(lockPath, "owner.json");
+      expect(existsSync(lockPath)).toBe(true);
+      expect(existsSync(ownerPath)).toBe(true);
       const heartbeat = readdirSync(lockPath).find((name) => name.startsWith(".heartbeat-"));
       expect(heartbeat).toBeDefined();
-      expect(statSync(join(lockPath, heartbeat as string)).mode & 0o777).toBe(0o600);
+      if (!heartbeat) throw new Error("heartbeat file missing");
+      const heartbeatPath = join(lockPath, heartbeat);
+      expect(existsSync(heartbeatPath)).toBe(true);
+      if (process.platform !== "win32") {
+        expect(statSync(lockPath).mode & 0o777).toBe(0o700);
+        expect(statSync(ownerPath).mode & 0o777).toBe(0o600);
+        expect(statSync(heartbeatPath).mode & 0o777).toBe(0o600);
+      }
     });
 
     expect(existsSync(lockPath)).toBe(false);
