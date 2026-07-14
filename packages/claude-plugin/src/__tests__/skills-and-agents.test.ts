@@ -145,13 +145,16 @@ describe("native model review skills", () => {
     expect(content).toMatch(/distinguishes|Do not substitute|Do not route/i);
   });
 
-  it("rejects a Fable review when Claude Code resolves the agent to another model", () => {
+  it("guards explicit Fable overrides without claiming inaccessible runtime verification", () => {
     const content = readFile("skills/fable-review/SKILL.md");
     expect(content).toContain('model: "fable"');
-    expect(content).toContain("resolvedModel");
+    expect(content).toContain("CLAUDE_CODE_SUBAGENT_MODEL");
+    expect(content).toContain("inherit");
     expect(content).toContain("claude-fable-");
-    expect(content).toMatch(/absent or names any other model, abort/i);
-    expect(content).toMatch(/do not return.+findings as a Fable review/i);
+    expect(content).toMatch(/higher precedence.+model request/i);
+    expect(content).toMatch(/resolved model was not independently verified/i);
+    expect(content).toMatch(/does not expose the resolved subagent model/i);
+    expect(content).not.toContain("resolvedModel");
   });
 });
 

@@ -36,7 +36,7 @@ claude mcp add --scope user ollama -- npx -y ask-ollama-mcp
 | `/multi-review` | Parallel Gemini + Codex review with 4-phase validation pipeline and consensus highlighting |
 | `/gemini-review` | Gemini-only code review with confidence filtering |
 | `/codex-review` | Codex-only code review (precision-first, ≥80 confidence — default for routine PR review) |
-| `/fable-review` | Native Fable review in an isolated, read-only context |
+| `/fable-review` | Isolated, read-only review requesting native Fable, with runtime verification limits disclosed |
 | `/sol-review` | Model-pinned GPT-5.6 Sol review through Codex |
 | `/ollama-review` | Local review — no data leaves your machine |
 | `/brainstorm` | Multi-LLM brainstorm with Claude Opus as a first-class research participant (default external: gemini,codex) |
@@ -49,7 +49,7 @@ claude mcp add --scope user ollama -- npx -y ask-ollama-mcp
 |-------|-------|-------------|
 | gemini-reviewer | cyan | 4-phase: context, prompt, synthesis, validation |
 | codex-reviewer | green | 4-phase: context, prompt, synthesis, validation |
-| fable-reviewer | purple | Direct Fable review with source-verified findings |
+| fable-reviewer | purple | Fable-requested review with source-verified findings |
 | sol-reviewer | blue | GPT-5.6 Sol review through Codex with source validation |
 | ollama-reviewer | yellow | 4-phase: context, prompt, synthesis, validation (local) |
 | brainstorm-coordinator | magenta | Claude Opus research + parallel multi-LLM consultation with synthesis; verified findings weighted higher than inferred |

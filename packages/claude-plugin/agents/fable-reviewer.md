@@ -1,6 +1,6 @@
 ---
 name: fable-reviewer
-description: Reviews code changes directly with the Fable model in an isolated, read-only context and reports only source-verified, high-confidence correctness findings.
+description: Reviews code changes in an isolated, read-only context configured to request Fable and reports only source-verified, high-confidence correctness findings.
 model: fable
 effort: high
 color: purple

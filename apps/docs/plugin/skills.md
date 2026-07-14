@@ -12,7 +12,7 @@ Skills are slash commands you can invoke directly in Claude Code. Each skill tri
 
 ### `/fable-review`
 
-Review the current diff directly with a read-only agent pinned to Fable. Findings are checked against the source and filtered at 80% confidence.
+Review the current diff with a read-only agent configured to request Fable. Findings are checked against the source and filtered at 80% confidence.
 
 ```text
 /fable-review
@@ -26,7 +26,7 @@ Run the same independent review contract with an isolated coordinator that expli
 /sol-review
 ```
 
-`/fable-review` requires a Claude Code runtime/account that exposes Fable. `/sol-review` requires an installed, authenticated Codex CLI and registered Codex MCP server. If Sol falls back to Terra on quota, the result says so explicitly.
+`/fable-review` requires a Claude Code runtime/account that exposes Fable. It rejects an explicit non-Fable `CLAUDE_CODE_SUBAGENT_MODEL` override, but Claude Code does not expose the resolved subagent model to skills, so the result discloses that organization-policy fallback could not be independently verified. `/sol-review` requires an installed, authenticated Codex CLI and registered Codex MCP server. If Sol falls back to Terra on quota, the result says so explicitly.
 
 ## Provider Review Skills
 

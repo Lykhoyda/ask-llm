@@ -167,7 +167,7 @@ The **Ask LLM plugin** adds multi-provider code review, brainstorming, and autom
 | <nobr>`/multi-review`</nobr> | Parallel Antigravity + Codex review with 4-phase validation pipeline and consensus highlighting (gemini via `/gemini-review`) |
 | <nobr>`/gemini-review`</nobr> | Gemini-only review with confidence filtering |
 | <nobr>`/codex-review`</nobr> | Codex-only review with confidence filtering |
-| <nobr>`/fable-review`</nobr> | Direct review by the native Fable model in an isolated, read-only context |
+| <nobr>`/fable-review`</nobr> | Isolated, read-only review that requests the native Fable model and discloses runtime verification limits |
 | <nobr>`/sol-review`</nobr> | Model-pinned GPT-5.6 Sol review through Codex |
 | <nobr>`/ollama-review`</nobr> | Local review — no data leaves your machine |
 | <nobr>`/antigravity-review`</nobr> | Subscription-backed review via Google Antigravity (`agy`) — experimental |
