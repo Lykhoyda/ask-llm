@@ -1,5 +1,12 @@
 # @ask-llm/gemini-mcp
 
+## 1.6.15
+
+### Patch Changes
+
+- [#230](https://github.com/Lykhoyda/ask-llm/pull/230) [`394c305`](https://github.com/Lykhoyda/ask-llm/commit/394c305806607ca5db4803c666a0ebdc3304c2db) Thanks [@Lykhoyda](https://github.com/Lykhoyda)! - Move every public MCP package into the canonical `@ask-llm` npm organization,
+  while preserving the existing executable names for compatibility.
+
 ## 1.6.14
 
 ### Patch Changes

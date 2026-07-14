@@ -1,5 +1,17 @@
 # @ask-llm/plugin
 
+## 0.12.1
+
+### Patch Changes
+
+- [#230](https://github.com/Lykhoyda/ask-llm/pull/230) [`394c305`](https://github.com/Lykhoyda/ask-llm/commit/394c305806607ca5db4803c666a0ebdc3304c2db) Thanks [@Lykhoyda](https://github.com/Lykhoyda)! - Move every public MCP package into the canonical `@ask-llm` npm organization,
+  while preserving the existing executable names for compatibility.
+- Updated dependencies [[`394c305`](https://github.com/Lykhoyda/ask-llm/commit/394c305806607ca5db4803c666a0ebdc3304c2db)]:
+  - @ask-llm/gemini-mcp@1.6.15
+  - @ask-llm/codex-mcp@0.6.2
+  - @ask-llm/ollama-mcp@0.5.2
+  - @ask-llm/antigravity-mcp@0.4.2
+
 ## 0.12.0
 
 ### Minor Changes
