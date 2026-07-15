@@ -3,10 +3,17 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { CLI } from "../constants.js";
-import { buildArgs } from "../utils/antigravityExecutor.js";
+import { buildArgs, buildInvocationLockOptions } from "../utils/antigravityExecutor.js";
 import { readLatestTranscript, snapshotTranscriptState } from "../utils/transcriptReader.js";
 
 describe("Antigravity machine options", () => {
+  it("waits for the full two-attempt invocation lease before reporting contention", () => {
+    expect(buildInvocationLockOptions(300_000)).toEqual({
+      acquireTimeoutMs: 630_000,
+      leaseDurationMs: 630_000,
+    });
+  });
+
   it("uses plan+sandbox without dangerous permission bypass for machine review", () => {
     const args = buildArgs("review", [], 295, true, "Gemini 3.1 Pro (High)", true);
 

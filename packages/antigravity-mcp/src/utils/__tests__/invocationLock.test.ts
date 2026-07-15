@@ -96,7 +96,7 @@ describe("withAntigravityInvocationLock", () => {
         acquireTimeoutMs: 40,
         pollIntervalMs: 5,
       }),
-    ).rejects.toThrow("Timed out waiting for the Antigravity invocation lock");
+    ).rejects.toThrow("Antigravity invocation lock remained busy");
     expect(existsSync(lockPath)).toBe(true);
   });
 
@@ -116,7 +116,7 @@ describe("withAntigravityInvocationLock", () => {
         acquireTimeoutMs: 40,
         pollIntervalMs: 5,
       }),
-    ).rejects.toThrow("Timed out waiting for the Antigravity invocation lock");
+    ).rejects.toThrow("Antigravity invocation lock remained busy");
     expect(readFileSync(join(lockPath, "owner.json"), "utf8")).toContain("live-owner");
   });
 

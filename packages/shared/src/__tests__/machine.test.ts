@@ -240,6 +240,7 @@ describe("classifyProviderFailure", () => {
     ["401 authentication required", "auth_failed"],
     ["spawn agy ENOENT", "tool_unavailable"],
     ["request timed out after 300000ms", "timeout"],
+    ["Antigravity invocation lock remained busy", "unavailable"],
     ["provider is not loaded", "unavailable"],
     ["unexpected provider failure", "unavailable"],
   ])("maps %s to %s", (message, expected) => {
@@ -284,6 +285,12 @@ describe("parseRolePayload", () => {
       "review",
       `Provider note: the token "{example}" is illustrative. ${JSON.stringify(reviewPayload)}`,
     );
+
+    expect(payload).toEqual({ ok: true, payload: reviewPayload });
+  });
+
+  it("skips an invalid balanced object before a valid role payload", () => {
+    const payload = parseRolePayload("review", `Schema example: {"type":"object"}\n${JSON.stringify(reviewPayload)}`);
 
     expect(payload).toEqual({ ok: true, payload: reviewPayload });
   });

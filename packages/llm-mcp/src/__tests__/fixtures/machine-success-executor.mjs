@@ -8,7 +8,7 @@ const payload = JSON.parse(readFileSync(new URL("./review-success.json", import.
 export async function executeCodexCLI() {
   console.log("fixture executor dispatched");
   return {
-    response: JSON.stringify(payload),
+    response: `Schema example: {"type":"object"}\n${JSON.stringify(payload)}`,
     model: "gpt-fixture",
     threadId: "thread-fixture-001",
     usage: {

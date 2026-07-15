@@ -14,22 +14,23 @@ import { machineJsonSchemaBundle, runMachineRequest } from "./machine.js";
 import { startRepl } from "./repl.js";
 import { buildProviderSpecs } from "./utils/providerSpecs.js";
 
-const MAX_MACHINE_STDIN_BYTES = 150 * 1024;
+const MAX_MACHINE_STDIN_BYTES = 2 * 1024 * 1024;
 
 class MachineInputError extends Error {}
 
 async function readStdin(): Promise<string> {
   const chunks: Buffer[] = [];
   let size = 0;
+  let oversized = false;
 
   for await (const chunk of process.stdin) {
     const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
     size += buffer.byteLength;
-    if (size > MAX_MACHINE_STDIN_BYTES) throw new MachineInputError();
-    chunks.push(buffer);
+    if (size > MAX_MACHINE_STDIN_BYTES) oversized = true;
+    if (!oversized) chunks.push(buffer);
   }
 
-  if (size === 0) throw new MachineInputError();
+  if (size === 0 || oversized) throw new MachineInputError();
   return Buffer.concat(chunks).toString("utf8");
 }
 
@@ -46,7 +47,9 @@ async function loadMachineExecutor(provider: MachineProvider): Promise<ExecutorF
   if (!spec) return undefined;
 
   try {
-    const moduleName = process.env.ASK_LLM_MACHINE_EXECUTOR_MODULE ?? spec.executorModule;
+    const configuredOverride = process.env.ASK_LLM_MACHINE_EXECUTOR_MODULE;
+    const allowOverride = process.env.ASK_LLM_MACHINE_ALLOW_EXECUTOR_OVERRIDE === "1";
+    const moduleName = allowOverride && configuredOverride ? configuredOverride : spec.executorModule;
     const module = await import(moduleName);
     const executor = module[spec.executorFn];
     return typeof executor === "function" ? (executor as ExecutorFn) : undefined;

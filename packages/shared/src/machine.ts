@@ -18,10 +18,9 @@ export const actorProviderSchema = z.enum(PROVIDERS);
 
 const requestIdSchema = z.string().regex(/^[A-Za-z0-9._:-]{8,160}$/);
 const nonBlankStringSchema = z.string().regex(/\S/, "Value must contain a non-whitespace character");
-const machineRelativeDirSchema = relativeDirSchema.regex(
-  /^(?!.*\.\.)(?!~)(?!\/)(?![A-Za-z]:[\\/])(?!\\).*$/,
-  "Directory paths must be relative without '..' or '~'",
-);
+const machineRelativeDirSchema = relativeDirSchema
+  .max(1024)
+  .regex(/^(?!.*\.\.)(?!~)(?!\/)(?![A-Za-z]:[\\/])(?!\\).*$/, "Directory paths must be relative without '..' or '~'");
 
 export const machineRequestSchema = z
   .object({
@@ -30,7 +29,7 @@ export const machineRequestSchema = z
     role: machineRoleSchema,
     provider: machineProviderSchema,
     prompt: z.string().min(1).max(150_000),
-    model: nonBlankStringSchema.optional(),
+    model: nonBlankStringSchema.max(256).optional(),
     readOnly: z.literal(true),
     writerProvider: actorProviderSchema.optional(),
     includeDirs: z.array(machineRelativeDirSchema).max(16).default([]),
@@ -286,7 +285,7 @@ export function classifyProviderFailure(error: unknown): ProviderFailureKind {
   return "unavailable";
 }
 
-function extractFirstJsonObject(raw: string): string | null {
+function* extractJsonObjects(raw: string): Generator<string> {
   let start = -1;
   let depth = 0;
   let inString = false;
@@ -330,11 +329,12 @@ function extractFirstJsonObject(raw: string): string | null {
       depth += 1;
     } else if (character === "}") {
       depth -= 1;
-      if (depth === 0) return raw.slice(start, index + 1);
+      if (depth === 0) {
+        yield raw.slice(start, index + 1);
+        start = -1;
+      }
     }
   }
-
-  return null;
 }
 
 type RolePayloadByRole = {
@@ -348,16 +348,14 @@ export type ParsedRolePayload<Role extends MachineRole = MachineRole> =
   | { ok: false; failure: { kind: "schema_invalid"; message: string } };
 
 export function parseRolePayload<Role extends MachineRole>(role: Role, raw: string): ParsedRolePayload<Role> {
-  const jsonObject = extractFirstJsonObject(raw);
-
-  if (jsonObject !== null) {
+  for (const jsonObject of extractJsonObjects(raw)) {
     try {
       const result = rolePayloadSchemas[role].safeParse(JSON.parse(jsonObject));
       if (result.success) {
         return { ok: true, payload: result.data as RolePayloadByRole[Role] };
       }
     } catch {
-      // Normalize parser failures below.
+      // Continue looking for the provider's next complete object.
     }
   }
 

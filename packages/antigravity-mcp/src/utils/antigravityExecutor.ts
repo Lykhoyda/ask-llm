@@ -26,6 +26,14 @@ export interface AntigravityExecutorResult {
   transcriptPath?: string;
 }
 
+export function buildInvocationLockOptions(timeoutMs: number): {
+  acquireTimeoutMs: number;
+  leaseDurationMs: number;
+} {
+  const invocationWindowMs = timeoutMs * 2 + 30_000;
+  return { acquireTimeoutMs: invocationWindowMs, leaseDurationMs: invocationWindowMs };
+}
+
 // Serialize all agy invocations in-process. Concurrent `agy -p` runs race on the
 // shared cache/last_conversations.json and the newest-brain-dir heuristic, which
 // would cross-wire responses. This is a correctness lock, not perf tuning (spec §6).
@@ -90,7 +98,7 @@ export async function executeAntigravityCLI(options: AntigravityExecutorOptions)
   const baseDir = defaultBaseDir();
   const sandbox = process.env[ANTIGRAVITY.SANDBOX_ENV_VAR] !== "0";
   const timeoutMs = resolveTimeoutMs(ANTIGRAVITY.TIMEOUT_ENV_VAR, ANTIGRAVITY.DEFAULT_TIMEOUT_MS);
-  const lockLeaseDurationMs = timeoutMs * 2 + 30_000;
+  const lockOptions = buildInvocationLockOptions(timeoutMs);
   // Tell agy to wait slightly less than our hard process timeout so agy's own
   // --print-timeout fires first with a cleaner message when the model is slow.
   // For very small configured timeouts (<=6s), don't subtract — otherwise agy's
@@ -202,7 +210,7 @@ export async function executeAntigravityCLI(options: AntigravityExecutorOptions)
           }
         }
       },
-      { leaseDurationMs: lockLeaseDurationMs },
+      lockOptions,
     ),
   );
 }

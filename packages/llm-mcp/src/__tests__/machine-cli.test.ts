@@ -39,14 +39,27 @@ function markerPath(): string {
   return path;
 }
 
-function runCli(args: string[], input = "", options: { executorPath?: string; marker?: string } = {}): CliResult {
+function runCli(
+  args: string[],
+  input = "",
+  options: {
+    allowExecutorOverride?: boolean;
+    env?: Record<string, string>;
+    executorPath?: string;
+    marker?: string;
+  } = {},
+): CliResult {
   const result = spawnSync(process.execPath, [cliPath, ...args], {
     encoding: "utf8",
     env: {
       ...process.env,
       ASK_LLM_LOG_LEVEL: "debug",
       ...(options.executorPath ? { ASK_LLM_MACHINE_EXECUTOR_MODULE: pathToFileURL(options.executorPath).href } : {}),
+      ...(options.executorPath && options.allowExecutorOverride !== false
+        ? { ASK_LLM_MACHINE_ALLOW_EXECUTOR_OVERRIDE: "1" }
+        : {}),
       ...(options.marker ? { ASK_LLM_MACHINE_FIXTURE_LOAD_MARKER: options.marker } : {}),
+      ...options.env,
     },
     input,
     maxBuffer: 8 * 1024 * 1024,
@@ -63,6 +76,7 @@ async function runCliWithClosedStdout(input: string, executorPath: string): Prom
       ...process.env,
       ASK_LLM_LOG_LEVEL: "debug",
       ASK_LLM_MACHINE_EXECUTOR_MODULE: pathToFileURL(executorPath).href,
+      ASK_LLM_MACHINE_ALLOW_EXECUTOR_OVERRIDE: "1",
     },
     stdio: ["pipe", "pipe", "pipe"],
   });
@@ -179,15 +193,41 @@ describe("ask-llm-mcp machine", () => {
     expect(existsSync(marker)).toBe(false);
   });
 
-  it("rejects more than 150 KiB before loading a provider", () => {
+  it("accepts a schema-max prompt whose JSON exceeds the legacy 150 KiB transport cap", () => {
     const marker = markerPath();
-    const oversized = JSON.stringify({ ...request, prompt: "x".repeat(150 * 1024) });
+    const schemaMax = JSON.stringify({ ...request, prompt: "\n".repeat(150_000) });
+    const result = runCli(["machine"], schemaMax, { executorPath: successExecutorPath, marker });
+
+    expect(Buffer.byteLength(schemaMax)).toBeGreaterThan(150 * 1024);
+    expect(result.status).toBe(0);
+    expect(JSON.parse(result.stdout).status).toBe("success");
+    expect(existsSync(marker)).toBe(true);
+  });
+
+  it("rejects more than 2 MiB before loading a provider", () => {
+    const marker = markerPath();
+    const oversized = `${JSON.stringify(request)}${" ".repeat(2 * 1024 * 1024)}`;
     const result = runCli(["machine"], oversized, { executorPath: successExecutorPath, marker });
 
-    expect(Buffer.byteLength(oversized)).toBeGreaterThan(150 * 1024);
+    expect(Buffer.byteLength(oversized)).toBeGreaterThan(2 * 1024 * 1024);
     expect(result.status).toBe(2);
     expect(result.stdout).toBe("");
     expect(result.stderr).toContain("machine input rejected");
+    expect(existsSync(marker)).toBe(false);
+  });
+
+  it("ignores an executor-module override without explicit opt-in", () => {
+    const marker = markerPath();
+    const result = runCli(["machine"], JSON.stringify(request), {
+      allowExecutorOverride: false,
+      env: { PATH: "" },
+      executorPath: successExecutorPath,
+      marker,
+    });
+    const output = JSON.parse(result.stdout);
+
+    expect(result.status).toBe(0);
+    expect(output).toMatchObject({ status: "failed", failure: { kind: "unavailable" } });
     expect(existsSync(marker)).toBe(false);
   });
 

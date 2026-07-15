@@ -136,7 +136,9 @@ async function acquireLock(
 
     if (await recoverAbandonedLock(lockPath)) continue;
     const remainingMs = deadline - Date.now();
-    if (remainingMs <= 0) throw new Error("Timed out waiting for the Antigravity invocation lock");
+    if (remainingMs <= 0) {
+      throw new Error(`Antigravity invocation lock remained busy for ${acquireTimeoutMs}ms`);
+    }
     await delay(Math.min(Math.max(1, pollIntervalMs), remainingMs));
   }
 }
