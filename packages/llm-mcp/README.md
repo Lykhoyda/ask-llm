@@ -71,7 +71,7 @@ Claude is intentionally suppressed when the MCP host is already Claude Code beca
 
 ## Machine Protocol
 
-`machine` exposes a stdin-only JSON interface for factory controllers. It accepts one request of at most 150 KiB, validates it before loading a provider, and writes exactly one typed result document to stdout. Prompts and issue content are never accepted through argv, and diagnostics go only to stderr.
+`machine` exposes a stdin-only JSON interface for factory controllers. It accepts one request of at most 2 MiB, with the prompt bounded to 150,000 characters by the schema, validates it before loading a provider, and writes exactly one typed result document to stdout. Prompts and issue content are never accepted through argv, and diagnostics go only to stderr.
 
 Create a request file without putting its content in the command line:
 
