@@ -1,5 +1,20 @@
 # @ask-llm/mcp
 
+## 0.6.0
+
+### Minor Changes
+
+- [#227](https://github.com/Lykhoyda/ask-llm/pull/227) [`a3c3ba3`](https://github.com/Lykhoyda/ask-llm/commit/a3c3ba38fc1643059f4d5a75208b99e580ae9d4b) Thanks [@Lykhoyda](https://github.com/Lykhoyda)! - Add a safe typed machine protocol for subscription-backed factory planning, review, and verification.
+
+### Patch Changes
+
+- Updated dependencies [[`a3c3ba3`](https://github.com/Lykhoyda/ask-llm/commit/a3c3ba38fc1643059f4d5a75208b99e580ae9d4b)]:
+  - @ask-llm/codex-mcp@0.7.0
+  - @ask-llm/antigravity-mcp@0.5.0
+  - @ask-llm/gemini-mcp@1.6.16
+  - @ask-llm/claude-mcp@0.1.3
+  - @ask-llm/ollama-mcp@0.5.3
+
 ## 0.5.2
 
 ### Patch Changes

@@ -212,7 +212,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@ask-llm/antigravity-mcp@npm:^0.4.2, @ask-llm/antigravity-mcp@workspace:*, @ask-llm/antigravity-mcp@workspace:packages/antigravity-mcp":
+"@ask-llm/antigravity-mcp@npm:^0.5.0, @ask-llm/antigravity-mcp@workspace:*, @ask-llm/antigravity-mcp@workspace:packages/antigravity-mcp":
   version: 0.0.0-use.local
   resolution: "@ask-llm/antigravity-mcp@workspace:packages/antigravity-mcp"
   dependencies:
@@ -229,7 +229,7 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@ask-llm/claude-mcp@npm:^0.1.2, @ask-llm/claude-mcp@workspace:packages/claude-mcp":
+"@ask-llm/claude-mcp@npm:^0.1.3, @ask-llm/claude-mcp@workspace:packages/claude-mcp":
   version: 0.0.0-use.local
   resolution: "@ask-llm/claude-mcp@workspace:packages/claude-mcp"
   dependencies:
@@ -246,7 +246,7 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@ask-llm/codex-mcp@npm:^0.6.2, @ask-llm/codex-mcp@workspace:*, @ask-llm/codex-mcp@workspace:packages/codex-mcp":
+"@ask-llm/codex-mcp@npm:^0.7.0, @ask-llm/codex-mcp@workspace:*, @ask-llm/codex-mcp@workspace:packages/codex-mcp":
   version: 0.0.0-use.local
   resolution: "@ask-llm/codex-mcp@workspace:packages/codex-mcp"
   dependencies:
@@ -263,7 +263,7 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@ask-llm/gemini-mcp@npm:^1.6.15, @ask-llm/gemini-mcp@workspace:*, @ask-llm/gemini-mcp@workspace:packages/gemini-mcp":
+"@ask-llm/gemini-mcp@npm:^1.6.16, @ask-llm/gemini-mcp@workspace:*, @ask-llm/gemini-mcp@workspace:packages/gemini-mcp":
   version: 0.0.0-use.local
   resolution: "@ask-llm/gemini-mcp@workspace:packages/gemini-mcp"
   dependencies:
@@ -284,11 +284,11 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@ask-llm/mcp@workspace:packages/llm-mcp"
   dependencies:
-    "@ask-llm/antigravity-mcp": "npm:^0.4.2"
-    "@ask-llm/claude-mcp": "npm:^0.1.2"
-    "@ask-llm/codex-mcp": "npm:^0.6.2"
-    "@ask-llm/gemini-mcp": "npm:^1.6.15"
-    "@ask-llm/ollama-mcp": "npm:^0.5.2"
+    "@ask-llm/antigravity-mcp": "npm:^0.5.0"
+    "@ask-llm/claude-mcp": "npm:^0.1.3"
+    "@ask-llm/codex-mcp": "npm:^0.7.0"
+    "@ask-llm/gemini-mcp": "npm:^1.6.16"
+    "@ask-llm/ollama-mcp": "npm:^0.5.3"
     "@ask-llm/shared": "workspace:*"
     "@biomejs/biome": "npm:^2.4.4"
     "@modelcontextprotocol/sdk": "npm:^1.27.1"
@@ -303,7 +303,7 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@ask-llm/ollama-mcp@npm:^0.5.2, @ask-llm/ollama-mcp@workspace:*, @ask-llm/ollama-mcp@workspace:packages/ollama-mcp":
+"@ask-llm/ollama-mcp@npm:^0.5.3, @ask-llm/ollama-mcp@workspace:*, @ask-llm/ollama-mcp@workspace:packages/ollama-mcp":
   version: 0.0.0-use.local
   resolution: "@ask-llm/ollama-mcp@workspace:packages/ollama-mcp"
   dependencies:
