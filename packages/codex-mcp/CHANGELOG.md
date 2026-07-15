@@ -1,5 +1,11 @@
 # @ask-llm/codex-mcp
 
+## 0.7.0
+
+### Minor Changes
+
+- [#227](https://github.com/Lykhoyda/ask-llm/pull/227) [`a3c3ba3`](https://github.com/Lykhoyda/ask-llm/commit/a3c3ba38fc1643059f4d5a75208b99e580ae9d4b) Thanks [@Lykhoyda](https://github.com/Lykhoyda)! - Add a safe typed machine protocol for subscription-backed factory planning, review, and verification.
+
 ## 0.6.2
 
 ### Patch Changes
