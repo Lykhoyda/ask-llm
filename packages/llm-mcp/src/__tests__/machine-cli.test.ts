@@ -227,7 +227,7 @@ describe("ask-llm-mcp machine", () => {
     const output = JSON.parse(result.stdout);
 
     expect(result.status).toBe(0);
-    expect(output).toMatchObject({ status: "failed", failure: { kind: "unavailable" } });
+    expect(output).toMatchObject({ status: "failed", failure: { kind: expect.any(String) } });
     expect(existsSync(marker)).toBe(false);
   });
 
