@@ -1,11 +1,13 @@
+import { createHash } from "node:crypto";
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { Logger } from "@ask-llm/shared";
 
+// One millisecond covers Date.now/file-mtime rounding without admitting an older write.
+const TIMESTAMP_TOLERANCE_MS = 1;
+
 export function defaultBaseDir(): string {
-  // ASK_ANTIGRAVITY_BASE_DIR overrides the assumed location of agy's data dir —
-  // the path most likely to need correcting against a real agy install (spec §10).
   return process.env.ASK_ANTIGRAVITY_BASE_DIR ?? join(homedir(), ".gemini", "antigravity-cli");
 }
 
@@ -18,8 +20,31 @@ interface TranscriptEntry {
   message?: string;
 }
 
-// last_conversations.json shape is undocumented. Tolerate: array of ids, array
-// of {id}, or an object (keyed by id, or with lastId / conversations). Unknown → null.
+interface TranscriptFile {
+  contents: string;
+  path: string;
+  mtimeMs: number;
+  size: number;
+}
+
+interface TranscriptFingerprint {
+  path: string;
+  mtimeMs: number;
+  size: number;
+  completedResponseHashes: readonly string[];
+}
+
+export interface TranscriptStateSnapshot {
+  baseDir: string;
+  transcripts: Readonly<Record<string, TranscriptFingerprint | null>>;
+}
+
+export interface TranscriptResult {
+  response: string;
+  path: string;
+  conversationId: string;
+}
+
 function pickMostRecentId(parsed: unknown): string | null {
   if (Array.isArray(parsed)) {
     for (let i = parsed.length - 1; i >= 0; i--) {
@@ -35,43 +60,31 @@ function pickMostRecentId(parsed: unknown): string | null {
     const obj = parsed as Record<string, unknown>;
     if (typeof obj.lastId === "string") return obj.lastId;
     if (Array.isArray(obj.conversations)) return pickMostRecentId(obj.conversations);
-    // A bare object keyed by conversation id gives no reliable recency signal:
-    // integer-like keys enumerate in ascending numeric order and string keys in
-    // insertion order — neither tracks creation time — so return null and let the
-    // caller fall through to the mtime-based brain-dir scan instead of guessing.
   }
   return null;
 }
 
-// Resolve the conversation id of the run we just triggered: prefer agy's
-// cache/last_conversations.json; else the newest brain/<id> modified at/after sinceMs.
-function resolveConversationId(baseDir: string, sinceMs: number): string | null {
+function listConversationIds(baseDir: string): string[] {
   try {
-    const raw = readFileSync(join(baseDir, "cache", "last_conversations.json"), "utf8");
-    const id = pickMostRecentId(JSON.parse(raw));
-    if (id) return id;
-  } catch {
-    // fall through to brain-dir scan
-  }
-  try {
-    const brainDir = join(baseDir, "brain");
-    let newest: { id: string; mtimeMs: number } | null = null;
-    for (const id of readdirSync(brainDir)) {
-      let stat: ReturnType<typeof statSync>;
+    return readdirSync(join(baseDir, "brain")).filter((id) => {
       try {
-        stat = statSync(join(brainDir, id));
+        return statSync(join(baseDir, "brain", id)).isDirectory();
       } catch {
-        continue;
+        return false;
       }
-      // skip stray non-directory entries (e.g. .DS_Store, lock files) so they
-      // can't become the "newest" id and break the transcript path (#153 dogfood).
-      if (!stat.isDirectory()) continue;
-      const mtimeMs = stat.mtimeMs;
-      // include if mtimeMs >= sinceMs - 1 (1ms tolerance for coarse FS timestamps)
-      if (mtimeMs + 1 < sinceMs) continue;
-      if (!newest || mtimeMs > newest.mtimeMs) newest = { id, mtimeMs };
-    }
-    return newest?.id ?? null;
+    });
+  } catch {
+    return [];
+  }
+}
+
+function readFileOrNull(path: string): TranscriptFile | null {
+  try {
+    const before = statSync(path);
+    const contents = readFileSync(path, "utf8");
+    const after = statSync(path);
+    if (before.mtimeMs !== after.mtimeMs || before.size !== after.size) return null;
+    return { contents, path, mtimeMs: after.mtimeMs, size: after.size };
   } catch {
     return null;
   }
@@ -82,40 +95,9 @@ function extractText(entry: TranscriptEntry): string | null {
   return typeof text === "string" && text.length > 0 ? text : null;
 }
 
-function readFileOrNull(path: string): string | null {
-  try {
-    return readFileSync(path, "utf8");
-  } catch {
-    return null;
-  }
-}
-
-// Read agy's transcript for the resolved conversation and return the last
-// completed model response, or null if absent/unreadable. Never throws.
-// Schema validated against agy 1.0.6 (#153 dogfood): the answer is the last entry
-// with source=MODEL, status=DONE, type=PLANNER_RESPONSE, and its text in `content`.
-export function readLatestResponse(sinceMs: number, baseDir: string = defaultBaseDir()): string | null {
-  const convId = resolveConversationId(baseDir, sinceMs);
-  if (!convId) {
-    Logger.debug("antigravity: could not resolve a conversation id from cache or brain dir");
-    return null;
-  }
-  const logsDir = join(baseDir, "brain", convId, ".system_generated", "logs");
-  // agy writes a token-truncated transcript.jsonl plus a complete
-  // transcript_full.jsonl; prefer the full one so long responses aren't clipped
-  // (verified against agy 1.0.6 — #153 dogfood), falling back to transcript.jsonl.
-  // Note: readFileOrNull returns file *contents*, so once transcript_full.jsonl
-  // exists it wins even if it yields no model entry (e.g. agy crashed mid-write) —
-  // we return null rather than fall back to the truncated copy. Intentional:
-  // full > truncated; a full file with no model entry means the run didn't finish (#154).
-  const raw =
-    readFileOrNull(join(logsDir, "transcript_full.jsonl")) ?? readFileOrNull(join(logsDir, "transcript.jsonl"));
-  if (raw === null) {
-    Logger.debug(`antigravity: no transcript (full or truncated) under ${logsDir}`);
-    return null;
-  }
-  let answer: string | null = null;
-  for (const line of raw.split("\n")) {
+function completedResponses(contents: string): Array<{ hash: string; text: string }> {
+  const responses: Array<{ hash: string; text: string }> = [];
+  for (const line of contents.split("\n")) {
     const trimmed = line.trim();
     if (!trimmed.startsWith("{")) continue;
     let entry: TranscriptEntry;
@@ -124,13 +106,103 @@ export function readLatestResponse(sinceMs: number, baseDir: string = defaultBas
     } catch {
       continue;
     }
-    if (entry.source === "MODEL" && entry.status === "DONE" && entry.type === "PLANNER_RESPONSE") {
-      const text = extractText(entry);
-      if (text) answer = text; // keep the LAST matching entry
-    }
+    if (entry.source !== "MODEL" || entry.status !== "DONE" || entry.type !== "PLANNER_RESPONSE") continue;
+    const text = extractText(entry);
+    if (text) responses.push({ hash: createHash("sha256").update(text).digest("hex"), text });
   }
-  if (!answer) {
-    Logger.debug("antigravity: transcript present but no MODEL/DONE/PLANNER_RESPONSE entry found (schema change?)");
+  return responses;
+}
+
+function readAuthoritativeTranscript(baseDir: string, conversationId: string): TranscriptFile | null {
+  const logsDir = join(baseDir, "brain", conversationId, ".system_generated", "logs");
+  return readFileOrNull(join(logsDir, "transcript_full.jsonl")) ?? readFileOrNull(join(logsDir, "transcript.jsonl"));
+}
+
+function fingerprintAuthoritativeTranscript(baseDir: string, conversationId: string): TranscriptFingerprint | null {
+  const transcript = readAuthoritativeTranscript(baseDir, conversationId);
+  if (!transcript) return null;
+  return {
+    path: transcript.path,
+    mtimeMs: transcript.mtimeMs,
+    size: transcript.size,
+    completedResponseHashes: completedResponses(transcript.contents).map(({ hash }) => hash),
+  };
+}
+
+export function snapshotTranscriptState(baseDir: string = defaultBaseDir()): TranscriptStateSnapshot {
+  const transcripts: Record<string, TranscriptFingerprint | null> = {};
+  for (const id of listConversationIds(baseDir)) {
+    transcripts[id] = fingerprintAuthoritativeTranscript(baseDir, id);
   }
-  return answer;
+  return { baseDir, transcripts };
+}
+
+function readCachedConversationId(baseDir: string): string | null {
+  try {
+    return pickMostRecentId(JSON.parse(readFileSync(join(baseDir, "cache", "last_conversations.json"), "utf8")));
+  } catch {
+    return null;
+  }
+}
+
+function latestNewCompletedResponse(
+  transcript: TranscriptFile,
+  before: TranscriptFingerprint | null | undefined,
+): string | null {
+  const previousCounts = new Map<string, number>();
+  for (const hash of before?.completedResponseHashes ?? []) {
+    previousCounts.set(hash, (previousCounts.get(hash) ?? 0) + 1);
+  }
+
+  const currentCounts = new Map<string, number>();
+  let latest: string | null = null;
+  for (const response of completedResponses(transcript.contents)) {
+    const occurrence = (currentCounts.get(response.hash) ?? 0) + 1;
+    currentCounts.set(response.hash, occurrence);
+    if (occurrence > (previousCounts.get(response.hash) ?? 0)) latest = response.text;
+  }
+  return latest;
+}
+
+function readCorrelatedTranscript(
+  conversationId: string,
+  sinceMs: number,
+  snapshot: TranscriptStateSnapshot,
+): { file: TranscriptFile; response: string } | null {
+  const transcript = readAuthoritativeTranscript(snapshot.baseDir, conversationId);
+  if (!transcript) return null;
+  if (transcript.mtimeMs + TIMESTAMP_TOLERANCE_MS < sinceMs) return null;
+  const response = latestNewCompletedResponse(transcript, snapshot.transcripts[conversationId]);
+  return response ? { file: transcript, response } : null;
+}
+
+function resolveTranscript(
+  sinceMs: number,
+  snapshot: TranscriptStateSnapshot,
+): { id: string; file: TranscriptFile; response: string } | null {
+  const cachedId = readCachedConversationId(snapshot.baseDir);
+  if (cachedId) {
+    const cached = readCorrelatedTranscript(cachedId, sinceMs, snapshot);
+    return cached ? { id: cachedId, ...cached } : null;
+  }
+
+  const candidates = listConversationIds(snapshot.baseDir).flatMap((id) => {
+    const file = readCorrelatedTranscript(id, sinceMs, snapshot);
+    return file ? [{ id, ...file }] : [];
+  });
+  return candidates.length === 1 ? candidates[0] : null;
+}
+
+export function readLatestTranscript(sinceMs: number, snapshot: TranscriptStateSnapshot): TranscriptResult | null {
+  const resolved = resolveTranscript(sinceMs, snapshot);
+  if (!resolved) {
+    Logger.debug("antigravity: no transcript could be correlated to this invocation");
+    return null;
+  }
+
+  return { response: resolved.response, path: resolved.file.path, conversationId: resolved.id };
+}
+
+export function readLatestResponse(sinceMs: number, snapshot: TranscriptStateSnapshot): string | null {
+  return readLatestTranscript(sinceMs, snapshot)?.response ?? null;
 }

@@ -12,10 +12,7 @@ export const STATUS_MESSAGES = {
   ANTIGRAVITY_RESPONSE: "Antigravity response:",
 } as const;
 
-// Prepended to every prompt. ask-antigravity is a read-only "second opinion"
-// tool, but agy is an agent that can act. We run with --dangerously-skip-permissions
-// (required to avoid headless approval-prompt hangs) + --sandbox, and additionally
-// instruct the model not to modify anything. See spec §6.
+// Machine callers also enforce plan+sandbox at the CLI layer.
 export const READ_ONLY_PREAMBLE =
   "You are giving a second opinion / code review. Read and reason only. Do NOT modify, create, or delete files, and do NOT run commands — just analyze and respond.";
 
@@ -28,6 +25,8 @@ export const CLI = {
     ADD_DIR: "--add-dir",
     MODEL: "--model",
     PRINT_TIMEOUT: "--print-timeout",
+    MODE: "--mode",
+    PLAN: "plan",
     SKIP_PERMISSIONS: "--dangerously-skip-permissions",
     SANDBOX: "--sandbox",
   },

@@ -39,6 +39,10 @@ export type ExecutorFn = (options: {
   prompt: string;
   model?: string;
   sessionId?: string;
+  includeDirs?: string[];
+  sandbox?: "read-only" | "workspace-write";
+  outputSchema?: Record<string, unknown>;
+  readOnly?: boolean;
   onProgress?: (output: string) => void;
 }) => Promise<{
   response: string;
@@ -50,7 +54,23 @@ export type ExecutorFn = (options: {
   usage?: UsageStats;
   sessionId?: string;
   threadId?: string;
+  transcriptPath?: string;
 }>;
+
+export type {
+  MachineDeps,
+  MachineJsonSchemaBundle,
+  MachineSchemaRefinement,
+  MachineSchemaRefinementSet,
+  MachineSchemaRefinementViolation,
+  MachineSchemaTarget,
+} from "./machine.js";
+export {
+  buildRolePrompt,
+  machineJsonSchemaBundle,
+  runMachineRequest,
+  validateMachineSchemaRefinements,
+} from "./machine.js";
 
 const loadedExecutors = new Map<string, ExecutorFn>();
 

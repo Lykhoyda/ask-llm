@@ -22,6 +22,18 @@ describe("provider registry drift guard", () => {
     });
   });
 
+  it("declares model environment variables for every machine provider", () => {
+    expect({
+      codex: PROVIDERS.codex?.modelEnvVar,
+      claude: PROVIDERS.claude?.modelEnvVar,
+      antigravity: PROVIDERS.antigravity?.modelEnvVar,
+    }).toEqual({
+      codex: "ASK_CODEX_MODEL",
+      claude: "ASK_CLAUDE_MODEL",
+      antigravity: "ASK_ANTIGRAVITY_MODEL",
+    });
+  });
+
   it("removes providers disabled by the current host environment", () => {
     const original = process.env.CLAUDECODE;
     try {
