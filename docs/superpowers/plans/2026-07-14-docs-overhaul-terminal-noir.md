@@ -1350,6 +1350,8 @@ git commit -m "docs(concepts,usage): animated concept diagrams and dedup pass"
 
 - [ ] **Step 1: Plugin + resources sweep**
 
+Amendment (adjudicated during execution): plugin/overview.md MAY keep one provider-specific MCP registration block in addition to the two-line plugin install. Rationale: the plugin's reviewer agents call per-provider MCP servers (mcp__codex__ask-codex etc.), which the Quick Start's unified registration does not create; a link alone would leave plugin users without working agents. This is the sole exception to the no-inline-install rule.
+
 Same dedup rules as Task 10 Step 4 (no inline install blocks beyond the plugin's own two-line install; Codex/Claude-first examples; no em-dashes). In `plugin/overview.md` ensure the install block matches the SetupTabs plugin block verbatim (`/plugin marketplace add Lykhoyda/ask-llm`, `/plugin install ask-llm@ask-llm-plugins`). In `resources/faq.md` and `troubleshooting.md`, update any references to `/installation` or `/first-steps` to `/getting-started` (Task 8's grep should already have caught these; re-verify).
 
 - [ ] **Step 2: Update llms.txt + llms-full.txt**
