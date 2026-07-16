@@ -1,6 +1,6 @@
-# Ask LLM — Full Reference for AI Agents
+# Ask LLM: Full Reference for AI Agents
 
-> MCP servers for AI-to-AI collaboration — bridge your AI client with Codex, Claude, Antigravity, Ollama, and Gemini.
+> MCP servers for AI-to-AI collaboration: bridge your AI client with Codex, Claude, Antigravity, Ollama, and Gemini.
 
 This file contains everything an AI agent needs to integrate with Ask LLM MCP servers: tool schemas, configuration examples, provider details, and plugin setup.
 
@@ -9,7 +9,7 @@ This file contains everything an AI agent needs to integrate with Ask LLM MCP se
 Ask LLM is a monorepo with 6 published npm packages + 1 shared library + 1 Claude Code plugin:
 
 ```
-packages/shared/         @ask-llm/shared      Internal shared code (inlined into each MCP at build — registry, executor, sessions, usage)
+packages/shared/         @ask-llm/shared      Internal shared code (inlined into each MCP at build: registry, executor, sessions, usage)
 packages/codex-mcp/      ask-codex-mcp        MCP server for OpenAI Codex CLI
 packages/claude-mcp/     ask-claude-mcp       MCP server for Anthropic Claude Code CLI
 packages/antigravity-mcp ask-antigravity-mcp  MCP server for Google Antigravity CLI (agy)
@@ -30,7 +30,7 @@ packages/claude-plugin   @ask-llm/plugin      Claude Code plugin (agents, skills
 
 ## Installation
 
-### Claude Code (user scope — available across all projects)
+### Claude Code (user scope: available across all projects)
 
 ```bash
 claude mcp add --scope user gemini -- npx -y ask-gemini-mcp
@@ -120,7 +120,7 @@ The block above registers the focused Codex → Claude second-opinion path. Add 
 }
 ```
 
-The `ask-gemini-mcp` argument above is just an example — the same STDIO block works for any package (`ask-codex-mcp`, `ask-claude-mcp`, `ask-ollama-mcp`, `ask-antigravity-mcp`, or the unified `ask-llm-mcp`).
+The `ask-gemini-mcp` argument above is just an example: the same STDIO block works for any package (`ask-codex-mcp`, `ask-claude-mcp`, `ask-ollama-mcp`, `ask-antigravity-mcp`, or the unified `ask-llm-mcp`).
 
 ### Unified Server (all providers in one)
 
@@ -152,7 +152,7 @@ Send a code edit request to Gemini and get structured OLD/NEW edit blocks. Gemin
 - **Parameters:**
   - `prompt` (string, required): Describe the code changes you want. Reference files with @ syntax.
   - `model` (string, optional): Default: gemini-3.1-pro-preview.
-  - `includeDirs` (string[], optional): Additional directories to include in Gemini's context. Useful for monorepos. Paths must be relative — no `..`, absolute paths, or `~`.
+  - `includeDirs` (string[], optional): Additional directories to include in Gemini's context. Useful for monorepos. Paths must be relative: no `..`, absolute paths, or `~`.
 - **Returns:** Structured edit format with OLD/NEW blocks, or chunked response with cache key for large edits.
 - **Annotations:** readOnlyHint=false, destructiveHint=false, openWorldHint=true
 
@@ -177,7 +177,7 @@ Send prompts to OpenAI Codex CLI.
   - `model` (string, optional): Do not set unless user explicitly requests it. Default: gpt-5.6-sol. Falls back to gpt-5.6-terra on quota errors.
   - `reasoningEffort` (string, optional): low, medium, high, xhigh, or max. Default: medium. /codex-review and /brainstorm use high.
   - `sessionId` (string, optional): A Codex thread_id to resume a prior multi-turn conversation.
-  - `includeDirs` (string[], optional): Additional directories to expose to Codex (`--add-dir`). Paths must be relative — no `..`, absolute paths, or `~`.
+  - `includeDirs` (string[], optional): Additional directories to expose to Codex (`--add-dir`). Paths must be relative: no `..`, absolute paths, or `~`.
   - `preferred` (boolean, optional): Opt into ASK_CODEX_PREFERRED_MODEL only when configured to differ from the gpt-5.6-sol default. Review skills leave it unset.
 - **Returns:** Codex's text response plus a structured payload (provider, model, sessionId, usage).
 - **Annotations:** readOnlyHint=false, destructiveHint=false, openWorldHint=true
@@ -191,8 +191,8 @@ Get structured, read-only code edits from Codex via `--output-schema`. Codex ana
   - `prompt` (string, required): Describe the code changes you want.
   - `model` (string, optional): Default: gpt-5.6-sol.
   - `sessionId` (string, optional): A Codex thread_id to continue a prior edit session.
-  - `includeDirs` (string[], optional): Additional directories to expose to Codex (`--add-dir`). Paths must be relative — no `..`, absolute paths, or `~`.
-- **Returns:** Structured edit proposal (read-only — the caller applies the changes).
+  - `includeDirs` (string[], optional): Additional directories to expose to Codex (`--add-dir`). Paths must be relative: no `..`, absolute paths, or `~`.
+- **Returns:** Structured edit proposal (read-only: the caller applies the changes).
 - **Annotations:** readOnlyHint=false, destructiveHint=false, openWorldHint=true
 
 ### ask-claude
@@ -216,7 +216,7 @@ Send prompts to a local Ollama LLM via HTTP. No API keys or network calls needed
 - **Package:** ask-ollama-mcp
 - **Parameters:**
   - `prompt` (string, required): The question, code review request, or analysis task.
-  - `model` (string, optional): Do not set unless user explicitly requests it. Default: qwen3.6:27b. No fallback — returns a clear "ollama pull" error if the model isn't installed.
+  - `model` (string, optional): Do not set unless user explicitly requests it. Default: qwen3.6:27b. No fallback: returns a clear "ollama pull" error if the model isn't installed.
   - `sessionId` (string, optional): Resume a prior on-disk session for multi-turn context.
 - **Returns:** Ollama's text response plus a structured payload.
 - **Annotations:** readOnlyHint=false, destructiveHint=false, openWorldHint=false
@@ -224,14 +224,14 @@ Send prompts to a local Ollama LLM via HTTP. No API keys or network calls needed
 
 ### ask-antigravity
 
-Send prompts to Google's Antigravity CLI (`agy`) for a subscription-backed second opinion, code review, or analysis. Intended for read-only review, but note: `agy` is an agent that *can* act. ask-antigravity constrains it with a read-only prompt preamble **plus** a sandbox (`--sandbox`, on by default; disable with `ASK_ANTIGRAVITY_SANDBOX=0`) and runs `agy` with `--dangerously-skip-permissions` to avoid headless approval hangs — this is a soft, defense-in-depth guard, not a hard non-mutating execution mode, so treat workspace context passed via `includeDirs` accordingly. Single-turn only (no multi-turn sessions).
+Send prompts to Google's Antigravity CLI (`agy`) for a subscription-backed second opinion, code review, or analysis. Intended for read-only review, but note: `agy` is an agent that *can* act. ask-antigravity constrains it with a read-only prompt preamble **plus** a sandbox (`--sandbox`, on by default; disable with `ASK_ANTIGRAVITY_SANDBOX=0`) and runs `agy` with `--dangerously-skip-permissions` to avoid headless approval hangs: this is a soft, defense-in-depth guard, not a hard non-mutating execution mode, so treat workspace context passed via `includeDirs` accordingly. Single-turn only (no multi-turn sessions).
 
 - **Package:** ask-antigravity-mcp
 - **Parameters:**
   - `prompt` (string, required): The question, code review request, or analysis task.
-  - `includeDirs` (string[], optional): Additional directories to expose to agy (`--add-dir`). Paths must be relative — no `..`, absolute paths, or `~`.
+  - `includeDirs` (string[], optional): Additional directories to expose to agy (`--add-dir`). Paths must be relative: no `..`, absolute paths, or `~`.
 - **Model selection:** There is NO per-call `model` parameter. The model is chosen via the `ASK_ANTIGRAVITY_MODEL` env var. Default: "Gemini 3.1 Pro (High)"; falls back to "Gemini 3.5 Flash (High)" on a subscription rate limit. Run `agy models` for available options.
-- **Returns:** Antigravity's text response plus a structured payload. Single-turn only — no sessionId.
+- **Returns:** Antigravity's text response plus a structured payload. Single-turn only: no sessionId.
 - **Annotations:** readOnlyHint=false, destructiveHint=false, openWorldHint=true
 - **Requires:** `agy` installed and logged in once.
 
@@ -242,7 +242,7 @@ Route a single prompt to any one installed provider (unified server).
 - **Package:** ask-llm-mcp
 - **Parameters:**
   - `prompt` (string, required): The question or task.
-  - `provider` (string, required): Which provider to route to — one of gemini, codex, claude, ollama, antigravity. Must be one that is installed/detected; there is no default.
+  - `provider` (string, required): Which provider to route to: one of gemini, codex, claude, ollama, antigravity. Must be one that is installed/detected; there is no default.
   - `model` (string, optional): Provider-specific model override.
   - `sessionId` (string, optional): Resume a prior session with the chosen provider (maps to that provider's session/thread ID).
 - **Returns:** The chosen provider's text response plus a structured payload (including the resolved provider and model, so quota fallbacks are visible).
@@ -269,7 +269,7 @@ Report aggregated session usage (tokens, call counts) for the server's provider(
 
 ### diagnose
 
-Environment diagnostics for the unified server — reports which provider CLIs are installed, reachable, and correctly configured (includes codex-doctor enrichment).
+Environment diagnostics for the unified server: reports which provider CLIs are installed, reachable, and correctly configured (includes codex-doctor enrichment).
 
 - **Package:** ask-llm-mcp
 - **Parameters:** none
@@ -290,26 +290,26 @@ Test MCP server connectivity. Available in all packages.
 ### Gemini
 | Model | Use Case |
 |-------|----------|
-| gemini-3.1-pro-preview | Default — best quality reasoning, 1M+ token context |
-| gemini-3.5-flash | Automatic fallback on quota errors — faster, large codebases |
+| gemini-3.1-pro-preview | Default: best quality reasoning, 1M+ token context |
+| gemini-3.5-flash | Automatic fallback on quota errors: faster, large codebases |
 
 ### Codex
 | Model | Use Case |
 |-------|----------|
-| gpt-5.6-sol | Default — flagship capability |
+| gpt-5.6-sol | Default: flagship capability |
 | gpt-5.6-terra | Automatic balanced fallback on quota errors |
 
 ### Ollama
 | Model | Use Case |
 |-------|----------|
-| qwen3.6:27b | Default — Qwen's flagship-level local coding model (~17 GB) |
+| qwen3.6:27b | Default: Qwen's flagship-level local coding model (~17 GB) |
 
-Ollama is local — no automatic fallback. Override with `ASK_OLLAMA_MODEL`; a model that isn't pulled returns a clear `ollama pull` error.
+Ollama is local: no automatic fallback. Override with `ASK_OLLAMA_MODEL`; a model that isn't pulled returns a clear `ollama pull` error.
 
 ### Antigravity
 | Model | Use Case |
 |-------|----------|
-| Gemini 3.1 Pro (High) | Default — strongest reasoning tier for the second-opinion workload |
+| Gemini 3.1 Pro (High) | Default: strongest reasoning tier for the second-opinion workload |
 | Gemini 3.5 Flash (High) | Automatic fallback on subscription rate limits |
 
 Antigravity models are named display strings (run `agy models`). Override with `ASK_ANTIGRAVITY_MODEL`.
@@ -326,7 +326,7 @@ Ask Gemini to review @src/auth.ts for security issues
 Ask Gemini to summarize @. the current directory
 ```
 
-> Note: `@` file/directory syntax is a **Gemini-CLI feature only**. Codex, Ollama, and Antigravity receive `@paths` as literal prompt text — give them file context via `includeDirs` (codex / codex-edit / antigravity) or by pasting the code into the prompt (ollama has no file access).
+> Note: `@` file/directory syntax is a **Gemini-CLI feature only**. Codex, Ollama, and Antigravity receive `@paths` as literal prompt text: give them file context via `includeDirs` (codex / codex-edit / antigravity) or by pasting the code into the prompt (ollama has no file access).
 
 ### Architecture debate
 ```
@@ -335,7 +335,7 @@ Ask Codex: should we use a message queue or direct HTTP calls for this service?
 
 ### Local private review
 ```
-Ask Ollama to review this diff (paste the code — Ollama reads no files):
+Ask Ollama to review this diff (paste the code: Ollama reads no files):
 <paste the changed lines of src/payments.ts here>
 ```
 
@@ -369,7 +369,7 @@ Launches Antigravity and Codex reviews in parallel with a validation pipeline an
 | /sol-review | Model-pinned review explicitly requesting GPT-5.6 Sol at high reasoning through Codex; quota fallback to Terra is disclosed |
 | /codex-review | Codex-only code review with confidence filtering |
 | /antigravity-review | Antigravity-only code review (subscription-backed) |
-| /ollama-review | Local Ollama code review — no data leaves machine |
+| /ollama-review | Local Ollama code review: no data leaves machine |
 | /gemini-review | Gemini-only code review with confidence filtering |
 | /brainstorm [providers] topic | Multi-LLM brainstorm; Claude researches in parallel (default external providers: antigravity,codex) |
 | /brainstorm-all topic | Brainstorm with all four providers (gemini, codex, ollama, antigravity) |
@@ -404,7 +404,7 @@ Launches Antigravity and Codex reviews in parallel with a validation pipeline an
 ## Error Handling
 
 All MCP servers handle errors gracefully:
-- **Quota / rate-limit errors:** Automatic fallback to a lighter model for hosted providers (codex GPT-5.6 Sol→Terra, claude opus→sonnet, antigravity Pro→Flash, gemini pro→flash). Ollama is local and never substitutes — a missing model returns a clear "ollama pull" error.
+- **Quota / rate-limit errors:** Automatic fallback to a lighter model for hosted providers (codex GPT-5.6 Sol→Terra, claude opus→sonnet, antigravity Pro→Flash, gemini pro→flash). Ollama is local and never substitutes: a missing model returns a clear "ollama pull" error.
 - **CLI not found:** Clear error message with installation instructions.
 - **Timeout:** Per-provider defaults (codex 800s, claude 600s, antigravity 300s, ollama 600s, gemini 210s). Resolution order: `ASK_{PROVIDER}_TIMEOUT_MS` > `GMCPT_TIMEOUT_MS` > the provider default.
 - **Large responses:** Automatic chunking with fetch-chunk retrieval (Gemini only).

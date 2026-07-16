@@ -1,8 +1,8 @@
 # Ask LLM
 
-> MCP servers for AI-to-AI collaboration — bridge your AI client with Codex, Claude, Antigravity, Ollama, and Gemini.
+> MCP servers for AI-to-AI collaboration: bridge your AI client with Codex, Claude, Antigravity, Ollama, and Gemini.
 
-Ask LLM provides Model Context Protocol (MCP) servers that let any MCP-compatible AI client (Claude Code, Claude Desktop, Cursor, Warp, Copilot, and 40+ others) consult external LLM providers. The core pattern: your primary AI delegates research, reviews, or brainstorming to other AI providers via standard MCP tool calls — "the other model reads, your AI edits."
+Ask LLM provides Model Context Protocol (MCP) servers that let any MCP-compatible AI client (Claude Code, Claude Desktop, Cursor, Warp, Copilot, and 40+ others) consult external LLM providers. The core pattern: your primary AI delegates research, reviews, or brainstorming to other AI providers via standard MCP tool calls: "the other model reads, your AI edits."
 
 ## Packages
 
@@ -11,7 +11,7 @@ Ask LLM provides Model Context Protocol (MCP) servers that let any MCP-compatibl
 - `ask-antigravity-mcp`: MCP server for Google Antigravity CLI (`agy`). Subscription-backed second opinion. Default model: Gemini 3.1 Pro (High) → Gemini 3.5 Flash (High) on rate limit.
 - `ask-ollama-mcp`: MCP server for local Ollama. No API keys, fully private. Default model: qwen3.6:27b (no fallback).
 - `ask-gemini-mcp`: MCP server for Google Gemini CLI. 1M+ token context. Default model: gemini-3.1-pro-preview → gemini-3.5-flash on quota. (Enterprise-gated since 2026-06-18.)
-- `ask-llm-mcp`: Unified server — auto-detects installed providers and registers all available tools.
+- `ask-llm-mcp`: Unified server: auto-detects installed providers and registers all available tools.
 
 ## Installation
 
@@ -43,10 +43,10 @@ codex mcp add claude -- npx -y ask-claude-mcp
 | ask-llm | ask-llm-mcp | prompt (required), provider (required), model (optional), sessionId (optional) | Route a prompt to a chosen installed provider (codex/claude/antigravity/ollama/gemini). |
 | multi-llm | ask-llm-mcp | prompt (required), providers (optional) | Dispatch one prompt to multiple providers in parallel; returns a structured report. |
 | get-usage-stats | all packages | (none) | Session usage aggregation (tokens, calls) for the provider. |
-| diagnose | ask-llm-mcp | (none) | Environment diagnostics — which provider CLIs are installed and reachable. |
+| diagnose | ask-llm-mcp | (none) | Environment diagnostics: which provider CLIs are installed and reachable. |
 | ping | all packages | message (optional) | Test MCP server connectivity. Ollama's ping also lists installed models. |
 
-Note: every `includeDirs` parameter accepts **relative paths only** — no `..`, absolute paths, or `~` (rejected by schema validation).
+Note: every `includeDirs` parameter accepts **relative paths only**: no `..`, absolute paths, or `~` (rejected by schema validation).
 
 ## Claude Code Plugin
 
