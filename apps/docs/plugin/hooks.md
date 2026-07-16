@@ -113,7 +113,7 @@ When the hook pauses itself (provider quota exhausted, or 3 consecutive review f
 
 ### Cost characteristics
 
-- ~$0.04–0.07 per file reviewed (Codex GPT-5.5 with reasoning tokens)
+- ~$0.04–0.07 per file reviewed (Codex GPT-5.6 Sol with reasoning tokens)
 - ~13–50s per file wall-clock
 - Files over the size cap fall back to an adaptive partial-view review (header + git diff against HEAD, OR head + tail); see [ADR-080](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md)
 - `node_modules/`, `dist/`, lockfiles, fonts, archives, sourcemaps, snapshots, minified assets skipped automatically

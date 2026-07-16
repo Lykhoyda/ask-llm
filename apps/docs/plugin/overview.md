@@ -47,7 +47,7 @@ This gives you `codex:ask-codex` rather than `plugin:ask-llm:codex:ask-codex`.
 |---------|----------|-------------|
 | `/multi-review` | Antigravity + Codex | Parallel review with 4-phase validation pipeline and consensus highlighting |
 | `/gemini-review` | Gemini | Get a second opinion on your current changes |
-| `/codex-review` | Codex | Get a second opinion from GPT-5.5 |
+| `/codex-review` | Codex | Get a second opinion from GPT-5.6 Sol |
 | `/fable-review` | Fable | Native isolated review, pinned to Fable |
 | `/sol-review` | GPT-5.6 Sol | Model-pinned review through Codex |
 | `/ollama-review` | Ollama | Local review, no data leaves your machine |
@@ -76,8 +76,10 @@ This gives you `codex:ask-codex` rather than `plugin:ask-llm:codex:ask-codex`.
 
 | Hook | Trigger | Action |
 |------|---------|--------|
-| `codex-pair` PostToolUse | After every Edit/Write/MultiEdit | **Opt-in.** Self-gates on `.codex-pair/context.md` marker file. Zero cost without the marker. With marker: runs Codex review on every edited file, surfaces HIGH/MED concerns to Claude on the next turn. See [Hooks](/plugin/hooks#posttooluse-hook-codex-pair-opt-in-continuous-review) for opt-in steps and cost characteristics |
-| `codex-pair-session` SessionStart / SessionEnd | At Claude session boundary | **Opt-in.** Scaffolding for the long-lived `codex app-server` broker (ADR-090, ADR-093). No-op until `ASK_CODEX_BROKER=1` ships with Tier 3 implementation |
+| `codex-pair` PostToolUse | After every Edit/Write/MultiEdit | **Opt-in.** Self-gates on `.codex-pair/context.md` marker file. Zero cost without the marker. With marker: edits are debounced into a settle window, a detached worker reviews the settled file state, and HIGH/MED verdicts surface to Claude on a later edit, the next user prompt, or at turn end. See [Hooks](/plugin/hooks#posttooluse-hook-codex-pair-opt-in-continuous-review) for opt-in steps and cost characteristics |
+| `codex-pair-prompt-drain` UserPromptSubmit | On every user prompt | Drains queued codex-pair verdicts that finished mid-turn so they reach Claude without waiting for the next edit |
+| `codex-pair-stop-gate` Stop | At turn end | Drains remaining queued verdicts (no opt-in needed). With `blockOn: HIGH` in the marker frontmatter (opt-in, default OFF, ADR-118), blocks turn-end while unaddressed HIGH findings or in-flight reviews remain |
+| `codex-pair-session` SessionStart / SessionEnd | At Claude session boundary | SessionStart announces a paused project or auto-resumes an expired auto-pause (ADR-130); SessionEnd clears debounce state so orphaned workers self-cancel. Lifecycle for the experimental `codex app-server` broker (ADR-090, ADR-093) additionally runs only with `ASK_CODEX_BROKER=1` |
 
 The hook shells out directly to `codex exec --json` with zero workspace imports, required so it runs from marketplace `git-subdir` installs that don't run `npm install` (see [ADR-078](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md)). A previous `PreToolUse` Gemini-review pre-commit hook was removed in [ADR-094](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md); use `/gemini-review` or `/codex-review` on demand for explicit pre-commit review instead.
 
@@ -95,10 +97,10 @@ These commands are available after cloning and building the plugin locally. Mark
 
 The plugin uses several Claude Code integration points:
 
-1. **`.mcp.json`**: Auto-registers the Gemini MCP server when the plugin is loaded
+1. **`.mcp.json`**: Ships an empty `mcpServers` map; provider MCP servers are registered separately at user scope (see [Installation](#installation))
 2. **Skills** (`skills/`): User-invocable slash commands that trigger review or brainstorm workflows
 3. **Agents** (`agents/`): Handle the actual interaction with each provider using confidence-based filtering (80%+ threshold). Agents read `CLAUDE.md` for project conventions when available.
-4. **Hooks** (`hooks/`): Automate advisory Gemini reviews before commits
+4. **Hooks** (`hooks/`): Run the opt-in codex-pair continuous review pipeline: per-edit PostToolUse reviews, verdict drains on user prompts and at turn end, the opt-in Stop gate, and session lifecycle
 5. **Source-build CLI binaries** (`src/`): After a local build/link, enable piped analysis from shell: `git diff | ask-gemini-run "review this"`
 
 ## Requirements

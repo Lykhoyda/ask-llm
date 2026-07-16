@@ -50,13 +50,13 @@ Uses Gemini's 1M+ token context window, making it ideal for reviewing changes th
 
 ### `/codex-review`
 
-Get a second opinion from OpenAI Codex (GPT-5.5) on your current changes.
+Get a second opinion from OpenAI Codex (GPT-5.6 Sol) on your current changes.
 
 ```text
 /codex-review
 ```
 
-Falls back to GPT-5.4-mini automatically if you hit quota limits.
+Falls back to GPT-5.6 Terra automatically if you hit quota limits.
 
 ### `/ollama-review`
 
@@ -94,14 +94,14 @@ Send a topic to multiple LLM providers AND have Claude Opus perform its own inde
 - Actionable recommendations (prioritized by impact and confidence)
 
 ```text
-# Default external providers (Gemini + Codex), plus Claude Opus always
+# Default external providers (Antigravity + Codex), plus Claude Opus always
 /brainstorm Should we use a monorepo or polyrepo for this project?
 
 # Custom external providers
 /brainstorm gemini,codex,ollama Review this authentication approach
 ```
 
-**Default external providers:** `gemini,codex` (avoids unnecessary Ollama calls if not needed). **Claude Opus is always a participant** because it runs inside the coordinator; it isn't in the provider list.
+**Default external providers:** `antigravity,codex` (avoids unnecessary Ollama calls if not needed). **Claude Opus is always a participant** because it runs inside the coordinator; it isn't in the provider list.
 
 ### `/brainstorm-all`
 
