@@ -56,7 +56,7 @@ This gives you `codex:ask-codex` rather than `plugin:ask-llm:codex:ask-codex`.
 | `/brainstorm-all` | All + Claude Opus | Brainstorm with all four external providers (Gemini, Codex, Ollama, Antigravity) plus Claude Opus research |
 | `/compare` | Multi (configurable) | Side-by-side raw responses from selected providers: no synthesis, no consensus extraction. Use when you want to see how each provider phrases the same answer |
 
-> `/codex-review`, `/ollama-review`, `/antigravity-review`, and `/brainstorm` require the respective CLI tools to be installed and authenticated.
+> `/codex-review` and `/sol-review` require the Codex CLI and registered Codex MCP server; `/ollama-review`, `/antigravity-review`, and `/brainstorm` require the respective CLI tools to be installed and authenticated.
 >
 > Looking for **continuous background review** (not a slash command)? See [`codex-pair`](/plugin/hooks#posttooluse-hook-codex-pair-opt-in-continuous-review), a PostToolUse hook that runs Codex against every file edit when a project has opted in via a marker file. It's the recall-first complement to `/codex-review`.
 

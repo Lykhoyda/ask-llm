@@ -365,10 +365,12 @@ Launches Antigravity and Codex reviews in parallel with a validation pipeline an
 | Skill | Description |
 |-------|-------------|
 | /multi-review | Parallel Antigravity + Codex code review with validation pipeline and consensus highlighting |
-| /gemini-review | Gemini-only code review with confidence filtering |
+| /fable-review | Native read-only review in an isolated context pinned to the Fable model; source-verified, confidence-filtered findings (no MCP server needed) |
+| /sol-review | Model-pinned review explicitly requesting GPT-5.6 Sol at high reasoning through Codex; quota fallback to Terra is disclosed |
 | /codex-review | Codex-only code review with confidence filtering |
-| /ollama-review | Local Ollama code review — no data leaves machine |
 | /antigravity-review | Antigravity-only code review (subscription-backed) |
+| /ollama-review | Local Ollama code review — no data leaves machine |
+| /gemini-review | Gemini-only code review with confidence filtering |
 | /brainstorm [providers] topic | Multi-LLM brainstorm; Claude researches in parallel (default external providers: antigravity,codex) |
 | /brainstorm-all topic | Brainstorm with all four providers (gemini, codex, ollama, antigravity) |
 | /compare | Side-by-side raw responses from multiple providers (no synthesis) |
@@ -380,10 +382,12 @@ Launches Antigravity and Codex reviews in parallel with a validation pipeline an
 
 | Agent | Description |
 |-------|-------------|
-| gemini-reviewer | Isolated Gemini review, confidence-filtered findings |
+| fable-reviewer | Native read-only Fable review in an isolated context, source-verified high-confidence findings |
+| sol-reviewer | Isolated read-only review pinned to GPT-5.6 Sol via Codex, source-verified high-confidence findings |
 | codex-reviewer | Isolated Codex review, confidence-filtered findings |
-| ollama-reviewer | Isolated local Ollama review, confidence-filtered findings |
 | antigravity-reviewer | Isolated Antigravity review, confidence-filtered findings |
+| ollama-reviewer | Isolated local Ollama review, confidence-filtered findings |
+| gemini-reviewer | Isolated Gemini review, confidence-filtered findings |
 | codex-verifier | Verifies the assistant's claims against actual state (STATUS + CONFIDENCE) |
 | brainstorm-coordinator | Claude's own research + parallel external-provider consultation, synthesized |
 
