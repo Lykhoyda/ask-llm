@@ -24,7 +24,7 @@ If you're reviewing a code diff → use `/multi-review` instead.
 Extract from the user's message:
 1. **The question/prompt** to send to all providers (the meaningful payload)
 2. **Optional provider filter** — if the user says "compare gemini and codex", only those two; otherwise default to all four (gemini, codex, ollama, antigravity)
-3. **Optional context files** — if the user references files (`@path/to/file`), preserve the `@` syntax in the per-provider prompt
+3. **Optional context files** — if the user references files (`@path/to/file`), Read each referenced file and inline its contents into the shared provider prompt under a clearly labeled `<context_file path="...">` block. `@file` expansion is Gemini-only; passing the literal path to Codex, Ollama, or Antigravity silently drops the context. For a file too large to inline safely, include the relevant excerpts and state what was omitted.
 
 If the question is missing or ambiguous, ask the user to clarify before dispatching.
 
@@ -33,36 +33,51 @@ If the question is missing or ambiguous, ask the user to clarify before dispatch
 Use the **ADR-050 dispatch pattern** (direct backgrounding + per-PID wait, NOT subshells, NOT `run_in_background: true`):
 
 ```bash
-rm -f /tmp/ask-llm-compare-*.out /tmp/ask-llm-compare-*.err
+set +e
+workdir=$(mktemp -d /tmp/ask-llm-compare-XXXXXX)
+trap 'rm -rf "$workdir"' EXIT
 
-GMCPT_TIMEOUT_MS=480000 node ${CLAUDE_PLUGIN_ROOT}/dist/run.js "$PROMPT" > /tmp/ask-llm-compare-gemini.out 2> /tmp/ask-llm-compare-gemini.err &
+GMCPT_TIMEOUT_MS=480000 node ${CLAUDE_PLUGIN_ROOT}/dist/run.js "$PROMPT" > "$workdir/gemini.out" 2> "$workdir/gemini.err" &
 gem_pid=$!
 
-GMCPT_TIMEOUT_MS=480000 node ${CLAUDE_PLUGIN_ROOT}/dist/codex-run.js "$PROMPT" > /tmp/ask-llm-compare-codex.out 2> /tmp/ask-llm-compare-codex.err &
+GMCPT_TIMEOUT_MS=480000 node ${CLAUDE_PLUGIN_ROOT}/dist/codex-run.js "$PROMPT" > "$workdir/codex.out" 2> "$workdir/codex.err" &
 codex_pid=$!
 
-GMCPT_TIMEOUT_MS=480000 node ${CLAUDE_PLUGIN_ROOT}/dist/ollama-run.js "$PROMPT" > /tmp/ask-llm-compare-ollama.out 2> /tmp/ask-llm-compare-ollama.err &
+GMCPT_TIMEOUT_MS=480000 node ${CLAUDE_PLUGIN_ROOT}/dist/ollama-run.js "$PROMPT" > "$workdir/ollama.out" 2> "$workdir/ollama.err" &
 ollama_pid=$!
 
-GMCPT_TIMEOUT_MS=480000 node ${CLAUDE_PLUGIN_ROOT}/dist/antigravity-run.js "$PROMPT" > /tmp/ask-llm-compare-antigravity.out 2> /tmp/ask-llm-compare-antigravity.err &
+GMCPT_TIMEOUT_MS=480000 node ${CLAUDE_PLUGIN_ROOT}/dist/antigravity-run.js "$PROMPT" > "$workdir/antigravity.out" 2> "$workdir/antigravity.err" &
 antigravity_pid=$!
 
-gem_rc=0; wait $gem_pid || gem_rc=$?
+gemini_rc=0; wait $gem_pid || gemini_rc=$?
 codex_rc=0; wait $codex_pid || codex_rc=$?
 ollama_rc=0; wait $ollama_pid || ollama_rc=$?
 antigravity_rc=0; wait $antigravity_pid || antigravity_rc=$?
 
-echo "exits: gemini=$gem_rc codex=$codex_rc ollama=$ollama_rc antigravity=$antigravity_rc"
-echo "bytes: gemini=$(wc -c < /tmp/ask-llm-compare-gemini.out) codex=$(wc -c < /tmp/ask-llm-compare-codex.out) ollama=$(wc -c < /tmp/ask-llm-compare-ollama.out) antigravity=$(wc -c < /tmp/ask-llm-compare-antigravity.out)"
+dump_provider() {
+  provider="$1"
+  rc="$2"
+  echo "===== ${provider} (rc=${rc}) ====="
+  cat "$workdir/${provider}.out" 2>/dev/null
+  if [ "$rc" -ne 0 ] || [ ! -s "$workdir/${provider}.out" ]; then
+    echo "===== ${provider} stderr ====="
+    sed -n '1,20p' "$workdir/${provider}.err" 2>/dev/null
+  fi
+}
+
+dump_provider gemini "$gemini_rc"
+dump_provider codex "$codex_rc"
+dump_provider ollama "$ollama_rc"
+dump_provider antigravity "$antigravity_rc"
 ```
 
 Set the Bash tool's `timeout` parameter to **600000ms** (10 minutes, the max). Default 2-minute Bash timeouts will SIGKILL the providers mid-response — this is the same bug class that ADR-050 fixed for the brainstorm-coordinator.
 
-If the user asked for a subset of providers (e.g., "compare gemini and codex"), drop the dispatch lines for the excluded providers and the corresponding wait/echo lines.
+If the user asked for a subset of providers (e.g., "compare gemini and codex"), drop the dispatch lines for excluded providers and their corresponding wait and `dump_provider` lines.
 
-### Phase 3: Read the outputs
+### Phase 3: Read the captured output
 
-After the Bash call returns, Read each `/tmp/ask-llm-compare-<provider>.out` file. If a provider's output is 0 bytes or its exit code is non-zero, also Read its `.err` file to surface the failure reason — DO NOT silently drop a provider.
+The Bash call dumps every provider response and relevant stderr before its EXIT trap removes the unique work directory. Parse those labeled blocks directly from the Bash result. If a provider's output is empty or its exit code is non-zero, surface the captured stderr — DO NOT silently drop a provider. Never reuse fixed files under `/tmp`; overlapping sessions must remain isolated.
 
 ### Phase 4: Present side-by-side
 

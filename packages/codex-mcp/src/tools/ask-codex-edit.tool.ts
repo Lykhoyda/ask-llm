@@ -38,7 +38,7 @@ export const askCodexEditTool: UnifiedTool = {
   zodSchema: askCodexEditArgsSchema,
   annotations: {
     title: "Ask Codex (Edit Mode)",
-    readOnlyHint: false,
+    readOnlyHint: true,
     destructiveHint: false,
     idempotentHint: false,
     openWorldHint: true,

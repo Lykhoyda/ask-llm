@@ -1,27 +1,27 @@
 # Ask LLM
 
-> MCP servers for AI-to-AI collaboration — bridge your AI client with Gemini, Codex, Claude, Ollama, and Antigravity.
+> MCP servers for AI-to-AI collaboration: bridge your AI client with Codex, Claude, Antigravity, Ollama, and Gemini.
 
-Ask LLM provides Model Context Protocol (MCP) servers that let any MCP-compatible AI client (Claude Code, Claude Desktop, Cursor, Warp, Copilot, and 40+ others) consult external LLM providers. The core pattern: your primary AI delegates research, reviews, or brainstorming to other AI providers via standard MCP tool calls — "the other model reads, your AI edits."
+Ask LLM provides Model Context Protocol (MCP) servers that let any MCP-compatible AI client (Claude Code, Claude Desktop, Cursor, Warp, Copilot, and 40+ others) consult external LLM providers. The core pattern: your primary AI delegates research, reviews, or brainstorming to other AI providers via standard MCP tool calls: "the other model reads, your AI edits."
 
 ## Packages
 
-- `@ask-llm/gemini-mcp`: MCP server for Google Gemini CLI. 1M+ token context. Default model: gemini-3.1-pro-preview → gemini-3.5-flash on quota. (Enterprise-gated since 2026-06-18.)
 - `@ask-llm/codex-mcp`: MCP server for OpenAI Codex CLI. Default model: gpt-5.6-sol → gpt-5.6-terra on quota.
 - `@ask-llm/claude-mcp`: MCP server for Anthropic Claude Code CLI, intended for Codex and other non-Claude hosts. Default: opus → sonnet. Native sessions; Read/Glob/Grep-only tools.
-- `@ask-llm/ollama-mcp`: MCP server for local Ollama. No API keys, fully private. Default model: qwen3.6:27b (no fallback).
 - `@ask-llm/antigravity-mcp`: MCP server for Google Antigravity CLI (`agy`). Subscription-backed second opinion. Default model: Gemini 3.1 Pro (High) → Gemini 3.5 Flash (High) on rate limit.
-- `@ask-llm/mcp`: Unified server — auto-detects installed providers and registers all available tools.
+- `@ask-llm/ollama-mcp`: MCP server for local Ollama. No API keys, fully private. Default model: qwen3.6:27b (no fallback).
+- `@ask-llm/gemini-mcp`: MCP server for Google Gemini CLI. 1M+ token context. Default model: gemini-3.1-pro-preview → gemini-3.5-flash on quota. (Enterprise-gated since 2026-06-18.)
+- `@ask-llm/mcp`: Unified server: auto-detects installed providers and registers all available tools.
 
 ## Installation
 
 Each server is installed via npx or globally via npm:
 
 ```
-claude mcp add gemini -- npx -y @ask-llm/gemini-mcp
 claude mcp add codex -- npx -y @ask-llm/codex-mcp
-claude mcp add ollama -- npx -y @ask-llm/ollama-mcp
 claude mcp add antigravity -- npx -y @ask-llm/antigravity-mcp
+claude mcp add ollama -- npx -y @ask-llm/ollama-mcp
+claude mcp add gemini -- npx -y @ask-llm/gemini-mcp
 claude mcp add ask-llm -- npx -y @ask-llm/mcp
 
 # Reverse path: Codex asks Claude
@@ -32,21 +32,21 @@ codex mcp add claude -- npx -y @ask-llm/claude-mcp
 
 | Tool | Package | Parameters | Description |
 |------|---------|------------|-------------|
-| ask-gemini | @ask-llm/gemini-mcp | prompt (required), model (optional), sessionId (optional) | Send prompts to Gemini CLI. Use @ syntax for files. sessionId resumes a conversation. |
-| ask-gemini-edit | @ask-llm/gemini-mcp | prompt (required), model (optional), includeDirs (optional) | Get structured OLD/NEW code edit blocks from Gemini. |
-| fetch-chunk | @ask-llm/gemini-mcp | cacheKey (required), chunkIndex (required) | Retrieve subsequent chunks from cached large responses. |
 | ask-codex | @ask-llm/codex-mcp | prompt (required), model (optional), reasoningEffort (optional), sessionId (optional), includeDirs (optional), preferred (optional) | Send prompts to Codex CLI. Defaults to gpt-5.6-sol at medium effort with gpt-5.6-terra quota fallback; /codex-review and /brainstorm use high. sessionId resumes a Codex thread. |
 | ask-codex-edit | @ask-llm/codex-mcp | prompt (required), model (optional), sessionId (optional), includeDirs (optional) | Get read-only structured code edits from Codex (`--output-schema`). |
 | ask-claude | @ask-llm/claude-mcp | prompt (required), model (optional), sessionId (optional), includeDirs (optional) | Send a read-only second-opinion request to Claude Code CLI. Not available from a Claude Code host because nested sessions are unsupported. |
-| ask-ollama | @ask-llm/ollama-mcp | prompt (required), model (optional), sessionId (optional) | Send prompts to a local Ollama model. |
 | ask-antigravity | @ask-llm/antigravity-mcp | prompt (required), includeDirs (optional) | Subscription-backed second opinion via Google Antigravity (`agy`). Model is env-controlled (ASK_ANTIGRAVITY_MODEL), not a per-call param. |
-| ask-llm | @ask-llm/mcp | prompt (required), provider (required), model (optional), sessionId (optional) | Route a prompt to a chosen installed provider (gemini/codex/claude/ollama/antigravity). |
+| ask-ollama | @ask-llm/ollama-mcp | prompt (required), model (optional), sessionId (optional) | Send prompts to a local Ollama model. |
+| ask-gemini | @ask-llm/gemini-mcp | prompt (required), model (optional), sessionId (optional) | Send prompts to Gemini CLI. Use @ syntax for files. sessionId resumes a conversation. |
+| ask-gemini-edit | @ask-llm/gemini-mcp | prompt (required), model (optional), includeDirs (optional) | Get structured OLD/NEW code edit blocks from Gemini. |
+| fetch-chunk | @ask-llm/gemini-mcp | cacheKey (required), chunkIndex (required) | Retrieve subsequent chunks from cached large responses. |
+| ask-llm | @ask-llm/mcp | prompt (required), provider (required), model (optional), sessionId (optional) | Route a prompt to a chosen installed provider (codex/claude/antigravity/ollama/gemini). |
 | multi-llm | @ask-llm/mcp | prompt (required), providers (optional) | Dispatch one prompt to multiple providers in parallel; returns a structured report. |
 | get-usage-stats | all packages | (none) | Session usage aggregation (tokens, calls) for the provider. |
-| diagnose | @ask-llm/mcp | (none) | Environment diagnostics — which provider CLIs are installed and reachable. |
+| diagnose | @ask-llm/mcp | (none) | Environment diagnostics: which provider CLIs are installed and reachable. |
 | ping | all packages | message (optional) | Test MCP server connectivity. Ollama's ping also lists installed models. |
 
-Note: every `includeDirs` parameter accepts **relative paths only** — no `..`, absolute paths, or `~` (rejected by schema validation).
+Note: every `includeDirs` parameter accepts **relative paths only**: no `..`, absolute paths, or `~` (rejected by schema validation).
 
 ## Claude Code Plugin
 
@@ -57,16 +57,19 @@ Install the plugin for review skills, brainstorm agents, and automated hooks:
 /plugin install ask-llm@ask-llm-plugins
 ```
 
-Skills: /multi-review, /gemini-review, /codex-review, /fable-review, /sol-review, /ollama-review, /antigravity-review, /brainstorm, /brainstorm-all, /compare, /codex-verify, /codex-image, /codex-pair (+ -ack, -pause, -resume)
+Skills: /multi-review, /fable-review, /sol-review, /codex-review, /antigravity-review, /ollama-review, /gemini-review, /brainstorm, /brainstorm-all, /compare, /codex-verify, /codex-image, /codex-pair (+ -ack, -pause, -resume)
+
+codex-pair (flagship): opt-in continuous review. Codex reviews every file edit as Claude makes it, gated on a .codex-pair/context.md marker (zero cost without it). Debounced per-edit reviews, HIGH/MED verdicts surface on the next turn, opt-in Stop gate blocks turn-end on unaddressed HIGH findings. Full page: https://lykhoyda.github.io/ask-llm/plugin/codex-pair
+Plugin pages: https://lykhoyda.github.io/ask-llm/plugin/overview, https://lykhoyda.github.io/ask-llm/plugin/codex-pair, https://lykhoyda.github.io/ask-llm/plugin/skills, https://lykhoyda.github.io/ask-llm/plugin/hooks, https://lykhoyda.github.io/ask-llm/plugin/agents
 
 ## Links
 
 - Source: https://github.com/Lykhoyda/ask-llm
 - Docs: https://lykhoyda.github.io/ask-llm/
 - Full reference for AI agents: https://lykhoyda.github.io/ask-llm/llms-full.txt
-- npm (gemini): https://www.npmjs.com/package/@ask-llm/gemini-mcp
 - npm (codex): https://www.npmjs.com/package/@ask-llm/codex-mcp
 - npm (claude): https://www.npmjs.com/package/@ask-llm/claude-mcp
-- npm (ollama): https://www.npmjs.com/package/@ask-llm/ollama-mcp
 - npm (antigravity): https://www.npmjs.com/package/@ask-llm/antigravity-mcp
+- npm (ollama): https://www.npmjs.com/package/@ask-llm/ollama-mcp
+- npm (gemini): https://www.npmjs.com/package/@ask-llm/gemini-mcp
 - npm (unified): https://www.npmjs.com/package/@ask-llm/mcp

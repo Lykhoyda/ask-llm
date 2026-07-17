@@ -2,37 +2,49 @@
 
 ## Open
 
-### `/compare` skill: two pre-existing robustness gaps (file context + temp-file race)
+### codex-pair reviewer hallucinates "injected review prompt" findings on files containing box/arrow glyphs
+- **Severity:** Medium (false HIGH findings; with the opt-in Stop gate enabled these could block sessions on phantom issues)
+- **Discovered:** 2026-07-13/14, dogfooding during the docs-overhaul brainstorm/plan
+- **Repro:** write a markdown/HTML file whose prose contains the glyphs `U+25AE` (black vertical rectangle) / `U+21C0` (rightwards harpoon) / `U+21BD` (leftwards harpoon), written here as code points because the literal characters retrigger the bug on edits to this very file (e.g. a bullet listing typographic glyphs). The per-edit codex-pair review reports a HIGH claiming "the entire review prompt / `<file_content>` markers were pasted into the file" at that line. Observed twice on two different files (`docs/superpowers/specs/2026-07-13-docs-overhaul-design.md:67`, `docs/superpowers/plans/2026-07-14-docs-overhaul-terminal-noir.md:23`); both verified clean (`grep -c "file_content"` returns 0).
+- **Hypothesis:** the reviewer model conflates the glyph sequence in the diff with its own prompt-delimiter markers, i.e. a prompt/content boundary-confusion in the review payload rather than actual injection. Also observed (lower confidence): stale project context in the review prompt caused two MED false positives claiming `ask-claude-mcp` / GPT-5.6 don't exist while both are on the branch.
+- **Fix direction:** delimit file content in the review prompt with unambiguous fenced markers (or base64/indent framing) so content glyphs can't read as structure; refresh the project-context snapshot the hook embeds.
+
+### ~~`/compare` skill: two pre-existing robustness gaps (file context + temp-file race)~~ FIXED
 - **Severity:** Low–Medium (pre-existing; surfaced by the codex-pair review of the 2026-07-04 Antigravity-parity edit, not introduced by it)
 - **Discovered:** 2026-07-04, codex-pair review of `skills/compare/SKILL.md`
 - **File:** `packages/claude-plugin/skills/compare/SKILL.md`
 - **Gap 1 — `@file` context silently dropped for non-Gemini providers (Medium):** the skill (line ~27) tells Claude to "preserve the `@path/to/file` syntax in the per-provider prompt," but `@file` expansion is a **Gemini-CLI-only** feature. `codex-run.js` / `ollama-run.js` / `antigravity-run.js` receive `@path` as literal prompt text, so a compare that relies on file context sends only a path string to those providers. Fix: instruct the skill to read referenced files and inline their contents (or pipe via stdin) rather than relying on `@` for non-Gemini legs.
 - **Gap 2 — shared `/tmp` filenames race across concurrent runs (Low):** the dispatch `rm -f /tmp/ask-llm-compare-*.out` + fixed per-provider filenames mean two overlapping `/compare` runs (or two sessions) can wipe/overwrite each other's outputs and surface the wrong provider response or a false failure. Fix: allocate a per-run dir via `mktemp -d` and thread it through the dispatch/read/present phases.
 - **Note:** both are independent of the Antigravity leg added in PR #218; fixing either is a skill-behavior change (own PR).
+- **Status:** **FIXED** (ADR-136): referenced files are now Read and inlined into the provider-neutral prompt; each invocation allocates a unique `mktemp -d` work directory, dumps labeled provider output before cleanup, and never touches another session's files. Contract tests pin both invariants.
 
-### `apps/docs/plugin/hooks.md` marketplace workaround relies on GNU-only `sort -V`
+### ~~`apps/docs/plugin/hooks.md` marketplace workaround relies on GNU-only `sort -V`~~ FIXED
 - **Severity:** Low (docs-only; the workaround command silently misbehaves on macOS/BSD `sort`)
 - **Discovered:** 2026-07-02, dogfood codex-pair review of the hooks docs page during the seamless-pairing pass
 - **File:** `apps/docs/plugin/hooks.md` (marketplace-workaround "Form B" pipeline)
 - **Recommended:** replace with a portable Node one-liner version picker, or give separate macOS/Linux commands.
+- **Status:** **FIXED** (2026-07-09): Form B now uses a Node numeric `localeCompare` version picker and inherits stdin into the selected hook process.
 
-### `apps/docs/plugin/hooks.md` workaround ends with `/reload-plugins`, which does not re-register hooks
+### ~~`apps/docs/plugin/hooks.md` workaround ends with `/reload-plugins`, which does not re-register hooks~~ FIXED
 - **Severity:** Low (docs-only; users can follow the workaround exactly and still see zero PostToolUse executions)
 - **Discovered:** 2026-07-02, dogfood codex-pair review (second pass on the same page)
 - **File:** `apps/docs/plugin/hooks.md` (marketplace-workaround closing step)
 - **Description:** Claude Code binds hooks at session start; `/reload-plugins` doesn't re-register them in a live session (the plugin README says as much). The step should say "fully restart Claude Code", then verify with the `codex-pair-log` CLI that the hook fired.
+- **Status:** **FIXED** (2026-07-09): the page now requires a full restart and gives an explicit log verification path.
 
-### `apps/docs/plugin/hooks.md` "CLI Binaries" section documents commands the marketplace install does not ship
+### ~~`apps/docs/plugin/hooks.md` "CLI Binaries" section documents commands the marketplace install does not ship~~ FIXED
 - **Severity:** Low (docs-only; misleading for normal plugin installs)
 - **Discovered:** 2026-07-02, dogfood codex-pair review (second pass on the same page)
 - **File:** `apps/docs/plugin/hooks.md` (CLI Binaries section)
 - **Description:** `ask-*-run` bin entries point at `dist/*` files that aren't tracked in the git-subdir marketplace install path, so the documented commands don't exist for marketplace users. Scope the section to source-built/local-dev installs, or point users at the published MCP package CLIs (`npx ask-codex-mcp` etc.).
+- **Status:** **FIXED** (2026-07-09): the hooks and overview pages now scope the binaries to built/linked source checkouts and direct marketplace users to MCP tools.
 
-### `parseGitPorcelain` does not decode git's C-style quoted paths
+### ~~`parseGitPorcelain` does not decode git's C-style quoted paths~~ FIXED
 - **Severity:** Low (fail-open direction; affects only paths with quotes/backslashes/control chars)
 - **Discovered:** 2026-07-02, dogfood codex-pair review during the seamless-pairing pass
 - **File:** `packages/claude-plugin/scripts/lib/stop-gate.mjs:13`
 - **Description:** porcelain v1 quotes paths containing special characters; the parser strips the surrounding quotes but doesn't unescape the body, so such paths never match log-entry paths and the Stop-gate's `[B]` git-dirty filter drops their HIGH findings (fail-open, never a wrong block). Fix direction: `git status --porcelain=v1 -z` with a NUL parser.
+- **Status:** **FIXED** (ADR-136): the Stop gate now invokes `git status --porcelain=v1 -z`; the parser preserves raw quotes, backslashes, control characters, and newlines, and handles NUL-mode rename source records. Regression tests cover renamed and special-character paths.
 
 ### ~~`/compare` excluded Antigravity while `/brainstorm-all` and `/multi-review` included it~~ FIXED
 - **Severity:** Low (feature-parity gap; the skill's docs had been self-consistent with its implementation)
@@ -122,13 +134,13 @@
 - **Description:** Codex/Ollama disable the response cache whenever `sessionId !== undefined` (empty string included — both behaviors tested); Gemini builds its cache key without an equivalent `wantsSession` guard, so `sessionId: ""` may serve a cached response instead of performing a session turn. No gemini test covers empty-string sessionId.
 - **Status:** **FIXED** (`fix/audit-2026-07-02-hardening`): verified real — `isCacheable = !sessionId` (falsy check) at `geminiExecutor.ts:544` meant `sessionId: ""` could return a cached body with `sessionId: undefined`. Now `wantsSession = sessionId !== undefined` gates caching, matching codex/ollama; regression test reproduced the bug first (TDD). Bonus: `includeDirs?.sort()` no longer mutates the caller's array.
 
-### `agy` (Antigravity) can act during "review" calls — read-only guard is soft and raw calls bypass it
+### `agy` (Antigravity) read-only guard remains soft — raw-call bypass FIXED
 - **Severity:** Medium — the provider's PRIMARY use case is read-only second-opinions/reviews, yet `agy` can silently modify the repo.
 - **Discovered:** 2026-06-09, while asking `agy` to *critique* the #142 stop-gate design. It went ahead and **implemented the whole feature** (created/edited 6 files on `main`, ran the test suite) instead of just reviewing. Changes were reverted; no harm, but the behavior is the concern.
 - **Root cause:** `agy` is an agentic CLI run with `--dangerously-skip-permissions` (required to avoid headless `-p` approval-prompt hangs). `--sandbox` only restricts the *terminal*, not file writes. `agy` 1.0.6 has **no hard read-only / tool-restriction flag**. The only guard is a **soft** prompt preamble (`READ_ONLY_PREAMBLE`, `packages/antigravity-mcp/src/constants.ts`) — and it is prepended **only on the MCP-tool path**.
-- **Gaps:** (1) **Raw `agy` calls bypass the preamble** — notably the brainstorm-coordinator dispatch (`packages/claude-plugin/agents/brainstorm-coordinator.md:136`), which runs `--dangerously-skip-permissions` **without `--sandbox`** → agy can write files AND run terminal commands during a brainstorm. Any ad-hoc raw `agy -p` review (like the one that surfaced this) is unguarded. (2) Even with the preamble, the constraint is **soft** — agy may ignore it (it ignored the "give a verdict only" instruction here).
-- **Recommended (deferred):** (a) prepend `READ_ONLY_PREAMBLE` + add `--sandbox` to **every** raw `agy` call (brainstorm-coordinator + any docs/snippets); (b) for a hard guarantee, run review-mode `agy` in a throwaway git worktree (writes can't reach the real repo) or `git status`/revert after the call; (c) track upstream — `agy` needs a real `--read-only` / `--allowed-tools` mode.
-- **Status:** Open — **noted only** per maintainer (2026-06-09); hardening deferred.
+- **Remaining gap:** Even with the preamble and `--sandbox`, the constraint is **soft** — agy may ignore it because upstream exposes no hard read-only control for file tools.
+- **Recommended:** for a hard guarantee, run review-mode `agy` in an isolated throwaway checkout/container; continue tracking upstream for a real `--read-only` / `--allowed-tools` mode.
+- **Status:** **PARTIALLY FIXED** (ADR-136): every managed raw `agy` path now prepends the same read-only preamble as the MCP executor and adds `--sandbox`; contract tests prevent that bypass from returning. The upstream hard-isolation limitation remains open and explicit.
 
 ### Codex quota fallback broken for CLI 0.137+ ("You've hit your usage limit") — also blocked unrelated pushes
 - **Severity:** ~~Low (local DX)~~ → **Medium** (refined): the real impact is a **user-facing** quota-fallback regression, not just a local pre-push annoyance.

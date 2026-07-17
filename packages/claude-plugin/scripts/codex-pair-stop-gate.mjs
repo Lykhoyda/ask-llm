@@ -78,7 +78,7 @@ function gitDirtySet(markerDir) {
   const opts = { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"], timeout: 5000 };
   try {
     const repoRoot = execFileSync("git", ["-C", markerDir, "rev-parse", "--show-toplevel"], opts).trim();
-    const porcelain = execFileSync("git", ["-C", markerDir, "status", "--porcelain"], opts);
+    const porcelain = execFileSync("git", ["-C", markerDir, "status", "--porcelain=v1", "-z"], opts);
     return parseGitPorcelain(porcelain, repoRoot);
   } catch {
     return null; // not a repo / git missing / timeout → skip the [B] filter

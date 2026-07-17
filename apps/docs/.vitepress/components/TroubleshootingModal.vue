@@ -197,42 +197,19 @@ onUnmounted(() => {
 
 <style scoped>
 .issue-card {
-  background: transparent;
-  border: none;
+  background: var(--noir-raised);
+  border: 1px solid var(--noir-border);
+  border-left: 3px solid var(--color-error);
+  border-radius: var(--radius);
   padding: 16px;
   margin: 12px 0;
   cursor: pointer;
   position: relative;
-  z-index: 1;
+  transition: border-color 0.15s ease;
 }
 
-.issue-card::before {
-  content: "";
-  position: absolute;
-  inset: 1px;
-  background: var(--color-bg-raised);
-  z-index: -1;
-  clip-path: polygon(
-    var(--corner-size-sm) 0%, 100% 0%, 100% calc(100% - var(--corner-size-sm)),
-    calc(100% - var(--corner-size-sm)) 100%, 0% 100%, 0% var(--corner-size-sm)
-  );
-}
-
-.issue-card::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(to right, var(--color-error) 3px, var(--color-bg-border) 3px);
-  z-index: -2;
-  clip-path: polygon(
-    var(--corner-size-sm) 0%, 100% 0%, 100% calc(100% - var(--corner-size-sm)),
-    calc(100% - var(--corner-size-sm)) 100%, 0% 100%, 0% var(--corner-size-sm)
-  );
-  transition: background 0.15s ease;
-}
-
-.issue-card:hover::after {
-  background: linear-gradient(to right, var(--color-error) 3px, var(--color-brand-glow-hover) 3px);
+.issue-card:hover {
+  border-color: var(--accent);
 }
 
 .issue-header {
@@ -244,16 +221,16 @@ onUnmounted(() => {
 
 .issue-header h3 {
   margin: 0;
-  font-family: var(--font-heading);
+  font-family: var(--font-sans);
   font-size: 15px;
   font-weight: 600;
-  color: var(--color-text-primary);
+  color: var(--noir-text);
 }
 
 .expand-hint {
   font-family: var(--font-mono);
   font-size: 11px;
-  color: var(--color-text-muted);
+  color: var(--noir-text-3);
   opacity: 0;
   transition: opacity 0.15s ease;
 }
@@ -264,7 +241,7 @@ onUnmounted(() => {
 
 .issue-preview {
   font-size: 13px;
-  color: var(--color-text-secondary);
+  color: var(--noir-text-2);
   line-height: 1.5;
 }
 
@@ -283,29 +260,21 @@ onUnmounted(() => {
 }
 
 .modal-content {
-  background: var(--color-bg-raised);
-  border: 1px solid var(--color-bg-border);
+  background: var(--noir-raised);
+  border: 1px solid var(--noir-border);
+  border-radius: var(--radius);
   width: 90vw;
   max-width: 800px;
   max-height: 80vh;
   overflow: hidden;
-  box-shadow: 0 25px 50px rgba(0, 0, 0, 0.5);
   display: flex;
   flex-direction: column;
-  clip-path: polygon(
-    var(--corner-size-lg) 0%,
-    100% 0%,
-    100% calc(100% - var(--corner-size-lg)),
-    calc(100% - var(--corner-size-lg)) 100%,
-    0% 100%,
-    0% var(--corner-size-lg)
-  );
 }
 
 .modal-header {
   padding: 20px 24px;
-  border-bottom: 1px solid var(--color-bg-border);
-  background: var(--color-bg-hover);
+  border-bottom: 1px solid var(--noir-border);
+  background: var(--noir-raised);
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
@@ -319,17 +288,17 @@ onUnmounted(() => {
 
 .modal-title h2 {
   margin: 0;
-  font-family: var(--font-heading);
+  font-family: var(--font-sans);
   font-size: 18px;
   font-weight: 600;
-  color: var(--color-text-primary);
+  color: var(--noir-text);
 }
 
 .problem-badge {
   background: rgba(248, 113, 113, 0.15);
   color: var(--color-error);
   padding: 4px 8px;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius);
   font-family: var(--font-mono);
   font-size: 11px;
   font-weight: 600;
@@ -339,10 +308,10 @@ onUnmounted(() => {
 }
 
 .solution-badge {
-  background: rgba(52, 211, 153, 0.15);
-  color: var(--color-success);
+  background: var(--accent-tint);
+  color: var(--accent);
   padding: 4px 8px;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius);
   font-family: var(--font-mono);
   font-size: 11px;
   font-weight: 600;
@@ -356,20 +325,20 @@ onUnmounted(() => {
   border: none;
   font-size: 24px;
   cursor: pointer;
-  color: var(--color-text-muted);
+  color: var(--noir-text-3);
   width: 32px;
   height: 32px;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 50%;
+  border-radius: var(--radius);
   transition: all 0.15s ease;
   margin-left: 16px;
 }
 
 .close-btn:hover {
-  background: var(--color-bg-hover);
-  color: var(--color-text-primary);
+  background: var(--noir-raised);
+  color: var(--noir-text);
 }
 
 .modal-body {
@@ -398,7 +367,7 @@ onUnmounted(() => {
 
 .solution-content :deep(pre) {
   margin: 16px 0;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius);
   position: relative;
 }
 
@@ -411,17 +380,17 @@ onUnmounted(() => {
   top: 8px;
   right: 8px;
   z-index: 10;
-  border: 1px solid var(--color-bg-border);
-  border-radius: var(--radius-sm);
+  border: 1px solid var(--noir-border);
+  border-radius: var(--radius);
   width: 32px;
   height: 32px;
-  background-color: var(--color-bg);
+  background-color: var(--noir-bg);
   cursor: pointer;
   transition: all 0.15s ease;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--color-text-muted);
+  color: var(--noir-text-3);
   opacity: 0;
 }
 
@@ -431,14 +400,14 @@ onUnmounted(() => {
 }
 
 .solution-content :deep(.copy-btn:hover) {
-  border-color: var(--color-brand);
-  color: var(--color-brand);
+  border-color: var(--accent);
+  color: var(--accent);
 }
 
 .solution-content :deep(.copy-btn.copied) {
-  border-color: var(--color-brand);
-  background-color: var(--color-brand-glow);
-  color: var(--color-brand);
+  border-color: var(--accent);
+  background-color: var(--accent-tint);
+  color: var(--accent);
   opacity: 1;
 }
 
@@ -458,14 +427,14 @@ onUnmounted(() => {
 }
 
 .solution-content :deep(strong) {
-  color: var(--color-brand);
+  color: var(--accent);
 }
 
 @media (max-width: 768px) {
   .modal-content {
     width: 95vw;
     max-height: 90vh;
-    clip-path: none;
+    border-radius: 0;
   }
 
   .modal-header {
@@ -478,12 +447,6 @@ onUnmounted(() => {
 
   .issue-card {
     padding: 14px;
-  }
-
-  .issue-card::before,
-  .issue-card::after {
-    clip-path: none;
-    border-radius: var(--radius-md);
   }
 
   .issue-header {

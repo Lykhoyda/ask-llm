@@ -62,6 +62,8 @@ Save the file to this absolute path: <path from Phase 2>
 After saving, confirm the absolute path of the created file and its byte size in your reply. If image_generation fails or the file cannot be written, explain what went wrong and do not invent a fake path.
 ```
 
+**Sandbox:** pass `sandbox: "workspace-write"` on this `ask-codex` call. `ask-codex` defaults to the read-only review sandbox (ADR-136), under which Codex cannot write the PNG to disk; image generation is the sanctioned exception that needs Codex to write the output file itself.
+
 **Default model:** let `ask-codex` use its default (`gpt-5.6-sol`). The image_generation tool is invoked by the model regardless of which Codex chat model is selected — model selection here is about the orchestrating agent, not the image model itself.
 
 **Wall time expectation:** with gpt-image-2, simple images typically render in **under a minute** end-to-end; complex prompts or high-resolution (up to 4K) renders can take a **few minutes** because gpt-image-2's thinking mode plans layout and self-checks before generating. This is normal; do not retry assuming a hang. The first call in a session is slowest because the image_generation tool definitions aren't cached yet; subsequent calls in the same session are faster (Codex CLI prompt-caches aggressively).

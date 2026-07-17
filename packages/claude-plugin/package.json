@@ -13,7 +13,7 @@
   "scripts": {
     "build": "tsc",
     "test": "vitest run",
-    "lint": "biome check src/ && tsc --noEmit"
+    "lint": "biome check src/ && biome lint scripts/ && tsc --noEmit"
   },
   "dependencies": {
     "@ask-llm/antigravity-mcp": "workspace:*",

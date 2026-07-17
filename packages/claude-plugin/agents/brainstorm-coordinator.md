@@ -103,7 +103,7 @@ The user specifies which external providers to use. Default is `antigravity,code
 
 - `antigravity` — Google Antigravity, subscription-backed via your Google AI Pro/Ultra plan, via the `agy` CLI (experimental; requires `agy` installed + logged in)
 - `gemini` — Google Gemini (large context, strong at analysis) via the `gemini` CLI
-- `codex` — OpenAI Codex (strong at code reasoning) via `codex exec --sandbox workspace-write`
+- `codex` — OpenAI Codex (strong at code reasoning) via `codex exec --sandbox read-only`
 - `ollama` — Local Ollama (private, no data leaves machine) via the `ollama` CLI
 
 **Required Bash tool call parameters:**
@@ -122,6 +122,14 @@ cat > "$workdir/prompt.md" <<'PROMPT_EOF'
 <INSERT THE PHASE 2 PROMPT HERE>
 PROMPT_EOF
 
+# Antigravity is an agentic CLI, so raw calls must carry the same safety
+# preamble as @ask-llm/antigravity-mcp. This remains a soft model instruction;
+# --sandbox is the strongest isolation agy currently exposes.
+{
+  printf '%s\n\n' 'You are giving a second opinion / code review. Read and reason only. Do NOT modify, create, or delete files, and do NOT run commands — just analyze and respond.'
+  cat "$workdir/prompt.md"
+} > "$workdir/antigravity-prompt.md"
+
 # Background each provider DIRECTLY in this shell — no subshells.
 # Subshells (parentheses) detach the child from this shell's job table,
 # which makes `wait` return immediately and orphans the job to be
@@ -129,12 +137,14 @@ PROMPT_EOF
 # Only include this line if antigravity was requested (in the default set).
 # --dangerously-skip-permissions: agy prompts for tool-use approval in interactive
 # contexts; skipping those prompts keeps the background job from hanging on input.
+# --sandbox restricts terminal execution. The read-only preamble above also
+# covers agy's file tools, for which upstream has no hard read-only flag.
 # --model "Gemini 3.1 Pro (High)": pin the same default @ask-llm/antigravity-mcp uses
 # (ADR-116). This raw `agy` call bypasses that executor, so the default must be
 # restated here or agy falls back to its own built-in model. Note the executor's
 # Gemini 3.5 Flash (High) rate-limit fallback does NOT apply to this raw path. The
 # long --model flag works under -p (only the short -m hangs). Run `agy models`.
-agy -p "$(cat "$workdir/prompt.md")" --model "Gemini 3.1 Pro (High)" --dangerously-skip-permissions > "$workdir/antigravity.out" 2> "$workdir/antigravity.err" &
+agy -p "$(cat "$workdir/antigravity-prompt.md")" --model "Gemini 3.1 Pro (High)" --dangerously-skip-permissions --sandbox > "$workdir/antigravity.out" 2> "$workdir/antigravity.err" &
 pid_antigravity=$!
 
 # Only include this line if gemini was requested:
@@ -156,8 +166,8 @@ case "$codex_effort" in
   low|medium|high|xhigh|max) ;;
   *) codex_effort="high" ;;
 esac
-{ codex exec --sandbox workspace-write -c "model_reasoning_effort=\"$codex_effort\"" -m "$codex_model" - < "$workdir/prompt.md" \
-  || codex exec --sandbox workspace-write -c "model_reasoning_effort=\"$codex_effort\"" -m "$codex_fallback" - < "$workdir/prompt.md"; } \
+{ codex exec --sandbox read-only -c "model_reasoning_effort=\"$codex_effort\"" -m "$codex_model" - < "$workdir/prompt.md" \
+  || codex exec --sandbox read-only -c "model_reasoning_effort=\"$codex_effort\"" -m "$codex_fallback" - < "$workdir/prompt.md"; } \
   > "$workdir/codex.out" 2> "$workdir/codex.err" &
 pid_codex=$!
 

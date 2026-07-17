@@ -265,16 +265,16 @@ onUnmounted(() => {
 .diagram-container {
   position: relative;
   cursor: pointer;
-  border: 1px solid var(--color-bg-border);
-  border-radius: var(--radius-md);
+  border: 1px solid var(--noir-border);
+  border-radius: var(--radius);
   padding: 10px;
   margin: 10px 0;
   transition: border-color 0.15s ease;
-  background: var(--color-bg-raised);
+  background: var(--noir-raised);
 }
 
 .diagram-container:hover {
-  border-color: var(--color-brand);
+  border-color: var(--accent);
 }
 
 .diagram-container:hover .zoom-hint {
@@ -306,10 +306,10 @@ onUnmounted(() => {
   position: absolute;
   top: 10px;
   right: 10px;
-  background: var(--color-bg-hover);
-  color: var(--color-text-secondary);
+  background: var(--noir-raised);
+  color: var(--noir-text-2);
   padding: 6px 10px;
-  border-radius: 20px;
+  border-radius: var(--radius);
   font-family: var(--font-mono);
   font-size: 11px;
   align-items: center;
@@ -318,7 +318,7 @@ onUnmounted(() => {
   transition: opacity 0.15s ease;
   pointer-events: none;
   display: none;
-  border: 1px solid var(--color-bg-border);
+  border: 1px solid var(--noir-border);
 }
 
 @media (hover: hover) {
@@ -343,30 +343,22 @@ onUnmounted(() => {
 
 .modal-content {
   position: relative;
-  background: var(--color-bg-raised);
-  border: 1px solid var(--color-bg-border);
+  background: var(--noir-raised);
+  border: 1px solid var(--noir-border);
+  border-radius: var(--radius);
   width: 95vw;
   height: 95vh;
   max-width: 1200px;
   max-height: 900px;
   overflow: hidden;
-  box-shadow: 0 25px 50px rgba(0, 0, 0, 0.5);
   display: flex;
   flex-direction: column;
-  clip-path: polygon(
-    var(--corner-size-lg) 0%,
-    100% 0%,
-    100% calc(100% - var(--corner-size-lg)),
-    calc(100% - var(--corner-size-lg)) 100%,
-    0% 100%,
-    0% var(--corner-size-lg)
-  );
 }
 
 .modal-header {
   padding: 15px 20px;
-  border-bottom: 1px solid var(--color-bg-border);
-  background: var(--color-bg-hover);
+  border-bottom: 1px solid var(--noir-border);
+  background: var(--noir-raised);
   flex-shrink: 0;
 }
 
@@ -391,22 +383,22 @@ onUnmounted(() => {
 }
 
 .control-btn {
-  background: var(--color-bg);
-  border: 1px solid var(--color-bg-border);
-  border-radius: var(--radius-sm);
+  background: var(--noir-bg);
+  border: 1px solid var(--noir-border);
+  border-radius: var(--radius);
   padding: 8px;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   transition: all 0.15s ease;
-  color: var(--color-text-primary);
+  color: var(--noir-text);
 }
 
 .control-btn:hover:not(:disabled) {
-  background: var(--color-bg-hover);
-  border-color: var(--color-brand);
-  color: var(--color-brand);
+  background: var(--noir-raised);
+  border-color: var(--accent);
+  color: var(--accent);
 }
 
 .control-btn:disabled {
@@ -424,7 +416,7 @@ onUnmounted(() => {
 .zoom-info {
   font-family: var(--font-mono);
   font-size: 13px;
-  color: var(--color-text-secondary);
+  color: var(--noir-text-2);
   font-weight: 500;
   min-width: 50px;
   text-align: center;
@@ -435,19 +427,19 @@ onUnmounted(() => {
   border: none;
   font-size: 24px;
   cursor: pointer;
-  color: var(--color-text-muted);
+  color: var(--noir-text-3);
   width: 32px;
   height: 32px;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 50%;
+  border-radius: var(--radius);
   transition: all 0.15s ease;
 }
 
 .close-btn:hover {
-  background: var(--color-bg-hover);
-  color: var(--color-text-primary);
+  background: var(--noir-raised);
+  color: var(--noir-text);
 }
 
 .diagram-zoom-container {
@@ -455,10 +447,10 @@ onUnmounted(() => {
   overflow: hidden;
   cursor: grab;
   position: relative;
-  background: var(--color-bg);
+  background: var(--noir-bg);
   background-image: radial-gradient(
     circle,
-    var(--color-brand-glow-faint) 1px,
+    var(--accent-tint) 1px,
     transparent 1px
   );
   background-size: 20px 20px;
@@ -474,7 +466,7 @@ onUnmounted(() => {
     height: 100vh;
     max-width: none;
     max-height: none;
-    clip-path: none;
+    border-radius: 0;
   }
 
   .modal-header {

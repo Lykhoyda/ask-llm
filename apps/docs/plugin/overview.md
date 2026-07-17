@@ -1,10 +1,10 @@
 ---
-description: Claude Code plugin for AI-to-AI collaboration. Multi-provider code review, brainstorming agents, continuous codex-pair review hook, and CLI binaries for Gemini, Codex, Ollama, and Antigravity.
+description: Claude Code plugin for AI-to-AI collaboration. Multi-provider code review, brainstorming agents, and the continuous codex-pair review hook.
 ---
 
 # Claude Code Plugin
 
-The **Ask LLM plugin** brings the second opinion into Claude Code itself: slash-command reviews (`/codex-review`, `/multi-review`), multi-model brainstorming (`/brainstorm`), and an opt-in continuous review hook (`codex-pair`) that checks every edit as you make it. Under the hood it adds review skills, brainstorm agents, automated hooks, and CLI binaries for piping code to any provider.
+The **Ask LLM plugin** brings the second opinion into Claude Code itself: slash-command reviews (`/codex-review`, `/multi-review`), multi-model brainstorming (`/brainstorm`), and an opt-in continuous review hook (`codex-pair`) that checks every edit as you make it. Under the hood it adds review skills, brainstorm agents, and automated hooks.
 
 ## Installation
 
@@ -28,15 +28,16 @@ claude --plugin-dir ./packages/claude-plugin
 
 ### MCP Servers
 
-Add the MCP servers at user scope for short tool names (recommended):
+The plugin's review skills and reviewer agents call provider-specific MCP servers (for example, `codex:ask-codex`), so register them at user scope for short tool names:
 
 ```bash
-claude mcp add --scope user gemini -- npx -y @ask-llm/gemini-mcp
 claude mcp add --scope user codex -- npx -y @ask-llm/codex-mcp
+claude mcp add --scope user antigravity -- npx -y @ask-llm/antigravity-mcp
 claude mcp add --scope user ollama -- npx -y @ask-llm/ollama-mcp
+claude mcp add --scope user gemini -- npx -y @ask-llm/gemini-mcp
 ```
 
-This gives you `gemini:ask-gemini` rather than `plugin:ask-llm:gemini:ask-gemini`.
+This gives you `codex:ask-codex` rather than `plugin:ask-llm:codex:ask-codex`.
 
 ## What's Included
 
@@ -46,18 +47,18 @@ This gives you `gemini:ask-gemini` rather than `plugin:ask-llm:gemini:ask-gemini
 |---------|----------|-------------|
 | `/multi-review` | Antigravity + Codex | Parallel review with 4-phase validation pipeline and consensus highlighting |
 | `/gemini-review` | Gemini | Get a second opinion on your current changes |
-| `/codex-review` | Codex | Get a second opinion from GPT-5.5 |
-| `/fable-review` | Fable | Native isolated review that requests Fable and discloses runtime verification limits |
+| `/codex-review` | Codex | Get a second opinion from GPT-5.6 Sol |
+| `/fable-review` | Fable | Native isolated review, pinned to Fable |
 | `/sol-review` | GPT-5.6 Sol | Model-pinned review through Codex |
-| `/ollama-review` | Ollama | Local review — no data leaves your machine |
+| `/ollama-review` | Ollama | Local review, no data leaves your machine |
 | `/antigravity-review` | Antigravity | Subscription-backed second opinion via Google `agy` (experimental) |
 | `/brainstorm` | Multi + Claude Opus | Claude Opus researches the topic against real files in parallel with external providers, then synthesizes findings |
 | `/brainstorm-all` | All + Claude Opus | Brainstorm with all four external providers (Gemini, Codex, Ollama, Antigravity) plus Claude Opus research |
-| `/compare` | Multi (configurable) | Side-by-side raw responses from selected providers — no synthesis, no consensus extraction. Use when you want to see how each provider phrases the same answer |
+| `/compare` | Multi (configurable) | Side-by-side raw responses from selected providers: no synthesis, no consensus extraction. Use when you want to see how each provider phrases the same answer |
 
-> `/codex-review`, `/ollama-review`, `/antigravity-review`, and `/brainstorm` require the respective CLI tools to be installed and authenticated.
+> `/codex-review` and `/sol-review` require the Codex CLI and registered Codex MCP server; `/ollama-review`, `/antigravity-review`, and `/brainstorm` require the respective CLI tools to be installed and authenticated.
 >
-> Looking for **continuous background review** (not a slash command)? See [`codex-pair`](/plugin/hooks#posttooluse-hook-codex-pair-opt-in-continuous-review) — a PostToolUse hook that runs Codex against every file edit when a project has opted in via a marker file. It's the recall-first complement to `/codex-review`.
+> Looking for **continuous background review** (not a slash command)? See [`codex-pair`](/plugin/codex-pair), a PostToolUse hook that runs Codex against every file edit when a project has opted in via a marker file. It's the recall-first complement to `/codex-review`.
 
 ### Agents
 
@@ -65,22 +66,26 @@ This gives you `gemini:ask-gemini` rather than `plugin:ask-llm:gemini:ask-gemini
 |-------|-------------|
 | `gemini-reviewer` | Isolated Gemini code review with confidence-based filtering |
 | `codex-reviewer` | Isolated Codex code review with confidence-based filtering |
-| `fable-reviewer` | Native read-only review configured to request Fable, with source validation |
+| `fable-reviewer` | Native read-only Fable review with source validation |
 | `sol-reviewer` | GPT-5.6 Sol review through Codex with source validation |
-| `ollama-reviewer` | Local Ollama code review — no data leaves your machine |
-| `antigravity-reviewer` | Subscription-backed Antigravity (`agy`) code review — experimental |
+| `ollama-reviewer` | Local Ollama code review, no data leaves your machine |
+| `antigravity-reviewer` | Subscription-backed Antigravity (`agy`) code review, experimental |
 | `brainstorm-coordinator` | First-class research participant: runs its own Claude Opus research (reads real files, traces code, fetches docs) in parallel with external providers, then synthesizes consensus. Verified findings weighted higher than inferred ones. |
 
 ### Hooks
 
 | Hook | Trigger | Action |
 |------|---------|--------|
-| `codex-pair` PostToolUse | After every Edit/Write/MultiEdit | **Opt-in.** Self-gates on `.codex-pair/context.md` marker file. Zero cost without the marker. With marker: runs Codex review on every edited file, surfaces HIGH/MED concerns to Claude on the next turn. See [Hooks](/plugin/hooks#posttooluse-hook-codex-pair-opt-in-continuous-review) for opt-in steps and cost characteristics |
-| `codex-pair-session` SessionStart / SessionEnd | At Claude session boundary | **Opt-in.** Scaffolding for the long-lived `codex app-server` broker (ADR-090, ADR-093). No-op until `ASK_CODEX_BROKER=1` ships with Tier 3 implementation |
+| `codex-pair` PostToolUse | After every Edit/Write/MultiEdit | **Opt-in.** Self-gates on `.codex-pair/context.md` marker file. Zero cost without the marker. With marker: edits are debounced into a settle window, a detached worker reviews the settled file state, and HIGH/MED verdicts surface to Claude on a later edit, the next user prompt, or at turn end. See [Codex Pair](/plugin/codex-pair) for opt-in steps and cost characteristics |
+| `codex-pair-prompt-drain` UserPromptSubmit | On every user prompt | Drains queued codex-pair verdicts that finished mid-turn so they reach Claude without waiting for the next edit |
+| `codex-pair-stop-gate` Stop | At turn end | Drains remaining queued verdicts (no opt-in needed). With `blockOn: HIGH` in the marker frontmatter (opt-in, default OFF, ADR-118), blocks turn-end while unaddressed HIGH findings or in-flight reviews remain |
+| `codex-pair-session` SessionStart / SessionEnd | At Claude session boundary | SessionStart announces a paused project or auto-resumes an expired auto-pause (ADR-130); SessionEnd clears debounce state so orphaned workers self-cancel. Lifecycle for the experimental `codex app-server` broker (ADR-090, ADR-093) additionally runs only with `ASK_CODEX_BROKER=1` |
 
-The hook shells out directly to `codex exec --json` with zero workspace imports — required so it runs from marketplace `git-subdir` installs that don't run `npm install` (see [ADR-078](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md)). A previous `PreToolUse` Gemini-review pre-commit hook was removed in [ADR-094](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md) — use `/gemini-review` or `/codex-review` on demand for explicit pre-commit review instead.
+The hook shells out directly to `codex exec --json` with zero workspace imports, required so it runs from marketplace `git-subdir` installs that don't run `npm install` (see [ADR-078](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md)). A previous `PreToolUse` Gemini-review pre-commit hook was removed in [ADR-094](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md); use `/gemini-review` or `/codex-review` on demand for explicit pre-commit review instead.
 
-### CLI Binaries
+### CLI Binaries (source builds only)
+
+These commands are available after cloning and building the plugin locally. Marketplace `git-subdir` installs do not build or ship the generated `dist/` binaries.
 
 | Command | Description |
 |---------|-------------|
@@ -92,18 +97,18 @@ The hook shells out directly to `codex exec --json` with zero workspace imports 
 
 The plugin uses several Claude Code integration points:
 
-1. **`.mcp.json`** — Auto-registers the Gemini MCP server when the plugin is loaded
-2. **Skills** (`skills/`) — User-invocable slash commands that trigger review or brainstorm workflows
-3. **Agents** (`agents/`) — Handle the actual interaction with each provider using confidence-based filtering (80%+ threshold). Agents read `CLAUDE.md` for project conventions when available.
-4. **Hooks** (`hooks/`) — Automate advisory Gemini reviews before commits
-5. **CLI binaries** (`src/`) — Enable piped analysis from shell: `git diff | ask-gemini-run "review this"`
+1. **`.mcp.json`**: Ships an empty `mcpServers` map; provider MCP servers are registered separately at user scope (see [Installation](#installation))
+2. **Skills** (`skills/`): User-invocable slash commands that trigger review or brainstorm workflows
+3. **Agents** (`agents/`): Handle the actual interaction with each provider using confidence-based filtering (80%+ threshold). Agents read `CLAUDE.md` for project conventions when available.
+4. **Hooks** (`hooks/`): Run the opt-in codex-pair continuous review pipeline: per-edit PostToolUse reviews, verdict drains on user prompts and at turn end, the opt-in Stop gate, and session lifecycle
+5. **Source-build CLI binaries** (`src/`): After a local build/link, enable piped analysis from shell: `git diff | ask-gemini-run "review this"`
 
 ## Requirements
 
 - **Claude Code** installed and authenticated
-- **Gemini CLI** authenticated (`gemini login`) — required for all hooks and Gemini features
-- **Codex CLI** authenticated — required for `/codex-review` and brainstorm with Codex
-- **Ollama** running locally — required for `/ollama-review` and brainstorm with Ollama
+- **Codex CLI** authenticated, required for `/codex-review` and brainstorm with Codex
+- **Ollama** running locally, required for `/ollama-review` and brainstorm with Ollama
+- **Gemini CLI** authenticated (`gemini login`), required for Gemini features
 - For `/brainstorm`, at least two providers should be available for meaningful synthesis
 
 ## Source

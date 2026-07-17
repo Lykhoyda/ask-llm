@@ -499,8 +499,10 @@ describe("agents/ — no removed codex CLI flags (#37/#38/#52)", () => {
     expect(readFile(`agents/${agentFile}`)).not.toMatch(/--full-auto/);
   });
 
-  it("brainstorm-coordinator dispatches codex with `--sandbox workspace-write`", () => {
-    expect(readFile("agents/brainstorm-coordinator.md")).toMatch(/codex exec --sandbox workspace-write/);
+  it("brainstorm-coordinator dispatches codex with `--sandbox read-only` (ADR-136)", () => {
+    const coordinator = readFile("agents/brainstorm-coordinator.md");
+    expect(coordinator).toMatch(/codex exec --sandbox read-only/);
+    expect(coordinator).not.toMatch(/codex exec --sandbox workspace-write/);
   });
 
   it("validates the brainstorm reasoning-effort override before invoking Codex", () => {

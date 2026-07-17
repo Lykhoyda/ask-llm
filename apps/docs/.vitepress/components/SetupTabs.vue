@@ -2,22 +2,37 @@
   <div class="setup-tabs-container">
     <div class="setup-tabs">
       <div class="tab-header">
-        <div class="mac-dots"><span></span><span></span><span></span></div>
-        <div class="tab-buttons">
+        <div
+          class="tab-buttons"
+          role="tablist"
+          aria-label="MCP client setup"
+          @keydown="onKeydown"
+        >
           <button
-            v-for="tab in tabs"
-            :key="tab.id"
-            :class="['tab-button', { active: activeTab === tab.id }]"
-            @click="activeTab = tab.id"
+            v-for="(tab, index) in tabs"
+            :id="`${uid}-tab-${tab}`"
+            :key="tab"
+            :ref="(el) => setTabRef(el, index)"
+            role="tab"
+            type="button"
+            :aria-selected="activeTab === tab"
+            :aria-controls="`${uid}-panel-${tab}`"
+            :tabindex="activeTab === tab ? 0 : -1"
+            :class="['tab-button', { active: activeTab === tab }]"
+            @click="activeTab = tab"
           >
-            {{ tab.label }}
+            {{ tabLabels[tab] }}
           </button>
+          <span class="tab-underline" :style="underlineStyle" aria-hidden="true"></span>
         </div>
       </div>
       <div class="tab-content">
         <transition name="fade" mode="out-in">
           <div
             v-if="activeTab === 'claude-code'"
+            :id="`${uid}-panel-claude-code`"
+            role="tabpanel"
+            :aria-labelledby="`${uid}-tab-claude-code`"
             class="tab-panel"
             key="claude-code"
           >
@@ -29,10 +44,10 @@
                 <pre
                   class="shiki"
                 ><code><span class="line"><span class="comment"># Project scope (current project only)</span></span>
-<span class="line"><span>claude mcp add {{ cfg.serverName }} -- npx -y {{ cfg.pkg }}</span></span>
+<span class="line"><span>claude mcp add {{ doc.serverName }} -- npx -y {{ doc.pkg }}</span></span>
 <span class="line"></span>
 <span class="line"><span class="comment"># User scope (all projects)</span></span>
-<span class="line"><span>claude mcp add --scope user {{ cfg.serverName }} -- npx -y {{ cfg.pkg }}</span></span></code></pre>
+<span class="line"><span>claude mcp add --scope user {{ doc.serverName }} -- npx -y {{ doc.pkg }}</span></span></code></pre>
               </div>
 
               <p class="config-hint plugin-hint">
@@ -52,30 +67,29 @@
             </div>
           </div>
           <div
-            v-else-if="activeTab === 'claude-desktop'"
+            v-else-if="activeTab === 'codex'"
+            :id="`${uid}-panel-codex`"
+            role="tabpanel"
+            :aria-labelledby="`${uid}-tab-codex`"
             class="tab-panel"
-            key="claude-desktop"
+            key="codex"
           >
             <div class="panel-inner">
-              <p class="config-hint">
-                Add to <code>claude_desktop_config.json</code>:
-              </p>
-              <div class="language-json">
+              <p class="config-hint">Run in your terminal:</p>
+              <div class="language-bash">
                 <button title="Copy Code" class="copy"></button>
-                <span class="lang">json</span>
-                <pre class="shiki"><code><span class="line">{</span>
-<span class="line">  <span class="string">"mcpServers"</span>: {</span>
-<span class="line">    <span class="string">"{{ cfg.serverName }}"</span>: {</span>
-<span class="line">      <span class="string">"command"</span>: <span class="string">"npx"</span>,</span>
-<span class="line">      <span class="string">"args"</span>: [<span class="string">"-y"</span>, <span class="string">"{{ cfg.pkg }}"</span>]</span>
-<span class="line">    }</span>
-<span class="line">  }</span>
-<span class="line">}</span></code></pre>
+                <span class="lang">bash</span>
+                <pre
+                  class="shiki"
+                ><code><span class="line">codex mcp add {{ doc.serverName }} -- npx -y {{ doc.pkg }}</span></code></pre>
               </div>
             </div>
           </div>
           <div
             v-else-if="activeTab === 'cursor'"
+            :id="`${uid}-panel-cursor`"
+            role="tabpanel"
+            :aria-labelledby="`${uid}-tab-cursor`"
             class="tab-panel"
             key="cursor"
           >
@@ -86,78 +100,40 @@
                 <span class="lang">json</span>
                 <pre class="shiki"><code><span class="line">{</span>
 <span class="line">  <span class="string">"mcpServers"</span>: {</span>
-<span class="line">    <span class="string">"{{ cfg.serverName }}"</span>: {</span>
+<span class="line">    <span class="string">"{{ doc.serverName }}"</span>: {</span>
 <span class="line">      <span class="string">"command"</span>: <span class="string">"npx"</span>,</span>
-<span class="line">      <span class="string">"args"</span>: [<span class="string">"-y"</span>, <span class="string">"{{ cfg.pkg }}"</span>]</span>
+<span class="line">      <span class="string">"args"</span>: [<span class="string">"-y"</span>, <span class="string">"{{ doc.pkg }}"</span>]</span>
 <span class="line">    }</span>
 <span class="line">  }</span>
 <span class="line">}</span></code></pre>
               </div>
             </div>
           </div>
-          <div v-else-if="activeTab === 'codex'" class="tab-panel" key="codex">
-            <div class="panel-inner">
-              <p class="config-hint">Run in your terminal:</p>
-              <div class="language-bash">
-                <button title="Copy Code" class="copy"></button>
-                <span class="lang">bash</span>
-                <pre
-                  class="shiki"
-                ><code><span class="line">codex mcp add {{ cfg.serverName }} -- npx -y {{ cfg.pkg }}</span></code></pre>
-              </div>
-            </div>
-          </div>
           <div
-            v-else-if="activeTab === 'antigravity'"
+            v-else
+            :id="`${uid}-panel-json`"
+            role="tabpanel"
+            :aria-labelledby="`${uid}-tab-json`"
             class="tab-panel"
-            key="antigravity"
+            key="json"
           >
             <div class="panel-inner">
-              <p class="config-hint">Add to <code>~/.gemini/mcp.json</code>:</p>
+              <p class="config-hint">
+                Generic <code>mcpServers</code> config for Claude Desktop
+                (<code>claude_desktop_config.json</code>), Warp, Antigravity
+                (<code>~/.gemini/mcp.json</code>), and other JSON-config MCP
+                clients:
+              </p>
               <div class="language-json">
                 <button title="Copy Code" class="copy"></button>
                 <span class="lang">json</span>
                 <pre class="shiki"><code><span class="line">{</span>
 <span class="line">  <span class="string">"mcpServers"</span>: {</span>
-<span class="line">    <span class="string">"{{ cfg.serverName }}"</span>: {</span>
+<span class="line">    <span class="string">"{{ doc.serverName }}"</span>: {</span>
 <span class="line">      <span class="string">"command"</span>: <span class="string">"npx"</span>,</span>
-<span class="line">      <span class="string">"args"</span>: [<span class="string">"-y"</span>, <span class="string">"{{ cfg.pkg }}"</span>]</span>
+<span class="line">      <span class="string">"args"</span>: [<span class="string">"-y"</span>, <span class="string">"{{ doc.pkg }}"</span>]</span>
 <span class="line">    }</span>
 <span class="line">  }</span>
-<span class="line">}</span></code></pre>
-              </div>
-            </div>
-          </div>
-          <div
-            v-else-if="activeTab === 'opencode'"
-            class="tab-panel"
-            key="opencode"
-          >
-            <div class="panel-inner">
-              <p class="config-hint">Add to <code>opencode.json</code>:</p>
-              <div class="language-json">
-                <button title="Copy Code" class="copy"></button>
-                <span class="lang">json</span>
-                <pre class="shiki"><code><span class="line">{</span>
-<span class="line">  <span class="string">"mcp"</span>: {</span>
-<span class="line">    <span class="string">"{{ cfg.serverName }}"</span>: {</span>
-<span class="line">      <span class="string">"type"</span>: <span class="string">"local"</span>,</span>
-<span class="line">      <span class="string">"command"</span>: [<span class="string">"npx"</span>, <span class="string">"-y"</span>, <span class="string">"{{ cfg.pkg }}"</span>]</span>
-<span class="line">    }</span>
-<span class="line">  }</span>
-<span class="line">}</span></code></pre>
-              </div>
-            </div>
-          </div>
-          <div v-else class="tab-panel" key="other">
-            <div class="panel-inner">
-              <p class="config-hint">Standard STDIO transport config:</p>
-              <div class="language-json">
-                <button title="Copy Code" class="copy"></button>
-                <span class="lang">json</span>
-                <pre class="shiki"><code><span class="line">{</span>
-<span class="line">  <span class="string">"command"</span>: <span class="string">"npx"</span>,</span>
-<span class="line">  <span class="string">"args"</span>: [<span class="string">"-y"</span>, <span class="string">"{{ cfg.pkg }}"</span>]</span>
 <span class="line">}</span></code></pre>
               </div>
             </div>
@@ -169,74 +145,98 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from "vue";
+import { ref, computed, watch, nextTick, onMounted, useId } from "vue";
+import { PROVIDER_DOCS, type ProviderId } from "../theme/providers";
 
-interface ProviderConfig {
-  pkg: string;
-  serverName: string;
-}
+// Per-instance ID prefix so multiple SetupTabs on one page never emit
+// duplicate ids. useId() (Vue 3.5+) is SSR-hydration-safe, unlike a
+// module-level counter, which accumulates across pages during the
+// vitepress build's shared SSR pass and mismatches on hydration.
+const uid = `setup-${useId()}`;
 
-const providerConfigs: Record<string, ProviderConfig> = {
-  gemini: { pkg: "@ask-llm/gemini-mcp", serverName: "gemini-cli" },
-  codex: { pkg: "@ask-llm/codex-mcp", serverName: "codex-cli" },
-  claude: { pkg: "@ask-llm/claude-mcp", serverName: "claude" },
-  ollama: { pkg: "@ask-llm/ollama-mcp", serverName: "ollama" },
-  antigravity: { pkg: "@ask-llm/antigravity-mcp", serverName: "antigravity" },
-  unified: { pkg: "@ask-llm/mcp", serverName: "ask-llm" },
+const tabs = ["claude-code", "codex", "cursor", "json"] as const;
+type TabId = (typeof tabs)[number];
+
+const tabLabels: Record<TabId, string> = {
+  "claude-code": "Claude Code",
+  codex: "Codex CLI",
+  cursor: "Cursor",
+  json: "JSON config",
 };
 
-const props = withDefaults(defineProps<{ provider?: string }>(), {
-  provider: "gemini",
+const props = withDefaults(defineProps<{ provider?: ProviderId }>(), {
+  provider: "unified",
 });
 
-const cfg = computed(() => providerConfigs[props.provider] ?? providerConfigs.gemini);
+const doc = computed(() => PROVIDER_DOCS[props.provider]);
 
-const activeTab = ref(props.provider === "claude" ? "codex" : "claude-code");
+// The Claude provider cannot be hosted by Claude Code (nested sessions
+// rejected), so its page opens on the Codex CLI tab instead.
+const activeTab = ref<TabId>(props.provider === "claude" ? "codex" : "claude-code");
+const tabRefs = ref<(HTMLButtonElement | null)[]>([]);
+const underlineStyle = ref<Record<string, string>>({
+  transform: "translateX(0px)",
+  width: "0px",
+});
 
-const tabs = [
-  { id: "claude-code", label: "Claude Code" },
-  { id: "claude-desktop", label: "Claude Desktop" },
-  { id: "cursor", label: "Cursor" },
-  { id: "codex", label: "Codex CLI" },
-  { id: "antigravity", label: "Antigravity" },
-  { id: "opencode", label: "OpenCode" },
-  { id: "other", label: "Other" },
-];
+function setTabRef(el: unknown, index: number) {
+  tabRefs.value[index] = el as HTMLButtonElement | null;
+}
+
+function updateUnderline() {
+  const el = tabRefs.value[tabs.indexOf(activeTab.value)];
+  if (!el) return;
+  underlineStyle.value = {
+    transform: `translateX(${el.offsetLeft}px)`,
+    width: `${el.offsetWidth}px`,
+  };
+}
+
+function onKeydown(event: KeyboardEvent) {
+  const order = tabs.indexOf(activeTab.value);
+  if (event.key === "ArrowRight") {
+    event.preventDefault();
+    activeTab.value = tabs[(order + 1) % tabs.length];
+  }
+  if (event.key === "ArrowLeft") {
+    event.preventDefault();
+    activeTab.value = tabs[(order + tabs.length - 1) % tabs.length];
+  }
+}
+
+watch(activeTab, async () => {
+  await nextTick();
+  updateUnderline();
+  tabRefs.value[tabs.indexOf(activeTab.value)]?.focus();
+});
+
+onMounted(async () => {
+  await nextTick();
+  updateUnderline();
+});
 </script>
 
 <style scoped>
 .setup-tabs-container {
-  margin: 32px 0;
+  margin: var(--space-8) 0;
   display: flex;
   justify-content: center;
 }
 
 .setup-tabs {
   width: 100%;
-  background: var(--color-bg-raised);
-  border: 1px solid var(--color-bg-border);
+  background: var(--noir-raised);
+  border: 1px solid var(--noir-border);
+  border-radius: var(--radius);
   overflow: hidden;
-  transition: box-shadow 0.2s ease;
-  clip-path: polygon(
-    var(--corner-size) 0%,
-    100% 0%,
-    100% calc(100% - var(--corner-size)),
-    calc(100% - var(--corner-size)) 100%,
-    0% 100%,
-    0% var(--corner-size)
-  );
-}
-
-.setup-tabs:hover {
-  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.4);
 }
 
 .tab-header {
   display: flex;
   align-items: center;
-  background: var(--color-bg-hover);
-  border-bottom: 1px solid var(--color-bg-border);
-  padding: 12px 16px;
+  background: var(--noir-raised);
+  border-bottom: 1px solid var(--noir-border);
+  padding: var(--space-3) var(--space-4) 0;
   overflow-x: auto;
   scrollbar-width: none;
 }
@@ -245,51 +245,20 @@ const tabs = [
   display: none;
 }
 
-.mac-dots {
-  display: flex;
-  gap: 8px;
-  margin-right: 24px;
-  flex-shrink: 0;
-}
-
-.mac-dots span {
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  box-shadow:
-    inset 0 1px 2px rgba(255, 255, 255, 0.1),
-    inset 0 -1px 2px rgba(0, 0, 0, 0.3);
-}
-
-.mac-dots span:nth-child(1) {
-  background-color: #ff5f56;
-  border: 1px solid #e0443e;
-}
-
-.mac-dots span:nth-child(2) {
-  background-color: #ffbd2e;
-  border: 1px solid #dea123;
-}
-
-.mac-dots span:nth-child(3) {
-  background-color: #27c93f;
-  border: 1px solid #1aab29;
-}
-
 .tab-buttons {
   display: flex;
-  gap: 4px;
+  gap: var(--space-1);
+  position: relative;
 }
 
 .tab-button {
-  padding: 6px 14px;
-  border-radius: var(--radius-sm);
-  color: var(--color-text-secondary);
+  padding: var(--space-2) var(--space-3);
+  color: var(--noir-text-2);
   font-family: var(--font-mono);
   font-size: 12px;
   font-weight: 500;
   cursor: pointer;
-  transition: color 0.15s ease, background-color 0.15s ease;
+  transition: color 0.15s ease;
   background: transparent;
   border: none;
   white-space: nowrap;
@@ -297,29 +266,32 @@ const tabs = [
 }
 
 .tab-button:hover {
-  color: var(--color-text-primary);
-  background: rgba(255, 255, 255, 0.05);
+  color: var(--noir-text);
 }
 
 .tab-button:focus-visible {
-  outline: 2px solid var(--color-brand);
+  outline: 2px solid var(--accent);
   outline-offset: -2px;
 }
 
 .tab-button.active {
-  color: var(--color-brand);
-  background: var(--color-brand-glow);
+  color: var(--accent);
 }
 
-.tab-button.active::after {
-  content: "";
+.tab-underline {
   position: absolute;
-  bottom: -13px;
+  bottom: 0;
   left: 0;
-  right: 0;
   height: 2px;
-  background-color: var(--color-brand);
-  border-radius: 2px 2px 0 0;
+  background-color: var(--accent);
+  transition: transform 0.2s ease, width 0.2s ease;
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tab-underline {
+    transition: none;
+  }
 }
 
 .tab-panel {
@@ -327,7 +299,7 @@ const tabs = [
 }
 
 .panel-inner {
-  padding: 24px;
+  padding: var(--space-6);
 }
 
 .fade-enter-active,
@@ -345,32 +317,43 @@ const tabs = [
   transform: translateY(-4px);
 }
 
+@media (prefers-reduced-motion: reduce) {
+  .fade-enter-active,
+  .fade-leave-active {
+    transition: none;
+  }
+  .fade-enter-from,
+  .fade-leave-to {
+    transform: none;
+  }
+}
+
 .config-hint {
   font-size: 14px;
-  color: var(--color-text-secondary);
-  margin: 0 0 16px;
+  color: var(--noir-text-2);
+  margin: 0 0 var(--space-4);
 }
 
 .config-hint.plugin-hint {
-  margin-top: 24px;
-  padding-top: 24px;
-  border-top: 1px solid var(--color-bg-border-subtle);
+  margin-top: var(--space-6);
+  padding-top: var(--space-6);
+  border-top: 1px solid var(--noir-border);
 }
 
 .config-hint code {
-  background: var(--color-bg-hover);
+  background: var(--noir-bg);
   padding: 3px 8px;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius);
   font-size: 13px;
-  border: 1px solid var(--color-bg-border-subtle);
-  color: var(--color-brand);
+  border: 1px solid var(--noir-border);
+  color: var(--accent);
 }
 
 .tab-panel :deep(div[class*="language-"]) {
   margin: 0;
-  border-radius: var(--radius-md);
-  background: var(--color-bg);
-  border: 1px solid var(--color-bg-border-subtle);
+  border-radius: var(--radius);
+  background: var(--noir-bg);
+  border: 1px solid var(--noir-border);
 }
 
 .tab-panel :deep(div[class*="language-"]:last-child),
@@ -379,15 +362,15 @@ const tabs = [
 }
 
 .tab-panel :deep(pre.shiki) {
-  color: var(--color-text-secondary);
+  color: var(--noir-text-2);
 }
 
 .comment {
-  color: var(--color-text-muted);
+  color: var(--noir-text-3);
   font-style: italic;
 }
 
 .string {
-  color: var(--color-brand);
+  color: var(--accent);
 }
 </style>

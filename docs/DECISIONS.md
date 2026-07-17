@@ -1,5 +1,127 @@
 # Architectural Decisions
 
+## ADR-136: Review providers read by default; managed raw dispatches inherit safety guards
+
+**Status:** Accepted (2026-07-09; renumbered from the branch's provisional ADR-133 to avoid a collision with the released npm-migration ADR-133 during the origin/main integration)
+
+**Context:** The product contract in `CLAUDE.md` is "the other model reads,
+Claude edits," but three Codex review paths still requested `--sandbox
+workspace-write`: the published `ask-codex` executor, codex-pair's inlined
+spawn, and the brainstorm coordinator's raw spawn. This made workspace mutation
+reachable during a review even though callers had no explicit write-mode
+parameter. Antigravity had a second bypass: its MCP executor prepended
+`READ_ONLY_PREAMBLE` and enabled `--sandbox`, while the coordinator's raw `agy`
+call used `--dangerously-skip-permissions` with neither guard. A real `agy`
+review had previously implemented the feature it was asked only to critique
+(`BUGS.md`). The safety invariant is therefore execution-level, not
+prompt-level: managed review paths must request the strongest read-only mode the
+upstream CLI exposes.
+
+**Decision:** All Codex second-opinion paths now default to `--sandbox
+read-only`, including fresh and resumed MCP calls, structured edit proposals,
+codex-pair, and raw brainstorm dispatch. `ask-codex` and `ask-codex-edit`
+advertise `readOnlyHint: true`. `workspace-write` remains reachable only as an
+explicit `sandbox: "workspace-write"` opt-in on the executor's machine contract
+(the #227 safe machine contracts), which the public tools never pass — so the
+advertised read-only hint stays honest. The raw Antigravity brainstorm path
+prepends the executor's exact read-only preamble and passes `--sandbox`
+alongside the headless-only `--dangerously-skip-permissions`. Contract tests
+assert these flags. The Stop gate also adopts `git status --porcelain=v1 -z` so
+special-character filenames cannot bypass dirty-file reconciliation, and
+`/compare` isolates concurrent runs while inlining provider-neutral file context.
+
+**Consequences:** Codex can still inspect files, reason, run commands allowed
+by its read-only sandbox, and return structured edit proposals, but it cannot
+modify the workspace by default; Claude/the MCP client remains the sole editor.
+This intentionally tightens behavior for prompts that previously relied on
+implicit Codex writes—those callers should apply the returned proposal
+explicitly. Antigravity is improved but not a hard guarantee: upstream `agy` has
+no read-only file-tool mode, so its preamble remains a soft control even with
+terminal sandboxing. Hard isolation requires a throwaway checkout/container and
+remains tracked in `BUGS.md`.
+
+## ADR-135: Docs site Terminal Noir redesign with providers.ts single source of truth
+
+**Status:** Accepted (2026-07-16)
+
+**Context:** The VitePress docs site (`apps/docs/`) had accreted three
+overlapping onboarding pages (`installation.md`, `first-steps.md`,
+`getting-started.md`) whose install steps, provider lists, and model names
+drifted independently — the same doc-drift class that repeatedly surfaced in the
+2026-07-02/04 sweeps. Provider and model facts were hand-maintained on every
+page, so each new provider or model default (Antigravity, then Claude in
+ADR-134, then the GPT-5.6 model defaults shipped in commit 76b9738) required a
+manual multi-file backfill that was routinely missed. The homepage also under-sold the product's core loop
+("the other model reads, your agent edits") and the reverse Codex→Claude path.
+
+**Decision:** Rebuild the site as a data-module-driven "Terminal Noir" design
+system. Provider/model facts derive from `packages/shared/src/providers.ts`
+(the canonical `PROVIDERS` tuple, ADR-128) and are enforced by a new
+`scripts/check-docs-drift.mjs` wired into `yarn lint`, so a model-name change
+that skips `providers.ts`/constants fails the build. Consolidate the three
+onboarding pages into one **Quick Start**, keeping `installation.md` and
+`first-steps.md` as meta-refresh redirect stubs to preserve inbound links. Put
+every provider page on one shared template and rebuild the homepage around the
+typed hero + Claude↔Codex review loop. Concept diagrams are five hand-authored
+**CSS-only animated SVGs** (`RequestFlow`/`FanOut`/`SessionThread`/`FallbackChain`
+play once; `PairLoop` loops), each with a `prefers-reduced-motion` guard that
+freezes to its final frame. A `--noir-*` token palette plus a global
+`:focus-visible` accent outline carry the visual system and keyboard
+accessibility.
+
+**Alternatives considered:** (1) A JS motion library (Framer Motion / GSAP) for
+the diagrams — rejected for dependency weight and bundle cost on a docs site
+where hand-tuned CSS keyframes suffice and degrade cleanly under reduced motion.
+(2) Keeping the three separate onboarding pages — rejected because the
+triplicated install/provider content was the primary drift source; one page with
+redirect stubs removes the duplication without breaking links.
+
+**Consequences:** Adding or changing a provider/model is now a `providers.ts`
+edit that the drift guard propagates to the docs, closing the hand-maintained
+parity-sweep loop for the covered surfaces. The five diagrams and the token
+system are bespoke and must be maintained in-repo (no upstream component
+library). Redirect stubs must be retained as long as external links to the old
+onboarding URLs may exist. No favicon is configured, so browsers auto-request a
+404 `/favicon.ico` — cosmetic and unrelated to the redesign; left for a future
+change.
+
+## ADR-134: Claude is a provider as well as a host
+
+**Status:** Accepted (2026-07-10)
+
+**Context:** Ask LLM's original provider topology assumed Claude Code was the
+MCP host and Codex/Gemini/Ollama/Antigravity were consulted models. MCP is
+client-neutral, however, and the inverse workflow is useful: while working in
+Codex, request an independent opinion from a Claude model without leaving the
+current agent. The existing architecture advertised Codex as an MCP client but
+had no Claude executor, leaving that path asymmetric.
+
+**Decision:** Add `ask-claude-mcp`, backed by the authenticated Claude Code CLI,
+and add `claude` to the canonical shared provider tuple and unified
+orchestrator. Fresh calls default to the stable `opus` alias and pass `sonnet`
+through Claude Code's native `--fallback-model`; JSON output supplies response,
+native `session_id`, actual per-model usage, duration, and fallback attribution.
+Prompts always travel over stdin. Optional `sessionId` maps to `--resume`, and
+validated relative `includeDirs` map to `--add-dir`.
+
+The provider is a reviewer, not a second editor. Every invocation uses
+`--safe-mode`, `--tools Read,Glob,Grep`, and `--permission-mode dontAsk`, plus a
+review-only system instruction. This excludes Bash/Edit/Write, hooks, plugins,
+user MCP servers, and project customizations while retaining repository reads.
+Claude Code rejects nested Claude Code processes, so `isProviderAvailable`
+returns false when `CLAUDECODE` identifies Claude Code as the MCP host; direct
+nested calls fail with an actionable message. Codex and other non-Claude hosts
+auto-detect Claude normally.
+
+**Consequences:** The two primary flows are symmetric—Claude → Codex and Codex
+→ Claude—and `multi-llm`, diagnostics, usage tracking, structured responses,
+and the REPL gain Claude without a second orchestrator abstraction. The new
+package is published independently and bundled as a runtime dependency of
+`ask-llm-mcp`. The canonical provider tuple change requires changesets for all
+six published MCP packages under ADR-119's inlined-shared rule. Unit/contract
+tests use captured JSON shapes and mocked execution; release verification boots
+the packaged MCP server without making a paid model call.
+
 ## ADR-133: Canonical npm packages live under the `@ask-llm` organization
 
 - **Date:** 2026-07-14
@@ -92,6 +214,7 @@ changeset rule does not apply; the changeset covers `ask-codex-mcp` + `@ask-llm/
 - **Decision:** Introduce `packages/shared/src/providers.ts` exporting `PROVIDERS = ["gemini", "codex", "ollama", "antigravity"] as const` and `ProviderName`. Every provider-name enum (`z.enum(PROVIDERS)` in `askResponse.ts` and `multiLlm.ts`), type union (`UsageStats.provider`, registry `category`), and user-facing provider list (REPL help via `Object.keys(PROVIDERS)` of the llm-mcp registry) derives from it. Where strict typing would force casts (llm-mcp's string-indexed `ProviderConfig` registry), a **drift-guard test** pins `Object.keys(PROVIDERS)`/`INSTALL_HINTS` to the canonical tuple instead (`constants.test.ts`) — the same pattern as the codex-pair-defaults parity guard. Plugin manifests are pinned by manifest-test assertions (all four keywords, all four runner binaries, description naming all four providers). Secondary hoist in the same pass: `relativeDirSchema` (includeDirs path validation) moved from an inline `ask-gemini-edit` refine into shared and applied to `ask-codex`/`ask-codex-edit`, which had shipped unvalidated.
 - **Alternatives rejected:** (a) retype llm-mcp's registry as `Record<ProviderName, ProviderConfig>` — compile-time exhaustiveness, but 7 string-indexed call sites would need casts; the drift test buys the same protection with zero churn; (b) status quo + periodic sweeps — the audit is the empirical proof sweeps don't scale: antigravity shipped 3+ weeks with a wrong public schema contract.
 - **Verification:** TDD — `multiLlmReportSchema` antigravity-usage test and REPL help test failed first, passed after deriving from `PROVIDERS`; new `providers.test.ts` pins the tuple; per-package tool-contract tests additionally pin registered tool names and default-model mentions in tool descriptions. Full monorepo suite + lint green.
+- **Follow-up (ADR-134, 2026-07-10):** the canonical tuple is now `gemini`, `codex`, `claude`, `ollama`, `antigravity`; the same drift guard forced the unified registry, schemas, usage types, and docs to add Claude together.
 - **Reference:** `packages/shared/src/providers.ts`, `askResponse.ts`, `usage.ts`, `registry.ts`, `pathValidation.ts`; `packages/llm-mcp/src/multiLlm.ts`, `repl.ts`, `__tests__/constants.test.ts`; plugin `.claude-plugin/plugin.json`, `/.claude-plugin/marketplace.json`, `manifest.test.ts`; BUGS.md 2026-07-02 audit entries.
 
 ## ADR-127: Port `isModelUnavailableError` into the published `codex-mcp` executor for a graceful pinned-fallback message (closes #196; completes ADR-126 alt-(a))

@@ -47,6 +47,13 @@ const askCodexArgsSchema = z.object({
     .describe(
       `Opt into ASK_CODEX_PREFERRED_MODEL when it is configured to differ from the ${MODELS.DEFAULT} default. The built-in preferred value is also ${MODELS.PREFERRED}, so normal calls and review skills should leave this unset.`,
     ),
+  sandbox: z
+    .enum(["read-only", "workspace-write"])
+    .optional()
+    .default("read-only")
+    .describe(
+      "Codex sandbox mode for this call. Defaults to 'read-only', which enforces the core review contract (Codex reads and proposes, the MCP client edits). Set 'workspace-write' ONLY as an explicit opt-out for flows that need Codex to write files itself, e.g. image generation. Review, second-opinion, and analysis flows must never set this.",
+    ),
 });
 
 export const askCodexTool: UnifiedTool = {
@@ -56,7 +63,7 @@ export const askCodexTool: UnifiedTool = {
   outputSchema: askResponseSchema,
   annotations: {
     title: "Ask Codex",
-    readOnlyHint: false,
+    readOnlyHint: true,
     destructiveHint: false,
     idempotentHint: false,
     openWorldHint: true,
@@ -66,7 +73,7 @@ export const askCodexTool: UnifiedTool = {
   },
   category: "codex",
   execute: async (args, onProgress, onUsage) => {
-    const { prompt, model, reasoningEffort, sessionId, includeDirs, preferred } = args;
+    const { prompt, model, reasoningEffort, sessionId, includeDirs, preferred, sandbox } = args;
     if (!prompt?.trim()) {
       throw new Error(ERROR_MESSAGES.NO_PROMPT_PROVIDED);
     }
@@ -78,6 +85,7 @@ export const askCodexTool: UnifiedTool = {
       sessionId: sessionId as string | undefined,
       includeDirs: includeDirs as string[] | undefined,
       preferred: preferred as boolean | undefined,
+      sandbox: sandbox as "read-only" | "workspace-write" | undefined,
       onProgress,
     });
 

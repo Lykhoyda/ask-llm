@@ -4,20 +4,18 @@ description: Let Codex and other MCP clients consult Anthropic Claude Code CLI f
 
 # Claude
 
-Bridge Codex CLI, Cursor, OpenCode, or another MCP client with Anthropic's Claude Code CLI. This is the reverse collaboration path: Claude can ask Codex through `@ask-llm/codex-mcp`, while Codex can ask Claude through `@ask-llm/claude-mcp`.
+<ProviderStatus provider="claude" />
+
+Bridge Codex CLI, Cursor, OpenCode, or another MCP client with Anthropic's Claude Code CLI. This is the reverse collaboration path of the hero pair: Codex asks Claude here, and Claude asks Codex back through [`@ask-llm/codex-mcp`](/providers/codex).
 
 > **Best for:** getting an independent Claude review while Codex or another model is your primary agent.
 > **Not for:** use from inside Claude Code itself. Claude Code rejects nested Claude sessions, so the unified orchestrator suppresses this provider when Claude Code is the MCP host.
 
 ## Installation
 
-<SetupTabs provider="claude" />
+<InstallSnippet provider="claude" />
 
-Or install globally:
-
-```bash
-npm install -g @ask-llm/claude-mcp
-```
+Or install globally: `npm install -g @ask-llm/claude-mcp`
 
 ## Prerequisites
 
@@ -35,6 +33,8 @@ npm install -g @ask-llm/claude-mcp
 `ask-claude` returns human-readable text plus a structured `AskResponse` containing the response, actual model, native Claude session ID, and token usage when reported by the CLI.
 
 ## Models
+
+<FallbackChain provider="claude" />
 
 - **Default:** `opus`, a stable Claude Code alias for the latest Opus model
 - **Fallback:** `sonnet`, passed through Claude Code's native `--fallback-model` behavior
@@ -62,7 +62,8 @@ The JSON response includes Claude's `session_id`. Pass it back as `sessionId` on
 | `ASK_CLAUDE_MODEL` | `opus` | Default Claude alias or full model name |
 | `ASK_CLAUDE_FALLBACK_MODEL` | `sonnet` | Native fallback model |
 | `ASK_CLAUDE_TIMEOUT_MS` | `600000` | Provider process timeout in milliseconds |
-| `GMCPT_TIMEOUT_MS` | — | Global timeout fallback |
+| `GMCPT_TIMEOUT_MS` | `(none)` | Global timeout fallback |
+| `ASK_CLAUDE_ALLOW_NESTED` | `(unset)` | Set to `1`/`true` to override the nested-session guard in IDE integrated terminals that set `CLAUDECODE` without being an actual Claude Code session |
 
 ## npm
 

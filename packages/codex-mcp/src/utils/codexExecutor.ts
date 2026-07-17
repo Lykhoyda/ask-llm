@@ -344,7 +344,7 @@ function buildArgs(
   sessionId?: string,
   useStdin?: boolean,
   includeDirs?: string[],
-  sandboxMode: "read-only" | "workspace-write" = CLI.FLAGS.SANDBOX_WORKSPACE_WRITE,
+  sandboxMode: "read-only" | "workspace-write" = CLI.FLAGS.SANDBOX_READ_ONLY,
   schemaPath?: string,
   reasoningEffort: CodexReasoningEffort = DEFAULT_REASONING_EFFORT,
 ): string[] {
@@ -385,8 +385,15 @@ export async function executeCodexCLI(options: CodexExecutorOptions): Promise<Co
   const sessionId = options.sessionId;
   const editMode = options.editMode === true;
   const outputSchema = options.outputSchema ?? (editMode ? CODEX_EDIT_SCHEMA : undefined);
+  // All ask-codex surfaces are second-opinion/proposal tools: Codex reads and
+  // reasons, while the MCP client applies any resulting edits. Default every
+  // path to Codex's read-only sandbox so the repository's core "other model
+  // reads, Claude edits" boundary is enforced by the sandbox, not prompt wording
+  // (ADR-136). workspace-write stays available only as an explicit machine-
+  // contract opt-in (`sandbox: "workspace-write"`), keeping the tools' advertised
+  // readOnlyHint honest.
   const sandboxMode =
-    options.sandbox === "read-only" || editMode ? CLI.FLAGS.SANDBOX_READ_ONLY : CLI.FLAGS.SANDBOX_WORKSPACE_WRITE;
+    options.sandbox === "workspace-write" ? CLI.FLAGS.SANDBOX_WORKSPACE_WRITE : CLI.FLAGS.SANDBOX_READ_ONLY;
   const wantsSession = sessionId !== undefined;
   // Preferred tier (opt-in): try MODELS.PREFERRED first for fresh, non-edit,
   // no-explicit-model calls. Computed here — not only at the attempt below — so

@@ -6,7 +6,13 @@
     "useIgnoreFile": true
   },
   "files": {
-    "includes": ["packages/*/src/**", "apps/docs/**/*.ts"]
+    "includes": [
+      "packages/*/src/**",
+      "packages/claude-plugin/scripts/**",
+      "!!packages/claude-plugin/scripts/benchmark/fixtures/**",
+      "scripts/**",
+      "apps/docs/**/*.ts"
+    ]
   },
   "formatter": {
     "enabled": true,

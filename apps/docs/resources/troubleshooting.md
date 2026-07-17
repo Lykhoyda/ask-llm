@@ -4,7 +4,7 @@ description: Common issues and solutions for Ask LLM MCP servers. Connection err
 
 # Troubleshooting
 
-> **Run the doctor first.** `npx @ask-llm/mcp doctor` checks Node version, PATH, every provider CLI's presence + version, and env vars. It works even when MCP can't start. 90%+ of setup issues are caught here with a clear failed-check line — fix from the bottom of the report up.
+> **Run the doctor first.** `npx @ask-llm/mcp doctor` checks Node version, PATH, every provider CLI's presence + version, and env vars. It works even when MCP can't start. 90%+ of setup issues are caught here with a clear failed-check line; fix from the bottom of the report up.
 
 ```bash
 npx @ask-llm/mcp doctor          # human-readable
@@ -44,12 +44,12 @@ codex --version
 ollama list
 ```
 
-If `npx @ask-llm/mcp doctor` reports a CLI as "not found on PATH" but `which <cli>` works in your terminal, the issue is PATH inheritance — see the next entry.
+If `npx @ask-llm/mcp doctor` reports a CLI as "not found on PATH" but `which <cli>` works in your terminal, the issue is PATH inheritance; see the next entry.
 
 </TroubleshootingModal>
 
 <TroubleshootingModal
-  title='"PATH issue" — CLI works in terminal but MCP server says "not found"'
+  title='"PATH issue": CLI works in terminal but MCP server says "not found"'
   preview="macOS GUI apps don't inherit your shell PATH"
 >
 
@@ -87,8 +87,9 @@ If it's still failing:
 
 ```bash
 # Method 1: Install globally first (skips npx entirely)
+# The global install keeps the original `ask-llm-mcp` executable name.
 npm install -g @ask-llm/mcp
-claude mcp add --scope user ask-llm -- @ask-llm/mcp
+claude mcp add --scope user ask-llm -- ask-llm-mcp
 
 # Method 2: --yes instead of -y
 claude mcp add --scope user ask-llm -- npx --yes @ask-llm/mcp
@@ -106,7 +107,7 @@ claude mcp add --scope user ask-llm -- npx @ask-llm/mcp
 
 **Step-by-step:**
 
-1. **Check Node.js version** — must be ≥ v20:
+1. **Check Node.js version**: must be ≥ v20:
    ```bash
    node --version
    ```
@@ -114,7 +115,7 @@ claude mcp add --scope user ask-llm -- npx @ask-llm/mcp
    ```bash
    npx @ask-llm/mcp doctor
    ```
-3. **Verify Claude Desktop config syntax** — use a JSON validator. Common bugs: trailing commas, missing brackets.
+3. **Verify Claude Desktop config syntax**: use a JSON validator. Common bugs: trailing commas, missing brackets.
 4. **Restart Claude Desktop completely**:
    - Quit (Cmd+Q on Mac), wait 5s, reopen.
    - Just reloading the window is not enough.
@@ -129,7 +130,7 @@ claude mcp add --scope user ask-llm -- npx @ask-llm/mcp
   preview='Stale npx cache from a pre-1.5.7 install poisons new runs. Clear it.'
 >
 
-Symptom — Claude Desktop or any `npx -y @ask-llm/mcp` invocation fails with:
+Symptom: Claude Desktop or any `npx -y @ask-llm/mcp` invocation fails with:
 
 ```
 npm error code EUNSUPPORTEDPROTOCOL
@@ -138,16 +139,16 @@ npm error Unsupported URL Type "workspace:": workspace:*
 
 **Fix in one line:** `rm -rf ~/.npm/_npx && npm cache clean --force` then re-launch.
 
-Why this happens: pre-1.5.7 releases shipped unrewritten `workspace:*` strings in their published `package.json` (the bug fixed by [ADR-052](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md)). The npx cache at `~/.npm/_npx/<hash>/` keeps tarballs forever — npx never invalidates it on its own, even when a newer version is published. When you run `npx -y @ask-llm/mcp` again, npm walks the cache, finds the stale entry, fails dep-graph validation against `workspace:*`, and aborts before it gets to the new tarball. **Today's published packages are clean** — the bug source is purely the cached old install on your machine.
+Why this happens: pre-1.5.7 releases shipped unrewritten `workspace:*` strings in their published `package.json` (the bug fixed by [ADR-052](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md)). The npx cache at `~/.npm/_npx/<hash>/` keeps tarballs forever; npx never invalidates it on its own, even when a newer version is published. When you run `npx -y @ask-llm/mcp` again, npm walks the cache, finds the stale entry, fails dep-graph validation against `workspace:*`, and aborts before it gets to the new tarball. **Today's published packages are clean**; the bug source is purely the cached old install on your machine.
 
 Why the one-liner works:
 
 - `rm -rf ~/.npm/_npx` purges the per-CLI npx cache; the next `npx -y` rebuilds it from a clean download.
-- `npm cache clean --force` is belt-and-suspenders — clears the global `~/.npm/_cacache/` in case anything stale lingered there too.
+- `npm cache clean --force` is belt-and-suspenders; clears the global `~/.npm/_cacache/` in case anything stale lingered there too.
 
-After clearing, `npx -y @ask-llm/mcp` re-downloads the latest version and starts cleanly. You should see lines like `[GMCPT] Provider Codex (codex) — available` in the Claude Desktop debug log.
+After clearing, `npx -y @ask-llm/mcp` re-downloads the latest version and starts cleanly. You should see lines like `[GMCPT] Provider Codex (codex)` reporting each detected provider as available in the Claude Desktop debug log.
 
-This is a one-shot — once you've cleared the cache and run a clean install, the cache is poison-free and stays that way as long as you only install post-1.5.7 versions (which is everything since 2026-04-01).
+This is a one-shot; once you've cleared the cache and run a clean install, the cache is poison-free and stays that way as long as you only install post-1.5.7 versions (which is everything since 2026-04-01).
 
 </TroubleshootingModal>
 
@@ -160,7 +161,7 @@ This is a one-shot — once you've cleared the cache and run a clean install, th
 
 Each provider has its own auth flow:
 
-- **Gemini**: `gemini login` (OAuth) or set `GEMINI_API_KEY` env var. **Note:** Gemini CLI is [enterprise-gated from 2026-06-18](/providers/gemini) — non-enterprise accounts get an auth/quota error here even after a successful login. Switch to `ask-antigravity` or `ask-codex`.
+- **Gemini**: `gemini login` (OAuth) or set `GEMINI_API_KEY` env var. **Note:** Gemini CLI is [enterprise-gated from 2026-06-18](/providers/gemini); non-enterprise accounts get an auth/quota error here even after a successful login. Switch to `ask-antigravity` or `ask-codex`.
 - **Codex**: follow `codex` CLI's auth instructions (varies by version)
 - **Ollama**: no auth needed; Ollama just needs to be running locally
 
@@ -179,7 +180,7 @@ curl http://localhost:11434/api/tags    # Ollama
   preview="Provider quota exhausted"
 >
 
-**The executor handles this automatically** — Gemini falls back from `gemini-3.1-pro-preview` to `gemini-3.5-flash` per [ADR-044](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md), and Codex falls back from `gpt-5.6-sol` to `gpt-5.6-terra` per [ADR-028](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md). You'll see `usage.fellBack: true` in the structured response.
+**The executor handles this automatically**: Gemini falls back from `gemini-3.1-pro-preview` to `gemini-3.5-flash` per [ADR-044](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md), and Codex falls back from `gpt-5.6-sol` to `gpt-5.6-terra` per [ADR-028](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md). You'll see `usage.fellBack: true` in the structured response.
 
 If both Pro and Flash (or both GPT-5.6 Sol and Terra) hit quota, the call fails with both errors surfaced. Wait for the quota window to reset, or:
 
@@ -193,7 +194,7 @@ If both Pro and Flash (or both GPT-5.6 Sol and Terra) hit quota, the call fails 
   preview="Provider call exceeded the per-provider wall-clock timeout"
 >
 
-Defaults differ by provider ([ADR-074](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md)): **codex 800s** (reasoning models routinely take 5–10 min on substantive prompts), **gemini 210s** (stream-json emits tokens incrementally — usually fast enough). Resolution ladder: per-provider env var > `GMCPT_TIMEOUT_MS` > provider default.
+Defaults differ by provider ([ADR-074](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md)): **codex 800s** (reasoning models routinely take 5–10 min on substantive prompts), **gemini 210s** (stream-json emits tokens incrementally, usually fast enough). Resolution ladder: per-provider env var > `GMCPT_TIMEOUT_MS` > provider default.
 
 For long analyses (large diffs, deep Codex reasoning):
 
@@ -212,13 +213,13 @@ For long analyses (large diffs, deep Codex reasoning):
    { "env": { "GMCPT_TIMEOUT_MS": "1200000" } }       // applies to gemini AND codex
    ```
 
-4. **For multi-provider review skills** (`/multi-review`, `/brainstorm`), large diffs may take 5–15 min — use the diff size policy in those skills (filter docs/binaries, truncate above 150KB) to keep them tractable.
+4. **For multi-provider review skills** (`/multi-review`, `/brainstorm`), large diffs may take 5–15 min; use the diff size policy in those skills (filter docs/binaries, truncate above 150KB) to keep them tractable.
 
 5. **For very large prompts**, consider splitting the work or using `ask-gemini` with `includeDirs` instead of one giant prompt.
 
 Note: Claude Desktop has its own client-side timeout (~4 min on some setups) that runs independently of the server. Raising server-side timeouts past that gives the REPL and direct executor calls more headroom but won't help Claude Desktop sessions specifically.
 
-To check the resolved per-provider timeouts on your machine, run `ask-llm:diagnose` — its `Timeouts:` line shows the effective values for both codex and gemini.
+To check the resolved per-provider timeouts on your machine, run `ask-llm:diagnose`; its `Timeouts:` line shows the effective values for both codex and gemini.
 
 </TroubleshootingModal>
 
@@ -232,7 +233,7 @@ To check the resolved per-provider timeouts on your machine, run `ask-llm:diagno
 The orchestrator (`@ask-llm/mcp`) detects available providers at startup. If a provider you expected isn't there:
 
 1. Run `npx @ask-llm/mcp doctor` to see what it detects.
-2. The most common cause is PATH not finding the provider CLI — see the PATH issue entry above.
+2. The most common cause is PATH not finding the provider CLI; see the PATH issue entry above.
 3. For Ollama specifically, it must be **running** at `http://localhost:11434` (or wherever `OLLAMA_HOST` points). Not just installed.
 4. Restart your MCP client to re-detect providers.
 
@@ -243,9 +244,9 @@ The orchestrator (`@ask-llm/mcp`) detects available providers at startup. If a p
   preview="Provider process killed by sub-agent lifecycle"
 >
 
-This is the bug class [ADR-050](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md) addresses — Claude Code sub-agents can't own background processes that outlive their turn, so `(cmd &) && wait` patterns or `run_in_background: true` on dispatch calls cause processes to be SIGKILLed silently.
+This is the bug class [ADR-050](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md) addresses: Claude Code sub-agents can't own background processes that outlive their turn, so `(cmd &) && wait` patterns or `run_in_background: true` on dispatch calls cause processes to be SIGKILLed silently.
 
-The brainstorm-coordinator agent uses the correct pattern (single foreground blocking Bash with direct backgrounding + per-PID wait + `timeout: 600000`). If you're seeing this in custom skills you're writing, follow the same pattern — see the agent prompt in `packages/claude-plugin/agents/brainstorm-coordinator.md` for the canonical template.
+The brainstorm-coordinator agent uses the correct pattern (single foreground blocking Bash with direct backgrounding + per-PID wait + `timeout: 600000`). If you're seeing this in custom skills you're writing, follow the same pattern; see the agent prompt in `packages/claude-plugin/agents/brainstorm-coordinator.md` for the canonical template.
 
 </TroubleshootingModal>
 
@@ -256,12 +257,12 @@ The brainstorm-coordinator agent uses the correct pattern (single foreground blo
   preview="MCP message size limits or executor timeout"
 >
 
-For Gemini, large responses are chunked automatically — Claude can call `fetch-chunk` to retrieve subsequent chunks from the cached response.
+For Gemini, large responses are chunked automatically; Claude can call `fetch-chunk` to retrieve subsequent chunks from the cached response.
 
 For Codex / Ollama, very large responses can hit the MCP message limit. Workarounds:
 
 - Ask for shorter responses ("3 bullets max", "1-paragraph summary")
-- Split the work — run the prompt twice with narrower scope
+- Split the work; run the prompt twice with narrower scope
 - Use the REPL where output streams directly to stdout without MCP message size limits
 
 </TroubleshootingModal>
@@ -287,7 +288,7 @@ If `ask-llm` isn't there, install it:
 /reload-plugins
 ```
 
-The plugin's MCP servers also need to be registered — typically done at user scope:
+The plugin's MCP servers also need to be registered, typically done at user scope:
 
 ```bash
 claude mcp add --scope user gemini -- npx -y @ask-llm/gemini-mcp

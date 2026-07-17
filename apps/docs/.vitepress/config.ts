@@ -5,7 +5,7 @@ const SITE_URL = "https://lykhoyda.github.io/ask-llm";
 const SITE_HOSTNAME = "https://lykhoyda.github.io/ask-llm/";
 const SITE_TITLE = "Ask LLM";
 const SITE_DESCRIPTION =
-  "MCP servers for AI-to-AI collaboration — Gemini, Codex, Claude, Ollama, Antigravity";
+  "MCP servers for AI-to-AI collaboration: Codex, Claude, Antigravity, Ollama, Gemini";
 
 export default withMermaid(
   defineConfig({
@@ -25,7 +25,7 @@ export default withMermaid(
       },
     },
 
-    // Global head — non-page-specific tags only.
+    // Global head: non-page-specific tags only.
     // Page-specific OG/Twitter/canonical tags are generated per-page
     // via transformPageData below (prevents duplicate meta tags).
     head: [
@@ -42,7 +42,7 @@ export default withMermaid(
       [
         "link",
         {
-          href: "https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700;800&family=Geist+Mono:wght@400;500;600&display=swap",
+          href: "https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700;800&family=Geist+Mono:wght@400;500;600;700&display=swap",
           rel: "stylesheet",
         },
       ],
@@ -121,6 +121,7 @@ export default withMermaid(
           ],
         },
         { text: "Claude Plugin", link: "/plugin/overview" },
+        { text: "Codex Pair", link: "/plugin/codex-pair" },
       ],
 
       sidebar: [
@@ -130,8 +131,6 @@ export default withMermaid(
           items: [
             { text: "Overview", link: "/" },
             { text: "Quick Start", link: "/getting-started" },
-            { text: "Installation", link: "/installation" },
-            { text: "First Steps", link: "/first-steps" },
           ],
         },
         {
@@ -151,6 +150,7 @@ export default withMermaid(
           collapsed: false,
           items: [
             { text: "Overview", link: "/plugin/overview" },
+            { text: "Codex Pair", link: "/plugin/codex-pair" },
             { text: "Skills", link: "/plugin/skills" },
             { text: "Hooks", link: "/plugin/hooks" },
             { text: "Agents", link: "/plugin/agents" },

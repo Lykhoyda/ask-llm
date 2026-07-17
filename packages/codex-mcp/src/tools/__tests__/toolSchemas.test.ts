@@ -45,6 +45,11 @@ describe("tool contract (drift guards)", () => {
     expect(askCodexTool.description).toContain(FACTORY_DEFAULT_MODEL);
   });
 
+  it("marks both Codex tools read-only because they only return analysis/proposals", () => {
+    expect(askCodexTool.annotations?.readOnlyHint).toBe(true);
+    expect(askCodexEditTool.annotations?.readOnlyHint).toBe(true);
+  });
+
   it("ask-codex accepts an optional `preferred` boolean (default off)", () => {
     expect(askCodexTool.zodSchema.safeParse({ prompt: "p" }).success).toBe(true);
     expect(askCodexTool.zodSchema.safeParse({ prompt: "p", preferred: true }).success).toBe(true);
@@ -54,6 +59,14 @@ describe("tool contract (drift guards)", () => {
     // the opt-in contract would flip and every ask-codex call would prefer an
     // ASK_CODEX_PREFERRED_MODEL override.
     expect(askCodexTool.zodSchema.parse({ prompt: "p" }).preferred).toBeUndefined();
+  });
+
+  it("ask-codex exposes an optional `sandbox` opt-in (default read-only)", () => {
+    // Omitted → read-only, so the review contract holds unless a caller opts out.
+    expect(askCodexTool.zodSchema.parse({ prompt: "p" }).sandbox).toBe("read-only");
+    expect(askCodexTool.zodSchema.safeParse({ prompt: "p", sandbox: "workspace-write" }).success).toBe(true);
+    expect(askCodexTool.zodSchema.safeParse({ prompt: "p", sandbox: "read-only" }).success).toBe(true);
+    expect(askCodexTool.zodSchema.safeParse({ prompt: "p", sandbox: "full-auto" }).success).toBe(false);
   });
 
   it("ask-codex accepts documented GPT-5.6 reasoning efforts", () => {
