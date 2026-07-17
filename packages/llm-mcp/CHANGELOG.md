@@ -1,5 +1,18 @@
 # @ask-llm/mcp
 
+## 0.6.1
+
+### Patch Changes
+
+- [#237](https://github.com/Lykhoyda/ask-llm/pull/237) [`ba569cc`](https://github.com/Lykhoyda/ask-llm/commit/ba569cc1f8346ef2db76e6733fa9d9f222f61242) Thanks [@Lykhoyda](https://github.com/Lykhoyda)! - Keep managed review paths read-only, isolate concurrent compare runs, fix
+  special-character Stop-gate paths, and include the MIT license in every
+  published package tarball.
+- Updated dependencies [[`ba569cc`](https://github.com/Lykhoyda/ask-llm/commit/ba569cc1f8346ef2db76e6733fa9d9f222f61242), [`ba569cc`](https://github.com/Lykhoyda/ask-llm/commit/ba569cc1f8346ef2db76e6733fa9d9f222f61242), [`ba569cc`](https://github.com/Lykhoyda/ask-llm/commit/ba569cc1f8346ef2db76e6733fa9d9f222f61242)]:
+  - @ask-llm/claude-mcp@0.1.4
+  - @ask-llm/codex-mcp@0.7.1
+  - @ask-llm/antigravity-mcp@0.5.1
+  - @ask-llm/ollama-mcp@0.5.4
+
 ## 0.6.0
 
 ### Minor Changes
