@@ -26,9 +26,9 @@ Or install globally: `npm install -g @ask-llm/codex-mcp`
 
 | Tool | Purpose |
 |------|---------|
-| `ask-codex` | Send prompts to Codex CLI. Optional `reasoningEffort` and `sessionId` for multi-turn; the latter maps to Codex's native `thread_id` and uses `codex exec resume <id>` under the hood ([ADR-058](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md)) |
-| `ask-codex-edit` | Propose structured code edits via a read-only `codex exec --output-schema` pass. Returns edit blocks for the calling client to apply ([ADR-110](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md)) |
-| `get-usage-stats` | Per-session token totals + breakdowns. In-memory ([ADR-054](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md)) |
+| `ask-codex` | Send prompts to Codex CLI. Optional `reasoningEffort` and `sessionId` for multi-turn; the latter maps to Codex's native `thread_id` and uses `codex exec resume <id>` under the hood |
+| `ask-codex-edit` | Propose structured code edits via a read-only `codex exec --output-schema` pass. Returns edit blocks for the calling client to apply |
+| `get-usage-stats` | Per-session token totals + breakdowns. In-memory |
 | `ping` | Fast connection test to verify MCP setup |
 
 `ask-codex` returns both human-readable text and a structured `AskResponse` (provider, response, model, sessionId, usage) via MCP `outputSchema`. The Thread ID returned in the response footer is the same value as `structuredContent.sessionId`; pass it back as `sessionId` to continue the conversation.
@@ -46,7 +46,7 @@ Or install globally: `npm install -g @ask-llm/codex-mcp`
 - **GPT-5.6 Sol access** via the official Codex CLI
 - **Reasoning control:** ordinary calls default to `medium`; `/codex-review` and `/brainstorm` use `high`; direct calls can request `low`, `medium`, `high`, `xhigh`, or `max`
 - **Native session continuity:** `sessionId` parameter maps to Codex's `thread_id`; `codex exec resume <id>` is used internally for follow-up turns (zero replay cost, Codex retains state)
-- **Read-only, non-interactive sandbox:** `codex exec --sandbox read-only` keeps second-opinion, review, edit-proposal, resumed-session, and codex-pair calls from modifying the workspace. Codex `exec` is non-interactive by definition, so no approval prompt can hang the MCP subprocess ([ADR-136](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md)). The optional `sandbox: "workspace-write"` parameter is a deliberate opt-out for flows that need Codex to write files (e.g. `/codex-image`); review flows must not set it.
+- **Read-only, non-interactive sandbox:** `codex exec --sandbox read-only` keeps second-opinion, review, edit-proposal, resumed-session, and codex-pair calls from modifying the workspace. Codex `exec` is non-interactive by definition, so no approval prompt can hang the MCP subprocess. The optional `sandbox: "workspace-write"` parameter is a deliberate opt-out for flows that need Codex to write files (e.g. `/codex-image`); review flows must not set it.
 - **JSONL output parsing** for structured responses + token usage
 - **Automatic quota fallback** from GPT-5.6 Sol to Terra
 - **Structured AskResponse** via outputSchema for programmatic clients

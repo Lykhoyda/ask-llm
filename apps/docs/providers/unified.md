@@ -37,7 +37,7 @@ On startup, the unified server:
 
 ## Tools
 
-The orchestrator exposes a single `ask-llm` tool (not one per provider, ADR-029), so the same tool surface is registered whenever any provider is installed:
+The orchestrator exposes a single `ask-llm` tool (not one per provider), so the same tool surface is registered whenever any provider is installed:
 
 | Tool | Purpose |
 |------|---------|
@@ -47,7 +47,7 @@ The orchestrator exposes a single `ask-llm` tool (not one per provider, ADR-029)
 | `diagnose` | Self-diagnosis: Node version, PATH, provider CLI presence + versions. Read-only |
 | `ping` | Connection test |
 
-The orchestrator uses a single `ask-llm` tool (not one per provider) for token efficiency; see [ADR-029](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md). All `ask-*` tools return both human-readable text and a structured `AskResponse` (provider, response, model, sessionId, usage) via MCP `outputSchema`.
+The orchestrator uses a single `ask-llm` tool (not one per provider) for token efficiency. All `ask-*` tools return both human-readable text and a structured `AskResponse` (provider, response, model, sessionId, usage) via MCP `outputSchema`.
 
 It also exposes `usage://current-session` as an MCP Resource for live JSON snapshots of token spend.
 

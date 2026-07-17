@@ -402,7 +402,7 @@ Every hook the plugin registers is part of the **codex-pair** continuous-review 
 | codex-pair-stop-gate (Stop) | Turn end | Drains remaining verdicts; with blockOn: HIGH (opt-in, default OFF) blocks turn-end on unaddressed HIGH findings or in-flight reviews |
 | codex-pair-session (SessionStart / SessionEnd) | Session lifecycle | Announce a paused project (auto-resume only an expired automatic pause, never a manual /codex-pair-pause) and clear debounce state; start/tear down the experimental codex app-server broker only with ASK_CODEX_BROKER=1 |
 
-(The old PreToolUse pre-commit review hook was removed in ADR-094.)
+(The old PreToolUse pre-commit review hook was removed because continuous codex-pair review covers the same need with higher recall.)
 
 ## Error Handling
 

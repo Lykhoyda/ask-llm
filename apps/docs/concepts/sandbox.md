@@ -12,7 +12,7 @@ Sandbox mode is specific to the Gemini CLI. Since Gemini CLI is [enterprise-gate
 
 ## Why isn't there a `sandbox` parameter on `ask-gemini` anymore?
 
-[ADR-034](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md) simplified the `ask-gemini` MCP tool schema from 8 parameters to 2 (`prompt` + `model`) for token efficiency and to reduce LLM-induced parameter hallucinations. The `sandbox` parameter was one of the casualties; it's a niche feature that most users don't need, and exposing it added noise to every Claude/Codex/Cursor instance loading the tool definition.
+The `ask-gemini` MCP tool schema was simplified from 8 parameters to 2 (`prompt` + `model`) for token efficiency and to reduce LLM-induced parameter hallucinations. The `sandbox` parameter was one of the casualties; it's a niche feature that most users don't need, and exposing it added noise to every Claude/Codex/Cursor instance loading the tool definition.
 
 The underlying executor still supports sandbox mode programmatically; only the MCP-facing schema dropped it.
 

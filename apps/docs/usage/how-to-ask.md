@@ -70,7 +70,7 @@ Dispatch the same prompt to multiple providers in parallel; returns all response
 - `prompt` (required): The prompt to send to all selected providers.
 - `providers` (optional): Array of providers to dispatch to. Defaults to all available.
 
-**Returns:** `MultiLlmReport` with `{dispatchedAt, totalDurationMs, successCount, failureCount, results: [{provider, ok, response?, model?, sessionId?, usage?, durationMs, error?}, ...]}`. Per-provider failures are isolated; one provider's quota issue doesn't fail the whole call. See [ADR-066](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md).
+**Returns:** `MultiLlmReport` with `{dispatchedAt, totalDurationMs, successCount, failureCount, results: [{provider, ok, response?, model?, sessionId?, usage?, durationMs, error?}, ...]}`. Per-provider failures are isolated; one provider's quota issue doesn't fail the whole call.
 
 #### `get-usage-stats`
 
@@ -90,7 +90,7 @@ Each per-provider server exposes its provider's `ask-*` tool with the richer per
 
 #### `ask-gemini`
 
-Same shape as `ask-llm` but always Gemini. Adds Gemini-specific behavior: `@` file syntax, `--include-directories` support via `includeDirs`, `stream-json` live progressive output ([ADR-057](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md)).
+Same shape as `ask-llm` but always Gemini. Adds Gemini-specific behavior: `@` file syntax, `--include-directories` support via `includeDirs`, `stream-json` live progressive output.
 
 #### `ask-gemini-edit`
 

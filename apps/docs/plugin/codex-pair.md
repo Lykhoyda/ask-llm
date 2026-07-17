@@ -4,9 +4,9 @@ description: codex-pair is the plugin's opt-in continuous review hook. Codex rev
 
 # Codex Pair
 
-**codex-pair** is the plugin's flagship feature: continuous, opt-in code review where Codex reads every file Claude edits. It is the recall-first complement to the on-demand `/codex-review` skill. The hook is always loaded but **self-gates on a project marker file** and stays completely silent (zero cost, zero Codex calls) until a project opts in. Once enabled, a burst of edits to one file coalesces into a single debounced review of the **settled** file state, run by a detached worker; verdicts surface to Claude on both hook channels (transcript `systemMessage` plus model-visible `additionalContext`, [ADR-130](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md)) and drain on the next edit, the next user prompt, or at turn end via the Stop hook.
+**codex-pair** is the plugin's flagship feature: continuous, opt-in code review where Codex reads every file Claude edits. It is the recall-first complement to the on-demand `/codex-review` skill. The hook is always loaded but **self-gates on a project marker file** and stays completely silent (zero cost, zero Codex calls) until a project opts in. Once enabled, a burst of edits to one file coalesces into a single debounced review of the **settled** file state, run by a detached worker; verdicts surface to Claude on both hook channels (transcript `systemMessage` plus model-visible `additionalContext`) and drain on the next edit, the next user prompt, or at turn end via the Stop hook.
 
-> **Why this exists**: in the four-task benchmark from [ADR-077](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md) (four structurally different task types: CRUD endpoint, URL shortener, RFC-spec implementation, stateful business logic, chosen so the result would generalize across domains) Claude alone caught **2 of 10** probes; Claude + `/codex-review` caught **7 of 10**; Claude + `codex-pair` caught **10 of 10**. The three probes `/codex-review` missed exemplified the **"looks fine, runs wrong"** class: code that compiles, lints, and type-checks but produces wrong results because of an implicit invariant the model couldn't infer from a single file. codex-pair's recall-first HIGH/MED/LOW grading catches that class. **The improvement is task-agnostic**, reproduced across all four tasks, not just the headline one. The two surfaces are **complementary, not competing**. (Subsequent lived-experience audit in [ADR-095](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md) confirms the benchmark holds in real flow on this very repo.)
+> **Why this exists**: in a four-task benchmark recorded in the project's [decision log](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md) (four structurally different task types: CRUD endpoint, URL shortener, RFC-spec implementation, stateful business logic, chosen so the result would generalize across domains) Claude alone caught **2 of 10** probes; Claude + `/codex-review` caught **7 of 10**; Claude + `codex-pair` caught **10 of 10**. The three probes `/codex-review` missed exemplified the **"looks fine, runs wrong"** class: code that compiles, lints, and type-checks but produces wrong results because of an implicit invariant the model couldn't infer from a single file. codex-pair's recall-first HIGH/MED/LOW grading catches that class. **The improvement is task-agnostic**, reproduced across all four tasks, not just the headline one. The two surfaces are **complementary, not competing**. (A subsequent lived-experience audit confirms the benchmark holds in real flow on this very repo.)
 
 ## Setup
 
@@ -31,7 +31,7 @@ EOF
 
 The marker file's *presence* is the switch; its *content* is the project context Codex needs to review intelligently. One artifact, two purposes.
 
-**Do NOT commit the `.codex-pair/` directory**: gitignore it. Each contributor's review context is their own; one developer iterating on prompt wording shouldn't dirty the shared history. The hook itself is project-policy (it's in the plugin); the marker is per-developer opt-in. Per [ADR-092](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md), every state artifact (marker, log, cache, `ignore` globs, pause sentinel, inflight locks) nests under the single directory; one `.gitignore` line covers everything:
+**Do NOT commit the `.codex-pair/` directory**: gitignore it. Each contributor's review context is their own; one developer iterating on prompt wording shouldn't dirty the shared history. The hook itself is project-policy (it's in the plugin); the marker is per-developer opt-in. Every state artifact (marker, log, cache, `ignore` globs, pause sentinel, inflight locks) nests under the single directory; one `.gitignore` line covers everything:
 
 ```gitignore
 .codex-pair/
@@ -76,14 +76,14 @@ The `/codex-pair` suite is the human-facing dashboard and controls for the hook.
 
 ## The hook pipeline
 
-codex-pair is implemented as five hooks working together, all dependency-free with zero workspace imports so they run from marketplace `git-subdir` installs that don't run `npm install` (see [ADR-078](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md)). Only `codex-pair-watch` shells out to `codex exec --json` to run a review; the others surface persisted verdicts or manage state.
+codex-pair is implemented as five hooks working together, all dependency-free with zero workspace imports so they run from marketplace `git-subdir` installs that don't run `npm install`. Only `codex-pair-watch` shells out to `codex exec --json` to run a review; the others surface persisted verdicts or manage state.
 
 | Hook | Trigger | Action |
 |---|---|---|
-| `codex-pair-watch` (PostToolUse) | After every `Edit` / `Write` / `MultiEdit` | If a `.codex-pair/context.md` marker exists from the edited file's directory up to the project root, the edit is queued for review with the marker's content as context. Edits are **debounced** ([ADR-112](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md)): a burst within the 15s settle window coalesces into one review of the settled state, run by a detached worker. No marker means the hook exits silently after one `fs.access()` call: **zero Codex calls, zero cost** |
+| `codex-pair-watch` (PostToolUse) | After every `Edit` / `Write` / `MultiEdit` | If a `.codex-pair/context.md` marker exists from the edited file's directory up to the project root, the edit is queued for review with the marker's content as context. Edits are **debounced**: a burst within the 15s settle window coalesces into one review of the settled state, run by a detached worker. No marker means the hook exits silently after one `fs.access()` call: **zero Codex calls, zero cost** |
 | `codex-pair-prompt-drain` (UserPromptSubmit) | On every user prompt | Drains queued codex-pair verdicts that finished mid-turn so they reach Claude without waiting for the next edit |
 | `codex-pair-stop-gate` (Stop) | At turn end | Drains remaining queued verdicts (no opt-in needed). With `blockOn: HIGH` in the marker frontmatter (opt-in, default OFF), blocks turn-end while unaddressed HIGH findings or in-flight reviews remain. See [Stop gate](#stop-gate-opt-in) below |
-| `codex-pair-session` (SessionStart) | At Claude session start | Announces a paused project (a reminder if still fresh, or an automatic resume of an expired auto-pause, [ADR-130](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md)). Env-gated broker lifecycle (`ASK_CODEX_BROKER=1` only) additionally starts the experimental long-lived `codex app-server` broker ([ADR-090](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md) + [ADR-093](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md)) |
+| `codex-pair-session` (SessionStart) | At Claude session start | Announces a paused project (a reminder if still fresh, or an automatic resume of an expired auto-pause). Env-gated broker lifecycle (`ASK_CODEX_BROKER=1` only) additionally starts the experimental long-lived `codex app-server` broker |
 | `codex-pair-session` (SessionEnd) | At Claude session end | Clears debounce state so orphaned workers self-cancel. Tears down the broker when `ASK_CODEX_BROKER=1` |
 
 By default HIGH and MED concerns are surfaced; LOW concerns and all timing/skip telemetry are logged to `.codex-pair/log.jsonl` alongside the marker file. Set `debounceMs: 0` in the marker frontmatter for synchronous per-edit review.
@@ -93,9 +93,9 @@ By default HIGH and MED concerns are surfaced; LOW concerns and all timing/skip 
 | Env var | Default | Effect |
 |---|---|---|
 | `CODEX_PAIR_DISABLED` | unset | Set to `1` to bypass the hook entirely; beats marker file |
-| `CODEX_PAIR_MAX_FILE_BYTES` | `20000` | Files larger than this many UTF-8 bytes get an adaptive **partial-view** review (header + git diff, or head+tail, [ADR-080](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md)), not a full-content one. Still a Codex call; use `.codex-pair/ignore` to make big files free |
-| `ASK_CODEX_TIMEOUT_MS` | `800000` | Per-call Codex timeout (inherited from `@ask-llm/codex-mcp`, [ADR-074](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md)) |
-| `ASK_CODEX_DEBOUNCE_MS` | `15000` | Settle window: an edit burst to one file coalesces into a single review of the settled state ([ADR-112](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md)). `0` = synchronous per-edit review. Also settable per-marker via `debounceMs` frontmatter |
+| `CODEX_PAIR_MAX_FILE_BYTES` | `20000` | Files larger than this many UTF-8 bytes get an adaptive **partial-view** review (header + git diff, or head+tail), not a full-content one. Still a Codex call; use `.codex-pair/ignore` to make big files free |
+| `ASK_CODEX_TIMEOUT_MS` | `800000` | Per-call Codex timeout (inherited from `@ask-llm/codex-mcp`) |
+| `ASK_CODEX_DEBOUNCE_MS` | `15000` | Settle window: an edit burst to one file coalesces into a single review of the settled state. `0` = synchronous per-edit review. Also settable per-marker via `debounceMs` frontmatter |
 | `ASK_CODEX_DEBOUNCE_MAX_MS` | `60000` | Hard cap from a burst's first edit; forces a review even under a continuous edit stream. Frontmatter: `debounceMaxMs` |
 | `CODEX_PAIR_QUOTA_PAUSE_TTL_MS` | `21600000` (6h) | Quota auto-pauses self-heal after this long; the next edit (or session start) retries a live review |
 | `CODEX_PAIR_FAILURES_PAUSE_TTL_MS` | `86400000` (24h) | Failure auto-pauses self-heal after this long, or immediately when the plugin version changed since the pause |
@@ -113,9 +113,9 @@ When the hook pauses itself (provider quota exhausted, or 3 consecutive review f
 
 - ~$0.04–0.07 per file reviewed (Codex GPT-5.6 Sol with reasoning tokens)
 - ~13–50s per file wall-clock
-- Files over the size cap fall back to an adaptive partial-view review (header + git diff against HEAD, OR head + tail); see [ADR-080](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md)
+- Files over the size cap fall back to an adaptive partial-view review (header + git diff against HEAD, OR head + tail)
 - `node_modules/`, `dist/`, lockfiles, fonts, archives, sourcemaps, snapshots, minified assets skipped automatically
-- A 50-edit session is roughly $2–3.50 plus ~10–40 minutes of cumulative Codex latency; significantly less after the content-hash cache warms ([ADR-082](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md))
+- A 50-edit session is roughly $2–3.50 plus ~10–40 minutes of cumulative Codex latency; significantly less after the content-hash cache warms
 
 For typical opted-in projects (small surface where review depth matters), the cost is acceptable. For routine refactor work across a whole repo, leave the marker file out and use `/codex-review` on demand instead.
 
@@ -136,7 +136,7 @@ For typical opted-in projects (small surface where review depth matters), the co
 
 **Action:** If unaddressed HIGH codex-pair findings remain in `.codex-pair/log.jsonl`, the hook blocks turn-end and surfaces those findings, forcing them to be addressed before the session continues.
 
-> **Why opt-in?** A blocking turn-end gate is disruptive by design. [ADR-048](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md) removed the original Stop hook because it ran a fresh Gemini review every turn (latency, quota burn). This hook is fundamentally different (it reads the already-computed `log.jsonl` with zero new LLM calls), but blocking is still a `kano:reverse` feature for some workflows, so it defaults OFF ([ADR-118](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md)).
+> **Why opt-in?** A blocking turn-end gate is disruptive by design. The original Stop hook was removed because it ran a fresh Gemini review every turn (latency, quota burn). This hook is fundamentally different (it reads the already-computed `log.jsonl` with zero new LLM calls), but blocking is still a `kano:reverse` feature for some workflows, so it defaults OFF.
 
 ### Enable it
 

@@ -12,10 +12,10 @@ Hosted providers (Gemini, Codex, Claude) auto-select a sensible default model wi
 
 | Provider | Default | Fallback | Trigger |
 |---|---|---|---|
-| Gemini | `gemini-3.1-pro-preview` | `gemini-3.5-flash` | `RESOURCE_EXHAUSTED` quota error or "exhausted your capacity" pattern ([ADR-044](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md)) |
-| Codex | `gpt-5.6-sol` | `gpt-5.6-terra` | Quota errors (`rate_limit_exceeded`, `429`, `insufficient_quota`) ([ADR-028](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md)) |
+| Gemini | `gemini-3.1-pro-preview` | `gemini-3.5-flash` | `RESOURCE_EXHAUSTED` quota error or "exhausted your capacity" pattern |
+| Codex | `gpt-5.6-sol` | `gpt-5.6-terra` | Quota errors (`rate_limit_exceeded`, `429`, `insufficient_quota`) |
 | Claude | `opus` | `sonnet` | Claude Code native fallback when Opus is overloaded or unavailable |
-| Antigravity | `Gemini 3.1 Pro (High)` | `Gemini 3.5 Flash (High)` | Subscription rate limit only ([ADR-125](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md)) |
+| Antigravity | `Gemini 3.1 Pro (High)` | `Gemini 3.5 Flash (High)` | Subscription rate limit only |
 | Ollama | `qwen3.6:27b` | none | Local, no fallback; a missing model returns a clear `ollama pull` error |
 
 For Gemini, Codex, Claude, and Antigravity, fallback is automatic. Gemini, Codex, and Claude expose the actual model and `usage.fellBack` in structured output; Antigravity reports the actual fallback model through the top-level `model` field only (it returns no usage statistics). Ollama never falls back, so its `fellBack` is always `false`.
@@ -80,7 +80,7 @@ Use ask-ollama with model deepseek-coder:6.7b to review this implementation
 
 Token usage is exposed live via:
 
-- **Per-call**: `result.structuredContent.usage` on every `ask-*` tool response (provider, model, inputTokens, outputTokens, cachedTokens, thinkingTokens, durationMs, fellBack); see [ADR-054](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md)
+- **Per-call**: `result.structuredContent.usage` on every `ask-*` tool response (provider, model, inputTokens, outputTokens, cachedTokens, thinkingTokens, durationMs, fellBack)
 - **Per-session aggregate**: call the `get-usage-stats` MCP tool, or read the `usage://current-session` MCP Resource for a JSON snapshot
 - **In the REPL**: type `/usage` for a markdown-formatted breakdown
 

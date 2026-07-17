@@ -53,7 +53,7 @@ If `npx @ask-llm/mcp doctor` reports a CLI as "not found on PATH" but `which <cl
   preview="macOS GUI apps don't inherit your shell PATH"
 >
 
-macOS GUI applications (Claude Desktop, Cursor, etc.) don't source `.zshrc` / `.bashrc`, so nvm / Homebrew / Volta paths aren't visible to the MCP server. Ask LLM resolves this automatically per [ADR-047](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md) by extracting the real PATH from your login shell at startup.
+macOS GUI applications (Claude Desktop, Cursor, etc.) don't source `.zshrc` / `.bashrc`, so nvm / Homebrew / Volta paths aren't visible to the MCP server. Ask LLM resolves this automatically by extracting the real PATH from your login shell at startup.
 
 If it's still failing:
 
@@ -139,7 +139,7 @@ npm error Unsupported URL Type "workspace:": workspace:*
 
 **Fix in one line:** `rm -rf ~/.npm/_npx && npm cache clean --force` then re-launch.
 
-Why this happens: pre-1.5.7 releases shipped unrewritten `workspace:*` strings in their published `package.json` (the bug fixed by [ADR-052](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md)). The npx cache at `~/.npm/_npx/<hash>/` keeps tarballs forever; npx never invalidates it on its own, even when a newer version is published. When you run `npx -y @ask-llm/mcp` again, npm walks the cache, finds the stale entry, fails dep-graph validation against `workspace:*`, and aborts before it gets to the new tarball. **Today's published packages are clean**; the bug source is purely the cached old install on your machine.
+Why this happens: pre-1.5.7 releases shipped unrewritten `workspace:*` strings in their published `package.json`. The npx cache at `~/.npm/_npx/<hash>/` keeps tarballs forever; npx never invalidates it on its own, even when a newer version is published. When you run `npx -y @ask-llm/mcp` again, npm walks the cache, finds the stale entry, fails dep-graph validation against `workspace:*`, and aborts before it gets to the new tarball. **Today's published packages are clean**; the bug source is purely the cached old install on your machine.
 
 Why the one-liner works:
 
@@ -180,7 +180,7 @@ curl http://localhost:11434/api/tags    # Ollama
   preview="Provider quota exhausted"
 >
 
-**The executor handles this automatically**: Gemini falls back from `gemini-3.1-pro-preview` to `gemini-3.5-flash` per [ADR-044](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md), and Codex falls back from `gpt-5.6-sol` to `gpt-5.6-terra` per [ADR-028](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md). You'll see `usage.fellBack: true` in the structured response.
+**The executor handles this automatically**: Gemini falls back from `gemini-3.1-pro-preview` to `gemini-3.5-flash`, and Codex falls back from `gpt-5.6-sol` to `gpt-5.6-terra`. You'll see `usage.fellBack: true` in the structured response.
 
 If both Pro and Flash (or both GPT-5.6 Sol and Terra) hit quota, the call fails with both errors surfaced. Wait for the quota window to reset, or:
 
@@ -194,7 +194,7 @@ If both Pro and Flash (or both GPT-5.6 Sol and Terra) hit quota, the call fails 
   preview="Provider call exceeded the per-provider wall-clock timeout"
 >
 
-Defaults differ by provider ([ADR-074](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md)): **codex 800s** (reasoning models routinely take 5–10 min on substantive prompts), **gemini 210s** (stream-json emits tokens incrementally, usually fast enough). Resolution ladder: per-provider env var > `GMCPT_TIMEOUT_MS` > provider default.
+Defaults differ by provider: **codex 800s** (reasoning models routinely take 5–10 min on substantive prompts), **gemini 210s** (stream-json emits tokens incrementally, usually fast enough). Resolution ladder: per-provider env var > `GMCPT_TIMEOUT_MS` > provider default.
 
 For long analyses (large diffs, deep Codex reasoning):
 
@@ -244,7 +244,7 @@ The orchestrator (`@ask-llm/mcp`) detects available providers at startup. If a p
   preview="Provider process killed by sub-agent lifecycle"
 >
 
-This is the bug class [ADR-050](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md) addresses: Claude Code sub-agents can't own background processes that outlive their turn, so `(cmd &) && wait` patterns or `run_in_background: true` on dispatch calls cause processes to be SIGKILLed silently.
+This is a known bug class: Claude Code sub-agents can't own background processes that outlive their turn, so `(cmd &) && wait` patterns or `run_in_background: true` on dispatch calls cause processes to be SIGKILLed silently.
 
 The brainstorm-coordinator agent uses the correct pattern (single foreground blocking Bash with direct backgrounding + per-PID wait + `timeout: 600000`). If you're seeing this in custom skills you're writing, follow the same pattern; see the agent prompt in `packages/claude-plugin/agents/brainstorm-coordinator.md` for the canonical template.
 

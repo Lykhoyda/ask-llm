@@ -41,7 +41,7 @@ Or install globally: `npm install -g @ask-llm/antigravity-mcp`
 <FallbackChain provider="antigravity" />
 
 - **Default:** `Gemini 3.1 Pro (High)`, passed to `agy` via `--model`
-- **Rate-limit fallback:** `Gemini 3.5 Flash (High)`, retried once on a rate limit ([ADR-125](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md))
+- **Rate-limit fallback:** `Gemini 3.5 Flash (High)`, retried once on a rate limit
 - **Overrides:** `ASK_ANTIGRAVITY_MODEL` (run `agy models` for the full list, e.g. `Claude Sonnet 4.6 (Thinking)`)
 
 ## How it works

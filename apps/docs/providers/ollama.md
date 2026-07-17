@@ -31,11 +31,11 @@ ollama pull qwen3.6:27b
 
 | Tool | Purpose |
 |------|---------|
-| `ask-ollama` | Send prompts to local Ollama via HTTP. Optional `sessionId` for multi-turn; server-side conversation replay since Ollama has no native session support ([ADR-058](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md)) |
-| `get-usage-stats` | Per-session token totals + breakdowns. In-memory ([ADR-054](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md)) |
+| `ask-ollama` | Send prompts to local Ollama via HTTP. Optional `sessionId` for multi-turn; server-side conversation replay since Ollama has no native session support |
+| `get-usage-stats` | Per-session token totals + breakdowns. In-memory |
 | `ping` | Lists locally available Ollama models via /api/tags |
 
-`ask-ollama` returns both human-readable text and a structured `AskResponse` (provider, response, model, sessionId, usage) via MCP `outputSchema`; programmatic clients can extract the sessionId and usage fields directly without parsing the response footer ([ADR-065](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md)). Pass `sessionId: ""` (empty string) to start a fresh session and have the executor return a new UUID.
+`ask-ollama` returns both human-readable text and a structured `AskResponse` (provider, response, model, sessionId, usage) via MCP `outputSchema`; programmatic clients can extract the sessionId and usage fields directly without parsing the response footer. Pass `sessionId: ""` (empty string) to start a fresh session and have the executor return a new UUID.
 
 ## Models
 
@@ -48,7 +48,7 @@ Set `OLLAMA_HOST` environment variable to customize the Ollama server address (d
 
 ## Sessions
 
-Ollama has no native session support, so the MCP server stores conversation history server-side at `/tmp/ask-llm-sessions/<id>.json` ([ADR-058](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md), hardened in [ADR-063](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md)):
+Ollama has no native session support, so the MCP server stores conversation history server-side at `/tmp/ask-llm-sessions/<id>.json` with owner-only permissions and atomic temp+rename writes:
 
 - **24-hour TTL:** sessions auto-expire
 - **40-message cap:** oldest dropped on overflow to bound replay cost

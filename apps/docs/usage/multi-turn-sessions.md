@@ -40,7 +40,7 @@ The same pattern works for `ask-claude`, `ask-codex`, `ask-ollama`, and the orch
 
 For programmatic clients, `ask-*` tools also return a structured `AskResponse` via MCP `outputSchema`; `result.structuredContent.sessionId` works for any provider, no need to regex-parse the response footer.
 
-Response caching is bypassed whenever a `sessionId` is provided (including the empty string that starts a fresh session), so a resumed turn always re-runs against the provider instead of returning a cached answer ([ADR-063](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md)).
+Response caching is bypassed whenever a `sessionId` is provided (including the empty string that starts a fresh session), so a resumed turn always re-runs against the provider instead of returning a cached answer.
 
 ## Provider-specific notes
 

@@ -84,8 +84,8 @@ Experimental and one-shot (no multi-turn). Requires `agy` installed + logged in 
 
 Send a topic to multiple LLM providers AND have Claude Opus perform its own independent research in the same run, then synthesize all findings. The coordinator agent runs:
 
-1. **Phase 3B: Claude Opus research.** Claude reads the actual files, traces real code paths, fetches any referenced external docs, and forms independent findings tagged Verified or Inferred. Always runs; Claude is a first-class participant, not just an orchestrator (see [ADR-049](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md)).
-2. **Phase 3A: External dispatch.** A single foreground blocking Bash call sends the topic to each requested external provider in parallel and waits for all of them. Up to 10 minutes total (Bash tool max). See [ADR-050](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md) for why this isn't a background-job dispatch.
+1. **Phase 3B: Claude Opus research.** Claude reads the actual files, traces real code paths, fetches any referenced external docs, and forms independent findings tagged Verified or Inferred. Always runs; Claude is a first-class participant, not just an orchestrator.
+2. **Phase 3A: External dispatch.** A single foreground blocking Bash call sends the topic to each requested external provider in parallel and waits for all of them. Up to 10 minutes total (Bash tool max). It's a foreground blocking call, not a background-job dispatch, because sub-agents can't own processes that outlive their turn.
 3. **Phase 4: Synthesis.** Combines Claude's findings with the external responses:
 
 - Consensus points (where multiple participants agree; Claude verified + external = highest confidence)
@@ -127,7 +127,7 @@ Pipeline:
 
 1. **Gather and prepare the diff**: `git status` first; `git add -N` for untracked files; pathspec exclusion of docs/binaries (`:!docs/` `:!*.md` `:!yarn.lock` `:!*.png`); 3-tier size policy (`<50KB` send as-is, `50–150KB` warn about expected wall time, `>150KB` ask before sending).
 2. **Dispatch with fallback**: preferred path is the `gemini-reviewer` and `codex-reviewer` agents in parallel; falls back to direct Bash dispatch via the plugin's `dist/run.js` and `dist/codex-run.js` runners using the [ADR-050](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md) dispatch pattern when agents are unavailable.
-3. **Verify each finding**: for every finding above 80/100 confidence, Read the file at the cited line and check whether the claim is actually true. Classifies as **VERIFIED** (claim holds), **REJECTED** (false positive), or **UNVERIFIABLE** (cannot confirm without runtime). This step exists specifically because confidence scores aren't an oracle; see [ADR-064](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md).
+3. **Verify each finding**: for every finding above 80/100 confidence, Read the file at the cited line and check whether the claim is actually true. Classifies as **VERIFIED** (claim holds), **REJECTED** (false positive), or **UNVERIFIABLE** (cannot confirm without runtime). This step exists specifically because confidence scores aren't an oracle.
 4. **Resilient failure handling**: when a provider fails (timeout, exit ≠ 0, 0-byte output), surface the failure inline with stderr instead of silently dropping. Partial results are explicit.
 5. **Synthesis**: combined output with `Verified by both`, `Verified by Gemini only`, `Verified by Codex only`, `Rejected (false positives)`, `Unverifiable`, and per-provider stats including verification counts.
 
@@ -180,7 +180,7 @@ EOF
 
 Once the marker exists at the project root, every file edit triggers a Codex review with the marker's content as project context. `rm -rf .codex-pair/` to disable.
 
-**How it differs from `/codex-review`**: in the [ADR-077](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md) four-task benchmark (four structurally different task types: CRUD, URL parsing, RFC-spec implementation, stateful business logic, picked so the result would generalize across domains): Claude alone caught **2 of 10** probes; Claude + `/codex-review` caught **7 of 10**; Claude + `codex-pair` caught **10 of 10**. The three probes `/codex-review` missed exemplified the "looks fine, runs wrong" class its ≥80-confidence filter structurally suppresses; code that compiles and type-checks but produces wrong results at runtime. **The recall improvement is task-agnostic**; the two surfaces are complementary, not competing.
+**How it differs from `/codex-review`**: in a four-task benchmark recorded in the project's [decision log](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md) (four structurally different task types: CRUD, URL parsing, RFC-spec implementation, stateful business logic, picked so the result would generalize across domains): Claude alone caught **2 of 10** probes; Claude + `/codex-review` caught **7 of 10**; Claude + `codex-pair` caught **10 of 10**. The three probes `/codex-review` missed exemplified the "looks fine, runs wrong" class its ≥80-confidence filter structurally suppresses; code that compiles and type-checks but produces wrong results at runtime. **The recall improvement is task-agnostic**; the two surfaces are complementary, not competing.
 
 The decision about when to use the hook is about **code characteristics**, not project domain:
 
