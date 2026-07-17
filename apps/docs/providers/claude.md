@@ -63,6 +63,7 @@ The JSON response includes Claude's `session_id`. Pass it back as `sessionId` on
 | `ASK_CLAUDE_FALLBACK_MODEL` | `sonnet` | Native fallback model |
 | `ASK_CLAUDE_TIMEOUT_MS` | `600000` | Provider process timeout in milliseconds |
 | `GMCPT_TIMEOUT_MS` | `(none)` | Global timeout fallback |
+| `ASK_CLAUDE_ALLOW_NESTED` | `(unset)` | Set to `1`/`true` to override the nested-session guard in IDE integrated terminals that set `CLAUDECODE` without being an actual Claude Code session |
 
 ## npm
 

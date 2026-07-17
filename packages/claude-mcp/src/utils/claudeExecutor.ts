@@ -1,5 +1,12 @@
 import { EXECUTION, executeCommand, resolveTimeoutMs, type UsageStats } from "@ask-llm/shared";
-import { CLAUDE_HOST_ENV_VAR, CLI, ERROR_MESSAGES, MODELS, READ_ONLY_SYSTEM_PROMPT } from "../constants.js";
+import {
+  ALLOW_NESTED_ENV_VAR,
+  CLAUDE_HOST_ENV_VAR,
+  CLI,
+  ERROR_MESSAGES,
+  MODELS,
+  READ_ONLY_SYSTEM_PROMPT,
+} from "../constants.js";
 
 interface ClaudeTokenUsage {
   input_tokens?: number;
@@ -138,8 +145,17 @@ export function buildArgs(model: string, fallbackModel: string, sessionId?: stri
   return args;
 }
 
+// Exported for unit testing — pure predicate over the two env vars. The guard
+// only fires inside an actual Claude Code session; IDE integrated terminals that
+// set CLAUDECODE can opt out via ASK_CLAUDE_ALLOW_NESTED ("1"/"true"). ADR-134.
+export function isNestedSessionBlocked(env: NodeJS.ProcessEnv = process.env): boolean {
+  if (!env[CLAUDE_HOST_ENV_VAR]) return false;
+  const override = env[ALLOW_NESTED_ENV_VAR];
+  return override !== "1" && override !== "true";
+}
+
 export async function executeClaudeCLI(options: ClaudeExecutorOptions): Promise<ClaudeExecutorResult> {
-  if (process.env[CLAUDE_HOST_ENV_VAR]) throw new Error(ERROR_MESSAGES.NESTED_SESSION);
+  if (isNestedSessionBlocked()) throw new Error(ERROR_MESSAGES.NESTED_SESSION);
   const model = options.model?.trim() || MODELS.DEFAULT;
   const fallbackModel = MODELS.FALLBACK;
   const args = buildArgs(model, fallbackModel, options.sessionId, options.includeDirs);

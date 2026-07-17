@@ -4,7 +4,7 @@ export const ERROR_MESSAGES = {
   INVALID_JSON: "Claude CLI completed without returning a valid JSON result.",
   EMPTY_RESPONSE: "Claude CLI completed successfully but returned an empty response.",
   NESTED_SESSION:
-    "ask-claude cannot start Claude Code from inside an existing Claude Code session. Use this provider from Codex, Cursor, OpenCode, or another non-Claude-Code MCP host.",
+    "ask-claude cannot start Claude Code from inside an existing Claude Code session. Use this provider from Codex, Cursor, OpenCode, or another non-Claude-Code MCP host. If this is an IDE integrated terminal (which sets CLAUDECODE) rather than an actual Claude Code tool call, set ASK_CLAUDE_ALLOW_NESTED=1 to override this guard.",
 } as const;
 
 export const STATUS_MESSAGES = {
@@ -43,3 +43,9 @@ export const CLI = {
 } as const;
 
 export const CLAUDE_HOST_ENV_VAR = "CLAUDECODE";
+
+// Escape hatch for the nested-session guard: IDE extensions set CLAUDECODE in
+// their integrated terminals, where a human may legitimately drive Codex or
+// another non-Claude-Code MCP host. Setting this truthy ("1"/"true") lets
+// ask-claude run despite CLAUDECODE being present. See ADR-134.
+export const ALLOW_NESTED_ENV_VAR = "ASK_CLAUDE_ALLOW_NESTED";
