@@ -61,6 +61,14 @@ describe("tool contract (drift guards)", () => {
     expect(askCodexTool.zodSchema.parse({ prompt: "p" }).preferred).toBeUndefined();
   });
 
+  it("ask-codex exposes an optional `sandbox` opt-in (default read-only)", () => {
+    // Omitted → read-only, so the review contract holds unless a caller opts out.
+    expect(askCodexTool.zodSchema.parse({ prompt: "p" }).sandbox).toBe("read-only");
+    expect(askCodexTool.zodSchema.safeParse({ prompt: "p", sandbox: "workspace-write" }).success).toBe(true);
+    expect(askCodexTool.zodSchema.safeParse({ prompt: "p", sandbox: "read-only" }).success).toBe(true);
+    expect(askCodexTool.zodSchema.safeParse({ prompt: "p", sandbox: "full-auto" }).success).toBe(false);
+  });
+
   it("ask-codex accepts documented GPT-5.6 reasoning efforts", () => {
     for (const reasoningEffort of ["low", "medium", "high", "xhigh", "max"]) {
       expect(askCodexTool.zodSchema.safeParse({ prompt: "p", reasoningEffort }).success).toBe(true);
