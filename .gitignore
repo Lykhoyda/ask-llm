@@ -60,3 +60,5 @@ skills-lock.json
 # machines that can't run the factory-default). Sourced by scripts/smoke-test.sh
 # if present; the committed .example is the template.
 scripts/smoke-test.local.sh
+.superpowers/
+
