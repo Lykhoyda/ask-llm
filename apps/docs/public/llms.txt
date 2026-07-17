@@ -59,6 +59,9 @@ Install the plugin for review skills, brainstorm agents, and automated hooks:
 
 Skills: /multi-review, /fable-review, /sol-review, /codex-review, /antigravity-review, /ollama-review, /gemini-review, /brainstorm, /brainstorm-all, /compare, /codex-verify, /codex-image, /codex-pair (+ -ack, -pause, -resume)
 
+codex-pair (flagship): opt-in continuous review. Codex reviews every file edit as Claude makes it, gated on a .codex-pair/context.md marker (zero cost without it). Debounced per-edit reviews, HIGH/MED verdicts surface on the next turn, opt-in Stop gate blocks turn-end on unaddressed HIGH findings. Full page: https://lykhoyda.github.io/ask-llm/plugin/codex-pair
+Plugin pages: https://lykhoyda.github.io/ask-llm/plugin/overview, https://lykhoyda.github.io/ask-llm/plugin/codex-pair, https://lykhoyda.github.io/ask-llm/plugin/skills, https://lykhoyda.github.io/ask-llm/plugin/hooks, https://lykhoyda.github.io/ask-llm/plugin/agents
+
 ## Links
 
 - Source: https://github.com/Lykhoyda/ask-llm

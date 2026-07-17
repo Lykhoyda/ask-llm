@@ -159,7 +159,7 @@ If you're reviewing a code diff → use `/multi-review` instead.
 - **The PostToolUse hook**: fires automatically after every `Edit` / `Write` / `MultiEdit` whenever a project has opted in via a `.codex-pair/context.md` marker. HIGH and MED concerns appear to Claude as a system reminder on the next turn; LOW concerns are logged. This is the workhorse: the actual review surface.
 - **`/codex-pair`**: a user-invocable slash command that shows current status (active / paused / not configured) and runs interactive setup on first use. Use this when you want to enable codex-pair on a new project (auto-detects context from your README + manifests, drafts the marker, asks you to confirm) or check whether it's currently running. Pairs with `/codex-pair-pause` and `/codex-pair-resume` (the imperative toggles).
 
-> This is the "hidden" surface of the plugin: the hook ships in every install but is disabled by default until a project opts in. The full mechanism, env vars, and cost characteristics live in [Hooks → PostToolUse Hook: codex-pair](/plugin/hooks#posttooluse-hook-codex-pair-opt-in-continuous-review).
+> This is the "hidden" surface of the plugin: the hook ships in every install but is disabled by default until a project opts in. The full mechanism, env vars, and cost characteristics live in [Codex Pair](/plugin/codex-pair).
 
 **Quick enable**: either run `/codex-pair` (recommended; it auto-detects your project and asks before writing) or create the marker manually:
 

@@ -393,11 +393,14 @@ Launches Antigravity and Codex reviews in parallel with a validation pipeline an
 
 ### Hooks
 
+Every hook the plugin registers is part of the **codex-pair** continuous-review pipeline (flagship feature, dedicated page: https://lykhoyda.github.io/ask-llm/plugin/codex-pair). All are dependency-free and self-gate on a `.codex-pair/context.md` marker (zero cost without it); only `codex-pair-watch` shells out to `codex exec --json` to run a review.
+
 | Hook | Trigger | Action |
 |------|---------|--------|
-| PostToolUse | After Edit / Write / MultiEdit | codex-pair per-edit review via the broker (opt-in per project) |
-| SessionStart / SessionEnd | Session lifecycle | Start and tear down the codex-pair broker |
-| Stop | Session stop (opt-in) | Gate that blocks on unaddressed HIGH-severity codex-pair findings |
+| codex-pair-watch (PostToolUse) | After Edit / Write / MultiEdit | Debounced per-edit Codex review of the settled file state (opt-in per project) |
+| codex-pair-prompt-drain (UserPromptSubmit) | On every user prompt | Drains queued verdicts that finished mid-turn so they reach Claude |
+| codex-pair-stop-gate (Stop) | Turn end | Drains remaining verdicts; with blockOn: HIGH (opt-in, default OFF) blocks turn-end on unaddressed HIGH findings or in-flight reviews |
+| codex-pair-session (SessionStart / SessionEnd) | Session lifecycle | Announce a paused project (auto-resume only an expired automatic pause, never a manual /codex-pair-pause) and clear debounce state; start/tear down the experimental codex app-server broker only with ASK_CODEX_BROKER=1 |
 
 (The old PreToolUse pre-commit review hook was removed in ADR-094.)
 

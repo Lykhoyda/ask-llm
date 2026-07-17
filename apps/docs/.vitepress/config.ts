@@ -149,6 +149,7 @@ export default withMermaid(
           collapsed: false,
           items: [
             { text: "Overview", link: "/plugin/overview" },
+            { text: "Codex Pair", link: "/plugin/codex-pair" },
             { text: "Skills", link: "/plugin/skills" },
             { text: "Hooks", link: "/plugin/hooks" },
             { text: "Agents", link: "/plugin/agents" },
