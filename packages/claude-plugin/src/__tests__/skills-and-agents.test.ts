@@ -147,13 +147,14 @@ describe("agents/", () => {
     expect(tools).toContain("mcp__plugin_ask-llm_codex__ask-codex");
     expect(content).toContain("mcp__plugin_ask-llm_codex__ask-codex");
     // Transport fallback is disclosed like a model fallback, the CLI path keeps
-    // the same Sol-to-Terra quota ladder as the MCP executor, and a missing CLI
-    // stops the review instead of degrading further.
+    // the same configurable quota ladder as the MCP executor (honoring
+    // ASK_CODEX_FALLBACK_MODEL, defaulting to Terra), and a missing CLI stops
+    // the review instead of degrading further.
     expect(content).toMatch(/ran through `codex exec` rather than MCP/);
-    expect(content).toMatch(/retry once with `-m gpt-5\.6-terra`/);
+    expect(content).toMatch(/retry once with `-m "\$\{ASK_CODEX_FALLBACK_MODEL:-gpt-5\.6-terra\}"`/);
     expect(content).toMatch(/could not run/);
     expect(content).toMatch(
-      /Do not review on another transport, on any model outside the Sol-to-Terra ladder, or in another sandbox mode/,
+      /Do not review on another transport, on any model outside the Sol-to-fallback ladder, or in another sandbox mode/,
     );
   });
 });
