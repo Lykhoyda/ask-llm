@@ -1,5 +1,11 @@
 # @ask-llm/plugin
 
+## 0.12.4
+
+### Patch Changes
+
+- [#240](https://github.com/Lykhoyda/ask-llm/pull/240) [`b648785`](https://github.com/Lykhoyda/ask-llm/commit/b648785c9c3243cbe9c1ad33efd590653709d452) Thanks [@Lykhoyda](https://github.com/Lykhoyda)! - `/sol-review` no longer depends on agent improvisation when the `ask-codex` MCP tool is unavailable in the subagent context ([#232](https://github.com/Lykhoyda/ask-llm/issues/232)). The skill preflights the transport, the `sol-reviewer` agent sanctions an exact CLI fallback (`codex exec -m gpt-5.6-sol -c model_reasoning_effort="high" -s read-only --ignore-user-config --ignore-rules --skip-git-repo-check`) with plugin-namespaced tool variants recognized as primary transport, transport fallbacks must be disclosed like model fallbacks, and a missing CLI stops the review instead of degrading to another transport, model, or sandbox mode.
+
 ## 0.12.3
 
 ### Patch Changes
