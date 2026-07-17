@@ -21,7 +21,7 @@ description: MCP servers for AI-to-AI collaboration. Claude and Codex review eac
 
 <SetupTabs provider="unified" />
 
-<p class="home-verify">Then ask your agent: <code>Use ask-llm ping to test the connection</code>. A <em>Pong!</em> reply lists every provider it detected. Something off? Run <code>npx ask-llm-mcp doctor</code>.</p>
+<p class="home-verify">Then ask your agent: <code>Use ask-llm ping to test the connection</code>. A <em>Pong!</em> reply lists every provider it detected. Something off? Run <code>npx @ask-llm/mcp doctor</code>.</p>
 
 <h2 class="home-h2">Explore</h2>
 

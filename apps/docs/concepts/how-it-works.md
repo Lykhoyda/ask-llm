@@ -53,6 +53,6 @@ You don't need to think about any of this; it's just the infrastructure that mak
 | Large-context analysis (whole codebase) | `ask-gemini` directly (1M+ token context) |
 | Structured code edits to apply | `ask-gemini-edit` (returns OLD/NEW blocks) |
 | Air-gapped / private | `ask-llm` with `provider: "ollama"` |
-| Diagnose setup problems | `npx ask-llm-mcp doctor` (CLI) or `diagnose` (MCP tool) |
+| Diagnose setup problems | `npx @ask-llm/mcp doctor` (CLI) or `diagnose` (MCP tool) |
 
 See [How to Ask](/usage/how-to-ask) for full parameter reference and [Strategies & Examples](/usage/strategies-and-examples) for proven workflow patterns.

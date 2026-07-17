@@ -32,7 +32,7 @@ export const PROVIDER_DOCS: Record<ProviderId, ProviderDoc> = {
   codex: {
     id: "codex",
     name: "Codex",
-    pkg: "ask-codex-mcp",
+    pkg: "@ask-llm/codex-mcp",
     serverName: "codex",
     cliInstall: "npm install -g @openai/codex",
     defaultModel: "gpt-5.6-sol",
@@ -45,7 +45,7 @@ export const PROVIDER_DOCS: Record<ProviderId, ProviderDoc> = {
   claude: {
     id: "claude",
     name: "Claude",
-    pkg: "ask-claude-mcp",
+    pkg: "@ask-llm/claude-mcp",
     serverName: "claude",
     cliInstall: "npm install -g @anthropic-ai/claude-code",
     defaultModel: "opus",
@@ -58,7 +58,7 @@ export const PROVIDER_DOCS: Record<ProviderId, ProviderDoc> = {
   antigravity: {
     id: "antigravity",
     name: "Antigravity",
-    pkg: "ask-antigravity-mcp",
+    pkg: "@ask-llm/antigravity-mcp",
     serverName: "antigravity",
     cliInstall: "# install agy from https://antigravity.google, then log in once",
     defaultModel: "Gemini 3.1 Pro (High)",
@@ -72,7 +72,7 @@ export const PROVIDER_DOCS: Record<ProviderId, ProviderDoc> = {
   ollama: {
     id: "ollama",
     name: "Ollama",
-    pkg: "ask-ollama-mcp",
+    pkg: "@ask-llm/ollama-mcp",
     serverName: "ollama",
     cliInstall: "# install from https://ollama.com, then: ollama pull qwen3.6:27b",
     defaultModel: "qwen3.6:27b",
@@ -85,7 +85,7 @@ export const PROVIDER_DOCS: Record<ProviderId, ProviderDoc> = {
   gemini: {
     id: "gemini",
     name: "Gemini",
-    pkg: "ask-gemini-mcp",
+    pkg: "@ask-llm/gemini-mcp",
     serverName: "gemini",
     cliInstall: "npm install -g @google/gemini-cli && gemini login",
     defaultModel: "gemini-3.1-pro-preview",
@@ -99,7 +99,7 @@ export const PROVIDER_DOCS: Record<ProviderId, ProviderDoc> = {
   unified: {
     id: "unified",
     name: "Unified",
-    pkg: "ask-llm-mcp",
+    pkg: "@ask-llm/mcp",
     serverName: "ask-llm",
     cliInstall: "# no extra CLI: auto-detects the provider CLIs you already have",
     defaultModel: "per provider",

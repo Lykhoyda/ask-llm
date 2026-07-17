@@ -76,7 +76,7 @@ Get a **subscription-backed** second opinion from Google Antigravity (`agy`): us
 /antigravity-review
 ```
 
-Experimental and one-shot (no multi-turn). Requires `agy` installed + logged in once and the Antigravity MCP server registered (`claude mcp add antigravity -- npx -y ask-antigravity-mcp`).
+Experimental and one-shot (no multi-turn). Requires `agy` installed + logged in once and the Antigravity MCP server registered (`claude mcp add antigravity -- npx -y @ask-llm/antigravity-mcp`).
 
 ## Brainstorm Skills
 

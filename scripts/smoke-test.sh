@@ -97,9 +97,9 @@ fi
 echo "=== Smoke Tests ==="
 echo ""
 
-run_smoke "Ollama"      "ask-ollama-mcp"
-run_smoke "Antigravity" "ask-antigravity-mcp"
-run_smoke "Codex"       "ask-codex-mcp"
-run_smoke "Claude"      "ask-claude-mcp"
+run_smoke "Ollama"      "@ask-llm/ollama-mcp"
+run_smoke "Antigravity" "@ask-llm/antigravity-mcp"
+run_smoke "Codex"       "@ask-llm/codex-mcp"
+run_smoke "Claude"      "@ask-llm/claude-mcp"
 
 echo "=== Smoke tests done (any quota-skipped providers were warned above) ==="

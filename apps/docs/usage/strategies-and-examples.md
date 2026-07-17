@@ -121,7 +121,7 @@ Claude, Gemini, Codex, and Ollama support sessions; Antigravity is single-turn. 
 For one-off questions where you don't want to set up an MCP client invocation:
 
 ```bash
-npx ask-llm-mcp repl
+npx @ask-llm/mcp repl
 ```
 
 ```
@@ -159,4 +159,4 @@ Ollama runs entirely locally, never makes a network call to a third party. The M
 4. **Use `multi-llm` or `/compare` when you want raw multiple perspectives.** Use `/multi-review` when you want verified findings (catches false positives).
 5. **Use sessions for iteration**, not for one-shot questions. The cost overhead isn't worth it if you won't follow up.
 6. **Check `/usage` periodically** in the REPL or call `get-usage-stats` to see what you're spending; both Gemini Pro and Codex GPT-5.6 can rack up tokens fast on large prompts.
-7. **Run `npx ask-llm-mcp doctor`** when something doesn't work before opening an issue. It catches 90%+ of setup problems with a clear diagnostic line per check.
+7. **Run `npx @ask-llm/mcp doctor`** when something doesn't work before opening an issue. It catches 90%+ of setup problems with a clear diagnostic line per check.

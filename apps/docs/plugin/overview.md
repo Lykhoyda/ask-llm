@@ -31,10 +31,10 @@ claude --plugin-dir ./packages/claude-plugin
 The plugin's review skills and reviewer agents call provider-specific MCP servers (for example, `codex:ask-codex`), so register them at user scope for short tool names:
 
 ```bash
-claude mcp add --scope user codex -- npx -y ask-codex-mcp
-claude mcp add --scope user antigravity -- npx -y ask-antigravity-mcp
-claude mcp add --scope user ollama -- npx -y ask-ollama-mcp
-claude mcp add --scope user gemini -- npx -y ask-gemini-mcp
+claude mcp add --scope user codex -- npx -y @ask-llm/codex-mcp
+claude mcp add --scope user antigravity -- npx -y @ask-llm/antigravity-mcp
+claude mcp add --scope user ollama -- npx -y @ask-llm/ollama-mcp
+claude mcp add --scope user gemini -- npx -y @ask-llm/gemini-mcp
 ```
 
 This gives you `codex:ask-codex` rather than `plugin:ask-llm:codex:ask-codex`.

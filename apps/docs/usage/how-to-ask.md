@@ -48,7 +48,7 @@ This is a Gemini CLI feature; `@` syntax is interpreted by `gemini`, not by the 
 
 For advanced users or when building automated AI workflows, these are the MCP tools the servers expose:
 
-### Unified orchestrator (`ask-llm-mcp`)
+### Unified orchestrator (`@ask-llm/mcp`)
 
 #### `ask-llm`
 
@@ -84,7 +84,7 @@ Self-diagnosis: Node version, PATH resolution, provider CLI presence + versions.
 
 Zero-cost connection test. Lists detected providers.
 
-### Per-provider servers (`ask-gemini-mcp`, `ask-codex-mcp`, `ask-claude-mcp`, `ask-ollama-mcp`, `ask-antigravity-mcp`)
+### Per-provider servers (`@ask-llm/gemini-mcp`, `@ask-llm/codex-mcp`, `@ask-llm/claude-mcp`, `@ask-llm/ollama-mcp`, `@ask-llm/antigravity-mcp`)
 
 Each per-provider server exposes its provider's `ask-*` tool with the richer per-provider parameter set, plus the shared `get-usage-stats` and `ping`.
 

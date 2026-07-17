@@ -6,7 +6,7 @@ description: Let Codex and other MCP clients consult Anthropic Claude Code CLI f
 
 <ProviderStatus provider="claude" />
 
-Bridge Codex CLI, Cursor, OpenCode, or another MCP client with Anthropic's Claude Code CLI. This is the reverse collaboration path of the hero pair: Codex asks Claude here, and Claude asks Codex back through [`ask-codex-mcp`](/providers/codex).
+Bridge Codex CLI, Cursor, OpenCode, or another MCP client with Anthropic's Claude Code CLI. This is the reverse collaboration path of the hero pair: Codex asks Claude here, and Claude asks Codex back through [`@ask-llm/codex-mcp`](/providers/codex).
 
 > **Best for:** getting an independent Claude review while Codex or another model is your primary agent.
 > **Not for:** use from inside Claude Code itself. Claude Code rejects nested Claude sessions, so the unified orchestrator suppresses this provider when Claude Code is the MCP host.
@@ -15,7 +15,7 @@ Bridge Codex CLI, Cursor, OpenCode, or another MCP client with Anthropic's Claud
 
 <InstallSnippet provider="claude" />
 
-Or install globally: `npm install -g ask-claude-mcp`
+Or install globally: `npm install -g @ask-llm/claude-mcp`
 
 ## Prerequisites
 
@@ -66,5 +66,5 @@ The JSON response includes Claude's `session_id`. Pass it back as `sessionId` on
 
 ## npm
 
-- **Package:** [ask-claude-mcp](https://www.npmjs.com/package/ask-claude-mcp)
-- **Binary:** `ask-claude-mcp`
+- **Package:** [@ask-llm/claude-mcp](https://www.npmjs.com/package/@ask-llm/claude-mcp)
+- **Binary:** `@ask-llm/claude-mcp`

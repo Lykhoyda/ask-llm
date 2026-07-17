@@ -6,7 +6,7 @@ description: Bridge Claude with OpenAI Codex CLI for GPT-5.6 Sol code review and
 
 <ProviderStatus provider="codex" />
 
-OpenAI's Codex CLI is the workhorse reviewer of the pair: strongest code reasoning for targeted reviews, architecture critique, and diff analysis. Claude asks Codex; Codex asks Claude back through [`ask-claude-mcp`](/providers/claude).
+OpenAI's Codex CLI is the workhorse reviewer of the pair: strongest code reasoning for targeted reviews, architecture critique, and diff analysis. Claude asks Codex; Codex asks Claude back through [`@ask-llm/claude-mcp`](/providers/claude).
 
 > **Best for:** targeted code reasoning, architecture critique, and security review of specific files, the default workhorse reviewer.
 > **Not for:** whole-repository reads beyond its context window (use Gemini or Antigravity), or fully offline/air-gapped use (it's a hosted model; use Ollama).
@@ -15,7 +15,7 @@ OpenAI's Codex CLI is the workhorse reviewer of the pair: strongest code reasoni
 
 <InstallSnippet provider="codex" />
 
-Or install globally: `npm install -g ask-codex-mcp`
+Or install globally: `npm install -g @ask-llm/codex-mcp`
 
 ## Prerequisites
 
@@ -54,5 +54,5 @@ Or install globally: `npm install -g ask-codex-mcp`
 
 ## npm
 
-- **Package:** [ask-codex-mcp](https://www.npmjs.com/package/ask-codex-mcp)
-- **Binary:** `ask-codex-mcp`
+- **Package:** [@ask-llm/codex-mcp](https://www.npmjs.com/package/@ask-llm/codex-mcp)
+- **Binary:** `@ask-llm/codex-mcp`

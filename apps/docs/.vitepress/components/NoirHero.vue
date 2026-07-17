@@ -1,7 +1,7 @@
 <template>
   <section class="noir-hero">
     <p class="command">
-      <span class="visually-hidden">claude mcp add ask-llm -- npx -y ask-llm-mcp</span>
+      <span class="visually-hidden">claude mcp add ask-llm -- npx -y @ask-llm/mcp</span>
       <span aria-hidden="true">$ {{ typed }}</span><span class="cursor" aria-hidden="true">▌</span>
     </p>
     <h1>Every diff deserves<br />a second opinion.</h1>
@@ -20,7 +20,7 @@
 import { onBeforeUnmount, onMounted, ref } from "vue";
 import { withBase } from "vitepress";
 
-const FULL = "claude mcp add ask-llm -- npx -y ask-llm-mcp";
+const FULL = "claude mcp add ask-llm -- npx -y @ask-llm/mcp";
 const typed = ref("");
 let timer: ReturnType<typeof setInterval> | undefined;
 

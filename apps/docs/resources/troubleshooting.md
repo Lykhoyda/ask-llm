@@ -4,11 +4,11 @@ description: Common issues and solutions for Ask LLM MCP servers. Connection err
 
 # Troubleshooting
 
-> **Run the doctor first.** `npx ask-llm-mcp doctor` checks Node version, PATH, every provider CLI's presence + version, and env vars. It works even when MCP can't start. 90%+ of setup issues are caught here with a clear failed-check line; fix from the bottom of the report up.
+> **Run the doctor first.** `npx @ask-llm/mcp doctor` checks Node version, PATH, every provider CLI's presence + version, and env vars. It works even when MCP can't start. 90%+ of setup issues are caught here with a clear failed-check line; fix from the bottom of the report up.
 
 ```bash
-npx ask-llm-mcp doctor          # human-readable
-npx ask-llm-mcp doctor --json   # machine-readable, exit 1 on error
+npx @ask-llm/mcp doctor          # human-readable
+npx @ask-llm/mcp doctor --json   # machine-readable, exit 1 on error
 ```
 
 <script setup>
@@ -44,7 +44,7 @@ codex --version
 ollama list
 ```
 
-If `npx ask-llm-mcp doctor` reports a CLI as "not found on PATH" but `which <cli>` works in your terminal, the issue is PATH inheritance; see the next entry.
+If `npx @ask-llm/mcp doctor` reports a CLI as "not found on PATH" but `which <cli>` works in your terminal, the issue is PATH inheritance; see the next entry.
 
 </TroubleshootingModal>
 
@@ -57,7 +57,7 @@ macOS GUI applications (Claude Desktop, Cursor, etc.) don't source `.zshrc` / `.
 
 If it's still failing:
 
-1. Confirm `npx ask-llm-mcp doctor` shows a non-empty `Resolved PATH` with the CLI's directory in it.
+1. Confirm `npx @ask-llm/mcp doctor` shows a non-empty `Resolved PATH` with the CLI's directory in it.
 2. If it doesn't, set `ASK_LLM_PATH` explicitly in your MCP client's env config:
 
 ```json
@@ -65,7 +65,7 @@ If it's still failing:
   "mcpServers": {
     "ask-llm": {
       "command": "npx",
-      "args": ["-y", "ask-llm-mcp"],
+      "args": ["-y", "@ask-llm/mcp"],
       "env": {
         "ASK_LLM_PATH": "/usr/local/bin:/opt/homebrew/bin:$HOME/.nvm/versions/node/v22.0.0/bin"
       }
@@ -87,14 +87,15 @@ If it's still failing:
 
 ```bash
 # Method 1: Install globally first (skips npx entirely)
-npm install -g ask-llm-mcp
+# The global install keeps the original `ask-llm-mcp` executable name.
+npm install -g @ask-llm/mcp
 claude mcp add --scope user ask-llm -- ask-llm-mcp
 
 # Method 2: --yes instead of -y
-claude mcp add --scope user ask-llm -- npx --yes ask-llm-mcp
+claude mcp add --scope user ask-llm -- npx --yes @ask-llm/mcp
 
 # Method 3: Drop the flag entirely
-claude mcp add --scope user ask-llm -- npx ask-llm-mcp
+claude mcp add --scope user ask-llm -- npx @ask-llm/mcp
 ```
 
 </TroubleshootingModal>
@@ -112,7 +113,7 @@ claude mcp add --scope user ask-llm -- npx ask-llm-mcp
    ```
 2. **Run the doctor** to identify what's missing:
    ```bash
-   npx ask-llm-mcp doctor
+   npx @ask-llm/mcp doctor
    ```
 3. **Verify Claude Desktop config syntax**: use a JSON validator. Common bugs: trailing commas, missing brackets.
 4. **Restart Claude Desktop completely**:
@@ -129,7 +130,7 @@ claude mcp add --scope user ask-llm -- npx ask-llm-mcp
   preview='Stale npx cache from a pre-1.5.7 install poisons new runs. Clear it.'
 >
 
-Symptom: Claude Desktop or any `npx -y ask-llm-mcp` invocation fails with:
+Symptom: Claude Desktop or any `npx -y @ask-llm/mcp` invocation fails with:
 
 ```
 npm error code EUNSUPPORTEDPROTOCOL
@@ -138,14 +139,14 @@ npm error Unsupported URL Type "workspace:": workspace:*
 
 **Fix in one line:** `rm -rf ~/.npm/_npx && npm cache clean --force` then re-launch.
 
-Why this happens: pre-1.5.7 releases shipped unrewritten `workspace:*` strings in their published `package.json` (the bug fixed by [ADR-052](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md)). The npx cache at `~/.npm/_npx/<hash>/` keeps tarballs forever; npx never invalidates it on its own, even when a newer version is published. When you run `npx -y ask-llm-mcp` again, npm walks the cache, finds the stale entry, fails dep-graph validation against `workspace:*`, and aborts before it gets to the new tarball. **Today's published packages are clean**; the bug source is purely the cached old install on your machine.
+Why this happens: pre-1.5.7 releases shipped unrewritten `workspace:*` strings in their published `package.json` (the bug fixed by [ADR-052](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md)). The npx cache at `~/.npm/_npx/<hash>/` keeps tarballs forever; npx never invalidates it on its own, even when a newer version is published. When you run `npx -y @ask-llm/mcp` again, npm walks the cache, finds the stale entry, fails dep-graph validation against `workspace:*`, and aborts before it gets to the new tarball. **Today's published packages are clean**; the bug source is purely the cached old install on your machine.
 
 Why the one-liner works:
 
 - `rm -rf ~/.npm/_npx` purges the per-CLI npx cache; the next `npx -y` rebuilds it from a clean download.
 - `npm cache clean --force` is belt-and-suspenders; clears the global `~/.npm/_cacache/` in case anything stale lingered there too.
 
-After clearing, `npx -y ask-llm-mcp` re-downloads the latest version and starts cleanly. You should see lines like `[GMCPT] Provider Codex (codex)` reporting each detected provider as available in the Claude Desktop debug log.
+After clearing, `npx -y @ask-llm/mcp` re-downloads the latest version and starts cleanly. You should see lines like `[GMCPT] Provider Codex (codex)` reporting each detected provider as available in the Claude Desktop debug log.
 
 This is a one-shot; once you've cleared the cache and run a clean install, the cache is poison-free and stays that way as long as you only install post-1.5.7 versions (which is everything since 2026-04-01).
 
@@ -229,9 +230,9 @@ To check the resolved per-provider timeouts on your machine, run `ask-llm:diagno
   preview="The orchestrator didn't detect the provider at startup"
 >
 
-The orchestrator (`ask-llm-mcp`) detects available providers at startup. If a provider you expected isn't there:
+The orchestrator (`@ask-llm/mcp`) detects available providers at startup. If a provider you expected isn't there:
 
-1. Run `npx ask-llm-mcp doctor` to see what it detects.
+1. Run `npx @ask-llm/mcp doctor` to see what it detects.
 2. The most common cause is PATH not finding the provider CLI; see the PATH issue entry above.
 3. For Ollama specifically, it must be **running** at `http://localhost:11434` (or wherever `OLLAMA_HOST` points). Not just installed.
 4. Restart your MCP client to re-detect providers.
@@ -290,9 +291,9 @@ If `ask-llm` isn't there, install it:
 The plugin's MCP servers also need to be registered, typically done at user scope:
 
 ```bash
-claude mcp add --scope user gemini -- npx -y ask-gemini-mcp
-claude mcp add --scope user codex  -- npx -y ask-codex-mcp
-claude mcp add --scope user ollama -- npx -y ask-ollama-mcp
+claude mcp add --scope user gemini -- npx -y @ask-llm/gemini-mcp
+claude mcp add --scope user codex  -- npx -y @ask-llm/codex-mcp
+claude mcp add --scope user ollama -- npx -y @ask-llm/ollama-mcp
 ```
 
 </TroubleshootingModal>
@@ -306,7 +307,7 @@ Enable verbose logging:
   "mcpServers": {
     "ask-llm": {
       "command": "npx",
-      "args": ["-y", "ask-llm-mcp"],
+      "args": ["-y", "@ask-llm/mcp"],
       "env": {
         "GMCPT_LOG_LEVEL": "debug"
       }
@@ -323,7 +324,7 @@ Logs go to stderr. Claude Desktop captures them in:
 
 ## Getting Help
 
-1. **Run the doctor first**: `npx ask-llm-mcp doctor`
+1. **Run the doctor first**: `npx @ask-llm/mcp doctor`
 2. Check [GitHub Issues](https://github.com/Lykhoyda/ask-llm/issues) for similar reports
 3. Open a new issue with: doctor output, your client (Claude Code/Desktop/Cursor/etc.), Node version, OS, and what you ran
 4. Ask in [GitHub Discussions](https://github.com/Lykhoyda/ask-llm/discussions) for usage questions

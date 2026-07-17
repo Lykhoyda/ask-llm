@@ -43,11 +43,11 @@ Not sure which? See each provider's page: [Codex](/providers/codex), [Claude](/p
 
 ## 2. Register the MCP server
 
-The recommended package is `ask-llm-mcp`, the unified orchestrator: it auto-detects every provider CLI you installed and exposes one `ask-llm` tool plus `multi-llm`, `get-usage-stats`, `diagnose`, and `ping`.
+The recommended package is `@ask-llm/mcp`, the unified orchestrator: it auto-detects every provider CLI you installed and exposes one `ask-llm` tool plus `multi-llm`, `get-usage-stats`, `diagnose`, and `ping`.
 
 <SetupTabs provider="unified" />
 
-Prefer a single provider with its richer tool surface (`ask-codex-edit`, `fetch-chunk`, native session tools)? Install the per-provider package instead: swap `ask-llm-mcp` for `ask-codex-mcp`, `ask-claude-mcp`, `ask-antigravity-mcp`, `ask-ollama-mcp`, or `ask-gemini-mcp` in any tab above.
+Prefer a single provider with its richer tool surface (`ask-codex-edit`, `fetch-chunk`, native session tools)? Install the per-provider package instead: swap `@ask-llm/mcp` for `@ask-llm/codex-mcp`, `@ask-llm/claude-mcp`, `@ask-llm/antigravity-mcp`, `@ask-llm/ollama-mcp`, or `@ask-llm/gemini-mcp` in any tab above.
 
 ## 3. Verify
 
@@ -60,7 +60,7 @@ Use ask-llm ping to test the connection
 A `Pong!` reply lists the providers your server detected. If something is off, run the doctor from your terminal; it works even when the MCP server cannot start:
 
 ```bash
-npx ask-llm-mcp doctor
+npx @ask-llm/mcp doctor
 ```
 
 ## First calls
