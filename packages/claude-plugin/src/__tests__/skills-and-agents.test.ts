@@ -135,10 +135,16 @@ describe("agents/", () => {
 
   it("sol-reviewer sanctions an exact CLI transport fallback with full disclosure (#232)", () => {
     const content = readFile("agents/sol-reviewer.md");
-    // The sanctioned fallback command keeps the Sol pin, effort override, and
-    // read-only sandbox; agents must not improvise their own flag set.
-    expect(content).toContain('codex exec -m gpt-5.6-sol -c model_reasoning_effort="high" -s read-only');
-    // Plugin-namespaced tool variants count as the primary transport.
+    // The sanctioned fallback command keeps the Sol pin, effort override,
+    // read-only sandbox, AND the determinism/isolation flags the MCP executor
+    // always passes (a local ~/.codex/config.toml must not override the pin).
+    expect(content).toContain(
+      'codex exec -m gpt-5.6-sol -c model_reasoning_effort="high" -s read-only --ignore-user-config --ignore-rules --skip-git-repo-check',
+    );
+    // Plugin-namespaced tool variants count as the primary transport, and the
+    // frontmatter allowlist must actually grant the variant, not just mention it.
+    const tools = parseMarkdownFrontmatter(content).frontmatter.tools as string[];
+    expect(tools).toContain("mcp__plugin_ask-llm_codex__ask-codex");
     expect(content).toContain("mcp__plugin_ask-llm_codex__ask-codex");
     // Transport fallback is disclosed like a model fallback, and a missing CLI
     // stops the review instead of degrading further.
