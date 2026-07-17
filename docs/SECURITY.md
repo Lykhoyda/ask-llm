@@ -5,7 +5,7 @@
 Only the latest minor version of each published package receives security fixes. Update with:
 
 ```bash
-npm install -g ask-gemini-mcp@latest ask-codex-mcp@latest ask-ollama-mcp@latest ask-llm-mcp@latest
+npm install -g ask-gemini-mcp@latest ask-codex-mcp@latest ask-claude-mcp@latest ask-ollama-mcp@latest ask-antigravity-mcp@latest ask-llm-mcp@latest
 ```
 
 For the Claude Code plugin, run `/plugin update ask-llm` from inside Claude Code.
@@ -17,7 +17,7 @@ For the Claude Code plugin, run `/plugin update ask-llm` from inside Claude Code
 Use [GitHub Private Vulnerability Reporting](https://github.com/Lykhoyda/ask-llm/security/advisories/new) to report privately. We aim to respond within 7 days.
 
 Include in your report:
-- Affected package and version (`ask-gemini-mcp`, `ask-codex-mcp`, `ask-ollama-mcp`, `ask-llm-mcp`, or `@ask-llm/plugin`)
+- Affected package and version (`ask-gemini-mcp`, `ask-codex-mcp`, `ask-claude-mcp`, `ask-ollama-mcp`, `ask-antigravity-mcp`, `ask-llm-mcp`, or `@ask-llm/plugin`)
 - A clear description of the issue
 - Reproduction steps or proof-of-concept if possible
 - Your suggested mitigation if you have one
@@ -25,21 +25,25 @@ Include in your report:
 
 ## Threat model
 
-The MCP server runs locally as a subprocess of the user's MCP client (Claude Code, Claude Desktop, Cursor, etc.) with the user's privileges. Provider CLIs (`gemini`, `codex`) and Ollama are trusted dependencies.
+The MCP server runs locally as a subprocess of the user's MCP client (Claude Code, Codex CLI, Cursor, etc.) with the user's privileges. Provider CLIs (`gemini`, `codex`, `claude`, `agy`) and Ollama are trusted dependencies.
+
+Review and second-opinion Codex paths run with `--sandbox read-only` (ADR-133). Antigravity has no hard file-tool read-only mode: Ask LLM adds its read-only preamble and `--sandbox` to every managed path, but this remains a soft boundary and is documented as such in `docs/BUGS.md`.
+
+Claude consultations run with `--safe-mode` and an explicit `Read,Glob,Grep` tool list. Bash, Edit, Write, user-configured MCP servers, hooks, and plugins are unavailable to the nested reviewer. The provider refuses to run when `CLAUDECODE` indicates Claude Code is already the host.
 
 ### In scope
 
 - Command injection via tool arguments (prompt, model, includeDirs, sessionId)
 - Path traversal via `@file` syntax or `--include-directories`
 - Information disclosure — secrets leaking into logs, error responses, or stderr that is propagated back to the MCP client
-- Plugin hooks executing untrusted shell content (the `PreToolUse` Bash matcher in `packages/claude-plugin/hooks/hooks.json`)
+- Plugin hooks executing untrusted shell content (PostToolUse, SessionStart/SessionEnd, UserPromptSubmit, and the opt-in Stop gate in `packages/claude-plugin/hooks/hooks.json`)
 - Workspace-protocol bundling bugs that could cause unintended code to be installed at `npm install` time (see ADR-052)
 - Temp file handling — leakage of staged diffs or session content from `/tmp/ask-llm-*` files
 - Insecure defaults in the `commandExecutor` spawn options or the resolved `PATH` (ADR-047)
 
 ### Out of scope
 
-- Vulnerabilities in upstream provider CLIs — report to Google (Gemini), OpenAI (Codex), or Ollama directly
+- Vulnerabilities in upstream provider CLIs — report to Anthropic (Claude), Google (Gemini), OpenAI (Codex), or Ollama directly
 - Vulnerabilities in `@modelcontextprotocol/sdk` — report to the MCP project
 - Issues that already require local code execution as the same user the MCP server runs as (the MCP server is not a privilege boundary — it already runs with your full user privileges)
 - Vulnerabilities in the user's MCP client (Claude Code, Claude Desktop, etc.)
