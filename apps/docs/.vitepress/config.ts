@@ -121,6 +121,7 @@ export default withMermaid(
           ],
         },
         { text: "Claude Plugin", link: "/plugin/overview" },
+        { text: "Codex Pair", link: "/plugin/codex-pair" },
       ],
 
       sidebar: [

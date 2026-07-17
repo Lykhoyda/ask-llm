@@ -346,3 +346,10 @@ button:focus-visible {
 }
 .home-explore a { font-family: var(--font-mono); font-size: 14px; }
 .home-explore span { color: var(--noir-text-3); font-size: 13px; }
+
+/* Command/code cells never wrap mid-command; the table container scrolls instead */
+.vp-doc table td code,
+.vp-doc table th code {
+  white-space: nowrap;
+}
+
