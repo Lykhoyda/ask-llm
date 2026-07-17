@@ -65,4 +65,4 @@ Or install globally: `npm install -g @ask-llm/antigravity-mcp`
 ## npm
 
 - **Package:** [@ask-llm/antigravity-mcp](https://www.npmjs.com/package/@ask-llm/antigravity-mcp)
-- **Binary:** `@ask-llm/antigravity-mcp`
+- **Binary:** `ask-antigravity-mcp`

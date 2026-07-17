@@ -79,4 +79,4 @@ npx @ask-llm/mcp doctor   # diagnose Node version, PATH, provider CLIs, env vars
 ## npm
 
 - **Package:** [@ask-llm/mcp](https://www.npmjs.com/package/@ask-llm/mcp)
-- **Binary:** `@ask-llm/mcp`
+- **Binary:** `ask-llm-mcp`

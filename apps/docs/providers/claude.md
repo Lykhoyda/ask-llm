@@ -67,4 +67,4 @@ The JSON response includes Claude's `session_id`. Pass it back as `sessionId` on
 ## npm
 
 - **Package:** [@ask-llm/claude-mcp](https://www.npmjs.com/package/@ask-llm/claude-mcp)
-- **Binary:** `@ask-llm/claude-mcp`
+- **Binary:** `ask-claude-mcp`

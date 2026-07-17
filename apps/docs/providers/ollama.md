@@ -71,4 +71,4 @@ Each turn replays the full prior conversation (input tokens grow linearly with d
 ## npm
 
 - **Package:** [@ask-llm/ollama-mcp](https://www.npmjs.com/package/@ask-llm/ollama-mcp)
-- **Binary:** `@ask-llm/ollama-mcp`
+- **Binary:** `ask-ollama-mcp`

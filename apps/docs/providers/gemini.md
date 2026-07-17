@@ -78,4 +78,4 @@ gemini login
 ## npm
 
 - **Package:** [@ask-llm/gemini-mcp](https://www.npmjs.com/package/@ask-llm/gemini-mcp)
-- **Binary:** `@ask-llm/gemini-mcp`
+- **Binary:** `ask-gemini-mcp`

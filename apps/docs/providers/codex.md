@@ -55,4 +55,4 @@ Or install globally: `npm install -g @ask-llm/codex-mcp`
 ## npm
 
 - **Package:** [@ask-llm/codex-mcp](https://www.npmjs.com/package/@ask-llm/codex-mcp)
-- **Binary:** `@ask-llm/codex-mcp`
+- **Binary:** `ask-codex-mcp`
