@@ -46,7 +46,7 @@ No. The orchestrator (`@ask-llm/mcp`) auto-detects which CLIs are installed and 
 
 ### What Node.js version do I need?
 
-Node v20.0.0 or higher (LTS 20 or 22). The doctor command (`npx @ask-llm/mcp doctor`) will warn if you're on an older version; Gemini CLI 0.36+ uses ES2024 regex features that crash on Node 18 ([ADR-046](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md)).
+Node v20.0.0 or higher (LTS 20 or 22). The doctor command (`npx @ask-llm/mcp doctor`) will warn if you're on an older version; Gemini CLI 0.36+ uses ES2024 regex features that crash on Node 18.
 
 ### Should I use the orchestrator or per-provider packages?
 
@@ -115,7 +115,7 @@ import { executeGeminiCLI } from "@ask-llm/gemini-mcp/executor";
 const result = await executeGeminiCLI({ prompt: "review this diff" });
 ```
 
-A dedicated GitHub Action was built and then withdrawn ([ADR-061](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md)); focus shifted to MCP/plugin usage for CLI workflows. CI integration may return as a future feature.
+A dedicated GitHub Action was built and then withdrawn; focus shifted to MCP/plugin usage for CLI workflows. CI integration may return as a future feature.
 
 ---
 
@@ -130,7 +130,7 @@ Only when you explicitly use `ask-codex` (OpenAI), `ask-claude` (Anthropic), or 
 - **Gemini sessions**: managed by the Gemini CLI in its own storage (`~/.gemini/`)
 - **Codex sessions**: managed by Codex CLI in `~/.codex/`
 - **Claude sessions**: managed by Claude Code CLI in its own local session storage
-- **Ollama sessions**: server-side replay store at `/tmp/ask-llm-sessions/<id>.json`, owner-only permissions (0o600 file / 0o700 dir), 24-hour TTL, atomic temp+rename writes ([ADR-063](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md))
+- **Ollama sessions**: server-side replay store at `/tmp/ask-llm-sessions/<id>.json`, owner-only permissions (0o600 file / 0o700 dir), 24-hour TTL, atomic temp+rename writes
 
 The Ollama session permissions specifically prevent other users on shared systems from reading your prompts.
 
@@ -144,7 +144,7 @@ Auth is delegated entirely to the provider CLIs (`gemini login`, Codex auth, Oll
 
 ### Why is it slow?
 
-Large-context Gemini calls are inherently slow (the model is reading a lot). The Gemini executor uses `--output-format stream-json` so you see progressive output rather than a frozen wait; incoming text is forwarded to MCP progress notifications ([ADR-057](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md)). Codex at high reasoning effort can take several minutes; this is normal for the model, not a server issue.
+Large-context Gemini calls are inherently slow (the model is reading a lot). The Gemini executor uses `--output-format stream-json` so you see progressive output rather than a frozen wait; incoming text is forwarded to MCP progress notifications. Codex at high reasoning effort can take several minutes; this is normal for the model, not a server issue.
 
 ### Where do I get logs?
 

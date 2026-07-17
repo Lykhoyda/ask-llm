@@ -10,14 +10,14 @@ Hooks are automated actions that trigger on specific Claude Code events. Every h
 
 ## Hooks the plugin registers
 
-All five hooks are dependency-free with zero workspace imports, required so they run from marketplace `git-subdir` installs that don't run `npm install` (see [ADR-078](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md)). Only `codex-pair-watch` shells out to `codex exec --json` to run a review; the prompt-drain and Stop hooks only surface already-persisted verdicts (zero new LLM calls), and the session hook manages pause/debounce state (plus the optional broker). Each self-gates on the `.codex-pair/context.md` marker file and stays silent (zero cost, zero Codex calls) unless a project opts in.
+All five hooks are dependency-free with zero workspace imports, required so they run from marketplace `git-subdir` installs that don't run `npm install`. Only `codex-pair-watch` shells out to `codex exec --json` to run a review; the prompt-drain and Stop hooks only surface already-persisted verdicts (zero new LLM calls), and the session hook manages pause/debounce state (plus the optional broker). Each self-gates on the `.codex-pair/context.md` marker file and stays silent (zero cost, zero Codex calls) unless a project opts in.
 
 | Hook | Event | Action |
 |------|-------|--------|
 | `codex-pair-watch` | `PostToolUse` (Edit / Write / MultiEdit) | Debounced per-edit Codex review of the settled file state. See [Codex Pair → the hook pipeline](/plugin/codex-pair#the-hook-pipeline) |
 | `codex-pair-prompt-drain` | `UserPromptSubmit` | Drains queued codex-pair verdicts that finished mid-turn so they reach Claude without waiting for the next edit |
-| `codex-pair-stop-gate` | `Stop` | Drains remaining verdicts at turn-end; with `blockOn: HIGH` (opt-in, default OFF, [ADR-118](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md)) blocks turn-end on unaddressed HIGH findings or in-flight reviews |
-| `codex-pair-session` | `SessionStart` | Announces a paused project or auto-resumes an expired auto-pause ([ADR-130](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md)); starts the experimental `codex app-server` broker only with `ASK_CODEX_BROKER=1` ([ADR-090](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md), [ADR-093](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md)) |
+| `codex-pair-stop-gate` | `Stop` | Drains remaining verdicts at turn-end; with `blockOn: HIGH` (opt-in, default OFF) blocks turn-end on unaddressed HIGH findings or in-flight reviews |
+| `codex-pair-session` | `SessionStart` | Announces a paused project or auto-resumes an expired auto-pause; starts the experimental `codex app-server` broker only with `ASK_CODEX_BROKER=1` |
 | `codex-pair-session` | `SessionEnd` | Clears debounce state so orphaned workers self-cancel; tears down the broker when `ASK_CODEX_BROKER=1` |
 
 ## How hook registration works
@@ -30,8 +30,8 @@ Because the scripts have zero workspace imports, they run identically from a sou
 
 The plugin previously shipped two other hooks that have been removed:
 
-- A `Stop` hook (removed in [ADR-048](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md)) because the `Stop` event fires per-turn rather than per-session, making it noisy and high-latency, and `git diff HEAD` excluded untracked files which silently dropped coverage on new-file sessions. (The current `codex-pair-stop-gate` is fundamentally different: it reads the already-computed `log.jsonl` with zero new LLM calls.)
-- A `PreToolUse` pre-commit Gemini-review hook (removed in [ADR-094](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md)) because per-file codex-pair review delivers higher-recall feedback continuously *during* editing rather than only at commit time, and the on-demand `/gemini-review` skill covers the explicit-review need.
+- A `Stop` hook, removed because the `Stop` event fires per-turn rather than per-session, making it noisy and high-latency, and `git diff HEAD` excluded untracked files which silently dropped coverage on new-file sessions. (The current `codex-pair-stop-gate` is fundamentally different: it reads the already-computed `log.jsonl` with zero new LLM calls.)
+- A `PreToolUse` pre-commit Gemini-review hook, removed because per-file codex-pair review delivers higher-recall feedback continuously *during* editing rather than only at commit time, and the on-demand `/gemini-review` skill covers the explicit-review need.
 
 Use the `/gemini-review` slash command for explicit on-demand pre-commit reviews instead, or the `/codex-review` skill for a precision-first PR-style review.
 

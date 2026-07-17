@@ -50,20 +50,20 @@ gemini login
 
 | Tool | Purpose |
 |------|---------|
-| `ask-gemini` | Send prompts to Gemini CLI with `@` file syntax. Optional `sessionId` for multi-turn; live progressive output via `--output-format stream-json` ([ADR-057](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md)) |
+| `ask-gemini` | Send prompts to Gemini CLI with `@` file syntax. Optional `sessionId` for multi-turn; live progressive output via `--output-format stream-json` |
 | `ask-gemini-edit` | Structured code edits via Gemini changeMode. Returns OLD/NEW edit blocks. Supports `includeDirs` for monorepo context |
 | `fetch-chunk` | Retrieve subsequent chunks from cached large responses |
-| `get-usage-stats` | Per-session token totals + breakdowns by provider/model. In-memory ([ADR-054](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md)) |
+| `get-usage-stats` | Per-session token totals + breakdowns by provider/model. In-memory |
 | `ping` | Fast connection test to verify MCP setup |
 
-`ask-gemini` returns both human-readable text and a structured `AskResponse` (provider, response, model, sessionId, usage) via MCP `outputSchema`; programmatic clients can extract the sessionId and usage fields directly without parsing the response footer ([ADR-065](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md)).
+`ask-gemini` returns both human-readable text and a structured `AskResponse` (provider, response, model, sessionId, usage) via MCP `outputSchema`; programmatic clients can extract the sessionId and usage fields directly without parsing the response footer.
 
 ## Models
 
 <FallbackChain provider="gemini" />
 
 - **Default:** `gemini-3.1-pro-preview` (latest, highest capability)
-- **Quota fallback:** `gemini-3.5-flash`, automatic on `RESOURCE_EXHAUSTED` ([ADR-044](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md))
+- **Quota fallback:** `gemini-3.5-flash`, automatic on `RESOURCE_EXHAUSTED`
 - **Overrides:** `ASK_GEMINI_MODEL`, `ASK_GEMINI_FALLBACK_MODEL`, or the per-call `model` parameter
 
 ## Key Features

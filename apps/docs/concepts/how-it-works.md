@@ -26,19 +26,19 @@ This intelligent selection happens automatically; you just ask in natural langua
 
 <RequestFlow />
 
-For a single-provider call (`ask-llm` with `provider: "gemini"`), only one of the provider lanes fires. For `multi-llm`, both fire in parallel via `Promise.all` inside the MCP server process; per-provider failures are isolated, so one provider hitting quota doesn't fail the whole call ([ADR-066](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md)).
+For a single-provider call (`ask-llm` with `provider: "gemini"`), only one of the provider lanes fires. For `multi-llm`, both fire in parallel via `Promise.all` inside the MCP server process; per-provider failures are isolated, so one provider hitting quota doesn't fail the whole call.
 
 ## What's Inside the MCP Server
 
 Each provider's executor wraps the underlying CLI with operational hardening that took multiple ADRs to get right:
 
-- **Quota fallback**: Gemini Pro → Flash on `RESOURCE_EXHAUSTED` ([ADR-044](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md)); Codex `gpt-5.6-sol` → `gpt-5.6-terra` on quota errors ([ADR-028](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md))
-- **Stdin handling**: Codex needs an EOF-terminated pipe rather than `/dev/null`, otherwise it errors out ([ADR-042](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md))
-- **PATH resolution**: macOS GUI clients (Claude Desktop) don't inherit your shell's PATH; the server resolves it from your login shell at startup ([ADR-047](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md))
-- **Live progressive output**: Gemini's `--output-format stream-json` deltas are parsed and forwarded to MCP progress notifications, so users see Gemini's prose unfolding rather than a frozen wait ([ADR-057](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md))
-- **Session continuity**: Claude, Gemini, Codex, and Ollama support multi-turn via the `sessionId` parameter; Claude/Gemini/Codex use native CLI resume, Ollama uses server-side conversation replay (Antigravity is single-turn) ([ADR-058](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md), [ADR-063](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md))
+- **Quota fallback**: Gemini Pro → Flash on `RESOURCE_EXHAUSTED`; Codex `gpt-5.6-sol` → `gpt-5.6-terra` on quota errors
+- **Stdin handling**: Codex needs an EOF-terminated pipe rather than `/dev/null`, otherwise it errors out
+- **PATH resolution**: macOS GUI clients (Claude Desktop) don't inherit your shell's PATH; the server resolves it from your login shell at startup
+- **Live progressive output**: Gemini's `--output-format stream-json` deltas are parsed and forwarded to MCP progress notifications, so users see Gemini's prose unfolding rather than a frozen wait
+- **Session continuity**: Claude, Gemini, Codex, and Ollama support multi-turn via the `sessionId` parameter; Claude/Gemini/Codex use native CLI resume, Ollama uses server-side conversation replay (Antigravity is single-turn)
 - **Read-only Claude consultations**: `ask-claude` uses safe mode and exposes only Read, Glob, and Grep; the MCP host performs any edits
-- **Structured responses**: every `ask-*` tool returns both human-readable text AND a structured `AskResponse` (provider, response, model, sessionId, usage) via MCP `outputSchema` so programmatic clients don't have to parse the response footer ([ADR-065](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md))
+- **Structured responses**: every `ask-*` tool returns both human-readable text AND a structured `AskResponse` (provider, response, model, sessionId, usage) via MCP `outputSchema` so programmatic clients don't have to parse the response footer
 
 You don't need to think about any of this; it's just the infrastructure that makes the natural-language flow work reliably.
 

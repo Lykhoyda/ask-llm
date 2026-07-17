@@ -42,7 +42,7 @@ Ask Gemini to do the same review on @feature/new-api/*.js, focusing on edge case
 /multi-review
 ```
 
-The `/multi-review` skill dispatches to Antigravity + Codex in parallel, then **verifies each high-confidence finding against the actual source** before presenting. Findings are classified as VERIFIED / REJECTED / UNVERIFIABLE; false positives get caught instead of acted on. See [ADR-064](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md).
+The `/multi-review` skill dispatches to Antigravity + Codex in parallel, then **verifies each high-confidence finding against the actual source** before presenting. Findings are classified as VERIFIED / REJECTED / UNVERIFIABLE; false positives get caught instead of acted on.
 
 **Multi-provider (raw, no synthesis):**
 
@@ -114,7 +114,7 @@ Call 3: Ask Codex to write tests for the fix, sessionId abc-123
         → continues the same thread
 ```
 
-Claude, Gemini, Codex, and Ollama support sessions; Antigravity is single-turn. Claude sessions are available from Codex and other non-Claude hosts. For programmatic clients, the `sessionId` is also exposed structurally via `result.structuredContent.sessionId`; no need to regex-parse the response footer ([ADR-065](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md)).
+Claude, Gemini, Codex, and Ollama support sessions; Antigravity is single-turn. Claude sessions are available from Codex and other non-Claude hosts. For programmatic clients, the `sessionId` is also exposed structurally via `result.structuredContent.sessionId`; no need to regex-parse the response footer.
 
 ### 6. Quick Sanity Check via REPL
 
@@ -147,7 +147,7 @@ Or via the unified orchestrator:
 Use ask-llm with provider ollama to review my recent changes
 ```
 
-Ollama runs entirely locally, never makes a network call to a third party. The MCP server stores any session state at `/tmp/ask-llm-sessions/<id>.json` with **owner-only permissions** (0o600 / 0o700; see [ADR-063](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md)) so prompts and responses don't leak to other users on shared systems.
+Ollama runs entirely locally, never makes a network call to a third party. The MCP server stores any session state at `/tmp/ask-llm-sessions/<id>.json` with **owner-only permissions** (0o600 / 0o700) so prompts and responses don't leak to other users on shared systems.
 
 ---
 
