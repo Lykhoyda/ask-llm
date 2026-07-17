@@ -13,17 +13,21 @@ const expectedSkills = [
   "codex-review",
   "codex-verify",
   "compare",
+  "fable-review",
   "gemini-review",
   "multi-review",
   "ollama-review",
+  "sol-review",
 ];
 const expectedAgents = [
   "antigravity-reviewer.md",
   "brainstorm-coordinator.md",
   "codex-reviewer.md",
   "codex-verifier.md",
+  "fable-reviewer.md",
   "gemini-reviewer.md",
   "ollama-reviewer.md",
+  "sol-reviewer.md",
 ];
 
 describe("skills/", () => {
@@ -88,6 +92,7 @@ describe("agents/", () => {
       { file: "codex-reviewer.md", tool: "mcp__codex__ask-codex" },
       { file: "ollama-reviewer.md", tool: "mcp__ollama__ask-ollama" },
       { file: "antigravity-reviewer.md", tool: "mcp__antigravity__ask-antigravity" },
+      { file: "sol-reviewer.md", tool: "mcp__codex__ask-codex" },
     ];
     for (const { file, tool } of cases) {
       const { frontmatter } = parseMarkdownFrontmatter(readFile(`agents/${file}`));
@@ -98,7 +103,14 @@ describe("agents/", () => {
   });
 
   it("review agents are restricted from edit/write tools", () => {
-    const reviewerAgents = ["gemini-reviewer.md", "codex-reviewer.md", "ollama-reviewer.md", "antigravity-reviewer.md"];
+    const reviewerAgents = [
+      "gemini-reviewer.md",
+      "codex-reviewer.md",
+      "ollama-reviewer.md",
+      "antigravity-reviewer.md",
+      "fable-reviewer.md",
+      "sol-reviewer.md",
+    ];
     for (const file of reviewerAgents) {
       const { frontmatter } = parseMarkdownFrontmatter(readFile(`agents/${file}`));
       const tools = frontmatter.tools as string[] | undefined;
@@ -107,6 +119,30 @@ describe("agents/", () => {
       expect(tools).not.toContain("Write");
       expect(tools).not.toContain("NotebookEdit");
     }
+  });
+
+  it("pins the native Fable reviewer and the Sol provider request", () => {
+    const fable = parseMarkdownFrontmatter(readFile("agents/fable-reviewer.md")).frontmatter;
+    const solContent = readFile("agents/sol-reviewer.md");
+    const sol = parseMarkdownFrontmatter(solContent).frontmatter;
+    expect(fable.model).toBe("fable");
+    expect(fable.effort).toBe("high");
+    expect(sol.model).toBe("opus");
+    expect(sol.effort).toBe("high");
+    expect(solContent).toContain('model: "gpt-5.6-sol"');
+    expect(solContent).toContain('reasoningEffort: "high"');
+  });
+});
+
+describe("native model review skills", () => {
+  it.each([
+    ["fable-review", "fable-reviewer", "model: fable"],
+    ["sol-review", "sol-reviewer", 'model: "gpt-5.6-sol"'],
+  ])("%s delegates to its model-pinned reviewer path", (skill, reviewer, modelPin) => {
+    const content = readFile(`skills/${skill}/SKILL.md`);
+    expect(content).toContain(reviewer);
+    expect(content).toContain(modelPin);
+    expect(content).toMatch(/distinguishes|Do not substitute|Do not route/i);
   });
 });
 
@@ -265,6 +301,18 @@ describe("compare skill — load-bearing structure", () => {
     expect(body).toMatch(/dist\/codex-run\.js/);
     expect(body).toMatch(/dist\/ollama-run\.js/);
     expect(body).toMatch(/dist\/antigravity-run\.js/);
+  });
+
+  it("inlines referenced file contents so every provider receives the same context", () => {
+    expect(body).toMatch(/Read each referenced file/i);
+    expect(body).toMatch(/inline.+contents/i);
+    expect(body).not.toMatch(/preserve the `@` syntax/i);
+  });
+
+  it("uses a unique temporary directory and removes it after dumping all outputs", () => {
+    expect(body).toMatch(/mktemp -d \/tmp\/ask-llm-compare-/);
+    expect(body).toMatch(/trap 'rm -rf "\$workdir"' EXIT/);
+    expect(body).not.toMatch(/rm -f \/tmp\/ask-llm-compare-\*/);
   });
 });
 
@@ -446,12 +494,28 @@ describe("brainstorm-coordinator — synthesis-confidence ladder (ADR-073 follow
 describe("agents/ — no removed codex CLI flags (#37/#38/#52)", () => {
   // codex rust-v0.128+ removed `--full-auto` entirely; on codex 0.135 it errors
   // with "unexpected argument", so any agent still spawning it has a broken codex
-  // dispatch. The canonical replacement is `--sandbox workspace-write`.
+  // dispatch. Review/brainstorm calls use the non-interactive read-only sandbox.
   it.each(expectedAgents)("%s does not invoke the removed `codex exec --full-auto` flag", (agentFile) => {
     expect(readFile(`agents/${agentFile}`)).not.toMatch(/--full-auto/);
   });
 
-  it("brainstorm-coordinator dispatches codex with `--sandbox workspace-write`", () => {
-    expect(readFile("agents/brainstorm-coordinator.md")).toMatch(/codex exec --sandbox workspace-write/);
+  it("brainstorm-coordinator dispatches codex with a read-only sandbox", () => {
+    const coordinator = readFile("agents/brainstorm-coordinator.md");
+    expect(coordinator).toMatch(/codex exec --sandbox read-only/);
+    expect(coordinator).not.toMatch(/codex exec --sandbox workspace-write/);
+  });
+
+  it("uses high reasoning effort for quality-first Codex review and brainstorming", () => {
+    const coordinator = readFile("agents/brainstorm-coordinator.md");
+    const reviewer = readFile("agents/codex-reviewer.md");
+    expect(coordinator).toMatch(/ASK_CODEX_REASONING_EFFORT:-high/);
+    expect(coordinator).toMatch(/model_reasoning_effort=/);
+    expect(reviewer).toContain('reasoningEffort: "high"');
+  });
+
+  it("brainstorm-coordinator gives raw Antigravity calls the executor's safety guards", () => {
+    const coordinator = readFile("agents/brainstorm-coordinator.md");
+    expect(coordinator).toMatch(/Read and reason only\. Do NOT modify, create, or delete files/);
+    expect(coordinator).toMatch(/agy .+--dangerously-skip-permissions.+--sandbox/s);
   });
 });
