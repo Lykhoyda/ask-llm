@@ -1,8 +1,8 @@
 {
   "name": "@ask-llm/shared",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "private": true,
-  "description": "Shared utilities for ask-llm-mcp: provider-agnostic registry, executor, change-mode parser, chunk cache, and diagnostics used by all Ask LLM providers",
+  "description": "Shared utilities for @ask-llm/mcp: provider-agnostic registry, executor, change-mode parser, chunk cache, and diagnostics used by all Ask LLM providers",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -13,7 +13,8 @@
     "./command-executor": "./dist/commandExecutor.js",
     "./registry": "./dist/registry.js",
     "./change-mode": "./dist/changeMode/index.js",
-    "./chunk-cache": "./dist/chunkCache.js"
+    "./chunk-cache": "./dist/chunkCache.js",
+    "./machine": "./dist/machine.js"
   },
   "scripts": {
     "build": "tsc -b",

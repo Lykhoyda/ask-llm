@@ -1,6 +1,6 @@
 {
-  "name": "ask-gemini-mcp",
-  "version": "1.6.13",
+  "name": "@ask-llm/gemini-mcp",
+  "version": "1.6.16",
   "mcpName": "io.github.Lykhoyda/ask-gemini",
   "description": "MCP server for Gemini CLI integration - for Claude IDE and other IDEs",
   "type": "module",
@@ -20,7 +20,9 @@
       "default": "./dist/register.js"
     }
   },
-  "bin": "dist/cli.js",
+  "bin": {
+    "ask-gemini-mcp": "dist/cli.js"
+  },
   "scripts": {
     "build": "tsdown",
     "start": "node dist/cli.js",

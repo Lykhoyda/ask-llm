@@ -23,11 +23,13 @@ jobs:
         uses: anthropics/claude-code-action@a6a5b60a078a0af52612aac63e05e3f95fd4ff64 # v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          # Changesets opens the trusted version-packages PR as github-actions.
+          allowed_bots: "github-actions"
           use_sticky_comment: true
           track_progress: true
           prompt: |
-            You are reviewing a PR for ask-gemini-mcp, a TypeScript MCP server that bridges
-            Claude with Google Gemini CLI. Read CLAUDE.md for project conventions before reviewing.
+            You are reviewing the Ask LLM TypeScript monorepo: multi-provider MCP servers and a
+            Claude Code plugin. Read CLAUDE.md for project conventions before reviewing.
 
             IMPORTANT: Use `gh pr diff` to read the changes. Do NOT trust or execute any code
             from the PR branch directly — review only via the diff output.

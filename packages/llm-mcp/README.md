@@ -2,8 +2,8 @@
 
 <div align="center">
 
-[![npm version](https://img.shields.io/npm/v/ask-llm-mcp)](https://www.npmjs.com/package/ask-llm-mcp)
-[![npm downloads](https://img.shields.io/npm/dt/ask-llm-mcp)](https://www.npmjs.com/package/ask-llm-mcp)
+[![npm version](https://img.shields.io/npm/v/@ask-llm/mcp)](https://www.npmjs.com/package/@ask-llm/mcp)
+[![npm downloads](https://img.shields.io/npm/dt/@ask-llm/mcp)](https://www.npmjs.com/package/@ask-llm/mcp)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 
 **All LLM providers in one MCP server — auto-detects what's installed**
@@ -19,7 +19,7 @@ Part of the [Ask LLM](https://github.com/Lykhoyda/ask-llm) monorepo.
 ### Claude Code
 
 ```bash
-claude mcp add ask-llm -- npx -y ask-llm-mcp
+claude mcp add ask-llm -- npx -y @ask-llm/mcp
 ```
 
 ### Claude Desktop
@@ -31,7 +31,7 @@ Add to `claude_desktop_config.json`:
   "mcpServers": {
     "ask-llm": {
       "command": "npx",
-      "args": ["-y", "ask-llm-mcp"]
+      "args": ["-y", "@ask-llm/mcp"]
     }
   }
 }
@@ -68,6 +68,87 @@ The orchestrator exposes a **single `ask-llm` tool** (not one tool per provider 
 | `ping` | Connection test |
 
 Claude is intentionally suppressed when the MCP host is already Claude Code because Claude Code rejects nested Claude sessions. It is auto-detected normally from Codex and other clients.
+
+## Machine Protocol
+
+`machine` exposes a stdin-only JSON interface for factory controllers. It accepts one request of at most 2 MiB, with the prompt bounded to 150,000 characters by the schema, validates it before loading a provider, and writes exactly one typed result document to stdout. Prompts and issue content are never accepted through argv, and diagnostics go only to stderr.
+
+Create a request file without putting its content in the command line:
+
+```json
+{
+  "schemaVersion": 1,
+  "requestId": "factory-review-0001",
+  "role": "review",
+  "provider": "codex",
+  "prompt": "<redacted review input>",
+  "readOnly": true,
+  "writerProvider": "claude",
+  "includeDirs": ["packages/example"]
+}
+```
+
+Then dispatch it through stdin:
+
+```bash
+npx -y ask-llm-mcp machine < request.json
+```
+
+A valid dispatch returns a typed success or provider-failure envelope:
+
+```json
+{
+  "schemaVersion": 1,
+  "requestId": "factory-review-0001",
+  "status": "success",
+  "role": "review",
+  "provider": "codex",
+  "actualModel": "<redacted model>",
+  "rawResponseSha256": "<redacted sha256>",
+  "durationMs": 1200,
+  "usage": { "inputTokens": 100, "outputTokens": 20, "totalTokens": 120 },
+  "fallback": {
+    "occurred": false,
+    "requestedModel": "<redacted model>",
+    "actualModel": "<redacted model>"
+  },
+  "session": { "sessionId": "<redacted session>", "transcriptPath": null },
+  "payload": { "summary": "<redacted>", "findings": [] },
+  "quotaSignal": { "kind": "runtime_proxy_required" },
+  "failure": null
+}
+```
+
+The complete envelope also records model, fallback, duration, token, response-hash, and session provenance. Provider-level failures use the same strict result contract and still exit successfully so controllers can parse and classify them.
+
+All machine dispatches force `readOnly: true` and pass read-only sandbox options to the provider adapter. The interface supports Codex, Claude, and Antigravity; it does not provide a write path. Subscription usage percentages remain unknown unless the provider exposes them, and the dispatcher never infers a percentage from token counts.
+
+| Exit code | Meaning | Stdout |
+|-----------|---------|--------|
+| `0` | Valid result envelope, including provider-level failure | One JSON document |
+| `2` | Missing, oversized, malformed, or schema-invalid stdin request | Empty |
+| `3` | Dispatcher infrastructure failure | Empty |
+
+Use `machine-schema` to retrieve the stable canonical request/result schema bundle and its digest:
+
+```bash
+npx -y ask-llm-mcp machine-schema > machine-schema.json
+```
+
+```json
+{
+  "digest": "<redacted sha256>",
+  "failure": { "<redacted>": true },
+  "request": { "<redacted>": true },
+  "refinements": { "version": 1, "rules": [] },
+  "result": { "<redacted>": true },
+  "rolePayloads": { "brainstorm": {}, "review": {}, "verify": {} }
+}
+```
+
+The whole bundle is authoritative. Validate a document against its Draft 2020-12 `request`, `result`, or `failure` schema first, then run `validateMachineSchemaRefinements(target, document, bundle.refinements)`. The portable refinement descriptors cover sibling-field equality rules that standard JSON Schema cannot express, including self-review and fallback provenance checks. The digest covers every base schema, role payload schema, and refinement descriptor.
+
+`machine-schema` is provider-independent: it neither detects nor loads a provider and does not require a provider CLI to be installed. The refinement interpreter and its `MachineSchemaRefinement`, `MachineSchemaRefinementSet`, `MachineSchemaRefinementViolation`, and `MachineSchemaTarget` types are exported from `ask-llm-mcp/machine` and the package root.
 
 ## Documentation
 

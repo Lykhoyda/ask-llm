@@ -16,7 +16,7 @@
 - **Gap 1 — `@file` context silently dropped for non-Gemini providers (Medium):** the skill (line ~27) tells Claude to "preserve the `@path/to/file` syntax in the per-provider prompt," but `@file` expansion is a **Gemini-CLI-only** feature. `codex-run.js` / `ollama-run.js` / `antigravity-run.js` receive `@path` as literal prompt text, so a compare that relies on file context sends only a path string to those providers. Fix: instruct the skill to read referenced files and inline their contents (or pipe via stdin) rather than relying on `@` for non-Gemini legs.
 - **Gap 2 — shared `/tmp` filenames race across concurrent runs (Low):** the dispatch `rm -f /tmp/ask-llm-compare-*.out` + fixed per-provider filenames mean two overlapping `/compare` runs (or two sessions) can wipe/overwrite each other's outputs and surface the wrong provider response or a false failure. Fix: allocate a per-run dir via `mktemp -d` and thread it through the dispatch/read/present phases.
 - **Note:** both are independent of the Antigravity leg added in PR #218; fixing either is a skill-behavior change (own PR).
-- **Status:** **FIXED** (ADR-133): referenced files are now Read and inlined into the provider-neutral prompt; each invocation allocates a unique `mktemp -d` work directory, dumps labeled provider output before cleanup, and never touches another session's files. Contract tests pin both invariants.
+- **Status:** **FIXED** (ADR-136): referenced files are now Read and inlined into the provider-neutral prompt; each invocation allocates a unique `mktemp -d` work directory, dumps labeled provider output before cleanup, and never touches another session's files. Contract tests pin both invariants.
 
 ### ~~`apps/docs/plugin/hooks.md` marketplace workaround relies on GNU-only `sort -V`~~ FIXED
 - **Severity:** Low (docs-only; the workaround command silently misbehaves on macOS/BSD `sort`)
@@ -44,7 +44,7 @@
 - **Discovered:** 2026-07-02, dogfood codex-pair review during the seamless-pairing pass
 - **File:** `packages/claude-plugin/scripts/lib/stop-gate.mjs:13`
 - **Description:** porcelain v1 quotes paths containing special characters; the parser strips the surrounding quotes but doesn't unescape the body, so such paths never match log-entry paths and the Stop-gate's `[B]` git-dirty filter drops their HIGH findings (fail-open, never a wrong block). Fix direction: `git status --porcelain=v1 -z` with a NUL parser.
-- **Status:** **FIXED** (ADR-133): the Stop gate now invokes `git status --porcelain=v1 -z`; the parser preserves raw quotes, backslashes, control characters, and newlines, and handles NUL-mode rename source records. Regression tests cover renamed and special-character paths.
+- **Status:** **FIXED** (ADR-136): the Stop gate now invokes `git status --porcelain=v1 -z`; the parser preserves raw quotes, backslashes, control characters, and newlines, and handles NUL-mode rename source records. Regression tests cover renamed and special-character paths.
 
 ### ~~`/compare` excluded Antigravity while `/brainstorm-all` and `/multi-review` included it~~ FIXED
 - **Severity:** Low (feature-parity gap; the skill's docs had been self-consistent with its implementation)
@@ -140,7 +140,7 @@
 - **Root cause:** `agy` is an agentic CLI run with `--dangerously-skip-permissions` (required to avoid headless `-p` approval-prompt hangs). `--sandbox` only restricts the *terminal*, not file writes. `agy` 1.0.6 has **no hard read-only / tool-restriction flag**. The only guard is a **soft** prompt preamble (`READ_ONLY_PREAMBLE`, `packages/antigravity-mcp/src/constants.ts`) — and it is prepended **only on the MCP-tool path**.
 - **Remaining gap:** Even with the preamble and `--sandbox`, the constraint is **soft** — agy may ignore it because upstream exposes no hard read-only control for file tools.
 - **Recommended:** for a hard guarantee, run review-mode `agy` in an isolated throwaway checkout/container; continue tracking upstream for a real `--read-only` / `--allowed-tools` mode.
-- **Status:** **PARTIALLY FIXED** (ADR-133): every managed raw `agy` path now prepends the same read-only preamble as the MCP executor and adds `--sandbox`; contract tests prevent that bypass from returning. The upstream hard-isolation limitation remains open and explicit.
+- **Status:** **PARTIALLY FIXED** (ADR-136): every managed raw `agy` path now prepends the same read-only preamble as the MCP executor and adds `--sandbox`; contract tests prevent that bypass from returning. The upstream hard-isolation limitation remains open and explicit.
 
 ### Codex quota fallback broken for CLI 0.137+ ("You've hit your usage limit") — also blocked unrelated pushes
 - **Severity:** ~~Low (local DX)~~ → **Medium** (refined): the real impact is a **user-facing** quota-fallback regression, not just a local pre-push annoyance.

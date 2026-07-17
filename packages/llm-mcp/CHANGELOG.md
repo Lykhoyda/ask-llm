@@ -1,4 +1,76 @@
-# ask-llm-mcp
+# @ask-llm/mcp
+
+## 0.6.0
+
+### Minor Changes
+
+- [#227](https://github.com/Lykhoyda/ask-llm/pull/227) [`a3c3ba3`](https://github.com/Lykhoyda/ask-llm/commit/a3c3ba38fc1643059f4d5a75208b99e580ae9d4b) Thanks [@Lykhoyda](https://github.com/Lykhoyda)! - Add a safe typed machine protocol for subscription-backed factory planning, review, and verification.
+
+### Patch Changes
+
+- Updated dependencies [[`a3c3ba3`](https://github.com/Lykhoyda/ask-llm/commit/a3c3ba38fc1643059f4d5a75208b99e580ae9d4b)]:
+  - @ask-llm/codex-mcp@0.7.0
+  - @ask-llm/antigravity-mcp@0.5.0
+  - @ask-llm/gemini-mcp@1.6.16
+  - @ask-llm/claude-mcp@0.1.3
+  - @ask-llm/ollama-mcp@0.5.3
+
+## 0.5.2
+
+### Patch Changes
+
+- [#230](https://github.com/Lykhoyda/ask-llm/pull/230) [`394c305`](https://github.com/Lykhoyda/ask-llm/commit/394c305806607ca5db4803c666a0ebdc3304c2db) Thanks [@Lykhoyda](https://github.com/Lykhoyda)! - Move every public MCP package into the canonical `@ask-llm` npm organization,
+  while preserving the existing executable names for compatibility.
+- Updated dependencies [[`394c305`](https://github.com/Lykhoyda/ask-llm/commit/394c305806607ca5db4803c666a0ebdc3304c2db)]:
+  - @ask-llm/gemini-mcp@1.6.15
+  - @ask-llm/codex-mcp@0.6.2
+  - @ask-llm/claude-mcp@0.1.2
+  - @ask-llm/ollama-mcp@0.5.2
+  - @ask-llm/antigravity-mcp@0.4.2
+
+## 0.5.1
+
+### Patch Changes
+
+- [#224](https://github.com/Lykhoyda/ask-llm/pull/224) [`4717bd8`](https://github.com/Lykhoyda/ask-llm/commit/4717bd8cd9b30715deb8e1beaef0797f7623b242) Thanks [@Lykhoyda](https://github.com/Lykhoyda)! - Publish the Claude provider under the `@anton-lykhoyda` npm scope because npm
+  rejects the unscoped name as too similar to an existing package. The executable
+  remains `@anton-lykhoyda/ask-claude-mcp`, and the unified server now imports the scoped package.
+- Updated dependencies [[`4717bd8`](https://github.com/Lykhoyda/ask-llm/commit/4717bd8cd9b30715deb8e1beaef0797f7623b242)]:
+  - @anton-lykhoyda/ask-claude-mcp@0.1.1
+
+## 0.5.0
+
+### Minor Changes
+
+- [#222](https://github.com/Lykhoyda/ask-llm/pull/222) [`ae7780c`](https://github.com/Lykhoyda/ask-llm/commit/ae7780c67327224eea760ade42b61df3d9a32b54) Thanks [@Lykhoyda](https://github.com/Lykhoyda)! - Add a first-class Claude Code CLI provider so Codex and other MCP clients can
+  ask Claude for a read-only second opinion. The new `@anton-lykhoyda/ask-claude-mcp` package
+  supports native sessions, Opus-to-Sonnet fallback, usage reporting, relative
+  context directories, and a hard Read/Glob/Grep-only tool boundary. The unified
+  orchestrator now auto-detects Claude and can include it in `ask-llm`,
+  `multi-llm`, diagnostics, and the REPL.
+
+### Patch Changes
+
+- [#222](https://github.com/Lykhoyda/ask-llm/pull/222) [`ae7780c`](https://github.com/Lykhoyda/ask-llm/commit/ae7780c67327224eea760ade42b61df3d9a32b54) Thanks [@Lykhoyda](https://github.com/Lykhoyda)! - Update Codex defaults to the GPT-5.6 family: GPT-5.6 Sol is now the
+  quality-first model for MCP calls, reviews, brainstorming, image orchestration,
+  and codex-pair, with GPT-5.6 Terra as the balanced quota fallback. The legacy
+  preferred-model escape hatch remains available, but no longer adds a redundant
+  attempt when it resolves to the Sol default. `ask-codex` now accepts an optional
+  `reasoningEffort`; general calls preserve `medium`, while `/codex-review` and
+  `/brainstorm` use `high`.
+- Updated dependencies [[`ae7780c`](https://github.com/Lykhoyda/ask-llm/commit/ae7780c67327224eea760ade42b61df3d9a32b54), [`ae7780c`](https://github.com/Lykhoyda/ask-llm/commit/ae7780c67327224eea760ade42b61df3d9a32b54)]:
+  - @anton-lykhoyda/ask-claude-mcp@0.1.0
+  - ask-gemini-mcp@1.6.14
+  - ask-codex-mcp@0.6.1
+  - ask-ollama-mcp@0.5.1
+  - ask-antigravity-mcp@0.4.1
+
+## 0.4.5
+
+### Patch Changes
+
+- Updated dependencies [[`1089a21`](https://github.com/Lykhoyda/ask-llm/commit/1089a215657594a1c569dcd6c180d94750b1dab6)]:
+  - ask-codex-mcp@0.6.0
 
 ## 0.4.4
 

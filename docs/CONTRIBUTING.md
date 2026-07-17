@@ -19,10 +19,12 @@ Requires Node.js 22.18+ to build (the tsdown toolchain's floor since ADR-119 —
 | Path | Purpose |
 |------|---------|
 | `packages/shared/` | Shared MCP plumbing (`@ask-llm/shared`) — logger, executor, registry, progress tracker, server factory |
-| `packages/gemini-mcp/` | Gemini provider (`ask-gemini-mcp`) |
-| `packages/codex-mcp/` | Codex provider (`ask-codex-mcp`) |
-| `packages/ollama-mcp/` | Ollama provider (`ask-ollama-mcp`) |
-| `packages/llm-mcp/` | Orchestrator that auto-detects installed providers (`ask-llm-mcp`) |
+| `packages/gemini-mcp/` | Gemini provider (`@ask-llm/gemini-mcp`) |
+| `packages/codex-mcp/` | Codex provider (`@ask-llm/codex-mcp`) |
+| `packages/claude-mcp/` | Claude provider (`@ask-llm/claude-mcp`) |
+| `packages/ollama-mcp/` | Ollama provider (`@ask-llm/ollama-mcp`) |
+| `packages/antigravity-mcp/` | Antigravity provider (`@ask-llm/antigravity-mcp`) |
+| `packages/llm-mcp/` | Orchestrator that auto-detects installed providers (`@ask-llm/mcp`) |
 | `packages/claude-plugin/` | Claude Code plugin — skills, agents, hooks, CLI binaries |
 | `apps/docs/` | VitePress docs site |
 | `docs/` | Internal project docs — `ROADMAP.md`, `DECISIONS.md`, `BUGS.md`, `plans/` |
@@ -79,7 +81,7 @@ Interactive prompt asks (a) which packages your change affects, (b) the bump typ
 
 **You don't need to manually bump `package.json` versions.** The bot does that.
 
-You can pick "patch" for any package even if your change doesn't directly touch it. IMPORTANT (ADR-119): `@ask-llm/shared` is private and INLINED into each MCP's `dist/` at build time by tsdown — and because shared is only a devDependency of the MCPs, the changesets internal-dependents cascade does NOT fire for it (verified empirically 2026-06-10). Any change to `packages/shared/src/**` MUST ship with a changeset that explicitly lists all six publishable packages (`ask-gemini-mcp`, `ask-codex-mcp`, `ask-claude-mcp`, `ask-ollama-mcp`, `ask-antigravity-mcp`, `ask-llm-mcp`) — otherwise the fix never reaches npm. CI enforces this via `scripts/check-shared-changeset.mjs`.
+You can pick "patch" for any package even if your change doesn't directly touch it. IMPORTANT (ADR-119): `@ask-llm/shared` is private and INLINED into each MCP's `dist/` at build time by tsdown — and because shared is only a devDependency of the MCPs, the changesets internal-dependents cascade does NOT fire for it (verified empirically 2026-06-10). Any change to `packages/shared/src/**` MUST ship with a changeset that explicitly lists all six publishable packages (`@ask-llm/gemini-mcp`, `@ask-llm/codex-mcp`, `@ask-llm/claude-mcp`, `@ask-llm/ollama-mcp`, `@ask-llm/antigravity-mcp`, `@ask-llm/mcp`) — otherwise the fix never reaches npm. CI enforces this via `scripts/check-shared-changeset.mjs`.
 
 `@ask-llm/plugin` is excluded from changesets (it's distributed via the Claude Code plugin marketplace, not npm; tracked in `.claude-plugin/marketplace.json`).
 

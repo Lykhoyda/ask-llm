@@ -1,6 +1,6 @@
 {
-  "name": "ask-claude-mcp",
-  "version": "0.0.1",
+  "name": "@ask-llm/claude-mcp",
+  "version": "0.1.3",
   "mcpName": "io.github.Lykhoyda/ask-claude",
   "description": "MCP server for consulting Anthropic Claude Code CLI from Codex and other MCP clients",
   "type": "module",
@@ -20,7 +20,9 @@
       "default": "./dist/register.js"
     }
   },
-  "bin": "dist/cli.js",
+  "bin": {
+    "ask-claude-mcp": "dist/cli.js"
+  },
   "scripts": {
     "build": "tsdown",
     "start": "node dist/cli.js",

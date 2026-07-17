@@ -813,7 +813,7 @@ describe("executeGeminiCLI workspace trust handling", () => {
 
   it("co-emits both old and new trust env vars by default (#46 / ADR-075)", async () => {
     // gemini ≤0.41 reads the old name; gemini ≥0.42 reads only the new name.
-    // Co-emitting both means one ask-gemini-mcp release works against any
+    // Co-emitting both means one @ask-llm/gemini-mcp release works against any
     // gemini-cli version without runtime version detection.
     await executeGeminiCLI({ prompt: "hello" });
 

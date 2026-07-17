@@ -24,9 +24,9 @@ Generated: 2026-03-20T13:42:34.225Z
 
 | Approach | Tools | Tool Tokens | MD Tokens | Total Tokens |
 | --- | ---: | ---: | ---: | ---: |
-| Standalone Gemini (ask-gemini-mcp) | 3 | 973 | 0 | 973 |
-| Standalone Codex (ask-codex-mcp) | 2 | 411 | 0 | 411 |
-| Orchestrator (ask-llm-mcp) | 5 | 1384 | 0 | 1384 |
+| Standalone Gemini (@ask-llm/gemini-mcp) | 3 | 973 | 0 | 973 |
+| Standalone Codex (@ask-llm/codex-mcp) | 2 | 411 | 0 | 411 |
+| Orchestrator (@ask-llm/mcp) | 5 | 1384 | 0 | 1384 |
 | Skill (/gemini-review) | 3 | 973 | 457 | 1430 |
 | Subagent (gemini-reviewer) | 3 | 973 | 301 | 1274 |
 

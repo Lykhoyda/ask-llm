@@ -1,0 +1,15 @@
+{
+  "summary": "One issue in the redacted fixture.",
+  "findings": [
+    {
+      "id": "R1",
+      "severity": "high",
+      "confidence": 93,
+      "title": "Validate before mutation",
+      "evidence": "The redacted fixture mutates state before validation.",
+      "recommendation": "Move validation before the state change.",
+      "file": "src/redacted.ts",
+      "line": 42
+    }
+  ]
+}

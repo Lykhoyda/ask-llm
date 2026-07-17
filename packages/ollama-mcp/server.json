@@ -10,7 +10,7 @@
   "packages": [
     {
       "registryType": "npm",
-      "identifier": "ask-ollama-mcp",
+      "identifier": "@ask-llm/ollama-mcp",
       "version": "0.2.0",
       "transport": {
         "type": "stdio"

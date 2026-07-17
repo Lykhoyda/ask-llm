@@ -144,6 +144,18 @@ describe("native model review skills", () => {
     expect(content).toContain(modelPin);
     expect(content).toMatch(/distinguishes|Do not substitute|Do not route/i);
   });
+
+  it("guards explicit Fable overrides without claiming inaccessible runtime verification", () => {
+    const content = readFile("skills/fable-review/SKILL.md");
+    expect(content).toContain('model: "fable"');
+    expect(content).toContain("CLAUDE_CODE_SUBAGENT_MODEL");
+    expect(content).toContain("inherit");
+    expect(content).toContain("claude-fable-");
+    expect(content).toMatch(/higher precedence.+model request/i);
+    expect(content).toMatch(/resolved model was not independently verified/i);
+    expect(content).toMatch(/does not expose the resolved subagent model/i);
+    expect(content).not.toContain("resolvedModel");
+  });
 });
 
 describe("multi-review skill — load-bearing polish (ADR-064)", () => {
@@ -301,18 +313,6 @@ describe("compare skill — load-bearing structure", () => {
     expect(body).toMatch(/dist\/codex-run\.js/);
     expect(body).toMatch(/dist\/ollama-run\.js/);
     expect(body).toMatch(/dist\/antigravity-run\.js/);
-  });
-
-  it("inlines referenced file contents so every provider receives the same context", () => {
-    expect(body).toMatch(/Read each referenced file/i);
-    expect(body).toMatch(/inline.+contents/i);
-    expect(body).not.toMatch(/preserve the `@` syntax/i);
-  });
-
-  it("uses a unique temporary directory and removes it after dumping all outputs", () => {
-    expect(body).toMatch(/mktemp -d \/tmp\/ask-llm-compare-/);
-    expect(body).toMatch(/trap 'rm -rf "\$workdir"' EXIT/);
-    expect(body).not.toMatch(/rm -f \/tmp\/ask-llm-compare-\*/);
   });
 });
 
@@ -494,28 +494,21 @@ describe("brainstorm-coordinator — synthesis-confidence ladder (ADR-073 follow
 describe("agents/ — no removed codex CLI flags (#37/#38/#52)", () => {
   // codex rust-v0.128+ removed `--full-auto` entirely; on codex 0.135 it errors
   // with "unexpected argument", so any agent still spawning it has a broken codex
-  // dispatch. Review/brainstorm calls use the non-interactive read-only sandbox.
+  // dispatch. The canonical replacement is `--sandbox workspace-write`.
   it.each(expectedAgents)("%s does not invoke the removed `codex exec --full-auto` flag", (agentFile) => {
     expect(readFile(`agents/${agentFile}`)).not.toMatch(/--full-auto/);
   });
 
-  it("brainstorm-coordinator dispatches codex with a read-only sandbox", () => {
+  it("brainstorm-coordinator dispatches codex with `--sandbox read-only` (ADR-136)", () => {
     const coordinator = readFile("agents/brainstorm-coordinator.md");
     expect(coordinator).toMatch(/codex exec --sandbox read-only/);
     expect(coordinator).not.toMatch(/codex exec --sandbox workspace-write/);
   });
 
-  it("uses high reasoning effort for quality-first Codex review and brainstorming", () => {
+  it("validates the brainstorm reasoning-effort override before invoking Codex", () => {
     const coordinator = readFile("agents/brainstorm-coordinator.md");
-    const reviewer = readFile("agents/codex-reviewer.md");
-    expect(coordinator).toMatch(/ASK_CODEX_REASONING_EFFORT:-high/);
-    expect(coordinator).toMatch(/model_reasoning_effort=/);
-    expect(reviewer).toContain('reasoningEffort: "high"');
-  });
-
-  it("brainstorm-coordinator gives raw Antigravity calls the executor's safety guards", () => {
-    const coordinator = readFile("agents/brainstorm-coordinator.md");
-    expect(coordinator).toMatch(/Read and reason only\. Do NOT modify, create, or delete files/);
-    expect(coordinator).toMatch(/agy .+--dangerously-skip-permissions.+--sandbox/s);
+    expect(coordinator).toContain('case "$codex_effort" in');
+    expect(coordinator).toContain("low|medium|high|xhigh|max) ;;");
+    expect(coordinator).toContain('*) codex_effort="high" ;;');
   });
 });

@@ -1,14 +1,14 @@
-# ask-claude-mcp
+# @ask-llm/claude-mcp
 
 MCP server for consulting Anthropic Claude Code CLI from Codex CLI, Cursor,
 OpenCode, and other MCP clients. It fills the reverse collaboration path:
-Claude can ask Codex through `ask-codex-mcp`, and Codex can ask Claude through
-`ask-claude-mcp`.
+Claude can ask Codex through `@ask-llm/codex-mcp`, and Codex can ask Claude through
+`@ask-llm/claude-mcp`.
 
 ## Install for Codex CLI
 
 ```bash
-codex mcp add claude -- npx -y ask-claude-mcp
+codex mcp add claude -- npx -y @ask-llm/claude-mcp
 ```
 
 Then ask Codex to use `ask-claude` for an independent review or second opinion.

@@ -7,16 +7,27 @@ on:
   push:
     branches: ["main"]
   # Manual dispatch for dry-runs against feature branches and for re-running
-  # publishes after a workflow-side hotfix. On a non-main branch with no pending
-  # changesets, changesets/action is a no-op and the downstream MCP Registry +
-  # release steps skip via `if: steps.changesets.outputs.published == 'true'`.
+  # publishes after a workflow-side hotfix. Manual main-branch runs expose only
+  # explicit, opt-in maintenance operations.
   workflow_dispatch:
+    inputs:
+      retry_registry_publish:
+        description: Reapply npm visibility and retry all MCP Registry publishes
+        required: false
+        type: boolean
+        default: false
+      deprecate_legacy_packages:
+        description: Deprecate the six package names replaced by the @ask-llm scope
+        required: false
+        type: boolean
+        default: false
 
 concurrency: ${{ github.workflow }}-${{ github.ref }}
 
 permissions:
   contents: write       # changesets/action commits version bumps + creates tags; gh release create needs this too
   pull-requests: write  # changesets/action opens the Version Packages PR
+  issues: write         # failure reporter opens/comments on release-broken issues
   id-token: write       # OIDC for mcp-publisher (no token required)
 
 jobs:
@@ -66,11 +77,43 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NODE_AUTH_TOKEN: ${{ secrets.NODE_AUTH_TOKEN }}
 
-      # Everything below this line runs ONLY when changesets actually published to npm
-      # (i.e., the Version Packages PR just merged). On every other push to main —
-      # including "pending changesets but no version commit yet" — these steps skip.
+      # Scoped packages default to restricted visibility. Keep this explicit even
+      # though every manifest requests public access; a publish can otherwise be
+      # accepted by npm but remain invisible to unauthenticated installs.
+      - name: Ensure Ask LLM packages are public on npm
+        if: steps.changesets.outputs.published == 'true' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.retry_registry_publish)
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NODE_AUTH_TOKEN }}
+        run: |
+          for pkg in \
+            @ask-llm/gemini-mcp \
+            @ask-llm/codex-mcp \
+            @ask-llm/claude-mcp \
+            @ask-llm/ollama-mcp \
+            @ask-llm/antigravity-mcp \
+            @ask-llm/mcp; do
+            npm access set status=public "$pkg"
+            test "$(npm access get status "$pkg" --json | jq -r --arg pkg "$pkg" '.[$pkg]')" = "public"
+          done
+
+      - name: Deprecate legacy npm package names
+        if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.deprecate_legacy_packages
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NODE_AUTH_TOKEN }}
+        run: |
+          failed=0
+          npm deprecate "ask-gemini-mcp@*" "Moved to @ask-llm/gemini-mcp. The ask-gemini-mcp executable name is unchanged." || failed=1
+          npm deprecate "ask-codex-mcp@*" "Moved to @ask-llm/codex-mcp. The ask-codex-mcp executable name is unchanged." || failed=1
+          npm deprecate "@anton-lykhoyda/ask-claude-mcp@*" "Moved to @ask-llm/claude-mcp. The ask-claude-mcp executable name is unchanged." || failed=1
+          npm deprecate "ask-ollama-mcp@*" "Moved to @ask-llm/ollama-mcp. The ask-ollama-mcp executable name is unchanged." || failed=1
+          npm deprecate "ask-antigravity-mcp@*" "Moved to @ask-llm/antigravity-mcp. The ask-antigravity-mcp executable name is unchanged." || failed=1
+          npm deprecate "ask-llm-mcp@*" "Moved to @ask-llm/mcp. The ask-llm-mcp executable name is unchanged." || failed=1
+          exit "$failed"
+
+      # Registry steps run after a real npm publish or an explicit manual retry.
+      # Ordinary main pushes with no published versions still skip them.
       - name: Install mcp-publisher
-        if: steps.changesets.outputs.published == 'true'
+        if: steps.changesets.outputs.published == 'true' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.retry_registry_publish)
         env:
           MCP_PUBLISHER_VERSION: v1.7.9
           MCP_PUBLISHER_SHA256: ab128162b0616090b47cf245afe0a23f3ef08936fdce19074f5ba0a4469281ac
@@ -89,7 +132,7 @@ jobs:
       # separate files for the MCP Registry's input schema. Sync them after changesets'
       # version bump so the Registry publish picks up the freshly-bumped numbers.
       - name: Sync versions from package.json to server.json and marketplace.json
-        if: steps.changesets.outputs.published == 'true'
+        if: steps.changesets.outputs.published == 'true' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.retry_registry_publish)
         run: |
           for entry in "gemini-mcp:server.json" "codex-mcp:packages/codex-mcp/server.json" "claude-mcp:packages/claude-mcp/server.json" "ollama-mcp:packages/ollama-mcp/server.json" "antigravity-mcp:packages/antigravity-mcp/server.json" "llm-mcp:packages/llm-mcp/server.json"; do
             pkg="${entry%%:*}"
@@ -100,36 +143,36 @@ jobs:
           PLUGIN_VERSION=$(node -p "require('./packages/claude-plugin/package.json').version")
           jq --arg v "$PLUGIN_VERSION" '(.plugins[0].version = $v)' .claude-plugin/marketplace.json > .claude-plugin/marketplace.json.tmp && mv .claude-plugin/marketplace.json.tmp .claude-plugin/marketplace.json
 
-      - if: steps.changesets.outputs.published == 'true'
+      - if: steps.changesets.outputs.published == 'true' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.retry_registry_publish)
         run: ./mcp-publisher login github-oidc
 
       - name: Publish ask-gemini to MCP Registry
-        if: steps.changesets.outputs.published == 'true'
+        if: steps.changesets.outputs.published == 'true' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.retry_registry_publish)
         run: ./mcp-publisher publish server.json
 
       - name: Publish ask-codex to MCP Registry
-        if: steps.changesets.outputs.published == 'true'
+        if: steps.changesets.outputs.published == 'true' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.retry_registry_publish)
         run: ./mcp-publisher publish packages/codex-mcp/server.json
 
       - name: Publish ask-claude to MCP Registry
-        if: steps.changesets.outputs.published == 'true'
+        if: steps.changesets.outputs.published == 'true' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.retry_registry_publish)
         run: ./mcp-publisher publish packages/claude-mcp/server.json
 
       - name: Publish ask-ollama to MCP Registry
-        if: steps.changesets.outputs.published == 'true'
+        if: steps.changesets.outputs.published == 'true' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.retry_registry_publish)
         run: ./mcp-publisher publish packages/ollama-mcp/server.json
 
       - name: Publish ask-antigravity to MCP Registry
-        if: steps.changesets.outputs.published == 'true'
+        if: steps.changesets.outputs.published == 'true' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.retry_registry_publish)
         run: ./mcp-publisher publish packages/antigravity-mcp/server.json
 
       - name: Publish ask-llm to MCP Registry
-        if: steps.changesets.outputs.published == 'true'
+        if: steps.changesets.outputs.published == 'true' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.retry_registry_publish)
         run: ./mcp-publisher publish packages/llm-mcp/server.json
 
       # Unified GitHub Release tagged at gemini's version (legacy convention from when this
       # was a fork of gemini-mcp-tool). The per-package tags created by changesets/action
-      # also exist (ask-gemini-mcp@1.6.4 etc.) — both are kept so URL-bookmarked release
+      # also exist (@ask-llm/gemini-mcp@1.6.4 etc.) — both are kept so URL-bookmarked release
       # pages from v1.5.x..v1.6.x still resolve.
       - name: Get gemini version for unified release tag
         if: steps.changesets.outputs.published == 'true'
@@ -192,14 +235,14 @@ jobs:
               ``,
               `Likely causes:`,
               `- NODE_AUTH_TOKEN expired, revoked, or wrong type (must be Classic "Automation" or 2FA-bypass Granular)`,
-              `- Package permission changed on npm (token no longer covers ask-gemini-mcp / ask-codex-mcp / ask-claude-mcp / ask-ollama-mcp / ask-antigravity-mcp / ask-llm-mcp)`,
+              `- Package permission changed on npm (token no longer covers @ask-llm/gemini-mcp / @ask-llm/codex-mcp / @ask-llm/claude-mcp / @ask-llm/ollama-mcp / @ask-llm/antigravity-mcp / @ask-llm/mcp)`,
               `- Pinned mcp-publisher download or checksum verification failed`,
               `- MCP Registry OIDC authentication, manifest validation, or publication failed`,
               `- npm, GitHub, or MCP Registry outage`,
               ``,
               `**Fix path:**`,
               `1. Open the run above and identify the first failed step.`,
-              `2. If npm authentication failed, refresh NODE_AUTH_TOKEN in repository Actions secrets.`,
+              `2. If npm authentication failed, refresh NODE_AUTH_TOKEN in repository Actions secrets (regenerate at https://www.npmjs.com/settings/anton-lykhoyda/tokens).`,
               `3. If MCP Registry publication failed, validate the synced server.json and re-run after the registry/auth issue is corrected.`,
               `4. Re-trigger: gh workflow run release.yml`,
               `5. Close this issue once a release run succeeds.`,

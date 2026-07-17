@@ -145,6 +145,9 @@ export async function executeClaudeCLI(options: ClaudeExecutorOptions): Promise<
   const args = buildArgs(model, fallbackModel, options.sessionId, options.includeDirs);
   const timeoutMs = resolveTimeoutMs(EXECUTION.CLAUDE_TIMEOUT_ENV_VAR, EXECUTION.DEFAULT_CLAUDE_TIMEOUT_MS);
   const startedAt = Date.now();
+  // Claude --print --output-format json returns one completion object, not
+  // incremental JSONL. Keep raw stdout out of previews and emit the parsed
+  // final response below.
   const raw = await executeCommand(CLI.COMMAND, args, undefined, undefined, options.prompt, timeoutMs);
   const result = parseClaudeJsonOutput(raw, model, Date.now() - startedAt);
   options.onProgress?.(result.response);

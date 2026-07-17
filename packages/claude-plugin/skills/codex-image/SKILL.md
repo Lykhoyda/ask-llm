@@ -20,7 +20,7 @@ Codex's `image_generation` tool selects the image model server-side; as of 2026-
 
 - `codex-cli` >= 0.125.0 installed and authenticated
 - `image_generation` feature flag enabled (default: stable + true). Verify with `codex features list | grep image_generation`
-- The `ask-codex` MCP tool available (from `ask-codex-mcp` or the `ask-llm-mcp` orchestrator)
+- The `ask-codex` MCP tool available (from `@ask-llm/codex-mcp` or the `@ask-llm/mcp` orchestrator)
 
 ## Instructions
 

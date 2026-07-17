@@ -1,6 +1,6 @@
 {
-  "name": "ask-llm-mcp",
-  "version": "0.4.4",
+  "name": "@ask-llm/mcp",
+  "version": "0.6.0",
   "mcpName": "io.github.Lykhoyda/ask-llm",
   "description": "Unified MCP server for multi-LLM consultation — registers tools from all available providers (Gemini, Codex, Claude, Ollama, Antigravity) behind runtime availability checks",
   "type": "module",
@@ -10,9 +10,15 @@
     ".": {
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
+    },
+    "./machine": {
+      "types": "./dist/machine.d.ts",
+      "default": "./dist/machine.js"
     }
   },
-  "bin": "dist/cli.js",
+  "bin": {
+    "ask-llm-mcp": "dist/cli.js"
+  },
   "scripts": {
     "build": "tsdown",
     "start": "node dist/cli.js",
@@ -60,18 +66,19 @@
     "LICENSE"
   ],
   "dependencies": {
+    "@ask-llm/antigravity-mcp": "^0.5.0",
+    "@ask-llm/claude-mcp": "^0.1.3",
+    "@ask-llm/codex-mcp": "^0.7.0",
+    "@ask-llm/gemini-mcp": "^1.6.16",
+    "@ask-llm/ollama-mcp": "^0.5.3",
     "@modelcontextprotocol/sdk": "^1.27.1",
-    "ask-antigravity-mcp": "^0.4.0",
-    "ask-claude-mcp": "^0.0.1",
-    "ask-codex-mcp": "^0.5.0",
-    "ask-gemini-mcp": "^1.6.13",
-    "ask-ollama-mcp": "^0.5.0",
     "zod": "^4.3.6"
   },
   "devDependencies": {
     "@ask-llm/shared": "workspace:*",
     "@biomejs/biome": "^2.4.4",
     "@types/node": "^22.19.13",
+    "ajv": "8.18.0",
     "tsdown": "^0.22.2",
     "typescript": "^5.0.0",
     "vitest": "^4.0.18"

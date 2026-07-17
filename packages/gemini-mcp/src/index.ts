@@ -15,7 +15,7 @@ function readPackageJson(): { name: string; version: string } {
     const require = createRequire(import.meta.url);
     return require("../package.json") as { name: string; version: string };
   } catch {
-    return { name: "ask-gemini-mcp", version: "0.0.0" };
+    return { name: "@ask-llm/gemini-mcp", version: "0.0.0" };
   }
 }
 
@@ -44,9 +44,9 @@ registerTools({
 registerSessionUsageResource(server, sessionUsage);
 
 export async function startServer() {
-  Logger.debug("init ask-gemini-mcp");
+  Logger.debug("init @ask-llm/gemini-mcp");
   Logger.checkNodeVersion();
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  Logger.debug("ask-gemini-mcp listening on stdio");
+  Logger.debug("@ask-llm/gemini-mcp listening on stdio");
 }

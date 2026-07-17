@@ -6,12 +6,12 @@ import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 
 const REQUIRED = [
-  "ask-gemini-mcp",
-  "ask-codex-mcp",
-  "ask-claude-mcp",
-  "ask-ollama-mcp",
-  "ask-antigravity-mcp",
-  "ask-llm-mcp",
+  "@ask-llm/gemini-mcp",
+  "@ask-llm/codex-mcp",
+  "@ask-llm/claude-mcp",
+  "@ask-llm/ollama-mcp",
+  "@ask-llm/antigravity-mcp",
+  "@ask-llm/mcp",
 ];
 const base = process.env.GITHUB_BASE_REF ? `origin/${process.env.GITHUB_BASE_REF}` : "origin/main";
 

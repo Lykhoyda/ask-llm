@@ -2,8 +2,8 @@
 
 <div align="center">
 
-[![npm version](https://img.shields.io/npm/v/ask-codex-mcp)](https://www.npmjs.com/package/ask-codex-mcp)
-[![npm downloads](https://img.shields.io/npm/dt/ask-codex-mcp)](https://www.npmjs.com/package/ask-codex-mcp)
+[![npm version](https://img.shields.io/npm/v/@ask-llm/codex-mcp)](https://www.npmjs.com/package/@ask-llm/codex-mcp)
+[![npm downloads](https://img.shields.io/npm/dt/@ask-llm/codex-mcp)](https://www.npmjs.com/package/@ask-llm/codex-mcp)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 
 **MCP server that connects any AI client to OpenAI Codex CLI**
@@ -19,7 +19,7 @@ Part of the [Ask LLM](https://github.com/Lykhoyda/ask-llm) monorepo.
 ### Claude Code
 
 ```bash
-claude mcp add codex -- npx -y ask-codex-mcp
+claude mcp add codex -- npx -y @ask-llm/codex-mcp
 ```
 
 ### Claude Desktop
@@ -31,7 +31,7 @@ Add to `claude_desktop_config.json`:
   "mcpServers": {
     "codex": {
       "command": "npx",
-      "args": ["-y", "ask-codex-mcp"]
+      "args": ["-y", "@ask-llm/codex-mcp"]
     }
   }
 }
@@ -42,7 +42,7 @@ Add to `claude_desktop_config.json`:
 ```json
 {
   "command": "npx",
-  "args": ["-y", "ask-codex-mcp"]
+  "args": ["-y", "@ask-llm/codex-mcp"]
 }
 ```
 

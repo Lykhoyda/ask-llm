@@ -4,6 +4,7 @@ export interface ProviderConfig {
   executorModule: string;
   executorFn: string;
   defaultModel: string;
+  modelEnvVar?: string;
   availabilityModule?: string;
   availabilityFn?: string;
   enrichModule?: string;
@@ -15,42 +16,45 @@ export const PROVIDERS: Record<string, ProviderConfig> = {
   gemini: {
     name: "Gemini",
     command: "gemini",
-    executorModule: "ask-gemini-mcp/executor",
+    executorModule: "@ask-llm/gemini-mcp/executor",
     executorFn: "executeGeminiCLI",
     defaultModel: "gemini-3.1-pro-preview",
   },
   codex: {
     name: "Codex",
     command: "codex",
-    executorModule: "ask-codex-mcp/executor",
+    executorModule: "@ask-llm/codex-mcp/executor",
     executorFn: "executeCodexCLI",
     defaultModel: "gpt-5.6-sol",
-    enrichModule: "ask-codex-mcp/executor",
+    modelEnvVar: "ASK_CODEX_MODEL",
+    enrichModule: "@ask-llm/codex-mcp/executor",
     enrichFn: "enrichCodexDoctor",
   },
   claude: {
     name: "Claude",
     command: "claude",
-    executorModule: "ask-claude-mcp/executor",
+    executorModule: "@ask-llm/claude-mcp/executor",
     executorFn: "executeClaudeCLI",
     defaultModel: "opus",
+    modelEnvVar: "ASK_CLAUDE_MODEL",
     disabledWhenEnvVar: "CLAUDECODE",
   },
   ollama: {
     name: "Ollama",
     command: "ollama",
-    executorModule: "ask-ollama-mcp/executor",
+    executorModule: "@ask-llm/ollama-mcp/executor",
     executorFn: "executeOllamaCLI",
     defaultModel: "qwen3.6:27b",
-    availabilityModule: "ask-ollama-mcp/executor",
+    availabilityModule: "@ask-llm/ollama-mcp/executor",
     availabilityFn: "isProviderAvailable",
   },
   antigravity: {
     name: "Antigravity",
     command: "agy",
-    executorModule: "ask-antigravity-mcp/executor",
+    executorModule: "@ask-llm/antigravity-mcp/executor",
     executorFn: "executeAntigravityCLI",
     defaultModel: "Gemini 3.1 Pro (High)",
+    modelEnvVar: "ASK_ANTIGRAVITY_MODEL",
   },
 };
 
@@ -62,8 +66,12 @@ export const INSTALL_HINTS: Record<string, string> = {
   antigravity: "Install Google Antigravity (agy) from https://antigravity.google, then run `agy` once to log in",
 };
 
+export function isProviderEligible(provider: ProviderConfig): boolean {
+  return !(provider.disabledWhenEnvVar && process.env[provider.disabledWhenEnvVar]);
+}
+
 export function getEligibleProviderKeys(): string[] {
   return Object.entries(PROVIDERS)
-    .filter(([, provider]) => !(provider.disabledWhenEnvVar && process.env[provider.disabledWhenEnvVar]))
+    .filter(([, provider]) => isProviderEligible(provider))
     .map(([key]) => key);
 }

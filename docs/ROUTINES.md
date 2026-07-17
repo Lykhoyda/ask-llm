@@ -20,7 +20,7 @@ Dependency & upstream-CLI drift tracker (read-only investigation → issue ONLY 
 1. CHECK NEW VERSIONS (record delta last-checked → latest per CLI):
    - gemini-cli: npm @google/gemini-cli + GitHub releases/CHANGELOG (google-gemini/gemini-cli)
    - codex: npm @openai/codex + GitHub releases (openai/codex)
-   - antigravity (agy): GitHub releases (google-antigravity/antigravity-cli) — we now ship ask-antigravity-mcp
+   - antigravity (agy): GitHub releases (google-antigravity/antigravity-cli) — we now ship @ask-llm/antigravity-mcp
    - (optional) ollama: GitHub releases (ollama/ollama)
    Persist last-checked versions in rolling tracker issue #139 so each run is incremental.
 
@@ -38,7 +38,7 @@ Dependency & upstream-CLI drift tracker (read-only investigation → issue ONLY 
 
 4. WATCH-LIST (flag immediately if RESOLVED — they un-gate work):
    - gemini-cli #27466 (agy -p empty stdout) + antigravity-cli #7 (headless session id): if fixed,
-     ask-antigravity-mcp self-heals onto stdout and can drop transcript-scraping → high value.
+     @ask-llm/antigravity-mcp self-heals onto stdout and can drop transcript-scraping → high value.
    - gemini-cli 2026-06-18 consumer cutoff: any change to API-key / enterprise behavior or error strings.
 
 5. IMPROVEMENT = a new flag/capability we should adopt (e.g. agy gains real --output-format json, a new
@@ -61,7 +61,7 @@ SCOPE: read-only investigation + issue/comment creation only. Do NOT modify code
 ```
 
 **Notes**
-- The watch-list (§4) doubles as the un-gate trigger for `ask-antigravity-mcp`: when `#27466`
+- The watch-list (§4) doubles as the un-gate trigger for `@ask-llm/antigravity-mcp`: when `#27466`
   closes, the transcript-scraping fallback can be dropped and the `experimental` framing removed.
 - Verification discipline (§2) follows ADR-109 — treat release notes as claims to confirm against
   our executor/constants, not as ground truth.

@@ -20,12 +20,12 @@ Follow this protocol to collect latency and quality data for the approach compar
 
 ## Approaches
 
-### A1: Standalone MCP (ask-gemini-mcp)
-- **MCP config:** `claude mcp add gemini-cli -- npx -y ask-gemini-mcp`
+### A1: Standalone MCP (@ask-llm/gemini-mcp)
+- **MCP config:** `claude mcp add gemini-cli -- npx -y @ask-llm/gemini-mcp`
 - **Invocation:** Claude calls `ask-gemini` tool directly
 
-### A2: Orchestrator MCP (ask-llm-mcp)
-- **MCP config:** `claude mcp add ask-llm -- npx -y ask-llm-mcp`
+### A2: Orchestrator MCP (@ask-llm/mcp)
+- **MCP config:** `claude mcp add ask-llm -- npx -y @ask-llm/mcp`
 - **Invocation:** Claude calls `ask-gemini` tool (loaded via orchestrator)
 
 ### A3: Skill (/gemini-review)

@@ -1,5 +1,72 @@
 # @ask-llm/plugin
 
+## 0.12.2
+
+### Patch Changes
+
+- Updated dependencies [[`a3c3ba3`](https://github.com/Lykhoyda/ask-llm/commit/a3c3ba38fc1643059f4d5a75208b99e580ae9d4b)]:
+  - @ask-llm/shared@0.6.0
+  - @ask-llm/codex-mcp@0.7.0
+  - @ask-llm/antigravity-mcp@0.5.0
+  - @ask-llm/gemini-mcp@1.6.16
+  - @ask-llm/ollama-mcp@0.5.3
+
+## 0.12.1
+
+### Patch Changes
+
+- [#230](https://github.com/Lykhoyda/ask-llm/pull/230) [`394c305`](https://github.com/Lykhoyda/ask-llm/commit/394c305806607ca5db4803c666a0ebdc3304c2db) Thanks [@Lykhoyda](https://github.com/Lykhoyda)! - Move every public MCP package into the canonical `@ask-llm` npm organization,
+  while preserving the existing executable names for compatibility.
+- Updated dependencies [[`394c305`](https://github.com/Lykhoyda/ask-llm/commit/394c305806607ca5db4803c666a0ebdc3304c2db)]:
+  - @ask-llm/gemini-mcp@1.6.15
+  - @ask-llm/codex-mcp@0.6.2
+  - @ask-llm/ollama-mcp@0.5.2
+  - @ask-llm/antigravity-mcp@0.4.2
+
+## 0.12.0
+
+### Minor Changes
+
+- [#228](https://github.com/Lykhoyda/ask-llm/pull/228) [`b27b69e`](https://github.com/Lykhoyda/ask-llm/commit/b27b69ef6a83d1fe03c51da2b90cc98f0994fbb8) Thanks [@Lykhoyda](https://github.com/Lykhoyda)! - Add `/fable-review` and `/sol-review`, two read-only review skills that launch
+  isolated reviewer agents that request native Fable and explicitly pin OpenAI GPT-5.6 Sol,
+  respectively. Both workflows validate findings against the source and report
+  only high-confidence issues.
+
+## 0.11.1
+
+### Patch Changes
+
+- [#222](https://github.com/Lykhoyda/ask-llm/pull/222) [`ae7780c`](https://github.com/Lykhoyda/ask-llm/commit/ae7780c67327224eea760ade42b61df3d9a32b54) Thanks [@Lykhoyda](https://github.com/Lykhoyda)! - Update Codex defaults to the GPT-5.6 family: GPT-5.6 Sol is now the
+  quality-first model for MCP calls, reviews, brainstorming, image orchestration,
+  and codex-pair, with GPT-5.6 Terra as the balanced quota fallback. The legacy
+  preferred-model escape hatch remains available, but no longer adds a redundant
+  attempt when it resolves to the Sol default. `ask-codex` now accepts an optional
+  `reasoningEffort`; general calls preserve `medium`, while `/codex-review` and
+  `/brainstorm` use `high`.
+- Updated dependencies [[`ae7780c`](https://github.com/Lykhoyda/ask-llm/commit/ae7780c67327224eea760ade42b61df3d9a32b54), [`ae7780c`](https://github.com/Lykhoyda/ask-llm/commit/ae7780c67327224eea760ade42b61df3d9a32b54)]:
+  - ask-gemini-mcp@1.6.14
+  - ask-codex-mcp@0.6.1
+  - ask-ollama-mcp@0.5.1
+  - ask-antigravity-mcp@0.4.1
+
+## 0.11.0
+
+### Minor Changes
+
+- [#220](https://github.com/Lykhoyda/ask-llm/pull/220) [`1089a21`](https://github.com/Lykhoyda/ask-llm/commit/1089a215657594a1c569dcd6c180d94750b1dab6) Thanks [@Lykhoyda](https://github.com/Lykhoyda)! - Codex `/codex-review` and `/brainstorm` now prefer `gpt-5.5-pro` when the Codex
+  account is entitled, falling back transparently to `gpt-5.5` (then `gpt-5.4-mini`
+  on quota). Those two commands opt in automatically; the raw `ask-codex` tool can
+  opt in with the new `preferred` arg. `ASK_CODEX_PREFERRED_MODEL` customizes which
+  model the preferred tier uses (default `gpt-5.5-pro`) — it does not by itself
+  enable preferred mode. `/multi-review`'s Codex leg inherits the preferred tier
+  via the shared `codex-reviewer` agent (its binary-fallback path stays on
+  `gpt-5.5`); `codex-pair` and `/codex-verify` are unchanged. (ADR-132)
+
+### Patch Changes
+
+- Updated dependencies [[`1089a21`](https://github.com/Lykhoyda/ask-llm/commit/1089a215657594a1c569dcd6c180d94750b1dab6)]:
+  - ask-codex-mcp@0.6.0
+
 ## 0.10.2
 
 ### Patch Changes

@@ -10,7 +10,7 @@
   "packages": [
     {
       "registryType": "npm",
-      "identifier": "ask-codex-mcp",
+      "identifier": "@ask-llm/codex-mcp",
       "version": "0.2.0",
       "transport": {
         "type": "stdio"

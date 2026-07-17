@@ -32,13 +32,13 @@ describe("scripts/codex-pair-watch.mjs — structural invariants (ADR-077)", () 
   });
 
   it("has zero workspace imports (must work on marketplace install without node_modules)", () => {
-    // git-subdir install doesn't run npm install; any workspace import (ask-codex-mcp,
-    // ask-gemini-mcp, @ask-llm/shared) would fail with ERR_MODULE_NOT_FOUND and the
+    // git-subdir install doesn't run npm install; any workspace import (@ask-llm/codex-mcp,
+    // @ask-llm/gemini-mcp, @ask-llm/shared) would fail with ERR_MODULE_NOT_FOUND and the
     // top-level import error would crash the hook BEFORE main().catch can protect Claude.
-    expect(script).not.toMatch(/from\s+["']ask-codex-mcp/);
-    expect(script).not.toMatch(/from\s+["']ask-gemini-mcp/);
-    expect(script).not.toMatch(/from\s+["']ask-ollama-mcp/);
-    expect(script).not.toMatch(/from\s+["']@ask-llm/);
+    expect(script).not.toMatch(/from\s+["']@ask-llm\/codex-mcp/);
+    expect(script).not.toMatch(/from\s+["']@ask-llm\/gemini-mcp/);
+    expect(script).not.toMatch(/from\s+["']@ask-llm\/ollama-mcp/);
+    expect(script).not.toMatch(/from\s+["']@ask-llm\//);
   });
 
   it("inlines the codex spawn (mirrors codexExecutor.ts buildArgs)", () => {
@@ -503,10 +503,10 @@ describe("scripts/codex-pair-watch.mjs — structural invariants (ADR-077)", () 
 
   it("codex-pair-log CLI has zero workspace imports", () => {
     const cli = fs.readFileSync(path.join(PLUGIN_ROOT, "scripts", "codex-pair-log.mjs"), "utf-8");
-    expect(cli).not.toMatch(/from\s+["']ask-codex-mcp/);
-    expect(cli).not.toMatch(/from\s+["']ask-gemini-mcp/);
-    expect(cli).not.toMatch(/from\s+["']ask-ollama-mcp/);
-    expect(cli).not.toMatch(/from\s+["']@ask-llm/);
+    expect(cli).not.toMatch(/from\s+["']@ask-llm\/codex-mcp/);
+    expect(cli).not.toMatch(/from\s+["']@ask-llm\/gemini-mcp/);
+    expect(cli).not.toMatch(/from\s+["']@ask-llm\/ollama-mcp/);
+    expect(cli).not.toMatch(/from\s+["']@ask-llm\//);
   });
 
   // Phase 3 item #10: failure-class retry with jitter
@@ -682,7 +682,11 @@ describe("scripts/codex-pair-watch.mjs — structural invariants (ADR-077)", () 
     expect(script).toMatch(
       /FALLBACK_MODEL\s*=\s*process\.env\.ASK_CODEX_FALLBACK_MODEL\s*\?\?\s*CODEX_PAIR_DEFAULTS\.fallbackModel/,
     );
-    expect(script).toMatch(/DEFAULT_REASONING_EFFORT\s*=\s*process\.env\.ASK_CODEX_REASONING_EFFORT\s*\?\?\s*"medium"/);
+    expect(script).toMatch(/CODEX_REASONING_EFFORTS\s*=\s*new Set\(\["low", "medium", "high", "xhigh", "max"\]\)/);
+    expect(script).toMatch(/configuredReasoningEffort\s*=\s*process\.env\.ASK_CODEX_REASONING_EFFORT/);
+    expect(script).toMatch(
+      /DEFAULT_REASONING_EFFORT\s*=\s*CODEX_REASONING_EFFORTS\.has\(configuredReasoningEffort\)[\s\S]{0,100}\?\s*configuredReasoningEffort[\s\S]{0,100}:\s*"medium"/,
+    );
     expect(script).toMatch(/model_reasoning_effort="\$\{DEFAULT_REASONING_EFFORT\}"/);
   });
 

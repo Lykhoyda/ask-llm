@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { toolRegistry } from "../tools/index.js";
 
-describe("ask-antigravity-mcp smoke", () => {
+describe("@ask-llm/antigravity-mcp smoke", () => {
   it("registers ask-antigravity and ping tools", () => {
     const names = toolRegistry.map((t) => t.name);
     expect(names).toContain("ask-antigravity");

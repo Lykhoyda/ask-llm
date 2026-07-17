@@ -1,5 +1,45 @@
 # Architectural Decisions
 
+## ADR-136: Review providers read by default; managed raw dispatches inherit safety guards
+
+**Status:** Accepted (2026-07-09; renumbered from the branch's provisional ADR-133 to avoid a collision with the released npm-migration ADR-133 during the origin/main integration)
+
+**Context:** The product contract in `CLAUDE.md` is "the other model reads,
+Claude edits," but three Codex review paths still requested `--sandbox
+workspace-write`: the published `ask-codex` executor, codex-pair's inlined
+spawn, and the brainstorm coordinator's raw spawn. This made workspace mutation
+reachable during a review even though callers had no explicit write-mode
+parameter. Antigravity had a second bypass: its MCP executor prepended
+`READ_ONLY_PREAMBLE` and enabled `--sandbox`, while the coordinator's raw `agy`
+call used `--dangerously-skip-permissions` with neither guard. A real `agy`
+review had previously implemented the feature it was asked only to critique
+(`BUGS.md`). The safety invariant is therefore execution-level, not
+prompt-level: managed review paths must request the strongest read-only mode the
+upstream CLI exposes.
+
+**Decision:** All Codex second-opinion paths now default to `--sandbox
+read-only`, including fresh and resumed MCP calls, structured edit proposals,
+codex-pair, and raw brainstorm dispatch. `ask-codex` and `ask-codex-edit`
+advertise `readOnlyHint: true`. `workspace-write` remains reachable only as an
+explicit `sandbox: "workspace-write"` opt-in on the executor's machine contract
+(the #227 safe machine contracts), which the public tools never pass — so the
+advertised read-only hint stays honest. The raw Antigravity brainstorm path
+prepends the executor's exact read-only preamble and passes `--sandbox`
+alongside the headless-only `--dangerously-skip-permissions`. Contract tests
+assert these flags. The Stop gate also adopts `git status --porcelain=v1 -z` so
+special-character filenames cannot bypass dirty-file reconciliation, and
+`/compare` isolates concurrent runs while inlining provider-neutral file context.
+
+**Consequences:** Codex can still inspect files, reason, run commands allowed
+by its read-only sandbox, and return structured edit proposals, but it cannot
+modify the workspace by default; Claude/the MCP client remains the sole editor.
+This intentionally tightens behavior for prompts that previously relied on
+implicit Codex writes—those callers should apply the returned proposal
+explicitly. Antigravity is improved but not a hard guarantee: upstream `agy` has
+no read-only file-tool mode, so its preamble remains a soft control even with
+terminal sandboxing. Hard isolation requires a throwaway checkout/container and
+remains tracked in `BUGS.md`.
+
 ## ADR-135: Docs site Terminal Noir redesign with providers.ts single source of truth
 
 **Status:** Accepted (2026-07-16)
@@ -82,43 +122,13 @@ six published MCP packages under ADR-119's inlined-shared rule. Unit/contract
 tests use captured JSON shapes and mocked execution; release verification boots
 the packaged MCP server without making a paid model call.
 
-## ADR-133: Review providers read by default; managed raw dispatches inherit safety guards
+## ADR-133: Canonical npm packages live under the `@ask-llm` organization
 
-**Status:** Accepted (2026-07-09)
-
-**Context:** The product contract in `CLAUDE.md` is "the other model reads,
-Claude edits," but three Codex review paths still requested `--sandbox
-workspace-write`: the published `ask-codex` executor, codex-pair's inlined
-spawn, and the brainstorm coordinator's raw spawn. This made workspace mutation
-reachable during a review even though callers had no explicit write-mode
-parameter. Antigravity had a second bypass: its MCP executor prepended
-`READ_ONLY_PREAMBLE` and enabled `--sandbox`, while the coordinator's raw `agy`
-call used `--dangerously-skip-permissions` with neither guard. A real `agy`
-review had previously implemented the feature it was asked only to critique
-(`BUGS.md`). The safety invariant is therefore execution-level, not
-prompt-level: managed review paths must request the strongest read-only mode the
-upstream CLI exposes.
-
-**Decision:** All Codex second-opinion paths now pass `--sandbox read-only`,
-including fresh and resumed MCP calls, structured edit proposals, codex-pair,
-and raw brainstorm dispatch. `ask-codex` and `ask-codex-edit` advertise
-`readOnlyHint: true`. The raw Antigravity brainstorm path prepends the
-executor's exact read-only preamble and passes `--sandbox` alongside the
-headless-only `--dangerously-skip-permissions`. Contract tests assert these
-flags and reject `workspace-write`. The Stop gate also adopts `git status
---porcelain=v1 -z` so special-character filenames cannot bypass dirty-file
-reconciliation, and `/compare` isolates concurrent runs while inlining
-provider-neutral file context.
-
-**Consequences:** Codex can still inspect files, reason, run commands allowed
-by its read-only sandbox, and return structured edit proposals, but it cannot
-modify the workspace; Claude/the MCP client remains the sole editor. This
-intentionally tightens behavior for prompts that previously relied on implicit
-Codex writes—those callers should apply the returned proposal explicitly.
-Antigravity is improved but not a hard guarantee: upstream `agy` has no
-read-only file-tool mode, so its preamble remains a soft control even with
-terminal sandboxing. Hard isolation requires a throwaway checkout/container and
-remains tracked in `BUGS.md`.
+- **Date:** 2026-07-14
+- **Status:** Accepted
+- **Context:** Five MCP packages used unrelated unscoped names while the Claude provider used the personal scope `@anton-lykhoyda`. The mixed ownership model made the package family harder to discover and made the Claude package look unofficial. The `@ask-llm` npm organization now exists and the maintainer is its owner.
+- **Decision:** Publish every public MCP package under one canonical namespace: `@ask-llm/gemini-mcp`, `@ask-llm/codex-mcp`, `@ask-llm/claude-mcp`, `@ask-llm/ollama-mcp`, `@ask-llm/antigravity-mcp`, and `@ask-llm/mcp`. Preserve the existing executable names (`ask-gemini-mcp`, etc.) so global-install configurations remain compatible. Update all internal runtime dependencies, MCP Registry manifests, release checks, CI tarball smoke tests, documentation, and plugin references atomically. After all six scoped packages are publicly installable, deprecate the former npm names with migration messages.
+- **Consequences:** Package install specs change, but commands and MCP configuration binaries do not. Scoped packages explicitly publish with public visibility. The release preflight pins the canonical package-to-binary mapping so a future manifest edit cannot silently rename an executable or reintroduce a personal or unscoped package. Historical changelog entries and ADR text retain the names that were accurate when written.
 
 ## ADR-132: Preferred `gpt-5.5-pro` tier for /codex-review and /brainstorm
 

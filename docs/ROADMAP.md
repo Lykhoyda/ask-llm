@@ -4,7 +4,7 @@
 
 This section is the live roadmap. The dated material below is retained as delivery history and decision evidence.
 
-1. **Hard-isolate Antigravity reviews** — managed paths now carry the read-only preamble plus `--sandbox` (ADR-133), but upstream `agy` still lacks a hard file-tool read-only mode. Evaluate an isolated throwaway checkout/container without breaking headless reliability.
+1. **Hard-isolate Antigravity reviews** — managed paths now carry the read-only preamble plus `--sandbox` (ADR-136), but upstream `agy` still lacks a hard file-tool read-only mode. Evaluate an isolated throwaway checkout/container without breaking headless reliability.
 2. **Generate drift-prone documentation** — derive provider/model/tool/package tables and AI-readable references from source schemas/constants instead of continuing hand-maintained parity sweeps.
 3. **Measure critical-path coverage** — establish coverage reporting and thresholds for executors, shared process handling, and codex-pair state/gate code; keep real-provider canaries separate from hermetic CI.
 4. **Verify the configured Gemini fallback against current account tiers** — `gemini-3.5-flash` remains a documented needs-verification item in `BUGS.md`.
@@ -15,11 +15,15 @@ Rebuilt the VitePress docs site (`apps/docs/`) as a 12-task subagent-driven over
 
 **Final verification matrix (this task, all 9 PASS):** `yarn docs:build` clean; `check-docs-drift.mjs` clean (6 packages, 5 providers); `yarn lint` clean; browser pass over all 20 sidebar pages (zero console errors on the built site) with the five diagrams rendering in default motion and every animated component (7) carrying a `prefers-reduced-motion` guard that freezes to its final frame (beams/wires/timelines fully drawn, pulses hidden, `NoirHero` JS sets full hero text immediately); keyboard walk of homepage + Quick Start (all interactive elements reachable, `:focus-visible` accent outline verified on links, nav buttons, and `SetupTabs` role=tab controls — the one VitePress built-in search button keeps its own visible focus ring); WCAG contrast spot-checks all pass (`--noir-text-2`/`--noir-text-3` on bg 7.69/5.28 and on raised 7.45/5.11; CTA dark-on-accent 12.82:1); em-dash scan clean; redirect stubs land on Quick Start; local search rebuilt (`install`→Quick Start, `codex`→Codex page, `claude`→Claude page). One benign non-regression noted: the browser auto-requests `/favicon.ico` (404) because no favicon is configured — pre-existing, not introduced by the overhaul.
 
-### 2026-07-09 — trust, release, packaging, and maintenance hardening (ADR-133)
+### 2026-07-09 — trust, release, packaging, and maintenance hardening (ADR-136)
 
 Made Codex review/analysis paths read-only by default; applied the Antigravity preamble + sandbox to the raw brainstorm path; isolated concurrent `/compare` runs and made file context provider-neutral; switched the Stop gate to NUL-delimited porcelain parsing; pinned GitHub Actions and `mcp-publisher` with checksum verification; made registry publish failures loud; added missing package licenses plus a tarball CI gate; and expanded Biome linting to production plugin scripts. Open residuals are limited to controls that require upstream or a larger follow-on design: hard Antigravity isolation, generated documentation, and coverage thresholds.
 
 ## Delivery history
+
+### 2026-07-14 — Canonical `@ask-llm` npm organization migration (ADR-133)
+
+Moved all six public MCP packages into the `@ask-llm` npm organization while preserving their existing executable names. Updated the monorepo dependency graph, Registry manifests, release/public-access checks, CI tarball installation, plugin references, and user documentation together. The release is complete only after clean public installs of every scoped package; the former package names are then deprecated with pointers to their replacements.
 
 ## Active plan: post-v0.7.0 — empirical-discipline maintenance (2026-05-27)
 

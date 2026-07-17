@@ -13,7 +13,7 @@
 //
 // Why no workspace imports: this script ships via marketplace as part of a
 // `git-subdir` extraction with no `npm install` step, so workspace deps
-// (`ask-codex-mcp/executor`, `@ask-llm/shared`) don't resolve. The codex
+// (`@ask-llm/codex-mcp/executor`, `@ask-llm/shared`) don't resolve. The codex
 // invocation is inlined; semantics mirror `codexExecutor.ts` deliberately.
 
 import { spawn } from "node:child_process";
@@ -98,7 +98,11 @@ const MARKER_FILE = join(PAIR_ROOT_DIR, CONTEXT_FILENAME);
 const WATCHED_TOOLS = new Set(["Edit", "Write", "MultiEdit"]);
 const DEFAULT_MODEL = process.env.ASK_CODEX_MODEL ?? CODEX_PAIR_DEFAULTS.model;
 const FALLBACK_MODEL = process.env.ASK_CODEX_FALLBACK_MODEL ?? CODEX_PAIR_DEFAULTS.fallbackModel;
-const DEFAULT_REASONING_EFFORT = process.env.ASK_CODEX_REASONING_EFFORT ?? "medium";
+const CODEX_REASONING_EFFORTS = new Set(["low", "medium", "high", "xhigh", "max"]);
+const configuredReasoningEffort = process.env.ASK_CODEX_REASONING_EFFORT;
+const DEFAULT_REASONING_EFFORT = CODEX_REASONING_EFFORTS.has(configuredReasoningEffort)
+  ? configuredReasoningEffort
+  : "medium";
 const DEFAULT_TIMEOUT_MS = Number(process.env.ASK_CODEX_TIMEOUT_MS ?? 800_000);
 const MAX_FILE_BYTES = Number(process.env.CODEX_PAIR_MAX_FILE_BYTES ?? 20_000);
 const DEBOUNCE_MS = Number(process.env.ASK_CODEX_DEBOUNCE_MS ?? DEFAULT_DEBOUNCE_MS);
@@ -568,7 +572,7 @@ function buildCodexArgs(model) {
     args.push("--ignore-user-config", "--ignore-rules");
   }
   // codex-pair only reviews the edited file. The pairing partner applies fixes;
-  // Codex must never mutate the workspace while evaluating them (ADR-133).
+  // Codex must never mutate the workspace while evaluating them (ADR-136).
   args.push(
     "--sandbox",
     "read-only",

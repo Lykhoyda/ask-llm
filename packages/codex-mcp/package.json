@@ -1,6 +1,6 @@
 {
-  "name": "ask-codex-mcp",
-  "version": "0.5.0",
+  "name": "@ask-llm/codex-mcp",
+  "version": "0.7.0",
   "mcpName": "io.github.Lykhoyda/ask-codex",
   "description": "MCP server for OpenAI Codex CLI integration - for Claude IDE and other IDEs",
   "type": "module",
@@ -20,7 +20,9 @@
       "default": "./dist/register.js"
     }
   },
-  "bin": "dist/cli.js",
+  "bin": {
+    "ask-codex-mcp": "dist/cli.js"
+  },
   "scripts": {
     "build": "tsdown",
     "start": "node dist/cli.js",

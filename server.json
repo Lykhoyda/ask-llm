@@ -10,7 +10,7 @@
   "packages": [
     {
       "registryType": "npm",
-      "identifier": "ask-gemini-mcp",
+      "identifier": "@ask-llm/gemini-mcp",
       "version": "1.2.1",
       "transport": {
         "type": "stdio"

@@ -1,6 +1,6 @@
 {
   "name": "@ask-llm/plugin",
-  "version": "0.10.2",
+  "version": "0.12.2",
   "private": true,
   "type": "module",
   "main": "dist/index.js",
@@ -16,11 +16,11 @@
     "lint": "biome check src/ && biome lint scripts/ && tsc --noEmit"
   },
   "dependencies": {
-    "@ask-llm/shared": "workspace:*",
-    "ask-antigravity-mcp": "workspace:*",
-    "ask-codex-mcp": "workspace:*",
-    "ask-gemini-mcp": "workspace:*",
-    "ask-ollama-mcp": "workspace:*"
+    "@ask-llm/antigravity-mcp": "workspace:*",
+    "@ask-llm/codex-mcp": "workspace:*",
+    "@ask-llm/gemini-mcp": "workspace:*",
+    "@ask-llm/ollama-mcp": "workspace:*",
+    "@ask-llm/shared": "workspace:*"
   },
   "engines": {
     "node": ">=20.0.0"

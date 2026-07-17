@@ -26,7 +26,7 @@ function readPackageJson(): { name: string; version: string } {
     const require = createRequire(import.meta.url);
     return require("../package.json") as { name: string; version: string };
   } catch {
-    return { name: "ask-llm-mcp", version: "0.0.0" };
+    return { name: "@ask-llm/mcp", version: "0.0.0" };
   }
 }
 
@@ -39,6 +39,10 @@ export type ExecutorFn = (options: {
   prompt: string;
   model?: string;
   sessionId?: string;
+  includeDirs?: string[];
+  sandbox?: "read-only" | "workspace-write";
+  outputSchema?: Record<string, unknown>;
+  readOnly?: boolean;
   onProgress?: (output: string) => void;
 }) => Promise<{
   response: string;
@@ -50,7 +54,23 @@ export type ExecutorFn = (options: {
   usage?: UsageStats;
   sessionId?: string;
   threadId?: string;
+  transcriptPath?: string;
 }>;
+
+export type {
+  MachineDeps,
+  MachineJsonSchemaBundle,
+  MachineSchemaRefinement,
+  MachineSchemaRefinementSet,
+  MachineSchemaRefinementViolation,
+  MachineSchemaTarget,
+} from "./machine.js";
+export {
+  buildRolePrompt,
+  machineJsonSchemaBundle,
+  runMachineRequest,
+  validateMachineSchemaRefinements,
+} from "./machine.js";
 
 const loadedExecutors = new Map<string, ExecutorFn>();
 
@@ -150,7 +170,7 @@ const PROGRESS_MESSAGES = (op: string) => [
 ];
 
 export async function startServer() {
-  Logger.debug("init ask-llm-mcp");
+  Logger.debug("init @ask-llm/mcp");
   Logger.checkNodeVersion();
   const { name, version } = readPackageJson();
   const { available } = await detectProviders();
@@ -237,7 +257,7 @@ export async function startServer() {
     async (args: Record<string, unknown>): Promise<CallToolResult> => {
       const { message } = pingSchema.parse(args);
       const providers = available.length > 0 ? available.join(", ") : "none";
-      const text = message || `Pong from ask-llm-mcp! Available providers: ${providers}`;
+      const text = message || `Pong from @ask-llm/mcp! Available providers: ${providers}`;
       return { content: [{ type: "text", text }], isError: false };
     },
   );
@@ -333,9 +353,9 @@ export async function startServer() {
     },
   );
 
-  Logger.warn(`ask-llm-mcp v${version} — 5 tools, ${available.length} provider(s): ${available.join(", ") || "none"}`);
+  Logger.warn(`@ask-llm/mcp v${version} — 5 tools, ${available.length} provider(s): ${available.join(", ") || "none"}`);
 
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  Logger.debug("ask-llm-mcp listening on stdio");
+  Logger.debug("@ask-llm/mcp listening on stdio");
 }

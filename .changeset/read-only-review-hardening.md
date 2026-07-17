@@ -1,8 +1,8 @@
 ---
-"ask-antigravity-mcp": patch
-"ask-codex-mcp": patch
-"ask-ollama-mcp": patch
-"ask-llm-mcp": patch
+"@ask-llm/antigravity-mcp": patch
+"@ask-llm/codex-mcp": patch
+"@ask-llm/ollama-mcp": patch
+"@ask-llm/mcp": patch
 "@ask-llm/plugin": patch
 ---
 

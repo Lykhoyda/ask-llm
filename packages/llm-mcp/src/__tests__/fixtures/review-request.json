@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "requestId": "factory-review-0001",
+  "role": "review",
+  "provider": "codex",
+  "prompt": "Review the redacted fixture diff.",
+  "model": "gpt-fixture",
+  "readOnly": true,
+  "writerProvider": "claude",
+  "includeDirs": ["packages/example"]
+}

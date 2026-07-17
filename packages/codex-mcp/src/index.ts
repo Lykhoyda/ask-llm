@@ -15,7 +15,7 @@ function readPackageJson(): { name: string; version: string } {
     const require = createRequire(import.meta.url);
     return require("../package.json") as { name: string; version: string };
   } catch {
-    return { name: "ask-codex-mcp", version: "0.0.0" };
+    return { name: "@ask-llm/codex-mcp", version: "0.0.0" };
   }
 }
 
@@ -44,9 +44,9 @@ registerTools({
 registerSessionUsageResource(server, sessionUsage);
 
 export async function startServer() {
-  Logger.debug("init ask-codex-mcp");
+  Logger.debug("init @ask-llm/codex-mcp");
   Logger.checkNodeVersion();
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  Logger.debug("ask-codex-mcp listening on stdio");
+  Logger.debug("@ask-llm/codex-mcp listening on stdio");
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_REASONING_EFFORT, MODELS } from "../constants.js";
+import { DEFAULT_REASONING_EFFORT, isCodexReasoningEffort, MODELS } from "../constants.js";
 import { toolRegistry } from "../tools/index.js";
 
 describe("MCP server smoke test", () => {
@@ -42,5 +42,11 @@ describe("Codex default model version", () => {
   it("preserves medium reasoning effort unless overridden", () => {
     if (process.env.ASK_CODEX_REASONING_EFFORT) return;
     expect(DEFAULT_REASONING_EFFORT).toBe("medium");
+  });
+
+  it("accepts only supported Codex reasoning efforts", () => {
+    expect(isCodexReasoningEffort("high")).toBe(true);
+    expect(isCodexReasoningEffort("maximum")).toBe(false);
+    expect(isCodexReasoningEffort(undefined)).toBe(false);
   });
 });

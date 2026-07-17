@@ -13,7 +13,7 @@ Review current code changes by delegating to the `antigravity-reviewer` agent â€
 This skill is **experimental** and requires:
 
 - `agy` installed and **logged in once** (run `agy` interactively to complete Google Sign-In).
-- The Antigravity MCP server registered, e.g. `claude mcp add antigravity -- npx -y ask-antigravity-mcp`.
+- The Antigravity MCP server registered, e.g. `claude mcp add antigravity -- npx -y @ask-llm/antigravity-mcp`.
 
 It is one-shot (no multi-turn) and **subscription-backed** â€” it uses your Google AI Pro/Ultra plan, not per-token API billing. For routine review on a paid OpenAI/Gemini setup, prefer [`codex-review`](../codex-review/SKILL.md) or [`gemini-review`](../gemini-review/SKILL.md). To compare several providers at once, use [`multi-review`](../multi-review/SKILL.md).
 

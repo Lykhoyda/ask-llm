@@ -46,7 +46,7 @@ Or install globally: `npm install -g ask-codex-mcp`
 - **GPT-5.6 Sol access** via the official Codex CLI
 - **Reasoning control:** ordinary calls default to `medium`; `/codex-review` and `/brainstorm` use `high`; direct calls can request `low`, `medium`, `high`, `xhigh`, or `max`
 - **Native session continuity:** `sessionId` parameter maps to Codex's `thread_id`; `codex exec resume <id>` is used internally for follow-up turns (zero replay cost, Codex retains state)
-- **Read-only, non-interactive sandbox:** `codex exec --sandbox read-only` keeps second-opinion, review, edit-proposal, resumed-session, and codex-pair calls from modifying the workspace. Codex `exec` is non-interactive by definition, so no approval prompt can hang the MCP subprocess ([ADR-133](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md)).
+- **Read-only, non-interactive sandbox:** `codex exec --sandbox read-only` keeps second-opinion, review, edit-proposal, resumed-session, and codex-pair calls from modifying the workspace. Codex `exec` is non-interactive by definition, so no approval prompt can hang the MCP subprocess ([ADR-136](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md)).
 - **JSONL output parsing** for structured responses + token usage
 - **Automatic quota fallback** from GPT-5.6 Sol to Terra
 - **Structured AskResponse** via outputSchema for programmatic clients

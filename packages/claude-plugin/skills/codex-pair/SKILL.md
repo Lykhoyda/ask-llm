@@ -271,7 +271,7 @@ Use integer minor units such as `priceCents: z.number().int().nonnegative()`.
 |---|---|---|
 | `CODEX_PAIR_DISABLED` | unset | Set to `1` to bypass the hook entirely (kill switch) |
 | `CODEX_PAIR_MAX_FILE_BYTES` | `20000` | Skip files larger than this many bytes |
-| `ASK_CODEX_TIMEOUT_MS` | `800000` | Per-call codex timeout (inherited from ask-codex-mcp, ADR-074) |
+| `ASK_CODEX_TIMEOUT_MS` | `800000` | Per-call codex timeout (inherited from @ask-llm/codex-mcp, ADR-074) |
 | `ASK_CODEX_REASONING_EFFORT` | `medium` | Codex reasoning effort for continuous per-edit reviews; `/codex-review` and `/brainstorm` default to `high` instead. |
 | `ASK_CODEX_DEBOUNCE_MS` | `15000` | Settle window: a burst of edits to one file within this window is collapsed into a single review of the settled state (ADR-112). Set to `0` to disable debounce and review every edit synchronously. |
 | `ASK_CODEX_DEBOUNCE_MAX_MS` | `60000` | Hard cap from the first edit of a burst — forces a review even under a continuous edit stream. |

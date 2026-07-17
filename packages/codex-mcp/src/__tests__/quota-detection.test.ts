@@ -1,3 +1,4 @@
+import { classifyProviderFailure } from "@ask-llm/shared";
 import { describe, expect, it } from "vitest";
 import { isModelUnavailableError, isQuotaError, parseCodexJsonlOutput } from "../utils/codexExecutor.js";
 
@@ -95,5 +96,21 @@ describe("parseCodexJsonlOutput — exit-0 error-event quota path", () => {
       thrown = e;
     }
     expect(isQuotaError(thrown)).toBe(true);
+  });
+
+  it.each([
+    "You've hit your usage limit. Upgrade to Pro.",
+    "Error 429: too many requests",
+    "Workspace spend cap reached",
+  ])("normalizes an exit-zero error event as rate_limited: %s", (message) => {
+    let thrown: unknown;
+    try {
+      parseCodexJsonlOutput(JSON.stringify({ type: "error", message }), "gpt-5.6-sol", 100, false);
+    } catch (error) {
+      thrown = error;
+    }
+
+    expect(thrown).toBeInstanceOf(Error);
+    expect(classifyProviderFailure(thrown)).toBe("rate_limited");
   });
 });

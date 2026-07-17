@@ -25,7 +25,7 @@ import {
   STATUS_MESSAGES,
 } from "../constants.js";
 
-// Re-exported on the `ask-codex-mcp/executor` surface so the llm-mcp orchestrator
+// Re-exported on the `@ask-llm/codex-mcp/executor` surface so the llm-mcp orchestrator
 // can load the doctor enrichment by name (mirrors how executeCodexCLI is loaded).
 // `parseCodexDoctorJson` stays internal — tests import it from "./codexDoctor.js".
 export { enrichCodexDoctor } from "./codexDoctor.js";
@@ -91,6 +91,8 @@ export interface CodexExecutorOptions {
   // ask-codex-edit: run codex with --output-schema (read-only sandbox) so it
   // returns structured search/replace edits instead of prose. #102.
   editMode?: boolean;
+  sandbox?: "read-only" | "workspace-write";
+  outputSchema?: Record<string, unknown>;
   onProgress?: (newOutput: string) => void;
   // Opt-in for /codex-review and /brainstorm: try MODELS.PREFERRED first and
   // downgrade to MODELS.DEFAULT on any failure. Honored only for fresh
@@ -342,7 +344,7 @@ function buildArgs(
   sessionId?: string,
   useStdin?: boolean,
   includeDirs?: string[],
-  editMode?: boolean,
+  sandboxMode: "read-only" | "workspace-write" = CLI.FLAGS.SANDBOX_READ_ONLY,
   schemaPath?: string,
   reasoningEffort: CodexReasoningEffort = DEFAULT_REASONING_EFFORT,
 ): string[] {
@@ -355,25 +357,20 @@ function buildArgs(
   // regardless of host machine codex configuration. Auth credentials in
   // CODEX_HOME are still loaded. Opt out with ASK_CODEX_LOAD_USER_CONFIG=1
   // (e.g., users with custom MCP servers registered in ~/.codex/config.toml
-  // who need them available inside ask-codex-mcp invocations). See ADR-071.
+  // who need them available inside @ask-llm/codex-mcp invocations). See ADR-071.
   if (process.env.ASK_CODEX_LOAD_USER_CONFIG !== "1") {
     base.push(CLI.FLAGS.IGNORE_USER_CONFIG, CLI.FLAGS.IGNORE_RULES);
   }
-  // All ask-codex surfaces are second-opinion/proposal tools: Codex reads and
-  // reasons, while the MCP client applies any resulting edits. Keep every path,
-  // including resumed sessions, inside Codex's read-only sandbox. This enforces
-  // the repository's core "other model reads, Claude edits" boundary instead of
-  // relying on prompt wording to prevent workspace mutations (ADR-133).
   base.push(
     CLI.FLAGS.SANDBOX,
-    CLI.FLAGS.SANDBOX_READ_ONLY,
+    sandboxMode,
     CLI.FLAGS.CONFIG,
     `model_reasoning_effort="${reasoningEffort}"`,
     CLI.FLAGS.JSON,
     CLI.FLAGS.MODEL,
     model,
   );
-  if (editMode && schemaPath) base.push(CLI.FLAGS.OUTPUT_SCHEMA, schemaPath);
+  if (schemaPath) base.push(CLI.FLAGS.OUTPUT_SCHEMA, schemaPath);
   if (includeDirs?.length) {
     for (const dir of includeDirs) base.push(CLI.FLAGS.ADD_DIR, dir);
   }
@@ -387,6 +384,16 @@ export async function executeCodexCLI(options: CodexExecutorOptions): Promise<Co
   const reasoningEffort = options.reasoningEffort || DEFAULT_REASONING_EFFORT;
   const sessionId = options.sessionId;
   const editMode = options.editMode === true;
+  const outputSchema = options.outputSchema ?? (editMode ? CODEX_EDIT_SCHEMA : undefined);
+  // All ask-codex surfaces are second-opinion/proposal tools: Codex reads and
+  // reasons, while the MCP client applies any resulting edits. Default every
+  // path to Codex's read-only sandbox so the repository's core "other model
+  // reads, Claude edits" boundary is enforced by the sandbox, not prompt wording
+  // (ADR-136). workspace-write stays available only as an explicit machine-
+  // contract opt-in (`sandbox: "workspace-write"`), keeping the tools' advertised
+  // readOnlyHint honest.
+  const sandboxMode =
+    options.sandbox === "workspace-write" ? CLI.FLAGS.SANDBOX_WORKSPACE_WRITE : CLI.FLAGS.SANDBOX_READ_ONLY;
   const wantsSession = sessionId !== undefined;
   // Preferred tier (opt-in): try MODELS.PREFERRED first for fresh, non-edit,
   // no-explicit-model calls. Computed here — not only at the attempt below — so
@@ -394,14 +401,16 @@ export async function executeCodexCLI(options: CodexExecutorOptions): Promise<Co
   // stale base-model answer before the preferred attempt runs. See ADR-132.
   const preferredEligible =
     options.preferred === true && !options.model && !wantsSession && !editMode && MODELS.PREFERRED !== MODELS.DEFAULT;
-  // includeDirs and editMode both change what codex sees/returns, so they must
-  // distinguish cache entries (includeDirs sorted for order-independence).
+  // includeDirs, editMode, and sandbox mode change what codex sees/returns, so
+  // they must distinguish cache entries (includeDirs sorted for order-independence).
   const dirsPart = options.includeDirs?.length ? [...options.includeDirs].sort().join(":") : "";
   // Labeled parts so the marker is unambiguous — a literal includeDir of "edit"
   // must never collide with edit-mode's cache partition.
-  const extraContext = `effort=${reasoningEffort};edit=${editMode ? 1 : 0};dirs=${dirsPart}`;
+  const extraContext = `effort=${reasoningEffort};edit=${editMode ? 1 : 0};sandbox=${sandboxMode};dirs=${dirsPart}`;
   const cacheKey =
-    wantsSession || preferredEligible ? null : ResponseCache.buildKey("codex", options.prompt, model, extraContext);
+    wantsSession || preferredEligible || outputSchema
+      ? null
+      : ResponseCache.buildKey("codex", options.prompt, model, extraContext);
 
   if (cacheKey) {
     const cached = responseCache.get(cacheKey);
@@ -411,73 +420,68 @@ export async function executeCodexCLI(options: CodexExecutorOptions): Promise<Co
     }
   }
 
-  // editMode: codex returns structured edits via --output-schema; write the
-  // schema to a temp file for the duration of the call (removed in finally).
   let schemaPath: string | undefined;
-  if (editMode) {
-    // crypto-random suffix so parallel ask-codex-edit calls in the same process
-    // (same pid + same millisecond) never collide on the temp schema path —
-    // otherwise one call's finally-unlink could ENOENT the other's read.
-    schemaPath = join(tmpdir(), `codex-edit-schema-${process.pid}-${randomUUID()}.json`);
-    writeFileSync(schemaPath, JSON.stringify(CODEX_EDIT_SCHEMA));
-  }
+  try {
+    if (outputSchema) {
+      schemaPath = join(tmpdir(), `codex-output-schema-${process.pid}-${randomUUID()}.json`);
+      writeFileSync(schemaPath, JSON.stringify(outputSchema), { mode: 0o600 });
+    }
 
-  const useStdin = options.prompt.length > EXECUTION.STDIN_THRESHOLD_BYTES;
-  const stdinPayload = useStdin ? options.prompt : undefined;
-  const args = buildArgs(
-    options.prompt,
-    model,
-    sessionId,
-    useStdin,
-    options.includeDirs,
-    editMode,
-    schemaPath,
-    reasoningEffort,
-  );
-  // Codex with reasoning models routinely needs >210s for substantive prompts
-  // (issue #45). Resolution order: ASK_CODEX_TIMEOUT_MS > GMCPT_TIMEOUT_MS >
-  // DEFAULT_CODEX_TIMEOUT_MS. The provider-specific knob lets users keep a
-  // tighter global default for gemini while granting codex more headroom.
-  const timeoutMs = resolveTimeoutMs(EXECUTION.CODEX_TIMEOUT_ENV_VAR, EXECUTION.DEFAULT_CODEX_TIMEOUT_MS);
-
-  // Try MODELS.PREFERRED once (opportunistic). ANY failure downgrades to the
-  // standard MODELS.DEFAULT path below (which carries the quota→FALLBACK ladder).
-  // Deliberately NOT signal-matched — an unknown entitlement-rejection string
-  // must still fall back. See ADR-132.
-  let downgradedFromPreferred = false;
-  if (preferredEligible) {
-    const preferredArgs = buildArgs(
+    const useStdin = outputSchema !== undefined || options.prompt.length > EXECUTION.STDIN_THRESHOLD_BYTES;
+    const stdinPayload = useStdin ? options.prompt : undefined;
+    const args = buildArgs(
       options.prompt,
-      MODELS.PREFERRED,
-      undefined,
+      model,
+      sessionId,
       useStdin,
       options.includeDirs,
-      false,
-      undefined,
+      sandboxMode,
+      schemaPath,
       reasoningEffort,
     );
-    const preferredStartedAt = Date.now();
-    try {
-      const raw = await executeCommand(
-        CLI.COMMANDS.CODEX,
-        preferredArgs,
-        options.onProgress,
-        undefined,
-        stdinPayload,
-        timeoutMs,
-      );
-      return parseCodexJsonlOutput(raw, MODELS.PREFERRED, Date.now() - preferredStartedAt, false);
-    } catch (preferredError) {
-      const reason = preferredError instanceof Error ? preferredError.message : String(preferredError);
-      Logger.warn(
-        `Preferred Codex model ${MODELS.PREFERRED} unavailable (${reason}); falling back to ${MODELS.DEFAULT}.`,
-      );
-      downgradedFromPreferred = true;
-    }
-  }
+    // Codex with reasoning models routinely needs >210s for substantive prompts
+    // (issue #45). Resolution order: ASK_CODEX_TIMEOUT_MS > GMCPT_TIMEOUT_MS >
+    // DEFAULT_CODEX_TIMEOUT_MS. The provider-specific knob lets users keep a
+    // tighter global default for gemini while granting codex more headroom.
+    const timeoutMs = resolveTimeoutMs(EXECUTION.CODEX_TIMEOUT_ENV_VAR, EXECUTION.DEFAULT_CODEX_TIMEOUT_MS);
 
-  const startedAt = Date.now();
-  try {
+    // Try MODELS.PREFERRED once (opportunistic). ANY failure downgrades to the
+    // standard MODELS.DEFAULT path below (which carries the quota→FALLBACK ladder).
+    // Deliberately NOT signal-matched — an unknown entitlement-rejection string
+    // must still fall back. See ADR-132.
+    let downgradedFromPreferred = false;
+    if (preferredEligible) {
+      const preferredArgs = buildArgs(
+        options.prompt,
+        MODELS.PREFERRED,
+        undefined,
+        useStdin,
+        options.includeDirs,
+        sandboxMode,
+        schemaPath,
+        reasoningEffort,
+      );
+      const preferredStartedAt = Date.now();
+      try {
+        const raw = await executeCommand(
+          CLI.COMMANDS.CODEX,
+          preferredArgs,
+          options.onProgress,
+          undefined,
+          stdinPayload,
+          timeoutMs,
+        );
+        return parseCodexJsonlOutput(raw, MODELS.PREFERRED, Date.now() - preferredStartedAt, false);
+      } catch (preferredError) {
+        const reason = preferredError instanceof Error ? preferredError.message : String(preferredError);
+        Logger.warn(
+          `Preferred Codex model ${MODELS.PREFERRED} unavailable (${reason}); falling back to ${MODELS.DEFAULT}.`,
+        );
+        downgradedFromPreferred = true;
+      }
+    }
+
+    const startedAt = Date.now();
     try {
       const raw = await executeCommand(
         CLI.COMMANDS.CODEX,
@@ -508,7 +512,7 @@ export async function executeCodexCLI(options: CodexExecutorOptions): Promise<Co
           sessionId,
           useStdin,
           options.includeDirs,
-          editMode,
+          sandboxMode,
           schemaPath,
           reasoningEffort,
         );

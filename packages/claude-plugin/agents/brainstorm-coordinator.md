@@ -123,7 +123,7 @@ cat > "$workdir/prompt.md" <<'PROMPT_EOF'
 PROMPT_EOF
 
 # Antigravity is an agentic CLI, so raw calls must carry the same safety
-# preamble as ask-antigravity-mcp. This remains a soft model instruction;
+# preamble as @ask-llm/antigravity-mcp. This remains a soft model instruction;
 # --sandbox is the strongest isolation agy currently exposes.
 {
   printf '%s\n\n' 'You are giving a second opinion / code review. Read and reason only. Do NOT modify, create, or delete files, and do NOT run commands — just analyze and respond.'
@@ -139,7 +139,7 @@ PROMPT_EOF
 # contexts; skipping those prompts keeps the background job from hanging on input.
 # --sandbox restricts terminal execution. The read-only preamble above also
 # covers agy's file tools, for which upstream has no hard read-only flag.
-# --model "Gemini 3.1 Pro (High)": pin the same default ask-antigravity-mcp uses
+# --model "Gemini 3.1 Pro (High)": pin the same default @ask-llm/antigravity-mcp uses
 # (ADR-116). This raw `agy` call bypasses that executor, so the default must be
 # restated here or agy falls back to its own built-in model. Note the executor's
 # Gemini 3.5 Flash (High) rate-limit fallback does NOT apply to this raw path. The
@@ -160,6 +160,12 @@ pid_gemini=$!
 codex_model="${ASK_CODEX_PREFERRED_MODEL:-${ASK_CODEX_MODEL:-gpt-5.6-sol}}"
 codex_fallback="${ASK_CODEX_FALLBACK_MODEL:-gpt-5.6-terra}"
 codex_effort="${ASK_CODEX_REASONING_EFFORT:-high}"
+# Keep the raw env override aligned with ask-codex's public enum so malformed
+# config fragments never reach the Codex CLI.
+case "$codex_effort" in
+  low|medium|high|xhigh|max) ;;
+  *) codex_effort="high" ;;
+esac
 { codex exec --sandbox read-only -c "model_reasoning_effort=\"$codex_effort\"" -m "$codex_model" - < "$workdir/prompt.md" \
   || codex exec --sandbox read-only -c "model_reasoning_effort=\"$codex_effort\"" -m "$codex_fallback" - < "$workdir/prompt.md"; } \
   > "$workdir/codex.out" 2> "$workdir/codex.err" &
