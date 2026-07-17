@@ -46,7 +46,7 @@ describe("executeCodexCLI argument construction", () => {
       CLI.FLAGS.IGNORE_USER_CONFIG,
       CLI.FLAGS.IGNORE_RULES,
       CLI.FLAGS.SANDBOX,
-      CLI.FLAGS.SANDBOX_WORKSPACE_WRITE,
+      CLI.FLAGS.SANDBOX_READ_ONLY,
       CLI.FLAGS.CONFIG,
       `model_reasoning_effort="${DEFAULT_REASONING_EFFORT}"`,
       CLI.FLAGS.JSON,
@@ -67,7 +67,7 @@ describe("executeCodexCLI argument construction", () => {
       CLI.FLAGS.IGNORE_USER_CONFIG,
       CLI.FLAGS.IGNORE_RULES,
       CLI.FLAGS.SANDBOX,
-      CLI.FLAGS.SANDBOX_WORKSPACE_WRITE,
+      CLI.FLAGS.SANDBOX_READ_ONLY,
       CLI.FLAGS.CONFIG,
       `model_reasoning_effort="${DEFAULT_REASONING_EFFORT}"`,
       CLI.FLAGS.JSON,
@@ -637,7 +637,7 @@ describe("executeCodexCLI ASK_CODEX_LOAD_USER_CONFIG opt-out (#31 follow-up)", (
       CLI.FLAGS.SKIP_GIT,
       CLI.FLAGS.EPHEMERAL,
       CLI.FLAGS.SANDBOX,
-      CLI.FLAGS.SANDBOX_WORKSPACE_WRITE,
+      CLI.FLAGS.SANDBOX_READ_ONLY,
       CLI.FLAGS.CONFIG,
       `model_reasoning_effort="${DEFAULT_REASONING_EFFORT}"`,
       CLI.FLAGS.JSON,
@@ -768,7 +768,7 @@ describe("ask-codex-edit / editMode (#102)", () => {
     expect(processCodexEditOutput(JSON.stringify({ edits: [] }))).toMatch(/no edits/i);
   });
 
-  it("editMode uses --output-schema + read-only sandbox (never workspace-write)", async () => {
+  it("all Codex calls use a read-only sandbox; editMode additionally uses --output-schema", async () => {
     mockExecuteCommand.mockResolvedValue(
       '{"type":"item.completed","item":{"type":"agent_message","text":"{\\"edits\\":[]}"}}',
     );
@@ -776,7 +776,7 @@ describe("ask-codex-edit / editMode (#102)", () => {
     const [, args] = mockExecuteCommand.mock.calls[0];
     expect(args).toContain(CLI.FLAGS.OUTPUT_SCHEMA);
     expect(args).toContain(CLI.FLAGS.SANDBOX_READ_ONLY);
-    expect(args).not.toContain(CLI.FLAGS.SANDBOX_WORKSPACE_WRITE);
+    expect(args).not.toContain("workspace-write");
   });
 
   it("editMode still falls back to the fallback model on quota errors", async () => {

@@ -56,7 +56,7 @@ export const askCodexTool: UnifiedTool = {
   outputSchema: askResponseSchema,
   annotations: {
     title: "Ask Codex",
-    readOnlyHint: false,
+    readOnlyHint: true,
     destructiveHint: false,
     idempotentHint: false,
     openWorldHint: true,

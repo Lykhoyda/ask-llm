@@ -5,20 +5,22 @@
 import { isAbsolute, join, relative } from "node:path";
 import { hashConcernBody } from "./state.mjs";
 
-// Parse `git status --porcelain` (v1) into a Set of ABSOLUTE paths that are
+// Parse `git status --porcelain=v1 -z` into a Set of ABSOLUTE paths that are
 // modified or untracked relative to HEAD. repoRoot = `git rev-parse
-// --show-toplevel`. Rename lines ("R  old -> new") contribute the NEW path
-// (that's the file present on disk). The first 3 chars are the XY status +
-// space; the path starts at index 3.
+// --show-toplevel`. NUL mode disables git's C-style path quoting and reverses
+// rename fields: the first record is the destination path, followed by a second
+// source-path record. Only the destination is dirty on disk.
 export function parseGitPorcelain(stdout, repoRoot) {
   const dirty = new Set();
-  for (const line of stdout.split("\n")) {
-    if (line.length < 4) continue;
-    let path = line.slice(3);
-    const arrow = path.indexOf(" -> ");
-    if (arrow !== -1) path = path.slice(arrow + 4);
-    path = path.replace(/^"|"$/g, ""); // git quotes paths with special chars
+  const records = stdout.split("\0");
+  for (let i = 0; i < records.length; i++) {
+    const record = records[i];
+    if (record.length < 4) continue;
+    const status = record.slice(0, 2);
+    const path = record.slice(3);
     dirty.add(isAbsolute(path) ? path : join(repoRoot, path));
+    // In -z mode, rename/copy source paths are the next bare NUL record.
+    if (status.includes("R") || status.includes("C")) i++;
   }
   return dirty;
 }

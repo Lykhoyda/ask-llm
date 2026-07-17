@@ -94,6 +94,7 @@ describe("hooks.json", () => {
   it("registers the Stop hook → codex-pair-stop-gate.mjs", () => {
     expect(hooks.hooks.Stop).toBeDefined();
     const cmd = (hooks.hooks.Stop as Array<{ hooks: Array<{ command: string }> }>)[0].hooks[0].command;
+    // biome-ignore lint/suspicious/noTemplateCurlyInString: asserting a literal hook placeholder, not interpolation
     expect(cmd).toContain("${CLAUDE_PLUGIN_ROOT}");
     expect(cmd).toContain("codex-pair-stop-gate.mjs");
   });

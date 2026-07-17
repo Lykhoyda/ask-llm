@@ -80,7 +80,6 @@ export const CLI = {
     // is already non-interactive by definition, so we only need the sandbox part —
     // approval-never is implicit in the subcommand. Issue #46 / ADR-075.
     SANDBOX: "--sandbox",
-    SANDBOX_WORKSPACE_WRITE: "workspace-write",
     IGNORE_USER_CONFIG: "--ignore-user-config",
     IGNORE_RULES: "--ignore-rules",
     ADD_DIR: "--add-dir",

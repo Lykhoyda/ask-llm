@@ -18,9 +18,8 @@
 import { spawn, execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { mkdirSync, openSync, readFileSync, rmSync, statSync, unlinkSync } from "node:fs";
-import { mkdir, rename, unlink, writeFile } from "node:fs/promises";
+import { rename, unlink, writeFile } from "node:fs/promises";
 import { connect as netConnect } from "node:net";
-import { platform } from "node:process";
 import { dirname, join, resolve as resolvePath } from "node:path";
 import { fileURLToPath } from "node:url";
 import { BROKER_PROTOCOL_VERSION, initializeBroker } from "./broker.mjs";

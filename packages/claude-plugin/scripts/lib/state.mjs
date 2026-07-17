@@ -109,7 +109,7 @@ export const repetitionsPath = (markerDir) => join(stateRoot(markerDir), REPETIT
 export const repetitionsShardsRoot = (markerDir) => join(stateRoot(markerDir), REPETITIONS_SHARDS_DIR);
 export function repetitionsShardPath(markerDir, file) {
   const hash = createHash("sha256").update(String(file)).digest("hex").slice(0, 16);
-  return join(repetitionsShardsRoot(markerDir), hash + ".json");
+  return join(repetitionsShardsRoot(markerDir), `${hash}.json`);
 }
 
 // ── Pause sentinel (ADR-085, paths consolidated per ADR-092) ─────────────
@@ -602,7 +602,7 @@ export async function saveRepetitionsForFile(markerDir, file, map) {
   };
   try {
     await mkdir(dirname(p), { recursive: true });
-    const tmp = p + ".tmp." + process.pid;
+    const tmp = `${p}.tmp.${process.pid}`;
     await writeFile(tmp, JSON.stringify(payload));
     await rename(tmp, p);
   } catch {

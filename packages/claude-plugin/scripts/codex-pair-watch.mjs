@@ -17,19 +17,8 @@
 // invocation is inlined; semantics mirror `codexExecutor.ts` deliberately.
 
 import { spawn } from "node:child_process";
-import {
-  access,
-  appendFile,
-  mkdir,
-  readFile,
-  readdir,
-  rename,
-  stat,
-  unlink,
-  writeFile,
-} from "node:fs/promises";
-import { mkdirSync, readFileSync, statSync, unlinkSync, writeFileSync } from "node:fs";
-import { createHash } from "node:crypto";
+import { access, readFile } from "node:fs/promises";
+import { readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { homedir } from "node:os";
 import { fileURLToPath } from "node:url";
@@ -500,7 +489,7 @@ function matchesIgnoreRule(filePath, markerDir, rules) {
       lastMatch = rule;
     }
   }
-  if (lastMatch && lastMatch.negate) return null;
+  if (lastMatch?.negate) return null;
   return lastMatch;
 }
 
@@ -578,9 +567,11 @@ function buildCodexArgs(model) {
   if (process.env.ASK_CODEX_LOAD_USER_CONFIG !== "1") {
     args.push("--ignore-user-config", "--ignore-rules");
   }
+  // codex-pair only reviews the edited file. The pairing partner applies fixes;
+  // Codex must never mutate the workspace while evaluating them (ADR-133).
   args.push(
     "--sandbox",
-    "workspace-write",
+    "read-only",
     "-c",
     `model_reasoning_effort="${DEFAULT_REASONING_EFFORT}"`,
     "--json",

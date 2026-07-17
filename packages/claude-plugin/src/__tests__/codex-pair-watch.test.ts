@@ -45,7 +45,8 @@ describe("scripts/codex-pair-watch.mjs — structural invariants (ADR-077)", () 
     expect(script).toMatch(/spawn\s*\(\s*["']codex["']/);
     expect(script).toMatch(/--skip-git-repo-check/);
     expect(script).toMatch(/--sandbox/);
-    expect(script).toMatch(/workspace-write/);
+    expect(script).toMatch(/read-only/);
+    expect(script).not.toMatch(/workspace-write/);
     expect(script).toMatch(/--json/);
   });
 
@@ -427,7 +428,7 @@ describe("scripts/codex-pair-watch.mjs — structural invariants (ADR-077)", () 
     // Iterates rules and tracks last match
     expect(body).toMatch(/lastMatch/);
     // Negation re-include returns null
-    expect(body).toMatch(/lastMatch\.negate/);
+    expect(body).toMatch(/lastMatch\?\.negate/);
     expect(body).toMatch(/return null/);
   });
 
@@ -851,7 +852,7 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
   });
 
   function runHook(stdinPayload: string, cwd: string, extraEnv: Record<string, string> = {}) {
-    return spawnSync("node", [HOOK_PATH], {
+    return spawnSync(process.execPath, [HOOK_PATH], {
       input: stdinPayload,
       cwd,
       env: { ...process.env, ...extraEnv },
@@ -887,7 +888,7 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
       session_id: "sess-1",
     });
     // PATH-isolate so even if a worker mis-fires it cannot reach real codex.
-    const isolatedPath = path.dirname(process.execPath);
+    const isolatedPath = path.join(tempDir, "empty-bin");
     const result = runHook(payload, tempDir, { PATH: isolatedPath });
     expect(result.status).toBe(0);
     // No inline verdict on stdout (review is deferred to the worker).
@@ -1174,10 +1175,9 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
       tool_name: "Edit",
       tool_input: { file_path: filePath },
     });
-    // PATH set to node's own directory: node itself is findable so spawnSync
-    // can launch the hook, but git/codex aren't, so the hook's spawns fail
-    // fast via ENOENT instead of timing out. Keeps the test under 1s.
-    const isolatedPath = path.dirname(process.execPath);
+    // The hook itself launches via absolute process.execPath, while an empty
+    // PATH makes its git/codex spawns fail fast via ENOENT.
+    const isolatedPath = path.join(tempDir, "empty-bin");
     const result = runHook(payload, tempDir, { PATH: isolatedPath });
     expect(result.status).toBe(0);
     const lines = fs
@@ -1251,7 +1251,7 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
     // PATH-isolated so spawn fails fast (we only care that the hook did NOT
     // exit at the ignore-check, i.e. no "skipped: matched .codex-pair/ignore"
     // entry should be present).
-    const isolatedPath = path.dirname(process.execPath);
+    const isolatedPath = path.join(tempDir, "empty-bin");
     const result = runHook(payload, tempDir, { PATH: isolatedPath });
     expect(result.status).toBe(0);
     const lines = fs
@@ -1400,10 +1400,9 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
       tool_input: { file_path: filePath },
     });
     // Force codex spawn to fail fast so we don't burn real tokens.
-    // PATH set to node's own directory: node itself is findable so spawnSync
-    // can launch the hook, but git/codex aren't, so the hook's spawns fail
-    // fast via ENOENT instead of timing out. Keeps the test under 1s.
-    const isolatedPath = path.dirname(process.execPath);
+    // The hook itself launches via absolute process.execPath, while an empty
+    // PATH makes its git/codex spawns fail fast via ENOENT.
+    const isolatedPath = path.join(tempDir, "empty-bin");
     const result = runHook(payload, tempDir, { PATH: isolatedPath });
     expect(result.status).toBe(0);
     const logLines = fs
@@ -1633,7 +1632,7 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
       tool_input: { file_path: target },
       session_id: "s",
     });
-    const result = spawnSync("node", [HOOK_PATH], {
+    const result = spawnSync(process.execPath, [HOOK_PATH], {
       input: payload,
       cwd,
       encoding: "utf-8",
@@ -1667,12 +1666,12 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
     });
     // PATH-isolated: we only care that the DRAIN emits; the worker it spawns
     // (15s settle) wakes after this dir is gone and exits without reviewing.
-    const result = spawnSync("node", [HOOK_PATH], {
+    const result = spawnSync(process.execPath, [HOOK_PATH], {
       input: payload,
       cwd,
       encoding: "utf-8",
       timeout: 10_000,
-      env: { ...process.env, PATH: path.dirname(process.execPath) },
+      env: { ...process.env, PATH: path.join(cwd, "empty-bin") },
     });
     expect(result.status).toBe(0);
     expect(result.stdout).toMatch(/reviewed y\.ts — 1H\/0M\/0L/);
@@ -2220,7 +2219,7 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
     // Verdict will be spawn_failed (or error) — anything OTHER than "skipped"
     // is the assertion: we got past the pause gate.
     const result = runHook(payload, tempDir, {
-      PATH: path.dirname(process.execPath),
+      PATH: path.join(tempDir, "empty-bin"),
     });
     expect(result.status).toBe(0);
     const logPath = path.join(tempDir, ".codex-pair/log.jsonl");
@@ -2331,7 +2330,7 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
       tool_input: { file_path: filePath },
     });
     const result = runHook(payload, tempDir, {
-      PATH: path.dirname(process.execPath),
+      PATH: path.join(tempDir, "empty-bin"),
     });
     expect(result.status).toBe(0);
     const logPath = path.join(tempDir, ".codex-pair/log.jsonl");
@@ -2370,7 +2369,7 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
     // We assert the hook got PAST the inflight check (no "coalesced" log
     // entry) — meaning the stale lock was recovered.
     const result = runHook(payload, tempDir, {
-      PATH: path.dirname(process.execPath),
+      PATH: path.join(tempDir, "empty-bin"),
     });
     expect(result.status).toBe(0);
     const logPath = path.join(tempDir, ".codex-pair/log.jsonl");

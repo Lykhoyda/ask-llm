@@ -32,7 +32,7 @@ describe("selectLatestEntries", () => {
 
 describe("parseGitPorcelain", () => {
   it("maps porcelain entries to absolute paths (modified, untracked, renamed)", () => {
-    const out = [" M src/a.ts", "?? src/new.ts", "R  old.ts -> src/b.ts", ""].join("\n");
+    const out = [" M src/a.ts", "?? src/new.ts", "R  src/b.ts", "old.ts", ""].join("\0");
     const set = parseGitPorcelain(out, "/repo");
     // join(): the impl builds paths with node:path, so expectations must use
     // native separators to hold on Windows too (PR #200).
@@ -40,6 +40,12 @@ describe("parseGitPorcelain", () => {
     expect(set.has(join("/repo", "src/new.ts"))).toBe(true);
     expect(set.has(join("/repo", "src/b.ts"))).toBe(true); // rename → new path is the dirty one
     expect(set.has(join("/repo", "old.ts"))).toBe(false);
+  });
+
+  it("preserves raw special characters from porcelain -z without C-style quote decoding", () => {
+    const special = 'src/quote"-backslash\\-newline\n.ts';
+    const set = parseGitPorcelain(` M ${special}\0`, "/repo");
+    expect(set.has(join("/repo", special))).toBe(true);
   });
 });
 

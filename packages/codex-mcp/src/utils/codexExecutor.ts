@@ -359,11 +359,14 @@ function buildArgs(
   if (process.env.ASK_CODEX_LOAD_USER_CONFIG !== "1") {
     base.push(CLI.FLAGS.IGNORE_USER_CONFIG, CLI.FLAGS.IGNORE_RULES);
   }
-  // ask-codex-edit only proposes edits (Claude applies), so it runs read-only.
-  const sandboxMode = editMode ? CLI.FLAGS.SANDBOX_READ_ONLY : CLI.FLAGS.SANDBOX_WORKSPACE_WRITE;
+  // All ask-codex surfaces are second-opinion/proposal tools: Codex reads and
+  // reasons, while the MCP client applies any resulting edits. Keep every path,
+  // including resumed sessions, inside Codex's read-only sandbox. This enforces
+  // the repository's core "other model reads, Claude edits" boundary instead of
+  // relying on prompt wording to prevent workspace mutations (ADR-133).
   base.push(
     CLI.FLAGS.SANDBOX,
-    sandboxMode,
+    CLI.FLAGS.SANDBOX_READ_ONLY,
     CLI.FLAGS.CONFIG,
     `model_reasoning_effort="${reasoningEffort}"`,
     CLI.FLAGS.JSON,

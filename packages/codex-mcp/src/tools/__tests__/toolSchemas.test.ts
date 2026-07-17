@@ -45,6 +45,11 @@ describe("tool contract (drift guards)", () => {
     expect(askCodexTool.description).toContain(FACTORY_DEFAULT_MODEL);
   });
 
+  it("marks both Codex tools read-only because they only return analysis/proposals", () => {
+    expect(askCodexTool.annotations?.readOnlyHint).toBe(true);
+    expect(askCodexEditTool.annotations?.readOnlyHint).toBe(true);
+  });
+
   it("ask-codex accepts an optional `preferred` boolean (default off)", () => {
     expect(askCodexTool.zodSchema.safeParse({ prompt: "p" }).success).toBe(true);
     expect(askCodexTool.zodSchema.safeParse({ prompt: "p", preferred: true }).success).toBe(true);
