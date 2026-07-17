@@ -132,6 +132,20 @@ describe("agents/", () => {
     expect(solContent).toContain('model: "gpt-5.6-sol"');
     expect(solContent).toContain('reasoningEffort: "high"');
   });
+
+  it("sol-reviewer sanctions an exact CLI transport fallback with full disclosure (#232)", () => {
+    const content = readFile("agents/sol-reviewer.md");
+    // The sanctioned fallback command keeps the Sol pin, effort override, and
+    // read-only sandbox; agents must not improvise their own flag set.
+    expect(content).toContain('codex exec -m gpt-5.6-sol -c model_reasoning_effort="high" -s read-only');
+    // Plugin-namespaced tool variants count as the primary transport.
+    expect(content).toContain("mcp__plugin_ask-llm_codex__ask-codex");
+    // Transport fallback is disclosed like a model fallback, and a missing CLI
+    // stops the review instead of degrading further.
+    expect(content).toMatch(/ran through `codex exec` rather than MCP/);
+    expect(content).toMatch(/could not run/);
+    expect(content).toMatch(/Do not review on another transport, model, or sandbox mode/);
+  });
 });
 
 describe("native model review skills", () => {
@@ -143,6 +157,16 @@ describe("native model review skills", () => {
     expect(content).toContain(reviewer);
     expect(content).toContain(modelPin);
     expect(content).toMatch(/distinguishes|Do not substitute|Do not route/i);
+  });
+
+  it("sol-review preflights the transport and mandates fallback disclosure (#232)", () => {
+    const content = readFile("skills/sol-review/SKILL.md");
+    expect(content).toMatch(/[Pp]reflight the transport/);
+    expect(content).toContain("command -v codex");
+    // Subagent MCP inheritance is not guaranteed; the skill must say so rather
+    // than treat parent-session availability as proof.
+    expect(content).toMatch(/do not always inherit/);
+    expect(content).toMatch(/Both fallback kinds must be disclosed/);
   });
 
   it("guards explicit Fable overrides without claiming inaccessible runtime verification", () => {
