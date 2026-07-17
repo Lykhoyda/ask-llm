@@ -1,5 +1,16 @@
 # @ask-llm/claude-mcp
 
+## 0.1.4
+
+### Patch Changes
+
+- [#237](https://github.com/Lykhoyda/ask-llm/pull/237) [`ba569cc`](https://github.com/Lykhoyda/ask-llm/commit/ba569cc1f8346ef2db76e6733fa9d9f222f61242) Thanks [@Lykhoyda](https://github.com/Lykhoyda)! - Add an escape hatch to the nested-session guard. `ask-claude` hard-fails whenever
+  `CLAUDECODE` is set, but IDE extensions set that variable in their integrated
+  terminals, where a human may legitimately run Codex or another non-Claude-Code MCP
+  host. The guard now throws only when `CLAUDECODE` is set AND the new
+  `ASK_CLAUDE_ALLOW_NESTED` override is not truthy (`1`/`true`). The blocked-session
+  error message now points IDE-terminal users at the override.
+
 ## 0.1.3
 
 ### Patch Changes

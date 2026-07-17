@@ -1,5 +1,13 @@
 # @ask-llm/antigravity-mcp
 
+## 0.5.1
+
+### Patch Changes
+
+- [#237](https://github.com/Lykhoyda/ask-llm/pull/237) [`ba569cc`](https://github.com/Lykhoyda/ask-llm/commit/ba569cc1f8346ef2db76e6733fa9d9f222f61242) Thanks [@Lykhoyda](https://github.com/Lykhoyda)! - Keep managed review paths read-only, isolate concurrent compare runs, fix
+  special-character Stop-gate paths, and include the MIT license in every
+  published package tarball.
+
 ## 0.5.0
 
 ### Minor Changes

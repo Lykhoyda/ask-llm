@@ -1,5 +1,26 @@
 # @ask-llm/plugin
 
+## 0.12.3
+
+### Patch Changes
+
+- [#237](https://github.com/Lykhoyda/ask-llm/pull/237) [`ba569cc`](https://github.com/Lykhoyda/ask-llm/commit/ba569cc1f8346ef2db76e6733fa9d9f222f61242) Thanks [@Lykhoyda](https://github.com/Lykhoyda)! - Expose an explicit `sandbox` opt-in on the `ask-codex` tool. Every Codex run now
+  defaults to `--sandbox read-only` (ADR-136), which silently broke `/codex-image`
+  because Codex could no longer write the generated PNG to disk. `ask-codex` now
+  accepts an optional `sandbox` enum (`read-only` | `workspace-write`, default
+  `read-only`) that passes through to the executor as a deliberate opt-out of the
+  read-only review contract for flows that must have Codex write files. The
+  `/codex-image` skill now sets `sandbox: "workspace-write"`; review, second-opinion,
+  and analysis flows continue to run read-only.
+
+- [#237](https://github.com/Lykhoyda/ask-llm/pull/237) [`ba569cc`](https://github.com/Lykhoyda/ask-llm/commit/ba569cc1f8346ef2db76e6733fa9d9f222f61242) Thanks [@Lykhoyda](https://github.com/Lykhoyda)! - Keep managed review paths read-only, isolate concurrent compare runs, fix
+  special-character Stop-gate paths, and include the MIT license in every
+  published package tarball.
+- Updated dependencies [[`ba569cc`](https://github.com/Lykhoyda/ask-llm/commit/ba569cc1f8346ef2db76e6733fa9d9f222f61242), [`ba569cc`](https://github.com/Lykhoyda/ask-llm/commit/ba569cc1f8346ef2db76e6733fa9d9f222f61242)]:
+  - @ask-llm/codex-mcp@0.7.1
+  - @ask-llm/antigravity-mcp@0.5.1
+  - @ask-llm/ollama-mcp@0.5.4
+
 ## 0.12.2
 
 ### Patch Changes
