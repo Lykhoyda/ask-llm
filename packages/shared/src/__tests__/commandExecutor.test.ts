@@ -76,7 +76,11 @@ Node.js v18.15.0`;
   it("detects the Windows command-not-found grammar", () => {
     const stderr = "'gemini' is not recognized as an internal or external command, operable program or batch file.";
     expect(isCommandNotFoundError(stderr, "gemini")).toBe(true);
-    expect(sanitizeErrorForLLM(stderr, "gemini")).toContain("not found on PATH");
+    expect(sanitizeErrorForLLM(stderr, "gemini", "win32")).toContain('Run "where.exe gemini"');
+  });
+
+  it("does not classify an unrelated ENOENT as a missing executable", () => {
+    expect(isCommandNotFoundError("ENOENT: no such file or directory, open 'settings.json'", "gemini")).toBe(false);
   });
 
   it("detects permission denied", () => {
