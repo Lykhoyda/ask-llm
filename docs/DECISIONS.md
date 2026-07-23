@@ -5,7 +5,7 @@
 **Status:** Accepted (2026-07-23)
 
 **Context:** agy 1.1.5 redesigned model selection: `agy models` now lists stable
-kebab slugs (`gemini-3.1-pro-high`, ...) and reasoning effort moved into a
+kebab base slugs (`gemini-3.1-pro`, ...) and reasoning effort moved into a
 separate `--effort low|medium|high` flag. Our pinned display strings
 (`"Gemini 3.1 Pro (High)"`) still resolve on 1.1.5 via a compat grammar
 (live-verified — issue #243's inferred slug drift did *not* materialize), but

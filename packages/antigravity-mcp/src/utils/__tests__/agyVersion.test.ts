@@ -8,7 +8,7 @@ vi.mock("@ask-llm/shared", () => ({
 }));
 
 import { executeCommand } from "@ask-llm/shared";
-import { assessAgyVersion, assertSupportedAgyVersion, probeAgySupport } from "../agyVersion.js";
+import { assertSupportedAgyVersion, assessAgyVersion, probeAgySupport } from "../agyVersion.js";
 
 const mockExec = vi.mocked(executeCommand);
 

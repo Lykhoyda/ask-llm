@@ -35,15 +35,8 @@ export const CLI = {
   },
 } as const;
 
-// agy 1.1.5 split model selection into a base slug (`agy models`) plus a separate
-// `--effort low|medium|high` flag. Default to Gemini 3.1 Pro at high effort — the
-// strongest reasoning tier — for the code-review / second-opinion workload, and
-// fall back to Gemini 3.5 Flash when Pro hits a subscription rate limit. `--effort`
-// conflicts with effort-carrying names ("Gemini 3.1 Pro (High)", gemini-3.1-pro-high),
-// so the default effort is only emitted alongside these base slugs, while an
-// explicit ASK_ANTIGRAVITY_EFFORT is always emitted — the user owns that combo
-// (verified against agy 1.1.5). Override via ASK_ANTIGRAVITY_MODEL (legacy
-// display strings still resolve).
+// agy 1.1.5 uses base model slugs plus a separate effort flag; effort-carrying
+// legacy names remain valid only when no implicit effort flag is added.
 export const MODELS = {
   DEFAULT: "gemini-3.1-pro",
   FALLBACK: "gemini-3.5-flash",
@@ -64,10 +57,6 @@ export const ANTIGRAVITY = {
   VALID_EFFORTS: ["low", "medium", "high"],
   // Lowercased substrings; isRateLimitError() lowercases the message first.
   RATE_LIMIT_SIGNALS: ["rate limit", "rate_limit", "resource_exhausted", "quota", "429", "too many requests"],
-  // agy 1.1.5 rejects an unresolvable --model/--effort selection with
-  // `Error: invalid model selection (...): model X is not recognized as a known
-  // model or custom model in settings` (verified live). The trailing `Available
-  // models:` list is NOT a signal — other errors could print it too. Disjoint
-  // from RATE_LIMIT_SIGNALS so drift never masquerades as quota.
+  // Keep model-selection signals disjoint from quota; "Available models:" is too generic.
   MODEL_UNAVAILABLE_SIGNALS: ["invalid model selection", "is not recognized as a known model"],
 } as const;

@@ -260,9 +260,10 @@ The REPL ships sessions per provider (`/provider gemini`, `/provider codex`, `/n
 | Gemini | `gemini-3.1-pro-preview` | `gemini-3.5-flash` (on quota) |
 | Codex | `gpt-5.6-sol` | `gpt-5.6-terra` (on quota) |
 | Claude | `opus` | `sonnet` (on overload/unavailability) |
+| Antigravity | `gemini-3.1-pro` (`--effort high`) | `gemini-3.5-flash` (on rate limit); model-less recovery if a shipped slug is rejected |
 | Ollama | `qwen3.6:27b` | — (local; errors if the model isn't pulled) |
 
-Gemini, Codex, and Claude automatically fall back to a lighter model on provider errors. Ollama runs locally and never substitutes a model — if the requested model isn't pulled, it returns a clear `ollama pull` error.
+Gemini, Codex, Claude, and Antigravity automatically fall back under their documented provider-specific conditions. Ollama runs locally and never substitutes a model — if the requested model isn't pulled, it returns a clear `ollama pull` error.
 
 ## Documentation
 

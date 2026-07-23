@@ -5,13 +5,7 @@
 // Values are drift-checked against packages/*/src/constants.ts by
 // scripts/check-docs-drift.mjs. Update BOTH when a default model changes.
 
-export type ProviderId =
-  | "codex"
-  | "claude"
-  | "antigravity"
-  | "ollama"
-  | "gemini"
-  | "unified";
+export type ProviderId = "codex" | "claude" | "antigravity" | "ollama" | "gemini" | "unified";
 
 export interface ProviderDoc {
   id: ProviderId;
@@ -21,8 +15,7 @@ export interface ProviderDoc {
   cliInstall: string;
   defaultModel: string;
   fallbackModel?: string;
-  // Reasoning-effort flag value applied to both default and fallback models
-  // (agy >=1.1.5 splits effort out of the model slug).
+  // Reasoning effort applied to both the default and fallback models.
   defaultEffort?: string;
   status?: "enterprise" | "experimental" | "local";
   tier: "hero" | "supporting" | "unified";
@@ -108,7 +101,8 @@ export const PROVIDER_DOCS: Record<ProviderId, ProviderDoc> = {
     cliInstall: "# no extra CLI: auto-detects the provider CLIs you already have",
     defaultModel: "per provider",
     tier: "unified",
-    tagline: "All providers in one server. Auto-detects installed CLIs, routes each request, or fans one prompt out to several.",
+    tagline:
+      "All providers in one server. Auto-detects installed CLIs, routes each request, or fans one prompt out to several.",
     tools: ["ask-llm", "multi-llm", "get-usage-stats", "diagnose", "ping"],
     docPath: "/providers/unified",
   },

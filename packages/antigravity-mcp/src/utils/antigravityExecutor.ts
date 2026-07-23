@@ -9,12 +9,7 @@ export { assessAgyVersion, probeAgySupport } from "./agyVersion.js";
 export interface AntigravityExecutorOptions {
   prompt: string;
   includeDirs?: string[];
-  // agy model slug (see `agy models`), e.g. "gemini-3.1-pro"; legacy display
-  // strings like "Gemini 3.1 Pro (High)" still resolve. Passed via `--model`
-  // (works under -p, unlike the short `-m` flag which hangs). Resolves to
-  // ASK_ANTIGRAVITY_MODEL, then MODELS.DEFAULT, when omitted; on a rate limit
-  // the executor retries once on MODELS.FALLBACK, and when agy rejects our own
-  // default/fallback slug it retries once model-less (agy picks its default).
+  // agy model slug; legacy effort-carrying display strings remain compatible.
   model?: string;
   // Accepted for orchestrator ExecutorFn compatibility but ignored: agy -p can't
   // resume by id (no capturable conversation id, antigravity-cli #7).
@@ -103,18 +98,13 @@ function isRateLimitError(message: string): boolean {
   return ANTIGRAVITY.RATE_LIMIT_SIGNALS.some((s) => lower.includes(s));
 }
 
-// Exported for unit testing — pure predicate over the error message text. True
-// when agy structurally rejected the --model/--effort selection (a drifted or
-// mistyped slug), which is NOT a quota signal and must not trigger the Flash
-// rate-limit fallback. #243.
+// Model-selection failures must not trigger the rate-limit fallback.
 export function isModelUnavailableError(message: string): boolean {
   const lower = message.toLowerCase();
   return ANTIGRAVITY.MODEL_UNAVAILABLE_SIGNALS.some((s) => lower.includes(s));
 }
 
-// Resolve ASK_ANTIGRAVITY_EFFORT: validated value, or undefined when unset or
-// invalid (invalid warns and falls back to default behavior rather than passing
-// a value agy will reject).
+// Invalid explicit effort falls back to default behavior instead of reaching agy.
 export function resolveExplicitEffort(): string | undefined {
   const raw = process.env[ANTIGRAVITY.EFFORT_ENV_VAR]?.trim().toLowerCase();
   if (!raw) return undefined;
@@ -125,10 +115,7 @@ export function resolveExplicitEffort(): string | undefined {
   return undefined;
 }
 
-// Value equality, not provenance: llm-mcp's machine path always threads its own
-// resolved default through options.model, so "was a model passed?" cannot
-// distinguish a user pin from our shipped default. A pin equal to the shipped
-// default asks for default behavior, which the model-less retry preserves.
+// llm-mcp always passes its resolved default, so only value equality is observable.
 function isOwnDefaultModel(model: string): boolean {
   return model === MODELS.DEFAULT || model === MODELS.FALLBACK;
 }
@@ -137,8 +124,7 @@ type ModelSource = "options" | "env" | "default";
 
 function modelUnavailableMessage(model: string, detail: string, source: ModelSource, explicitEffort?: string): string {
   const firstLine = detail.split("\n")[0]?.trim() || detail.trim();
-  // An explicitly configured effort can be the rejected half of the selection
-  // (agy limits tiers per model) — point at it before blaming the model source.
+  // A configured effort can be the rejected half of the model selection.
   const remediation = explicitEffort
     ? `Your ${ANTIGRAVITY.EFFORT_ENV_VAR}="${explicitEffort}" may not be supported for this model — try unsetting it, or adjust the model.`
     : source === "options"
@@ -182,19 +168,14 @@ export async function executeAntigravityCLI(options: AntigravityExecutorOptions)
       ? "env"
       : "default";
   const explicitEffort = resolveExplicitEffort();
-  // --effort conflicts with effort-carrying model names (agy 1.1.5), so only pair
-  // the default effort with our own base slugs (or a model-less retry). An explicit
-  // ASK_ANTIGRAVITY_EFFORT is always honored — the user owns that combination.
+  // Implicit effort is safe only for shipped base slugs; explicit effort always wins.
   const effortFor = (model: string | undefined): string | undefined => {
     if (explicitEffort) return explicitEffort;
     if (!model || isOwnDefaultModel(model)) return ANTIGRAVITY.DEFAULT_EFFORT;
     return undefined;
   };
 
-  // One agy invocation with a specific model (undefined lets agy pick its own
-  // default). Resolves to the parsed answer or throws (rate limit, spawn error,
-  // or NO_OUTPUT). Each call stamps its own startedAt so the transcript scraper
-  // reads *this* run's response, not a prior (rate-limited, transcript-less) attempt.
+  // Each attempt needs its own timestamp so transcript discovery cannot reuse prior output.
   const runWithModel = async (model: string | undefined): Promise<AntigravityExecutorResult> => {
     const args = buildArgs(
       fullPrompt,
@@ -265,10 +246,7 @@ export async function executeAntigravityCLI(options: AntigravityExecutorOptions)
     withAntigravityInvocationLock(
       baseDir,
       async () => {
-        // One-time model-less recovery for a rejected executor-selected model: agy
-        // picks its own default while our --effort (if any) still applies. Bounded —
-        // a second selection rejection or rate limit maps to an actionable message,
-        // anything else surfaces as-is. Never used for user-pinned models. #243.
+        // Recovery is bounded to one model-less attempt.
         const retryModelless = async (
           rejectedModel: string,
           rejectedSource: ModelSource,
@@ -293,10 +271,7 @@ export async function executeAntigravityCLI(options: AntigravityExecutorOptions)
         } catch (error) {
           const message = error instanceof Error ? error.message : String(error);
           if (isModelUnavailableError(message)) {
-            // agy rejected the --model/--effort selection (slug drift, #243). If the
-            // model was a user pin, dropping it would silently change their request —
-            // fail actionably instead. Our own default/fallback slugs carry no user
-            // intent, so retry once model-less and let agy pick its default.
+            // Never silently discard a custom model pin.
             if (!isOwnDefaultModel(primaryModel)) {
               throw new Error(modelUnavailableMessage(primaryModel, message, modelSource, explicitEffort));
             }
@@ -321,9 +296,7 @@ export async function executeAntigravityCLI(options: AntigravityExecutorOptions)
             // Both tiers throttled → the actionable quota message. A non-rate-limit
             // fallback failure (timeout, crash) is surfaced as-is, not masked.
             if (isRateLimitError(fbMessage)) throw new Error(ERROR_MESSAGES.RATE_LIMITED);
-            // The Flash slug is executor-selected too — an unavailable rejection
-            // gets the same one-time model-less recovery as the primary, and its
-            // remediation is "default"-sourced regardless of how the primary was picked.
+            // The executor-selected fallback gets the same bounded recovery.
             if (isModelUnavailableError(fbMessage)) return await retryModelless(MODELS.FALLBACK, "default");
             throw fallbackError;
           }
