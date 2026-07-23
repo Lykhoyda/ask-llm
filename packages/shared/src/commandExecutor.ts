@@ -10,6 +10,16 @@ export interface CommandLoggingOptions {
   sensitiveValues: readonly string[];
 }
 
+export function isCommandNotFoundError(stderr: string, command?: string): boolean {
+  const lower = stderr.toLowerCase();
+  return (
+    lower.includes("command not found") ||
+    lower.includes("not found on path") ||
+    lower.includes("is not recognized as an internal or external command") ||
+    (command ? lower.includes(`spawn ${command.toLowerCase()} enoent`) : /\benoent\b/.test(lower))
+  );
+}
+
 const QUOTA_PASSTHROUGH_PATTERNS = [
   "RESOURCE_EXHAUSTED",
   "TerminalQuotaError",
@@ -29,7 +39,7 @@ export function sanitizeErrorForLLM(stderr: string, command: string): string {
     return `${command} CLI requires Node.js v20+ but is running on ${nodeVersion}. The user should update their Node version or set ASK_LLM_PATH in their MCP config to point to a Node v20+ installation.`;
   }
 
-  if (stderr.includes("command not found") || stderr.includes(`spawn ${command} ENOENT`)) {
+  if (isCommandNotFoundError(stderr, command)) {
     return `${command} CLI not found on PATH. Ensure it is installed and accessible. Run "which ${command}" in a terminal to verify.`;
   }
 

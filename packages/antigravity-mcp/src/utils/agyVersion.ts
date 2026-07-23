@@ -1,4 +1,4 @@
-import { executeCommand } from "@ask-llm/shared";
+import { executeCommand, isCommandNotFoundError } from "@ask-llm/shared";
 import { ANTIGRAVITY, CLI } from "../constants.js";
 
 interface SemanticVersion {
@@ -110,7 +110,7 @@ export async function probeAgySupport(): Promise<AgySupportProbe> {
     return assessAgyVersion(output);
   } catch (error) {
     const detail = error instanceof Error ? error.message : String(error);
-    if (/enoent|not found on path|command not found/i.test(detail)) {
+    if (isCommandNotFoundError(detail, CLI.COMMANDS.AGY)) {
       return {
         status: "missing",
         available: false,

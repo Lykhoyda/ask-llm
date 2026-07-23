@@ -3,6 +3,8 @@ import { ANTIGRAVITY, CLI } from "../../constants.js";
 
 vi.mock("@ask-llm/shared", () => ({
   executeCommand: vi.fn(),
+  isCommandNotFoundError: (detail: string) =>
+    /enoent|not found on path|command not found|is not recognized as an internal or external command/i.test(detail),
 }));
 
 import { executeCommand } from "@ask-llm/shared";
@@ -94,14 +96,19 @@ describe("assessAgyVersion", () => {
 });
 
 describe("probeAgySupport", () => {
-  it("distinguishes a missing executable from an unusable version probe", async () => {
-    mockExec.mockRejectedValueOnce(new Error("Failed to spawn command: spawn agy ENOENT"));
+  it.each([
+    "Failed to spawn command: spawn agy ENOENT",
+    "'agy' is not recognized as an internal or external command, operable program or batch file.",
+  ])("classifies missing executable error %j as missing", async (message) => {
+    mockExec.mockRejectedValueOnce(new Error(message));
     await expect(probeAgySupport()).resolves.toMatchObject({
       status: "missing",
       available: false,
       detected: false,
     });
+  });
 
+  it("classifies a non-missing version probe failure as unusable", async () => {
     mockExec.mockRejectedValueOnce(new Error("Command timed out after 5s"));
     await expect(probeAgySupport()).resolves.toMatchObject({
       status: "unusable",

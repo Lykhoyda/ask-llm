@@ -1,5 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { executeCommand, quoteArgsForWindows, resolveTimeoutMs, sanitizeErrorForLLM } from "../commandExecutor.js";
+import {
+  executeCommand,
+  isCommandNotFoundError,
+  quoteArgsForWindows,
+  resolveTimeoutMs,
+  sanitizeErrorForLLM,
+} from "../commandExecutor.js";
 import { EXECUTION, LOG_LEVEL_ENV_VAR } from "../constants.js";
 
 describe("quoteArgsForWindows", () => {
@@ -65,6 +71,12 @@ Node.js v18.15.0`;
   it("detects ENOENT spawn error", () => {
     const result = sanitizeErrorForLLM("spawn gemini ENOENT", "gemini");
     expect(result).toContain("not found on PATH");
+  });
+
+  it("detects the Windows command-not-found grammar", () => {
+    const stderr = "'gemini' is not recognized as an internal or external command, operable program or batch file.";
+    expect(isCommandNotFoundError(stderr, "gemini")).toBe(true);
+    expect(sanitizeErrorForLLM(stderr, "gemini")).toContain("not found on PATH");
   });
 
   it("detects permission denied", () => {
