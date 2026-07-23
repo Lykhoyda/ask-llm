@@ -205,15 +205,19 @@ describe("runDiagnostics", () => {
   });
 
   it("reports a detected unsupported CLI with its version and remediation", async () => {
+    let assessedVersion: string | undefined;
     const provider: ProviderSpec = {
       key: "node",
       name: "Versioned CLI",
       command: "node",
-      assessVersion: (version) => ({
-        available: false,
-        error: `version ${version} is unsupported; version 999.0.0 or newer is required`,
-        fix: "Upgrade Versioned CLI, then verify with `node --version`.",
-      }),
+      assessVersion: (version) => {
+        assessedVersion = version;
+        return {
+          available: false,
+          error: `version ${version} is unsupported; version 999.0.0 or newer is required`,
+          fix: "Upgrade Versioned CLI, then verify with `node --version`.",
+        };
+      },
     };
     const report = await runDiagnostics([provider]);
     const probe = report.providers[0];
@@ -221,8 +225,9 @@ describe("runDiagnostics", () => {
 
     expect(probe.available).toBe(false);
     expect(probe.cliPath).toBeTruthy();
-    expect(probe.cliVersion).toBe(process.version);
-    expect(probe.error).toContain(`version ${process.version} is unsupported`);
+    expect(assessedVersion).toMatch(/^v\d+\.\d+\.\d+/);
+    expect(probe.cliVersion).toBe(assessedVersion);
+    expect(probe.error).toContain(`version ${assessedVersion} is unsupported`);
     expect(check?.message).toContain("version 999.0.0 or newer is required");
     expect(check?.fix).toContain("Upgrade Versioned CLI");
   });
