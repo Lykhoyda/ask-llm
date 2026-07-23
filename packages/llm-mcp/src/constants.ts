@@ -7,6 +7,10 @@ export interface ProviderConfig {
   modelEnvVar?: string;
   availabilityModule?: string;
   availabilityFn?: string;
+  supportProbeModule?: string;
+  supportProbeFn?: string;
+  versionAssessmentModule?: string;
+  versionAssessmentFn?: string;
   enrichModule?: string;
   enrichFn?: string;
   disabledWhenEnvVar?: string;
@@ -55,6 +59,10 @@ export const PROVIDERS: Record<string, ProviderConfig> = {
     executorFn: "executeAntigravityCLI",
     defaultModel: "gemini-3.1-pro",
     modelEnvVar: "ASK_ANTIGRAVITY_MODEL",
+    supportProbeModule: "@ask-llm/antigravity-mcp/executor",
+    supportProbeFn: "probeAgySupport",
+    versionAssessmentModule: "@ask-llm/antigravity-mcp/executor",
+    versionAssessmentFn: "assessAgyVersion",
   },
 };
 

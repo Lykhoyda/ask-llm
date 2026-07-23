@@ -22,6 +22,7 @@ export type {
   ProviderEnrichmentCheck,
   ProviderProbe,
   ProviderSpec,
+  ProviderVersionAssessment,
 } from "./doctor.js";
 export { formatDiagnosticReport, runDiagnostics } from "./doctor.js";
 export { Logger } from "./logger.js";

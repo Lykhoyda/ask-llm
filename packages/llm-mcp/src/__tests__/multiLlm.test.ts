@@ -261,4 +261,10 @@ describe("buildMultiLlmInputSchema", () => {
     expect(schema.safeParse({ prompt: "p", providers: ["ollama"] }).success).toBe(true);
     expect(schema.safeParse({ prompt: "p", providers: ["claude"] }).success).toBe(true);
   });
+
+  it("excludes detected but unusable providers from the fallback provider list", () => {
+    const schema = buildMultiLlmInputSchema([], ["antigravity"]);
+    expect(schema.safeParse({ prompt: "p", providers: ["codex"] }).success).toBe(true);
+    expect(schema.safeParse({ prompt: "p", providers: ["antigravity"] }).success).toBe(false);
+  });
 });

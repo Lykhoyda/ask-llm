@@ -6,7 +6,7 @@ vi.mock("@ask-llm/shared", () => ({
 }));
 
 import { executeCommand } from "@ask-llm/shared";
-import { assertSupportedAgyVersion } from "../agyVersion.js";
+import { assessAgyVersion, assertSupportedAgyVersion, probeAgySupport } from "../agyVersion.js";
 
 const mockExec = vi.mocked(executeCommand);
 
@@ -38,7 +38,7 @@ describe("assertSupportedAgyVersion", () => {
 
     await expect(assertSupportedAgyVersion()).rejects.toThrow(
       new RegExp(
-        `Antigravity CLI \\(agy\\) 1\\.1\\.4 is unsupported.*requires agy >=${ANTIGRAVITY.MINIMUM_AGY_VERSION}.*Update Antigravity CLI`,
+        `Antigravity CLI \\(agy\\) 1\\.1\\.4 was detected but is unsupported.*agy >=${ANTIGRAVITY.MINIMUM_AGY_VERSION} is required.*Update Antigravity CLI`,
         "s",
       ),
     );
@@ -49,9 +49,65 @@ describe("assertSupportedAgyVersion", () => {
 
     await expect(assertSupportedAgyVersion()).rejects.toThrow(
       new RegExp(
-        `Unable to determine the Antigravity CLI version.*requires agy >=${ANTIGRAVITY.MINIMUM_AGY_VERSION}`,
+        `version output "Antigravity development build" is unparseable and unusable.*agy >=${ANTIGRAVITY.MINIMUM_AGY_VERSION} is required`,
         "s",
       ),
     );
+  });
+});
+
+describe("assessAgyVersion", () => {
+  it("classifies supported, unsupported, and unparseable versions", () => {
+    expect(assessAgyVersion("1.1.5")).toMatchObject({
+      status: "supported",
+      available: true,
+      detected: true,
+      version: "1.1.5",
+    });
+    expect(assessAgyVersion("agy 1.1.4")).toMatchObject({
+      status: "unsupported",
+      available: false,
+      detected: true,
+      version: "1.1.4",
+      requiredVersion: ANTIGRAVITY.MINIMUM_AGY_VERSION,
+    });
+    expect(assessAgyVersion("development build")).toMatchObject({
+      status: "unusable",
+      available: false,
+      detected: true,
+      requiredVersion: ANTIGRAVITY.MINIMUM_AGY_VERSION,
+    });
+  });
+
+  it("classifies a version-probe failure as detected but unusable", () => {
+    const result = assessAgyVersion(undefined, "version probe timed out");
+
+    expect(result).toMatchObject({
+      status: "unusable",
+      available: false,
+      detected: true,
+      requiredVersion: ANTIGRAVITY.MINIMUM_AGY_VERSION,
+    });
+    expect(result.message).toContain("version is unknown and unusable");
+    expect(result.remediation).toContain("Update Antigravity CLI");
+  });
+});
+
+describe("probeAgySupport", () => {
+  it("distinguishes a missing executable from an unusable version probe", async () => {
+    mockExec.mockRejectedValueOnce(new Error("Failed to spawn command: spawn agy ENOENT"));
+    await expect(probeAgySupport()).resolves.toMatchObject({
+      status: "missing",
+      available: false,
+      detected: false,
+    });
+
+    mockExec.mockRejectedValueOnce(new Error("Command timed out after 5s"));
+    await expect(probeAgySupport()).resolves.toMatchObject({
+      status: "unusable",
+      available: false,
+      detected: true,
+      requiredVersion: ANTIGRAVITY.MINIMUM_AGY_VERSION,
+    });
   });
 });

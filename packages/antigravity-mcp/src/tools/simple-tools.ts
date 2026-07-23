@@ -1,6 +1,6 @@
 import type { UnifiedTool } from "@ask-llm/shared";
 import { z } from "zod";
-import { assertSupportedAgyVersion } from "../utils/agyVersion.js";
+import { probeAgySupport } from "../utils/agyVersion.js";
 
 const pingArgsSchema = z.object({
   message: z.string().optional().describe("A message to echo back to test the connection"),
@@ -22,12 +22,8 @@ export const pingTool: UnifiedTool = {
   category: "simple",
   execute: async (args) => {
     const message = (args.message as string) || "Pong from Antigravity MCP Server!";
-    try {
-      const version = await assertSupportedAgyVersion();
-      return `${message} (agy detected: ${version})`;
-    } catch (error) {
-      const detail = error instanceof Error ? error.message : String(error);
-      return `${message} (warning: ${detail})`;
-    }
+    const probe = await probeAgySupport();
+    if (probe.available) return `${message} (agy detected and supported: ${probe.version})`;
+    return `${message} (warning: ${[probe.message, probe.remediation].filter(Boolean).join(" ")})`;
   },
 };

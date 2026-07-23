@@ -204,6 +204,53 @@ describe("runDiagnostics", () => {
     expect(check?.fix).toBe("npm install -g missing-cli");
   });
 
+  it("reports a detected unsupported CLI with its version and remediation", async () => {
+    const provider: ProviderSpec = {
+      key: "node",
+      name: "Versioned CLI",
+      command: "node",
+      assessVersion: (version) => ({
+        available: false,
+        error: `version ${version} is unsupported; version 999.0.0 or newer is required`,
+        fix: "Upgrade Versioned CLI, then verify with `node --version`.",
+      }),
+    };
+    const report = await runDiagnostics([provider]);
+    const probe = report.providers[0];
+    const check = report.checks.find((item) => item.name === "Provider: Versioned CLI");
+
+    expect(probe.available).toBe(false);
+    expect(probe.cliPath).toBeTruthy();
+    expect(probe.cliVersion).toBe(process.version);
+    expect(probe.error).toContain(`version ${process.version} is unsupported`);
+    expect(check?.message).toContain("version 999.0.0 or newer is required");
+    expect(check?.fix).toContain("Upgrade Versioned CLI");
+  });
+
+  it("passes version-probe failures to the support assessor as unusable", async () => {
+    const provider: ProviderSpec = {
+      key: "node",
+      name: "Unusable CLI",
+      command: "node",
+      versionArgs: ["--definitely-not-a-node-option"],
+      assessVersion: (_version, probeError) => ({
+        available: false,
+        error: `version is unknown and unusable: ${probeError}`,
+        fix: "Repair or upgrade Unusable CLI.",
+      }),
+    };
+    const report = await runDiagnostics([provider]);
+    const probe = report.providers[0];
+    const check = report.checks.find((item) => item.name === "Provider: Unusable CLI");
+
+    expect(probe.available).toBe(false);
+    expect(probe.cliPath).toBeTruthy();
+    expect(probe.cliVersion).toBeUndefined();
+    expect(probe.error).toContain("version is unknown and unusable");
+    expect(probe.error).toContain("version probe failed");
+    expect(check?.fix).toBe("Repair or upgrade Unusable CLI.");
+  });
+
   it("includes generatedAt timestamp in ISO format", async () => {
     const report = await runDiagnostics([]);
     expect(report.generatedAt).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/);

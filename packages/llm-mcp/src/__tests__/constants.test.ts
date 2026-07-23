@@ -58,4 +58,15 @@ describe("provider registry drift guard", () => {
       else process.env.CLAUDECODE = original;
     }
   });
+
+  it("wires Antigravity version support into diagnostic specs", async () => {
+    const specs = await buildProviderSpecs();
+    const antigravity = specs.find(({ key }) => key === "antigravity");
+    const assessment = await antigravity?.assessVersion?.("agy 1.1.4", undefined);
+
+    expect(assessment?.available).toBe(false);
+    expect(assessment?.error).toContain("1.1.4");
+    expect(assessment?.error).toContain("1.1.5");
+    expect(assessment?.fix).toContain("Update Antigravity CLI");
+  });
 });

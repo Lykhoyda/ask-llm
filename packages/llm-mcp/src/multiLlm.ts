@@ -118,8 +118,13 @@ export function formatMultiLlmReport(report: MultiLlmReport): string {
   return [header, ...sections].join("\n");
 }
 
-export function buildMultiLlmInputSchema(availableProviders: string[]): z.ZodObject<z.ZodRawShape> {
-  const providerEnum = availableProviders.length > 0 ? availableProviders : [...PROVIDERS];
+export function buildMultiLlmInputSchema(
+  availableProviders: string[],
+  excludedProviders: string[] = [],
+): z.ZodObject<z.ZodRawShape> {
+  const excluded = new Set(excludedProviders);
+  const providerEnum =
+    availableProviders.length > 0 ? availableProviders : [...PROVIDERS].filter((provider) => !excluded.has(provider));
   return z.object({
     prompt: z.string().min(1).max(100000).describe("The prompt to send to all selected providers in parallel."),
     providers: z

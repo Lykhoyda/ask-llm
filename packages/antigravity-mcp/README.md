@@ -4,8 +4,9 @@ MCP server for Google's Antigravity CLI (`agy`). Lets Claude get a
 subscription-backed second opinion / code review from Antigravity.
 
 > **Experimental.** Requires `agy` >=1.1.5 and is validated against 1.1.5 (base
-> model slugs + separate `--effort` flag); unsupported versions fail with an
-> actionable diagnostic before model invocation. The executor reads stdout
+> model slugs + separate `--effort` flag); discovery and ping report older or
+> unverifiable installations as detected but unusable, exclude them from
+> dispatch, and provide an actionable update diagnostic. The executor reads stdout
 > first and falls back to `agy`'s internal transcript files when needed
 > (sensitive to `agy`'s on-disk layout). No JSON output or session id, so it
 > stays single-turn (no multi-turn). Defaults to the

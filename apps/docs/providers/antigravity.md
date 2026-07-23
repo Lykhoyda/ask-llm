@@ -12,7 +12,7 @@ Bridge Claude with Google's Antigravity CLI (`agy`), Google's successor to Gemin
 > **Not for:** fine-grained per-edit automation; it's one-shot and experimental. For continuous review, use Codex via `codex-pair`.
 
 ::: warning Experimental
-Requires `agy` ≥ 1.1.5. The executor validates the installed version before every model invocation and fails with an update diagnostic when it is too old. It reads the headless `-p` response from stdout, with an edge-case fallback to `agy`'s transcript files that is sensitive to `agy`'s on-disk layout. Single-turn only (no multi-turn); defaults to the **gemini-3.1-pro** model at **high** reasoning effort, falling back to **gemini-3.5-flash** on a rate limit.
+Requires `agy` ≥ 1.1.5. Unified discovery, doctor, and ping report older or unparseable installations as detected but unusable and exclude them from dispatch; the executor repeats the version check before every model invocation. It reads the headless `-p` response from stdout, with an edge-case fallback to `agy`'s transcript files that is sensitive to `agy`'s on-disk layout. Single-turn only (no multi-turn); defaults to the **gemini-3.1-pro** model at **high** reasoning effort, falling back to **gemini-3.5-flash** on a rate limit.
 :::
 
 ## Installation
@@ -32,7 +32,7 @@ Or install globally: `npm install -g @ask-llm/antigravity-mcp`
 |------|---------|
 | `ask-antigravity` | Send a prompt to `agy` for a second opinion / code review. Optional `includeDirs` maps to `agy --add-dir` for monorepo context |
 | `get-usage-stats` | Per-session token totals (in-memory) |
-| `ping` | Connection test; also reports whether `agy` is installed |
+| `ping` | Connection test; reports whether `agy` is supported, unsupported, unusable, or missing |
 
 `ask-antigravity` returns both human-readable text and a structured `AskResponse` (provider, response, model, sessionId, usage) via MCP `outputSchema`.
 
@@ -47,7 +47,7 @@ Or install globally: `npm install -g @ask-llm/antigravity-mcp`
 
 ## How it works
 
-Before each request, the executor runs `agy --version` and requires 1.1.5 or newer. It then uses a **stdout-first source chain**: structured JSON → transcript file → plain stdout. The transcript fallback reads the complete `transcript_full.jsonl` under `~/.gemini/antigravity-cli/brain/<id>/.system_generated/logs/`. Calls are serialized in-process (concurrent `agy` runs race on shared state files). It runs with a read-only prompt preamble plus `--dangerously-skip-permissions` + `--sandbox` so `agy` never hangs on approval prompts.
+Provider discovery runs `agy --version` and only makes Antigravity available to default or multi-provider dispatch when version 1.1.5 or newer is confirmed. Older versions remain visible as detected but unsupported, while an unparseable output or failed version probe is reported as detected but unusable; doctor and ping include the actual version when known, the required minimum, and an upgrade action. The executor repeats the same support check before each request, then uses a **stdout-first source chain**: structured JSON → transcript file → plain stdout. The transcript fallback reads the complete `transcript_full.jsonl` under `~/.gemini/antigravity-cli/brain/<id>/.system_generated/logs/`. Calls are serialized in-process (concurrent `agy` runs race on shared state files). It runs with a read-only prompt preamble plus `--dangerously-skip-permissions` + `--sandbox` so `agy` never hangs on approval prompts.
 
 ## Config
 
@@ -61,7 +61,7 @@ Before each request, the executor runs `agy --version` and requires 1.1.5 or new
 ## Limitations
 
 - **Experimental:** the transcript fallback is sensitive to changes in `agy`'s on-disk format.
-- **Minimum version:** `agy` 1.1.5; older versions fail before any model request.
+- **Minimum version:** `agy` 1.1.5; older or unverifiable installations are reported but excluded from dispatch.
 - **Single-turn:** no multi-turn sessions (no capturable conversation id, antigravity-cli #7). Model selection *is* supported via `--model` (defaults to gemini-3.1-pro at high effort, with a gemini-3.5-flash rate-limit fallback; see [Config](#config)); only the short `-m` flag hangs under `-p`.
 - **Interactive auth:** requires an `agy` login, so it isn't suited to headless CI.
 

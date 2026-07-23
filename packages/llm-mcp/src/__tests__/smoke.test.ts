@@ -23,21 +23,44 @@ vi.mock("@ask-llm/ollama-mcp/executor", () => ({
 
 vi.mock("@ask-llm/antigravity-mcp/executor", () => ({
   executeAntigravityCLI: vi.fn().mockResolvedValue({ response: "antigravity response" }),
+  probeAgySupport: vi.fn(),
+  assessAgyVersion: vi.fn(),
 }));
 
+import { probeAgySupport } from "@ask-llm/antigravity-mcp/executor";
 import { executeClaudeCLI } from "@ask-llm/claude-mcp/executor";
 import { executeCodexCLI } from "@ask-llm/codex-mcp/executor";
 import { executeGeminiCLI } from "@ask-llm/gemini-mcp/executor";
 import { executeOllamaCLI, isProviderAvailable as mockIsOllamaAvailable } from "@ask-llm/ollama-mcp/executor";
-import { detectProviders } from "../index.js";
+import { buildAskLlmSchema, detectProviders, formatProviderPing, getLoadedExecutor } from "../index.js";
 import { isCommandAvailable } from "../utils/availability.js";
 
 const mockIsCommandAvailable = vi.mocked(isCommandAvailable);
+const mockProbeAgySupport = vi.mocked(probeAgySupport);
 const originalClaudeCode = process.env.CLAUDECODE;
+
+const missingAgy = {
+  status: "missing" as const,
+  available: false,
+  detected: false,
+  requiredVersion: "1.1.5",
+  message: "Antigravity CLI (agy) was not found on PATH.",
+  remediation: "Install agy >=1.1.5.",
+};
+
+const supportedAgy = {
+  status: "supported" as const,
+  available: true,
+  detected: true,
+  version: "1.1.5",
+  requiredVersion: "1.1.5",
+  message: "Antigravity CLI (agy) 1.1.5 is supported.",
+};
 
 beforeEach(() => {
   vi.resetAllMocks();
   mockIsCommandAvailable.mockResolvedValue(false);
+  mockProbeAgySupport.mockResolvedValue(missingAgy);
   vi.mocked(mockIsOllamaAvailable).mockResolvedValue(false);
   vi.mocked(executeGeminiCLI).mockResolvedValue({ response: "gemini response", sessionId: undefined });
   vi.mocked(executeCodexCLI).mockResolvedValue({ response: "codex response", threadId: undefined });
@@ -111,13 +134,17 @@ describe("detectProviders", () => {
 
     const status = await detectProviders();
 
-    expect(status.missing).toContain("claude");
+    expect(status.missing).not.toContain("claude");
+    expect(status.unavailable).toContainEqual(
+      expect.objectContaining({ key: "claude", state: "disabled", detected: true }),
+    );
     expect(mockIsCommandAvailable).not.toHaveBeenCalledWith("claude");
   });
 
   it("detects all when all providers are available", async () => {
     mockIsCommandAvailable.mockResolvedValue(true);
     vi.mocked(mockIsOllamaAvailable).mockResolvedValue(true);
+    mockProbeAgySupport.mockResolvedValue(supportedAgy);
 
     const status = await detectProviders();
 
@@ -133,5 +160,107 @@ describe("detectProviders", () => {
 
     expect(status.available).toHaveLength(0);
     expect(status.missing).toEqual(["gemini", "codex", "claude", "ollama", "antigravity"]);
+  });
+
+  it("reports unsupported agy as detected but unavailable with upgrade details", async () => {
+    mockProbeAgySupport.mockResolvedValue({
+      status: "unsupported",
+      available: false,
+      detected: true,
+      version: "1.1.4",
+      requiredVersion: "1.1.5",
+      message: "Antigravity CLI (agy) 1.1.4 was detected but is unsupported; agy >=1.1.5 is required.",
+      remediation: "Update Antigravity CLI.",
+    });
+
+    const status = await detectProviders();
+
+    expect(status.available).not.toContain("antigravity");
+    expect(status.missing).not.toContain("antigravity");
+    expect(status.unavailable).toContainEqual(
+      expect.objectContaining({
+        key: "antigravity",
+        state: "unsupported",
+        detected: true,
+        version: "1.1.4",
+        requiredVersion: "1.1.5",
+      }),
+    );
+    expect(mockIsCommandAvailable).not.toHaveBeenCalledWith("agy");
+  });
+
+  it("reports unparseable and failed agy version probes as unusable", async () => {
+    for (const message of [
+      'Antigravity CLI (agy) version output "development build" is unparseable and unusable; agy >=1.1.5 is required.',
+      "Antigravity CLI (agy) version is unknown and unusable after a failed probe; agy >=1.1.5 is required.",
+    ]) {
+      mockProbeAgySupport.mockResolvedValue({
+        status: "unusable",
+        available: false,
+        detected: true,
+        requiredVersion: "1.1.5",
+        message,
+        remediation: "Update Antigravity CLI.",
+      });
+
+      const status = await detectProviders();
+
+      expect(status.available).not.toContain("antigravity");
+      expect(status.unavailable).toContainEqual(
+        expect.objectContaining({ key: "antigravity", state: "unusable", message }),
+      );
+    }
+  });
+
+  it("evicts an executor when a previously supported agy becomes unsupported", async () => {
+    mockProbeAgySupport.mockResolvedValueOnce(supportedAgy);
+    await detectProviders();
+    expect(getLoadedExecutor("antigravity")).toBeDefined();
+
+    mockProbeAgySupport.mockResolvedValueOnce({
+      status: "unsupported",
+      available: false,
+      detected: true,
+      version: "1.1.4",
+      requiredVersion: "1.1.5",
+      message: "Antigravity CLI (agy) 1.1.4 was detected but is unsupported; agy >=1.1.5 is required.",
+      remediation: "Update Antigravity CLI.",
+    });
+    await detectProviders();
+
+    expect(getLoadedExecutor("antigravity")).toBeUndefined();
+  });
+});
+
+describe("provider selection and ping", () => {
+  it("excludes unsupported agy when no provider was otherwise discovered", () => {
+    const schema = buildAskLlmSchema([], ["antigravity"]);
+
+    expect(schema.safeParse({ provider: "codex", prompt: "q" }).success).toBe(true);
+    expect(schema.safeParse({ provider: "antigravity", prompt: "q" }).success).toBe(false);
+  });
+
+  it("includes detected unsupported details in unified ping", () => {
+    const text = formatProviderPing({
+      available: ["codex"],
+      missing: ["antigravity"],
+      unavailable: [
+        {
+          key: "antigravity",
+          provider: "Antigravity",
+          state: "unsupported",
+          detected: true,
+          version: "1.1.4",
+          requiredVersion: "1.1.5",
+          message: "Antigravity CLI (agy) 1.1.4 was detected but is unsupported; agy >=1.1.5 is required.",
+          remediation: "Update Antigravity CLI.",
+        },
+      ],
+    });
+
+    expect(text).toContain("Available providers: codex");
+    expect(text).toContain("1.1.4 was detected but is unsupported");
+    expect(text).toContain("agy >=1.1.5 is required");
+    expect(text).toContain("Update Antigravity CLI");
   });
 });

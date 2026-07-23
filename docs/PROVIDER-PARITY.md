@@ -6,7 +6,7 @@ Factory defaults are literals (`FACTORY_DEFAULT_MODEL` in each package's `consta
 
 | Dimension | Gemini | Codex | Claude | Ollama | Antigravity |
 |---|---|---|---|---|---|
-| Transport | `gemini` CLI spawn | `codex exec --json` spawn | `claude -p --output-format json` spawn; prompt over stdin | HTTP `POST /api/chat` (native fetch) | `agy -p` spawn after an `agy --version` gate (minimum 1.1.5) |
+| Transport | `gemini` CLI spawn | `codex exec --json` spawn | `claude -p --output-format json` spawn; prompt over stdin | HTTP `POST /api/chat` (native fetch) | `agy -p` spawn after an `agy --version` gate (minimum 1.1.5); unified discovery excludes detected unsupported or unverifiable versions from dispatch |
 | Factory default model | `gemini-3.1-pro-preview` | `gpt-5.6-sol` | `opus` alias | `qwen3.6:27b` | `gemini-3.1-pro` + `--effort high` |
 | Fallback | quota → `gemini-3.5-flash` | quota → `gpt-5.6-terra`, pinned-incompatible 400 → actionable message (ADR-127) | Claude CLI native overload/unavailability fallback → `sonnet` | **none by design** — local means the user pulls what they intend to run; actionable `ollama pull` error (#191) | rate-limit → `gemini-3.5-flash` (ADR-125); a rejected model whose value equals the shipped default/fallback slug → one model-less retry, any other rejected value fails actionably (#243) |
 | Reasoning effort | provider-managed | `medium` general default; `high` for `/codex-review` + `/brainstorm`; per-call `reasoningEffort` override | provider-managed | provider-managed | `--effort high` default (emitted with the shipped base slugs and model-less runs); `ASK_ANTIGRAVITY_EFFORT=low\|medium\|high` override, validated with warn-and-default on invalid values (#243) |

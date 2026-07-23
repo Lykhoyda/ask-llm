@@ -4,6 +4,8 @@ import { assertSupportedAgyVersion } from "./agyVersion.js";
 import { withAntigravityInvocationLock } from "./invocationLock.js";
 import { defaultBaseDir, readLatestTranscript, snapshotTranscriptState } from "./transcriptReader.js";
 
+export { assessAgyVersion, probeAgySupport } from "./agyVersion.js";
+
 export interface AntigravityExecutorOptions {
   prompt: string;
   includeDirs?: string[];
