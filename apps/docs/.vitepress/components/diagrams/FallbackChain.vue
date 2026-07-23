@@ -3,12 +3,12 @@
     <svg
       viewBox="0 0 640 120"
       role="img"
-      :aria-label="`Diagram: ${doc.defaultModel} falls back to ${doc.fallbackModel} when quota is exhausted.`"
+      :aria-label="`Diagram: ${defaultLabel} falls back to ${fallbackLabel} when quota is exhausted.`"
       :class="{ run: inView }"
     >
       <g class="node default">
         <rect x="8" y="38" width="200" height="44" rx="4" />
-        <text x="108" y="64">{{ doc.defaultModel }}</text>
+        <text x="108" y="64">{{ defaultLabel }}</text>
       </g>
 
       <text class="error-flash" x="320" y="46">quota / rate limit</text>
@@ -17,7 +17,7 @@
 
       <g class="node fallback">
         <rect x="432" y="38" width="200" height="44" rx="4" />
-        <text x="532" y="64">{{ doc.fallbackModel }}</text>
+        <text x="532" y="64">{{ fallbackLabel }}</text>
       </g>
     </svg>
     <figcaption>
@@ -37,6 +37,10 @@ import { useInView } from "../../theme/useInView";
 type FallbackProvider = "codex" | "claude" | "antigravity" | "gemini";
 const props = defineProps<{ provider: FallbackProvider }>();
 const doc = computed(() => PROVIDER_DOCS[props.provider]);
+// The effort flag applies to both the default and the fallback model (agy 1.1.5).
+const effortSuffix = computed(() => (doc.value.defaultEffort ? ` (${doc.value.defaultEffort})` : ""));
+const defaultLabel = computed(() => `${doc.value.defaultModel}${effortSuffix.value}`);
+const fallbackLabel = computed(() => `${doc.value.fallbackModel}${effortSuffix.value}`);
 const root = ref<Element | null>(null);
 const inView = useInView(root);
 </script>

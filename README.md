@@ -165,7 +165,7 @@ the complete package-to-executable mapping.
 |----------|----------|----------------------------|-------|
 | **Codex** | Code reasoning, targeted reviews, architecture critique | `gpt-5.6-sol` → `gpt-5.6-terra` | Requires an OpenAI/Codex account |
 | **Claude** | Independent review from Codex or another non-Claude host | `opus` → `sonnet` | Claude Code CLI; native sessions; read-only tools |
-| **Antigravity** | A subscription-backed second opinion; larger-context reads | `Gemini 3.1 Pro (High)` → `Gemini 3.5 Flash (High)` | Google AI Pro/Ultra plan; one-shot, experimental |
+| **Antigravity** | A subscription-backed second opinion; larger-context reads | `gemini-3.1-pro` → `gemini-3.5-flash` (both at `--effort high`) | Google AI Pro/Ultra plan; one-shot, experimental |
 | **Ollama** | Private/local review, zero cost, offline | `qwen3.6:27b` (no auto-fallback) | Runs entirely on your machine |
 | **Gemini** | Whole-codebase reads (1M+ tokens) | `gemini-3.1-pro-preview` → `gemini-3.5-flash` | ⚠️ Enterprise-gated from 2026-06-18 |
 | **Unified (`ask-llm`)** | One install for all of the above; fan out in parallel | routes per call | **Recommended** |

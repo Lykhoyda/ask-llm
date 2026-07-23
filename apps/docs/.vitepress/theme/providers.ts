@@ -21,6 +21,9 @@ export interface ProviderDoc {
   cliInstall: string;
   defaultModel: string;
   fallbackModel?: string;
+  // Reasoning-effort flag value applied to both default and fallback models
+  // (agy >=1.1.5 splits effort out of the model slug).
+  defaultEffort?: string;
   status?: "enterprise" | "experimental" | "local";
   tier: "hero" | "supporting" | "unified";
   tagline: string;
@@ -61,8 +64,9 @@ export const PROVIDER_DOCS: Record<ProviderId, ProviderDoc> = {
     pkg: "@ask-llm/antigravity-mcp",
     serverName: "antigravity",
     cliInstall: "# install agy from https://antigravity.google, then log in once",
-    defaultModel: "Gemini 3.1 Pro (High)",
-    fallbackModel: "Gemini 3.5 Flash (High)",
+    defaultModel: "gemini-3.1-pro",
+    fallbackModel: "gemini-3.5-flash",
+    defaultEffort: "high",
     status: "experimental",
     tier: "supporting",
     tagline: "Subscription-backed second opinion via Google AI Pro/Ultra (agy).",

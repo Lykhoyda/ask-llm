@@ -1,5 +1,47 @@
 # Architectural Decisions
 
+## ADR-137: Antigravity agy 1.1.5 model contract — base slug + --effort, with model-unavailable recovery
+
+**Status:** Accepted (2026-07-23)
+
+**Context:** agy 1.1.5 redesigned model selection: `agy models` now lists stable
+kebab slugs (`gemini-3.1-pro-high`, ...) and reasoning effort moved into a
+separate `--effort low|medium|high` flag. Our pinned display strings
+(`"Gemini 3.1 Pro (High)"`) still resolve on 1.1.5 via a compat grammar
+(live-verified — issue #243's inferred slug drift did *not* materialize), but
+they are no longer the advertised surface and could be dropped any release.
+Worse, a confirmed robustness gap made any future drift fatal: an unresolved
+`--model` exits 1 with `invalid model selection ... is not recognized as a
+known model`, which matches none of `RATE_LIMIT_SIGNALS`, so the executor
+re-threw raw with no recovery. Live probing also established that `--effort`
+hard-conflicts with any effort-carrying model name and that valid tiers vary
+per slug (`gemini-3.1-pro` has no `medium`).
+
+**Decision:** (1) Pin base slugs (`MODELS.DEFAULT: gemini-3.1-pro`,
+`FALLBACK: gemini-3.5-flash`) and thread the tier via `--effort`
+(`ASK_ANTIGRAVITY_EFFORT`, default `high`, validated with warn-and-default).
+The default effort is emitted only with those base-slug values or model-less
+runs (avoiding the hard conflict with effort-carrying pins); an explicit env
+effort is always emitted — the user owns that combination. (2) Add
+`MODEL_UNAVAILABLE_SIGNALS` (disjoint from rate-limit signals) and a bounded
+recovery: when agy rejects a model whose **value equals** a shipped slug, retry
+once model-less and let agy pick its default (reported as `agy default`); any
+other rejected model fails with an actionable error naming the model,
+`agy models`, and a source-appropriate remediation (options / env / effort).
+The value-equality gate is deliberate — llm-mcp's machine path always threads
+its resolved default through `options.model`, so provenance cannot distinguish
+a user pin from the shipped default, and a pin equal to the default asks for
+default behavior. (3) Size the invocation-lock lease for the new three-attempt
+worst case (primary → rate-limit fallback → model-less recovery).
+
+**Consequences:** Extends ADR-125's rate-limit-only fallback with a second,
+deliberately narrow trigger; unrelated failures (spawn, timeout, NO_OUTPUT)
+keep their raw paths. Legacy display-string pins keep working unchanged. After
+a model-less recovery the reported model is the literal `agy default` — agy
+does not reveal its choice — which llm-mcp surfaces as a fallback occurrence.
+If agy later drops the display-string compat grammar, pinned legacy strings
+fail actionably instead of cryptically; our own defaults degrade gracefully.
+
 ## ADR-136: Review providers read by default; managed raw dispatches inherit safety guards
 
 **Status:** Accepted (2026-07-09; renumbered from the branch's provisional ADR-133 to avoid a collision with the released npm-migration ADR-133 during the origin/main integration)
