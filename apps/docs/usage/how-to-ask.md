@@ -110,7 +110,7 @@ Pre-bound to Anthropic Claude Code CLI for use by Codex and other non-Claude hos
 
 #### `ask-codex` / `ask-ollama` / `ask-antigravity`
 
-Same shape as `ask-llm` but pre-bound to the provider. `ask-codex` and `ask-ollama` accept `prompt`, `model`, `sessionId` (Codex maps `sessionId` to its `thread_id`; Ollama uses server-side message replay). `ask-antigravity` is single-turn; it accepts `prompt` and `includeDirs` (file context via `agy --add-dir`); there is no `sessionId` and no per-call `model` (set the model with the `ASK_ANTIGRAVITY_MODEL` env var and the reasoning effort with `ASK_ANTIGRAVITY_EFFORT`).
+Same shape as `ask-llm` but pre-bound to the provider. `ask-codex` and `ask-ollama` accept `prompt`, `model`, `sessionId` (Codex maps `sessionId` to its `thread_id`; Ollama uses server-side message replay). `ask-antigravity` requires `agy` ≥1.1.5 and is single-turn; it accepts `prompt` and `includeDirs` (file context via `agy --add-dir`); there is no `sessionId` and no per-call `model` (set the model with the `ASK_ANTIGRAVITY_MODEL` env var and the reasoning effort with `ASK_ANTIGRAVITY_EFFORT`).
 
 ---
 

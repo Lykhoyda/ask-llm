@@ -20,6 +20,8 @@ per slug (`gemini-3.1-pro` has no `medium`).
 **Decision:** (1) Pin base slugs (`MODELS.DEFAULT: gemini-3.1-pro`,
 `FALLBACK: gemini-3.5-flash`) and thread the tier via `--effort`
 (`ASK_ANTIGRAVITY_EFFORT`, default `high`, validated with warn-and-default).
+Require `agy` 1.1.5 or newer and fail with an actionable update diagnostic
+before model invocation when the installed CLI is older.
 The default effort is emitted only with those base-slug values or model-less
 runs (avoiding the hard conflict with effort-carrying pins); an explicit env
 effort is always emitted — the user owns that combination. (2) Add
@@ -36,7 +38,8 @@ worst case (primary → rate-limit fallback → model-less recovery).
 
 **Consequences:** Extends ADR-125's rate-limit-only fallback with a second,
 deliberately narrow trigger; unrelated failures (spawn, timeout, NO_OUTPUT)
-keep their raw paths. Legacy display-string pins keep working unchanged. After
+keep their raw paths. Older agy versions are explicitly unsupported rather than
+receiving a compatibility retry. Legacy display-string pins keep working unchanged. After
 a model-less recovery the reported model is the literal `agy default` — agy
 does not reveal its choice — which llm-mcp surfaces as a fallback occurrence.
 If agy later drops the display-string compat grammar, pinned legacy strings

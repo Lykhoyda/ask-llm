@@ -3,11 +3,12 @@
 MCP server for Google's Antigravity CLI (`agy`). Lets Claude get a
 subscription-backed second opinion / code review from Antigravity.
 
-> **Experimental.** Validated against `agy` 1.1.5 (base model slugs + separate
-> `--effort` flag); `agy` >=1.0.6 prints the response to stdout (gemini-cli
-> #27466 is fixed there); older versions fall back to reading `agy`'s internal
-> transcript files (sensitive to `agy`'s on-disk layout). No JSON output or
-> session id, so it stays single-turn (no multi-turn). Defaults to the
+> **Experimental.** Requires `agy` >=1.1.5 and is validated against 1.1.5 (base
+> model slugs + separate `--effort` flag); unsupported versions fail with an
+> actionable diagnostic before model invocation. The executor reads stdout
+> first and falls back to `agy`'s internal transcript files when needed
+> (sensitive to `agy`'s on-disk layout). No JSON output or session id, so it
+> stays single-turn (no multi-turn). Defaults to the
 > gemini-3.1-pro model at high reasoning effort, falling back to gemini-3.5-flash
 > on a rate limit. When agy rejects a model whose value equals one of those
 > built-in base slugs (upstream drift), the executor retries once without a
@@ -15,7 +16,7 @@ subscription-backed second opinion / code review from Antigravity.
 > actionable error naming `agy models`.
 
 ## Prerequisites
-- `agy` installed and on PATH, and logged in once (run `agy` interactively).
+- `agy` >=1.1.5 installed and on PATH (`agy --version`), and logged in once (run `agy` interactively). Older versions are not supported.
 
 ## Config
 - `ASK_ANTIGRAVITY_TIMEOUT_MS` — process timeout (default 300000 = 5m).

@@ -63,7 +63,8 @@ export const INSTALL_HINTS: Record<string, string> = {
   codex: "npm install -g @openai/codex",
   claude: "npm install -g @anthropic-ai/claude-code, then run `claude` once to authenticate",
   ollama: "https://ollama.com — then: ollama pull qwen3.6:27b",
-  antigravity: "Install Google Antigravity (agy) from https://antigravity.google, then run `agy` once to log in",
+  antigravity:
+    "Install Google Antigravity (agy) >=1.1.5 from https://antigravity.google, verify with `agy --version`, then run `agy` once to log in",
 };
 
 export function isProviderEligible(provider: ProviderConfig): boolean {

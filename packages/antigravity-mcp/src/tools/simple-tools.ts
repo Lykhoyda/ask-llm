@@ -1,5 +1,6 @@
-import { executeCommand, type UnifiedTool } from "@ask-llm/shared";
+import type { UnifiedTool } from "@ask-llm/shared";
 import { z } from "zod";
+import { assertSupportedAgyVersion } from "../utils/agyVersion.js";
 
 const pingArgsSchema = z.object({
   message: z.string().optional().describe("A message to echo back to test the connection"),
@@ -22,13 +23,11 @@ export const pingTool: UnifiedTool = {
   execute: async (args) => {
     const message = (args.message as string) || "Pong from Antigravity MCP Server!";
     try {
-      // 5s ceiling for a version probe — never inherit the 210s default; a hung
-      // agy must not block ping for minutes (matches isCommandAvailable, #153 review).
-      // No onProgress: the version string must not be streamed as a progress event.
-      const version = await executeCommand("agy", ["--version"], undefined, undefined, undefined, 5_000);
-      return `${message} (agy detected: ${version.trim()})`;
-    } catch {
-      return `${message} (warning: agy not found on PATH — install Antigravity CLI and run \`agy\` once to log in)`;
+      const version = await assertSupportedAgyVersion();
+      return `${message} (agy detected: ${version})`;
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : String(error);
+      return `${message} (warning: ${detail})`;
     }
   },
 };

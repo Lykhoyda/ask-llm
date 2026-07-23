@@ -1,5 +1,6 @@
 import { EXECUTION, executeCommand, Logger, resolveTimeoutMs } from "@ask-llm/shared";
 import { ANTIGRAVITY, CLI, ERROR_MESSAGES, MODELS, READ_ONLY_PREAMBLE } from "../constants.js";
+import { assertSupportedAgyVersion } from "./agyVersion.js";
 import { withAntigravityInvocationLock } from "./invocationLock.js";
 import { defaultBaseDir, readLatestTranscript, snapshotTranscriptState } from "./transcriptReader.js";
 
@@ -151,6 +152,7 @@ function modelUnavailableMessage(model: string, detail: string, source: ModelSou
 }
 
 export async function executeAntigravityCLI(options: AntigravityExecutorOptions): Promise<AntigravityExecutorResult> {
+  await assertSupportedAgyVersion();
   const baseDir = defaultBaseDir();
   const sandbox = process.env[ANTIGRAVITY.SANDBOX_ENV_VAR] !== "0";
   const timeoutMs = resolveTimeoutMs(ANTIGRAVITY.TIMEOUT_ENV_VAR, ANTIGRAVITY.DEFAULT_TIMEOUT_MS);

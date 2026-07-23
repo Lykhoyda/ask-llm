@@ -101,7 +101,7 @@ Dispatch all requested external providers via **a single foreground Bash tool ca
 
 The user specifies which external providers to use. Default is `antigravity,codex`. Only include the requested providers in the Bash call:
 
-- `antigravity` — Google Antigravity, subscription-backed via your Google AI Pro/Ultra plan, via the `agy` CLI (experimental; requires `agy` installed + logged in)
+- `antigravity` — Google Antigravity, subscription-backed via your Google AI Pro/Ultra plan, via the `agy` CLI (experimental; requires `agy` >=1.1.5 installed + logged in)
 - `gemini` — Google Gemini (large context, strong at analysis) via the `gemini` CLI
 - `codex` — OpenAI Codex (strong at code reasoning) via `codex exec --sandbox read-only`
 - `ollama` — Local Ollama (private, no data leaves machine) via the `ollama` CLI

@@ -204,7 +204,7 @@ See the [plugin docs](https://lykhoyda.github.io/ask-llm/plugin/overview) for de
 - **At least one provider:**
   - [Codex CLI](https://github.com/openai/codex) — installed and authenticated
   - [Claude Code CLI](https://docs.anthropic.com/en/docs/claude-code/getting-started) — installed and authenticated (for Codex/other clients consulting Claude)
-  - [Antigravity CLI](https://antigravity.google) (`agy`) — installed and logged in once (Google AI Pro/Ultra)
+  - [Antigravity CLI](https://antigravity.google) (`agy`) >=1.1.5 — installed and logged in once (Google AI Pro/Ultra); verify with `agy --version`
   - [Ollama](https://ollama.com) — running locally with a model pulled (`ollama pull qwen3.6:27b`)
   - [Gemini CLI](https://github.com/google-gemini/gemini-cli) — `npm install -g @google/gemini-cli && gemini login` (enterprise-gated from 2026-06-18)
 

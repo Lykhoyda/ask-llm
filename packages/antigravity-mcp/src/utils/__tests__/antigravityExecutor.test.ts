@@ -22,7 +22,12 @@ vi.mock("../transcriptReader.js", async (importOriginal) => {
   };
 });
 
+vi.mock("../agyVersion.js", () => ({
+  assertSupportedAgyVersion: vi.fn(),
+}));
+
 import { executeCommand, Logger } from "@ask-llm/shared";
+import { assertSupportedAgyVersion } from "../agyVersion.js";
 import {
   buildArgs,
   executeAntigravityCLI,
@@ -33,6 +38,7 @@ import { antigravityInvocationLockPath } from "../invocationLock.js";
 import { readLatestTranscript, snapshotTranscriptState } from "../transcriptReader.js";
 
 const mockExec = vi.mocked(executeCommand);
+const mockAssertSupportedAgyVersion = vi.mocked(assertSupportedAgyVersion);
 const mockReadLatestTranscript = vi.mocked(readLatestTranscript);
 const mockSnapshotTranscriptState = vi.mocked(snapshotTranscriptState);
 let baseDir: string;
@@ -45,6 +51,7 @@ beforeEach(() => {
   delete process.env[ANTIGRAVITY.MODEL_ENV_VAR];
   delete process.env[ANTIGRAVITY.EFFORT_ENV_VAR];
   process.env.ASK_ANTIGRAVITY_BASE_DIR = baseDir;
+  mockAssertSupportedAgyVersion.mockResolvedValue(ANTIGRAVITY.MINIMUM_AGY_VERSION);
   mockExec.mockResolvedValue("");
   mockReadLatestTranscript.mockReturnValue(null);
   mockSnapshotTranscriptState.mockReturnValue({ baseDir, transcripts: {} });
@@ -241,6 +248,20 @@ describe("executeAntigravityCLI model selection", () => {
 });
 
 describe("executeAntigravityCLI error handling", () => {
+  it("rejects an unsupported agy version before invoking a model", async () => {
+    mockAssertSupportedAgyVersion.mockRejectedValue(
+      new Error(
+        `Antigravity CLI (agy) 1.1.4 is unsupported. @ask-llm/antigravity-mcp requires agy >=${ANTIGRAVITY.MINIMUM_AGY_VERSION}.`,
+      ),
+    );
+
+    await expect(executeAntigravityCLI({ prompt: "q" })).rejects.toThrow(
+      `requires agy >=${ANTIGRAVITY.MINIMUM_AGY_VERSION}`,
+    );
+    expect(mockExec).not.toHaveBeenCalled();
+    expect(mockSnapshotTranscriptState).not.toHaveBeenCalled();
+  });
+
   it("rethrows non-rate-limit errors unchanged without attempting a fallback", async () => {
     mockExec.mockRejectedValue(new Error("agy CLI not found on PATH"));
     await expect(executeAntigravityCLI({ prompt: "q" })).rejects.toThrow("agy CLI not found on PATH");
