@@ -1,5 +1,18 @@
 # @ask-llm/mcp
 
+## 0.6.2
+
+### Patch Changes
+
+- [#246](https://github.com/Lykhoyda/ask-llm/pull/246) [`a1f62ad`](https://github.com/Lykhoyda/ask-llm/commit/a1f62ad1625c4248876c40842801fe0c4403c561) Thanks [@Lykhoyda](https://github.com/Lykhoyda)! - Improve shared CLI diagnostics with cross-platform command lookup and provider version assessment, update the antigravity provider default model to agy 1.1.5's stable base slug `gemini-3.1-pro`, and exclude detected unsupported installations from dispatch with actionable diagnostics ([#243](https://github.com/Lykhoyda/ask-llm/issues/243)).
+
+- Updated dependencies [[`a1f62ad`](https://github.com/Lykhoyda/ask-llm/commit/a1f62ad1625c4248876c40842801fe0c4403c561), [`a1f62ad`](https://github.com/Lykhoyda/ask-llm/commit/a1f62ad1625c4248876c40842801fe0c4403c561)]:
+  - @ask-llm/antigravity-mcp@0.6.0
+  - @ask-llm/gemini-mcp@1.6.17
+  - @ask-llm/codex-mcp@0.7.2
+  - @ask-llm/claude-mcp@0.1.5
+  - @ask-llm/ollama-mcp@0.5.5
+
 ## 0.6.1
 
 ### Patch Changes

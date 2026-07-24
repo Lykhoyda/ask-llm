@@ -1,5 +1,17 @@
 # @ask-llm/plugin
 
+## 0.12.5
+
+### Patch Changes
+
+- [#246](https://github.com/Lykhoyda/ask-llm/pull/246) [`a1f62ad`](https://github.com/Lykhoyda/ask-llm/commit/a1f62ad1625c4248876c40842801fe0c4403c561) Thanks [@Lykhoyda](https://github.com/Lykhoyda)! - Pin the brainstorm-coordinator's raw agy call to the agy 1.1.5 model contract (`--model gemini-3.1-pro --effort high`) ([#243](https://github.com/Lykhoyda/ask-llm/issues/243)).
+
+- Updated dependencies [[`a1f62ad`](https://github.com/Lykhoyda/ask-llm/commit/a1f62ad1625c4248876c40842801fe0c4403c561), [`a1f62ad`](https://github.com/Lykhoyda/ask-llm/commit/a1f62ad1625c4248876c40842801fe0c4403c561)]:
+  - @ask-llm/antigravity-mcp@0.6.0
+  - @ask-llm/gemini-mcp@1.6.17
+  - @ask-llm/codex-mcp@0.7.2
+  - @ask-llm/ollama-mcp@0.5.5
+
 ## 0.12.4
 
 ### Patch Changes

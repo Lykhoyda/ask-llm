@@ -1,5 +1,11 @@
 # @ask-llm/antigravity-mcp
 
+## 0.6.0
+
+### Minor Changes
+
+- [#246](https://github.com/Lykhoyda/ask-llm/pull/246) [`a1f62ad`](https://github.com/Lykhoyda/ask-llm/commit/a1f62ad1625c4248876c40842801fe0c4403c561) Thanks [@Lykhoyda](https://github.com/Lykhoyda)! - Require agy 1.1.5 or newer with actionable support diagnostics, adopt its model contract by defaulting to the stable base slug `gemini-3.1-pro` (fallback `gemini-3.5-flash`) with the reasoning tier passed separately via `--effort` (new `ASK_ANTIGRAVITY_EFFORT` env var, default `high`), and recover gracefully when agy rejects a model: a rejected model whose value equals the shipped default or fallback slug retries once model-less while any other rejected model fails with an actionable error naming `agy models` ([#243](https://github.com/Lykhoyda/ask-llm/issues/243)).
+
 ## 0.5.1
 
 ### Patch Changes
