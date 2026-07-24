@@ -1,4 +1,4 @@
-import { readFileSync, readdirSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -43,19 +43,13 @@ for (const provider of providers) {
 }
 
 // providers.ts must quote the same default/fallback models as package constants.
-const dataSource = readFileSync(
-  join(root, "apps/docs/.vitepress/theme/providers.ts"),
-  "utf8",
-);
-// Scope each comparison to the provider's own object literal so identical
-// values on two providers can't mask a swap (e.g. both fallbacks are gemini-*).
-// Entries are delimited by PROVIDER_DOCS' top-level `<provider>: {` keys, so
-// property order inside an entry doesn't matter.
+const dataSource = readFileSync(join(root, "apps/docs/.vitepress/theme/providers.ts"), "utf8");
+// Provider scoping prevents identical model values from masking cross-provider swaps.
 function providerBlock(provider) {
   const entryStart = new RegExp(`^  ${provider}: \\{`, "m").exec(dataSource);
   if (!entryStart) return null;
   const rest = dataSource.slice(entryStart.index + entryStart[0].length);
-  const nextEntry = /^  \w+: \{/m.exec(rest);
+  const nextEntry = /^ {2}\w+: \{/m.exec(rest);
   return rest.slice(0, nextEntry ? nextEntry.index : rest.length);
 }
 
