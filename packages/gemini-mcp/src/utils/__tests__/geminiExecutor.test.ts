@@ -1,8 +1,13 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.hoisted(() => {
+const originalModelEnvironment = vi.hoisted(() => {
+  const environment = {
+    model: process.env.ASK_GEMINI_MODEL,
+    fallbackModel: process.env.ASK_GEMINI_FALLBACK_MODEL,
+  };
   delete process.env.ASK_GEMINI_MODEL;
   delete process.env.ASK_GEMINI_FALLBACK_MODEL;
+  return environment;
 });
 
 import { CLI, ERROR_MESSAGES, FACTORY_DEFAULT_MODEL, MODELS } from "../../constants.js";
@@ -29,6 +34,13 @@ beforeEach(() => {
   vi.clearAllMocks();
   responseCache.clear();
   mockExecuteCommand.mockResolvedValue("Gemini response");
+});
+
+afterAll(() => {
+  if (originalModelEnvironment.model === undefined) delete process.env.ASK_GEMINI_MODEL;
+  else process.env.ASK_GEMINI_MODEL = originalModelEnvironment.model;
+  if (originalModelEnvironment.fallbackModel === undefined) delete process.env.ASK_GEMINI_FALLBACK_MODEL;
+  else process.env.ASK_GEMINI_FALLBACK_MODEL = originalModelEnvironment.fallbackModel;
 });
 
 describe("executeGeminiCLI argument construction", () => {
