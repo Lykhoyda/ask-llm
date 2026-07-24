@@ -157,11 +157,11 @@
 - **Related (since fixed):** the published `ask-codex-mcp` executor (`codexExecutor.ts:419`) shared the same fallback assumption and surfaced only a generic terminal error. The default-fallback half was fixed by ADR-126 (→ `gpt-5.4-mini`); the graceful-message half — porting `isModelUnavailableError` into `codexExecutor.ts` for a pinned-incompatible fallback — was fixed by ADR-127 (#196), see "Fixed (pending publish)" above.
 - **Status:** **FIXED** (`fix/codex-pair-chatgpt-fallback`, ADR-123). Plugin is `private` — ships via the next `@ask-llm/plugin` release.
 
-### Side-finding (unfiled) — `MODELS.FLASH` (`gemini-3.5-flash`) returns `404 ModelNotFoundError`
-- **Severity:** Medium (the Gemini quota→Flash fallback may be silently broken)
+### Side-finding (unfiled) — former `MODELS.FLASH` (`gemini-3.5-flash`) returned `404 ModelNotFoundError`
+- **Severity:** Medium (a Gemini quota→Flash fallback or override may be silently broken)
 - **Discovered:** 2026-06-05, while dual-reviewing the #140 plan via the live `gemini` CLI.
-- **Symptom:** `gemini -m gemini-3.5-flash -p ...` on gemini-cli 0.44.1 returned `404 ModelNotFoundError: Requested entity was not found`, while `gemini -m gemini-3.1-pro-preview` returned `429 MODEL_CAPACITY_EXHAUSTED` (transient) and `gemini -m gemini-3-flash-preview` worked. `gemini-3.5-flash` is the configured `MODELS.FLASH` (`packages/gemini-mcp/src/constants.ts`) used by the quota fallback — so a real Pro-quota error today could fall back to a 404'ing model.
-- **Status:** **Needs verification before filing.** May be account/tier-specific (the test account's available models), a CLI-version model-catalog change, or a genuine misconfiguration (the docs were migrated to `gemini-3.5-flash` in 2026-05-30; `CLAUDE.md` still notes `gemini-3-flash-preview`). Verify which Flash model the current gemini-cli/account actually serves, then file or correct `MODELS.FLASH`. Independent of #140.
+- **Symptom:** `gemini -m gemini-3.5-flash -p ...` on gemini-cli 0.44.1 returned `404 ModelNotFoundError: Requested entity was not found`, while `gemini -m gemini-3.1-pro-preview` returned `429 MODEL_CAPACITY_EXHAUSTED` (transient) and `gemini -m gemini-3-flash-preview` worked. ADR-138 changed the configured `MODELS.FLASH` default to `gemini-3.6-flash`, so 3.5 is no longer the factory fallback, but it can still be selected through `ASK_GEMINI_FALLBACK_MODEL`.
+- **Status:** **Needs verification before filing.** Google's current catalog lists `gemini-3.5-flash`, but acceptance through the supported Gemini CLI path and account tier remains unproven: the recorded 0.44.1 probe returned 404, while the 0.46.0 probe performed for ADR-138 failed pre-model on authentication. Verify any selected fallback through the supported CLI path before relying on it; catalog presence alone does not make 3.5 a verified rollback. Independent of #140.
 
 ### #115 — `npx ask-llm-mcp doctor` ERR_MODULE_NOT_FOUND on `zod/index.js` (Node 26, global install)
 - **Severity:** High (blocks any Node 26 user of `ask-llm-mcp` via global install)

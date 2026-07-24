@@ -10,8 +10,12 @@
 advanced to Mar 2026. The 2026-07-23 drift audit missed it because its model
 check only asked "is our pinned model renamed/removed?" (breaking lens), not
 "did a newer sibling ship?" (improvement lens) — #244 is the corrective
-finding. `gemini-3.5-flash` still resolves and is not deprecated, so this is
-an improvement plus a future-breaking watch, not a fix.
+finding. Google's catalog still lists `gemini-3.5-flash` without a deprecation
+notice, but that is not proof of acceptance through the supported Gemini CLI
+path: the active side-finding in `docs/BUGS.md` records a live 0.44.1 probe
+returning `404 ModelNotFoundError`, and the current 0.46.0 probe could not get
+past authentication. This is an improvement plus a future-breaking watch, not
+a claim that the former fallback is currently usable.
 
 **Decision:** Switch `MODELS.FLASH` in @ask-llm/gemini-mcp from
 `gemini-3.5-flash` to `gemini-3.6-flash` (quota-fallback leg only), keeping
@@ -36,8 +40,10 @@ completed in this environment — the CLI (0.46.0) failed pre-model with
 `Invalid auth method selected` (code 41, the post-2026-06-18 enterprise
 gating), so live CLI acceptance remains unverified; gemini-cli #28483 (3.6
 missing from the *interactive* picker) is expected to be irrelevant to the
-non-interactive `-m` path. If a user's gemini-cli rejects the id client-side,
-`ASK_GEMINI_FALLBACK_MODEL=gemini-3.5-flash` restores the old behavior.
+non-interactive `-m` path. `ASK_GEMINI_FALLBACK_MODEL` remains the override
+mechanism when operators need a different fallback, but the selected model
+must itself be verified through their supported Gemini CLI and account tier;
+`gemini-3.5-flash` is not a verified rollback.
 
 ## ADR-137: Antigravity agy 1.1.5 model contract — base slug + --effort, with model-unavailable recovery
 

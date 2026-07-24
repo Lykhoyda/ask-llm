@@ -1,4 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+vi.hoisted(() => {
+  delete process.env.ASK_GEMINI_MODEL;
+  delete process.env.ASK_GEMINI_FALLBACK_MODEL;
+});
+
 import { CLI, ERROR_MESSAGES, FACTORY_DEFAULT_MODEL, MODELS } from "../../constants.js";
 
 vi.mock("@ask-llm/shared", async (importOriginal) => {
@@ -245,11 +251,13 @@ describe("executeGeminiCLI quota fallback", () => {
     expect(MODELS.PRO).toBe(FACTORY_DEFAULT_MODEL);
   });
 
-  it("honors the ASK_GEMINI_FALLBACK_MODEL override over the 3.6 Flash default in the quota retry", async () => {
+  it("honors Gemini model environment overrides in the primary call and quota retry", async () => {
+    vi.stubEnv("ASK_GEMINI_MODEL", "custom-pro");
     vi.stubEnv("ASK_GEMINI_FALLBACK_MODEL", "gemini-3.5-flash");
     vi.resetModules();
     try {
       const { MODELS: overriddenModels } = await import("../../constants.js");
+      expect(overriddenModels.PRO).toBe("custom-pro");
       expect(overriddenModels.FLASH).toBe("gemini-3.5-flash");
 
       const shared = await import("@ask-llm/shared");
@@ -262,7 +270,9 @@ describe("executeGeminiCLI quota fallback", () => {
       await freshExecuteGeminiCLI({ prompt: "hello" });
 
       expect(freshExecuteCommand).toHaveBeenCalledTimes(2);
+      const [, primaryArgs] = freshExecuteCommand.mock.calls[0];
       const [, fallbackArgs] = freshExecuteCommand.mock.calls[1];
+      expect(primaryArgs[primaryArgs.indexOf(CLI.FLAGS.MODEL) + 1]).toBe("custom-pro");
       expect(fallbackArgs[fallbackArgs.indexOf(CLI.FLAGS.MODEL) + 1]).toBe("gemini-3.5-flash");
     } finally {
       vi.unstubAllEnvs();

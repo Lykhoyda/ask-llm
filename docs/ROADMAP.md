@@ -7,7 +7,7 @@ This section is the live roadmap. The dated material below is retained as delive
 1. **Hard-isolate Antigravity reviews** — managed paths now carry the read-only preamble plus `--sandbox` (ADR-136), but upstream `agy` still lacks a hard file-tool read-only mode. Evaluate an isolated throwaway checkout/container without breaking headless reliability.
 2. **Generate drift-prone documentation** — derive provider/model/tool/package tables and AI-readable references from source schemas/constants instead of continuing hand-maintained parity sweeps.
 3. **Measure critical-path coverage** — establish coverage reporting and thresholds for executors, shared process handling, and codex-pair state/gate code; keep real-provider canaries separate from hermetic CI.
-4. **Verify the configured Gemini fallback against current account tiers** — `gemini-3.5-flash` remains a documented needs-verification item in `BUGS.md`.
+4. **Verify Gemini fallback models through the supported CLI path and current account tiers** — the configured `gemini-3.6-flash` default is catalog-confirmed but CLI-unverified after an authentication block, while the `gemini-3.5-flash` override candidate retains the prior live 404 recorded in `BUGS.md`.
 
 ### 2026-07-17 — /sol-review transport-fallback hardening (#232) + user-docs ADR-reference sweep (PR #239)
 
