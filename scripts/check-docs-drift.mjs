@@ -47,6 +47,18 @@ const dataSource = readFileSync(
   join(root, "apps/docs/.vitepress/theme/providers.ts"),
   "utf8",
 );
+// Scope each comparison to the provider's own object literal so identical
+// values on two providers can't mask a swap (e.g. both fallbacks are gemini-*).
+// Entries are delimited by PROVIDER_DOCS' top-level `<provider>: {` keys, so
+// property order inside an entry doesn't matter.
+function providerBlock(provider) {
+  const entryStart = new RegExp(`^  ${provider}: \\{`, "m").exec(dataSource);
+  if (!entryStart) return null;
+  const rest = dataSource.slice(entryStart.index + entryStart[0].length);
+  const nextEntry = /^  \w+: \{/m.exec(rest);
+  return rest.slice(0, nextEntry ? nextEntry.index : rest.length);
+}
+
 const modelChecks = [
   ["codex", "packages/codex-mcp/src/constants.ts", /FACTORY_DEFAULT_MODEL = "([^"]+)"/],
   ["claude", "packages/claude-mcp/src/constants.ts", /FACTORY_DEFAULT_MODEL = "([^"]+)"/],
@@ -54,16 +66,30 @@ const modelChecks = [
   ["ollama", "packages/ollama-mcp/src/constants.ts", /FACTORY_DEFAULT_MODEL = "([^"]+)"/],
   ["antigravity", "packages/antigravity-mcp/src/constants.ts", /DEFAULT: "([^"]+)"/],
 ];
-for (const [provider, constantsPath, pattern] of modelChecks) {
-  const constant = readFileSync(join(root, constantsPath), "utf8").match(pattern)?.[1];
-  if (!constant) {
-    errors.push(`${constantsPath} no longer matches the default-model pattern for ${provider}`);
-    continue;
-  }
-  if (!dataSource.includes(`defaultModel: "${constant}"`)) {
-    errors.push(
-      `providers.ts defaultModel for ${provider} is out of sync with ${constantsPath} (expected "${constant}")`,
-    );
+const fallbackChecks = [
+  ["gemini", "packages/gemini-mcp/src/constants.ts", /FLASH: process\.env\.ASK_GEMINI_FALLBACK_MODEL \|\| "([^"]+)"/],
+  ["antigravity", "packages/antigravity-mcp/src/constants.ts", /FALLBACK: "([^"]+)"/],
+];
+for (const [field, checks] of [
+  ["defaultModel", modelChecks],
+  ["fallbackModel", fallbackChecks],
+]) {
+  for (const [provider, constantsPath, pattern] of checks) {
+    const constant = readFileSync(join(root, constantsPath), "utf8").match(pattern)?.[1];
+    if (!constant) {
+      errors.push(`${constantsPath} no longer matches the ${field} pattern for ${provider}`);
+      continue;
+    }
+    const block = providerBlock(provider);
+    if (!block) {
+      errors.push(`providers.ts has no entry for provider ${provider}`);
+      continue;
+    }
+    if (!block.includes(`${field}: "${constant}"`)) {
+      errors.push(
+        `providers.ts ${field} for ${provider} is out of sync with ${constantsPath} (expected "${constant}")`,
+      );
+    }
   }
 }
 

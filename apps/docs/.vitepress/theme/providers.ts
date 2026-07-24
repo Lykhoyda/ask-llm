@@ -86,7 +86,7 @@ export const PROVIDER_DOCS: Record<ProviderId, ProviderDoc> = {
     serverName: "gemini",
     cliInstall: "npm install -g @google/gemini-cli && gemini login",
     defaultModel: "gemini-3.1-pro-preview",
-    fallbackModel: "gemini-3.5-flash",
+    fallbackModel: "gemini-3.6-flash",
     status: "enterprise",
     tier: "supporting",
     tagline: "1M+ token context for whole-codebase reads. Enterprise seats only since 2026-06-18.",

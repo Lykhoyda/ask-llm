@@ -167,7 +167,7 @@ the complete package-to-executable mapping.
 | **Claude** | Independent review from Codex or another non-Claude host | `opus` → `sonnet` | Claude Code CLI; native sessions; read-only tools |
 | **Antigravity** | A subscription-backed second opinion; larger-context reads | `gemini-3.1-pro` → `gemini-3.5-flash` (both at `--effort high`) | Google AI Pro/Ultra plan; one-shot, experimental |
 | **Ollama** | Private/local review, zero cost, offline | `qwen3.6:27b` (no auto-fallback) | Runs entirely on your machine |
-| **Gemini** | Whole-codebase reads (1M+ tokens) | `gemini-3.1-pro-preview` → `gemini-3.5-flash` | ⚠️ Enterprise-gated from 2026-06-18 |
+| **Gemini** | Whole-codebase reads (1M+ tokens) | `gemini-3.1-pro-preview` → `gemini-3.6-flash` | ⚠️ Enterprise-gated from 2026-06-18 |
 | **Unified (`ask-llm`)** | One install for all of the above; fan out in parallel | routes per call | **Recommended** |
 
 ## Claude Code Plugin
@@ -257,7 +257,7 @@ The REPL ships sessions per provider (`/provider gemini`, `/provider codex`, `/n
 
 | Provider | Default | Fallback |
 |----------|---------|----------|
-| Gemini | `gemini-3.1-pro-preview` | `gemini-3.5-flash` (on quota) |
+| Gemini | `gemini-3.1-pro-preview` | `gemini-3.6-flash` (on quota) |
 | Codex | `gpt-5.6-sol` | `gpt-5.6-terra` (on quota) |
 | Claude | `opus` | `sonnet` (on overload/unavailability) |
 | Antigravity | `gemini-3.1-pro` (`--effort high`) | `gemini-3.5-flash` (on rate limit); model-less recovery if a shipped slug is rejected |

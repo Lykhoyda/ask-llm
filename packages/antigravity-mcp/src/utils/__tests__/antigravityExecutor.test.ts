@@ -270,6 +270,14 @@ describe("executeAntigravityCLI error handling", () => {
 });
 
 describe("executeAntigravityCLI rate-limit fallback", () => {
+  // #244 — the gemini-mcp quota fallback moved to gemini-3.6-flash, but agy's
+  // contract stays on the slugs its live 1.1.5 catalog proved (#243); do not
+  // bump this without fresh `agy models` evidence of a 3.6 slug.
+  it("keeps the evidence-based agy fallback slug on gemini-3.5-flash", () => {
+    expect(MODELS.FALLBACK).toBe("gemini-3.5-flash");
+    expect(MODELS.DEFAULT).toBe("gemini-3.1-pro");
+  });
+
   it("redacts the read-only prompt on both primary and fallback command logs", async () => {
     mockExec.mockRejectedValueOnce(new Error("RESOURCE_EXHAUSTED: quota")).mockResolvedValueOnce("flash answer");
 

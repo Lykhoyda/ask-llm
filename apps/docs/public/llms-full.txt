@@ -139,7 +139,7 @@ Send prompts to Google Gemini CLI. Supports @ file syntax for including files in
 - **Package:** @ask-llm/gemini-mcp
 - **Parameters:**
   - `prompt` (string, required): The question, code review request, or analysis task. Use @ syntax to include files (e.g., "@src/main.ts explain this code").
-  - `model` (string, optional): Do not set unless user explicitly requests it. Default: gemini-3.1-pro-preview. Falls back to gemini-3.5-flash on quota errors.
+  - `model` (string, optional): Do not set unless user explicitly requests it. Default: gemini-3.1-pro-preview. Falls back to gemini-3.6-flash on quota errors.
   - `sessionId` (string, optional): Resume a prior conversation. Reuse the sessionId returned in a previous response to continue multi-turn context.
 - **Returns:** Gemini's text response plus a structured payload (provider, model, sessionId, usage).
 - **Annotations:** readOnlyHint=false, destructiveHint=false, openWorldHint=true
@@ -291,7 +291,7 @@ Test MCP server connectivity. Available in all packages.
 | Model | Use Case |
 |-------|----------|
 | gemini-3.1-pro-preview | Default: best quality reasoning, 1M+ token context |
-| gemini-3.5-flash | Automatic fallback on quota errors: faster, large codebases |
+| gemini-3.6-flash | Automatic fallback on quota errors: faster, large codebases |
 
 ### Codex
 | Model | Use Case |
@@ -417,7 +417,7 @@ All MCP servers handle errors gracefully:
 | Variable | Default | Description |
 |----------|---------|-------------|
 | ASK_GEMINI_MODEL | gemini-3.1-pro-preview | Override the Gemini default model |
-| ASK_GEMINI_FALLBACK_MODEL | gemini-3.5-flash | Override the Gemini quota fallback model |
+| ASK_GEMINI_FALLBACK_MODEL | gemini-3.6-flash | Override the Gemini quota fallback model |
 | ASK_CODEX_MODEL | gpt-5.6-sol | Override the Codex default model |
 | ASK_CODEX_PREFERRED_MODEL | gpt-5.6-sol | Legacy review-tier escape hatch; only attempted separately when it differs from ASK_CODEX_MODEL |
 | ASK_CODEX_FALLBACK_MODEL | gpt-5.6-terra | Override the Codex quota fallback model |

@@ -63,7 +63,7 @@ gemini login
 <FallbackChain provider="gemini" />
 
 - **Default:** `gemini-3.1-pro-preview` (latest, highest capability)
-- **Quota fallback:** `gemini-3.5-flash`, automatic on `RESOURCE_EXHAUSTED`
+- **Quota fallback:** `gemini-3.6-flash`, automatic on `RESOURCE_EXHAUSTED`
 - **Overrides:** `ASK_GEMINI_MODEL`, `ASK_GEMINI_FALLBACK_MODEL`, or the per-call `model` parameter
 
 ## Key Features

@@ -47,7 +47,7 @@ export const TIER_NOTE_MARKER = "Gemini CLI tier change (2026-06-18)";
 
 export const ERROR_MESSAGES = {
   QUOTA_EXCEEDED: "RESOURCE_EXHAUSTED",
-  QUOTA_EXCEEDED_SHORT: "⚠️ Gemini Pro daily quota exceeded. Please retry with model: 'gemini-3.5-flash'",
+  QUOTA_EXCEEDED_SHORT: "⚠️ Gemini Pro daily quota exceeded. Please retry with model: 'gemini-3.6-flash'",
   TOOL_NOT_FOUND: "not found in registry",
   NO_PROMPT_PROVIDED:
     "Please provide a prompt for analysis. Use @ syntax to include files (e.g., '@largefile.js explain what this does') or ask general questions",
@@ -76,7 +76,7 @@ export const FACTORY_DEFAULT_MODEL = "gemini-3.1-pro-preview";
 
 export const MODELS = {
   PRO: process.env.ASK_GEMINI_MODEL || FACTORY_DEFAULT_MODEL,
-  FLASH: process.env.ASK_GEMINI_FALLBACK_MODEL || "gemini-3.5-flash",
+  FLASH: process.env.ASK_GEMINI_FALLBACK_MODEL || "gemini-3.6-flash",
 };
 
 export const CLI = {
