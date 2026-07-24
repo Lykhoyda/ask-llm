@@ -7,10 +7,10 @@ import { buildArgs, buildInvocationLockOptions } from "../utils/antigravityExecu
 import { readLatestTranscript, snapshotTranscriptState } from "../utils/transcriptReader.js";
 
 describe("Antigravity machine options", () => {
-  it("waits for the full two-attempt invocation lease before reporting contention", () => {
+  it("waits for the full three-attempt invocation lease before reporting contention", () => {
     expect(buildInvocationLockOptions(300_000)).toEqual({
-      acquireTimeoutMs: 630_000,
-      leaseDurationMs: 630_000,
+      acquireTimeoutMs: 930_000,
+      leaseDurationMs: 930_000,
     });
   });
 
@@ -21,6 +21,8 @@ describe("Antigravity machine options", () => {
     expect(args).toContain("plan");
     expect(args).toContain("--sandbox");
     expect(args).not.toContain("--dangerously-skip-permissions");
+    // legacy display strings carry their own effort tier — pairing --effort would be rejected by agy
+    expect(args).not.toContain(CLI.FLAGS.EFFORT);
   });
 
   it("keeps legacy human argv when read-only mode is disabled", () => {

@@ -5,13 +5,7 @@
 // Values are drift-checked against packages/*/src/constants.ts by
 // scripts/check-docs-drift.mjs. Update BOTH when a default model changes.
 
-export type ProviderId =
-  | "codex"
-  | "claude"
-  | "antigravity"
-  | "ollama"
-  | "gemini"
-  | "unified";
+export type ProviderId = "codex" | "claude" | "antigravity" | "ollama" | "gemini" | "unified";
 
 export interface ProviderDoc {
   id: ProviderId;
@@ -21,6 +15,8 @@ export interface ProviderDoc {
   cliInstall: string;
   defaultModel: string;
   fallbackModel?: string;
+  // Reasoning effort applied to both the default and fallback models.
+  defaultEffort?: string;
   status?: "enterprise" | "experimental" | "local";
   tier: "hero" | "supporting" | "unified";
   tagline: string;
@@ -60,9 +56,10 @@ export const PROVIDER_DOCS: Record<ProviderId, ProviderDoc> = {
     name: "Antigravity",
     pkg: "@ask-llm/antigravity-mcp",
     serverName: "antigravity",
-    cliInstall: "# install agy from https://antigravity.google, then log in once",
-    defaultModel: "Gemini 3.1 Pro (High)",
-    fallbackModel: "Gemini 3.5 Flash (High)",
+    cliInstall: "# install agy >=1.1.5 from https://antigravity.google, then log in once",
+    defaultModel: "gemini-3.1-pro",
+    fallbackModel: "gemini-3.5-flash",
+    defaultEffort: "high",
     status: "experimental",
     tier: "supporting",
     tagline: "Subscription-backed second opinion via Google AI Pro/Ultra (agy).",
@@ -104,7 +101,8 @@ export const PROVIDER_DOCS: Record<ProviderId, ProviderDoc> = {
     cliInstall: "# no extra CLI: auto-detects the provider CLIs you already have",
     defaultModel: "per provider",
     tier: "unified",
-    tagline: "All providers in one server. Auto-detects installed CLIs, routes each request, or fans one prompt out to several.",
+    tagline:
+      "All providers in one server. Auto-detects installed CLIs, routes each request, or fans one prompt out to several.",
     tools: ["ask-llm", "multi-llm", "get-usage-stats", "diagnose", "ping"],
     docPath: "/providers/unified",
   },

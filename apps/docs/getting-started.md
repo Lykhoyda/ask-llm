@@ -24,7 +24,9 @@ npm install -g @anthropic-ai/claude-code
 ```
 
 ```bash [Antigravity]
-# install agy from https://antigravity.google, then log in once
+# install agy >=1.1.5 from https://antigravity.google, then:
+agy --version
+# run agy once and authenticate
 ```
 
 ```bash [Ollama]

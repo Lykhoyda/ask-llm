@@ -24,7 +24,7 @@ packages/claude-plugin   @ask-llm/plugin      Claude Code plugin (agents, skills
 - Node.js >= 20.0.0 (runtime)
 - For Codex: Codex CLI installed and authenticated
 - For Claude: `npm install -g @anthropic-ai/claude-code`, then authenticate (provider is for Codex and other non-Claude hosts)
-- For Antigravity: `agy` installed and logged in once (run `agy` interactively to authenticate)
+- For Antigravity: `agy` 1.1.5 or newer installed and logged in once (`agy --version`, then run `agy` interactively to authenticate)
 - For Ollama: Ollama running locally (`https://ollama.com`) with a model pulled (`ollama pull qwen3.6:27b`)
 - For Gemini: `npm install -g @google/gemini-cli && gemini login` (enterprise-gated since 2026-06-18)
 
@@ -230,10 +230,10 @@ Send prompts to Google's Antigravity CLI (`agy`) for a subscription-backed secon
 - **Parameters:**
   - `prompt` (string, required): The question, code review request, or analysis task.
   - `includeDirs` (string[], optional): Additional directories to expose to agy (`--add-dir`). Paths must be relative: no `..`, absolute paths, or `~`.
-- **Model selection:** There is NO per-call `model` parameter. The model is chosen via the `ASK_ANTIGRAVITY_MODEL` env var. Default: "Gemini 3.1 Pro (High)"; falls back to "Gemini 3.5 Flash (High)" on a subscription rate limit. Run `agy models` for available options.
+- **Model selection:** There is NO per-call `model` parameter. The model is chosen via the `ASK_ANTIGRAVITY_MODEL` env var. Default: `gemini-3.1-pro` at high effort; falls back to `gemini-3.5-flash` at high effort on a subscription rate limit. Run `agy models` for available options.
 - **Returns:** Antigravity's text response plus a structured payload. Single-turn only: no sessionId.
 - **Annotations:** readOnlyHint=false, destructiveHint=false, openWorldHint=true
-- **Requires:** `agy` installed and logged in once.
+- **Requires:** `agy` 1.1.5 or newer, installed and logged in once; the executor rejects older versions before model invocation.
 
 ### ask-llm
 
@@ -309,10 +309,10 @@ Ollama is local: no automatic fallback. Override with `ASK_OLLAMA_MODEL`; a mode
 ### Antigravity
 | Model | Use Case |
 |-------|----------|
-| Gemini 3.1 Pro (High) | Default: strongest reasoning tier for the second-opinion workload |
-| Gemini 3.5 Flash (High) | Automatic fallback on subscription rate limits |
+| `gemini-3.1-pro` + `--effort high` | Default: strongest reasoning tier for the second-opinion workload |
+| `gemini-3.5-flash` + `--effort high` | Automatic fallback on subscription rate limits |
 
-Antigravity models are named display strings (run `agy models`). Override with `ASK_ANTIGRAVITY_MODEL`.
+Antigravity models use base slugs plus a separate effort tier (run `agy models`). Override with `ASK_ANTIGRAVITY_MODEL` and `ASK_ANTIGRAVITY_EFFORT`.
 
 ## Usage Patterns
 
@@ -425,7 +425,8 @@ All MCP servers handle errors gracefully:
 | ASK_CLAUDE_MODEL | opus | Override the Claude default model |
 | ASK_CLAUDE_FALLBACK_MODEL | sonnet | Override Claude Code's native fallback model |
 | ASK_OLLAMA_MODEL | qwen3.6:27b | Override the Ollama model (no fallback) |
-| ASK_ANTIGRAVITY_MODEL | Gemini 3.1 Pro (High) | Override the Antigravity model |
+| ASK_ANTIGRAVITY_MODEL | gemini-3.1-pro | Override the Antigravity base model slug |
+| ASK_ANTIGRAVITY_EFFORT | high | Override Antigravity reasoning effort (`low`, `medium`, or `high`) |
 | ASK_GEMINI_TIMEOUT_MS | 210000 (210s) | Gemini process timeout |
 | ASK_CODEX_TIMEOUT_MS | 800000 (800s) | Codex process timeout |
 | ASK_CLAUDE_TIMEOUT_MS | 600000 (600s) | Claude process timeout |

@@ -33,6 +33,30 @@ function readPackageJson(): { name: string; version: string } {
 export interface ProviderStatus {
   available: string[];
   missing: string[];
+  unavailable: ProviderUnavailableStatus[];
+}
+
+export type ProviderUnavailableState = "missing" | "unsupported" | "unusable" | "disabled" | "import-failed";
+
+export interface ProviderUnavailableStatus {
+  key: string;
+  provider: string;
+  state: ProviderUnavailableState;
+  detected: boolean;
+  version?: string;
+  requiredVersion?: string;
+  message: string;
+  remediation?: string;
+}
+
+interface ProviderSupportProbe {
+  status: "supported" | "unsupported" | "unusable" | "missing";
+  available: boolean;
+  detected: boolean;
+  version?: string;
+  requiredVersion: string;
+  message: string;
+  remediation?: string;
 }
 
 export type ExecutorFn = (options: {
@@ -81,13 +105,34 @@ export function getLoadedExecutor(name: string): ExecutorFn | undefined {
 export async function detectProviders(): Promise<ProviderStatus> {
   const available: string[] = [];
   const missing: string[] = [];
+  const unavailable: ProviderUnavailableStatus[] = [];
 
   const checks = await Promise.all(
     Object.entries(PROVIDERS).map(async ([key, provider]) => {
       let found: boolean;
+      let support: ProviderSupportProbe | undefined;
       const disabled = Boolean(provider.disabledWhenEnvVar && process.env[provider.disabledWhenEnvVar]);
       if (disabled) {
         found = false;
+      } else if (provider.supportProbeModule && provider.supportProbeFn) {
+        try {
+          const mod = (await import(provider.supportProbeModule)) as Record<string, unknown>;
+          const fn = mod[provider.supportProbeFn] as (() => Promise<ProviderSupportProbe>) | undefined;
+          if (typeof fn !== "function") throw new Error("support probe is unavailable");
+          support = await fn();
+          found = support.available;
+        } catch (error) {
+          const detail = error instanceof Error ? error.message : String(error);
+          support = {
+            status: "unusable",
+            available: false,
+            detected: true,
+            requiredVersion: "unknown",
+            message: `${provider.name} was detected, but its support probe failed: ${detail}`,
+            remediation: INSTALL_HINTS[key],
+          };
+          found = false;
+        }
       } else if (provider.availabilityModule && provider.availabilityFn) {
         try {
           const mod = await import(provider.availabilityModule);
@@ -98,11 +143,12 @@ export async function detectProviders(): Promise<ProviderStatus> {
       } else {
         found = await isCommandAvailable(provider.command);
       }
-      return { key, provider, found, disabled };
+      return { key, provider, found, disabled, support };
     }),
   );
 
-  for (const { key, provider, found, disabled } of checks) {
+  for (const { key, provider, found, disabled, support } of checks) {
+    loadedExecutors.delete(key);
     if (found) {
       try {
         const mod = await import(provider.executorModule);
@@ -110,18 +156,58 @@ export async function detectProviders(): Promise<ProviderStatus> {
         available.push(key);
         Logger.warn(`Provider ${provider.name} (${provider.command}) — available`);
       } catch (err) {
-        missing.push(key);
+        unavailable.push({
+          key,
+          provider: provider.name,
+          state: "import-failed",
+          detected: true,
+          message: `${provider.name} was detected, but its executor could not be loaded.`,
+          remediation: INSTALL_HINTS[key],
+        });
         Logger.error(`Provider ${provider.name} — import failed:`, err);
       }
     } else {
-      missing.push(key);
       if (disabled) {
+        unavailable.push({
+          key,
+          provider: provider.name,
+          state: "disabled",
+          detected: true,
+          message: `${provider.name} is disabled because ${provider.disabledWhenEnvVar} identifies the current MCP host.`,
+        });
         Logger.warn(
           `Provider ${provider.name} (${provider.command}) — disabled because ${provider.disabledWhenEnvVar} identifies the current MCP host`,
         );
         continue;
       }
+      if (support) {
+        const state = support.status === "supported" ? "unusable" : support.status;
+        if (state === "missing") missing.push(key);
+        unavailable.push({
+          key,
+          provider: provider.name,
+          state,
+          detected: support.detected,
+          version: support.version,
+          requiredVersion: support.requiredVersion,
+          message: support.message,
+          remediation: support.remediation,
+        });
+        Logger.warn(
+          `Provider ${provider.name} (${provider.command}) — ${[support.message, support.remediation].filter(Boolean).join(" ")}`,
+        );
+        continue;
+      }
       const hint = INSTALL_HINTS[key] ?? "";
+      missing.push(key);
+      unavailable.push({
+        key,
+        provider: provider.name,
+        state: "missing",
+        detected: false,
+        message: `${provider.name} (${provider.command}) was not found on PATH.`,
+        remediation: hint || undefined,
+      });
       Logger.warn(`Provider ${provider.name} (${provider.command}) — not found${hint ? `. Install: ${hint}` : ""}`);
     }
   }
@@ -133,11 +219,15 @@ export async function detectProviders(): Promise<ProviderStatus> {
     }
   }
 
-  return { available, missing };
+  return { available, missing, unavailable };
 }
 
-function buildAskLlmSchema(availableProviders: string[]) {
-  const providerEnum = availableProviders.length > 0 ? availableProviders : getEligibleProviderKeys();
+export function buildAskLlmSchema(availableProviders: string[], excludedProviders: string[] = []) {
+  const excluded = new Set(excludedProviders);
+  const providerEnum =
+    availableProviders.length > 0
+      ? availableProviders
+      : getEligibleProviderKeys().filter((provider) => !excluded.has(provider));
   const providerDescriptions = providerEnum
     .map((k) => {
       const p = PROVIDERS[k];
@@ -160,6 +250,15 @@ function buildAskLlmSchema(availableProviders: string[]) {
   });
 }
 
+export function formatProviderPing(status: ProviderStatus, message?: string): string {
+  const prefix = message || "Pong from @ask-llm/mcp!";
+  const providers = status.available.length > 0 ? status.available.join(", ") : "none";
+  const detectedIssues = status.unavailable
+    .filter((provider) => provider.detected && ["unsupported", "unusable"].includes(provider.state))
+    .map((provider) => [provider.message, provider.remediation].filter(Boolean).join(" "));
+  return [`${prefix} Available providers: ${providers}.`, ...detectedIssues].join(" ");
+}
+
 type ToolExtra = RequestHandlerExtra<ServerRequest, ServerNotification>;
 
 const PROGRESS_MESSAGES = (op: string) => [
@@ -173,12 +272,16 @@ export async function startServer() {
   Logger.debug("init @ask-llm/mcp");
   Logger.checkNodeVersion();
   const { name, version } = readPackageJson();
-  const { available } = await detectProviders();
+  const providerStatus = await detectProviders();
+  const { available } = providerStatus;
+  const excludedProviders = providerStatus.unavailable
+    .filter((provider) => provider.state === "unsupported" || provider.state === "unusable")
+    .map((provider) => provider.key);
 
   const server = new McpServer({ name, version });
   const sessionUsage = createSessionUsage();
 
-  const askLlmSchema = buildAskLlmSchema(available);
+  const askLlmSchema = buildAskLlmSchema(available, excludedProviders);
 
   server.registerTool(
     "ask-llm",
@@ -256,8 +359,7 @@ export async function startServer() {
     },
     async (args: Record<string, unknown>): Promise<CallToolResult> => {
       const { message } = pingSchema.parse(args);
-      const providers = available.length > 0 ? available.join(", ") : "none";
-      const text = message || `Pong from @ask-llm/mcp! Available providers: ${providers}`;
+      const text = formatProviderPing(providerStatus, message);
       return { content: [{ type: "text", text }], isError: false };
     },
   );
@@ -288,7 +390,7 @@ export async function startServer() {
   );
   registerSessionUsageResource(server, sessionUsage);
 
-  const multiLlmInputSchema = buildMultiLlmInputSchema(available.length > 0 ? available : getEligibleProviderKeys());
+  const multiLlmInputSchema = buildMultiLlmInputSchema(available, excludedProviders);
   server.registerTool(
     "multi-llm",
     {

@@ -165,7 +165,7 @@ the complete package-to-executable mapping.
 |----------|----------|----------------------------|-------|
 | **Codex** | Code reasoning, targeted reviews, architecture critique | `gpt-5.6-sol` → `gpt-5.6-terra` | Requires an OpenAI/Codex account |
 | **Claude** | Independent review from Codex or another non-Claude host | `opus` → `sonnet` | Claude Code CLI; native sessions; read-only tools |
-| **Antigravity** | A subscription-backed second opinion; larger-context reads | `Gemini 3.1 Pro (High)` → `Gemini 3.5 Flash (High)` | Google AI Pro/Ultra plan; one-shot, experimental |
+| **Antigravity** | A subscription-backed second opinion; larger-context reads | `gemini-3.1-pro` → `gemini-3.5-flash` (both at `--effort high`) | Google AI Pro/Ultra plan; one-shot, experimental |
 | **Ollama** | Private/local review, zero cost, offline | `qwen3.6:27b` (no auto-fallback) | Runs entirely on your machine |
 | **Gemini** | Whole-codebase reads (1M+ tokens) | `gemini-3.1-pro-preview` → `gemini-3.5-flash` | ⚠️ Enterprise-gated from 2026-06-18 |
 | **Unified (`ask-llm`)** | One install for all of the above; fan out in parallel | routes per call | **Recommended** |
@@ -204,7 +204,7 @@ See the [plugin docs](https://lykhoyda.github.io/ask-llm/plugin/overview) for de
 - **At least one provider:**
   - [Codex CLI](https://github.com/openai/codex) — installed and authenticated
   - [Claude Code CLI](https://docs.anthropic.com/en/docs/claude-code/getting-started) — installed and authenticated (for Codex/other clients consulting Claude)
-  - [Antigravity CLI](https://antigravity.google) (`agy`) — installed and logged in once (Google AI Pro/Ultra)
+  - [Antigravity CLI](https://antigravity.google) (`agy`) >=1.1.5 — installed and logged in once (Google AI Pro/Ultra); verify with `agy --version`
   - [Ollama](https://ollama.com) — running locally with a model pulled (`ollama pull qwen3.6:27b`)
   - [Gemini CLI](https://github.com/google-gemini/gemini-cli) — `npm install -g @google/gemini-cli && gemini login` (enterprise-gated from 2026-06-18)
 
@@ -260,9 +260,10 @@ The REPL ships sessions per provider (`/provider gemini`, `/provider codex`, `/n
 | Gemini | `gemini-3.1-pro-preview` | `gemini-3.5-flash` (on quota) |
 | Codex | `gpt-5.6-sol` | `gpt-5.6-terra` (on quota) |
 | Claude | `opus` | `sonnet` (on overload/unavailability) |
+| Antigravity | `gemini-3.1-pro` (`--effort high`) | `gemini-3.5-flash` (on rate limit); model-less recovery if a shipped slug is rejected |
 | Ollama | `qwen3.6:27b` | — (local; errors if the model isn't pulled) |
 
-Gemini, Codex, and Claude automatically fall back to a lighter model on provider errors. Ollama runs locally and never substitutes a model — if the requested model isn't pulled, it returns a clear `ollama pull` error.
+Gemini, Codex, Claude, and Antigravity automatically fall back under their documented provider-specific conditions. Ollama runs locally and never substitutes a model — if the requested model isn't pulled, it returns a clear `ollama pull` error.
 
 ## Documentation
 

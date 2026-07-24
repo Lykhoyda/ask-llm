@@ -4,7 +4,8 @@
     <span v-if="doc.status" class="badge">{{ doc.status }}</span>
     <span class="models">
       default <code>{{ doc.defaultModel }}</code><template v-if="doc.fallbackModel">
-        → fallback <code>{{ doc.fallbackModel }}</code></template>
+        → fallback <code>{{ doc.fallbackModel }}</code></template><template v-if="doc.defaultEffort">
+        · effort <code>{{ doc.defaultEffort }}</code></template>
     </span>
   </p>
 </template>

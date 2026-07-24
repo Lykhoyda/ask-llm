@@ -1,10 +1,10 @@
 ---
-description: Choose the right model across providers. Default models, fallback behavior (Gemini/Codex/Claude), and per-provider overrides.
+description: Choose the right model across providers. Default models, fallback behavior (Gemini/Codex/Claude/Antigravity), and per-provider overrides.
 ---
 
 # Model Selection
 
-Hosted providers (Gemini, Codex, Claude) auto-select a sensible default model with automatic fallback to a lighter model on provider errors. Ollama runs locally and uses exactly the model you pull; it never substitutes another. **Most users should never override the model parameter**; the defaults are tuned for quality.
+Hosted providers (Gemini, Codex, Claude, Antigravity) auto-select a sensible default model with automatic fallback on provider-specific conditions — quota/rate-limit exhaustion, and for Antigravity also a rejected shipped model slug (see the table below). Ollama runs locally and uses exactly the model you pull; it never substitutes another. **Most users should never override the model parameter**; the defaults are tuned for quality.
 
 ## Defaults & Fallbacks
 
@@ -15,10 +15,10 @@ Hosted providers (Gemini, Codex, Claude) auto-select a sensible default model wi
 | Gemini | `gemini-3.1-pro-preview` | `gemini-3.5-flash` | `RESOURCE_EXHAUSTED` quota error or "exhausted your capacity" pattern |
 | Codex | `gpt-5.6-sol` | `gpt-5.6-terra` | Quota errors (`rate_limit_exceeded`, `429`, `insufficient_quota`) |
 | Claude | `opus` | `sonnet` | Claude Code native fallback when Opus is overloaded or unavailable |
-| Antigravity | `Gemini 3.1 Pro (High)` | `Gemini 3.5 Flash (High)` | Subscription rate limit only |
+| Antigravity | `gemini-3.1-pro` (`--effort high`) | `gemini-3.5-flash`; one model-less retry when agy rejects a model whose value equals `gemini-3.1-pro` or `gemini-3.5-flash` (reported as `agy default`). Both retain the effective effort (`high`, or the `ASK_ANTIGRAVITY_EFFORT` override) | Subscription rate limit; model-unavailable (shipped slug values only — other rejected models fail actionably) |
 | Ollama | `qwen3.6:27b` | none | Local, no fallback; a missing model returns a clear `ollama pull` error |
 
-For Gemini, Codex, Claude, and Antigravity, fallback is automatic. Gemini, Codex, and Claude expose the actual model and `usage.fellBack` in structured output; Antigravity reports the actual fallback model through the top-level `model` field only (it returns no usage statistics). Ollama never falls back, so its `fellBack` is always `false`.
+For Gemini, Codex, Claude, and Antigravity, fallback is automatic. Gemini, Codex, and Claude expose the actual model and `usage.fellBack` in structured output; Antigravity reports the model through the top-level `model` field only (it returns no usage statistics) — `gemini-3.5-flash` after a rate-limit fallback, or the literal `agy default` after a model-less recovery (agy does not reveal which model it picked). Ollama never falls back, so its `fellBack` is always `false`.
 
 Codex uses `medium` reasoning effort for ordinary calls to preserve the previous default behavior. The quality-first `/codex-review` and `/brainstorm` skills use `high`. Direct `ask-codex` calls can override this with `reasoningEffort` (`low`, `medium`, `high`, `xhigh`, or `max`).
 
@@ -66,6 +66,11 @@ ollama pull deepseek-coder:6.7b
 Use ask-ollama with model deepseek-coder:6.7b to review this implementation
 ```
 
+For Antigravity, `ask-antigravity` requires `agy` ≥1.1.5 and has no per-call `model` argument — configure it via env vars:
+
+- `ASK_ANTIGRAVITY_MODEL` — an agy model slug from `agy models` (e.g. `claude-sonnet-4-6`). Legacy effort-carrying display strings like `Gemini 3.1 Pro (High)` still resolve for backward compatibility.
+- `ASK_ANTIGRAVITY_EFFORT` — reasoning effort, `low` | `medium` | `high` (default `high`). Invalid values log a warning and fall back to the default behavior. Note agy limits tiers per model (`gemini-3.1-pro` has no `medium`), and effort-carrying model names reject `--effort` entirely — so the default effort is only sent with the shipped base slugs and model-less recovery runs, while an explicitly set value is always sent.
+
 ## Token Limits & Cost
 
 | Provider | Context window | Cost model |
@@ -80,7 +85,7 @@ Use ask-ollama with model deepseek-coder:6.7b to review this implementation
 
 Token usage is exposed live via:
 
-- **Per-call**: `result.structuredContent.usage` on every `ask-*` tool response (provider, model, inputTokens, outputTokens, cachedTokens, thinkingTokens, durationMs, fellBack)
+- **Per-call**: `result.structuredContent.usage` on `ask-*` tool responses (provider, model, inputTokens, outputTokens, cachedTokens, thinkingTokens, durationMs, fellBack) — except `ask-antigravity`, which reports only the top-level `model` field (agy exposes no token counts)
 - **Per-session aggregate**: call the `get-usage-stats` MCP tool, or read the `usage://current-session` MCP Resource for a JSON snapshot
 - **In the REPL**: type `/usage` for a markdown-formatted breakdown
 

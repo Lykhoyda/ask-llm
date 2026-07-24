@@ -10,7 +10,7 @@ export {
 } from "./changeMode/index.js";
 export { cacheChunks, getChunks } from "./chunkCache.js";
 export type { CommandLoggingOptions } from "./commandExecutor.js";
-export { executeCommand, quoteArgsForWindows, resolveTimeoutMs } from "./commandExecutor.js";
+export { executeCommand, isCommandNotFoundError, quoteArgsForWindows, resolveTimeoutMs } from "./commandExecutor.js";
 export type { BaseToolArguments } from "./constants.js";
 export { EXECUTION, LOG_LEVEL_ENV_VAR, LOG_PREFIX, PROTOCOL } from "./constants.js";
 export type {
@@ -22,6 +22,7 @@ export type {
   ProviderEnrichmentCheck,
   ProviderProbe,
   ProviderSpec,
+  ProviderVersionAssessment,
 } from "./doctor.js";
 export { formatDiagnosticReport, runDiagnostics } from "./doctor.js";
 export { Logger } from "./logger.js";

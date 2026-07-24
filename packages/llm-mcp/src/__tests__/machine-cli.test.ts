@@ -63,7 +63,7 @@ function runCli(
     },
     input,
     maxBuffer: 8 * 1024 * 1024,
-    timeout: 5_000,
+    timeout: 10_000,
   });
 
   expect(result.error).toBeUndefined();

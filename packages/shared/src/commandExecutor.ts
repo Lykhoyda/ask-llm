@@ -10,6 +10,16 @@ export interface CommandLoggingOptions {
   sensitiveValues: readonly string[];
 }
 
+export function isCommandNotFoundError(stderr: string, command: string): boolean {
+  const lower = stderr.toLowerCase();
+  return (
+    lower.includes("command not found") ||
+    lower.includes("not found on path") ||
+    lower.includes("is not recognized as an internal or external command") ||
+    lower.includes(`spawn ${command.toLowerCase()} enoent`)
+  );
+}
+
 const QUOTA_PASSTHROUGH_PATTERNS = [
   "RESOURCE_EXHAUSTED",
   "TerminalQuotaError",
@@ -23,14 +33,19 @@ const QUOTA_PASSTHROUGH_PATTERNS = [
   "usage limit",
 ];
 
-export function sanitizeErrorForLLM(stderr: string, command: string): string {
+export function sanitizeErrorForLLM(
+  stderr: string,
+  command: string,
+  platform: NodeJS.Platform = process.platform,
+): string {
   if (stderr.includes("Invalid regular expression flags") && stderr.includes("Node.js v")) {
     const nodeVersion = stderr.match(/Node\.js (v[\d.]+)/)?.[1] ?? "unknown";
     return `${command} CLI requires Node.js v20+ but is running on ${nodeVersion}. The user should update their Node version or set ASK_LLM_PATH in their MCP config to point to a Node v20+ installation.`;
   }
 
-  if (stderr.includes("command not found") || stderr.includes(`spawn ${command} ENOENT`)) {
-    return `${command} CLI not found on PATH. Ensure it is installed and accessible. Run "which ${command}" in a terminal to verify.`;
+  if (isCommandNotFoundError(stderr, command)) {
+    const lookupCommand = platform === "win32" ? `where.exe ${command}` : `which ${command}`;
+    return `${command} CLI not found on PATH. Ensure it is installed and accessible. Run "${lookupCommand}" in a terminal to verify.`;
   }
 
   if (stderr.includes("EACCES") || stderr.includes("Permission denied")) {

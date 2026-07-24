@@ -1,6 +1,12 @@
 import type { ProviderSpec } from "@ask-llm/shared";
 import { INSTALL_HINTS, isProviderEligible, PROVIDERS } from "../constants.js";
 
+interface VersionSupportResult {
+  available: boolean;
+  message: string;
+  remediation?: string;
+}
+
 export async function buildProviderSpecs(): Promise<ProviderSpec[]> {
   const specs: ProviderSpec[] = [];
   for (const [key, config] of Object.entries(PROVIDERS)) {
@@ -19,6 +25,38 @@ export async function buildProviderSpecs(): Promise<ProviderSpec[]> {
           return await fn();
         } catch {
           return false;
+        }
+      };
+    }
+    let assessVersion: ProviderSpec["assessVersion"];
+    if (config.versionAssessmentModule && config.versionAssessmentFn) {
+      const moduleName = config.versionAssessmentModule;
+      const fnName = config.versionAssessmentFn;
+      assessVersion = async (version, probeError) => {
+        try {
+          const mod = (await import(moduleName)) as Record<string, unknown>;
+          const fn = mod[fnName] as
+            | ((value: string | undefined, error: string | undefined) => VersionSupportResult)
+            | undefined;
+          if (typeof fn !== "function") {
+            return {
+              available: false,
+              error: `version support assessment is unavailable for ${key}`,
+              fix: installHint,
+            };
+          }
+          const result = fn(version, probeError);
+          return {
+            available: result.available,
+            ...(result.available ? {} : { error: result.message }),
+            ...(result.remediation ? { fix: result.remediation } : {}),
+          };
+        } catch {
+          return {
+            available: false,
+            error: `version support assessment failed for ${key}`,
+            fix: installHint,
+          };
         }
       };
     }
@@ -44,6 +82,7 @@ export async function buildProviderSpecs(): Promise<ProviderSpec[]> {
       command: config.command,
       installHint,
       probeAvailability,
+      assessVersion,
       enrich,
     });
   }

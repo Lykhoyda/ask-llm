@@ -29,6 +29,12 @@ export interface ProviderEnrichment {
   checks: ProviderEnrichmentCheck[];
 }
 
+export interface ProviderVersionAssessment {
+  available: boolean;
+  error?: string;
+  fix?: string;
+}
+
 export interface ProviderProbe {
   name: string;
   command: string;
@@ -65,15 +71,10 @@ export interface ProviderSpec {
   versionArgs?: string[];
   installHint?: string;
   probeAvailability?: () => Promise<boolean>;
-  /**
-   * Optional per-provider enrichment, run by `runDiagnostics` only for CLI
-   * providers (those without `probeAvailability`) and only once the CLI probes
-   * available — HTTP/`probeAvailability` providers are handled in a separate
-   * branch and never reach the enrich step. Mirrors `probeAvailability` as an
-   * opaque capability callback so this module stays provider-agnostic. Must
-   * degrade to `undefined` on its own errors; `runDiagnostics` also wraps it in
-   * try/catch as a backstop.
-   */
+  assessVersion?: (
+    version: string | undefined,
+    probeError: string | undefined,
+  ) => ProviderVersionAssessment | Promise<ProviderVersionAssessment>;
   enrich?: (ctx: { command: string; pathEnv: string }) => Promise<ProviderEnrichment | undefined>;
 }
 
@@ -181,7 +182,21 @@ export async function runDiagnostics(providers: ProviderSpec[]): Promise<Diagnos
 
     const versionArgs = spec.versionArgs ?? ["--version"];
     const probe = await probeCommand(spec.command, versionArgs, resolvedPath);
-    const available = probe.cliPath !== undefined && probe.error === undefined;
+    let versionAssessment: ProviderVersionAssessment | undefined;
+    if (probe.cliPath !== undefined && spec.assessVersion) {
+      try {
+        versionAssessment = await spec.assessVersion(probe.version, probe.error);
+      } catch (error) {
+        const detail = error instanceof Error ? error.message : String(error);
+        versionAssessment = {
+          available: false,
+          error: `version support assessment failed: ${detail}`,
+          fix: spec.installHint,
+        };
+      }
+    }
+    const providerError = versionAssessment?.error ?? probe.error;
+    const available = probe.cliPath !== undefined && (versionAssessment?.available ?? providerError === undefined);
     let enrichment: ProviderEnrichment | undefined;
     if (available && spec.enrich) {
       try {
@@ -196,7 +211,7 @@ export async function runDiagnostics(providers: ProviderSpec[]): Promise<Diagnos
       available,
       cliPath: probe.cliPath,
       cliVersion: probe.version,
-      error: probe.error,
+      error: providerError,
       enrichment,
     });
 
@@ -207,12 +222,12 @@ export async function runDiagnostics(providers: ProviderSpec[]): Promise<Diagnos
         message: `\`${spec.command}\` not found on PATH`,
         fix: spec.installHint,
       });
-    } else if (probe.error !== undefined) {
+    } else if (providerError !== undefined) {
       checks.push({
         name: `Provider: ${spec.name}`,
         status: "warn",
-        message: `Found at ${probe.cliPath} but ${probe.error}`,
-        fix: "Check that the CLI is properly installed and authenticated",
+        message: `Found at ${probe.cliPath} but ${providerError}`,
+        fix: versionAssessment?.fix ?? "Check that the CLI is properly installed and authenticated",
       });
     } else {
       checks.push({
@@ -304,6 +319,7 @@ export function formatDiagnosticReport(report: DiagnosticReport): string {
       const detail = provider.cliPath ? ` (${provider.cliVersion ?? "version unknown"})` : "";
       lines.push(`  - ${provider.name}: ${status}${detail}`);
       if (provider.cliPath) lines.push(`      path: ${provider.cliPath}`);
+      if (provider.error) lines.push(`      ${provider.error}`);
       if (provider.enrichment) {
         const { heading, overall, checks } = provider.enrichment;
         lines.push(`      ${heading}: ${overall.toUpperCase()}`);

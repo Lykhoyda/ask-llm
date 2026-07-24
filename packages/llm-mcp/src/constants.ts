@@ -7,6 +7,10 @@ export interface ProviderConfig {
   modelEnvVar?: string;
   availabilityModule?: string;
   availabilityFn?: string;
+  supportProbeModule?: string;
+  supportProbeFn?: string;
+  versionAssessmentModule?: string;
+  versionAssessmentFn?: string;
   enrichModule?: string;
   enrichFn?: string;
   disabledWhenEnvVar?: string;
@@ -53,8 +57,12 @@ export const PROVIDERS: Record<string, ProviderConfig> = {
     command: "agy",
     executorModule: "@ask-llm/antigravity-mcp/executor",
     executorFn: "executeAntigravityCLI",
-    defaultModel: "Gemini 3.1 Pro (High)",
+    defaultModel: "gemini-3.1-pro",
     modelEnvVar: "ASK_ANTIGRAVITY_MODEL",
+    supportProbeModule: "@ask-llm/antigravity-mcp/executor",
+    supportProbeFn: "probeAgySupport",
+    versionAssessmentModule: "@ask-llm/antigravity-mcp/executor",
+    versionAssessmentFn: "assessAgyVersion",
   },
 };
 
@@ -63,7 +71,8 @@ export const INSTALL_HINTS: Record<string, string> = {
   codex: "npm install -g @openai/codex",
   claude: "npm install -g @anthropic-ai/claude-code, then run `claude` once to authenticate",
   ollama: "https://ollama.com — then: ollama pull qwen3.6:27b",
-  antigravity: "Install Google Antigravity (agy) from https://antigravity.google, then run `agy` once to log in",
+  antigravity:
+    "Install Google Antigravity (agy) >=1.1.5 from https://antigravity.google, verify with `agy --version`, then run `agy` once to log in",
 };
 
 export function isProviderEligible(provider: ProviderConfig): boolean {

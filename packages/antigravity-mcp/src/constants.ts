@@ -1,8 +1,9 @@
+export const MINIMUM_AGY_VERSION = "1.1.5";
+
 export const ERROR_MESSAGES = {
   NO_PROMPT_PROVIDED:
     "Please provide a prompt for analysis. Ask a question or describe the code you want a second opinion on.",
-  NO_OUTPUT:
-    "Antigravity (agy) ran but produced no readable response. Most likely you are not logged in (run `agy` once interactively to authenticate), or agy's transcript output path/schema changed (this experimental provider may need an update). agy >=1.0.6 prints to stdout; on older versions where headless `-p` did not (gemini-cli #27466), @ask-llm/antigravity-mcp reads agy's transcript files as a fallback.",
+  NO_OUTPUT: `Antigravity (agy) ran but produced no readable response. Most likely you are not logged in (run \`agy\` once interactively to authenticate), or agy's stdout/transcript output changed (this experimental provider may need an update). @ask-llm/antigravity-mcp requires agy >=${MINIMUM_AGY_VERSION} and reads agy's transcript files when stdout does not contain the answer.`,
   RATE_LIMITED:
     "Antigravity (agy) hit a subscription rate limit. Google AI Pro/Ultra quotas refresh roughly every 5 hours — wait and retry, or use ask-codex / ask-gemini in the meantime.",
   TOOL_NOT_FOUND: "not found in registry",
@@ -21,6 +22,7 @@ export const CLI = {
     AGY: "agy",
   },
   FLAGS: {
+    VERSION: "--version",
     PRINT: "-p",
     ADD_DIR: "--add-dir",
     MODEL: "--model",
@@ -29,26 +31,32 @@ export const CLI = {
     PLAN: "plan",
     SKIP_PERMISSIONS: "--dangerously-skip-permissions",
     SANDBOX: "--sandbox",
+    EFFORT: "--effort",
   },
 } as const;
 
-// agy exposes named models (run `agy models`). Default to Gemini 3.1 Pro (High) —
-// the strongest reasoning tier — for the code-review / second-opinion workload, and
-// fall back to Gemini 3.5 Flash (High) when Pro hits a subscription rate limit.
-// `agy --model` accepts the verbatim display string and works under `-p` (the v1
-// "no model selection" note was about the short `-m` flag, which hangs; `--model`
-// does not — verified against agy 1.0.6). Override via ASK_ANTIGRAVITY_MODEL.
+// agy 1.1.5 uses base model slugs plus a separate effort flag; effort-carrying
+// legacy names remain valid only when no implicit effort flag is added.
 export const MODELS = {
-  DEFAULT: "Gemini 3.1 Pro (High)",
-  FALLBACK: "Gemini 3.5 Flash (High)",
+  DEFAULT: "gemini-3.1-pro",
+  FALLBACK: "gemini-3.5-flash",
+  // Reported as the result model when a model-unavailable retry let agy pick.
+  AGY_DEFAULT_LABEL: "agy default",
 } as const;
 
 export const ANTIGRAVITY = {
+  MINIMUM_AGY_VERSION,
+  VERSION_CHECK_TIMEOUT_MS: 5_000,
   TIMEOUT_ENV_VAR: "ASK_ANTIGRAVITY_TIMEOUT_MS",
   // agy's --print-timeout defaults to 5m; mirror that as our process timeout.
   DEFAULT_TIMEOUT_MS: 300_000,
   SANDBOX_ENV_VAR: "ASK_ANTIGRAVITY_SANDBOX",
   MODEL_ENV_VAR: "ASK_ANTIGRAVITY_MODEL",
+  EFFORT_ENV_VAR: "ASK_ANTIGRAVITY_EFFORT",
+  DEFAULT_EFFORT: "high",
+  VALID_EFFORTS: ["low", "medium", "high"],
   // Lowercased substrings; isRateLimitError() lowercases the message first.
   RATE_LIMIT_SIGNALS: ["rate limit", "rate_limit", "resource_exhausted", "quota", "429", "too many requests"],
+  // Keep model-selection signals disjoint from quota; "Available models:" is too generic.
+  MODEL_UNAVAILABLE_SIGNALS: ["invalid model selection", "is not recognized as a known model"],
 } as const;
