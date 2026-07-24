@@ -263,7 +263,7 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@ask-llm/gemini-mcp@npm:^1.6.17, @ask-llm/gemini-mcp@workspace:*, @ask-llm/gemini-mcp@workspace:packages/gemini-mcp":
+"@ask-llm/gemini-mcp@npm:^1.7.0, @ask-llm/gemini-mcp@workspace:*, @ask-llm/gemini-mcp@workspace:packages/gemini-mcp":
   version: 0.0.0-use.local
   resolution: "@ask-llm/gemini-mcp@workspace:packages/gemini-mcp"
   dependencies:
@@ -287,7 +287,7 @@ __metadata:
     "@ask-llm/antigravity-mcp": "npm:^0.6.0"
     "@ask-llm/claude-mcp": "npm:^0.1.5"
     "@ask-llm/codex-mcp": "npm:^0.7.2"
-    "@ask-llm/gemini-mcp": "npm:^1.6.17"
+    "@ask-llm/gemini-mcp": "npm:^1.7.0"
     "@ask-llm/ollama-mcp": "npm:^0.5.5"
     "@ask-llm/shared": "workspace:*"
     "@biomejs/biome": "npm:^2.4.4"
