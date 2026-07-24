@@ -12,7 +12,7 @@ Hosted providers (Gemini, Codex, Claude, Antigravity) auto-select a sensible def
 
 | Provider | Default | Fallback | Trigger |
 |---|---|---|---|
-| Gemini | `gemini-3.1-pro-preview` | `gemini-3.5-flash` | `RESOURCE_EXHAUSTED` quota error or "exhausted your capacity" pattern |
+| Gemini | `gemini-3.1-pro-preview` | `gemini-3.6-flash` | `RESOURCE_EXHAUSTED` quota error or "exhausted your capacity" pattern |
 | Codex | `gpt-5.6-sol` | `gpt-5.6-terra` | Quota errors (`rate_limit_exceeded`, `429`, `insufficient_quota`) |
 | Claude | `opus` | `sonnet` | Claude Code native fallback when Opus is overloaded or unavailable |
 | Antigravity | `gemini-3.1-pro` (`--effort high`) | `gemini-3.5-flash`; one model-less retry when agy rejects a model whose value equals `gemini-3.1-pro` or `gemini-3.5-flash` (reported as `agy default`). Both retain the effective effort (`high`, or the `ASK_ANTIGRAVITY_EFFORT` override) | Subscription rate limit; model-unavailable (shipped slug values only — other rejected models fail actionably) |
@@ -41,13 +41,13 @@ Different providers excel at different things. Pick by what you're doing, not by
 Pass `model` explicitly when you have a reason to:
 
 ```text
-Use ask-llm with provider gemini and model gemini-3.5-flash to quickly check this CSS file
+Use ask-llm with provider gemini and model gemini-3.6-flash to quickly check this CSS file
 ```
 
 Or programmatically:
 
 ```json
-{ "name": "ask-llm", "arguments": { "provider": "gemini", "model": "gemini-3.5-flash", "prompt": "..." } }
+{ "name": "ask-llm", "arguments": { "provider": "gemini", "model": "gemini-3.6-flash", "prompt": "..." } }
 ```
 
 For Codex, common overrides:

@@ -1,5 +1,16 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { CLI, ERROR_MESSAGES, MODELS } from "../../constants.js";
+import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+const originalModelEnvironment = vi.hoisted(() => {
+  const environment = {
+    model: process.env.ASK_GEMINI_MODEL,
+    fallbackModel: process.env.ASK_GEMINI_FALLBACK_MODEL,
+  };
+  delete process.env.ASK_GEMINI_MODEL;
+  delete process.env.ASK_GEMINI_FALLBACK_MODEL;
+  return environment;
+});
+
+import { CLI, ERROR_MESSAGES, FACTORY_DEFAULT_MODEL, MODELS } from "../../constants.js";
 
 vi.mock("@ask-llm/shared", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@ask-llm/shared")>();
@@ -23,6 +34,13 @@ beforeEach(() => {
   vi.clearAllMocks();
   responseCache.clear();
   mockExecuteCommand.mockResolvedValue("Gemini response");
+});
+
+afterAll(() => {
+  if (originalModelEnvironment.model === undefined) delete process.env.ASK_GEMINI_MODEL;
+  else process.env.ASK_GEMINI_MODEL = originalModelEnvironment.model;
+  if (originalModelEnvironment.fallbackModel === undefined) delete process.env.ASK_GEMINI_FALLBACK_MODEL;
+  else process.env.ASK_GEMINI_FALLBACK_MODEL = originalModelEnvironment.fallbackModel;
 });
 
 describe("executeGeminiCLI argument construction", () => {
@@ -224,14 +242,54 @@ describe("executeGeminiCLI quota fallback", () => {
     expect(mockExecuteCommand).toHaveBeenCalledTimes(2);
   });
 
-  // #131 — gemini-3.5-flash reached GA; the preview model is superseded.
-  it("defaults the Flash fallback to the GA gemini-3.5-flash model", () => {
-    expect(MODELS.FLASH).toBe("gemini-3.5-flash");
+  // #244 — gemini-3.6-flash (GA 2026-07-21) supersedes 3.5 as the quota fallback.
+  it("defaults the Flash fallback to the GA gemini-3.6-flash model", () => {
+    expect(MODELS.FLASH).toBe("gemini-3.6-flash");
   });
 
-  it("references the GA Flash model (not the preview) in the quota-exceeded message", () => {
-    expect(ERROR_MESSAGES.QUOTA_EXCEEDED_SHORT).toContain("gemini-3.5-flash");
+  it("references the current Flash model (not a superseded one) in the quota-exceeded message", () => {
+    expect(ERROR_MESSAGES.QUOTA_EXCEEDED_SHORT).toContain("gemini-3.6-flash");
+    expect(ERROR_MESSAGES.QUOTA_EXCEEDED_SHORT).not.toContain("gemini-3.5-flash");
     expect(ERROR_MESSAGES.QUOTA_EXCEEDED_SHORT).not.toContain("gemini-3-flash-preview");
+  });
+
+  it("keeps the quota hint model in sync with the MODELS.FLASH default", () => {
+    expect(ERROR_MESSAGES.QUOTA_EXCEEDED_SHORT).toContain(MODELS.FLASH);
+  });
+
+  // #244 — 3.6 Flash is a quota fallback, not a Pro replacement.
+  it("does not change the Pro factory default when adopting the 3.6 Flash fallback", () => {
+    expect(FACTORY_DEFAULT_MODEL).toBe("gemini-3.1-pro-preview");
+    expect(MODELS.PRO).toBe(FACTORY_DEFAULT_MODEL);
+  });
+
+  it("honors Gemini model environment overrides in the primary call and quota retry", async () => {
+    vi.stubEnv("ASK_GEMINI_MODEL", "custom-pro");
+    vi.stubEnv("ASK_GEMINI_FALLBACK_MODEL", "gemini-3.5-flash");
+    vi.resetModules();
+    try {
+      const { MODELS: overriddenModels } = await import("../../constants.js");
+      expect(overriddenModels.PRO).toBe("custom-pro");
+      expect(overriddenModels.FLASH).toBe("gemini-3.5-flash");
+
+      const shared = await import("@ask-llm/shared");
+      const freshExecuteCommand = vi.mocked(shared.executeCommand);
+      freshExecuteCommand
+        .mockRejectedValueOnce(new Error("RESOURCE_EXHAUSTED"))
+        .mockResolvedValueOnce(JSON.stringify({ response: "Flash response" }));
+
+      const { executeGeminiCLI: freshExecuteGeminiCLI } = await import("../geminiExecutor.js");
+      await freshExecuteGeminiCLI({ prompt: "hello" });
+
+      expect(freshExecuteCommand).toHaveBeenCalledTimes(2);
+      const [, primaryArgs] = freshExecuteCommand.mock.calls[0];
+      const [, fallbackArgs] = freshExecuteCommand.mock.calls[1];
+      expect(primaryArgs[primaryArgs.indexOf(CLI.FLAGS.MODEL) + 1]).toBe("custom-pro");
+      expect(fallbackArgs[fallbackArgs.indexOf(CLI.FLAGS.MODEL) + 1]).toBe("gemini-3.5-flash");
+    } finally {
+      vi.unstubAllEnvs();
+      vi.resetModules();
+    }
   });
 
   // #116 — verify the fallback still tags usage.fellBack so callers/aggregators
@@ -240,7 +298,7 @@ describe("executeGeminiCLI quota fallback", () => {
     mockExecuteCommand.mockRejectedValueOnce(new Error("RESOURCE_EXHAUSTED")).mockResolvedValueOnce(
       JSON.stringify({
         response: "Flash response",
-        stats: { models: { "gemini-3.5-flash": { tokens: { input: 10, candidates: 5, cached: 0, thoughts: 0 } } } },
+        stats: { models: { "gemini-3.6-flash": { tokens: { input: 10, candidates: 5, cached: 0, thoughts: 0 } } } },
       }),
     );
 

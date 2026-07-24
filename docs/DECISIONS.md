@@ -1,5 +1,50 @@
 # Architectural Decisions
 
+## ADR-138: Gemini quota fallback moves to gemini-3.6-flash; agy fallback stays evidence-pinned
+
+**Status:** Accepted (2026-07-24)
+
+**Context:** Google launched Gemini 3.6 Flash (API id `gemini-3.6-flash`) on
+2026-07-21 — GA in the official model catalog (ai.google.dev/gemini-api/docs/models),
+~17% fewer output tokens than 3.5 Flash for equivalent work, knowledge cutoff
+advanced to Mar 2026. The 2026-07-23 drift audit missed it because its model
+check only asked "is our pinned model renamed/removed?" (breaking lens), not
+"did a newer sibling ship?" (improvement lens) — #244 is the corrective
+finding. Google's catalog still lists `gemini-3.5-flash` without a deprecation
+notice, but that is not proof of acceptance through the supported Gemini CLI
+path: the active side-finding in `docs/BUGS.md` records a live 0.44.1 probe
+returning `404 ModelNotFoundError`, and the current 0.46.0 probe could not get
+past authentication. This is an improvement plus a future-breaking watch, not
+a claim that the former fallback is currently usable.
+
+**Decision:** Switch `MODELS.FLASH` in @ask-llm/gemini-mcp from
+`gemini-3.5-flash` to `gemini-3.6-flash` (quota-fallback leg only), keeping
+the `ASK_GEMINI_FALLBACK_MODEL` override semantics and updating the
+`QUOTA_EXCEEDED_SHORT` hint in lockstep. The Pro factory default
+(`gemini-3.1-pro-preview`) is unchanged — 3.6 is a Flash tier, not a Pro
+replacement. The Antigravity fallback also stays on `gemini-3.5-flash`:
+agy's contract is pinned to what its live 1.1.5 catalog proved (ADR-137),
+and no `agy models` evidence of a 3.6 slug exists; a regression test now
+freezes both agy slugs against accidental sympathy bumps.
+`scripts/check-docs-drift.mjs` additionally enforces `fallbackModel` parity
+(scoped per provider object so identical gemini-* values cannot mask a swap),
+and docs/ROUTINES.md rule 5 now requires enumerating each provider's current
+model catalog per run and diffing it against our pins.
+
+**Consequences:** Cheaper, newer fallback leg and preemptive de-risking of an
+eventual `gemini-3.5-flash` retirement (the #194 `gpt-5.5-mini` failure
+class). Verification is honest but split: the model id is confirmed GA in
+Google's catalog, while the live one-command probe
+(`gemini -m gemini-3.6-flash -p "ping" --output-format json`) could not be
+completed in this environment — the CLI (0.46.0) failed pre-model with
+`Invalid auth method selected` (code 41, the post-2026-06-18 enterprise
+gating), so live CLI acceptance remains unverified; gemini-cli #28483 (3.6
+missing from the *interactive* picker) is expected to be irrelevant to the
+non-interactive `-m` path. `ASK_GEMINI_FALLBACK_MODEL` remains the override
+mechanism when operators need a different fallback, but the selected model
+must itself be verified through their supported Gemini CLI and account tier;
+`gemini-3.5-flash` is not a verified rollback.
+
 ## ADR-137: Antigravity agy 1.1.5 model contract — base slug + --effort, with model-unavailable recovery
 
 **Status:** Accepted (2026-07-23)

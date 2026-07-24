@@ -1,4 +1,4 @@
-import { readFileSync, readdirSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -43,10 +43,16 @@ for (const provider of providers) {
 }
 
 // providers.ts must quote the same default/fallback models as package constants.
-const dataSource = readFileSync(
-  join(root, "apps/docs/.vitepress/theme/providers.ts"),
-  "utf8",
-);
+const dataSource = readFileSync(join(root, "apps/docs/.vitepress/theme/providers.ts"), "utf8");
+// Provider scoping prevents identical model values from masking cross-provider swaps.
+function providerBlock(provider) {
+  const entryStart = new RegExp(`^  ${provider}: \\{`, "m").exec(dataSource);
+  if (!entryStart) return null;
+  const rest = dataSource.slice(entryStart.index + entryStart[0].length);
+  const nextEntry = /^ {2}\w+: \{/m.exec(rest);
+  return rest.slice(0, nextEntry ? nextEntry.index : rest.length);
+}
+
 const modelChecks = [
   ["codex", "packages/codex-mcp/src/constants.ts", /FACTORY_DEFAULT_MODEL = "([^"]+)"/],
   ["claude", "packages/claude-mcp/src/constants.ts", /FACTORY_DEFAULT_MODEL = "([^"]+)"/],
@@ -54,16 +60,30 @@ const modelChecks = [
   ["ollama", "packages/ollama-mcp/src/constants.ts", /FACTORY_DEFAULT_MODEL = "([^"]+)"/],
   ["antigravity", "packages/antigravity-mcp/src/constants.ts", /DEFAULT: "([^"]+)"/],
 ];
-for (const [provider, constantsPath, pattern] of modelChecks) {
-  const constant = readFileSync(join(root, constantsPath), "utf8").match(pattern)?.[1];
-  if (!constant) {
-    errors.push(`${constantsPath} no longer matches the default-model pattern for ${provider}`);
-    continue;
-  }
-  if (!dataSource.includes(`defaultModel: "${constant}"`)) {
-    errors.push(
-      `providers.ts defaultModel for ${provider} is out of sync with ${constantsPath} (expected "${constant}")`,
-    );
+const fallbackChecks = [
+  ["gemini", "packages/gemini-mcp/src/constants.ts", /FLASH: process\.env\.ASK_GEMINI_FALLBACK_MODEL \|\| "([^"]+)"/],
+  ["antigravity", "packages/antigravity-mcp/src/constants.ts", /FALLBACK: "([^"]+)"/],
+];
+for (const [field, checks] of [
+  ["defaultModel", modelChecks],
+  ["fallbackModel", fallbackChecks],
+]) {
+  for (const [provider, constantsPath, pattern] of checks) {
+    const constant = readFileSync(join(root, constantsPath), "utf8").match(pattern)?.[1];
+    if (!constant) {
+      errors.push(`${constantsPath} no longer matches the ${field} pattern for ${provider}`);
+      continue;
+    }
+    const block = providerBlock(provider);
+    if (!block) {
+      errors.push(`providers.ts has no entry for provider ${provider}`);
+      continue;
+    }
+    if (!block.includes(`${field}: "${constant}"`)) {
+      errors.push(
+        `providers.ts ${field} for ${provider} is out of sync with ${constantsPath} (expected "${constant}")`,
+      );
+    }
   }
 }
 
