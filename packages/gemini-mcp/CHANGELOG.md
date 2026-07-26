@@ -1,5 +1,11 @@
 # @ask-llm/gemini-mcp
 
+## 1.7.0
+
+### Minor Changes
+
+- [#248](https://github.com/Lykhoyda/ask-llm/pull/248) [`0c35001`](https://github.com/Lykhoyda/ask-llm/commit/0c350017f43e971b9274eb865d5c5c9e33fbcbd7) Thanks [@Lykhoyda](https://github.com/Lykhoyda)! - Adopt the newer, cheaper `gemini-3.6-flash` (GA 2026-07-21) as the quota-fallback default in place of `gemini-3.5-flash`, updating the quota hint to match while leaving the `gemini-3.1-pro-preview` primary default and the `ASK_GEMINI_FALLBACK_MODEL` override semantics unchanged ([#244](https://github.com/Lykhoyda/ask-llm/issues/244)).
+
 ## 1.6.17
 
 ### Patch Changes
