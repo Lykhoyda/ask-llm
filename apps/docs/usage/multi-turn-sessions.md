@@ -116,7 +116,7 @@ Sessions are especially useful for **large codebases**; the provider's context i
 | Type | `string` (optional) |
 | Format | UUID (e.g., `bcc639e4-3415-4270-9fe9-260e6a15203a`) |
 | Source | Extracted from `[Session ID: ...]` or a persisted Codex `[Thread ID: ...]` response |
-| CLI flag | `--resume <sessionId>` |
+| Resume mechanism | Provider-specific; see the table above |
 
 ### Session lifetime
 
