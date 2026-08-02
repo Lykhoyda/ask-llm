@@ -41,13 +41,15 @@ The orchestrator exposes a single `ask-llm` tool (not one per provider), so the 
 
 | Tool | Purpose |
 |------|---------|
-| `ask-llm` | Single unified tool; picks the provider via `provider` parameter (`gemini`, `codex`, `claude`, `ollama`, `antigravity`). Optional `sessionId` for multi-turn continuation |
+| `ask-llm` | Single unified tool; picks the provider via `provider` parameter (`gemini`, `codex`, `claude`, `ollama`, `antigravity`). For Codex continuity, pass `sessionId: ""` first, then resume with the returned ID |
 | `multi-llm` | Dispatch the same prompt to multiple providers in parallel; returns per-provider responses + usage in one call |
 | `get-usage-stats` | Per-session token totals + breakdowns by provider/model; in-memory, no persistence |
 | `diagnose` | Self-diagnosis: Node version, PATH, provider CLI presence + versions. Read-only |
 | `ping` | Connection test |
 
 The orchestrator uses a single `ask-llm` tool (not one per provider) for token efficiency. All `ask-*` tools return both human-readable text and a structured `AskResponse` (provider, response, model, sessionId, usage) via MCP `outputSchema`.
+
+Codex calls are ephemeral when `sessionId` is omitted. To create a resumable Codex conversation, pass `sessionId: ""` on the first `ask-llm` call and pass its returned Thread ID on follow-ups.
 
 It also exposes `usage://current-session` as an MCP Resource for live JSON snapshots of token spend.
 

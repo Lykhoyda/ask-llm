@@ -19,7 +19,7 @@ Continue conversations across multiple tool calls. Instead of starting fresh eve
 
 ## How It Works
 
-Every `ask-*` call returns a **session ID** at the end of the response (or `Thread ID` for Codex, which maps to the same `sessionId` parameter on the next call):
+Every session-capable `ask-*` call returns a **session ID** at the end of the response (or `Thread ID` for Codex):
 
 ```
 [Session ID: bcc639e4-3415-4270-9fe9-260e6a15203a]
@@ -36,15 +36,15 @@ Call 2:  ask-gemini { prompt: "Now fix the XSS vulnerability you found",
          → Gemini remembers the review and generates targeted fixes
 ```
 
-The same pattern works for `ask-claude`, `ask-codex`, `ask-ollama`, and the orchestrator's `ask-llm` (which routes the sessionId to the appropriate provider's mechanism).
+The same pattern works for `ask-claude`, `ask-ollama`, and the orchestrator's `ask-llm`. Codex requires an explicit persisted first turn: pass `sessionId: ""` on call one, then pass its returned Thread ID on later calls. If Codex `sessionId` is omitted, the call is ephemeral for privacy and its returned Thread ID cannot be resumed.
 
-For programmatic clients, `ask-*` tools also return a structured `AskResponse` via MCP `outputSchema`; `result.structuredContent.sessionId` works for any provider, no need to regex-parse the response footer.
+For programmatic clients, `ask-*` tools also return a structured `AskResponse` via MCP `outputSchema`; use `result.structuredContent.sessionId` instead of regex-parsing the response footer. For Codex, that value is resumable only when the first call passed `sessionId: ""`.
 
 Response caching is bypassed whenever a `sessionId` is provided (including the empty string that starts a fresh session), so a resumed turn always re-runs against the provider instead of returning a cached answer.
 
 ## Provider-specific notes
 
-**Claude, Gemini, and Codex** use their CLIs' native session-resume features. Sessions live in each provider CLI's own storage. Cost is zero; the provider retains the prior turns. Claude sessions are intended for Codex and other non-Claude hosts; the unified server suppresses Claude inside Claude Code to prevent unsupported nested sessions.
+**Claude, Gemini, and Codex** use their CLIs' native session-resume features. Sessions live in each provider CLI's own storage. Cost is zero; the provider retains the prior turns. Codex persists a fresh thread only when its first call passes `sessionId: ""`; omitted Codex calls stay ephemeral. Claude sessions are intended for Codex and other non-Claude hosts; the unified server suppresses Claude inside Claude Code to prevent unsupported nested sessions.
 
 **Ollama** has no native session support. The MCP server stores conversation history at `/tmp/ask-llm-sessions/<id>.json` with **24-hour TTL**, **40-message cap** (oldest dropped on overflow), **owner-only file permissions** (0o600 file / 0o700 directory), and **atomic temp+rename writes** to avoid partial-read races. Each turn replays the full prior conversation, which costs input tokens proportional to depth, bounded by the 40-message cap and acceptable for local-only inference.
 
@@ -61,7 +61,7 @@ You don't need to manually manage session IDs. Just tell your AI assistant to co
 - *"Have Gemini analyze @src/, then in a second call, ask it which files need refactoring."*
 - *"Get Codex's opinion on this PR, then ask it to elaborate on the performance concerns."*
 
-Your AI assistant will automatically extract the session ID from the first response and pass it in the follow-up.
+Your AI assistant will request a persisted first turn when Codex is selected, then extract the returned session ID and pass it in the follow-up.
 
 ---
 
@@ -115,7 +115,7 @@ Sessions are especially useful for **large codebases**; the provider's context i
 |----------|-------|
 | Type | `string` (optional) |
 | Format | UUID (e.g., `bcc639e4-3415-4270-9fe9-260e6a15203a`) |
-| Source | Extracted from `[Session ID: ...]` or Codex's `[Thread ID: ...]` in the response |
+| Source | Extracted from `[Session ID: ...]` or a persisted Codex `[Thread ID: ...]` response |
 | CLI flag | `--resume <sessionId>` |
 
 ### Session lifetime

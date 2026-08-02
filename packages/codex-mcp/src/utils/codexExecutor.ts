@@ -238,6 +238,21 @@ function isSessionContinuityError(error: unknown): boolean {
   return ERROR_MESSAGES.SESSION_CONTINUITY_SIGNALS.some((signal) => msg.includes(signal));
 }
 
+function translateSessionContinuityError(error: unknown, sessionId?: string): Error | undefined {
+  if (!sessionId) return undefined;
+  if (isArchivedSessionError(error)) {
+    return new Error(
+      `Codex session ${sessionId} is archived. Run \`codex unarchive ${sessionId}\` to resume it, or omit sessionId to start a new thread.`,
+    );
+  }
+  if (isSessionContinuityError(error)) {
+    return new Error(
+      `Codex session ${sessionId} has no persisted rollout and cannot be resumed. Start a new resumable conversation by passing \`sessionId: ""\` on its first call, then use the returned sessionId for follow-up turns.`,
+    );
+  }
+  return undefined;
+}
+
 // Exported for unit testing — pure predicate over the error message text. True
 // when the model is structurally rejected for the account type (a 400, NOT a
 // quota signal), e.g. a pinned gpt-5.5-mini fallback on a ChatGPT-plan account.
@@ -357,8 +372,6 @@ function buildArgs(
   const base: string[] = [CLI.COMMANDS.EXEC];
   if (isResume) base.push(CLI.COMMANDS.RESUME);
   base.push(CLI.FLAGS.SKIP_GIT);
-  // Privacy remains the default, while an explicitly empty sessionId opts the
-  // fresh turn into Codex persistence so its returned thread ID can be resumed.
   if (sessionId === undefined) base.push(CLI.FLAGS.EPHEMERAL);
   // Ignore user-side ~/.codex/config.toml (hooks, MCP servers, preferences)
   // and execpolicy .rules files so our MCP-wrapped exec stays deterministic
@@ -369,9 +382,6 @@ function buildArgs(
   if (process.env.ASK_CODEX_LOAD_USER_CONFIG !== "1") {
     base.push(CLI.FLAGS.IGNORE_USER_CONFIG, CLI.FLAGS.IGNORE_RULES);
   }
-  // `codex exec resume` has a narrower grammar than `codex exec`: it rejects
-  // --sandbox and --add-dir. The config override is the stable sandbox form
-  // accepted by both audited resume versions (0.135.0 and 0.146.0).
   if (isResume) {
     base.push(CLI.FLAGS.CONFIG, `sandbox_mode="${sandboxMode}"`);
   } else {
@@ -503,18 +513,8 @@ export async function executeCodexCLI(options: CodexExecutorOptions): Promise<Co
       if (cacheKey) responseCache.set(cacheKey, result.response);
       return result;
     } catch (error) {
-      // Session-continuity failures cannot be repaired by changing models, so
-      // classify them before quota fallback and provide session-specific action.
-      if (sessionId && isArchivedSessionError(error)) {
-        throw new Error(
-          `Codex session ${sessionId} is archived. Run \`codex unarchive ${sessionId}\` to resume it, or omit sessionId to start a new thread.`,
-        );
-      }
-      if (sessionId && isSessionContinuityError(error)) {
-        throw new Error(
-          `Codex session ${sessionId} has no persisted rollout and cannot be resumed. Start a new resumable conversation by passing \`sessionId: ""\` on its first call, then use the returned sessionId for follow-up turns.`,
-        );
-      }
+      const continuityError = translateSessionContinuityError(error, sessionId);
+      if (continuityError) throw continuityError;
       if (isQuotaError(error) && model !== MODELS.FALLBACK) {
         Logger.warn(`${STATUS_MESSAGES.QUOTA_SWITCHING} Falling back to ${MODELS.FALLBACK}.`);
         Logger.debug(`Status: ${STATUS_MESSAGES.FALLBACK_RETRY}`);
@@ -542,6 +542,8 @@ export async function executeCodexCLI(options: CodexExecutorOptions): Promise<Co
           Logger.debug(`Status: ${STATUS_MESSAGES.FALLBACK_SUCCESS}`);
           return parseCodexJsonlOutput(raw, MODELS.FALLBACK, Date.now() - fallbackStartedAt, true);
         } catch (fallbackError) {
+          const fallbackContinuityError = translateSessionContinuityError(fallbackError, sessionId);
+          if (fallbackContinuityError) throw fallbackContinuityError;
           const fallbackMsg = fallbackError instanceof Error ? fallbackError.message : String(fallbackError);
           // The fallback is structurally rejected for this account type (a 400,
           // not a quota) — the ladder is broken in a way `codex doctor` can't

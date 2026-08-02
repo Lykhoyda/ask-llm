@@ -36,7 +36,7 @@ Each provider's executor wraps the underlying CLI with operational hardening tha
 - **Stdin handling**: Codex needs an EOF-terminated pipe rather than `/dev/null`, otherwise it errors out
 - **PATH resolution**: macOS GUI clients (Claude Desktop) don't inherit your shell's PATH; the server resolves it from your login shell at startup
 - **Live progressive output**: Gemini's `--output-format stream-json` deltas are parsed and forwarded to MCP progress notifications, so users see Gemini's prose unfolding rather than a frozen wait
-- **Session continuity**: Claude, Gemini, Codex, and Ollama support multi-turn via the `sessionId` parameter; Claude/Gemini/Codex use native CLI resume, Ollama uses server-side conversation replay (Antigravity is single-turn)
+- **Session continuity**: Claude, Gemini, Codex, and Ollama support multi-turn via the `sessionId` parameter; Codex requires `sessionId: ""` on turn one to persist a resumable thread, while an omitted value stays ephemeral (Antigravity is single-turn)
 - **Read-only Claude consultations**: `ask-claude` uses safe mode and exposes only Read, Glob, and Grep; the MCP host performs any edits
 - **Structured responses**: every `ask-*` tool returns both human-readable text AND a structured `AskResponse` (provider, response, model, sessionId, usage) via MCP `outputSchema` so programmatic clients don't have to parse the response footer
 

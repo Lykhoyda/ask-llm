@@ -874,6 +874,19 @@ describe("executeCodexCLI session-continuity errors", () => {
     expect(err.message).toContain('sessionId: ""');
     expect(mockExecuteCommand).toHaveBeenCalledTimes(1);
   });
+
+  it("classifies no-rollout from quota fallback as continuity failure", async () => {
+    mockExecuteCommand
+      .mockRejectedValueOnce(new Error("rate_limit_exceeded"))
+      .mockRejectedValueOnce(new Error("no rollout found for thread id thread-xyz"));
+
+    const err = await executeCodexCLI({ prompt: "follow up", sessionId: "thread-xyz" }).catch((e) => e as Error);
+
+    expect(err.message).toMatch(/session thread-xyz has no persisted rollout/i);
+    expect(err.message).toContain('sessionId: ""');
+    expect(err.message).not.toMatch(/fallback also failed|codex doctor/i);
+    expect(mockExecuteCommand).toHaveBeenCalledTimes(2);
+  });
 });
 
 describe("configured preferred model tier", () => {

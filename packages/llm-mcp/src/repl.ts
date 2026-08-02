@@ -122,7 +122,7 @@ export async function dispatchPrompt(
     return { ok: false, error: `Provider ${state.currentProvider} is not loaded` };
   }
 
-  const sessionId = state.sessions.get(state.currentProvider);
+  const sessionId = state.sessions.get(state.currentProvider) ?? (state.currentProvider === "codex" ? "" : undefined);
   out.write(`\n[${state.currentProvider}]\n`);
 
   let sawAnyChunk = false;

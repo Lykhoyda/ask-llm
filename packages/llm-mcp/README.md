@@ -61,13 +61,15 @@ The orchestrator exposes a **single `ask-llm` tool** (not one tool per provider 
 
 | Tool | Purpose |
 |------|---------|
-| `ask-llm` | Route a prompt to a provider via the `provider` param (`gemini`, `codex`, `claude`, `ollama`, `antigravity`); optional `sessionId` for multi-turn |
+| `ask-llm` | Route a prompt to a provider via the `provider` param (`gemini`, `codex`, `claude`, `ollama`, `antigravity`); for Codex continuity, pass `sessionId: ""` first, then resume with the returned ID |
 | `multi-llm` | Dispatch one prompt to multiple providers in parallel; structured per-provider report |
 | `get-usage-stats` | Per-session token totals + per-provider/model breakdowns (in-memory) |
 | `diagnose` | Environment diagnostics — provider CLI presence + versions |
 | `ping` | Connection test |
 
 Claude is intentionally suppressed when the MCP host is already Claude Code because Claude Code rejects nested Claude sessions. It is auto-detected normally from Codex and other clients.
+
+Codex calls are ephemeral when `sessionId` is omitted. To create a resumable Codex conversation, pass `sessionId: ""` on the first call and pass its returned Thread ID on follow-ups.
 
 ## Machine Protocol
 

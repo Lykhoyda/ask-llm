@@ -86,7 +86,7 @@ It works with the `ask-gemini` tool (and the underlying Gemini CLI). Codex and O
 
 ### How do multi-turn sessions work?
 
-Every session-capable `ask-*` tool returns a session ID. Pass it back via the `sessionId` parameter to continue. Claude, Gemini, and Codex use native CLI resume; Ollama uses server-side message replay. See [Multi-Turn Sessions](/usage/multi-turn-sessions) for details.
+Every session-capable `ask-*` tool returns a session ID. Pass it back via the `sessionId` parameter to continue. Codex is the privacy-preserving exception: pass `sessionId: ""` on its first call to persist the thread, then resume with the returned ID; an omitted `sessionId` produces an ephemeral, non-resumable call. Claude, Gemini, and Codex use native CLI resume; Ollama uses server-side message replay. See [Multi-Turn Sessions](/usage/multi-turn-sessions) for details.
 
 ### How do I send a prompt to multiple providers at once?
 

@@ -240,6 +240,13 @@ describe("provider selection and ping", () => {
     expect(schema.safeParse({ provider: "antigravity", prompt: "q" }).success).toBe(false);
   });
 
+  it("documents the Codex persisted-first-turn session contract", () => {
+    const schema = buildAskLlmSchema(["codex"]);
+
+    expect(schema.shape.sessionId.description).toContain('pass "" on the first call');
+    expect(schema.shape.sessionId.description).toContain("omitting it makes the call ephemeral");
+  });
+
   it("includes detected unsupported details in unified ping", () => {
     const text = formatProviderPing({
       available: ["codex"],
