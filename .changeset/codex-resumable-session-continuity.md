@@ -2,4 +2,4 @@
 "@ask-llm/codex-mcp": patch
 ---
 
-Restore persisted Codex session continuity while keeping omitted sessions ephemeral by default. Empty `sessionId` now starts a persisted thread, resume calls use the supported sandbox config grammar, and missing rollouts fail with actionable guidance.
+Restore persisted Codex session continuity while keeping omitted sessions ephemeral, starting persisted threads for empty `sessionId`, using supported sandbox config grammar for resume calls, and surfacing missing rollouts with actionable guidance.
