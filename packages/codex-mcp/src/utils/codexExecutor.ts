@@ -233,6 +233,11 @@ function isArchivedSessionError(error: unknown): boolean {
   return ERROR_MESSAGES.ARCHIVED_SESSION_SIGNALS.some((signal) => msg.includes(signal));
 }
 
+function isSessionContinuityError(error: unknown): boolean {
+  const msg = (error instanceof Error ? error.message : String(error)).toLowerCase();
+  return ERROR_MESSAGES.SESSION_CONTINUITY_SIGNALS.some((signal) => msg.includes(signal));
+}
+
 // Exported for unit testing — pure predicate over the error message text. True
 // when the model is structurally rejected for the account type (a 400, NOT a
 // quota signal), e.g. a pinned gpt-5.5-mini fallback on a ChatGPT-plan account.
@@ -348,10 +353,13 @@ function buildArgs(
   schemaPath?: string,
   reasoningEffort: CodexReasoningEffort = DEFAULT_REASONING_EFFORT,
 ): string[] {
+  const isResume = Boolean(sessionId);
   const base: string[] = [CLI.COMMANDS.EXEC];
-  if (sessionId) base.push(CLI.COMMANDS.RESUME);
+  if (isResume) base.push(CLI.COMMANDS.RESUME);
   base.push(CLI.FLAGS.SKIP_GIT);
-  if (!sessionId) base.push(CLI.FLAGS.EPHEMERAL);
+  // Privacy remains the default, while an explicitly empty sessionId opts the
+  // fresh turn into Codex persistence so its returned thread ID can be resumed.
+  if (sessionId === undefined) base.push(CLI.FLAGS.EPHEMERAL);
   // Ignore user-side ~/.codex/config.toml (hooks, MCP servers, preferences)
   // and execpolicy .rules files so our MCP-wrapped exec stays deterministic
   // regardless of host machine codex configuration. Auth credentials in
@@ -361,20 +369,20 @@ function buildArgs(
   if (process.env.ASK_CODEX_LOAD_USER_CONFIG !== "1") {
     base.push(CLI.FLAGS.IGNORE_USER_CONFIG, CLI.FLAGS.IGNORE_RULES);
   }
-  base.push(
-    CLI.FLAGS.SANDBOX,
-    sandboxMode,
-    CLI.FLAGS.CONFIG,
-    `model_reasoning_effort="${reasoningEffort}"`,
-    CLI.FLAGS.JSON,
-    CLI.FLAGS.MODEL,
-    model,
-  );
+  // `codex exec resume` has a narrower grammar than `codex exec`: it rejects
+  // --sandbox and --add-dir. The config override is the stable sandbox form
+  // accepted by both audited resume versions (0.135.0 and 0.146.0).
+  if (isResume) {
+    base.push(CLI.FLAGS.CONFIG, `sandbox_mode="${sandboxMode}"`);
+  } else {
+    base.push(CLI.FLAGS.SANDBOX, sandboxMode);
+  }
+  base.push(CLI.FLAGS.CONFIG, `model_reasoning_effort="${reasoningEffort}"`, CLI.FLAGS.JSON, CLI.FLAGS.MODEL, model);
   if (schemaPath) base.push(CLI.FLAGS.OUTPUT_SCHEMA, schemaPath);
-  if (includeDirs?.length) {
+  if (!isResume && includeDirs?.length) {
     for (const dir of includeDirs) base.push(CLI.FLAGS.ADD_DIR, dir);
   }
-  if (sessionId) base.push(sessionId);
+  if (isResume) base.push(sessionId as string);
   if (!useStdin) base.push(prompt);
   return base;
 }
@@ -495,12 +503,16 @@ export async function executeCodexCLI(options: CodexExecutorOptions): Promise<Co
       if (cacheKey) responseCache.set(cacheKey, result.response);
       return result;
     } catch (error) {
-      // codex 0.136: resuming an archived session can't be retried (the session
-      // stays archived), so surface an actionable message and do NOT fall back
-      // to the mini model. Only when a sessionId was actually supplied.
+      // Session-continuity failures cannot be repaired by changing models, so
+      // classify them before quota fallback and provide session-specific action.
       if (sessionId && isArchivedSessionError(error)) {
         throw new Error(
           `Codex session ${sessionId} is archived. Run \`codex unarchive ${sessionId}\` to resume it, or omit sessionId to start a new thread.`,
+        );
+      }
+      if (sessionId && isSessionContinuityError(error)) {
+        throw new Error(
+          `Codex session ${sessionId} has no persisted rollout and cannot be resumed. Start a new resumable conversation by passing \`sessionId: ""\` on its first call, then use the returned sessionId for follow-up turns.`,
         );
       }
       if (isQuotaError(error) && model !== MODELS.FALLBACK) {
