@@ -244,7 +244,7 @@ Route a single prompt to any one installed provider (unified server).
   - `prompt` (string, required): The question or task.
   - `provider` (string, required): Which provider to route to: one of gemini, codex, claude, ollama, antigravity. Must be one that is installed/detected; there is no default.
   - `model` (string, optional): Provider-specific model override.
-  - `sessionId` (string, optional): Resume a prior session with the chosen provider (maps to that provider's session/thread ID).
+  - `sessionId` (string, optional): For Codex, omit it for an ephemeral call, pass `""` to create a fresh persisted thread, or pass a non-empty returned Thread ID to resume. For other session-capable providers, pass a prior session ID to resume.
 - **Returns:** The chosen provider's text response plus a structured payload (including the resolved provider and model, so quota fallbacks are visible).
 - **Annotations:** readOnlyHint=false, destructiveHint=false, openWorldHint=true
 
