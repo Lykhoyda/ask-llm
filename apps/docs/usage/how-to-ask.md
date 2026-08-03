@@ -58,7 +58,7 @@ Send a prompt to any installed provider, picked via the `provider` parameter.
 - `prompt` (required): The question, code review request, or analysis task.
 - `provider` (required): One of `codex`, `claude`, `antigravity`, `ollama`, `gemini` (only providers detected at startup are accepted). Claude is intentionally unavailable when Claude Code itself is the host because nested Claude sessions are unsupported.
 - `model` (optional): Override the default model. Usually unnecessary; defaults are sensible per provider with auto-fallback.
-- `sessionId` (optional): Resume a previous conversation. Pass the value from a prior response's `[Session ID: ...]` or `[Thread ID: ...]` footer (or `result.structuredContent.sessionId` for programmatic clients).
+- `sessionId` (optional): Resume a previous conversation. For Codex, pass `""` on the first call to create a persisted thread, then pass its returned Thread ID; omitting it makes the Codex call ephemeral. For other providers, pass the value from a prior response's `[Session ID: ...]` footer (or `result.structuredContent.sessionId` for programmatic clients).
 
 **Returns:** Both human-readable text (`content[0].text`) AND a structured `AskResponse` (`structuredContent`) with `{provider, response, model, sessionId, usage}`; programmatic clients can extract fields directly without regex-parsing the footer.
 
@@ -110,7 +110,7 @@ Pre-bound to Anthropic Claude Code CLI for use by Codex and other non-Claude hos
 
 #### `ask-codex` / `ask-ollama` / `ask-antigravity`
 
-Same shape as `ask-llm` but pre-bound to the provider. `ask-codex` and `ask-ollama` accept `prompt`, `model`, `sessionId` (Codex maps `sessionId` to its `thread_id`; Ollama uses server-side message replay). `ask-antigravity` requires `agy` ≥1.1.5 and is single-turn; it accepts `prompt` and `includeDirs` (file context via `agy --add-dir`); there is no `sessionId` and no per-call `model` (set the model with the `ASK_ANTIGRAVITY_MODEL` env var and the reasoning effort with `ASK_ANTIGRAVITY_EFFORT`).
+Same shape as `ask-llm` but pre-bound to the provider. `ask-codex` and `ask-ollama` accept `prompt`, `model`, and `sessionId`. Codex needs `sessionId: ""` on turn one to persist its `thread_id`; Ollama uses server-side message replay. `ask-antigravity` requires `agy` ≥1.1.5 and is single-turn; it accepts `prompt` and `includeDirs` (file context via `agy --add-dir`); there is no `sessionId` and no per-call `model` (set the model with the `ASK_ANTIGRAVITY_MODEL` env var and the reasoning effort with `ASK_ANTIGRAVITY_EFFORT`).
 
 ---
 

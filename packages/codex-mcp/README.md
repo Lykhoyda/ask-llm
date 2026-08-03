@@ -58,6 +58,8 @@ Add to `claude_desktop_config.json`:
 | `ask-codex` | Send prompts to Codex CLI. Defaults to GPT-5.6 Sol at medium effort with automatic Terra fallback; optional `reasoningEffort` override |
 | `ping` | Connection test — verify MCP setup without using tokens |
 
+Codex calls are ephemeral when `sessionId` is omitted. Pass `sessionId: ""` on the first call to persist a resumable thread, then pass its returned Thread ID on follow-up calls.
+
 ## Models
 
 | Model | Use Case |

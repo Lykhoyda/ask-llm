@@ -104,8 +104,8 @@ The `/brainstorm` skill runs Claude Opus's own research (reads your real codebas
 Sessions persist across calls. Use them for back-and-forth:
 
 ```text
-Call 1: Ask Codex to review src/auth.ts for security issues
-        → response includes [Session ID: abc-123]
+Call 1: Ask Codex to review src/auth.ts for security issues, sessionId ""
+        → response includes [Thread ID: abc-123]
 
 Call 2: Ask Codex to fix the XSS issue you found, sessionId abc-123
         → Codex remembers the review
@@ -114,7 +114,7 @@ Call 3: Ask Codex to write tests for the fix, sessionId abc-123
         → continues the same thread
 ```
 
-Claude, Gemini, Codex, and Ollama support sessions; Antigravity is single-turn. Claude sessions are available from Codex and other non-Claude hosts. For programmatic clients, the `sessionId` is also exposed structurally via `result.structuredContent.sessionId`; no need to regex-parse the response footer.
+Claude, Gemini, Codex, and Ollama support sessions; Antigravity is single-turn. Codex requires `sessionId: ""` on the first call to create a resumable thread; omitting it keeps the call ephemeral. Claude sessions are available from Codex and other non-Claude hosts. For programmatic clients, the `sessionId` is also exposed structurally via `result.structuredContent.sessionId`; no need to regex-parse the response footer.
 
 ### 6. Quick Sanity Check via REPL
 

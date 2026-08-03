@@ -33,13 +33,13 @@ const askCodexArgsSchema = z.object({
     .string()
     .optional()
     .describe(
-      "Optional Codex thread ID to resume a prior conversation. Use the [Thread ID: ...] value from a previous response to continue the same chat with full prior context.",
+      'Omit for an ephemeral one-off call. Pass an empty string ("") on the first call to create a persisted resumable thread; then pass the returned [Thread ID: ...] value on follow-up calls to continue with full prior context.',
     ),
   includeDirs: z
     .array(relativeDirSchema)
     .optional()
     .describe(
-      "Additional directories Codex may access alongside the working directory (maps to codex `--add-dir`, repeatable). Must be relative paths (e.g., 'packages/api'). Useful in monorepos where relevant context spans sibling packages.",
+      "Additional directories Codex may access alongside the working directory on a fresh call (maps to codex `--add-dir`, repeatable; Codex resume does not support this flag). Must be relative paths (e.g., 'packages/api'). Useful in monorepos where relevant context spans sibling packages.",
     ),
   preferred: z
     .boolean()
@@ -58,7 +58,7 @@ const askCodexArgsSchema = z.object({
 
 export const askCodexTool: UnifiedTool = {
   name: "ask-codex",
-  description: `Send a prompt to OpenAI Codex CLI (defaults to ${FACTORY_DEFAULT_MODEL} with automatic fallback on quota errors). Use for code review, second opinions, analysis, and AI-to-AI collaboration. Do not override the model parameter unless the user explicitly asks. Returns both human-readable text and a structured response (provider, model, sessionId, usage) via outputSchema. The returned sessionId field maps to Codex's thread_id and can be passed back as sessionId to continue the conversation.`,
+  description: `Send a prompt to OpenAI Codex CLI (defaults to ${FACTORY_DEFAULT_MODEL} with automatic fallback on quota errors). Use for code review, second opinions, analysis, and AI-to-AI collaboration. Do not override the model parameter unless the user explicitly asks. Returns both human-readable text and a structured response (provider, model, sessionId, usage) via outputSchema. Calls are ephemeral by default; pass sessionId: "" on the first call to persist its Codex thread_id, then pass the returned sessionId on follow-up calls to continue the conversation.`,
   zodSchema: askCodexArgsSchema,
   outputSchema: askResponseSchema,
   annotations: {

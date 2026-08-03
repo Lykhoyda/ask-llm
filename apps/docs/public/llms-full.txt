@@ -176,8 +176,8 @@ Send prompts to OpenAI Codex CLI.
   - `prompt` (string, required): The question, code review request, or analysis task.
   - `model` (string, optional): Do not set unless user explicitly requests it. Default: gpt-5.6-sol. Falls back to gpt-5.6-terra on quota errors.
   - `reasoningEffort` (string, optional): low, medium, high, xhigh, or max. Default: medium. /codex-review and /brainstorm use high.
-  - `sessionId` (string, optional): A Codex thread_id to resume a prior multi-turn conversation.
-  - `includeDirs` (string[], optional): Additional directories to expose to Codex (`--add-dir`). Paths must be relative: no `..`, absolute paths, or `~`.
+  - `sessionId` (string, optional): Omit for an ephemeral call, pass `""` to create a fresh persisted thread, or pass a non-empty returned thread_id to resume.
+  - `includeDirs` (string[], optional): Additional directories to expose to Codex (`--add-dir`) on fresh calls only; not forwarded when resuming. Paths must be relative: no `..`, absolute paths, or `~`.
   - `preferred` (boolean, optional): Opt into ASK_CODEX_PREFERRED_MODEL only when configured to differ from the gpt-5.6-sol default. Review skills leave it unset.
 - **Returns:** Codex's text response plus a structured payload (provider, model, sessionId, usage).
 - **Annotations:** readOnlyHint=false, destructiveHint=false, openWorldHint=true
@@ -190,8 +190,8 @@ Get structured, read-only code edits from Codex via `--output-schema`. Codex ana
 - **Parameters:**
   - `prompt` (string, required): Describe the code changes you want.
   - `model` (string, optional): Default: gpt-5.6-sol.
-  - `sessionId` (string, optional): A Codex thread_id to continue a prior edit session.
-  - `includeDirs` (string[], optional): Additional directories to expose to Codex (`--add-dir`). Paths must be relative: no `..`, absolute paths, or `~`.
+  - `sessionId` (string, optional): Omit for an ephemeral call, pass `""` to create a fresh persisted thread, or pass a non-empty returned thread_id to resume.
+  - `includeDirs` (string[], optional): Additional directories to expose to Codex (`--add-dir`) on fresh calls only; not forwarded when resuming. Paths must be relative: no `..`, absolute paths, or `~`.
 - **Returns:** Structured edit proposal (read-only: the caller applies the changes).
 - **Annotations:** readOnlyHint=false, destructiveHint=false, openWorldHint=true
 
@@ -244,7 +244,7 @@ Route a single prompt to any one installed provider (unified server).
   - `prompt` (string, required): The question or task.
   - `provider` (string, required): Which provider to route to: one of gemini, codex, claude, ollama, antigravity. Must be one that is installed/detected; there is no default.
   - `model` (string, optional): Provider-specific model override.
-  - `sessionId` (string, optional): Resume a prior session with the chosen provider (maps to that provider's session/thread ID).
+  - `sessionId` (string, optional): For Codex, omit it for an ephemeral call, pass `""` to create a fresh persisted thread, or pass a non-empty returned Thread ID to resume. For other session-capable providers, pass a prior session ID to resume.
 - **Returns:** The chosen provider's text response plus a structured payload (including the resolved provider and model, so quota fallbacks are visible).
 - **Annotations:** readOnlyHint=false, destructiveHint=false, openWorldHint=true
 

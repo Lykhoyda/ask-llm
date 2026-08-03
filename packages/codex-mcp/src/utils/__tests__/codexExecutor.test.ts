@@ -56,13 +56,12 @@ describe("executeCodexCLI argument construction", () => {
     ]);
   });
 
-  it("builds correct argv shape on session resume — --ignore-user-config + --ignore-rules preserved (closes #31)", async () => {
-    await executeCodexCLI({ prompt: "hello", sessionId: "thread-abc-123" });
+  it("builds exact persisted-fresh argv when sessionId is empty", async () => {
+    await executeCodexCLI({ prompt: "hello", sessionId: "" });
 
     const [, args] = mockExecuteCommand.mock.calls[0];
     expect(args).toEqual([
       CLI.COMMANDS.EXEC,
-      CLI.COMMANDS.RESUME,
       CLI.FLAGS.SKIP_GIT,
       CLI.FLAGS.IGNORE_USER_CONFIG,
       CLI.FLAGS.IGNORE_RULES,
@@ -73,9 +72,33 @@ describe("executeCodexCLI argument construction", () => {
       CLI.FLAGS.JSON,
       CLI.FLAGS.MODEL,
       MODELS.DEFAULT,
+      "hello",
+    ]);
+  });
+
+  it("builds exact resume argv with stable sandbox config and excludes unsupported flags", async () => {
+    await executeCodexCLI({ prompt: "hello", sessionId: "thread-abc-123", includeDirs: ["packages/api"] });
+
+    const [, args] = mockExecuteCommand.mock.calls[0];
+    expect(args).toEqual([
+      CLI.COMMANDS.EXEC,
+      CLI.COMMANDS.RESUME,
+      CLI.FLAGS.SKIP_GIT,
+      CLI.FLAGS.IGNORE_USER_CONFIG,
+      CLI.FLAGS.IGNORE_RULES,
+      CLI.FLAGS.CONFIG,
+      `sandbox_mode="${CLI.FLAGS.SANDBOX_READ_ONLY}"`,
+      CLI.FLAGS.CONFIG,
+      `model_reasoning_effort="${DEFAULT_REASONING_EFFORT}"`,
+      CLI.FLAGS.JSON,
+      CLI.FLAGS.MODEL,
+      MODELS.DEFAULT,
       "thread-abc-123",
       "hello",
     ]);
+    expect(args).not.toContain(CLI.FLAGS.SANDBOX);
+    expect(args).not.toContain(CLI.FLAGS.ADD_DIR);
+    expect(args).not.toContain(CLI.FLAGS.EPHEMERAL);
   });
 
   it("uses custom model when specified", async () => {
@@ -533,26 +556,6 @@ describe("fallback model structurally unavailable for the account (#196)", () =>
 });
 
 describe("session continuity (ADR-058 hardening per ADR-063)", () => {
-  it("includes --ephemeral when no sessionId is provided", async () => {
-    await executeCodexCLI({ prompt: "hello" });
-    const [, args] = mockExecuteCommand.mock.calls[0];
-    expect(args).toContain(CLI.FLAGS.EPHEMERAL);
-  });
-
-  it("OMITS --ephemeral when sessionId is provided so resume can persist (ADR-063 fix)", async () => {
-    await executeCodexCLI({ prompt: "hello", sessionId: "thread-abc-123" });
-    const [, args] = mockExecuteCommand.mock.calls[0];
-    expect(args).not.toContain(CLI.FLAGS.EPHEMERAL);
-  });
-
-  it("uses 'exec resume <id>' subcommand sequence when sessionId is set", async () => {
-    await executeCodexCLI({ prompt: "follow-up", sessionId: "thread-abc-123" });
-    const [, args] = mockExecuteCommand.mock.calls[0];
-    expect(args[0]).toBe(CLI.COMMANDS.EXEC);
-    expect(args[1]).toBe(CLI.COMMANDS.RESUME);
-    expect(args).toContain("thread-abc-123");
-  });
-
   it("disables response cache when sessionId is the empty string (ADR-063 fix)", async () => {
     responseCache.clear();
     await executeCodexCLI({ prompt: "x" });
@@ -833,7 +836,7 @@ describe("ask-codex-edit / editMode (#102)", () => {
 // codex 0.136 introduced archived sessions; `codex exec resume <id>` against an
 // archived session fails. Translate it to an actionable error and do NOT fall
 // back to the mini model (the session is still archived after a retry). #139 / #141 F1.
-describe("executeCodexCLI archived-session resume (codex 0.136, #139)", () => {
+describe("executeCodexCLI session-continuity errors", () => {
   // beforeEach already runs vi.clearAllMocks() + sets a default resolved value,
   // so no per-test mockReset() is needed; mockRejectedValueOnce overrides for
   // the single call these tests make.
@@ -858,6 +861,31 @@ describe("executeCodexCLI archived-session resume (codex 0.136, #139)", () => {
     mockExecuteCommand.mockRejectedValueOnce(new Error("unrelated archived_sessions mention"));
     const err = await executeCodexCLI({ prompt: "hi" }).catch((e) => e as Error);
     expect(err.message).not.toMatch(/codex unarchive/i);
+  });
+
+  it("classifies no-rollout as continuity failure with persisted-first-turn guidance and no fallback", async () => {
+    mockExecuteCommand.mockRejectedValueOnce(
+      new Error("thread/resume failed: no rollout found for thread id thread-xyz (code -32600)"),
+    );
+
+    const err = await executeCodexCLI({ prompt: "follow up", sessionId: "thread-xyz" }).catch((e) => e as Error);
+
+    expect(err.message).toMatch(/session thread-xyz has no persisted rollout/i);
+    expect(err.message).toContain('sessionId: ""');
+    expect(mockExecuteCommand).toHaveBeenCalledTimes(1);
+  });
+
+  it("classifies no-rollout from quota fallback as continuity failure", async () => {
+    mockExecuteCommand
+      .mockRejectedValueOnce(new Error("rate_limit_exceeded"))
+      .mockRejectedValueOnce(new Error("no rollout found for thread id thread-xyz"));
+
+    const err = await executeCodexCLI({ prompt: "follow up", sessionId: "thread-xyz" }).catch((e) => e as Error);
+
+    expect(err.message).toMatch(/session thread-xyz has no persisted rollout/i);
+    expect(err.message).toContain('sessionId: ""');
+    expect(err.message).not.toMatch(/fallback also failed|codex doctor/i);
+    expect(mockExecuteCommand).toHaveBeenCalledTimes(2);
   });
 });
 

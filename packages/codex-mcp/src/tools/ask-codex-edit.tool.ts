@@ -21,13 +21,13 @@ const askCodexEditArgsSchema = z.object({
     .string()
     .optional()
     .describe(
-      "Optional Codex thread ID to resume a prior conversation. Use the [Thread ID: ...] value from a previous response to refine the same edit session.",
+      'Omit for an ephemeral one-off call. Pass an empty string ("") on the first call to create a persisted resumable thread; then pass the returned [Thread ID: ...] value to refine the same edit session.',
     ),
   includeDirs: z
     .array(relativeDirSchema)
     .optional()
     .describe(
-      "Additional directories Codex may read alongside the working directory (maps to codex `--add-dir`). Must be relative paths (e.g., 'packages/api'). Useful in monorepos where relevant context spans sibling packages.",
+      "Additional directories Codex may read alongside the working directory on a fresh call (maps to codex `--add-dir`; Codex resume does not support this flag). Must be relative paths (e.g., 'packages/api'). Useful in monorepos where relevant context spans sibling packages.",
     ),
 });
 

@@ -19,6 +19,10 @@ export const ERROR_MESSAGES = {
   // openai/codex#19362 — confirm the exact string against a live archived
   // session on codex >= 0.136. #139 / #141 F1.
   ARCHIVED_SESSION_SIGNALS: ["archived_sessions", "archived session", "session is archived"],
+  // An ephemeral or expired thread has no persisted rollout for `exec resume`.
+  // This is a continuity failure, never quota: retrying with a mini model cannot
+  // recreate the missing first turn. Verified against codex-cli 0.146.0 (#254).
+  SESSION_CONTINUITY_SIGNALS: ["no rollout found"],
   // A pinned ASK_CODEX_FALLBACK_MODEL can be structurally unavailable on some
   // account types — e.g. gpt-5.5-mini is rejected with a 400 ("not supported when
   // using Codex with a ChatGPT account") on ChatGPT-plan accounts. The built-in

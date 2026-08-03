@@ -215,7 +215,7 @@ See the [plugin docs](https://lykhoyda.github.io/ask-llm/plugin/overview) for de
 | `ask-gemini` | @ask-llm/gemini-mcp | Send prompts to Gemini CLI with `@` file syntax. 1M+ token context. Live progressive output via `stream-json` |
 | `ask-gemini-edit` | @ask-llm/gemini-mcp | Get structured OLD/NEW code edit blocks from Gemini |
 | `fetch-chunk` | @ask-llm/gemini-mcp | Retrieve chunks from cached large responses |
-| `ask-codex` | @ask-llm/codex-mcp | Send prompts to Codex CLI. GPT-5.6 Sol with Terra fallback; optional reasoning effort; native session resume via `sessionId` |
+| `ask-codex` | @ask-llm/codex-mcp | Send prompts to Codex CLI. GPT-5.6 Sol with Terra fallback; omit `sessionId` for ephemeral use, or pass `sessionId: ""` first to persist and resume |
 | `ask-claude` | @ask-llm/claude-mcp | Send prompts to Claude Code CLI. Opus with Sonnet fallback; native sessions; Read/Glob/Grep-only workspace access |
 | `ask-ollama` | @ask-llm/ollama-mcp | Send prompts to local Ollama. Fully private, zero cost. Server-side conversation replay via `sessionId` |
 | `ask-antigravity` | @ask-llm/antigravity-mcp | Send a prompt to Google Antigravity (`agy`) for a subscription-backed second opinion. Experimental; one-shot |
@@ -225,7 +225,7 @@ See the [plugin docs](https://lykhoyda.github.io/ask-llm/plugin/overview) for de
 | `diagnose` | @ask-llm/mcp | Self-diagnosis: Node version, PATH resolution, provider CLI presence + versions. Read-only |
 | `ping` | all | Connection test — verify MCP setup |
 
-All `ask-*` tools accept an optional `sessionId` parameter for multi-turn conversations and now return a structured `AskResponse` (provider, response, model, sessionId, usage) via MCP `outputSchema` alongside the human-readable text. The orchestrator (`@ask-llm/mcp`) also exposes `usage://current-session` as an MCP Resource for live JSON snapshots.
+Session-capable `ask-*` tools accept an optional `sessionId` parameter and return a structured `AskResponse` (provider, response, model, sessionId, usage) via MCP `outputSchema` alongside the human-readable text. Codex requires `sessionId: ""` on the first call for a resumable thread; omitting it makes that call ephemeral. The orchestrator (`@ask-llm/mcp`) also exposes `usage://current-session` as an MCP Resource for live JSON snapshots.
 
 ### Usage Examples
 

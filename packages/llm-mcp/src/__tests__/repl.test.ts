@@ -221,12 +221,26 @@ describe("dispatchPrompt", () => {
     expect(state.sessions.get("gemini")).toBe("new-session-id");
   });
 
-  it("uses threadId when sessionId is absent (Codex pattern)", async () => {
+  it("stores the Codex threadId returned by the executor", async () => {
     const state = makeState({ currentProvider: "codex" });
     const executor = vi.fn().mockResolvedValue({ response: "ok", threadId: "thread-id-codex" });
     const { stream } = captureWritable();
     await dispatchPrompt("hello", state, stream, executor);
     expect(state.sessions.get("codex")).toBe("thread-id-codex");
+  });
+
+  it("starts Codex persisted and resumes the returned thread on turn two", async () => {
+    const state = makeState({ currentProvider: "codex" });
+    const executor = vi
+      .fn()
+      .mockResolvedValueOnce({ response: "first", threadId: "thread-id-codex" })
+      .mockResolvedValueOnce({ response: "second", threadId: "thread-id-codex" });
+    const { stream } = captureWritable();
+
+    await dispatchPrompt("hello", state, stream, executor);
+    await dispatchPrompt("follow up", state, stream, executor);
+
+    expect(executor.mock.calls.map(([options]) => options.sessionId)).toEqual(["", "thread-id-codex"]);
   });
 
   it("records usage stats when the executor returns them", async () => {

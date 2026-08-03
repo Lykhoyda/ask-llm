@@ -26,12 +26,12 @@ Or install globally: `npm install -g @ask-llm/codex-mcp`
 
 | Tool | Purpose |
 |------|---------|
-| `ask-codex` | Send prompts to Codex CLI. Optional `reasoningEffort` and `sessionId` for multi-turn; the latter maps to Codex's native `thread_id` and uses `codex exec resume <id>` under the hood |
+| `ask-codex` | Send prompts to Codex CLI. Optional `reasoningEffort`; omit `sessionId` for an ephemeral call, pass `sessionId: ""` to start a persisted thread, or pass a returned thread ID to resume it |
 | `ask-codex-edit` | Propose structured code edits via a read-only `codex exec --output-schema` pass. Returns edit blocks for the calling client to apply |
 | `get-usage-stats` | Per-session token totals + breakdowns. In-memory |
 | `ping` | Fast connection test to verify MCP setup |
 
-`ask-codex` returns both human-readable text and a structured `AskResponse` (provider, response, model, sessionId, usage) via MCP `outputSchema`. The Thread ID returned in the response footer is the same value as `structuredContent.sessionId`; pass it back as `sessionId` to continue the conversation.
+`ask-codex` returns both human-readable text and a structured `AskResponse` (provider, response, model, sessionId, usage) via MCP `outputSchema`. Calls are ephemeral by default for privacy: a Thread ID from a call that omitted `sessionId` is not resumable. To opt into continuity, pass `sessionId: ""` on the first call; its returned Thread ID is the same value as `structuredContent.sessionId`, and can be passed back on later calls.
 
 ## Models
 
@@ -45,8 +45,8 @@ Or install globally: `npm install -g @ask-llm/codex-mcp`
 
 - **GPT-5.6 Sol access** via the official Codex CLI
 - **Reasoning control:** ordinary calls default to `medium`; `/codex-review` and `/brainstorm` use `high`; direct calls can request `low`, `medium`, `high`, `xhigh`, or `max`
-- **Native session continuity:** `sessionId` parameter maps to Codex's `thread_id`; `codex exec resume <id>` is used internally for follow-up turns (zero replay cost, Codex retains state)
-- **Read-only, non-interactive sandbox:** `codex exec --sandbox read-only` keeps second-opinion, review, edit-proposal, resumed-session, and codex-pair calls from modifying the workspace. Codex `exec` is non-interactive by definition, so no approval prompt can hang the MCP subprocess. The optional `sandbox: "workspace-write"` parameter is a deliberate opt-out for flows that need Codex to write files (e.g. `/codex-image`); review flows must not set it.
+- **Native session continuity:** omit `sessionId` for an ephemeral one-off call; pass `sessionId: ""` on turn one to persist a thread, then pass its returned `thread_id` on later turns. Follow-ups use `codex exec resume <id>` with the stable `-c sandbox_mode="<mode>"` grammar (zero replay cost, Codex retains state).
+- **Read-only, non-interactive sandbox:** fresh calls use `codex exec --sandbox read-only`; resumed calls use the equivalent supported config override `-c sandbox_mode="read-only"`. Both keep second-opinion, review, and edit-proposal calls from modifying the workspace. Codex `exec` is non-interactive by definition, so no approval prompt can hang the MCP subprocess. The optional `sandbox: "workspace-write"` parameter is a deliberate opt-out for flows that need Codex to write files (e.g. `/codex-image`); review flows must not set it.
 - **JSONL output parsing** for structured responses + token usage
 - **Automatic quota fallback** from GPT-5.6 Sol to Terra
 - **Structured AskResponse** via outputSchema for programmatic clients

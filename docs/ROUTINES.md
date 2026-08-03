@@ -29,6 +29,8 @@ Dependency & upstream-CLI drift tracker (read-only investigation → issue ONLY 
    - gemini → packages/gemini-mcp/src/constants.ts (MODELS, CLI.FLAGS, OUTPUT_FORMATS, QUOTA/TIER/WORKSPACE_TRUST patterns) + utils/geminiExecutor.ts (stream-json event types, fallback)
    - codex  → packages/codex-mcp/src/constants.ts (MODELS, CLI.FLAGS, QUOTA_SIGNALS, ARCHIVED_SESSION_SIGNALS) + utils/codexExecutor.ts (JSONL event types)
    - agy    → packages/antigravity-mcp/src/constants.ts (CLI.FLAGS) + utils/transcriptReader.ts (transcript path + entry schema) + utils/antigravityExecutor.ts
+   For flag checks, inspect every nested subcommand with its OWN help output (for example,
+   `codex exec resume --help`, not only `codex exec --help`): child grammars may be narrower than parents.
 
 3. BREAKING = any of: a flag we pass is removed/renamed (e.g. -p, --output-format, --json, --add-dir,
    --resume, --sandbox, --dangerously-skip-permissions); output shape change (JSON keys, JSONL/stream
