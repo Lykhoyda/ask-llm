@@ -15,7 +15,7 @@
 | [`@ask-llm/ollama-mcp`](https://www.npmjs.com/package/@ask-llm/ollama-mcp) | MCP Server | [![npm](https://img.shields.io/npm/v/@ask-llm/ollama-mcp)](https://www.npmjs.com/package/@ask-llm/ollama-mcp) | [![downloads](https://img.shields.io/npm/dt/@ask-llm/ollama-mcp)](https://www.npmjs.com/package/@ask-llm/ollama-mcp) |
 | [`@ask-llm/antigravity-mcp`](https://www.npmjs.com/package/@ask-llm/antigravity-mcp) | MCP Server | [![npm](https://img.shields.io/npm/v/@ask-llm/antigravity-mcp)](https://www.npmjs.com/package/@ask-llm/antigravity-mcp) | [![downloads](https://img.shields.io/npm/dt/@ask-llm/antigravity-mcp)](https://www.npmjs.com/package/@ask-llm/antigravity-mcp) |
 | [`@ask-llm/mcp`](https://www.npmjs.com/package/@ask-llm/mcp) | MCP Server | [![npm](https://img.shields.io/npm/v/@ask-llm/mcp)](https://www.npmjs.com/package/@ask-llm/mcp) | [![downloads](https://img.shields.io/npm/dt/@ask-llm/mcp)](https://www.npmjs.com/package/@ask-llm/mcp) |
-| [`@ask-llm/plugin`](https://github.com/Lykhoyda/ask-llm/tree/main/packages/claude-plugin) | Claude Code Plugin | [![GitHub](https://img.shields.io/github/v/release/Lykhoyda/ask-llm?label=latest)](https://github.com/Lykhoyda/ask-llm/releases) | `/plugin install` |
+| [`@ask-llm/plugin`](https://github.com/Lykhoyda/ask-llm/tree/main/packages/claude-plugin) | Claude Code Plugin | [![package.json](https://img.shields.io/github/package-json/v/Lykhoyda/ask-llm/main?filename=packages%2Fclaude-plugin%2Fpackage.json&label=marketplace)](https://github.com/Lykhoyda/ask-llm/blob/main/packages/claude-plugin/package.json) | `/plugin install` |
 
 **MCP servers + Claude Code plugin for AI-to-AI collaboration**
 

@@ -83,7 +83,7 @@ Interactive prompt asks (a) which packages your change affects, (b) the bump typ
 
 You can pick "patch" for any package even if your change doesn't directly touch it. IMPORTANT (ADR-119): `@ask-llm/shared` is private and INLINED into each MCP's `dist/` at build time by tsdown — and because shared is only a devDependency of the MCPs, the changesets internal-dependents cascade does NOT fire for it (verified empirically 2026-06-10). Any change to `packages/shared/src/**` MUST ship with a changeset that explicitly lists all six publishable packages (`@ask-llm/gemini-mcp`, `@ask-llm/codex-mcp`, `@ask-llm/claude-mcp`, `@ask-llm/ollama-mcp`, `@ask-llm/antigravity-mcp`, `@ask-llm/mcp`) — otherwise the fix never reaches npm. CI enforces this via `scripts/check-shared-changeset.mjs`.
 
-`@ask-llm/plugin` is excluded from changesets (it's distributed via the Claude Code plugin marketplace, not npm; tracked in `.claude-plugin/marketplace.json`).
+`@ask-llm/plugin` is private and distributed through the Claude Code plugin marketplace rather than npm, but changesets still versions it. `packages/claude-plugin/package.json` is authoritative; `yarn changeset:version` mirrors its version to the plugin and marketplace manifests, and lint verifies all three stay synchronized.
 
 If your PR is infrastructure-only (no published behavior change), skip the changeset.
 
