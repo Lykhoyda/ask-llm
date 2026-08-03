@@ -1,12 +1,6 @@
 #!/usr/bin/env node
-// Mirror packages/claude-plugin/package.json `version` into the two other
-// manifests that carry the same version field:
-//   - packages/claude-plugin/.claude-plugin/plugin.json (read by Claude Code)
-//   - .claude-plugin/marketplace.json (the marketplace listing)
-//
-// Run automatically after `yarn changeset version` via the `changeset:version`
-// composed script. `--check` is used by lint/CI to fail without modifying files
-// if a release-preparation change bypasses that command.
+// Mirror the plugin package version to plugin.json and marketplace.json after changesets versioning.
+// Lint uses `--check` to reject stale release metadata without modifying it.
 
 import { readFile, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
@@ -61,10 +55,9 @@ async function main() {
   const pluginChanged = await syncPluginJson(version);
   const marketplaceChanged = await syncMarketplaceJson(version);
 
-  const changed = [
-    pluginChanged ? "plugin.json" : null,
-    marketplaceChanged ? "marketplace.json" : null,
-  ].filter(Boolean);
+  const changed = [pluginChanged ? "plugin.json" : null, marketplaceChanged ? "marketplace.json" : null].filter(
+    Boolean,
+  );
 
   if (CHECK_ONLY && changed.length > 0) {
     throw new Error(`${changed.join(", ")} must match package.json version ${version}; run yarn changeset:version`);
