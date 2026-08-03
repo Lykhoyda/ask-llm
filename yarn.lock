@@ -246,7 +246,7 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@ask-llm/codex-mcp@npm:^0.7.2, @ask-llm/codex-mcp@workspace:*, @ask-llm/codex-mcp@workspace:packages/codex-mcp":
+"@ask-llm/codex-mcp@npm:^0.7.3, @ask-llm/codex-mcp@workspace:*, @ask-llm/codex-mcp@workspace:packages/codex-mcp":
   version: 0.0.0-use.local
   resolution: "@ask-llm/codex-mcp@workspace:packages/codex-mcp"
   dependencies:
@@ -286,7 +286,7 @@ __metadata:
   dependencies:
     "@ask-llm/antigravity-mcp": "npm:^0.6.0"
     "@ask-llm/claude-mcp": "npm:^0.1.5"
-    "@ask-llm/codex-mcp": "npm:^0.7.2"
+    "@ask-llm/codex-mcp": "npm:^0.7.3"
     "@ask-llm/gemini-mcp": "npm:^1.7.0"
     "@ask-llm/ollama-mcp": "npm:^0.5.5"
     "@ask-llm/shared": "workspace:*"

@@ -1,5 +1,11 @@
 # @ask-llm/codex-mcp
 
+## 0.7.3
+
+### Patch Changes
+
+- [#255](https://github.com/Lykhoyda/ask-llm/pull/255) [`1d0984b`](https://github.com/Lykhoyda/ask-llm/commit/1d0984bd6996ac1864db9cdb5a46d84e17b750fc) Thanks [@Lykhoyda](https://github.com/Lykhoyda)! - Restore persisted Codex session continuity while keeping omitted sessions ephemeral, starting persisted threads for empty `sessionId`, using supported sandbox config grammar for resume calls, and surfacing missing rollouts with actionable guidance.
+
 ## 0.7.2
 
 ### Patch Changes
