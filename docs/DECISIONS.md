@@ -29,8 +29,8 @@ execution, and adding a test requires no CI file-list maintenance. Setup work
 remains once per Node/platform combination rather than multiplying fivefold;
 the fan-out pays only checkout, Node/Corepack activation, artifact transfer,
 and test execution. The three historical check names retain honest per-platform
-diagnostics, while their success-marker aggregation waits for the complete
-batch matrix. Build, lint, immutable install, environment, timeout, failure,
+diagnostics, while each success-marker aggregation waits for only its matching
+five-batch matrix. Build, lint, immutable install, environment, timeout, failure,
 Node, and platform behavior otherwise remain unchanged; the Windows coverage
 introduced by ADR-129 is now five batch legs rather than one serial test leg.
 
