@@ -93,6 +93,52 @@ test("semantic record matching accepts Registry omission of optional false field
   assert.equal(recordsMatch(expected, mismatched), false);
 });
 
+test("semantic record matching accepts reordered packages and environment-variable mappings", () => {
+  const expected = manifest("ask-one", "1.0.0");
+  expected.packages[0].environmentVariables.push({
+    name: "ANOTHER_VALUE",
+    description: "Another optional value",
+    isRequired: false,
+    format: "string",
+    isSecret: false,
+  });
+  expected.packages.push({
+    registryType: "npm",
+    identifier: "@ask-llm/ask-one-alternative",
+    version: "1.0.0",
+    transport: { type: "stdio" },
+    environmentVariables: [{ name: "SECOND_PACKAGE_VALUE", description: "Second package value", format: "string" }],
+  });
+
+  const reordered = registryRecord(expected);
+  reordered.packages.reverse();
+  for (const packageRecord of reordered.packages) packageRecord.environmentVariables?.reverse();
+
+  assert.equal(recordsMatch(expected, reordered), true);
+});
+
+test("semantic record matching rejects changed set entries and reordered argument arrays", () => {
+  const expected = manifest("ask-one", "1.0.0");
+  expected.packages[0].environmentVariables.push({
+    name: "ANOTHER_VALUE",
+    description: "Another optional value",
+    format: "string",
+  });
+  expected.packages[0].packageArguments = [
+    { type: "named", name: "--first" },
+    { type: "named", name: "--second" },
+  ];
+
+  const changedMapping = registryRecord(expected);
+  changedMapping.packages[0].environmentVariables.reverse();
+  changedMapping.packages[0].environmentVariables[0].description = "Different description";
+  assert.equal(recordsMatch(expected, changedMapping), false);
+
+  const reorderedArguments = registryRecord(expected);
+  reorderedArguments.packages[0].packageArguments.reverse();
+  assert.equal(recordsMatch(expected, reorderedArguments), false);
+});
+
 test("partial state verifies present records and publishes only missing records", async () => {
   const present = manifest("ask-present", "1.0.0");
   const missing = manifest("ask-missing", "2.0.0");

@@ -8,21 +8,58 @@ import { isDeepStrictEqual } from "node:util";
 const DEFAULT_REGISTRY_URL = "https://registry.modelcontextprotocol.io";
 const DUPLICATE_VERSION = /invalid version:\s*cannot publish duplicate version/i;
 const OPTIONAL_FALSE_FIELDS = new Set(["isRequired", "isSecret"]);
+const SEMANTIC_SET_ARRAY_FIELDS = new Set(["packages", "environmentVariables"]);
 const OUTPUT_LIMIT = 16_384;
 
 function boundedTail(value) {
   return value.length <= OUTPUT_LIMIT ? value : value.slice(-OUTPUT_LIMIT);
 }
 
-function normalizeRegistryValue(value) {
-  if (Array.isArray(value)) return value.map(normalizeRegistryValue);
+function canonicalJson(value) {
+  return JSON.stringify(value);
+}
+
+function semanticSetKey(fieldName, value) {
+  if (fieldName === "packages") {
+    return canonicalJson([
+      value?.registryType ?? null,
+      value?.registryBaseUrl ?? null,
+      value?.identifier ?? null,
+      value?.version ?? null,
+      value?.fileSha256 ?? null,
+      canonicalJson(value),
+    ]);
+  }
+  if (fieldName === "environmentVariables") {
+    return canonicalJson([value?.name ?? null, canonicalJson(value)]);
+  }
+  return null;
+}
+
+function compareCanonicalSetEntries(fieldName, left, right) {
+  const leftKey = semanticSetKey(fieldName, left);
+  const rightKey = semanticSetKey(fieldName, right);
+  if (leftKey === null || rightKey === null || leftKey === rightKey) return 0;
+  return leftKey < rightKey ? -1 : 1;
+}
+
+function normalizeRegistryValue(value, fieldName) {
+  if (Array.isArray(value)) {
+    const normalized = value.map((child) => normalizeRegistryValue(child));
+    // Packages are alternative distributions and environmentVariables is a
+    // schema-described mapping. Their order is not semantic. Argument, icon,
+    // remote, header, and every other array retain their submitted order.
+    return SEMANTIC_SET_ARRAY_FIELDS.has(fieldName)
+      ? [...normalized].sort((left, right) => compareCanonicalSetEntries(fieldName, left, right))
+      : normalized;
+  }
   if (value === null || typeof value !== "object") return value;
 
   return Object.fromEntries(
     Object.entries(value)
       .filter(([key, child]) => !(child === false && OPTIONAL_FALSE_FIELDS.has(key)))
       .sort(([left], [right]) => left.localeCompare(right))
-      .map(([key, child]) => [key, normalizeRegistryValue(child)]),
+      .map(([key, child]) => [key, normalizeRegistryValue(child, key)]),
   );
 }
 
