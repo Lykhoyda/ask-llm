@@ -88,11 +88,14 @@ afterEach(() => {
 test("semantic record matching accepts Registry omission of optional false fields", () => {
   const expected = manifest("ask-one", "1.0.0");
   expected.packages[0].packageArguments = [
-    { type: "named", name: "--optional", isRequired: false, isSecret: false },
+    { type: "named", name: "--optional", isRequired: false, isSecret: false, isRepeated: false },
   ];
+  expected.packages[0].runtimeArguments = [{ type: "positional", value: "optional", isRepeated: false }];
   const registryValue = registryRecord(expected);
   delete registryValue.packages[0].packageArguments[0].isRequired;
   delete registryValue.packages[0].packageArguments[0].isSecret;
+  delete registryValue.packages[0].packageArguments[0].isRepeated;
+  delete registryValue.packages[0].runtimeArguments[0].isRepeated;
   assert.equal(recordsMatch(expected, registryValue), true);
   const mismatched = registryRecord(expected);
   mismatched.packages[0].identifier = "@other/ask-one";
@@ -165,11 +168,12 @@ test("semantic record matching preserves order in publisher-provided metadata ar
   assert.equal(recordsMatch(expected, reorderedEnvironmentVariables), false);
 });
 
-test("semantic record matching preserves optional false fields in publisher metadata", () => {
+test("semantic record matching preserves schema-like false fields in publisher metadata", () => {
   const expected = manifest("ask-one", "1.0.0");
   expected._meta = {
     "io.modelcontextprotocol.registry/publisher-provided": {
       isRequired: false,
+      isRepeated: false,
       isSecret: false,
     },
   };
@@ -181,6 +185,10 @@ test("semantic record matching preserves optional false fields in publisher meta
   const withoutIsSecret = registryRecord(expected);
   delete withoutIsSecret._meta["io.modelcontextprotocol.registry/publisher-provided"].isSecret;
   assert.equal(recordsMatch(expected, withoutIsSecret), false);
+
+  const withoutIsRepeated = registryRecord(expected);
+  delete withoutIsRepeated._meta["io.modelcontextprotocol.registry/publisher-provided"].isRepeated;
+  assert.equal(recordsMatch(expected, withoutIsRepeated), false);
 });
 
 test("partial state verifies present records and publishes only missing records", async () => {

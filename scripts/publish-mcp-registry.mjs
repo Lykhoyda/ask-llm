@@ -55,13 +55,24 @@ function semanticSetField(path) {
   return null;
 }
 
-function isInputWithVariablesPath(path) {
-  const packageInput =
+function isArgumentPath(path) {
+  return (
     path.length === 4 &&
     path[0] === "packages" &&
     Number.isInteger(path[1]) &&
-    ["environmentVariables", "packageArguments", "runtimeArguments"].includes(path[2]) &&
-    Number.isInteger(path[3]);
+    ["packageArguments", "runtimeArguments"].includes(path[2]) &&
+    Number.isInteger(path[3])
+  );
+}
+
+function isInputWithVariablesPath(path) {
+  const packageInput =
+    isArgumentPath(path) ||
+    (path.length === 4 &&
+      path[0] === "packages" &&
+      Number.isInteger(path[1]) &&
+      path[2] === "environmentVariables" &&
+      Number.isInteger(path[3]));
   const packageHeader =
     path.length === 5 &&
     path[0] === "packages" &&
@@ -97,6 +108,12 @@ function isSchemaInputPath(path) {
   );
 }
 
+function isSchemaDefaultFalse(path, key, value) {
+  if (value !== false) return false;
+  if (OPTIONAL_FALSE_FIELDS.has(key)) return isSchemaInputPath(path);
+  return key === "isRepeated" && isArgumentPath(path);
+}
+
 function normalizeRegistryValue(value, path = []) {
   if (Array.isArray(value)) {
     const normalized = value.map((child, index) => normalizeRegistryValue(child, [...path, index]));
@@ -109,9 +126,7 @@ function normalizeRegistryValue(value, path = []) {
 
   return Object.fromEntries(
     Object.entries(value)
-      .filter(
-        ([key, child]) => !(child === false && OPTIONAL_FALSE_FIELDS.has(key) && isSchemaInputPath(path)),
-      )
+      .filter(([key, child]) => !isSchemaDefaultFalse(path, key, child))
       .sort(([left], [right]) => left.localeCompare(right))
       .map(([key, child]) => [key, normalizeRegistryValue(child, [...path, key])]),
   );
