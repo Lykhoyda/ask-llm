@@ -1,8 +1,5 @@
-import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { ANTIGRAVITY, CLI, ERROR_MESSAGES, MODELS, READ_ONLY_PREAMBLE } from "../../constants.js";
+import { ANTIGRAVITY, CLI, ERROR_MESSAGES, MODELS, OUTPUT_FORMATS, READ_ONLY_PREAMBLE } from "../../constants.js";
 
 vi.mock("@ask-llm/shared", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@ask-llm/shared")>();
@@ -13,18 +10,14 @@ vi.mock("@ask-llm/shared", async (importOriginal) => {
   };
 });
 
-vi.mock("../transcriptReader.js", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("../transcriptReader.js")>();
+// Keep the real isVersionAtLeast — only the probe is mocked.
+vi.mock("../agyVersion.js", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../agyVersion.js")>();
   return {
     ...actual,
-    readLatestTranscript: vi.fn(),
-    snapshotTranscriptState: vi.fn(),
+    assertSupportedAgyVersion: vi.fn(),
   };
 });
-
-vi.mock("../agyVersion.js", () => ({
-  assertSupportedAgyVersion: vi.fn(),
-}));
 
 import { executeCommand, Logger } from "@ask-llm/shared";
 import { assertSupportedAgyVersion } from "../agyVersion.js";
@@ -34,36 +27,49 @@ import {
   isModelUnavailableError,
   resolveExplicitEffort,
 } from "../antigravityExecutor.js";
-import { antigravityInvocationLockPath } from "../invocationLock.js";
-import { readLatestTranscript, snapshotTranscriptState } from "../transcriptReader.js";
 
 const mockExec = vi.mocked(executeCommand);
 const mockAssertSupportedAgyVersion = vi.mocked(assertSupportedAgyVersion);
-const mockReadLatestTranscript = vi.mocked(readLatestTranscript);
-const mockSnapshotTranscriptState = vi.mocked(snapshotTranscriptState);
-let baseDir: string;
+
+// Live-captured agy --output-format json success envelope (2026-08-04 dogfood, #251).
+const jsonStdout = (response: string, usage?: Record<string, number>) =>
+  JSON.stringify({
+    conversation_id: "conversation-1",
+    status: "SUCCESS",
+    response,
+    duration_seconds: 5.037288,
+    num_turns: 1,
+    ...(usage ? { usage } : {}),
+  });
+const USAGE_1_1_9 = {
+  input_tokens: 19832,
+  output_tokens: 287,
+  thinking_tokens: 281,
+  cache_read_tokens: 12164,
+  total_tokens: 20119,
+};
+// agy 1.1.5 reports usage without cache_read_tokens.
+const USAGE_1_1_5 = { input_tokens: 10987, output_tokens: 297, thinking_tokens: 293, total_tokens: 11284 };
 
 beforeEach(() => {
-  baseDir = mkdtempSync(join(tmpdir(), "agy-executor-test-"));
   vi.clearAllMocks();
   delete process.env[ANTIGRAVITY.SANDBOX_ENV_VAR];
   delete process.env[ANTIGRAVITY.TIMEOUT_ENV_VAR];
   delete process.env[ANTIGRAVITY.MODEL_ENV_VAR];
   delete process.env[ANTIGRAVITY.EFFORT_ENV_VAR];
-  process.env.ASK_ANTIGRAVITY_BASE_DIR = baseDir;
   mockAssertSupportedAgyVersion.mockResolvedValue(ANTIGRAVITY.MINIMUM_AGY_VERSION);
   mockExec.mockResolvedValue("");
-  mockReadLatestTranscript.mockReturnValue(null);
-  mockSnapshotTranscriptState.mockReturnValue({ baseDir, transcripts: {} });
 });
 
 afterEach(() => {
-  delete process.env.ASK_ANTIGRAVITY_BASE_DIR;
-  rmSync(baseDir, { recursive: true, force: true });
+  delete process.env[ANTIGRAVITY.SANDBOX_ENV_VAR];
+  delete process.env[ANTIGRAVITY.TIMEOUT_ENV_VAR];
+  delete process.env[ANTIGRAVITY.MODEL_ENV_VAR];
+  delete process.env[ANTIGRAVITY.EFFORT_ENV_VAR];
 });
 
 describe("buildArgs", () => {
-  it("builds -p, prompt, model, print-timeout, skip-permissions, sandbox", () => {
+  it("builds -p, prompt, model, print-timeout, output-format json, skip-permissions, sandbox", () => {
     const args = buildArgs("hello", undefined, 295, true, "Gemini 3.5 Flash (High)");
     expect(args).toEqual([
       CLI.FLAGS.PRINT,
@@ -72,6 +78,8 @@ describe("buildArgs", () => {
       "Gemini 3.5 Flash (High)",
       CLI.FLAGS.PRINT_TIMEOUT,
       "295s",
+      CLI.FLAGS.OUTPUT_FORMAT,
+      OUTPUT_FORMATS.JSON,
       CLI.FLAGS.SKIP_PERMISSIONS,
       CLI.FLAGS.SANDBOX,
     ]);
@@ -90,6 +98,8 @@ describe("buildArgs", () => {
       "Gemini 3.5 Flash (High)",
       CLI.FLAGS.PRINT_TIMEOUT,
       "100s",
+      CLI.FLAGS.OUTPUT_FORMAT,
+      OUTPUT_FORMATS.JSON,
       CLI.FLAGS.SKIP_PERMISSIONS,
     ]);
   });
@@ -98,73 +108,135 @@ describe("buildArgs", () => {
     const args = buildArgs("hello", undefined, 100, false, undefined);
     expect(args).not.toContain(CLI.FLAGS.MODEL);
   });
+
+  it("appends --disable-slash-commands only when requested", () => {
+    const guarded = buildArgs("hello", undefined, 100, false, undefined, false, undefined, true);
+    expect(guarded).toContain(CLI.FLAGS.DISABLE_SLASH_COMMANDS);
+    const unguarded = buildArgs("hello", undefined, 100, false, undefined);
+    expect(unguarded).not.toContain(CLI.FLAGS.DISABLE_SLASH_COMMANDS);
+  });
 });
 
 describe("executeAntigravityCLI response sources", () => {
-  it("uses plain stdout only as a last resort, after the transcript", async () => {
+  it("requests --output-format json on every invocation", async () => {
+    mockExec.mockResolvedValue(jsonStdout("pong\n"));
+    await executeAntigravityCLI({ prompt: "q" });
+    const [, args] = mockExec.mock.calls[0];
+    expect(args[args.indexOf(CLI.FLAGS.OUTPUT_FORMAT) + 1]).toBe(OUTPUT_FORMATS.JSON);
+  });
+
+  it("uses the JSON envelope's .response and trims agy's trailing newline", async () => {
+    mockExec.mockResolvedValue(jsonStdout("pong\n"));
+    const result = await executeAntigravityCLI({ prompt: "q" });
+    expect(result.response).toBe("pong");
+  });
+
+  it("falls back to plain stdout when output is not the JSON envelope", async () => {
     mockExec.mockResolvedValue("direct answer");
     const result = await executeAntigravityCLI({ prompt: "q" });
     expect(result.response).toBe("direct answer");
-    // transcript is consulted before plain stdout
-    expect(mockReadLatestTranscript).toHaveBeenCalledOnce();
+    expect(result.usage).toBeUndefined();
   });
 
-  it("prefers the transcript over non-JSON stdout banners (#153)", async () => {
-    mockExec.mockResolvedValue("Initializing model...");
-    mockReadLatestTranscript.mockReturnValue({
-      response: "real answer",
-      path: "/agy/transcript.jsonl",
-      conversationId: "conversation-1",
-    });
-    const result = await executeAntigravityCLI({ prompt: "q" });
-    expect(result.response).toBe("real answer");
+  it("never serves a parsed envelope with an empty response as plain text", async () => {
+    mockExec.mockResolvedValue(jsonStdout(""));
+    await expect(executeAntigravityCLI({ prompt: "q" })).rejects.toThrow(ERROR_MESSAGES.NO_OUTPUT);
   });
 
-  it("uses JSON stdout .response when present", async () => {
-    mockExec.mockResolvedValue('{"response":"json answer"}');
-    const result = await executeAntigravityCLI({ prompt: "q" });
-    expect(result.response).toBe("json answer");
-    expect(mockReadLatestTranscript).not.toHaveBeenCalled();
+  it("never serves a parsed envelope without a response key as plain text", async () => {
+    mockExec.mockResolvedValue('{"conversation_id":"conversation-1","status":"SUCCESS"}');
+    await expect(executeAntigravityCLI({ prompt: "q" })).rejects.toThrow(ERROR_MESSAGES.NO_OUTPUT);
   });
 
-  it("falls back to transcript scrape when stdout is empty (today's bug)", async () => {
-    mockExec.mockResolvedValue("");
-    mockReadLatestTranscript.mockReturnValue({
-      response: "scraped answer",
-      path: "/agy/transcript.jsonl",
-      conversationId: "conversation-1",
-    });
-    const result = await executeAntigravityCLI({ prompt: "q" });
-    expect(result.response).toBe("scraped answer");
-    expect(mockReadLatestTranscript).toHaveBeenCalledOnce();
-    expect(typeof mockReadLatestTranscript.mock.calls[0][0]).toBe("number");
-    expect(mockReadLatestTranscript.mock.calls[0][1]).toEqual({ baseDir, transcripts: {} });
-  });
-
-  it("returns the durable transcript path when the response comes from the transcript", async () => {
-    mockExec.mockResolvedValue("");
-    mockReadLatestTranscript.mockReturnValue({
-      response: "scraped answer",
-      path: "/agy/brain/conversation-1/.system_generated/logs/transcript_full.jsonl",
-      conversationId: "conversation-1",
-    });
-
-    const result = await executeAntigravityCLI({ prompt: "q", readOnly: true });
-
-    expect(result.response).toBe("scraped answer");
-    expect(result.transcriptPath).toBe("/agy/brain/conversation-1/.system_generated/logs/transcript_full.jsonl");
-  });
-
-  it("throws NO_OUTPUT when stdout is empty and no transcript is found", async () => {
+  it("throws the actionable NO_OUTPUT when stdout is empty", async () => {
     mockExec.mockResolvedValue("");
     await expect(executeAntigravityCLI({ prompt: "q" })).rejects.toThrow(ERROR_MESSAGES.NO_OUTPUT);
   });
 
-  it("returns no sessionId and no usage", async () => {
-    mockExec.mockResolvedValue("answer");
+  it("returns no sessionId", async () => {
+    mockExec.mockResolvedValue(jsonStdout("answer\n"));
     const result = await executeAntigravityCLI({ prompt: "q" });
     expect(result.sessionId).toBeUndefined();
+  });
+});
+
+describe("executeAntigravityCLI usage accounting", () => {
+  it("maps the agy >=1.1.7 usage object including cache_read_tokens", async () => {
+    mockExec.mockResolvedValue(jsonStdout("pong\n", USAGE_1_1_9));
+    const result = await executeAntigravityCLI({ prompt: "q" });
+    expect(result.usage).toMatchObject({
+      provider: "antigravity",
+      model: MODELS.DEFAULT,
+      inputTokens: 19832,
+      outputTokens: 287,
+      cachedTokens: 12164,
+      thinkingTokens: 281,
+      fellBack: false,
+    });
+  });
+
+  it("omits cachedTokens for the agy 1.1.5 usage shape (no cache_read_tokens)", async () => {
+    mockExec.mockResolvedValue(jsonStdout("pong\n", USAGE_1_1_5));
+    const result = await executeAntigravityCLI({ prompt: "q" });
+    expect(result.usage?.cachedTokens).toBeUndefined();
+    expect(result.usage?.inputTokens).toBe(10987);
+  });
+
+  it("returns usage undefined when the envelope carries no usage object", async () => {
+    mockExec.mockResolvedValue(jsonStdout("pong\n"));
+    const result = await executeAntigravityCLI({ prompt: "q" });
     expect(result.usage).toBeUndefined();
+  });
+
+  it("measures durationMs itself instead of trusting agy's duration_seconds", async () => {
+    // The fixture claims ~5s; a resumed conversation even reports its age (~497s).
+    mockExec.mockResolvedValue(jsonStdout("pong\n", USAGE_1_1_9));
+    const result = await executeAntigravityCLI({ prompt: "q" });
+    expect(result.usage?.durationMs).toBeGreaterThanOrEqual(0);
+    expect(result.usage?.durationMs).toBeLessThan(60_000);
+  });
+
+  it("marks fellBack on the rate-limit Flash fallback and reports the fallback model", async () => {
+    mockExec
+      .mockRejectedValueOnce(new Error("RESOURCE_EXHAUSTED: quota"))
+      .mockResolvedValueOnce(jsonStdout("flash answer\n", USAGE_1_1_9));
+    const result = await executeAntigravityCLI({ prompt: "q" });
+    expect(result.model).toBe(MODELS.FALLBACK);
+    expect(result.usage?.model).toBe(MODELS.FALLBACK);
+    expect(result.usage?.fellBack).toBe(true);
+  });
+});
+
+describe("executeAntigravityCLI slash-command hardening", () => {
+  it("passes --disable-slash-commands when agy is at least 1.1.9", async () => {
+    mockAssertSupportedAgyVersion.mockResolvedValue(ANTIGRAVITY.SLASH_COMMANDS_FLAG_MIN_VERSION);
+    mockExec.mockResolvedValue(jsonStdout("answer\n"));
+    await executeAntigravityCLI({ prompt: "q" });
+    const [, args] = mockExec.mock.calls[0];
+    expect(args).toContain(CLI.FLAGS.DISABLE_SLASH_COMMANDS);
+  });
+
+  it("passes the flag on newer versions too", async () => {
+    mockAssertSupportedAgyVersion.mockResolvedValue("1.1.10");
+    mockExec.mockResolvedValue(jsonStdout("answer\n"));
+    await executeAntigravityCLI({ prompt: "q" });
+    const [, args] = mockExec.mock.calls[0];
+    expect(args).toContain(CLI.FLAGS.DISABLE_SLASH_COMMANDS);
+  });
+
+  it("omits the flag at the 1.1.5 minimum (hard 'flags provided but not defined' error below 1.1.9)", async () => {
+    mockExec.mockResolvedValue(jsonStdout("answer\n"));
+    await executeAntigravityCLI({ prompt: "q" });
+    const [, args] = mockExec.mock.calls[0];
+    expect(args).not.toContain(CLI.FLAGS.DISABLE_SLASH_COMMANDS);
+  });
+});
+
+describe("minimum version pin", () => {
+  // --output-format json is live-proven on 1.1.5/1.1.7/1.1.8/1.1.9 (#251 dogfood);
+  // structured output needs no version gate, so do not bump without new evidence.
+  it("keeps MINIMUM_AGY_VERSION at the evidence-backed 1.1.5", () => {
+    expect(ANTIGRAVITY.MINIMUM_AGY_VERSION).toBe("1.1.5");
   });
 });
 
@@ -259,7 +331,6 @@ describe("executeAntigravityCLI error handling", () => {
       `requires agy >=${ANTIGRAVITY.MINIMUM_AGY_VERSION}`,
     );
     expect(mockExec).not.toHaveBeenCalled();
-    expect(mockSnapshotTranscriptState).not.toHaveBeenCalled();
   });
 
   it("rethrows non-rate-limit errors unchanged without attempting a fallback", async () => {
@@ -418,10 +489,20 @@ describe("executeAntigravityCLI effort selection", () => {
   });
 });
 
+// Live-captured agy 1.1.9 json-mode error envelope (stdout, exit 1). It reaches
+// the matchers because executeCommand unions stderr+stdout on non-zero exit (ADR-117).
+const jsonWrappedUnknownModelError = new Error(
+  '{"conversation_id":"","status":"ERROR","response":"","error":"invalid model selection (--model \\"gemini-3.1-pro\\" --effort \\"\\"): model gemini-3.1-pro is not recognized as a known model or custom model in settings\\nAvailable models:\\n  Gemini 3.6 Flash (High)","duration_seconds":0,"num_turns":0,"usage":{"input_tokens":0,"output_tokens":0,"thinking_tokens":0,"cache_read_tokens":0,"total_tokens":0}}',
+);
+
 describe("isModelUnavailableError", () => {
   it("matches the live agy 1.1.5 unknown-model and effort-selection errors", () => {
     expect(isModelUnavailableError(unknownModelError("gemini-3.1-pro").message)).toBe(true);
     expect(isModelUnavailableError(effortSelectionError.message)).toBe(true);
+  });
+
+  it("matches the json-mode error envelope carried on stdout", () => {
+    expect(isModelUnavailableError(jsonWrappedUnknownModelError.message)).toBe(true);
   });
 
   it("does not match rate-limit or unrelated errors", () => {
@@ -433,6 +514,14 @@ describe("isModelUnavailableError", () => {
 });
 
 describe("executeAntigravityCLI model-unavailable recovery (#243)", () => {
+  it("recovers from the json-mode error envelope exactly like the text-mode grammar", async () => {
+    mockExec.mockRejectedValueOnce(jsonWrappedUnknownModelError).mockResolvedValueOnce(jsonStdout("rescued\n"));
+    const result = await executeAntigravityCLI({ prompt: "q" });
+    expect(result.response).toBe("rescued");
+    expect(result.model).toBe(MODELS.AGY_DEFAULT_LABEL);
+    expect(mockExec).toHaveBeenCalledTimes(2);
+  });
+
   it("retries once model-less when agy rejects the default slug, keeping --effort", async () => {
     mockExec.mockRejectedValueOnce(unknownModelError(MODELS.DEFAULT)).mockResolvedValueOnce("rescued");
     const result = await executeAntigravityCLI({ prompt: "q" });
@@ -547,117 +636,5 @@ describe("executeAntigravityCLI model-unavailable recovery (#243)", () => {
     // the retry is model-less — it never re-pins MODELS.FALLBACK
     const retryArgs = mockExec.mock.calls[1][1];
     expect(retryArgs).not.toContain(MODELS.FALLBACK);
-  });
-});
-
-describe("executeAntigravityCLI concurrency", () => {
-  it("holds the base-directory lock while snapshotting, invoking agy, and resolving the transcript", async () => {
-    const lockPath = antigravityInvocationLockPath(baseDir);
-    mockSnapshotTranscriptState.mockImplementation(() => {
-      expect(existsSync(lockPath)).toBe(true);
-      return { baseDir, transcripts: {} };
-    });
-    mockExec.mockImplementation(async () => {
-      expect(existsSync(lockPath)).toBe(true);
-      const owner = JSON.parse(readFileSync(join(lockPath, "owner.json"), "utf8")) as {
-        leaseDurationMs?: number;
-      };
-      expect(owner.leaseDurationMs).toBe(ANTIGRAVITY.DEFAULT_TIMEOUT_MS * 3 + 30_000);
-      return "";
-    });
-    mockReadLatestTranscript.mockImplementation(() => {
-      expect(existsSync(lockPath)).toBe(true);
-      return {
-        response: "correlated answer",
-        path: join(baseDir, "brain", "conversation-1", "transcript.jsonl"),
-        conversationId: "conversation-1",
-      };
-    });
-
-    await expect(executeAntigravityCLI({ prompt: "q" })).resolves.toMatchObject({ response: "correlated answer" });
-    expect(mockSnapshotTranscriptState.mock.invocationCallOrder[0]).toBeLessThan(mockExec.mock.invocationCallOrder[0]);
-    expect(existsSync(lockPath)).toBe(false);
-  });
-
-  it("preserves a lease covering three one-hour attempts plus cleanup grace", async () => {
-    process.env[ANTIGRAVITY.TIMEOUT_ENV_VAR] = "3600000";
-    const lockPath = antigravityInvocationLockPath(baseDir);
-    mockExec.mockImplementation(async () => {
-      const owner = JSON.parse(readFileSync(join(lockPath, "owner.json"), "utf8")) as {
-        leaseDurationMs?: number;
-      };
-      expect(owner.leaseDurationMs).toBe(10_830_000);
-      return "answer";
-    });
-
-    await expect(executeAntigravityCLI({ prompt: "q" })).resolves.toMatchObject({ response: "answer" });
-    expect(existsSync(lockPath)).toBe(false);
-  });
-
-  it("holds the lock across the worst case: rate-limit fallback then model-less recovery", async () => {
-    const lockPath = antigravityInvocationLockPath(baseDir);
-    mockExec
-      .mockImplementationOnce(async () => {
-        expect(existsSync(lockPath)).toBe(true);
-        throw new Error("RESOURCE_EXHAUSTED: quota");
-      })
-      .mockImplementationOnce(async () => {
-        expect(existsSync(lockPath)).toBe(true);
-        throw unknownModelError(MODELS.FALLBACK);
-      })
-      .mockImplementationOnce(async () => {
-        expect(existsSync(lockPath)).toBe(true);
-        return "rescued";
-      });
-
-    await expect(executeAntigravityCLI({ prompt: "q" })).resolves.toMatchObject({ response: "rescued" });
-    expect(mockExec).toHaveBeenCalledTimes(3);
-    expect(existsSync(lockPath)).toBe(false);
-  });
-
-  it("removes the base-directory lock when agy fails", async () => {
-    const lockPath = antigravityInvocationLockPath(baseDir);
-    mockExec.mockImplementation(async () => {
-      expect(existsSync(lockPath)).toBe(true);
-      throw new Error("agy failed");
-    });
-
-    await expect(executeAntigravityCLI({ prompt: "q" })).rejects.toThrow("agy failed");
-    expect(existsSync(lockPath)).toBe(false);
-  });
-
-  it("serializes concurrent calls via the mutex (never more than one agy active)", async () => {
-    let active = 0;
-    let maxActive = 0;
-    const releases: Array<() => void> = [];
-    mockExec.mockImplementation(
-      () =>
-        new Promise<string>((resolve) => {
-          active++;
-          maxActive = Math.max(maxActive, active);
-          releases.push(() => {
-            active--;
-            resolve("answer");
-          });
-        }),
-    );
-    const waitForReleases = async (count: number) => {
-      for (let attempt = 0; attempt < 100; attempt++) {
-        if (releases.length === count) return;
-        await new Promise((resolve) => setTimeout(resolve, 5));
-      }
-      throw new Error(`Timed out waiting for ${count} agy invocation(s)`);
-    };
-    const p1 = executeAntigravityCLI({ prompt: "a" });
-    const p2 = executeAntigravityCLI({ prompt: "b" });
-    await waitForReleases(1);
-    expect(releases.length).toBe(1); // only the first call has reached agy
-    expect(maxActive).toBe(1);
-    releases[0]();
-    await waitForReleases(2);
-    expect(releases.length).toBe(2); // second starts only after the first finished
-    releases[1]();
-    await Promise.all([p1, p2]);
-    expect(maxActive).toBe(1);
   });
 });

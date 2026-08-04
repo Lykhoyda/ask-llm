@@ -47,6 +47,14 @@ function upgradeRemediation(): string {
   return "Update Antigravity CLI using the same installation method, then run `agy --version` to verify.";
 }
 
+// Unparseable input gates conservatively (false) so optional flags stay off.
+export function isVersionAtLeast(version: string, minimum: string): boolean {
+  const parsed = parseVersion(version);
+  const min = parseVersion(minimum);
+  if (!parsed || !min) return false;
+  return isAtLeast(parsed, min);
+}
+
 export function assessAgyVersion(output: string | undefined, probeError?: string): AgySupportProbe {
   const requiredVersion = ANTIGRAVITY.MINIMUM_AGY_VERSION;
   if (probeError) {

@@ -1,8 +1,6 @@
-import { EXECUTION, executeCommand, Logger, resolveTimeoutMs } from "@ask-llm/shared";
-import { ANTIGRAVITY, CLI, ERROR_MESSAGES, MODELS, READ_ONLY_PREAMBLE } from "../constants.js";
-import { assertSupportedAgyVersion } from "./agyVersion.js";
-import { withAntigravityInvocationLock } from "./invocationLock.js";
-import { defaultBaseDir, readLatestTranscript, snapshotTranscriptState } from "./transcriptReader.js";
+import { EXECUTION, executeCommand, Logger, resolveTimeoutMs, type UsageStats } from "@ask-llm/shared";
+import { ANTIGRAVITY, CLI, ERROR_MESSAGES, MODELS, OUTPUT_FORMATS, READ_ONLY_PREAMBLE } from "../constants.js";
+import { assertSupportedAgyVersion, isVersionAtLeast } from "./agyVersion.js";
 
 export { assessAgyVersion, probeAgySupport } from "./agyVersion.js";
 
@@ -11,8 +9,8 @@ export interface AntigravityExecutorOptions {
   includeDirs?: string[];
   // agy model slug; legacy effort-carrying display strings remain compatible.
   model?: string;
-  // Accepted for orchestrator ExecutorFn compatibility but ignored: agy -p can't
-  // resume by id (no capturable conversation id, antigravity-cli #7).
+  // Accepted for orchestrator ExecutorFn compatibility but ignored: single-turn
+  // only — resuming by the captured conversation_id is tracked as follow-up work.
   sessionId?: string;
   readOnly?: boolean;
   onProgress?: (newOutput: string) => void;
@@ -22,31 +20,7 @@ export interface AntigravityExecutorResult {
   response: string;
   model: string;
   sessionId: undefined;
-  usage: undefined;
-  transcriptPath?: string;
-}
-
-export function buildInvocationLockOptions(timeoutMs: number): {
-  acquireTimeoutMs: number;
-  leaseDurationMs: number;
-} {
-  // Worst case is three attempts under one lock: primary, rate-limit fallback,
-  // then a model-less recovery when agy rejects the fallback slug (#243).
-  const invocationWindowMs = timeoutMs * 3 + 30_000;
-  return { acquireTimeoutMs: invocationWindowMs, leaseDurationMs: invocationWindowMs };
-}
-
-// Serialize all agy invocations in-process. Concurrent `agy -p` runs race on the
-// shared cache/last_conversations.json and the newest-brain-dir heuristic, which
-// would cross-wire responses. This is a correctness lock, not perf tuning (spec §6).
-let mutexChain: Promise<unknown> = Promise.resolve();
-function withMutex<T>(fn: () => Promise<T>): Promise<T> {
-  const run = mutexChain.then(fn, fn);
-  mutexChain = run.then(
-    () => undefined,
-    () => undefined,
-  );
-  return run;
+  usage: UsageStats | undefined;
 }
 
 export function buildArgs(
@@ -57,6 +31,7 @@ export function buildArgs(
   model: string | undefined,
   readOnly = false,
   effort?: string,
+  disableSlashCommands = false,
 ): string[] {
   const args: string[] = [CLI.FLAGS.PRINT, prompt];
   if (includeDirs?.length) {
@@ -65,6 +40,8 @@ export function buildArgs(
   if (model) args.push(CLI.FLAGS.MODEL, model);
   if (effort) args.push(CLI.FLAGS.EFFORT, effort);
   args.push(CLI.FLAGS.PRINT_TIMEOUT, `${timeoutSec}s`);
+  args.push(CLI.FLAGS.OUTPUT_FORMAT, OUTPUT_FORMATS.JSON);
+  if (disableSlashCommands) args.push(CLI.FLAGS.DISABLE_SLASH_COMMANDS);
   if (readOnly) {
     args.push(CLI.FLAGS.MODE, CLI.FLAGS.PLAN, CLI.FLAGS.SANDBOX);
   } else {
@@ -74,18 +51,46 @@ export function buildArgs(
   return args;
 }
 
-// Ordered response sources — first non-null wins. The stdout paths are
-// future-proofing for when upstream fixes the empty-stdout bug (#27466) or adds
-// JSON output; today they return null and the transcript scraper supplies the answer.
-function fromStdoutJson(raw: string): string | null {
+interface AgyStdoutUsage {
+  input_tokens?: number;
+  output_tokens?: number;
+  thinking_tokens?: number;
+  // Absent on agy 1.1.5; reported from 1.1.7 onwards.
+  cache_read_tokens?: number;
+}
+
+interface AgyStdoutJson {
+  response?: unknown;
+  usage?: AgyStdoutUsage;
+}
+
+type StdoutParse =
+  | { kind: "answer"; response: string; usage: AgyStdoutUsage | undefined }
+  | { kind: "envelope-without-answer" }
+  | { kind: "not-json" };
+
+// Ordered response sources — with --output-format json (supported by every
+// agy >= 1.1.5, live-verified per ADR-139) the terminal object on stdout
+// carries the answer under "response". A parsed envelope without an answer must
+// NOT fall through to the plain rung (that would surface raw JSON as the
+// review); plain stdout remains a defensive last resort for non-JSON output
+// only, then the actionable NO_OUTPUT error.
+function parseStdoutJson(raw: string): StdoutParse {
   const t = raw.trim();
-  if (!t.startsWith("{")) return null;
+  if (!t.startsWith("{")) return { kind: "not-json" };
+  let parsed: AgyStdoutJson;
   try {
-    const parsed = JSON.parse(t) as { response?: unknown };
-    return typeof parsed.response === "string" && parsed.response.length > 0 ? parsed.response : null;
+    parsed = JSON.parse(t) as AgyStdoutJson;
   } catch {
-    return null;
+    return { kind: "not-json" };
   }
+  if (typeof parsed.response !== "string") return { kind: "envelope-without-answer" };
+  // agy's JSON envelope keeps a trailing newline the transcript never had;
+  // trim it so adopting stdout-json does not change delivered responses.
+  const response = parsed.response.trimEnd();
+  if (response.length === 0) return { kind: "envelope-without-answer" };
+  const usage = parsed.usage && typeof parsed.usage === "object" ? parsed.usage : undefined;
+  return { kind: "answer", response, usage };
 }
 
 function fromStdoutPlain(raw: string): string | null {
@@ -93,12 +98,33 @@ function fromStdoutPlain(raw: string): string | null {
   return t.length > 0 ? t : null;
 }
 
+function buildUsageStats(
+  usage: AgyStdoutUsage | undefined,
+  model: string,
+  durationMs: number,
+  fellBack: boolean,
+): UsageStats | undefined {
+  if (!usage) return undefined;
+  return {
+    provider: "antigravity",
+    model,
+    inputTokens: usage.input_tokens,
+    outputTokens: usage.output_tokens,
+    cachedTokens: usage.cache_read_tokens,
+    thinkingTokens: usage.thinking_tokens,
+    durationMs,
+    fellBack,
+  };
+}
+
 function isRateLimitError(message: string): boolean {
   const lower = message.toLowerCase();
   return ANTIGRAVITY.RATE_LIMIT_SIGNALS.some((s) => lower.includes(s));
 }
 
-// Model-selection failures must not trigger the rate-limit fallback.
+// Model-selection failures must not trigger the rate-limit fallback. In json
+// mode the grammar arrives inside the stdout JSON "error" field; executeCommand
+// unions stderr+stdout on non-zero exit (ADR-117), so matching is unchanged.
 export function isModelUnavailableError(message: string): boolean {
   const lower = message.toLowerCase();
   return ANTIGRAVITY.MODEL_UNAVAILABLE_SIGNALS.some((s) => lower.includes(s));
@@ -140,11 +166,10 @@ function modelUnavailableMessage(model: string, detail: string, source: ModelSou
 }
 
 export async function executeAntigravityCLI(options: AntigravityExecutorOptions): Promise<AntigravityExecutorResult> {
-  await assertSupportedAgyVersion();
-  const baseDir = defaultBaseDir();
+  const agyVersion = await assertSupportedAgyVersion();
+  const disableSlashCommands = isVersionAtLeast(agyVersion, ANTIGRAVITY.SLASH_COMMANDS_FLAG_MIN_VERSION);
   const sandbox = process.env[ANTIGRAVITY.SANDBOX_ENV_VAR] !== "0";
   const timeoutMs = resolveTimeoutMs(ANTIGRAVITY.TIMEOUT_ENV_VAR, ANTIGRAVITY.DEFAULT_TIMEOUT_MS);
-  const lockOptions = buildInvocationLockOptions(timeoutMs);
   // Tell agy to wait slightly less than our hard process timeout so agy's own
   // --print-timeout fires first with a cleaner message when the model is slow.
   // For very small configured timeouts (<=6s), don't subtract — otherwise agy's
@@ -175,8 +200,7 @@ export async function executeAntigravityCLI(options: AntigravityExecutorOptions)
     return undefined;
   };
 
-  // Each attempt needs its own timestamp so transcript discovery cannot reuse prior output.
-  const runWithModel = async (model: string | undefined): Promise<AntigravityExecutorResult> => {
+  const runWithModel = async (model: string | undefined, fellBack: boolean): Promise<AntigravityExecutorResult> => {
     const args = buildArgs(
       fullPrompt,
       options.includeDirs,
@@ -185,8 +209,8 @@ export async function executeAntigravityCLI(options: AntigravityExecutorOptions)
       model,
       options.readOnly,
       effortFor(model),
+      disableSlashCommands,
     );
-    const transcriptSnapshot = snapshotTranscriptState(baseDir);
     const startedAt = Date.now();
     const raw = await executeCommand(
       CLI.COMMANDS.AGY,
@@ -197,112 +221,83 @@ export async function executeAntigravityCLI(options: AntigravityExecutorOptions)
       timeoutMs,
       commandLogging,
     );
+    const durationMs = Date.now() - startedAt;
+    const reportedModel = model ?? MODELS.AGY_DEFAULT_LABEL;
 
-    // First non-null wins. Order matters: structured stdout JSON (if agy ever adds
-    // it, #27466) is unambiguous; the transcript is the authoritative record; raw
-    // stdout text is LAST because agy may print banners/progress/auth lines that
-    // aren't the answer, and those must never preempt the transcript (#153 review).
-    const sources: Array<{ label: string; get: () => { response: string; transcriptPath?: string } | null }> = [
-      {
-        label: "stdout-json",
-        get: () => {
-          const response = fromStdoutJson(raw);
-          return response ? { response } : null;
-        },
-      },
-      {
-        label: "transcript",
-        get: () => {
-          const transcript = readLatestTranscript(startedAt, transcriptSnapshot);
-          return transcript ? { response: transcript.response, transcriptPath: transcript.path } : null;
-        },
-      },
-      {
-        label: "stdout-plain",
-        get: () => {
-          const response = fromStdoutPlain(raw);
-          return response ? { response } : null;
-        },
-      },
-    ];
-    for (const source of sources) {
-      const result = source.get();
-      if (result !== null) {
-        Logger.debug(`antigravity: response from ${source.label}`);
-        return {
-          response: result.response,
-          model: model ?? MODELS.AGY_DEFAULT_LABEL,
-          sessionId: undefined,
-          usage: undefined,
-          ...(result.transcriptPath ? { transcriptPath: result.transcriptPath } : {}),
-        };
+    const parsed = parseStdoutJson(raw);
+    if (parsed.kind === "answer") {
+      Logger.debug("antigravity: response from stdout-json");
+      return {
+        response: parsed.response,
+        model: reportedModel,
+        sessionId: undefined,
+        usage: buildUsageStats(parsed.usage, reportedModel, durationMs, fellBack),
+      };
+    }
+    if (parsed.kind === "not-json") {
+      const plain = fromStdoutPlain(raw);
+      if (plain) {
+        Logger.debug("antigravity: response from stdout-plain");
+        return { response: plain, model: reportedModel, sessionId: undefined, usage: undefined };
       }
     }
     // agy exited cleanly but produced no readable answer anywhere.
     throw new Error(ERROR_MESSAGES.NO_OUTPUT);
   };
 
-  return withMutex(() =>
-    withAntigravityInvocationLock(
-      baseDir,
-      async () => {
-        // Recovery is bounded to one model-less attempt.
-        const retryModelless = async (
-          rejectedModel: string,
-          rejectedSource: ModelSource,
-        ): Promise<AntigravityExecutorResult> => {
-          Logger.warn(
-            `Antigravity rejected model "${rejectedModel}" (slug drift?). Retrying once without an explicit model.`,
-          );
-          try {
-            return await runWithModel(undefined);
-          } catch (retryError) {
-            const retryMessage = retryError instanceof Error ? retryError.message : String(retryError);
-            if (isModelUnavailableError(retryMessage)) {
-              throw new Error(modelUnavailableMessage(rejectedModel, retryMessage, rejectedSource, explicitEffort));
-            }
-            if (isRateLimitError(retryMessage)) throw new Error(ERROR_MESSAGES.RATE_LIMITED);
-            throw retryError;
-          }
-        };
+  // Recovery is bounded to one model-less attempt.
+  const retryModelless = async (
+    rejectedModel: string,
+    rejectedSource: ModelSource,
+  ): Promise<AntigravityExecutorResult> => {
+    Logger.warn(
+      `Antigravity rejected model "${rejectedModel}" (slug drift?). Retrying once without an explicit model.`,
+    );
+    try {
+      return await runWithModel(undefined, true);
+    } catch (retryError) {
+      const retryMessage = retryError instanceof Error ? retryError.message : String(retryError);
+      if (isModelUnavailableError(retryMessage)) {
+        throw new Error(modelUnavailableMessage(rejectedModel, retryMessage, rejectedSource, explicitEffort));
+      }
+      if (isRateLimitError(retryMessage)) throw new Error(ERROR_MESSAGES.RATE_LIMITED);
+      throw retryError;
+    }
+  };
 
-        try {
-          return await runWithModel(primaryModel);
-        } catch (error) {
-          const message = error instanceof Error ? error.message : String(error);
-          if (isModelUnavailableError(message)) {
-            // Never silently discard a custom model pin.
-            if (!isOwnDefaultModel(primaryModel)) {
-              throw new Error(modelUnavailableMessage(primaryModel, message, modelSource, explicitEffort));
-            }
-            return await retryModelless(primaryModel, modelSource);
-          }
-          if (!isRateLimitError(message)) {
-            // spawn / NO_OUTPUT / timeout — already actionable, and a different model
-            // wouldn't help (auth / not-installed fail identically on every model).
-            throw error;
-          }
-          // Primary hit a subscription rate limit. Retry once on the cheaper Flash
-          // tier, unless we were already on it (or the caller pinned a model equal to
-          // the fallback) — in which case there is nothing left to fall back to.
-          if (primaryModel === MODELS.FALLBACK) {
-            throw new Error(ERROR_MESSAGES.RATE_LIMITED);
-          }
-          Logger.warn(`Antigravity rate limited on "${primaryModel}". Falling back to "${MODELS.FALLBACK}".`);
-          try {
-            return await runWithModel(MODELS.FALLBACK);
-          } catch (fallbackError) {
-            const fbMessage = fallbackError instanceof Error ? fallbackError.message : String(fallbackError);
-            // Both tiers throttled → the actionable quota message. A non-rate-limit
-            // fallback failure (timeout, crash) is surfaced as-is, not masked.
-            if (isRateLimitError(fbMessage)) throw new Error(ERROR_MESSAGES.RATE_LIMITED);
-            // The executor-selected fallback gets the same bounded recovery.
-            if (isModelUnavailableError(fbMessage)) return await retryModelless(MODELS.FALLBACK, "default");
-            throw fallbackError;
-          }
-        }
-      },
-      lockOptions,
-    ),
-  );
+  try {
+    return await runWithModel(primaryModel, false);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (isModelUnavailableError(message)) {
+      // Never silently discard a custom model pin.
+      if (!isOwnDefaultModel(primaryModel)) {
+        throw new Error(modelUnavailableMessage(primaryModel, message, modelSource, explicitEffort));
+      }
+      return await retryModelless(primaryModel, modelSource);
+    }
+    if (!isRateLimitError(message)) {
+      // spawn / NO_OUTPUT / timeout — already actionable, and a different model
+      // wouldn't help (auth / not-installed fail identically on every model).
+      throw error;
+    }
+    // Primary hit a subscription rate limit. Retry once on the cheaper Flash
+    // tier, unless we were already on it (or the caller pinned a model equal to
+    // the fallback) — in which case there is nothing left to fall back to.
+    if (primaryModel === MODELS.FALLBACK) {
+      throw new Error(ERROR_MESSAGES.RATE_LIMITED);
+    }
+    Logger.warn(`Antigravity rate limited on "${primaryModel}". Falling back to "${MODELS.FALLBACK}".`);
+    try {
+      return await runWithModel(MODELS.FALLBACK, true);
+    } catch (fallbackError) {
+      const fbMessage = fallbackError instanceof Error ? fallbackError.message : String(fallbackError);
+      // Both tiers throttled → the actionable quota message. A non-rate-limit
+      // fallback failure (timeout, crash) is surfaced as-is, not masked.
+      if (isRateLimitError(fbMessage)) throw new Error(ERROR_MESSAGES.RATE_LIMITED);
+      // The executor-selected fallback gets the same bounded recovery.
+      if (isModelUnavailableError(fbMessage)) return await retryModelless(MODELS.FALLBACK, "default");
+      throw fallbackError;
+    }
+  }
 }

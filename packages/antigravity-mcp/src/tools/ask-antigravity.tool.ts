@@ -49,7 +49,7 @@ export const askAntigravityTool: UnifiedTool = {
       response: result.response,
       model: result.model,
       sessionId: undefined,
-      usage: undefined,
+      usage: result.usage,
     };
     return { text, structuredContent: structured as unknown as Record<string, unknown> };
   },
