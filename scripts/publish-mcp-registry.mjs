@@ -8,7 +8,6 @@ import { isDeepStrictEqual } from "node:util";
 const DEFAULT_REGISTRY_URL = "https://registry.modelcontextprotocol.io";
 const DUPLICATE_VERSION = /invalid version:\s*cannot publish duplicate version/i;
 const OPTIONAL_FALSE_FIELDS = new Set(["isRequired", "isSecret"]);
-const SEMANTIC_SET_ARRAY_FIELDS = new Set(["packages", "environmentVariables"]);
 const OUTPUT_LIMIT = 16_384;
 
 function boundedTail(value) {
@@ -43,13 +42,24 @@ function compareCanonicalSetEntries(fieldName, left, right) {
   return leftKey < rightKey ? -1 : 1;
 }
 
-function normalizeRegistryValue(value, fieldName) {
+function semanticSetField(path) {
+  if (path.length === 1 && path[0] === "packages") return "packages";
+  if (
+    path.length === 3 &&
+    path[0] === "packages" &&
+    Number.isInteger(path[1]) &&
+    path[2] === "environmentVariables"
+  ) {
+    return "environmentVariables";
+  }
+  return null;
+}
+
+function normalizeRegistryValue(value, path = []) {
   if (Array.isArray(value)) {
-    const normalized = value.map((child) => normalizeRegistryValue(child));
-    // Packages are alternative distributions and environmentVariables is a
-    // schema-described mapping. Their order is not semantic. Argument, icon,
-    // remote, header, and every other array retain their submitted order.
-    return SEMANTIC_SET_ARRAY_FIELDS.has(fieldName)
+    const normalized = value.map((child, index) => normalizeRegistryValue(child, [...path, index]));
+    const fieldName = semanticSetField(path);
+    return fieldName !== null
       ? [...normalized].sort((left, right) => compareCanonicalSetEntries(fieldName, left, right))
       : normalized;
   }
@@ -59,7 +69,7 @@ function normalizeRegistryValue(value, fieldName) {
     Object.entries(value)
       .filter(([key, child]) => !(child === false && OPTIONAL_FALSE_FIELDS.has(key)))
       .sort(([left], [right]) => left.localeCompare(right))
-      .map(([key, child]) => [key, normalizeRegistryValue(child, key)]),
+      .map(([key, child]) => [key, normalizeRegistryValue(child, [...path, key])]),
   );
 }
 

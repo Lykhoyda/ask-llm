@@ -139,6 +139,26 @@ test("semantic record matching rejects changed set entries and reordered argumen
   assert.equal(recordsMatch(expected, reorderedArguments), false);
 });
 
+test("semantic record matching preserves order in publisher-provided metadata arrays", () => {
+  const expected = manifest("ask-one", "1.0.0");
+  expected._meta = {
+    "io.modelcontextprotocol.registry/publisher-provided": {
+      packages: [{ identifier: "first" }, { identifier: "second" }],
+      environmentVariables: [{ name: "FIRST" }, { name: "SECOND" }],
+    },
+  };
+
+  const reorderedPackages = registryRecord(expected);
+  reorderedPackages._meta["io.modelcontextprotocol.registry/publisher-provided"].packages.reverse();
+  assert.equal(recordsMatch(expected, reorderedPackages), false);
+
+  const reorderedEnvironmentVariables = registryRecord(expected);
+  reorderedEnvironmentVariables._meta[
+    "io.modelcontextprotocol.registry/publisher-provided"
+  ].environmentVariables.reverse();
+  assert.equal(recordsMatch(expected, reorderedEnvironmentVariables), false);
+});
+
 test("partial state verifies present records and publishes only missing records", async () => {
   const present = manifest("ask-present", "1.0.0");
   const missing = manifest("ask-missing", "2.0.0");
