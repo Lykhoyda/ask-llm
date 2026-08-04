@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { assignTestFiles, parseBatch, vitestCommand } from "./run-test-batch.mjs";
+import { assignTestFiles, parseBatch, run, vitestCommand } from "./run-test-batch.mjs";
 
 describe("test batch assignment", () => {
   it("covers every sorted file exactly once across five batches", () => {
@@ -31,12 +31,32 @@ describe("test batch assignment", () => {
     expect(assignTestFiles(["b", "a"], { index: 3, count: 5 })).toEqual([]);
   });
 
-  it("passes file names as separate arguments without shell quoting", () => {
-    expect(vitestCommand(["packages/a test/src/quoted ' name.test.ts"], "linux")).toEqual({
-      command: "yarn",
-      args: ["vitest", "run", "packages/a test/src/quoted ' name.test.ts"],
+  it("spawns Vitest through Node on Windows without changing argument boundaries", () => {
+    const nodePath = "C:\\Program Files\\nodejs\\node.exe";
+    const vitestPath = "C:\\repo path\\node_modules\\vitest\\vitest.mjs";
+    const testPath = "packages/a test/src/quoted ' name.test.ts";
+    const calls = [];
+
+    run(
+      vitestCommand([testPath], { nodePath, vitestPath }),
+      {},
+      (command, args, options) => {
+        calls.push({ command, args, options });
+        return { status: 0, stdout: "" };
+      },
+    );
+
+    expect(calls).toEqual([
+      {
+        command: nodePath,
+        args: [vitestPath, "run", testPath],
+        options: expect.objectContaining({ shell: false }),
+      },
+    ]);
+    expect(vitestCommand([testPath], { nodePath, vitestPath })).toEqual({
+      command: nodePath,
+      args: [vitestPath, "run", testPath],
     });
-    expect(vitestCommand([], "win32").command).toBe("yarn.cmd");
   });
 
   it("validates batch syntax and bounds", () => {
