@@ -55,6 +55,48 @@ function semanticSetField(path) {
   return null;
 }
 
+function isInputWithVariablesPath(path) {
+  const packageInput =
+    path.length === 4 &&
+    path[0] === "packages" &&
+    Number.isInteger(path[1]) &&
+    ["environmentVariables", "packageArguments", "runtimeArguments"].includes(path[2]) &&
+    Number.isInteger(path[3]);
+  const packageHeader =
+    path.length === 5 &&
+    path[0] === "packages" &&
+    Number.isInteger(path[1]) &&
+    path[2] === "transport" &&
+    path[3] === "headers" &&
+    Number.isInteger(path[4]);
+  const remoteHeader =
+    path.length === 4 &&
+    path[0] === "remotes" &&
+    Number.isInteger(path[1]) &&
+    path[2] === "headers" &&
+    Number.isInteger(path[3]);
+  return packageInput || packageHeader || remoteHeader;
+}
+
+function isSchemaInputPath(path) {
+  if (isInputWithVariablesPath(path)) return true;
+  if (
+    path.length === 4 &&
+    path[0] === "remotes" &&
+    Number.isInteger(path[1]) &&
+    path[2] === "variables" &&
+    typeof path[3] === "string"
+  ) {
+    return true;
+  }
+  return (
+    path.length >= 2 &&
+    path.at(-2) === "variables" &&
+    typeof path.at(-1) === "string" &&
+    isInputWithVariablesPath(path.slice(0, -2))
+  );
+}
+
 function normalizeRegistryValue(value, path = []) {
   if (Array.isArray(value)) {
     const normalized = value.map((child, index) => normalizeRegistryValue(child, [...path, index]));
@@ -67,7 +109,9 @@ function normalizeRegistryValue(value, path = []) {
 
   return Object.fromEntries(
     Object.entries(value)
-      .filter(([key, child]) => !(child === false && OPTIONAL_FALSE_FIELDS.has(key)))
+      .filter(
+        ([key, child]) => !(child === false && OPTIONAL_FALSE_FIELDS.has(key) && isSchemaInputPath(path)),
+      )
       .sort(([left], [right]) => left.localeCompare(right))
       .map(([key, child]) => [key, normalizeRegistryValue(child, [...path, key])]),
   );

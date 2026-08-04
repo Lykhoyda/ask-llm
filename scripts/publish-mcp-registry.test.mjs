@@ -87,7 +87,13 @@ afterEach(() => {
 
 test("semantic record matching accepts Registry omission of optional false fields", () => {
   const expected = manifest("ask-one", "1.0.0");
-  assert.equal(recordsMatch(expected, registryRecord(expected)), true);
+  expected.packages[0].packageArguments = [
+    { type: "named", name: "--optional", isRequired: false, isSecret: false },
+  ];
+  const registryValue = registryRecord(expected);
+  delete registryValue.packages[0].packageArguments[0].isRequired;
+  delete registryValue.packages[0].packageArguments[0].isSecret;
+  assert.equal(recordsMatch(expected, registryValue), true);
   const mismatched = registryRecord(expected);
   mismatched.packages[0].identifier = "@other/ask-one";
   assert.equal(recordsMatch(expected, mismatched), false);
@@ -157,6 +163,24 @@ test("semantic record matching preserves order in publisher-provided metadata ar
     "io.modelcontextprotocol.registry/publisher-provided"
   ].environmentVariables.reverse();
   assert.equal(recordsMatch(expected, reorderedEnvironmentVariables), false);
+});
+
+test("semantic record matching preserves optional false fields in publisher metadata", () => {
+  const expected = manifest("ask-one", "1.0.0");
+  expected._meta = {
+    "io.modelcontextprotocol.registry/publisher-provided": {
+      isRequired: false,
+      isSecret: false,
+    },
+  };
+
+  const withoutIsRequired = registryRecord(expected);
+  delete withoutIsRequired._meta["io.modelcontextprotocol.registry/publisher-provided"].isRequired;
+  assert.equal(recordsMatch(expected, withoutIsRequired), false);
+
+  const withoutIsSecret = registryRecord(expected);
+  delete withoutIsSecret._meta["io.modelcontextprotocol.registry/publisher-provided"].isSecret;
+  assert.equal(recordsMatch(expected, withoutIsSecret), false);
 });
 
 test("partial state verifies present records and publishes only missing records", async () => {
