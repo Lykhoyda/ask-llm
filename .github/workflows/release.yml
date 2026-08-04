@@ -12,7 +12,7 @@ on:
   workflow_dispatch:
     inputs:
       retry_registry_publish:
-        description: Reapply npm visibility and retry all MCP Registry publishes
+        description: Verify/repair MCP Registry versions and the unified release without npm publication
         required: false
         type: boolean
         default: false
@@ -65,6 +65,9 @@ jobs:
       # Since ADR-119 there are NO pack-time lifecycle hooks — tsdown inlines
       # @ask-llm/shared at build time and manifests publish as-is.
       - name: Create Release PR or Publish
+        # A registry-recovery dispatch must not re-enter npm publication. The
+        # selective Registry helper below verifies and repairs published versions.
+        if: github.event_name != 'workflow_dispatch' || inputs.retry_registry_publish != true
         id: changesets
         uses: changesets/action@a45c4d594aa4e2c509dc14a9f2b3b67ba3780d0d # v1.9.0
         with:
@@ -81,7 +84,7 @@ jobs:
       # though every manifest requests public access; a publish can otherwise be
       # accepted by npm but remain invisible to unauthenticated installs.
       - name: Ensure Ask LLM packages are public on npm
-        if: steps.changesets.outputs.published == 'true' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.retry_registry_publish)
+        if: steps.changesets.outputs.published == 'true'
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NODE_AUTH_TOKEN }}
         run: |
@@ -143,53 +146,51 @@ jobs:
           PLUGIN_VERSION=$(node -p "require('./packages/claude-plugin/package.json').version")
           jq --arg v "$PLUGIN_VERSION" '(.plugins[0].version = $v)' .claude-plugin/marketplace.json > .claude-plugin/marketplace.json.tmp && mv .claude-plugin/marketplace.json.tmp .claude-plugin/marketplace.json
 
-      - if: steps.changesets.outputs.published == 'true' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.retry_registry_publish)
-        run: ./mcp-publisher login github-oidc
-
-      - name: Publish ask-gemini to MCP Registry
+      # The Registry rejects duplicate versions. Verify exact existing records,
+      # publish only missing versions, and keep trying independent missing servers
+      # so one real failure cannot hide another publication gap (ADR-139).
+      - name: Publish missing servers to MCP Registry
         if: steps.changesets.outputs.published == 'true' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.retry_registry_publish)
-        run: ./mcp-publisher publish server.json
-
-      - name: Publish ask-codex to MCP Registry
-        if: steps.changesets.outputs.published == 'true' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.retry_registry_publish)
-        run: ./mcp-publisher publish packages/codex-mcp/server.json
-
-      - name: Publish ask-claude to MCP Registry
-        if: steps.changesets.outputs.published == 'true' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.retry_registry_publish)
-        run: ./mcp-publisher publish packages/claude-mcp/server.json
-
-      - name: Publish ask-ollama to MCP Registry
-        if: steps.changesets.outputs.published == 'true' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.retry_registry_publish)
-        run: ./mcp-publisher publish packages/ollama-mcp/server.json
-
-      - name: Publish ask-antigravity to MCP Registry
-        if: steps.changesets.outputs.published == 'true' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.retry_registry_publish)
-        run: ./mcp-publisher publish packages/antigravity-mcp/server.json
-
-      - name: Publish ask-llm to MCP Registry
-        if: steps.changesets.outputs.published == 'true' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.retry_registry_publish)
-        run: ./mcp-publisher publish packages/llm-mcp/server.json
+        env:
+          MCP_PUBLISHER_PATH: ./mcp-publisher
+        run: >-
+          node scripts/publish-mcp-registry.mjs
+          server.json
+          packages/codex-mcp/server.json
+          packages/claude-mcp/server.json
+          packages/ollama-mcp/server.json
+          packages/antigravity-mcp/server.json
+          packages/llm-mcp/server.json
 
       # Unified GitHub Release tagged at gemini's version (legacy convention from when this
       # was a fork of gemini-mcp-tool). The per-package tags created by changesets/action
       # also exist (@ask-llm/gemini-mcp@1.6.4 etc.) — both are kept so URL-bookmarked release
       # pages from v1.5.x..v1.6.x still resolve.
       - name: Get gemini version for unified release tag
-        if: steps.changesets.outputs.published == 'true'
+        if: steps.changesets.outputs.published == 'true' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.retry_registry_publish)
         id: gemini_version
         run: echo "version=$(node -p "require('./packages/gemini-mcp/package.json').version")" >> "$GITHUB_OUTPUT"
 
-      - name: Create unified GitHub Release
-        if: steps.changesets.outputs.published == 'true'
+      - name: Create or verify unified GitHub Release
+        if: steps.changesets.outputs.published == 'true' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.retry_registry_publish)
         env:
           GEMINI_VERSION: ${{ steps.gemini_version.outputs.version }}
           GH_TOKEN: ${{ github.token }}
         run: |
           TAG="v${GEMINI_VERSION}"
-          # changesets/action may have already created per-package tags but not this v<gemini> tag
-          if ! gh release view "$TAG" >/dev/null 2>&1; then
-            git tag "$TAG"
+          TAG_TARGET=$(git log -G "^[[:space:]]*\"version\": \"${GEMINI_VERSION}\"" -1 --format=%H -- packages/gemini-mcp/package.json)
+          test -n "$TAG_TARGET"
+          # A recovery may follow a partially-created tag or release. Verify the
+          # existing tag target, create only the missing object, and never retag.
+          if git rev-parse --verify --quiet "refs/tags/$TAG" >/dev/null; then
+            test "$(git rev-list -n 1 "$TAG")" = "$TAG_TARGET"
+          else
+            git tag "$TAG" "$TAG_TARGET"
             git push origin "$TAG"
+          fi
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Verified existing unified release $TAG at $TAG_TARGET"
+          else
             gh release create "$TAG" --generate-notes --title "$TAG"
           fi
 
@@ -234,18 +235,17 @@ jobs:
               `**Commit:** ${context.sha}`,
               ``,
               `Likely causes:`,
-              `- NODE_AUTH_TOKEN expired, revoked, or wrong type (must be Classic "Automation" or 2FA-bypass Granular)`,
-              `- Package permission changed on npm (token no longer covers @ask-llm/gemini-mcp / @ask-llm/codex-mcp / @ask-llm/claude-mcp / @ask-llm/ollama-mcp / @ask-llm/antigravity-mcp / @ask-llm/mcp)`,
+              `- npm authentication or package permission failure (only when the first failed step/log says npm returned an authentication or authorization error)`,
               `- Pinned mcp-publisher download or checksum verification failed`,
-              `- MCP Registry OIDC authentication, manifest validation, or publication failed`,
+              `- MCP Registry OIDC authentication, manifest validation, exact-record verification, or publication failed`,
               `- npm, GitHub, or MCP Registry outage`,
               ``,
               `**Fix path:**`,
-              `1. Open the run above and identify the first failed step.`,
-              `2. If npm authentication failed, refresh NODE_AUTH_TOKEN in repository Actions secrets (regenerate at https://www.npmjs.com/settings/anton-lykhoyda/tokens).`,
-              `3. If MCP Registry publication failed, validate the synced server.json and re-run after the registry/auth issue is corrected.`,
-              `4. Re-trigger: gh workflow run release.yml`,
-              `5. Close this issue once a release run succeeds.`,
+              `1. Open the run above and identify the first failed step; do not infer NODE_AUTH_TOKEN failure from this issue template.`,
+              `2. Check npm and MCP Registry state before retrying because npm publication may have succeeded before a later Registry failure.`,
+              `3. Correct the reported auth, validation, mismatch, or service failure. Registry retries verify existing exact versions and publish only missing versions.`,
+              `4. Retry Registry/release recovery on main with retry_registry_publish=true; this path does not re-enter npm publication.`,
+              `5. Close this issue only after the recovery run is green and all expected npm, Registry, and unified-release versions are externally verified.`,
             ].join("\n");
             await github.rest.issues.create({
               owner: context.repo.owner,
