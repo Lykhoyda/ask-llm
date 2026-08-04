@@ -1,4 +1,4 @@
-import { readFileSync, readdirSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -32,6 +32,25 @@ if (!/MCP_PUBLISHER_SHA256:\s*[0-9a-f]{64}/.test(release) || !release.includes("
 }
 if (release.includes("continue-on-error: true")) {
   errors.push(".github/workflows/release.yml must fail loudly when a registry publication step fails");
+}
+if (!release.includes("node scripts/publish-mcp-registry.mjs")) {
+  errors.push(".github/workflows/release.yml must use the selective MCP Registry publication helper");
+}
+if (/run:\s*\.\/mcp-publisher (?:login|publish)/.test(release)) {
+  errors.push(".github/workflows/release.yml must not bypass the selective helper's OIDC login/publication plan");
+}
+if (!release.includes("inputs.retry_registry_publish != true")) {
+  errors.push("Registry recovery dispatches must skip changesets/npm publication");
+}
+if (
+  !/- name: Ensure Ask LLM packages are public on npm\n\s+if: steps\.changesets\.outputs\.published == 'true'/.test(
+    release,
+  )
+) {
+  errors.push("Registry recovery dispatches must not require npm access mutations");
+}
+if (!release.includes("Create or verify unified GitHub Release")) {
+  errors.push("Registry recovery must create or verify the unified GitHub release");
 }
 
 if (errors.length > 0) {

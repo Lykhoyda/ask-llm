@@ -1,5 +1,15 @@
 # Architectural Decisions
 
+## ADR-139: MCP Registry publication is selective, exact, and retry-safe
+
+**Status:** Accepted (2026-08-04)
+
+**Context:** Release run 30807940948 published its intended npm packages but then failed before their MCP Registry entries. Any npm publication set the Changesets `published` boolean, and that one coarse signal caused the workflow to republish all six Registry manifests in fixed order. The Registry rejects duplicate versions, so unchanged Gemini `1.7.0` failed first and masked missing Codex `0.7.3` and aggregate MCP `0.6.4`. Plain reruns could then turn green while skipping Registry work because npm had no unpublished versions; the manual retry path repeated the same duplicates.
+
+**Decision:** Route normal and manual-retry Registry work through `scripts/publish-mcp-registry.mjs`. The helper validates every synced manifest, queries the Registry by exact name and version, compares the complete semantic record (normalizing only schema-default optional `false` fields), skips exact existing records, and publishes only absent versions. It requests GitHub OIDC only when at least one version is missing, attempts all independently selected servers, and reports a final failure summary. A duplicate response is accepted only as a race: the helper re-reads the record and requires an exact match; mismatches and real authentication, validation, network, or service failures remain fatal. A Registry-recovery dispatch skips Changesets/npm publication and npm access mutations and, after Registry success, creates or verifies the unified Gemini-version GitHub release at the commit that last changed Gemini's package version.
+
+**Consequences:** Partial releases are recoverable without rotating credentials or republishing npm versions, and an all-present retry is an explicit verified no-op rather than a misleading skipped path. Registry reads are now part of release correctness; unavailable or malformed lookup responses fail closed. Hermetic helper tests cover partial, all-present, all-missing, mismatch, duplicate-race, validation/network, and genuine publisher-failure states.
+
 ## ADR-138: Gemini quota fallback moves to gemini-3.6-flash; agy fallback stays evidence-pinned
 
 **Status:** Accepted (2026-07-24)
