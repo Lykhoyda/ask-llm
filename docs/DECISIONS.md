@@ -13,19 +13,26 @@ protection and must remain stable.
 
 **Decision:** Use Vitest's project discovery as the single source of test files,
 sort the discovered paths deterministically, and assign them round-robin to
-exactly five batches. Each supported Node/platform combination runs all five
-batches through a native GitHub Actions matrix. Empty batches succeed without
-invoking Vitest, which keeps the partition valid for empty and smaller suites.
-Three aggregation jobs retain the established required-check names and succeed
-only after the complete batch matrix succeeds. Contributors can reproduce a
-matrix partition with the `yarn test:batch <index>/5` command documented in
-`docs/CONTRIBUTING.md`.
+exactly five batches. For each supported Node/platform combination, one setup
+matrix leg performs the immutable install, build, lint, and changeset guard,
+then archives that platform's dependencies and build output. Five native Actions
+matrix legs restore the matching artifact and run only their assigned tests.
+Empty batches succeed without invoking Vitest, which keeps the partition valid
+for empty and smaller suites. Each of the three established required checks
+counts only the five success-marker artifacts from its own Node/platform legs,
+so a Windows failure cannot make an Ubuntu-named check fail (or vice versa).
+Contributors can reproduce a partition with the `yarn test:batch <index>/5`
+command documented in `docs/CONTRIBUTING.md`.
 
 **Consequences:** Every discovered test belongs to one batch without duplicate
-execution, and adding a test requires no CI file-list maintenance. Build, lint,
-immutable install, environment, timeout, failure, Node, and platform behavior
-remain unchanged; the Windows coverage introduced by ADR-129 is now five batch
-legs rather than one serial test leg.
+execution, and adding a test requires no CI file-list maintenance. Setup work
+remains once per Node/platform combination rather than multiplying fivefold;
+the fan-out pays only checkout, Node/Corepack activation, artifact transfer,
+and test execution. The three historical check names retain honest per-platform
+diagnostics, while their success-marker aggregation waits for the complete
+batch matrix. Build, lint, immutable install, environment, timeout, failure,
+Node, and platform behavior otherwise remain unchanged; the Windows coverage
+introduced by ADR-129 is now five batch legs rather than one serial test leg.
 
 **Reference:** `.github/workflows/ci.yml`, `vitest.config.ts`,
 `scripts/run-test-batch.mjs`, and `scripts/run-test-batch.test.mjs`; issue #252;

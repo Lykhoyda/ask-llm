@@ -7,68 +7,93 @@ on:
     branches: [main]
 
 jobs:
-  test-batches:
-    name: test batch ${{ matrix.batch }}/5 (${{ matrix.node-version }}, ${{ matrix.os }})
+  test-setup:
+    name: test setup (${{ matrix.node-version }}, ${{ matrix.os }})
     runs-on: ${{ matrix.os }}
-    # Cap each matrix leg so a hung runner fails fast instead of stalling up to the
-    # 6h default. Normal build+lint+test is <2m on ubuntu; #155 hit a 22.x runner
-    # that hung ~12m while 20.x passed the same commit in 77s. Windows runners are
-    # ~2-3x slower, so 15m leaves headroom while still failing hung runners fast.
     timeout-minutes: 15
-
     strategy:
-      # Don't cancel the ubuntu legs when the Windows leg fails (or vice versa) —
-      # cross-OS failures are exactly what this matrix exists to isolate.
       fail-fast: false
       matrix:
         # tsdown (build toolchain) needs Node >=22.18 (ADR-119); Node 20 RUNTIME
-        # support is verified by the global-install-smoke job below
+        # support is verified by the global-install-smoke job below.
         node-version: [22.x, 24.x]
         os: [ubuntu-latest, windows-latest]
-        # Every supported Node/OS leg gets exactly these five deterministic batches.
-        batch: [1, 2, 3, 4, 5]
         exclude:
-          # Windows spawn/.cmd/ENOENT bugs are the top upstream complaint class
-          # (upstream PRs #23/#27/#41/#43, issues #28/#30/#40) yet had zero CI
-          # coverage — a Windows-only regression shipped undetected. Keep one
-          # Windows Node version while expanding it across the same five batches.
+          # Keep the ADR-129 Windows coverage on the current LTS only.
           - node-version: 24.x
             os: windows-latest
-
     steps:
     - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
       with:
-        # Full history: the ADR-119 shared-changeset guard diffs against the PR base
-        # (git diff origin/<base>...HEAD needs the merge-base; a shallow clone has neither).
+        # The ADR-119 guard needs the PR merge-base.
         fetch-depth: 0
-
     - name: Use Node.js ${{ matrix.node-version }}
       uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
       with:
         node-version: ${{ matrix.node-version }}
-
-    - name: Enable Corepack
-      run: corepack enable
-
+    - run: corepack enable
     - name: Install dependencies
       run: yarn install --immutable
-
     - name: Build
       run: yarn build
-
     - name: Lint
       run: yarn lint
-
-    - name: Run test batch ${{ matrix.batch }}/5
-      run: yarn test:batch "${{ matrix.batch }}/5"
-
     - name: Guard — shared changes must changeset all six MCPs (ADR-119)
       if: github.event_name == 'pull_request'
       run: node scripts/check-shared-changeset.mjs
+    - name: Archive platform setup
+      run: tar -czf test-setup.tgz node_modules packages .yarn/install-state.gz
+    - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      with:
+        name: test-setup-${{ matrix.node-version }}-${{ matrix.os }}
+        path: test-setup.tgz
+        retention-days: 1
+
+  test-batches:
+    name: test batch ${{ matrix.batch }}/5 (${{ matrix.node-version }}, ${{ matrix.os }})
+    needs: test-setup
+    # A failed setup must only suppress its own platform's batches. Running the
+    # matrix after any setup failure lets each leg independently fetch its
+    # platform artifact (or fail if that one artifact is absent).
+    if: always()
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version: [22.x, 24.x]
+        os: [ubuntu-latest, windows-latest]
+        batch: [1, 2, 3, 4, 5]
+        exclude:
+          - node-version: 24.x
+            os: windows-latest
+    steps:
+    - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+      with:
+        fetch-depth: 0
+    - name: Use Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+      with:
+        node-version: ${{ matrix.node-version }}
+    - run: corepack enable
+    - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+      with:
+        name: test-setup-${{ matrix.node-version }}-${{ matrix.os }}
+    - name: Restore platform setup
+      run: tar -xzf test-setup.tgz
+    - name: Run test batch ${{ matrix.batch }}/5
+      run: yarn test:batch "${{ matrix.batch }}/5"
+    - name: Record successful batch
+      run: node -e "require('node:fs').writeFileSync('batch-${{ matrix.batch }}', '')"
+    - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      with:
+        name: test-result-${{ matrix.node-version }}-${{ matrix.os }}-${{ matrix.batch }}
+        path: batch-${{ matrix.batch }}
+        retention-days: 1
 
   test:
-    # Preserve the three historical required-check names while making each one
-    # depend on completion of every five-way batch matrix leg.
+    # Preserve each historical required check's own Node/OS diagnostic: a check
+    # only counts the five success markers from its matching platform setup.
     name: test (${{ matrix.node-version }}, ${{ matrix.os }})
     needs: test-batches
     if: always()
@@ -81,10 +106,16 @@ jobs:
           - node-version: 22.x
             os: windows-latest
     steps:
-    - name: Require every test batch
-      env:
-        TEST_BATCH_RESULT: ${{ needs.test-batches.result }}
-      run: test "$TEST_BATCH_RESULT" = success
+    - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+      with:
+        pattern: test-result-${{ matrix.node-version }}-${{ matrix.os }}-*
+        path: test-results
+        merge-multiple: true
+    - name: Require all five matching batches
+      run: |
+        for batch in 1 2 3 4 5; do
+          test -f "test-results/batch-$batch"
+        done
 
   pack-tarballs:
     # Build once on Node 24 (tsdown needs >=22.18), share tarballs with the smoke matrix.
