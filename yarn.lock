@@ -212,7 +212,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@ask-llm/antigravity-mcp@npm:^0.6.0, @ask-llm/antigravity-mcp@workspace:*, @ask-llm/antigravity-mcp@workspace:packages/antigravity-mcp":
+"@ask-llm/antigravity-mcp@npm:^0.7.0, @ask-llm/antigravity-mcp@workspace:*, @ask-llm/antigravity-mcp@workspace:packages/antigravity-mcp":
   version: 0.0.0-use.local
   resolution: "@ask-llm/antigravity-mcp@workspace:packages/antigravity-mcp"
   dependencies:
@@ -284,7 +284,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@ask-llm/mcp@workspace:packages/llm-mcp"
   dependencies:
-    "@ask-llm/antigravity-mcp": "npm:^0.6.0"
+    "@ask-llm/antigravity-mcp": "npm:^0.7.0"
     "@ask-llm/claude-mcp": "npm:^0.1.5"
     "@ask-llm/codex-mcp": "npm:^0.7.3"
     "@ask-llm/gemini-mcp": "npm:^1.7.0"
