@@ -44,12 +44,7 @@ function compareCanonicalSetEntries(fieldName, left, right) {
 
 function semanticSetField(path) {
   if (path.length === 1 && path[0] === "packages") return "packages";
-  if (
-    path.length === 3 &&
-    path[0] === "packages" &&
-    Number.isInteger(path[1]) &&
-    path[2] === "environmentVariables"
-  ) {
+  if (path.length === 3 && path[0] === "packages" && Number.isInteger(path[1]) && path[2] === "environmentVariables") {
     return "environmentVariables";
   }
   return null;
