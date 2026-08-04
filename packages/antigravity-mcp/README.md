@@ -6,11 +6,9 @@ subscription-backed second opinion / code review from Antigravity.
 > **Experimental.** Requires `agy` >=1.1.5 and is validated against 1.1.5 (base
 > model slugs + separate `--effort` flag); discovery and ping report older or
 > unverifiable installations as detected but unusable, exclude them from
-> dispatch, and provide an actionable update diagnostic. The executor requests
-> `--output-format json` (supported across the whole >=1.1.5 range) and reads
-> the answer plus token usage from the JSON envelope on stdout, with plain
-> stdout as a defensive last resort. On agy >=1.1.9 it also passes
-> `--disable-slash-commands`. Single-turn only for now (headless resume via the
+> dispatch, and provide an actionable update diagnostic. The executor consumes
+> agy's structured JSON stdout; see the [provider guide](https://lykhoyda.github.io/ask-llm/providers/antigravity)
+> for response parsing, version gates, token usage, and limitations. Single-turn only for now (headless resume via the
 > captured conversation id is tracked as follow-up work). Defaults to the
 > gemini-3.1-pro model at high reasoning effort, falling back to gemini-3.5-flash
 > on a rate limit. When agy rejects a model whose value equals one of those

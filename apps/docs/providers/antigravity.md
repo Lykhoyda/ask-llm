@@ -47,7 +47,7 @@ Or install globally: `npm install -g @ask-llm/antigravity-mcp`
 
 ## How it works
 
-Provider discovery runs `agy --version` and only makes Antigravity available to default or multi-provider dispatch when version 1.1.5 or newer is confirmed. Older versions remain visible as detected but unsupported, while an unparseable output or failed version probe is reported as detected but unusable; doctor and ping include the actual version when known, the required minimum, and an upgrade action. The executor repeats the same support check before each request, then invokes `agy -p … --output-format json` and reads the answer from the terminal JSON object's `response` key on stdout (a source chain of structured JSON → plain-stdout last resort → an actionable no-output error). On agy ≥ 1.1.9 it also passes `--disable-slash-commands` so prompt text can never expand as a slash command or skill (older versions reject the flag, so it is version-gated). Concurrent calls need no serialization — each process's answer arrives on its own stdout. It runs with a read-only prompt preamble plus `--dangerously-skip-permissions` + `--sandbox` so `agy` never hangs on approval prompts.
+Provider discovery runs `agy --version` and only makes Antigravity available to default or multi-provider dispatch when version 1.1.5 or newer is confirmed. Older versions remain visible as detected but unsupported, while an unparseable output or failed version probe is reported as detected but unusable; doctor and ping include the actual version when known, the required minimum, and an upgrade action. The executor repeats the same support check before each request, then invokes `agy -p … --output-format json` and reads the answer from the terminal JSON object's `response` key on stdout (a source chain of structured JSON → plain stdout only when the output does not look like JSON → an actionable no-output error). On agy ≥ 1.1.9 it also passes `--disable-slash-commands` so prompt text can never expand as a slash command or skill (older versions reject the flag, so it is version-gated). Concurrent calls need no serialization — each process's answer arrives on its own stdout. It runs with a read-only prompt preamble plus `--dangerously-skip-permissions` + `--sandbox` so `agy` never hangs on approval prompts.
 
 ## Config
 
@@ -60,7 +60,7 @@ Provider discovery runs `agy --version` and only makes Antigravity available to 
 
 ## Limitations
 
-- **Experimental:** the structured-output contract tracks `agy`'s JSON envelope; if the shape changes upstream, the executor degrades to raw stdout or an actionable error.
+- **Experimental:** the structured-output contract tracks `agy`'s JSON envelope; JSON-looking output that is corrupt or lacks an answer fails with an actionable error instead of surfacing raw JSON fragments.
 - **Minimum version:** `agy` 1.1.5; older or unverifiable installations are reported but excluded from dispatch.
 - **Single-turn:** no multi-turn sessions yet; the executor accepts and ignores `sessionId` (headless resume via the captured conversation id is tracked as follow-up work). Model selection *is* supported via `--model` (defaults to gemini-3.1-pro at high effort, with a gemini-3.5-flash rate-limit fallback; see [Config](#config)); only the short `-m` flag hangs under `-p`.
 - **Interactive auth:** requires an `agy` login, so it isn't suited to headless CI.
