@@ -71,7 +71,7 @@ type StdoutParse =
 // Parsed JSON envelopes never fall through to raw stdout; see ADR-139.
 function parseStdoutJson(raw: string): StdoutParse {
   const t = raw.trim();
-  if (!t.startsWith("{")) return { kind: "not-json" };
+  if (!t.startsWith("{") && !t.startsWith("[")) return { kind: "not-json" };
   let parsed: AgyStdoutJson;
   try {
     parsed = JSON.parse(t) as AgyStdoutJson;
@@ -207,7 +207,7 @@ export async function executeAntigravityCLI(options: AntigravityExecutorOptions)
     const raw = await executeCommand(
       CLI.COMMANDS.AGY,
       args,
-      options.onProgress,
+      undefined,
       undefined,
       undefined,
       timeoutMs,

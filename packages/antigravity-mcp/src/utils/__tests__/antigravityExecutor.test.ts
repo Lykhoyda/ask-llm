@@ -153,6 +153,16 @@ describe("executeAntigravityCLI response sources", () => {
     await expect(executeAntigravityCLI({ prompt: "q" })).rejects.toThrow(ERROR_MESSAGES.NO_OUTPUT);
   });
 
+  it("fails closed on a parsed array instead of serving it as plain stdout", async () => {
+    mockExec.mockResolvedValue('["fragment"]');
+    await expect(executeAntigravityCLI({ prompt: "q" })).rejects.toThrow(ERROR_MESSAGES.NO_OUTPUT);
+  });
+
+  it("fails closed on array-looking but unparsable stdout", async () => {
+    mockExec.mockResolvedValue('["fragment"');
+    await expect(executeAntigravityCLI({ prompt: "q" })).rejects.toThrow(ERROR_MESSAGES.NO_OUTPUT);
+  });
+
   it("throws the actionable NO_OUTPUT when stdout is empty", async () => {
     mockExec.mockResolvedValue("");
     await expect(executeAntigravityCLI({ prompt: "q" })).rejects.toThrow(ERROR_MESSAGES.NO_OUTPUT);
@@ -246,6 +256,13 @@ describe("minimum version pin", () => {
 });
 
 describe("executeAntigravityCLI argument wiring", () => {
+  it("does not forward structured stdout chunks as progress", async () => {
+    const onProgress = vi.fn();
+    mockExec.mockResolvedValue(jsonStdout("answer\n"));
+    await executeAntigravityCLI({ prompt: "q", onProgress });
+    expect(mockExec.mock.calls[0][2]).toBeUndefined();
+  });
+
   it("marks the exact full read-only prompt as sensitive command-log data", async () => {
     mockExec.mockResolvedValue("answer");
     await executeAntigravityCLI({ prompt: "private machine review", readOnly: true });
