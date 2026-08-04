@@ -7,61 +7,252 @@ on:
     branches: [main]
 
 jobs:
-  test:
-    runs-on: ${{ matrix.os }}
-    # Cap each matrix leg so a hung runner fails fast instead of stalling up to the
-    # 6h default. Normal build+lint+test is <2m on ubuntu; #155 hit a 22.x runner
-    # that hung ~12m while 20.x passed the same commit in 77s. Windows runners are
-    # ~2-3x slower, so 15m leaves headroom while still failing hung runners fast.
+  test-setup-node22-ubuntu:
+    name: test setup (22.x, ubuntu-latest)
+    runs-on: ubuntu-latest
     timeout-minutes: 15
-
-    strategy:
-      # Don't cancel the ubuntu legs when the Windows leg fails (or vice versa) —
-      # cross-OS failures are exactly what this matrix exists to isolate.
-      fail-fast: false
-      matrix:
-        # tsdown (build toolchain) needs Node >=22.18 (ADR-119); Node 20 RUNTIME
-        # support is verified by the global-install-smoke job below
-        node-version: [22.x, 24.x]
-        os: [ubuntu-latest]
-        include:
-          # Windows spawn/.cmd/ENOENT bugs are the top upstream complaint class
-          # (upstream PRs #23/#27/#41/#43, issues #28/#30/#40) yet had zero CI
-          # coverage — a Windows-only regression shipped undetected. One leg on
-          # the current LTS bounds the added cost (ADR-129).
-          - node-version: 22.x
-            os: windows-latest
-
     steps:
     - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
       with:
-        # Full history: the ADR-119 shared-changeset guard diffs against the PR base
-        # (git diff origin/<base>...HEAD needs the merge-base; a shallow clone has neither).
+        # The ADR-119 guard needs the PR merge-base.
         fetch-depth: 0
-
-    - name: Use Node.js ${{ matrix.node-version }}
+    - name: Use Node.js 22.x
       uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
       with:
-        node-version: ${{ matrix.node-version }}
-
-    - name: Enable Corepack
-      run: corepack enable
-
+        node-version: 22.x
+    - run: corepack enable
     - name: Install dependencies
       run: yarn install --immutable
-
     - name: Build
       run: yarn build
-
     - name: Lint
       run: yarn lint
-
-    - name: Run tests
-      run: yarn test
-
     - name: Guard — shared changes must changeset all six MCPs (ADR-119)
       if: github.event_name == 'pull_request'
       run: node scripts/check-shared-changeset.mjs
+    - name: Archive platform setup
+      run: tar -czf test-setup.tgz node_modules packages .yarn/install-state.gz
+    - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      with:
+        name: test-setup-22.x-ubuntu-latest
+        path: test-setup.tgz
+        retention-days: 1
+
+  test-batches-node22-ubuntu:
+    name: test batch ${{ matrix.batch }}/5 (22.x, ubuntu-latest)
+    needs: test-setup-node22-ubuntu
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        batch: [1, 2, 3, 4, 5]
+    steps:
+    - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+      with:
+        fetch-depth: 0
+    - name: Use Node.js 22.x
+      uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+      with:
+        node-version: 22.x
+    - run: corepack enable
+    - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+      with:
+        name: test-setup-22.x-ubuntu-latest
+    - name: Restore platform setup
+      run: tar -xzf test-setup.tgz
+    - name: Run test batch ${{ matrix.batch }}/5
+      run: yarn test:batch "${{ matrix.batch }}/5"
+    - name: Record successful batch
+      run: node -e "require('node:fs').writeFileSync('batch-${{ matrix.batch }}', '')"
+    - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      with:
+        name: test-result-22.x-ubuntu-latest-${{ matrix.batch }}
+        path: batch-${{ matrix.batch }}
+        retention-days: 1
+
+  test-node22-ubuntu:
+    name: test (22.x, ubuntu-latest)
+    needs: test-batches-node22-ubuntu
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+    - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+      with:
+        pattern: test-result-22.x-ubuntu-latest-*
+        path: test-results
+        merge-multiple: true
+    - name: Require all five matching batches
+      run: |
+        for batch in 1 2 3 4 5; do
+          test -f "test-results/batch-$batch"
+        done
+
+  test-setup-node24-ubuntu:
+    name: test setup (24.x, ubuntu-latest)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+    - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+      with:
+        fetch-depth: 0
+    - name: Use Node.js 24.x
+      uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+      with:
+        node-version: 24.x
+    - run: corepack enable
+    - name: Install dependencies
+      run: yarn install --immutable
+    - name: Build
+      run: yarn build
+    - name: Lint
+      run: yarn lint
+    - name: Guard — shared changes must changeset all six MCPs (ADR-119)
+      if: github.event_name == 'pull_request'
+      run: node scripts/check-shared-changeset.mjs
+    - name: Archive platform setup
+      run: tar -czf test-setup.tgz node_modules packages .yarn/install-state.gz
+    - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      with:
+        name: test-setup-24.x-ubuntu-latest
+        path: test-setup.tgz
+        retention-days: 1
+
+  test-batches-node24-ubuntu:
+    name: test batch ${{ matrix.batch }}/5 (24.x, ubuntu-latest)
+    needs: test-setup-node24-ubuntu
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        batch: [1, 2, 3, 4, 5]
+    steps:
+    - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+      with:
+        fetch-depth: 0
+    - name: Use Node.js 24.x
+      uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+      with:
+        node-version: 24.x
+    - run: corepack enable
+    - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+      with:
+        name: test-setup-24.x-ubuntu-latest
+    - name: Restore platform setup
+      run: tar -xzf test-setup.tgz
+    - name: Run test batch ${{ matrix.batch }}/5
+      run: yarn test:batch "${{ matrix.batch }}/5"
+    - name: Record successful batch
+      run: node -e "require('node:fs').writeFileSync('batch-${{ matrix.batch }}', '')"
+    - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      with:
+        name: test-result-24.x-ubuntu-latest-${{ matrix.batch }}
+        path: batch-${{ matrix.batch }}
+        retention-days: 1
+
+  test-node24-ubuntu:
+    name: test (24.x, ubuntu-latest)
+    needs: test-batches-node24-ubuntu
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+    - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+      with:
+        pattern: test-result-24.x-ubuntu-latest-*
+        path: test-results
+        merge-multiple: true
+    - name: Require all five matching batches
+      run: |
+        for batch in 1 2 3 4 5; do
+          test -f "test-results/batch-$batch"
+        done
+
+  test-setup-node22-windows:
+    name: test setup (22.x, windows-latest)
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+    - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+      with:
+        fetch-depth: 0
+    - name: Use Node.js 22.x
+      uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+      with:
+        node-version: 22.x
+    - run: corepack enable
+    - name: Install dependencies
+      run: yarn install --immutable
+    - name: Build
+      run: yarn build
+    - name: Lint
+      run: yarn lint
+    - name: Guard — shared changes must changeset all six MCPs (ADR-119)
+      if: github.event_name == 'pull_request'
+      run: node scripts/check-shared-changeset.mjs
+    - name: Archive platform setup
+      run: tar -czf test-setup.tgz node_modules packages .yarn/install-state.gz
+    - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      with:
+        name: test-setup-22.x-windows-latest
+        path: test-setup.tgz
+        retention-days: 1
+
+  test-batches-node22-windows:
+    name: test batch ${{ matrix.batch }}/5 (22.x, windows-latest)
+    needs: test-setup-node22-windows
+    if: always()
+    runs-on: windows-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        batch: [1, 2, 3, 4, 5]
+    steps:
+    - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+      with:
+        fetch-depth: 0
+    - name: Use Node.js 22.x
+      uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+      with:
+        node-version: 22.x
+    - run: corepack enable
+    - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+      with:
+        name: test-setup-22.x-windows-latest
+    - name: Restore platform setup
+      run: tar -xzf test-setup.tgz
+    - name: Run test batch ${{ matrix.batch }}/5
+      run: yarn test:batch "${{ matrix.batch }}/5"
+    - name: Record successful batch
+      run: node -e "require('node:fs').writeFileSync('batch-${{ matrix.batch }}', '')"
+    - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      with:
+        name: test-result-22.x-windows-latest-${{ matrix.batch }}
+        path: batch-${{ matrix.batch }}
+        retention-days: 1
+
+  test-node22-windows:
+    name: test (22.x, windows-latest)
+    needs: test-batches-node22-windows
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+    - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+      with:
+        pattern: test-result-22.x-windows-latest-*
+        path: test-results
+        merge-multiple: true
+    - name: Require all five matching batches
+      run: |
+        for batch in 1 2 3 4 5; do
+          test -f "test-results/batch-$batch"
+        done
 
   pack-tarballs:
     # Build once on Node 24 (tsdown needs >=22.18), share tarballs with the smoke matrix.

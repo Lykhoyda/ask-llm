@@ -1,5 +1,44 @@
 # Architectural Decisions
 
+## ADR-140: Deterministic five-batch CI test partitioning
+
+**Status:** Accepted (2026-08-04)
+
+**Context:** The supported Node and platform matrix ran the complete repository
+test suite serially in every leg. Splitting that suite must not introduce a
+hand-maintained file inventory or rely on overlapping globs, because either
+would allow new tests to be omitted or existing tests to run more than once.
+The three established `test (...)` check names are also part of branch
+protection and must remain stable.
+
+**Decision:** Use Vitest's project discovery as the single source of test files,
+sort the discovered paths deterministically, and assign them round-robin to
+exactly five batches. For each supported Node/platform combination, one setup
+job performs the immutable install, build, lint, and changeset guard,
+then archives that platform's dependencies and build output. Five native Actions
+matrix legs restore the matching artifact and run only their assigned tests.
+Empty batches succeed without invoking Vitest, which keeps the partition valid
+for empty and smaller suites. Each of the three established required checks
+counts only the five success-marker artifacts from its own Node/platform legs,
+so a Windows failure cannot make an Ubuntu-named check fail (or vice versa).
+Contributors can reproduce a partition with the `yarn test:batch <index>/5`
+command documented in `docs/CONTRIBUTING.md`.
+
+**Consequences:** Every discovered test belongs to one batch without duplicate
+execution, and adding a test requires no CI file-list maintenance. Setup work
+remains once per Node/platform combination rather than multiplying fivefold;
+the fan-out pays only checkout, Node/Corepack activation, artifact transfer,
+and test execution. The three historical check names retain honest per-platform
+diagnostics, while each success-marker aggregation waits for only its matching
+five-batch matrix. Every setup, batch, and aggregation job has a 15-minute cap;
+build, lint, immutable install, environment, failure, Node, and platform behavior
+otherwise remain unchanged. The Windows coverage introduced by ADR-129 is now
+five batch legs rather than one serial test leg.
+
+**Reference:** `.github/workflows/ci.yml`, `vitest.config.ts`,
+`scripts/run-test-batch.mjs`, `scripts/run-test-batch.test.mjs`, and
+`scripts/test-workflow-contract.test.mjs`; issue #252; ADR-129.
+
 ## ADR-139: MCP Registry publication is selective, exact, and retry-safe
 
 **Status:** Accepted (2026-08-04)
@@ -304,7 +343,7 @@ changeset rule does not apply; the changeset covers `ask-codex-mcp` + `@ask-llm/
 ## ADR-129: Windows CI leg — the #1 upstream complaint class finally gets a gate
 
 - **Date:** 2026-07-02
-- **Status:** Accepted — implemented on `ci/windows-leg`.
+- **Status:** Accepted — implemented on `ci/windows-leg`; test execution superseded in part by ADR-139.
 - **Context:** Windows spawn/`.cmd`/ENOENT breakage is the documented top upstream complaint class (upstream PRs #23/#27/#41/#43; issues #28/#30/#40) and the codebase carries dedicated Windows machinery (`quoteArgsForWindows`, `shell: IS_WINDOWS`) — yet `ci.yml` ran ubuntu-only on every job, so every Windows fix was manual and ungated and a Windows-only regression would ship to npm undetected. Flagged by the 2026-07-02 audit as the highest-leverage infra gap.
 - **Decision:** Add a single `windows-latest` leg (Node 22.x, the current LTS) to the `test` job via `matrix.include`, keeping the ubuntu legs unchanged — full build+lint+test on Windows per PR at the cost of one extra runner. Job timeout 10m → 15m (Windows runners are ~2-3x slower; the cap still fail-fasts hung runners per #155), `fail-fast: false` so one OS's failure doesn't cancel the others mid-diagnosis. The `pack-tarballs`/`global-install-smoke` jobs stay ubuntu-only — they guard npm packaging shape (#115), which is platform-independent. Also: `deploy-docs.yml` Node 20 → 22 for toolchain-floor consistency (VitePress-only build, no functional change).
 - **What the first runs surfaced (all fixed in this PR):** (1) no `.gitattributes` — Windows checkouts converted to CRLF and LF-configured biome failed lint on every file; fixed with `* text=auto eol=lf`. (2) The plugin's three codex-pair suites spawn sh-based fake-codex fixtures and assert executable bits — POSIX-only by nature (matching the documented "Hook command is POSIX-only" limitation), so they're excluded on win32 via `packages/claude-plugin/vitest.config.ts` (the plugin is private; the leg's job is gating the five published packages, whose suites run in full everywhere). (3) `stop-gate.test.ts` stays ON Windows — its logic is pure; three assertions hardcoded POSIX separators and now use `join()`. Platform-inapplicable *individual* tests (e.g. chunkCache permission tests) use `skipIf(process.platform === "win32")`.
