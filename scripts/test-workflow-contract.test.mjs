@@ -77,6 +77,7 @@ describe("five-batch workflow contract", () => {
       const otherChains = chains.filter((candidate) => candidate !== chain);
 
       expect(gate).toContain(`name: test (${chain.nodeVersion}, ${chain.os})`);
+      expect(gate).toContain("timeout-minutes: 15");
       expect(gate).toContain(`needs: ${chain.batchesId}`);
       expect(gate).toContain(`pattern: test-result-${chain.nodeVersion}-${chain.os}-*`);
       expect(gate).toContain("for batch in 1 2 3 4 5");

@@ -37,9 +37,9 @@ See [`CLAUDE.md`](../CLAUDE.md) for the full architecture.
 2. **Branch from `main`.** Forks aren't required.
 3. **Run the checks.** Before pushing:
    ```bash
+   yarn build   # Build dependency-ordered workspace output used by tests
    yarn lint    # Biome + tsc --noEmit across all packages
-   yarn test    # All workspaces (~199 unit tests)
-   yarn build   # Sanity check the dependency-ordered build
+   yarn test    # Run all Vitest projects
    ```
    CI splits `yarn test` into five deterministic file batches. To reproduce one locally,
    run `yarn test:batch 1/5` (replace `1` with the failing batch number).

@@ -14,7 +14,7 @@ protection and must remain stable.
 **Decision:** Use Vitest's project discovery as the single source of test files,
 sort the discovered paths deterministically, and assign them round-robin to
 exactly five batches. For each supported Node/platform combination, one setup
-matrix leg performs the immutable install, build, lint, and changeset guard,
+job performs the immutable install, build, lint, and changeset guard,
 then archives that platform's dependencies and build output. Five native Actions
 matrix legs restore the matching artifact and run only their assigned tests.
 Empty batches succeed without invoking Vitest, which keeps the partition valid
@@ -30,13 +30,14 @@ remains once per Node/platform combination rather than multiplying fivefold;
 the fan-out pays only checkout, Node/Corepack activation, artifact transfer,
 and test execution. The three historical check names retain honest per-platform
 diagnostics, while each success-marker aggregation waits for only its matching
-five-batch matrix. Build, lint, immutable install, environment, timeout, failure,
-Node, and platform behavior otherwise remain unchanged; the Windows coverage
-introduced by ADR-129 is now five batch legs rather than one serial test leg.
+five-batch matrix. Every setup, batch, and aggregation job has a 15-minute cap;
+build, lint, immutable install, environment, failure, Node, and platform behavior
+otherwise remain unchanged. The Windows coverage introduced by ADR-129 is now
+five batch legs rather than one serial test leg.
 
 **Reference:** `.github/workflows/ci.yml`, `vitest.config.ts`,
-`scripts/run-test-batch.mjs`, and `scripts/run-test-batch.test.mjs`; issue #252;
-ADR-129.
+`scripts/run-test-batch.mjs`, `scripts/run-test-batch.test.mjs`, and
+`scripts/test-workflow-contract.test.mjs`; issue #252; ADR-129.
 
 ## ADR-139: MCP Registry publication is selective, exact, and retry-safe
 
