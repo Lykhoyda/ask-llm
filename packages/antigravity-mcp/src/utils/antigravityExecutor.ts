@@ -68,7 +68,7 @@ type StdoutParse =
   | { kind: "envelope-without-answer" }
   | { kind: "not-json" };
 
-// Parsed JSON envelopes never fall through to raw stdout; see ADR-139.
+// Parsed JSON envelopes never fall through to raw stdout; see ADR-141.
 function parseStdoutJson(raw: string): StdoutParse {
   const t = raw.trim();
   if (!t.startsWith("{") && !t.startsWith("[")) return { kind: "not-json" };
