@@ -18,7 +18,7 @@ Hosted providers (Gemini, Codex, Claude, Antigravity) auto-select a sensible def
 | Antigravity | `gemini-3.1-pro` (`--effort high`) | `gemini-3.5-flash`; one model-less retry when agy rejects a model whose value equals `gemini-3.1-pro` or `gemini-3.5-flash` (reported as `agy default`). Both retain the effective effort (`high`, or the `ASK_ANTIGRAVITY_EFFORT` override) | Subscription rate limit; model-unavailable (shipped slug values only — other rejected models fail actionably) |
 | Ollama | `qwen3.6:27b` | none | Local, no fallback; a missing model returns a clear `ollama pull` error |
 
-For Gemini, Codex, Claude, and Antigravity, fallback is automatic. Gemini, Codex, and Claude expose the actual model and `usage.fellBack` in structured output; Antigravity reports the model through the top-level `model` field only (it returns no usage statistics) — `gemini-3.5-flash` after a rate-limit fallback, or the literal `agy default` after a model-less recovery (agy does not reveal which model it picked). Ollama never falls back, so its `fellBack` is always `false`.
+For Gemini, Codex, Claude, and Antigravity, fallback is automatic and structured output exposes the actual model plus `usage.fellBack`. Antigravity reports `gemini-3.5-flash` after a rate-limit fallback, or the literal `agy default` after a model-less recovery (agy does not reveal which model it picked). Ollama never falls back, so its `fellBack` is always `false`.
 
 Codex uses `medium` reasoning effort for ordinary calls to preserve the previous default behavior. The quality-first `/codex-review` and `/brainstorm` skills use `high`. Direct `ask-codex` calls can override this with `reasoningEffort` (`low`, `medium`, `high`, `xhigh`, or `max`).
 
@@ -85,7 +85,7 @@ For Antigravity, `ask-antigravity` requires `agy` ≥1.1.5 and has no per-call `
 
 Token usage is exposed live via:
 
-- **Per-call**: `result.structuredContent.usage` on `ask-*` tool responses (provider, model, inputTokens, outputTokens, cachedTokens, thinkingTokens, durationMs, fellBack) — except `ask-antigravity`, which reports only the top-level `model` field (agy exposes no token counts)
+- **Per-call**: `result.structuredContent.usage` on `ask-*` tool responses (provider, model, inputTokens, outputTokens, cachedTokens, thinkingTokens, durationMs, fellBack). Antigravity reads these values from agy's JSON envelope; cached tokens are unavailable on agy 1.1.5.
 - **Per-session aggregate**: call the `get-usage-stats` MCP tool, or read the `usage://current-session` MCP Resource for a JSON snapshot
 - **In the REPL**: type `/usage` for a markdown-formatted breakdown
 

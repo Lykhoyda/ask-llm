@@ -43,8 +43,8 @@ Dependency & upstream-CLI drift tracker (read-only investigation → issue ONLY 
      former #27466/#7 trigger fired — headless resume via conversation_id remains follow-up work.)
    - gemini-cli 2026-06-18 consumer cutoff: any change to API-key / enterprise behavior or error strings.
 
-5. IMPROVEMENT = a new flag/capability we should adopt (e.g. agy gains real --output-format json, a new
-   model, a faster mode). List separately from breaking. Do not stop at "is our pinned model still
+5. IMPROVEMENT = a new flag/capability we should adopt (e.g. a new model or a faster mode). List
+   separately from breaking. Do not stop at "is our pinned model still
    valid?" — enumerate each provider's CURRENT model catalog every run (ai.google.dev/gemini-api/docs/models,
    OpenAI's model list, `agy models`) and diff it against our pinned defaults/fallbacks: a newly launched
    sibling model (newer/cheaper tier alongside our pin) is an IMPROVEMENT finding even when the pin still

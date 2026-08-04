@@ -9,8 +9,7 @@ export interface AntigravityExecutorOptions {
   includeDirs?: string[];
   // agy model slug; legacy effort-carrying display strings remain compatible.
   model?: string;
-  // Accepted for orchestrator ExecutorFn compatibility but ignored: single-turn
-  // only — resuming by the captured conversation_id is tracked as follow-up work.
+  // Accepted for ExecutorFn compatibility; conversation_id resume remains follow-up work.
   sessionId?: string;
   readOnly?: boolean;
   onProgress?: (newOutput: string) => void;
@@ -69,12 +68,7 @@ type StdoutParse =
   | { kind: "envelope-without-answer" }
   | { kind: "not-json" };
 
-// Ordered response sources — with --output-format json (supported by every
-// agy >= 1.1.5, live-verified per ADR-139) the terminal object on stdout
-// carries the answer under "response". A parsed envelope without an answer must
-// NOT fall through to the plain rung (that would surface raw JSON as the
-// review); plain stdout remains a defensive last resort for non-JSON output
-// only, then the actionable NO_OUTPUT error.
+// Parsed JSON envelopes never fall through to raw stdout; see ADR-139.
 function parseStdoutJson(raw: string): StdoutParse {
   const t = raw.trim();
   if (!t.startsWith("{")) return { kind: "not-json" };
@@ -85,8 +79,7 @@ function parseStdoutJson(raw: string): StdoutParse {
     return { kind: "not-json" };
   }
   if (typeof parsed.response !== "string") return { kind: "envelope-without-answer" };
-  // agy's JSON envelope keeps a trailing newline the transcript never had;
-  // trim it so adopting stdout-json does not change delivered responses.
+  // Preserve the transcript-era response bytes by removing agy's envelope-only trailing newline.
   const response = parsed.response.trimEnd();
   if (response.length === 0) return { kind: "envelope-without-answer" };
   const usage = parsed.usage && typeof parsed.usage === "object" ? parsed.usage : undefined;
@@ -122,9 +115,7 @@ function isRateLimitError(message: string): boolean {
   return ANTIGRAVITY.RATE_LIMIT_SIGNALS.some((s) => lower.includes(s));
 }
 
-// Model-selection failures must not trigger the rate-limit fallback. In json
-// mode the grammar arrives inside the stdout JSON "error" field; executeCommand
-// unions stderr+stdout on non-zero exit (ADR-117), so matching is unchanged.
+// ADR-117 makes JSON error envelopes visible here without changing recovery matching.
 export function isModelUnavailableError(message: string): boolean {
   const lower = message.toLowerCase();
   return ANTIGRAVITY.MODEL_UNAVAILABLE_SIGNALS.some((s) => lower.includes(s));
@@ -277,13 +268,10 @@ export async function executeAntigravityCLI(options: AntigravityExecutorOptions)
       return await retryModelless(primaryModel, modelSource);
     }
     if (!isRateLimitError(message)) {
-      // spawn / NO_OUTPUT / timeout — already actionable, and a different model
-      // wouldn't help (auth / not-installed fail identically on every model).
+      // A different model cannot repair spawn, auth, NO_OUTPUT, or timeout failures.
       throw error;
     }
-    // Primary hit a subscription rate limit. Retry once on the cheaper Flash
-    // tier, unless we were already on it (or the caller pinned a model equal to
-    // the fallback) — in which case there is nothing left to fall back to.
+    // Retry subscription rate limits once on Flash unless it was already selected.
     if (primaryModel === MODELS.FALLBACK) {
       throw new Error(ERROR_MESSAGES.RATE_LIMITED);
     }
@@ -292,8 +280,7 @@ export async function executeAntigravityCLI(options: AntigravityExecutorOptions)
       return await runWithModel(MODELS.FALLBACK, true);
     } catch (fallbackError) {
       const fbMessage = fallbackError instanceof Error ? fallbackError.message : String(fallbackError);
-      // Both tiers throttled → the actionable quota message. A non-rate-limit
-      // fallback failure (timeout, crash) is surfaced as-is, not masked.
+      // Preserve non-quota fallback failures instead of masking them.
       if (isRateLimitError(fbMessage)) throw new Error(ERROR_MESSAGES.RATE_LIMITED);
       // The executor-selected fallback gets the same bounded recovery.
       if (isModelUnavailableError(fbMessage)) return await retryModelless(MODELS.FALLBACK, "default");
