@@ -4,9 +4,7 @@ import { assignTestFiles, parseBatch, run, vitestCommand } from "./run-test-batc
 describe("test batch assignment", () => {
   it("covers every sorted file exactly once across five batches", () => {
     const files = ["z.test.ts", "a.test.ts", "nested/c.test.ts", "b.test.ts"];
-    const batches = Array.from({ length: 5 }, (_, offset) =>
-      assignTestFiles(files, { index: offset + 1, count: 5 }),
-    );
+    const batches = Array.from({ length: 5 }, (_, offset) => assignTestFiles(files, { index: offset + 1, count: 5 }));
 
     expect(batches.flat()).toHaveLength(files.length);
     expect(new Set(batches.flat())).toEqual(new Set(files));
@@ -20,9 +18,7 @@ describe("test batch assignment", () => {
 
   it("is stable regardless of discovery order", () => {
     const batch = { index: 2, count: 3 };
-    expect(assignTestFiles(["c", "a", "b", "d"], batch)).toEqual(
-      assignTestFiles(["d", "b", "a", "c"], batch),
-    );
+    expect(assignTestFiles(["c", "a", "b", "d"], batch)).toEqual(assignTestFiles(["d", "b", "a", "c"], batch));
   });
 
   it("supports empty and smaller-than-batch-count suites", () => {
@@ -37,14 +33,10 @@ describe("test batch assignment", () => {
     const testPath = "packages/a test/src/quoted ' name.test.ts";
     const calls = [];
 
-    run(
-      vitestCommand([testPath], { nodePath, vitestPath }),
-      {},
-      (command, args, options) => {
-        calls.push({ command, args, options });
-        return { status: 0, stdout: "" };
-      },
-    );
+    run(vitestCommand([testPath], { nodePath, vitestPath }), {}, (command, args, options) => {
+      calls.push({ command, args, options });
+      return { status: 0, stdout: "" };
+    });
 
     expect(calls).toEqual([
       {

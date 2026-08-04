@@ -1,7 +1,7 @@
 import { spawnSync } from "node:child_process";
 import { createRequire } from "node:module";
-import { fileURLToPath } from "node:url";
 import { dirname, relative, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 
 const root = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const require = createRequire(import.meta.url);
@@ -24,9 +24,7 @@ export function parseBatch(value) {
 }
 
 export function assignTestFiles(files, { index, count }) {
-  return [...files]
-    .sort((a, b) => a.localeCompare(b, "en"))
-    .filter((_, position) => position % count === index - 1);
+  return [...files].sort((a, b) => a.localeCompare(b, "en")).filter((_, position) => position % count === index - 1);
 }
 
 function vitestInvocation(args, runtime = {}) {
