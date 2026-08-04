@@ -1,5 +1,5 @@
 ---
-description: Bridge Claude with Google's Antigravity CLI (agy) for subscription-backed code review and second opinions. Experimental; uses agy stdout with a transcript-file fallback.
+description: Bridge Claude with Google's Antigravity CLI (agy) for subscription-backed code review and second opinions. Experimental; reads agy's structured JSON output from stdout.
 ---
 
 # Antigravity
@@ -12,7 +12,7 @@ Bridge Claude with Google's Antigravity CLI (`agy`), Google's successor to Gemin
 > **Not for:** fine-grained per-edit automation; it's one-shot and experimental. For continuous review, use Codex via `codex-pair`.
 
 ::: warning Experimental
-Requires `agy` ≥ 1.1.5. Unified discovery, doctor, and ping report older or unparseable installations as detected but unusable and exclude them from dispatch; the executor repeats the version check before every model invocation. It reads the headless `-p` response from stdout, with an edge-case fallback to `agy`'s transcript files that is sensitive to `agy`'s on-disk layout. Single-turn only (no multi-turn); defaults to the **gemini-3.1-pro** model at **high** reasoning effort, falling back to **gemini-3.5-flash** on a rate limit.
+Requires `agy` ≥ 1.1.5. Unified discovery, doctor, and ping report older or unparseable installations as detected but unusable and exclude them from dispatch; the executor repeats the version check before every model invocation. It reads the headless `-p` response from `agy`'s `--output-format json` stdout (supported across the whole ≥ 1.1.5 range). Single-turn only (no multi-turn); defaults to the **gemini-3.1-pro** model at **high** reasoning effort, falling back to **gemini-3.5-flash** on a rate limit.
 :::
 
 ## Installation
@@ -34,7 +34,7 @@ Or install globally: `npm install -g @ask-llm/antigravity-mcp`
 | `get-usage-stats` | Per-session token totals (in-memory) |
 | `ping` | Connection test; reports whether `agy` is supported, unsupported, unusable, or missing |
 
-`ask-antigravity` returns both human-readable text and a structured `AskResponse` (provider, response, model, sessionId, usage) via MCP `outputSchema`.
+`ask-antigravity` returns both human-readable text and a structured `AskResponse` (provider, response, model, sessionId, usage) via MCP `outputSchema`. Token usage — including cached and thinking tokens when agy reports them — comes from the JSON envelope's `usage` object (`cache_read_tokens` requires agy ≥ 1.1.7).
 
 ## Models
 
@@ -47,7 +47,7 @@ Or install globally: `npm install -g @ask-llm/antigravity-mcp`
 
 ## How it works
 
-Provider discovery runs `agy --version` and only makes Antigravity available to default or multi-provider dispatch when version 1.1.5 or newer is confirmed. Older versions remain visible as detected but unsupported, while an unparseable output or failed version probe is reported as detected but unusable; doctor and ping include the actual version when known, the required minimum, and an upgrade action. The executor repeats the same support check before each request, then uses a **stdout-first source chain**: structured JSON → transcript file → plain stdout. The transcript fallback reads the complete `transcript_full.jsonl` under `~/.gemini/antigravity-cli/brain/<id>/.system_generated/logs/`. Calls are serialized in-process (concurrent `agy` runs race on shared state files). It runs with a read-only prompt preamble plus `--dangerously-skip-permissions` + `--sandbox` so `agy` never hangs on approval prompts.
+Provider discovery runs `agy --version` and only makes Antigravity available to default or multi-provider dispatch when version 1.1.5 or newer is confirmed. Older versions remain visible as detected but unsupported, while an unparseable output or failed version probe is reported as detected but unusable; doctor and ping include the actual version when known, the required minimum, and an upgrade action. The executor repeats the same support check before each request, then invokes `agy -p … --output-format json` and reads the answer from the terminal JSON object's `response` key on stdout (a source chain of structured JSON → plain stdout only when the output does not look like JSON → an actionable no-output error). On agy ≥ 1.1.9 it also passes `--disable-slash-commands` so prompt text can never expand as a slash command or skill (older versions reject the flag, so it is version-gated). Concurrent calls need no serialization — each process's answer arrives on its own stdout. It runs with a read-only prompt preamble plus `--dangerously-skip-permissions` + `--sandbox` so `agy` never hangs on approval prompts.
 
 ## Config
 
@@ -60,9 +60,9 @@ Provider discovery runs `agy --version` and only makes Antigravity available to 
 
 ## Limitations
 
-- **Experimental:** the transcript fallback is sensitive to changes in `agy`'s on-disk format.
+- **Experimental:** the structured-output contract tracks `agy`'s JSON envelope; JSON-looking output that is corrupt or lacks an answer fails with an actionable error instead of surfacing raw JSON fragments.
 - **Minimum version:** `agy` 1.1.5; older or unverifiable installations are reported but excluded from dispatch.
-- **Single-turn:** no multi-turn sessions (no capturable conversation id, antigravity-cli #7). Model selection *is* supported via `--model` (defaults to gemini-3.1-pro at high effort, with a gemini-3.5-flash rate-limit fallback; see [Config](#config)); only the short `-m` flag hangs under `-p`.
+- **Single-turn:** no multi-turn sessions yet; the executor accepts and ignores `sessionId` (headless resume via agy's JSON `conversation_id` is tracked as follow-up work). Model selection *is* supported via `--model` (defaults to gemini-3.1-pro at high effort, with a gemini-3.5-flash rate-limit fallback; see [Config](#config)); only the short `-m` flag hangs under `-p`.
 - **Interactive auth:** requires an `agy` login, so it isn't suited to headless CI.
 
 ## npm

@@ -24,7 +24,7 @@ const { name, version } = readPackageJson();
 const PROGRESS_MESSAGES = (op: string) => [
   `${op} - Antigravity is analyzing your request...`,
   `${op} - Processing and generating insights...`,
-  `${op} - Reading agy's response transcript...`,
+  `${op} - Parsing agy's structured response...`,
   `${op} - Large analysis in progress (this is normal for big requests)...`,
   `${op} - Still working... Antigravity takes time for quality results...`,
 ];

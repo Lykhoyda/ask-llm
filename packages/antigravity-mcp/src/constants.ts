@@ -3,7 +3,7 @@ export const MINIMUM_AGY_VERSION = "1.1.5";
 export const ERROR_MESSAGES = {
   NO_PROMPT_PROVIDED:
     "Please provide a prompt for analysis. Ask a question or describe the code you want a second opinion on.",
-  NO_OUTPUT: `Antigravity (agy) ran but produced no readable response. Most likely you are not logged in (run \`agy\` once interactively to authenticate), or agy's stdout/transcript output changed (this experimental provider may need an update). @ask-llm/antigravity-mcp requires agy >=${MINIMUM_AGY_VERSION} and reads agy's transcript files when stdout does not contain the answer.`,
+  NO_OUTPUT: `Antigravity (agy) ran but produced no readable response. Most likely you are not logged in (run \`agy\` once interactively to authenticate), or agy's --output-format json stdout changed (this experimental provider may need an update). @ask-llm/antigravity-mcp requires agy >=${MINIMUM_AGY_VERSION} and reads the answer from agy's JSON stdout.`,
   RATE_LIMITED:
     "Antigravity (agy) hit a subscription rate limit. Google AI Pro/Ultra quotas refresh roughly every 5 hours — wait and retry, or use ask-codex / ask-gemini in the meantime.",
   TOOL_NOT_FOUND: "not found in registry",
@@ -32,7 +32,13 @@ export const CLI = {
     SKIP_PERMISSIONS: "--dangerously-skip-permissions",
     SANDBOX: "--sandbox",
     EFFORT: "--effort",
+    OUTPUT_FORMAT: "--output-format",
+    DISABLE_SLASH_COMMANDS: "--disable-slash-commands",
   },
+} as const;
+
+export const OUTPUT_FORMATS = {
+  JSON: "json",
 } as const;
 
 // agy 1.1.5 uses base model slugs plus a separate effort flag; effort-carrying
@@ -55,6 +61,8 @@ export const ANTIGRAVITY = {
   EFFORT_ENV_VAR: "ASK_ANTIGRAVITY_EFFORT",
   DEFAULT_EFFORT: "high",
   VALID_EFFORTS: ["low", "medium", "high"],
+  // --disable-slash-commands is a hard "flags provided but not defined" error below 1.1.9.
+  SLASH_COMMANDS_FLAG_MIN_VERSION: "1.1.9",
   // Lowercased substrings; isRateLimitError() lowercases the message first.
   RATE_LIMIT_SIGNALS: ["rate limit", "rate_limit", "resource_exhausted", "quota", "429", "too many requests"],
   // Keep model-selection signals disjoint from quota; "Available models:" is too generic.

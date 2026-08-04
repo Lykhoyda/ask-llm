@@ -28,23 +28,22 @@ Dependency & upstream-CLI drift tracker (read-only investigation → issue ONLY 
    Changelogs are SECONDARY sources — verify every claim against the actual files (ADR-109):
    - gemini → packages/gemini-mcp/src/constants.ts (MODELS, CLI.FLAGS, OUTPUT_FORMATS, QUOTA/TIER/WORKSPACE_TRUST patterns) + utils/geminiExecutor.ts (stream-json event types, fallback)
    - codex  → packages/codex-mcp/src/constants.ts (MODELS, CLI.FLAGS, QUOTA_SIGNALS, ARCHIVED_SESSION_SIGNALS) + utils/codexExecutor.ts (JSONL event types)
-   - agy    → packages/antigravity-mcp/src/constants.ts (CLI.FLAGS) + utils/transcriptReader.ts (transcript path + entry schema) + utils/antigravityExecutor.ts
+   - agy    → packages/antigravity-mcp/src/constants.ts (CLI.FLAGS, OUTPUT_FORMATS, SLASH_COMMANDS_FLAG_MIN_VERSION) + utils/antigravityExecutor.ts (JSON envelope keys: response, usage.*_tokens, error)
    For flag checks, inspect every nested subcommand with its OWN help output (for example,
    `codex exec resume --help`, not only `codex exec --help`): child grammars may be narrower than parents.
 
 3. BREAKING = any of: a flag we pass is removed/renamed (e.g. -p, --output-format, --json, --add-dir,
    --resume, --sandbox, --dangerously-skip-permissions); output shape change (JSON keys, JSONL/stream
    event types, new terminal events); default/fallback model renamed or removed (would 404); auth/quota
-   error strings changed (breaks detection/fallback); min Node bump; for agy, transcript path/schema
-   change (.jsonl → .db).
+   error strings changed (breaks detection/fallback); min Node bump; for agy, a JSON envelope key
+   change (response / usage / error) in --output-format json.
 
 4. WATCH-LIST (flag immediately if RESOLVED — they un-gate work):
-   - gemini-cli #27466 (agy -p empty stdout) + antigravity-cli #7 (headless session id): if fixed,
-     @ask-llm/antigravity-mcp self-heals onto stdout and can drop transcript-scraping → high value.
+   - agy headless session resume via `conversation_id` + `--conversation` (ADR-141 follow-up).
    - gemini-cli 2026-06-18 consumer cutoff: any change to API-key / enterprise behavior or error strings.
 
-5. IMPROVEMENT = a new flag/capability we should adopt (e.g. agy gains real --output-format json, a new
-   model, a faster mode). List separately from breaking. Do not stop at "is our pinned model still
+5. IMPROVEMENT = a new flag/capability we should adopt (e.g. a new model or a faster mode). List
+   separately from breaking. Do not stop at "is our pinned model still
    valid?" — enumerate each provider's CURRENT model catalog every run (ai.google.dev/gemini-api/docs/models,
    OpenAI's model list, `agy models`) and diff it against our pinned defaults/fallbacks: a newly launched
    sibling model (newer/cheaper tier alongside our pin) is an IMPROVEMENT finding even when the pin still
@@ -67,7 +66,5 @@ SCOPE: read-only investigation + issue/comment creation only. Do NOT modify code
 ```
 
 **Notes**
-- The watch-list (§4) doubles as the un-gate trigger for `@ask-llm/antigravity-mcp`: when `#27466`
-  closes, the transcript-scraping fallback can be dropped and the `experimental` framing removed.
 - Verification discipline (§2) follows ADR-109 — treat release notes as claims to confirm against
   our executor/constants, not as ground truth.

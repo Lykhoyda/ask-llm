@@ -8,7 +8,7 @@ vi.mock("@ask-llm/shared", () => ({
 }));
 
 import { executeCommand } from "@ask-llm/shared";
-import { assertSupportedAgyVersion, assessAgyVersion, probeAgySupport } from "../agyVersion.js";
+import { assertSupportedAgyVersion, assessAgyVersion, isVersionAtLeast, probeAgySupport } from "../agyVersion.js";
 
 const mockExec = vi.mocked(executeCommand);
 
@@ -116,5 +116,21 @@ describe("probeAgySupport", () => {
       detected: true,
       requiredVersion: ANTIGRAVITY.MINIMUM_AGY_VERSION,
     });
+  });
+});
+
+describe("isVersionAtLeast", () => {
+  it.each([
+    ["1.1.9", "1.1.9", true],
+    ["1.1.10", "1.1.9", true],
+    ["1.2.0", "1.1.9", true],
+    ["1.1.8", "1.1.9", false],
+    ["1.1.5", "1.1.9", false],
+  ])("compares %s against minimum %s", (version, minimum, expected) => {
+    expect(isVersionAtLeast(version, minimum)).toBe(expected);
+  });
+
+  it("gates conservatively on unparseable input", () => {
+    expect(isVersionAtLeast("development build", "1.1.9")).toBe(false);
   });
 });

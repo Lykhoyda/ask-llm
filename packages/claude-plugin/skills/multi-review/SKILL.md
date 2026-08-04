@@ -105,7 +105,7 @@ codex_rc=0; wait $codex_pid || codex_rc=$?
 
 Set the Bash tool's `timeout` parameter to **600000ms** (10-min max). For diffs > 50KB, expect both providers to take real wall time — this is normal.
 
-Do NOT use raw `agy -p`, `gemini -p`, or `codex exec` — those bypass the project's quota/transcript handling, Codex stdin handling (ADR-042), and PATH resolution (ADR-047). Use the runner binaries.
+Do NOT use raw `agy -p`, `gemini -p`, or `codex exec` — those bypass the project's quota/recovery handling, Codex stdin handling (ADR-042), and PATH resolution (ADR-047). Use the runner binaries.
 
 ### Phase 3: Verify each finding before presenting
 

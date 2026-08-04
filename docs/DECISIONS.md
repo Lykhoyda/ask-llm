@@ -1,5 +1,53 @@
 # Architectural Decisions
 
+## ADR-141: Antigravity reads agy's structured JSON stdout; transcript scraping and its locking retired
+
+**Status:** Accepted (2026-08-04)
+
+**Context:** agy 1.1.8's changelog documented `--output-format json|stream-json`
+for print mode — the capability this repo pre-registered as the #1 watch-list
+un-gater (#251). A live dogfood against isolated release binaries proved the
+implementation predates the documentation: `--output-format json` works on
+1.1.5, 1.1.7, 1.1.8, and 1.1.9 (the changelog entry only made the flag
+discoverable in `--help`), the answer key is exactly `response` (the key our
+dormant stdout-json rung already parsed), errors and timeouts arrive as a JSON
+`ERROR` envelope on stdout with exit 1 (the ADR-137 error grammar verbatim
+inside the `error` field, reachable through ADR-117's stderr+stdout union),
+and two concurrent runs each receive their own answer on their own stdout.
+`usage` reports `input/output/thinking/cache_read/total_tokens`
+(`cache_read_tokens` absent on 1.1.5). The transcript scraper, its snapshot
+fingerprinting, the in-process mutex, and the on-disk invocation lock all
+existed solely to compensate for scraping shared on-disk state. Separately,
+`--disable-slash-commands` (added 1.1.9) is a hard `flags provided but not
+defined` exit-2 error on 1.1.5–1.1.8. Windows behavior of the json path is
+unverified (all probes ran on macOS arm64).
+
+**Decision:** Keep `MINIMUM_AGY_VERSION` at 1.1.5 (a regression test freezes
+it) and always pass `--output-format json` — no version gate for structured
+output, since the whole supported range speaks it. Response sources become
+structured JSON → plain-stdout last resort (output that does not look like
+JSON only; a parsed envelope without an answer, or JSON-looking but corrupt
+output, must not surface as text) → the actionable NO_OUTPUT error. The JSON `response` is `trimEnd()`ed so delivered answers stay
+byte-identical to the transcript era. Populate `usage` from the envelope with
+executor-measured `durationMs` (agy's `duration_seconds` reports conversation
+age on resumed runs) and `fellBack` from the recovery bookkeeping. Delete
+`transcriptReader.ts`, `invocationLock.ts`, the snapshot correlation, and the
+mutex; the machine contract keeps its nullable `transcriptPath` field but the
+executor no longer populates it. Pass `--disable-slash-commands` only when the
+probed version is >=1.1.9 (`SLASH_COMMANDS_FLAG_MIN_VERSION`). The recovery
+ladder (rate-limit fallback, model-unavailable model-less retry) is unchanged.
+
+**Consequences:** −~900 LOC of scraping/locking machinery and their tests; the
+banner-contamination failure mode (#153) and the standing `.jsonl → .db`
+watch risk are retired; agy stops being the token-accounting blind spot on
+every supported version. Concurrent invocations no longer serialize. The
+plain-stdout rung plus NO_OUTPUT keeps degradation actionable if the json path
+ever regresses (including the untested Windows case). Headless session resume
+via the envelope's top-level `conversation_id` + `--conversation` was proven
+live but ships as follow-up work, as do stream-json progress events and
+`--json-schema` structured output. Evidence and probe commands are recorded in
+the #251 scout report.
+
 ## ADR-140: Deterministic five-batch CI test partitioning
 
 **Status:** Accepted (2026-08-04)
