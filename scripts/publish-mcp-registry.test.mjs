@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { afterEach, test } from "node:test";
+import { afterEach, test } from "vitest";
 import { publishMissingRegistryVersions, recordsMatch } from "./publish-mcp-registry.mjs";
 
 const scratchDirs = [];

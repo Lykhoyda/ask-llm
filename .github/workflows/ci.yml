@@ -7,7 +7,8 @@ on:
     branches: [main]
 
 jobs:
-  test:
+  test-batches:
+    name: test batch ${{ matrix.batch }}/5 (${{ matrix.node-version }}, ${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     # Cap each matrix leg so a hung runner fails fast instead of stalling up to the
     # 6h default. Normal build+lint+test is <2m on ubuntu; #155 hit a 22.x runner
@@ -23,13 +24,15 @@ jobs:
         # tsdown (build toolchain) needs Node >=22.18 (ADR-119); Node 20 RUNTIME
         # support is verified by the global-install-smoke job below
         node-version: [22.x, 24.x]
-        os: [ubuntu-latest]
-        include:
+        os: [ubuntu-latest, windows-latest]
+        # Every supported Node/OS leg gets exactly these five deterministic batches.
+        batch: [1, 2, 3, 4, 5]
+        exclude:
           # Windows spawn/.cmd/ENOENT bugs are the top upstream complaint class
           # (upstream PRs #23/#27/#41/#43, issues #28/#30/#40) yet had zero CI
-          # coverage — a Windows-only regression shipped undetected. One leg on
-          # the current LTS bounds the added cost (ADR-129).
-          - node-version: 22.x
+          # coverage — a Windows-only regression shipped undetected. Keep one
+          # Windows Node version while expanding it across the same five batches.
+          - node-version: 24.x
             os: windows-latest
 
     steps:
@@ -56,12 +59,32 @@ jobs:
     - name: Lint
       run: yarn lint
 
-    - name: Run tests
-      run: yarn test
+    - name: Run test batch ${{ matrix.batch }}/5
+      run: yarn test:batch "${{ matrix.batch }}/5"
 
     - name: Guard — shared changes must changeset all six MCPs (ADR-119)
       if: github.event_name == 'pull_request'
       run: node scripts/check-shared-changeset.mjs
+
+  test:
+    # Preserve the three historical required-check names while making each one
+    # depend on completion of every five-way batch matrix leg.
+    name: test (${{ matrix.node-version }}, ${{ matrix.os }})
+    needs: test-batches
+    if: always()
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: [22.x, 24.x]
+        os: [ubuntu-latest]
+        include:
+          - node-version: 22.x
+            os: windows-latest
+    steps:
+    - name: Require every test batch
+      env:
+        TEST_BATCH_RESULT: ${{ needs.test-batches.result }}
+      run: test "$TEST_BATCH_RESULT" = success
 
   pack-tarballs:
     # Build once on Node 24 (tsdown needs >=22.18), share tarballs with the smoke matrix.

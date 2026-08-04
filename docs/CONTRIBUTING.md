@@ -41,6 +41,8 @@ See [`CLAUDE.md`](../CLAUDE.md) for the full architecture.
    yarn test    # All workspaces (~199 unit tests)
    yarn build   # Sanity check the dependency-ordered build
    ```
+   CI splits `yarn test` into five deterministic file batches. To reproduce one locally,
+   run `yarn test:batch 1/5` (replace `1` with the failing batch number).
 4. **Add tests for new behavior.** New executor logic, parsers, or shared utilities should have unit tests next to the code (`__tests__/`). Integration tests that hit a real CLI go in `src/__tests__/integration.test.ts` and are gated behind `SMOKE_TEST=1`.
 5. **Add an ADR for architectural changes.** Append a new entry to [`docs/DECISIONS.md`](DECISIONS.md) for changes that affect public API, the executor pattern, cross-package contracts, or distribution. Use the existing format: `## ADR-NNN: Title`, `Date`, `Status`, `Context`, `Decision`, `Consequences`. The historical ADRs are good models.
 6. **Conventional commits.** `feat:`, `fix:`, `chore:`, `docs:`, `refactor:` — see `git log` for in-house style. The release pipeline reads commit history.

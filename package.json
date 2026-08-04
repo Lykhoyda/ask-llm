@@ -8,7 +8,8 @@
   ],
   "scripts": {
     "build": "yarn workspaces foreach -A --topological-dev run build",
-    "test": "node --test scripts/*.test.mjs && yarn workspaces foreach -A run test",
+    "test": "vitest run",
+    "test:batch": "node scripts/run-test-batch.mjs",
     "lint": "node scripts/check-workflow-security.mjs && node scripts/check-docs-drift.mjs && node scripts/sync-plugin-manifests.mjs --check && biome lint scripts/ apps/docs/.vitepress/ && tsc --noEmit -p scripts/tsconfig.json && yarn workspaces foreach -A run lint",
     "smoke": "bash scripts/smoke-test.sh",
     "docs:dev": "yarn workspace docs run dev",
