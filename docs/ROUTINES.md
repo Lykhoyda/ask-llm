@@ -39,8 +39,7 @@ Dependency & upstream-CLI drift tracker (read-only investigation → issue ONLY 
    change (response / usage / error) in --output-format json.
 
 4. WATCH-LIST (flag immediately if RESOLVED — they un-gate work):
-   - (retired 2026-08-04, #251: agy --output-format json adopted; transcript scraping deleted. The
-     former #27466/#7 trigger fired — headless resume via conversation_id remains follow-up work.)
+   - agy headless session resume via `conversation_id` + `--conversation` (ADR-141 follow-up).
    - gemini-cli 2026-06-18 consumer cutoff: any change to API-key / enterprise behavior or error strings.
 
 5. IMPROVEMENT = a new flag/capability we should adopt (e.g. a new model or a faster mode). List
@@ -67,7 +66,5 @@ SCOPE: read-only investigation + issue/comment creation only. Do NOT modify code
 ```
 
 **Notes**
-- The former watch-list un-gate trigger for `@ask-llm/antigravity-mcp` fired in #251 (structured
-  output adopted, transcript scraping deleted); only the headless-resume follow-up remains open.
 - Verification discipline (§2) follows ADR-109 — treat release notes as claims to confirm against
   our executor/constants, not as ground truth.

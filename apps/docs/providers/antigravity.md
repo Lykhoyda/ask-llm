@@ -62,7 +62,7 @@ Provider discovery runs `agy --version` and only makes Antigravity available to 
 
 - **Experimental:** the structured-output contract tracks `agy`'s JSON envelope; JSON-looking output that is corrupt or lacks an answer fails with an actionable error instead of surfacing raw JSON fragments.
 - **Minimum version:** `agy` 1.1.5; older or unverifiable installations are reported but excluded from dispatch.
-- **Single-turn:** no multi-turn sessions yet; the executor accepts and ignores `sessionId` (headless resume via the captured conversation id is tracked as follow-up work). Model selection *is* supported via `--model` (defaults to gemini-3.1-pro at high effort, with a gemini-3.5-flash rate-limit fallback; see [Config](#config)); only the short `-m` flag hangs under `-p`.
+- **Single-turn:** no multi-turn sessions yet; the executor accepts and ignores `sessionId` (headless resume via agy's JSON `conversation_id` is tracked as follow-up work). Model selection *is* supported via `--model` (defaults to gemini-3.1-pro at high effort, with a gemini-3.5-flash rate-limit fallback; see [Config](#config)); only the short `-m` flag hangs under `-p`.
 - **Interactive auth:** requires an `agy` login, so it isn't suited to headless CI.
 
 ## npm
