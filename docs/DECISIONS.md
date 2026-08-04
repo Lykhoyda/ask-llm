@@ -25,9 +25,9 @@ unverified (all probes ran on macOS arm64).
 **Decision:** Keep `MINIMUM_AGY_VERSION` at 1.1.5 (a regression test freezes
 it) and always pass `--output-format json` — no version gate for structured
 output, since the whole supported range speaks it. Response sources become
-structured JSON → plain-stdout last resort (non-JSON output only; a parsed
-envelope without an answer must not surface as text) → the actionable
-NO_OUTPUT error. The JSON `response` is `trimEnd()`ed so delivered answers stay
+structured JSON → plain-stdout last resort (output that does not look like
+JSON only; a parsed envelope without an answer, or JSON-looking but corrupt
+output, must not surface as text) → the actionable NO_OUTPUT error. The JSON `response` is `trimEnd()`ed so delivered answers stay
 byte-identical to the transcript era. Populate `usage` from the envelope with
 executor-measured `durationMs` (agy's `duration_seconds` reports conversation
 age on resumed runs) and `fellBack` from the recovery bookkeeping. Delete

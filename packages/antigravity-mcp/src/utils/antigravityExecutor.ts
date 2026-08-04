@@ -76,7 +76,8 @@ function parseStdoutJson(raw: string): StdoutParse {
   try {
     parsed = JSON.parse(t) as AgyStdoutJson;
   } catch {
-    return { kind: "not-json" };
+    // JSON-looking but unparsable output is a corrupt envelope, not legacy text.
+    return { kind: "envelope-without-answer" };
   }
   if (typeof parsed.response !== "string") return { kind: "envelope-without-answer" };
   // Preserve the transcript-era response bytes by removing agy's envelope-only trailing newline.

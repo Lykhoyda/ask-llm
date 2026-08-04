@@ -148,6 +148,11 @@ describe("executeAntigravityCLI response sources", () => {
     await expect(executeAntigravityCLI({ prompt: "q" })).rejects.toThrow(ERROR_MESSAGES.NO_OUTPUT);
   });
 
+  it("fails closed on JSON-looking but unparsable stdout (corrupt envelope)", async () => {
+    mockExec.mockResolvedValue('{"conversation_id":"conversation-1","status":"SUCCESS","response":"pon');
+    await expect(executeAntigravityCLI({ prompt: "q" })).rejects.toThrow(ERROR_MESSAGES.NO_OUTPUT);
+  });
+
   it("throws the actionable NO_OUTPUT when stdout is empty", async () => {
     mockExec.mockResolvedValue("");
     await expect(executeAntigravityCLI({ prompt: "q" })).rejects.toThrow(ERROR_MESSAGES.NO_OUTPUT);
