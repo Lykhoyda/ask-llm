@@ -37,6 +37,7 @@ export interface ClaudeExecutorOptions {
   sessionId?: string;
   includeDirs?: string[];
   onProgress?: (newOutput: string) => void;
+  signal?: AbortSignal;
 }
 
 export interface ClaudeExecutorResult {
@@ -164,7 +165,16 @@ export async function executeClaudeCLI(options: ClaudeExecutorOptions): Promise<
   // Claude --print --output-format json returns one completion object, not
   // incremental JSONL. Keep raw stdout out of previews and emit the parsed
   // final response below.
-  const raw = await executeCommand(CLI.COMMAND, args, undefined, undefined, options.prompt, timeoutMs);
+  const raw = await executeCommand(
+    CLI.COMMAND,
+    args,
+    undefined,
+    undefined,
+    options.prompt,
+    timeoutMs,
+    undefined,
+    options.signal,
+  );
   const result = parseClaudeJsonOutput(raw, model, Date.now() - startedAt);
   options.onProgress?.(result.response);
   return result;

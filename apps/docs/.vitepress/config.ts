@@ -120,8 +120,14 @@ export default withMermaid(
             { text: "Unified", link: "/providers/unified" },
           ],
         },
-        { text: "Claude Plugin", link: "/plugin/overview" },
-        { text: "Codex Pair", link: "/plugin/codex-pair" },
+        {
+          text: "Host Packages",
+          items: [
+            { text: "Claude Code", link: "/plugin/overview" },
+            { text: "Pi", link: "/plugin/pi" },
+            { text: "Codex Pair", link: "/plugin/codex-pair" },
+          ],
+        },
       ],
 
       sidebar: [
@@ -146,10 +152,11 @@ export default withMermaid(
           ],
         },
         {
-          text: "Claude Plugin",
+          text: "Host Package",
           collapsed: false,
           items: [
-            { text: "Overview", link: "/plugin/overview" },
+            { text: "Claude Code", link: "/plugin/overview" },
+            { text: "Pi", link: "/plugin/pi" },
             { text: "Codex Pair", link: "/plugin/codex-pair" },
             { text: "Skills", link: "/plugin/skills" },
             { text: "Hooks", link: "/plugin/hooks" },

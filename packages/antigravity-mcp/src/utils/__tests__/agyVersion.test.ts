@@ -32,6 +32,8 @@ describe("assertSupportedAgyVersion", () => {
       undefined,
       undefined,
       ANTIGRAVITY.VERSION_CHECK_TIMEOUT_MS,
+      undefined,
+      undefined,
     );
   });
 

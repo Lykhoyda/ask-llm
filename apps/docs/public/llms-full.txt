@@ -6,7 +6,7 @@ This file contains everything an AI agent needs to integrate with Ask LLM MCP se
 
 ## Architecture
 
-Ask LLM is a monorepo with 6 published npm packages + 1 shared library + 1 Claude Code plugin:
+Ask LLM is a monorepo with 7 published npm packages + 1 private shared library. `@ask-llm/plugin` is the canonical Claude Code + Pi host package:
 
 ```
 packages/shared/         @ask-llm/shared      Internal shared code (inlined into each MCP at build: registry, executor, sessions, usage)
@@ -16,8 +16,16 @@ packages/antigravity-mcp @ask-llm/antigravity-mcp  MCP server for Google Antigra
 packages/ollama-mcp/     @ask-llm/ollama-mcp       MCP server for local Ollama LLMs
 packages/gemini-mcp/     @ask-llm/gemini-mcp       MCP server for Google Gemini CLI
 packages/llm-mcp/        @ask-llm/mcp          Unified MCP server (auto-detects providers)
-packages/claude-plugin   @ask-llm/plugin      Claude Code plugin (agents, skills, hooks)
+packages/claude-plugin   @ask-llm/plugin      Claude Code + Pi host package (one skill corpus; host adapters)
 ```
+
+## Pi host quick start
+
+```bash
+pi install npm:@ask-llm/plugin
+```
+
+Pi is the host, not a consulted provider, and has no built-in MCP client. The package registers native `ask-codex`, `ask-gemini`, `ask-ollama`, `ask-antigravity`, and deterministic `ask-multi`; skills use `/skill:<name>`. `fable-review` is excluded. Pi codex-pair requires marker + project trust + interactive user-owned allowlist consent, surfaces findings non-blockingly, and does not support asynchronous pairing in one-shot print mode.
 
 ## Prerequisites
 

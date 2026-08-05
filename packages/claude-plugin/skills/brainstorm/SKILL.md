@@ -1,8 +1,26 @@
 ---
 name: brainstorm
-description: Send a topic to multiple LLM providers in parallel while Claude Opus performs its own independent research in parallel, then synthesize all findings. Usage /brainstorm [providers] <topic>. External providers default to antigravity,codex. Example /brainstorm antigravity,codex,ollama "review this architecture"
-user_invocable: true
+description: Send a topic to multiple LLM providers concurrently after the current host model forms an independent view, then synthesize all findings. Usage /brainstorm [providers] <topic>. External providers default to antigravity,codex. Example /brainstorm antigravity,codex,ollama "review this architecture"
 ---
+
+<!-- PORTABLE-CONTRACT:START -->
+## Portable contract
+
+The current host model must form and record an independent analysis before seeing external answers. Then send the same bounded topic and Context Brief concurrently to the selected providers, cross-check claims against source where possible, and synthesize consensus, unique insights, contradictions, rejected false positives, and confidence. Report the actual host model/providers and disclose possible same-family overlap.
+<!-- PORTABLE-CONTRACT:END -->
+
+## Host adapters
+
+### Pi adapter
+
+The current Pi host model completes its independent view first, records its actual provider/model, and only then calls native `ask-multi`. Do not claim the host is Claude Opus or that the coordinator has an isolated context.
+
+<!-- HOST-ADAPTER:CLAUDE-CODE:START -->
+### Claude Code adapter
+
+The existing detailed workflow below is the Claude Code adapter. Its Agent, MCP, hook, `CLAUDE_PLUGIN_ROOT`, and `AskUserQuestion` mechanics apply only on Claude Code; they do not override the Pi adapter above.
+
+
 
 # Multi-LLM Brainstorm
 
@@ -83,3 +101,5 @@ Pass through the coordinator's structured output. If the coordinator returned a 
 Confidence scores are not an oracle. The coordinator's Phase 3B exists specifically because external LLMs can return high-confidence findings that turn out to be factually wrong (a real example from 2026-04-17: Gemini returned 95/100-confidence claims that were contradicted by the actual `.d.ts` file). Claude's "Verified" findings carry more weight than external "Inferred" findings precisely for this reason.
 
 If you want a code-review-specific version of this with explicit per-finding source verification, use `/multi-review` instead.
+
+<!-- HOST-ADAPTER:CLAUDE-CODE:END -->

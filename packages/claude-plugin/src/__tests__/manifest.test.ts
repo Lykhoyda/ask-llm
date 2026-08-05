@@ -141,6 +141,54 @@ describe("hooks.json", () => {
   });
 });
 
+describe("dual-host package manifest", () => {
+  const pkg = readJson<{
+    private?: boolean;
+    files: string[];
+    dependencies: Record<string, string>;
+    peerDependencies: Record<string, string>;
+    pi: { extensions: string[]; skills: string[] };
+    publishConfig: { access: string };
+  }>("package.json");
+
+  it("is public npm metadata with real provider ranges and a package-local license", () => {
+    expect(pkg.private).not.toBe(true);
+    expect(pkg.publishConfig.access).toBe("public");
+    expect(fs.existsSync(path.join(PLUGIN_ROOT, "LICENSE"))).toBe(true);
+    expect(Object.values(pkg.dependencies).every((range) => !range.startsWith("workspace:"))).toBe(true);
+    expect(pkg.dependencies).not.toHaveProperty("@ask-llm/shared");
+  });
+
+  it("declares one thin Pi extension and the canonical skills with Fable excluded", () => {
+    expect(pkg.pi.extensions).toEqual(["./pi/extensions/index.ts"]);
+    expect(pkg.pi.skills).toHaveLength(15);
+    expect(pkg.pi.skills).toContain("./skills/codex-review/SKILL.md");
+    expect(pkg.pi.skills).not.toContain("./skills/fable-review/SKILL.md");
+    expect(fs.existsSync(path.join(PLUGIN_ROOT, "pi", "extensions", "index.ts"))).toBe(true);
+  });
+
+  it("ships every runtime resource needed by both hosts", () => {
+    for (const resource of [
+      ".claude-plugin/",
+      "agents/",
+      "dist/",
+      "hooks/",
+      "LICENSE",
+      "pi/",
+      "prompts/",
+      "scripts/lib/",
+      "skills/",
+    ]) {
+      expect(pkg.files).toContain(resource);
+    }
+    expect(pkg.peerDependencies).toMatchObject({
+      "@earendil-works/pi-ai": "*",
+      "@earendil-works/pi-coding-agent": "*",
+      typebox: "*",
+    });
+  });
+});
+
 describe("CLI binary references in package.json bin", () => {
   const pkg = readJson<{ bin: Record<string, string> }>("package.json");
 

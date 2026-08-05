@@ -1,8 +1,26 @@
 ---
 name: multi-review
 description: This skill should be used when the user asks to "review my code with multiple providers", "get reviews from Antigravity and Codex", "multi-provider review", "review changes", or wants independent code reviews from both Antigravity and Codex in parallel.
-user_invocable: true
 ---
+
+<!-- PORTABLE-CONTRACT:START -->
+## Portable contract
+
+Build one Context Brief and bounded diff, dispatch the same review contract concurrently to the selected providers, then independently verify every finding against repository source. Classify findings as VERIFIED, REJECTED, or UNVERIFIABLE; preserve size consent at 50KB/150KB; never silently drop a failed provider; and report included/excluded context.
+<!-- PORTABLE-CONTRACT:END -->
+
+## Host adapters
+
+### Pi adapter
+
+Use one native `ask-multi` call for concurrent provider dispatch, then perform source verification in the current host context. Do not use the Claude runner binaries or raw provider CLIs.
+
+<!-- HOST-ADAPTER:CLAUDE-CODE:START -->
+### Claude Code adapter
+
+The existing detailed workflow below is the Claude Code adapter. Its Agent, MCP, hook, `CLAUDE_PLUGIN_ROOT`, and `AskUserQuestion` mechanics apply only on Claude Code; they do not override the Pi adapter above.
+
+
 
 # Multi-Provider Code Review
 
@@ -160,3 +178,5 @@ When a provider fails (timeout, capacity exhaustion, exit code ≠ 0, 0-byte out
 ```
 
 If you have to truncate either provider's response or skip verification due to time pressure, **say so** in the output. Hidden compromises mislead the user.
+
+<!-- HOST-ADAPTER:CLAUDE-CODE:END -->

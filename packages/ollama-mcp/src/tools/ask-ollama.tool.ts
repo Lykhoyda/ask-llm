@@ -39,7 +39,7 @@ export const askOllamaTool: UnifiedTool = {
     description: "Execute Ollama to get a local LLM response for code review and analysis.",
   },
   category: "ollama",
-  execute: async (args, onProgress, onUsage) => {
+  execute: async (args, onProgress, onUsage, signal) => {
     const { prompt, model, sessionId } = args;
     if (!prompt?.trim()) {
       throw new Error(ERROR_MESSAGES.NO_PROMPT_PROVIDED);
@@ -50,6 +50,7 @@ export const askOllamaTool: UnifiedTool = {
       model: model as string | undefined,
       sessionId: sessionId === undefined ? undefined : (sessionId as string),
       onProgress,
+      signal,
     });
 
     if (result.usage) onUsage?.(result.usage);

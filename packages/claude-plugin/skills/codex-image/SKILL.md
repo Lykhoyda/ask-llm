@@ -1,8 +1,26 @@
 ---
 name: codex-image
 description: Generate an image via OpenAI's gpt-image-2 model through the Codex CLI. Use when user asks to "generate an image", "create an image", "make a picture of", "render a graphic", "draw something", or wants visual content via Codex. Requires codex-cli >= 0.125.0 with the `image_generation` feature flag enabled (stable + on-by-default since 0.125).
-user_invocable: true
 ---
+
+<!-- PORTABLE-CONTRACT:START -->
+## Portable contract
+
+Refine the requested image prompt without changing intent, select an explicit output path, invoke Codex with `sandbox: "workspace-write"` so its image tool may create the file, verify the resulting file on disk, and report the path and provider response. Surface feature, policy, timeout, and filesystem failures verbatim.
+<!-- PORTABLE-CONTRACT:END -->
+
+## Host adapters
+
+### Pi adapter
+
+Call native `ask-codex` with `sandbox: "workspace-write"`. After it returns, use Pi's read-only filesystem tools to verify the output file. Do not claim automatic inline rendering in print mode.
+
+<!-- HOST-ADAPTER:CLAUDE-CODE:START -->
+### Claude Code adapter
+
+The existing detailed workflow below is the Claude Code adapter. Its Agent, MCP, hook, `CLAUDE_PLUGIN_ROOT`, and `AskUserQuestion` mechanics apply only on Claude Code; they do not override the Pi adapter above.
+
+
 
 # Codex Image Generation
 
@@ -98,3 +116,5 @@ Phase 4 — `ls -la /tmp/codex-images/2026-04-24/cat-reading-a-book.png` shows a
 > Generated **/tmp/codex-images/2026-04-24/cat-reading-a-book.png** (248 KB) via gpt-image-2. Used Codex (gpt-5.6-sol) as orchestrator. Refined prompt: *minimalist illustration of a cat reading a book, flat vector style, two-tone palette, no human figures, square framing, transparent background*. Reading inline below.
 
 [image renders]
+
+<!-- HOST-ADAPTER:CLAUDE-CODE:END -->

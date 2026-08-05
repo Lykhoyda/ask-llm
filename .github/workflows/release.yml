@@ -59,6 +59,29 @@ jobs:
       - name: Preflight — assert no workspace:* in published manifests
         run: node scripts/preflight-no-workspace-protocol.mjs
 
+      - name: Verify npm authorization for @ask-llm/plugin without publishing
+        if: github.event_name != 'workflow_dispatch' || inputs.retry_registry_publish != true
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NODE_AUTH_TOKEN }}
+        run: |
+          set -euo pipefail
+          user=$(npm whoami)
+          role=$(npm org ls ask-llm --json | jq -r --arg user "$user" '.[$user] // empty')
+          case "$role" in
+            owner|admin|developer) ;;
+            *) echo "npm user $user lacks an @ask-llm organization publish role (reported: ${role:-none})"; exit 1 ;;
+          esac
+          # A missing package is the expected first-release state. If it already
+          # exists, additionally require collaborator write permission. No
+          # disposable version is ever published for this check.
+          if npm view @ask-llm/plugin version --json >/tmp/plugin-version.json 2>/tmp/plugin-view.err; then
+            permission=$(npm access list collaborators @ask-llm/plugin --json | jq -r --arg user "$user" '.[$user] // empty')
+            case "$permission" in read-write|write) ;; *) echo "npm user $user lacks write access to @ask-llm/plugin"; exit 1 ;; esac
+          elif ! grep -Eq 'E404|Not Found' /tmp/plugin-view.err; then
+            cat /tmp/plugin-view.err; exit 1
+          fi
+          echo "Verified npm authorization for @ask-llm/plugin as $user ($role); no version published."
+
       # When pending changesets exist on main: opens/updates the Version Packages PR.
       # When this push IS the merged Version Packages PR: runs `yarn changeset:publish`
       # which builds + publishes any packages whose version is ahead of the registry.
@@ -94,7 +117,8 @@ jobs:
             @ask-llm/claude-mcp \
             @ask-llm/ollama-mcp \
             @ask-llm/antigravity-mcp \
-            @ask-llm/mcp; do
+            @ask-llm/mcp \
+            @ask-llm/plugin; do
             npm access set status=public "$pkg"
             test "$(npm access get status "$pkg" --json | jq -r --arg pkg "$pkg" '.[$pkg]')" = "public"
           done

@@ -72,7 +72,7 @@ export const askCodexTool: UnifiedTool = {
     description: "Execute Codex CLI to get OpenAI Codex's response for code review and analysis.",
   },
   category: "codex",
-  execute: async (args, onProgress, onUsage) => {
+  execute: async (args, onProgress, onUsage, signal) => {
     const { prompt, model, reasoningEffort, sessionId, includeDirs, preferred, sandbox } = args;
     if (!prompt?.trim()) {
       throw new Error(ERROR_MESSAGES.NO_PROMPT_PROVIDED);
@@ -87,6 +87,7 @@ export const askCodexTool: UnifiedTool = {
       preferred: preferred as boolean | undefined,
       sandbox: sandbox as "read-only" | "workspace-write" | undefined,
       onProgress,
+      signal,
     });
 
     if (result.usage) onUsage?.(result.usage);

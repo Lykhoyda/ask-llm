@@ -32,6 +32,7 @@ export interface UnifiedTool {
     args: BaseToolArguments,
     onProgress?: (newOutput: string) => void,
     onUsage?: (stats: UsageStats) => void,
+    signal?: AbortSignal,
   ) => Promise<ToolResult>;
   category?: "simple" | ProviderName | "utility";
 }
@@ -43,6 +44,7 @@ export async function executeTool(
   args: BaseToolArguments,
   onProgress?: (newOutput: string) => void,
   onUsage?: (stats: UsageStats) => void,
+  signal?: AbortSignal,
 ): Promise<ToolResult> {
   const tool = toolRegistry.find((t) => t.name === toolName);
   if (!tool) {
@@ -50,7 +52,7 @@ export async function executeTool(
   }
   try {
     const validatedArgs = tool.zodSchema.parse(args) as BaseToolArguments;
-    return tool.execute(validatedArgs, onProgress, onUsage);
+    return tool.execute(validatedArgs, onProgress, onUsage, signal);
   } catch (error) {
     if (error instanceof ZodError) {
       const issues = error.issues.map((issue) => `${issue.path.join(".")}: ${issue.message}`).join(", ");

@@ -1,8 +1,26 @@
 ---
 name: codex-pair-pause
-description: Pause the codex-pair PostToolUse hook for this project without removing the .codex-pair/context.md marker. Writes a .codex-pair/state/paused sentinel that the hook checks on every Edit/Write/MultiEdit. Use when you want to temporarily silence reviews — running a noisy refactor, dogfooding the hook itself, working on docs-only changes, etc. — and resume later with /codex-pair-resume.
-user_invocable: true
+description: Pause codex-pair for this project without removing `.codex-pair/context.md`. Writes the shared `.codex-pair/state/paused` sentinel. Use during noisy refactors, hook dogfooding, or other temporary review pauses.
 ---
+
+<!-- PORTABLE-CONTRACT:START -->
+## Portable contract
+
+Create the project-local `.codex-pair/state/paused` sentinel without removing the marker or history. This is a manual pause and remains until explicitly resumed.
+<!-- PORTABLE-CONTRACT:END -->
+
+## Host adapters
+
+### Pi adapter
+
+Run `/codex-pair-pause` or create the sentinel exactly as described by the portable contract.
+
+<!-- HOST-ADAPTER:CLAUDE-CODE:START -->
+### Claude Code adapter
+
+The existing detailed workflow below is the Claude Code adapter. Its Agent, MCP, hook, `CLAUDE_PLUGIN_ROOT`, and `AskUserQuestion` mechanics apply only on Claude Code; they do not override the Pi adapter above.
+
+
 
 # Pause codex-pair for this project
 
@@ -40,3 +58,5 @@ For permanent disable, remove the `.codex-pair/` directory instead (`rm -rf .cod
    ```
 
 4. If `.gitignore` in the marker directory does not already contain `.codex-pair/`, mention it as a suggestion (do not modify the user's .gitignore without asking).
+
+<!-- HOST-ADAPTER:CLAUDE-CODE:END -->

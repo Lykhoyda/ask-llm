@@ -98,6 +98,7 @@ export interface CodexExecutorOptions {
   // downgrade to MODELS.DEFAULT on any failure. Honored only for fresh
   // (no sessionId), non-edit calls with no explicit model. See ADR-132.
   preferred?: boolean;
+  signal?: AbortSignal;
 }
 
 export interface CodexExecutorResult {
@@ -488,6 +489,8 @@ export async function executeCodexCLI(options: CodexExecutorOptions): Promise<Co
           undefined,
           stdinPayload,
           timeoutMs,
+          undefined,
+          options.signal,
         );
         return parseCodexJsonlOutput(raw, MODELS.PREFERRED, Date.now() - preferredStartedAt, false);
       } catch (preferredError) {
@@ -508,6 +511,8 @@ export async function executeCodexCLI(options: CodexExecutorOptions): Promise<Co
         undefined,
         stdinPayload,
         timeoutMs,
+        undefined,
+        options.signal,
       );
       const result = parseCodexJsonlOutput(raw, model, Date.now() - startedAt, downgradedFromPreferred);
       if (cacheKey) responseCache.set(cacheKey, result.response);
@@ -537,6 +542,8 @@ export async function executeCodexCLI(options: CodexExecutorOptions): Promise<Co
             undefined,
             stdinPayload,
             timeoutMs,
+            undefined,
+            options.signal,
           );
           Logger.warn(`Successfully executed with ${MODELS.FALLBACK} fallback.`);
           Logger.debug(`Status: ${STATUS_MESSAGES.FALLBACK_SUCCESS}`);

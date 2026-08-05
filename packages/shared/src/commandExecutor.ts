@@ -124,6 +124,7 @@ export async function executeCommand(
   stdinPayload?: string,
   timeoutMs?: number,
   commandLogging?: CommandLoggingOptions,
+  signal?: AbortSignal,
 ): Promise<string> {
   return new Promise((resolve, reject) => {
     const commandId = Logger.commandExecution(command, argsForLogging(args, commandLogging));
@@ -155,18 +156,36 @@ export async function executeCommand(
     // event loop open and pinning the (already dead) child object until GC.
     let killTimer: ReturnType<typeof setTimeout> | undefined;
 
-    const effectiveTimeoutMs = timeoutMs ?? getTimeoutMs();
-    const timer = setTimeout(() => {
-      if (isResolved) return;
-      isResolved = true;
-      Logger.warn(`[cmd:${commandId}] Timeout after ${effectiveTimeoutMs}ms, sending SIGTERM`);
-      childProcess.kill("SIGTERM");
+    const terminate = () => {
+      try {
+        childProcess.kill("SIGTERM");
+      } catch {}
       killTimer = setTimeout(() => {
         try {
           childProcess.kill("SIGKILL");
         } catch {}
       }, 5000);
       killTimer.unref?.();
+    };
+    const abortError = () =>
+      signal?.reason instanceof Error ? signal.reason : new Error("Provider command cancelled");
+    const onAbort = () => {
+      if (isResolved) return;
+      isResolved = true;
+      clearTimeout(timer);
+      Logger.warn(`[cmd:${commandId}] Cancelled, sending SIGTERM`);
+      terminate();
+      reject(abortError());
+    };
+    const cleanupSignal = () => signal?.removeEventListener("abort", onAbort);
+
+    const effectiveTimeoutMs = timeoutMs ?? getTimeoutMs();
+    const timer = setTimeout(() => {
+      if (isResolved) return;
+      isResolved = true;
+      cleanupSignal();
+      Logger.warn(`[cmd:${commandId}] Timeout after ${effectiveTimeoutMs}ms, sending SIGTERM`);
+      terminate();
       const timeoutSec = Math.round(effectiveTimeoutMs / 1000);
       reject(
         new Error(
@@ -177,6 +196,8 @@ export async function executeCommand(
         ),
       );
     }, effectiveTimeoutMs);
+    signal?.addEventListener("abort", onAbort, { once: true });
+    if (signal?.aborted) onAbort();
 
     childProcess.stdout.on("data", (data: Buffer) => {
       stdoutChunks.push(data);
@@ -197,6 +218,7 @@ export async function executeCommand(
       if (!isResolved) {
         isResolved = true;
         clearTimeout(timer);
+        cleanupSignal();
         Logger.error(`Process error:`, error);
         reject(new Error(`Failed to spawn command: ${error.message}`));
       }
@@ -204,6 +226,7 @@ export async function executeCommand(
 
     childProcess.on("close", (code) => {
       if (killTimer) clearTimeout(killTimer);
+      cleanupSignal();
       if (!isResolved) {
         isResolved = true;
         clearTimeout(timer);

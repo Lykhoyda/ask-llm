@@ -45,7 +45,7 @@ export const askClaudeTool: UnifiedTool = {
     description: "Execute Claude Code CLI to get Anthropic Claude's independent analysis.",
   },
   category: "claude",
-  execute: async (args, onProgress, onUsage) => {
+  execute: async (args, onProgress, onUsage, signal) => {
     const { prompt, model, sessionId, includeDirs } = args;
     if (!prompt?.trim()) throw new Error(ERROR_MESSAGES.NO_PROMPT_PROVIDED);
 
@@ -55,6 +55,7 @@ export const askClaudeTool: UnifiedTool = {
       sessionId: sessionId as string | undefined,
       includeDirs: includeDirs as string[] | undefined,
       onProgress,
+      signal,
     });
     onUsage?.(result.usage);
 

@@ -120,7 +120,15 @@ describe("executeCodexCLI argument construction", () => {
       undefined,
       undefined,
       expect.any(Number),
+      undefined,
+      undefined,
     );
+  });
+
+  it("forwards caller cancellation to executeCommand", async () => {
+    const signal = new AbortController().signal;
+    await executeCodexCLI({ prompt: "hello", signal });
+    expect(mockExecuteCommand.mock.calls[0][7]).toBe(signal);
   });
 });
 

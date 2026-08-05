@@ -4,9 +4,9 @@ description: Slash commands for AI code review, brainstorming, and side-by-side 
 
 # Skills
 
-Skills are slash commands you can invoke directly in Claude Code. Each skill triggers a structured workflow that gathers context, runs a native agent or provider, and returns prioritized findings.
+Skills are canonical portable workflows shared by Claude Code and Pi. In Claude Code invoke `/name`; in Pi invoke `/skill:name` or use natural-language matching. Each file delimits its portable contract and host adapters. Claude can use isolated reviewer agents; Pi runs the portable contract inline with native Ask LLM tools and does not claim isolated context.
 
-> `/fable-review` runs as a native isolated agent and needs no MCP server. `/sol-review` and `/codex-review` require the Codex MCP server; `/ollama-review` and `/antigravity-review` require their respective MCP servers; see [Plugin Overview](/plugin/overview#installation).
+> `/fable-review` runs as a native isolated Claude Code agent and needs no MCP server. It is intentionally excluded from Pi discovery; Pi does not start a nested Fable session. On Pi, provider skills use native tools rather than MCP configuration. `/sol-review` and `/codex-review` require the Codex MCP server; `/ollama-review` and `/antigravity-review` require their respective MCP servers; see [Plugin Overview](/plugin/overview#installation).
 
 ## Native Model Review Skills
 
@@ -152,11 +152,12 @@ If you're reviewing a code diff → use `/multi-review` instead.
 
 ## Background Continuous Review
 
-### `codex-pair`: PostToolUse hook + `/codex-pair` dashboard
+### `codex-pair`: host lifecycle + dashboard
 
 `codex-pair` has two surfaces:
 
-- **The PostToolUse hook**: fires automatically after every `Edit` / `Write` / `MultiEdit` whenever a project has opted in via a `.codex-pair/context.md` marker. HIGH and MED concerns appear to Claude as a system reminder on the next turn; LOW concerns are logged. This is the workhorse: the actual review surface.
+- **Claude Code:** the PostToolUse hook fires after `Edit` / `Write` / `MultiEdit` when a marker exists.
+- **Pi:** the extension observes successful built-in `tool_result` edit/write events and additionally requires project trust plus user-owned allowlist consent through `/codex-pair`. A committed marker alone is never consent. Findings use non-triggering `steer` delivery and are non-blocking; print-mode asynchronous pairing is unsupported.
 - **`/codex-pair`**: a user-invocable slash command that shows current status (active / paused / not configured) and runs interactive setup on first use. Use this when you want to enable codex-pair on a new project (auto-detects context from your README + manifests, drafts the marker, asks you to confirm) or check whether it's currently running. Pairs with `/codex-pair-pause` and `/codex-pair-resume` (the imperative toggles).
 
 > This is the "hidden" surface of the plugin: the hook ships in every install but is disabled by default until a project opts in. The full mechanism, env vars, and cost characteristics live in [Codex Pair](/plugin/codex-pair).

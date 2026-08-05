@@ -105,7 +105,7 @@ export function assessAgyVersion(output: string | undefined, probeError?: string
   };
 }
 
-export async function probeAgySupport(): Promise<AgySupportProbe> {
+export async function probeAgySupport(signal?: AbortSignal): Promise<AgySupportProbe> {
   try {
     const output = await executeCommand(
       CLI.COMMANDS.AGY,
@@ -114,6 +114,8 @@ export async function probeAgySupport(): Promise<AgySupportProbe> {
       undefined,
       undefined,
       ANTIGRAVITY.VERSION_CHECK_TIMEOUT_MS,
+      undefined,
+      signal,
     );
     return assessAgyVersion(output);
   } catch (error) {
@@ -132,8 +134,8 @@ export async function probeAgySupport(): Promise<AgySupportProbe> {
   }
 }
 
-export async function assertSupportedAgyVersion(): Promise<string> {
-  const probe = await probeAgySupport();
+export async function assertSupportedAgyVersion(signal?: AbortSignal): Promise<string> {
+  const probe = await probeAgySupport(signal);
   if (probe.available && probe.version) return probe.version;
   throw new Error([probe.message, probe.remediation].filter(Boolean).join(" "));
 }

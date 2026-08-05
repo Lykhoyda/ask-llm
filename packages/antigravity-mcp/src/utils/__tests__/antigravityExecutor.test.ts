@@ -263,6 +263,14 @@ describe("executeAntigravityCLI argument wiring", () => {
     expect(mockExec.mock.calls[0][2]).toBeUndefined();
   });
 
+  it("forwards caller cancellation through version probing and execution", async () => {
+    const signal = new AbortController().signal;
+    mockExec.mockResolvedValue(jsonStdout("answer\n"));
+    await executeAntigravityCLI({ prompt: "q", signal });
+    expect(mockAssertSupportedAgyVersion).toHaveBeenCalledWith(signal);
+    expect(mockExec.mock.calls[0][7]).toBe(signal);
+  });
+
   it("marks the exact full read-only prompt as sensitive command-log data", async () => {
     mockExec.mockResolvedValue("answer");
     await executeAntigravityCLI({ prompt: "private machine review", readOnly: true });

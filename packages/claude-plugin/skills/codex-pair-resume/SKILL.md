@@ -1,8 +1,26 @@
 ---
 name: codex-pair-resume
-description: Resume the codex-pair PostToolUse hook for this project after a previous /codex-pair-pause. Removes the .codex-pair/state/paused sentinel. The hook starts reviewing edits again on the next Edit/Write/MultiEdit. No-op if no pause sentinel exists.
-user_invocable: true
+description: Resume codex-pair for this project after a previous pause. Removes `.codex-pair/state/paused` and clears failure state. Review resumes on the next supported file edit; missing state is a no-op.
 ---
+
+<!-- PORTABLE-CONTRACT:START -->
+## Portable contract
+
+Remove the project-local pause sentinel and clear the consecutive-failure counter so the next successful edit can be reviewed. Missing state is a no-op.
+<!-- PORTABLE-CONTRACT:END -->
+
+## Host adapters
+
+### Pi adapter
+
+Run `/codex-pair-resume` or remove the sentinel and failure counter exactly as described by the portable contract.
+
+<!-- HOST-ADAPTER:CLAUDE-CODE:START -->
+### Claude Code adapter
+
+The existing detailed workflow below is the Claude Code adapter. Its Agent, MCP, hook, `CLAUDE_PLUGIN_ROOT`, and `AskUserQuestion` mechanics apply only on Claude Code; they do not override the Pi adapter above.
+
+
 
 # Resume codex-pair for this project
 
@@ -30,3 +48,5 @@ Removes the pause sentinel written by `/codex-pair-pause`, restoring normal code
    codex-pair resumed for <marker-dir>
    The next Edit/Write/MultiEdit will trigger a review.
    ```
+
+<!-- HOST-ADAPTER:CLAUDE-CODE:END -->

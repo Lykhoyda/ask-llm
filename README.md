@@ -15,9 +15,9 @@
 | [`@ask-llm/ollama-mcp`](https://www.npmjs.com/package/@ask-llm/ollama-mcp) | MCP Server | [![npm](https://img.shields.io/npm/v/@ask-llm/ollama-mcp)](https://www.npmjs.com/package/@ask-llm/ollama-mcp) | [![downloads](https://img.shields.io/npm/dt/@ask-llm/ollama-mcp)](https://www.npmjs.com/package/@ask-llm/ollama-mcp) |
 | [`@ask-llm/antigravity-mcp`](https://www.npmjs.com/package/@ask-llm/antigravity-mcp) | MCP Server | [![npm](https://img.shields.io/npm/v/@ask-llm/antigravity-mcp)](https://www.npmjs.com/package/@ask-llm/antigravity-mcp) | [![downloads](https://img.shields.io/npm/dt/@ask-llm/antigravity-mcp)](https://www.npmjs.com/package/@ask-llm/antigravity-mcp) |
 | [`@ask-llm/mcp`](https://www.npmjs.com/package/@ask-llm/mcp) | MCP Server | [![npm](https://img.shields.io/npm/v/@ask-llm/mcp)](https://www.npmjs.com/package/@ask-llm/mcp) | [![downloads](https://img.shields.io/npm/dt/@ask-llm/mcp)](https://www.npmjs.com/package/@ask-llm/mcp) |
-| [`@ask-llm/plugin`](https://github.com/Lykhoyda/ask-llm/tree/main/packages/claude-plugin) | Claude Code Plugin | [![package.json](https://img.shields.io/github/package-json/v/Lykhoyda/ask-llm/main?filename=packages%2Fclaude-plugin%2Fpackage.json&label=marketplace)](https://github.com/Lykhoyda/ask-llm/blob/main/packages/claude-plugin/package.json) | `/plugin install` |
+| [`@ask-llm/plugin`](https://www.npmjs.com/package/@ask-llm/plugin) | Claude Code + Pi Host Package | [![npm](https://img.shields.io/npm/v/@ask-llm/plugin)](https://www.npmjs.com/package/@ask-llm/plugin) | [![downloads](https://img.shields.io/npm/dt/@ask-llm/plugin)](https://www.npmjs.com/package/@ask-llm/plugin) |
 
-**MCP servers + Claude Code plugin for AI-to-AI collaboration**
+**MCP servers + Claude Code/Pi host package for AI-to-AI collaboration**
 
 </div>
 
@@ -66,6 +66,21 @@ claude mcp add --scope user antigravity -- npx -y @ask-llm/antigravity-mcp
 ```
 
 </details>
+
+### Pi
+
+Pi is a host harness, not another consulted provider. Install the canonical dual-host package; it exposes the shared skills plus native provider tools because Pi intentionally has no built-in MCP client:
+
+```bash
+pi install npm:@ask-llm/plugin
+pi list
+```
+
+Invoke `/skill:codex-review`, `/skill:multi-review`, `/skill:compare`, `/skill:brainstorm`, or describe the workflow naturally. The package registers `ask-codex`, `ask-gemini`, `ask-ollama`, `ask-antigravity`, and deterministic concurrent `ask-multi` tools. Provider CLI authentication is unchanged and separate from Pi's host-model login.
+
+Pi codex-pair requires the repository marker, Pi project trust, **and** interactive user-owned consent via `/codex-pair`; a committed marker alone never authorizes source transfer or cost. Pi surfaces findings non-blockingly and does not claim Claude's blocking Stop-gate or one-shot print parity. Independent `fable-review` remains Claude Code-only and is excluded from Pi.
+
+Update/remove with `pi update npm:@ask-llm/plugin` and `pi remove npm:@ask-llm/plugin`. See the [Pi host guide](https://lykhoyda.github.io/ask-llm/plugin/pi) for temporary/project-local installs, trust, data transfer, troubleshooting, and the full compatibility matrix.
 
 ### Claude Desktop
 
@@ -170,7 +185,20 @@ the complete package-to-executable mapping.
 | **Gemini** | Whole-codebase reads (1M+ tokens) | `gemini-3.1-pro-preview` → `gemini-3.6-flash` | ⚠️ Enterprise-gated from 2026-06-18 |
 | **Unified (`ask-llm`)** | One install for all of the above; fan out in parallel | routes per call | **Recommended** |
 
-## Claude Code Plugin
+## Host Package: Claude Code and Pi
+
+`@ask-llm/plugin` is one package, version, release lifecycle, and canonical skill corpus. Claude Code loads its existing marketplace agents/hooks; Pi loads explicit native tools, portable skill adapters, and a thin lifecycle extension.
+
+| Capability | Claude Code | Codex CLI host | Pi |
+|---|---:|---:|---:|
+| Provider transport | MCP | MCP | native Ask LLM tools (no built-in MCP) |
+| Review/compare/brainstorm skills | yes | tools only | `/skill:<name>` + natural language |
+| Isolated reviewer contexts / Fable | yes | no | no; `fable-review` excluded |
+| codex-pair | hooks | no | lifecycle extension |
+| Blocking HIGH Stop gate | opt-in | no | no; surfaced non-blockingly |
+| Async pairing in one-shot print | n/a | no | unsupported |
+
+### Claude Code Plugin
 
 The **Ask LLM plugin** adds multi-provider code review, brainstorming, and automated hooks directly into Claude Code:
 

@@ -33,7 +33,7 @@ export const askAntigravityTool: UnifiedTool = {
     description: "Execute Antigravity CLI (agy) to get a second opinion for code review and analysis.",
   },
   category: "utility",
-  execute: async (args, onProgress, onUsage) => {
+  execute: async (args, onProgress, onUsage, signal) => {
     const { prompt, includeDirs } = args;
     if (!prompt?.trim()) {
       throw new Error(ERROR_MESSAGES.NO_PROMPT_PROVIDED);
@@ -42,6 +42,7 @@ export const askAntigravityTool: UnifiedTool = {
       prompt: prompt as string,
       includeDirs: includeDirs as string[] | undefined,
       onProgress,
+      signal,
     });
     if (result.usage) onUsage?.(result.usage);
     const text = `${STATUS_MESSAGES.ANTIGRAVITY_RESPONSE}\n${result.response}`;
