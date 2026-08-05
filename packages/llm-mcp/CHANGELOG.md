@@ -1,5 +1,12 @@
 # @ask-llm/mcp
 
+## 0.6.5
+
+### Patch Changes
+
+- Updated dependencies [[`634dcf6`](https://github.com/Lykhoyda/ask-llm/commit/634dcf643a60c1c878672d5407936b192558aaa0)]:
+  - @ask-llm/antigravity-mcp@0.7.0
+
 ## 0.6.4
 
 ### Patch Changes

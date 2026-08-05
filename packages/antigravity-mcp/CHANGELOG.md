@@ -1,5 +1,11 @@
 # @ask-llm/antigravity-mcp
 
+## 0.7.0
+
+### Minor Changes
+
+- [#261](https://github.com/Lykhoyda/ask-llm/pull/261) [`634dcf6`](https://github.com/Lykhoyda/ask-llm/commit/634dcf643a60c1c878672d5407936b192558aaa0) Thanks [@Lykhoyda](https://github.com/Lykhoyda)! - Read the answer and token usage from agy's `--output-format json` stdout (supported on every agy >=1.1.5), retire the transcript scraper and its invocation locking, and pass `--disable-slash-commands` on agy >=1.1.9.
+
 ## 0.6.0
 
 ### Minor Changes

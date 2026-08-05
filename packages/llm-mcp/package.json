@@ -1,6 +1,6 @@
 {
   "name": "@ask-llm/mcp",
-  "version": "0.6.4",
+  "version": "0.6.5",
   "mcpName": "io.github.Lykhoyda/ask-llm",
   "description": "Unified MCP server for multi-LLM consultation — registers tools from all available providers (Gemini, Codex, Claude, Ollama, Antigravity) behind runtime availability checks",
   "type": "module",
@@ -66,7 +66,7 @@
     "LICENSE"
   ],
   "dependencies": {
-    "@ask-llm/antigravity-mcp": "^0.6.0",
+    "@ask-llm/antigravity-mcp": "^0.7.0",
     "@ask-llm/claude-mcp": "^0.1.5",
     "@ask-llm/codex-mcp": "^0.7.3",
     "@ask-llm/gemini-mcp": "^1.7.0",
