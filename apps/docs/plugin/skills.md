@@ -152,12 +152,12 @@ If you're reviewing a code diff → use `/multi-review` instead.
 
 ## Background Continuous Review
 
-### `codex-pair`: host lifecycle + dashboard
+### `codex-pair`: Claude Code lifecycle + dashboard
 
 `codex-pair` has two surfaces:
 
 - **Claude Code:** the PostToolUse hook fires after `Edit` / `Write` / `MultiEdit` when a marker exists.
-- **Pi:** the extension observes successful built-in `tool_result` edit/write events and additionally requires project trust plus user-owned allowlist consent through `/codex-pair`. A committed marker alone is never consent. Findings use non-triggering `steer` delivery and are non-blocking; print-mode asynchronous pairing is unsupported.
+- **Pi:** pairing and the `codex-pair` skill family are not included in this release; use explicit review skills instead.
 - **`/codex-pair`**: a user-invocable slash command that shows current status (active / paused / not configured) and runs interactive setup on first use. Use this when you want to enable codex-pair on a new project (auto-detects context from your README + manifests, drafts the marker, asks you to confirm) or check whether it's currently running. Pairs with `/codex-pair-pause` and `/codex-pair-resume` (the imperative toggles).
 
 > This is the "hidden" surface of the plugin: the hook ships in every install but is disabled by default until a project opts in. The full mechanism, env vars, and cost characteristics live in [Codex Pair](/plugin/codex-pair).

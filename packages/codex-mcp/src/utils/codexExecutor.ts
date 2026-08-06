@@ -30,10 +30,6 @@ import {
 // `parseCodexDoctorJson` stays internal — tests import it from "./codexDoctor.js".
 export { enrichCodexDoctor } from "./codexDoctor.js";
 
-export function resolveCodexTimeoutMs(): number {
-  return resolveTimeoutMs(EXECUTION.CODEX_TIMEOUT_ENV_VAR, EXECUTION.DEFAULT_CODEX_TIMEOUT_MS);
-}
-
 interface CodexItemCompleted {
   type: "item.completed";
   item?: {
@@ -466,7 +462,7 @@ export async function executeCodexCLI(options: CodexExecutorOptions): Promise<Co
     // (issue #45). Resolution order: ASK_CODEX_TIMEOUT_MS > GMCPT_TIMEOUT_MS >
     // DEFAULT_CODEX_TIMEOUT_MS. The provider-specific knob lets users keep a
     // tighter global default for gemini while granting codex more headroom.
-    const timeoutMs = resolveCodexTimeoutMs();
+    const timeoutMs = resolveTimeoutMs(EXECUTION.CODEX_TIMEOUT_ENV_VAR, EXECUTION.DEFAULT_CODEX_TIMEOUT_MS);
 
     // Try MODELS.PREFERRED once (opportunistic). ANY failure downgrades to the
     // standard MODELS.DEFAULT path below (which carries the quota→FALLBACK ladder).

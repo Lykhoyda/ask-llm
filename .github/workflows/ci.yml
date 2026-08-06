@@ -354,25 +354,6 @@ jobs:
         grep -q '"status"' /tmp/doctor.json || { echo "FAIL: doctor produced no report"; cat /tmp/doctor-err.txt; cat /tmp/doctor.json; exit 1; }
         echo "OK: @ask-llm/mcp global install + ask-llm-mcp doctor on Node ${{ matrix.node-version }}"
 
-  pi-lifecycle-macos:
-    # The pairing implementation depends on POSIX child cancellation and
-    # filesystem lock semantics. Keep one bounded native macOS lifecycle leg;
-    # subscription providers remain mocked.
-    runs-on: macos-latest
-    timeout-minutes: 15
-    steps:
-    - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
-    - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
-      with:
-        node-version: 24
-    - run: corepack enable
-    - run: yarn install --immutable
-    - run: yarn build
-    - name: Hermetic Pi pairing and provider cancellation lifecycle
-      run: |
-        yarn vitest run packages/claude-plugin/src/__tests__/pi-codex-pair.test.ts --project @ask-llm/plugin
-        yarn vitest run packages/shared/src/__tests__/commandExecutor.abort.test.ts --project @ask-llm/shared
-
   pi-package-smoke:
     # Issue #262: exercise the real packed package and supported Pi release in
     # an isolated HOME/config against Verdaccio. No paid provider is invoked.
@@ -411,14 +392,16 @@ jobs:
         pi install npm:@ask-llm/plugin
         pi list | grep -F 'npm:@ask-llm/plugin'
         printf '{"type":"get_commands"}\n' | pi --mode rpc --no-session --approve > /tmp/pi-commands.jsonl
-        for skill in codex-review multi-review compare brainstorm codex-pair; do
+        for skill in codex-review multi-review compare brainstorm; do
           grep -q "skill:$skill" /tmp/pi-commands.jsonl
         done
-        if grep -q 'skill:fable-review' /tmp/pi-commands.jsonl; then
-          echo 'FAIL: Claude-only fable-review was discovered by Pi'; exit 1
-        fi
-        for command in codex-pair codex-pair-ack codex-pair-pause codex-pair-resume; do
-          grep -q "\\\"name\\\":\\\"$command\\\"" /tmp/pi-commands.jsonl
+        for excluded in fable-review codex-pair codex-pair-ack codex-pair-pause codex-pair-resume; do
+          if grep -q "skill:$excluded" /tmp/pi-commands.jsonl; then
+            echo "FAIL: Claude-only skill $excluded was discovered by Pi"; exit 1
+          fi
+          if grep -q "\\\"name\\\":\\\"$excluded\\\"" /tmp/pi-commands.jsonl; then
+            echo "FAIL: Claude-only command $excluded was registered in Pi"; exit 1
+          fi
         done
         # Real Pi RPC + installed package + real executor code, backed only by
         # scripted host/provider fixtures. ASK_LLM_PATH is pinned by the harness

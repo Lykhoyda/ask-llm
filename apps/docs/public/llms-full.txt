@@ -25,7 +25,7 @@ packages/claude-plugin   @ask-llm/plugin      Claude Code + Pi host package (one
 pi install npm:@ask-llm/plugin
 ```
 
-Pi is the host, not a consulted provider, and has no built-in MCP client. The package registers native `ask-codex`, `ask-gemini`, `ask-ollama`, `ask-antigravity`, and deterministic `ask-multi`; skills use `/skill:<name>`. `fable-review` is excluded. Pi codex-pair requires marker + project trust + interactive user-owned allowlist consent, surfaces findings non-blockingly, and does not support asynchronous pairing in one-shot print mode.
+Pi is the host, not a consulted provider, and has no built-in MCP client. The package registers native `ask-codex`, `ask-gemini`, `ask-ollama`, `ask-antigravity`, and deterministic `ask-multi`; skills use `/skill:<name>`. `fable-review` and the `codex-pair` skill family are excluded. Pi pairing is not included in this release; use explicit review skills instead.
 
 ## Prerequisites
 

@@ -6,7 +6,7 @@
 
 </div>
 
-One publishable package that adds multi-provider code review, comparison, brainstorming, verification, image, and pairing workflows to [Claude Code](https://code.claude.com/docs/en/plugins) and [Pi](https://pi.dev). Both hosts consume one skill corpus and package version; host-specific behavior is kept in explicit adapters.
+One publishable package that adds multi-provider code review, comparison, brainstorming, verification, and image workflows to [Claude Code](https://code.claude.com/docs/en/plugins) and [Pi](https://pi.dev), plus Claude-only pairing. Both hosts consume one skill corpus and package version; host-specific behavior is kept in explicit adapters.
 
 Part of the [Ask LLM](https://github.com/Lykhoyda/ask-llm) monorepo.
 
@@ -36,16 +36,14 @@ pi install npm:@ask-llm/plugin
 pi list
 ```
 
-Pi discovers the portable skills as `/skill:<name>` commands and registers native `ask-codex`, `ask-gemini`, `ask-ollama`, `ask-antigravity`, and bounded concurrent `ask-multi` tools. Pi intentionally has no built-in MCP client; do not configure these as MCP servers in Pi. `fable-review` remains Claude Code-only and is excluded from Pi discovery.
-
-For codex-pair, create `.codex-pair/context.md`, ensure Pi trusts the project, then run interactive `/codex-pair` to grant user-owned canonical-project consent. The marker alone never authorizes data transfer/cost. Revoke with `/codex-pair revoke`. Pi findings are non-blocking; blocking Stop-gate and one-shot print parity are not available.
+Pi discovers the portable skills as `/skill:<name>` commands and registers native `ask-codex`, `ask-gemini`, `ask-ollama`, `ask-antigravity`, and bounded concurrent `ask-multi` tools. Pi intentionally has no built-in MCP client; do not configure these as MCP servers in Pi. `fable-review` and the `codex-pair` skill family remain Claude Code-only and are excluded from Pi discovery. Pi pairing is not included in this release; use explicit review skills instead. Claude Code's existing pairing hooks remain unchanged.
 
 ```bash
 pi update npm:@ask-llm/plugin
 pi remove npm:@ask-llm/plugin
 ```
 
-See the [Pi host guide](https://lykhoyda.github.io/ask-llm/plugin/pi) for security, provider authentication, project-local/temporary installs, lifecycle semantics, and troubleshooting.
+See the [Pi host guide](https://lykhoyda.github.io/ask-llm/plugin/pi) for security, provider authentication, project-local/temporary installs, and troubleshooting.
 
 ## Skills
 

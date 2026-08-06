@@ -161,10 +161,16 @@ describe("dual-host package manifest", () => {
 
   it("declares one thin Pi extension and the canonical skills with Fable excluded", () => {
     expect(pkg.pi.extensions).toEqual(["./pi/extensions/index.ts"]);
-    expect(pkg.pi.skills).toHaveLength(15);
+    expect(pkg.pi.skills).toHaveLength(11);
     expect(pkg.pi.skills).toContain("./skills/codex-review/SKILL.md");
     expect(pkg.pi.skills).not.toContain("./skills/fable-review/SKILL.md");
+    for (const skill of ["codex-pair", "codex-pair-ack", "codex-pair-pause", "codex-pair-resume"]) {
+      expect(pkg.pi.skills).not.toContain(`./skills/${skill}/SKILL.md`);
+    }
     expect(fs.existsSync(path.join(PLUGIN_ROOT, "pi", "extensions", "index.ts"))).toBe(true);
+    expect(fs.existsSync(path.join(PLUGIN_ROOT, "pi", "extensions", "codex-pair.ts"))).toBe(false);
+    const extension = fs.readFileSync(path.join(PLUGIN_ROOT, "pi", "extensions", "index.ts"), "utf8");
+    expect(extension).not.toContain("registerCodexPair");
   });
 
   it("ships every runtime resource needed by both hosts", () => {
