@@ -57,6 +57,7 @@ export interface GeminiExecutorOptions {
   sessionId?: string;
   includeDirs?: string[];
   onProgress?: (newOutput: string) => void;
+  signal?: AbortSignal;
 }
 
 export interface GeminiExecutorResult {
@@ -573,6 +574,8 @@ ${promptProcessed}
       createGeminiStderrHandler(),
       stdinPayload,
       timeoutMs,
+      undefined,
+      options.signal,
     );
     const result = parseGeminiStreamJsonl(raw, resolvedModel, Date.now() - startedAt, false);
     if (cacheKey) {
@@ -599,6 +602,8 @@ ${promptProcessed}
           createGeminiStderrHandler(),
           stdinPayload,
           timeoutMs,
+          undefined,
+          options.signal,
         );
         Logger.warn(`Successfully executed with ${MODELS.FLASH} fallback.`);
         Logger.debug(`Status: ${STATUS_MESSAGES.FLASH_SUCCESS}`);

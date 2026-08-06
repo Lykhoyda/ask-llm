@@ -39,6 +39,7 @@ export interface OllamaExecutorOptions {
   model?: string;
   sessionId?: string;
   onProgress?: (newOutput: string) => void;
+  signal?: AbortSignal;
 }
 
 export interface OllamaExecutorResult {
@@ -88,9 +89,13 @@ async function callOllama(
   model: string,
   messages: SessionMessage[],
   timeoutMs: number,
+  signal?: AbortSignal,
 ): Promise<OllamaChatResponse> {
   const url = `${baseUrl}${API.CHAT}`;
   const controller = new AbortController();
+  const onAbort = () => controller.abort(signal?.reason);
+  signal?.addEventListener("abort", onAbort, { once: true });
+  if (signal?.aborted) onAbort();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
 
   const timeoutError = () =>
@@ -109,6 +114,9 @@ async function callOllama(
         signal: controller.signal,
       });
     } catch (error) {
+      if (signal?.aborted) {
+        throw signal.reason instanceof Error ? signal.reason : new Error("Ollama request cancelled");
+      }
       if (controller.signal.aborted) throw timeoutError();
       const msg = error instanceof Error ? error.message : String(error);
       throw new Error(`${ERROR_MESSAGES.SERVER_UNREACHABLE} (${msg})`);
@@ -130,11 +138,15 @@ async function callOllama(
     try {
       return (await response.json()) as OllamaChatResponse;
     } catch (error) {
+      if (signal?.aborted) {
+        throw signal.reason instanceof Error ? signal.reason : new Error("Ollama request cancelled");
+      }
       if (controller.signal.aborted) throw timeoutError();
       throw error;
     }
   } finally {
     clearTimeout(timer);
+    signal?.removeEventListener("abort", onAbort);
   }
 }
 
@@ -191,7 +203,7 @@ export async function executeOllamaCLI(options: OllamaExecutorOptions): Promise<
   const timeoutMs = resolveTimeoutMs(EXECUTION.OLLAMA_TIMEOUT_ENV_VAR, EXECUTION.DEFAULT_OLLAMA_TIMEOUT_MS);
   const startedAt = Date.now();
   try {
-    const data = await callOllama(baseUrl, model, messages, timeoutMs);
+    const data = await callOllama(baseUrl, model, messages, timeoutMs, options.signal);
     const content = data.message?.content ?? "";
     const durationMs = Date.now() - startedAt;
 

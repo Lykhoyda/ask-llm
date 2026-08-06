@@ -30,6 +30,10 @@ import {
 // `parseCodexDoctorJson` stays internal — tests import it from "./codexDoctor.js".
 export { enrichCodexDoctor } from "./codexDoctor.js";
 
+export function resolveCodexTimeoutMs(): number {
+  return resolveTimeoutMs(EXECUTION.CODEX_TIMEOUT_ENV_VAR, EXECUTION.DEFAULT_CODEX_TIMEOUT_MS);
+}
+
 interface CodexItemCompleted {
   type: "item.completed";
   item?: {
@@ -98,6 +102,7 @@ export interface CodexExecutorOptions {
   // downgrade to MODELS.DEFAULT on any failure. Honored only for fresh
   // (no sessionId), non-edit calls with no explicit model. See ADR-132.
   preferred?: boolean;
+  signal?: AbortSignal;
 }
 
 export interface CodexExecutorResult {
@@ -461,7 +466,7 @@ export async function executeCodexCLI(options: CodexExecutorOptions): Promise<Co
     // (issue #45). Resolution order: ASK_CODEX_TIMEOUT_MS > GMCPT_TIMEOUT_MS >
     // DEFAULT_CODEX_TIMEOUT_MS. The provider-specific knob lets users keep a
     // tighter global default for gemini while granting codex more headroom.
-    const timeoutMs = resolveTimeoutMs(EXECUTION.CODEX_TIMEOUT_ENV_VAR, EXECUTION.DEFAULT_CODEX_TIMEOUT_MS);
+    const timeoutMs = resolveCodexTimeoutMs();
 
     // Try MODELS.PREFERRED once (opportunistic). ANY failure downgrades to the
     // standard MODELS.DEFAULT path below (which carries the quota→FALLBACK ladder).
@@ -488,6 +493,8 @@ export async function executeCodexCLI(options: CodexExecutorOptions): Promise<Co
           undefined,
           stdinPayload,
           timeoutMs,
+          undefined,
+          options.signal,
         );
         return parseCodexJsonlOutput(raw, MODELS.PREFERRED, Date.now() - preferredStartedAt, false);
       } catch (preferredError) {
@@ -508,6 +515,8 @@ export async function executeCodexCLI(options: CodexExecutorOptions): Promise<Co
         undefined,
         stdinPayload,
         timeoutMs,
+        undefined,
+        options.signal,
       );
       const result = parseCodexJsonlOutput(raw, model, Date.now() - startedAt, downgradedFromPreferred);
       if (cacheKey) responseCache.set(cacheKey, result.response);
@@ -537,6 +546,8 @@ export async function executeCodexCLI(options: CodexExecutorOptions): Promise<Co
             undefined,
             stdinPayload,
             timeoutMs,
+            undefined,
+            options.signal,
           );
           Logger.warn(`Successfully executed with ${MODELS.FALLBACK} fallback.`);
           Logger.debug(`Status: ${STATUS_MESSAGES.FALLBACK_SUCCESS}`);

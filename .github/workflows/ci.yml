@@ -279,7 +279,7 @@ jobs:
     - name: Pack all publishable tarballs (npm pack — the real publish shape)
       run: |
         mkdir -p tarballs
-        for p in gemini-mcp codex-mcp claude-mcp ollama-mcp antigravity-mcp llm-mcp; do
+        for p in gemini-mcp codex-mcp claude-mcp ollama-mcp antigravity-mcp llm-mcp claude-plugin; do
           (cd "packages/$p" && npm pack --pack-destination "$GITHUB_WORKSPACE/tarballs")
         done
         ls -la tarballs
@@ -353,3 +353,81 @@ jobs:
         if grep -q 'ERR_MODULE_NOT_FOUND' /tmp/doctor-err.txt; then echo "FAIL: doctor crashed at import"; cat /tmp/doctor-err.txt; exit 1; fi
         grep -q '"status"' /tmp/doctor.json || { echo "FAIL: doctor produced no report"; cat /tmp/doctor-err.txt; cat /tmp/doctor.json; exit 1; }
         echo "OK: @ask-llm/mcp global install + ask-llm-mcp doctor on Node ${{ matrix.node-version }}"
+
+  pi-lifecycle-macos:
+    # The pairing implementation depends on POSIX child cancellation and
+    # filesystem lock semantics. Keep one bounded native macOS lifecycle leg;
+    # subscription providers remain mocked.
+    runs-on: macos-latest
+    timeout-minutes: 15
+    steps:
+    - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+    - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+      with:
+        node-version: 24
+    - run: corepack enable
+    - run: yarn install --immutable
+    - run: yarn build
+    - name: Hermetic Pi pairing and provider cancellation lifecycle
+      run: |
+        yarn vitest run packages/claude-plugin/src/__tests__/pi-codex-pair.test.ts --project @ask-llm/plugin
+        yarn vitest run packages/shared/src/__tests__/commandExecutor.abort.test.ts --project @ask-llm/shared
+
+  pi-package-smoke:
+    # Issue #262: exercise the real packed package and supported Pi release in
+    # an isolated HOME/config against Verdaccio. No paid provider is invoked.
+    needs: pack-tarballs
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+    - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+    - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+      with:
+        node-version: 24
+    - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+      with:
+        name: npm-tarballs
+        path: /tmp/tarballs
+    - name: Publish tarballs to isolated registry
+      run: |
+        rm -rf /tmp/verdaccio-storage /tmp/verdaccio-htpasswd
+        npx verdaccio@6 --config .github/verdaccio/config.yaml --listen 4873 &
+        npx wait-on@9 -t 30000 http://localhost:4873
+        npm config set //localhost:4873/:_authToken fake
+        for t in /tmp/tarballs/*.tgz; do npm publish --registry http://localhost:4873 "$t"; done
+    - name: Clean Pi install, discovery, update, remove, and temporary evaluation
+      env:
+        HOME: /tmp/ask-llm-pi-home
+        PI_CODING_AGENT_DIR: /tmp/ask-llm-pi-agent
+        PI_SKIP_VERSION_CHECK: "1"
+        PI_TELEMETRY: "0"
+        npm_config_registry: http://localhost:4873
+      run: |
+        set -euo pipefail
+        rm -rf "$HOME" "$PI_CODING_AGENT_DIR" /tmp/pi-project
+        mkdir -p "$HOME" "$PI_CODING_AGENT_DIR" /tmp/pi-project
+        npm install -g --ignore-scripts @earendil-works/pi-coding-agent@0.83.0
+        cd /tmp/pi-project
+        pi install npm:@ask-llm/plugin
+        pi list | grep -F 'npm:@ask-llm/plugin'
+        printf '{"type":"get_commands"}\n' | pi --mode rpc --no-session --approve > /tmp/pi-commands.jsonl
+        for skill in codex-review multi-review compare brainstorm codex-pair; do
+          grep -q "skill:$skill" /tmp/pi-commands.jsonl
+        done
+        if grep -q 'skill:fable-review' /tmp/pi-commands.jsonl; then
+          echo 'FAIL: Claude-only fable-review was discovered by Pi'; exit 1
+        fi
+        for command in codex-pair codex-pair-ack codex-pair-pause codex-pair-resume; do
+          grep -q "\\\"name\\\":\\\"$command\\\"" /tmp/pi-commands.jsonl
+        done
+        # Real Pi RPC + installed package + real executor code, backed only by
+        # scripted host/provider fixtures. ASK_LLM_PATH is pinned by the harness
+        # so a runner's authenticated subscription CLIs can never be selected.
+        node "$GITHUB_WORKSPACE/scripts/test-pi-package-e2e.mjs"
+        pi update npm:@ask-llm/plugin
+        pi remove npm:@ask-llm/plugin
+        if pi list | grep -F 'npm:@ask-llm/plugin'; then echo 'FAIL: package remains installed'; exit 1; fi
+        # Temporary -e install must discover without adding a settings entry.
+        printf '{"type":"get_commands"}\n' | pi -e npm:@ask-llm/plugin --mode rpc --no-session --approve > /tmp/pi-temp.jsonl
+        grep -q 'skill:codex-review' /tmp/pi-temp.jsonl
+        if pi list | grep -F 'npm:@ask-llm/plugin'; then echo 'FAIL: -e persisted package'; exit 1; fi

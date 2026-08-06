@@ -41,7 +41,7 @@ export const askGeminiTool: UnifiedTool = {
     description: "Execute Gemini CLI to get Google Gemini's response for code review and analysis.",
   },
   category: "gemini",
-  execute: async (args, onProgress, onUsage) => {
+  execute: async (args, onProgress, onUsage, signal) => {
     const { prompt, model, sessionId } = args;
     if (!prompt?.trim()) {
       throw new Error(ERROR_MESSAGES.NO_PROMPT_PROVIDED);
@@ -52,6 +52,7 @@ export const askGeminiTool: UnifiedTool = {
       model: model as string | undefined,
       sessionId: sessionId as string | undefined,
       onProgress,
+      signal,
     });
 
     if (result.usage) onUsage?.(result.usage);

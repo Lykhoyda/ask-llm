@@ -15,8 +15,8 @@
 // identity-snapshot recheck.
 
 import { appendFile, mkdir, readFile, readdir, rename, stat, unlink, writeFile } from "node:fs/promises";
-import { mkdirSync, readFileSync, renameSync, statSync, unlinkSync, writeFileSync } from "node:fs";
-import { createHash } from "node:crypto";
+import { mkdirSync, readFileSync, readdirSync, renameSync, statSync, unlinkSync, writeFileSync } from "node:fs";
+import { createHash, randomUUID } from "node:crypto";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -77,27 +77,54 @@ export const stateRoot = (markerDir) => join(pairRoot(markerDir), STATE_DIR);
 export const pausePath = (markerDir) => join(stateRoot(markerDir), PAUSE_SENTINEL_FILE);
 export const inflightRoot = (markerDir) => join(stateRoot(markerDir), INFLIGHT_DIR);
 
+// `acks.json` is the legacy singleton. New writes are one shard per concern
+// hash, avoiding the singleton's cross-process read-modify-write race. Readers
+// merge both layouts so existing acknowledgements survive package updates.
 export const ACKS_FILENAME = "acks.json";
+export const ACKS_DIR = "acks";
 export const acksPath = (markerDir) => join(stateRoot(markerDir), ACKS_FILENAME);
-
-export function readAcks(markerDir) {
-  try {
-    return JSON.parse(readFileSync(acksPath(markerDir), "utf8"));
-  } catch {
-    return {}; // missing/corrupt → no acks
-  }
+export const acksRoot = (markerDir) => join(stateRoot(markerDir), ACKS_DIR);
+export function ackShardPath(markerDir, hash) {
+  const key = createHash("sha256").update(String(hash)).digest("hex");
+  return join(acksRoot(markerDir), `${key}.json`);
 }
 
-// Append-merge a single ack. Best-effort; the slash command surfaces failures.
-// Atomic tmp+rename so a kill mid-write can't corrupt/truncate acks.json
-// (readAcks fails-open on a partial read, but rename keeps the file consistent).
+export function readAcks(markerDir) {
+  let acks = {};
+  try {
+    const legacy = JSON.parse(readFileSync(acksPath(markerDir), "utf8"));
+    if (legacy && typeof legacy === "object" && !Array.isArray(legacy)) acks = legacy;
+  } catch {
+    // missing/corrupt legacy state → continue with shards
+  }
+
+  let shards = [];
+  try {
+    shards = readdirSync(acksRoot(markerDir)).filter((name) => name.endsWith(".json"));
+  } catch {
+    // missing shard directory → legacy state (or no acks) is sufficient
+  }
+  for (const shard of shards) {
+    try {
+      const { hash, reason, ts } = JSON.parse(readFileSync(join(acksRoot(markerDir), shard), "utf8"));
+      if (typeof hash === "string" && typeof reason === "string" && typeof ts === "string") {
+        acks[hash] = { reason, ts };
+      }
+    } catch {
+      // A corrupt shard must not make unrelated acknowledgements disappear.
+    }
+  }
+  return acks;
+}
+
+// Persist one independent ack shard. A unique temporary name plus rename makes
+// each write kill-safe; unrelated concurrent ack commands never share a file.
 export function addAck(markerDir, hash, { reason }) {
-  const acks = readAcks(markerDir);
-  acks[hash] = { reason, ts: new Date().toISOString() };
-  mkdirSync(stateRoot(markerDir), { recursive: true });
-  const path = acksPath(markerDir);
-  const tmp = `${path}.tmp`;
-  writeFileSync(tmp, `${JSON.stringify(acks, null, 2)}\n`);
+  const value = { hash, reason, ts: new Date().toISOString() };
+  mkdirSync(acksRoot(markerDir), { recursive: true });
+  const path = ackShardPath(markerDir, hash);
+  const tmp = `${path}.tmp.${process.pid}.${randomUUID()}`;
+  writeFileSync(tmp, `${JSON.stringify(value, null, 2)}\n`);
   renameSync(tmp, path);
 }
 // ADR-096: include-list + repetitions resolvers

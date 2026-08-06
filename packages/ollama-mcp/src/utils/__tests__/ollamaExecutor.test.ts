@@ -254,6 +254,19 @@ describe("chat timeout", () => {
     expect(options.signal).toEqual(expect.any(AbortSignal));
   });
 
+  it("combines caller cancellation with the timeout signal", async () => {
+    const caller = new AbortController();
+    mockFetch.mockImplementationOnce(
+      (_url: string, options: { signal: AbortSignal }) =>
+        new Promise((_resolve, reject) => {
+          options.signal.addEventListener("abort", () => reject(options.signal.reason));
+        }),
+    );
+    const pending = executeOllamaCLI({ prompt: "caller abort", signal: caller.signal });
+    caller.abort(new DOMException("fixture cancelled", "AbortError"));
+    await expect(pending).rejects.toMatchObject({ name: "AbortError", message: "fixture cancelled" });
+  });
+
   it("aborts a stalled chat request with an actionable error naming ASK_OLLAMA_TIMEOUT_MS", async () => {
     process.env.ASK_OLLAMA_TIMEOUT_MS = "30";
     try {

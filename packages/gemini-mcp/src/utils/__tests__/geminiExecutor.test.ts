@@ -77,6 +77,12 @@ describe("executeGeminiCLI argument construction", () => {
     ]);
   });
 
+  it("forwards caller cancellation to executeCommand", async () => {
+    const signal = new AbortController().signal;
+    await executeGeminiCLI({ prompt: "hello", signal });
+    expect(mockExecuteCommand.mock.calls[0][7]).toBe(signal);
+  });
+
   it("includes -m flag when model is specified", async () => {
     await executeGeminiCLI({ prompt: "hello", model: "gemini-3-flash-preview" });
 

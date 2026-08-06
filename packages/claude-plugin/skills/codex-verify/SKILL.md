@@ -1,8 +1,26 @@
 ---
 name: codex-verify
 description: Verifies what the assistant claims to have done — proves the work against actual state using OpenAI Codex with a read-only tool surface. Use when the user asks to "verify with Codex", "check the assistant's claims", "did Codex actually do what it said", "verify this turn", "prove the work", or wants a trust check distinct from issue review. Different from `/codex-review`, which finds new issues.
-user_invocable: true
 ---
+
+<!-- PORTABLE-CONTRACT:START -->
+## Portable contract
+
+Capture the prior assistant message verbatim, decompose it into atomic claims, and verify those claims against actual repository state with a read-only Codex consultation where useful. This is claim verification, not issue hunting. Preserve the Report block, five-grade confidence ladder, parser fallback, and explicit unverifiable state.
+<!-- PORTABLE-CONTRACT:END -->
+
+## Host adapters
+
+### Pi adapter
+
+Apply only the portable contract in `../../agents/codex-verifier.md` inline and call native `ask-codex` for focused claim checks. Do not claim an isolated verifier context.
+
+<!-- HOST-ADAPTER:CLAUDE-CODE:START -->
+### Claude Code adapter
+
+The existing detailed workflow below is the Claude Code adapter. Its Agent, MCP, hook, `CLAUDE_PLUGIN_ROOT`, and `AskUserQuestion` mechanics apply only on Claude Code; they do not override the Pi adapter above.
+
+
 
 # Codex Claim Verification
 
@@ -88,3 +106,5 @@ Find the `## Report` block in the agent's output. Extract:
 - **PARTIAL is a real verdict, not a softer VERIFIED.** Surface the unverifiable claims clearly — those gaps are the next thing the operator templates into the project.
 - **Don't reuse the verifier for "review my code."** That's `/codex-review`'s job. The verifier is structurally narrowed by design and will not return useful issue-hunt output.
 - **No silent drops.** If parsing the Report block fails (e.g., agent didn't emit the block, output truncated), surface that to the user with the raw agent output rather than fabricating a verdict.
+
+<!-- HOST-ADAPTER:CLAUDE-CODE:END -->

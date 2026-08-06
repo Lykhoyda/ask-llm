@@ -21,12 +21,16 @@ import { fileURLToPath } from "node:url";
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const DEPS_FIELDS = ["dependencies", "peerDependencies", "optionalDependencies"];
 const CANONICAL_PACKAGES = {
-  "antigravity-mcp": { name: "@ask-llm/antigravity-mcp", bin: "ask-antigravity-mcp" },
-  "claude-mcp": { name: "@ask-llm/claude-mcp", bin: "ask-claude-mcp" },
-  "codex-mcp": { name: "@ask-llm/codex-mcp", bin: "ask-codex-mcp" },
-  "gemini-mcp": { name: "@ask-llm/gemini-mcp", bin: "ask-gemini-mcp" },
-  "llm-mcp": { name: "@ask-llm/mcp", bin: "ask-llm-mcp" },
-  "ollama-mcp": { name: "@ask-llm/ollama-mcp", bin: "ask-ollama-mcp" },
+  "antigravity-mcp": { name: "@ask-llm/antigravity-mcp", bins: ["ask-antigravity-mcp"] },
+  "claude-mcp": { name: "@ask-llm/claude-mcp", bins: ["ask-claude-mcp"] },
+  "claude-plugin": {
+    name: "@ask-llm/plugin",
+    bins: ["ask-antigravity-run", "ask-codex-run", "ask-gemini-run", "ask-ollama-run"],
+  },
+  "codex-mcp": { name: "@ask-llm/codex-mcp", bins: ["ask-codex-mcp"] },
+  "gemini-mcp": { name: "@ask-llm/gemini-mcp", bins: ["ask-gemini-mcp"] },
+  "llm-mcp": { name: "@ask-llm/mcp", bins: ["ask-llm-mcp"] },
+  "ollama-mcp": { name: "@ask-llm/ollama-mcp", bins: ["ask-ollama-mcp"] },
 };
 const MCP_REGISTRY_MANIFESTS = [
   "server.json",
@@ -68,9 +72,10 @@ for (const { dir, pkg } of publishable) {
     if (pkg.name !== canonical.name) {
       findings.push(`name must be "${canonical.name}" (found "${pkg.name}")`);
     }
-    const bins = Object.keys(pkg.bin ?? {});
-    if (bins.length !== 1 || bins[0] !== canonical.bin) {
-      findings.push(`bin must preserve the executable name "${canonical.bin}" (found ${JSON.stringify(bins)})`);
+    const bins = Object.keys(pkg.bin ?? {}).sort();
+    const expectedBins = [...canonical.bins].sort();
+    if (JSON.stringify(bins) !== JSON.stringify(expectedBins)) {
+      findings.push(`bins must preserve ${JSON.stringify(expectedBins)} (found ${JSON.stringify(bins)})`);
     }
     if (pkg.publishConfig?.access !== "public") {
       findings.push('publishConfig.access must be "public" for scoped packages');

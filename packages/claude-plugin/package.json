@@ -1,7 +1,7 @@
 {
   "name": "@ask-llm/plugin",
   "version": "0.12.8",
-  "private": true,
+  "description": "Ask LLM review, comparison, brainstorming, image, verification, and pairing workflows for Claude Code and Pi",
   "type": "module",
   "main": "dist/index.js",
   "bin": {
@@ -13,22 +13,92 @@
   "scripts": {
     "build": "tsc",
     "test": "vitest run",
-    "lint": "biome check src/ && biome lint scripts/ && tsc --noEmit"
+    "lint": "biome check src/ pi/ && biome lint scripts/ && tsc --noEmit && tsc --noEmit -p pi/tsconfig.json"
+  },
+  "keywords": [
+    "pi-package",
+    "pi-coding-agent",
+    "claude-code-plugin",
+    "codex",
+    "gemini",
+    "ollama",
+    "antigravity",
+    "code-review",
+    "second-opinion",
+    "llm"
+  ],
+  "author": "Lykhoyda",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Lykhoyda/ask-llm.git",
+    "directory": "packages/claude-plugin"
+  },
+  "bugs": {
+    "url": "https://github.com/Lykhoyda/ask-llm/issues"
+  },
+  "homepage": "https://github.com/Lykhoyda/ask-llm#readme",
+  "files": [
+    ".claude-plugin/",
+    ".mcp.json",
+    "agents/",
+    "codex-pair-defaults.json",
+    "dist/",
+    "hooks/",
+    "LICENSE",
+    "pi/",
+    "prompts/",
+    "README.md",
+    "scripts/*.mjs",
+    "scripts/lib/",
+    "skills/"
+  ],
+  "pi": {
+    "extensions": [
+      "./pi/extensions/index.ts"
+    ],
+    "skills": [
+      "./skills/antigravity-review/SKILL.md",
+      "./skills/brainstorm/SKILL.md",
+      "./skills/brainstorm-all/SKILL.md",
+      "./skills/codex-image/SKILL.md",
+      "./skills/codex-pair/SKILL.md",
+      "./skills/codex-pair-ack/SKILL.md",
+      "./skills/codex-pair-pause/SKILL.md",
+      "./skills/codex-pair-resume/SKILL.md",
+      "./skills/codex-review/SKILL.md",
+      "./skills/codex-verify/SKILL.md",
+      "./skills/compare/SKILL.md",
+      "./skills/gemini-review/SKILL.md",
+      "./skills/multi-review/SKILL.md",
+      "./skills/ollama-review/SKILL.md",
+      "./skills/sol-review/SKILL.md"
+    ]
   },
   "dependencies": {
-    "@ask-llm/antigravity-mcp": "workspace:*",
-    "@ask-llm/codex-mcp": "workspace:*",
-    "@ask-llm/gemini-mcp": "workspace:*",
-    "@ask-llm/ollama-mcp": "workspace:*",
-    "@ask-llm/shared": "workspace:*"
+    "@ask-llm/antigravity-mcp": "^0.7.0",
+    "@ask-llm/codex-mcp": "^0.7.3",
+    "@ask-llm/gemini-mcp": "^1.7.0",
+    "@ask-llm/ollama-mcp": "^0.5.5"
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-ai": "*",
+    "@earendil-works/pi-coding-agent": "*",
+    "typebox": "*"
   },
   "engines": {
     "node": ">=20.0.0"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.4.4",
+    "@earendil-works/pi-ai": "^0.83.0",
+    "@earendil-works/pi-coding-agent": "^0.83.0",
     "@types/node": "^22.19.13",
+    "typebox": "^1.3.7",
     "typescript": "^5.0.0",
     "vitest": "^4.0.18"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }

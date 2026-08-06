@@ -8,7 +8,7 @@ Only the latest minor version of each published package receives security fixes.
 npm install -g @ask-llm/gemini-mcp@latest @ask-llm/codex-mcp@latest @ask-llm/claude-mcp@latest @ask-llm/ollama-mcp@latest @ask-llm/antigravity-mcp@latest @ask-llm/mcp@latest
 ```
 
-For the Claude Code plugin, run `/plugin update ask-llm` from inside Claude Code.
+For the Claude Code plugin, run `/plugin update ask-llm` from inside Claude Code. For the same canonical package on Pi, run `pi update npm:@ask-llm/plugin`.
 
 ## Reporting a vulnerability
 
@@ -25,9 +25,9 @@ Include in your report:
 
 ## Threat model
 
-The MCP server runs locally as a subprocess of the user's MCP client (Claude Code, Claude Desktop, Cursor, etc.) with the user's privileges. Provider CLIs (`gemini`, `codex`, `claude`, `agy`) and Ollama are trusted dependencies.
+The MCP server runs locally as a subprocess of the user's MCP client (Claude Code, Claude Desktop, Cursor, etc.) with the user's privileges. The `@ask-llm/plugin` Pi extension likewise runs with the installing user's full permissions; Pi project trust is an input-loading guard, not a sandbox. Provider CLIs (`gemini`, `codex`, `claude`, `agy`) and Ollama are trusted dependencies.
 
-Review and second-opinion Codex paths run with `--sandbox read-only` (ADR-136). Antigravity has no hard file-tool read-only mode: Ask LLM adds its read-only preamble and `--sandbox` to every managed path, but this remains a soft boundary and is documented as such in `docs/BUGS.md`.
+Pi codex-pair defaults off and requires a repository marker, Pi project trust, and a user-owned allowlist keyed by canonical project root. A committed marker alone never authorizes source transfer or cost. Consent is revocable with `/codex-pair revoke`; external provider paths can transmit bounded project context, while Ollama remains local. Review and second-opinion Codex paths run with `--sandbox read-only` (ADR-136). Antigravity has no hard file-tool read-only mode: Ask LLM adds its read-only preamble and `--sandbox` to every managed path, but this remains a soft boundary and is documented as such in `docs/BUGS.md`.
 
 Claude consultations run with `--safe-mode` and an explicit `Read,Glob,Grep` tool list. Bash, Edit, Write, user-configured MCP servers, hooks, and plugins are unavailable to the nested reviewer. The provider refuses to run when `CLAUDECODE` indicates Claude Code is already the host.
 

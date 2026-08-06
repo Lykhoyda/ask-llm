@@ -2,7 +2,9 @@
 description: Claude Code plugin for AI-to-AI collaboration. Multi-provider code review, brainstorming agents, and the continuous codex-pair review hook.
 ---
 
-# Claude Code Plugin
+# Claude Code Host
+
+`@ask-llm/plugin` is the canonical dual-host package. This page covers its Claude Code marketplace adapter. For the same portable skill corpus with native tools and Pi lifecycle events, see [Pi Host Support](/plugin/pi).
 
 The **Ask LLM plugin** brings the second opinion into Claude Code itself: slash-command reviews (`/codex-review`, `/multi-review`), multi-model brainstorming (`/brainstorm`), and an opt-in continuous review hook (`codex-pair`) that checks every edit as you make it. Under the hood it adds review skills, brainstorm agents, and automated hooks.
 
@@ -113,5 +115,6 @@ The plugin uses several Claude Code integration points:
 
 ## Source
 
+- **Pi:** `pi install npm:@ask-llm/plugin` ([guide](/plugin/pi))
 - **Marketplace:** `/plugin marketplace add Lykhoyda/ask-llm` then `/plugin install ask-llm@ask-llm-plugins`
 - **Source:** [packages/claude-plugin](https://github.com/Lykhoyda/ask-llm/tree/main/packages/claude-plugin)

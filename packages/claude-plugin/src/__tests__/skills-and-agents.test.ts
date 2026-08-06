@@ -19,6 +19,17 @@ const expectedSkills = [
   "ollama-review",
   "sol-review",
 ];
+const expectedPiSkills = expectedSkills.filter((skill) => skill !== "fable-review");
+const allowedAgentSkillFields = new Set([
+  "name",
+  "description",
+  "license",
+  "compatibility",
+  "metadata",
+  "allowed-tools",
+  "disable-model-invocation",
+]);
+
 const expectedAgents = [
   "antigravity-reviewer.md",
   "brainstorm-coordinator.md",
@@ -54,12 +65,27 @@ describe("skills/", () => {
     expect(desc).toMatch(/should be used|when the user|asks to|wants to|review|brainstorm/i);
   });
 
-  it("user_invocable skills are clearly marked", () => {
-    for (const skill of expectedSkills) {
+  it.each(expectedSkills)("%s is strict Agent Skills frontmatter and has delimited contracts", (skill) => {
+    const content = readFile(`skills/${skill}/SKILL.md`);
+    const { frontmatter } = parseMarkdownFrontmatter(content);
+    expect(Object.keys(frontmatter).every((field) => allowedAgentSkillFields.has(field))).toBe(true);
+    expect(String(frontmatter.name)).toMatch(/^[a-z0-9]+(?:-[a-z0-9]+)*$/);
+    expect(String(frontmatter.name).length).toBeLessThanOrEqual(64);
+    expect(String(frontmatter.description).length).toBeLessThanOrEqual(1024);
+    expect(content).toContain("<!-- PORTABLE-CONTRACT:START -->");
+    expect(content).toContain("<!-- PORTABLE-CONTRACT:END -->");
+    expect(content).toContain("<!-- HOST-ADAPTER:CLAUDE-CODE:START -->");
+    expect(content).toContain("<!-- HOST-ADAPTER:CLAUDE-CODE:END -->");
+  });
+
+  it.each(expectedPiSkills)("%s has an explicit Pi adapter", (skill) => {
+    expect(readFile(`skills/${skill}/SKILL.md`)).toMatch(/### Pi adapter/);
+  });
+
+  it("keeps always-loaded Pi descriptions host-neutral", () => {
+    for (const skill of expectedPiSkills) {
       const { frontmatter } = parseMarkdownFrontmatter(readFile(`skills/${skill}/SKILL.md`));
-      if (frontmatter.user_invocable !== undefined) {
-        expect(["true", "false"]).toContain(String(frontmatter.user_invocable));
-      }
+      expect(frontmatter.description).not.toMatch(/Claude Opus|PostToolUse|AskUserQuestion|CLAUDE_PLUGIN_ROOT/);
     }
   });
 });
@@ -78,6 +104,14 @@ describe("agents/", () => {
     expect(frontmatter.description).toBeTruthy();
     expect((frontmatter.description as string).length).toBeGreaterThan(40);
     expect(body.trim().length).toBeGreaterThan(100);
+  });
+
+  it.each(expectedAgents)("%s delimits its portable contract from the Claude Code adapter", (agentFile) => {
+    const content = readFile(`agents/${agentFile}`);
+    expect(content).toContain("<!-- PORTABLE-CONTRACT:START -->");
+    expect(content).toContain("<!-- PORTABLE-CONTRACT:END -->");
+    expect(content).toContain("<!-- HOST-ADAPTER:CLAUDE-CODE:START -->");
+    expect(content).toContain("<!-- HOST-ADAPTER:CLAUDE-CODE:END -->");
   });
 
   it.each(expectedAgents)("%s declares a model and color", (agentFile) => {
@@ -315,8 +349,8 @@ describe("compare skill — load-bearing structure", () => {
   const content = readFile("skills/compare/SKILL.md");
   const { frontmatter, body } = parseMarkdownFrontmatter(content);
 
-  it("is user-invocable", () => {
-    expect(String(frontmatter.user_invocable)).toBe("true");
+  it("is discoverable as a standard skill", () => {
+    expect(frontmatter.name).toBe("compare");
   });
 
   it("description differentiates from /brainstorm and /multi-review", () => {
@@ -446,8 +480,8 @@ describe("/codex-verify skill — load-bearing structure (ADR-073)", () => {
   const content = readFile("skills/codex-verify/SKILL.md");
   const { frontmatter, body } = parseMarkdownFrontmatter(content);
 
-  it("is user-invocable", () => {
-    expect(String(frontmatter.user_invocable)).toBe("true");
+  it("is discoverable as a standard skill", () => {
+    expect(frontmatter.name).toBe("codex-verify");
   });
 
   it("description distinguishes from /codex-review (issue hunt vs trust check)", () => {

@@ -1,8 +1,26 @@
 ---
 name: codex-pair
 description: Show codex-pair status and set up the per-edit Codex review hook for this project. Detects whether codex-pair is active, paused, or not yet configured. On first run (no marker), offers interactive setup with auto-detected project context. On subsequent runs, shows current state, recent review activity, and toggle instructions. The per-edit hook itself runs automatically; this command is the human-facing dashboard for it.
-user_invocable: true
 ---
+
+<!-- PORTABLE-CONTRACT:START -->
+## Portable contract
+
+Set up and report status for recall-first per-edit Codex review. The repository marker carries review context but is not, by itself, authorization on Pi. Preserve bounded file context, debounce, pause/resume, acknowledgement, deduplication, failure disclosure, and explicit host lifecycle limitations.
+<!-- PORTABLE-CONTRACT:END -->
+
+## Host adapters
+
+### Pi adapter
+
+Pi requires project trust, this repository marker, and explicit user-owned allowlist consent through `/codex-pair`. Pairing is asynchronous in TUI/RPC/long-lived JSON modes, uses `tool_result`, and surfaces findings non-blockingly. One-shot print mode, blocking Stop-gate parity, and nested Fable execution are unsupported.
+
+<!-- HOST-ADAPTER:CLAUDE-CODE:START -->
+### Claude Code adapter
+
+The existing detailed workflow below is the Claude Code adapter. Its Agent, MCP, hook, `CLAUDE_PLUGIN_ROOT`, and `AskUserQuestion` mechanics apply only on Claude Code; they do not override the Pi adapter above.
+
+
 
 # /codex-pair — setup and status dashboard
 
@@ -293,3 +311,5 @@ Claude + codex-pair:            10/10
 The three probes `/codex-review` missed exemplified the "looks fine, runs wrong" class the precision filter suppresses — numeric-precision drift, cross-cutting validation gaps, edge-case bounds errors. **The improvement reproduced across all four tasks**, not just the headline one — confirming the recall gain is task-agnostic. Wherever a project has implicit correctness invariants the model can't infer from a single file in isolation (and most projects do, somewhere), codex-pair catches them earlier than a confidence-filtered review on a finished PR.
 
 Subsequent lived-experience audit ([ADR-095](../../../../docs/DECISIONS.md)) confirmed the benchmark holds in real flow: codex-pair flagged 32 unique bugs during a single dense broker-implementation session in this very repo, including 2 BLOCKING bugs that `/multi-review` independently re-caught 5+ hours later. The benchmark is reproducible empirical evidence; ADR-095 is the field replication.
+
+<!-- HOST-ADAPTER:CLAUDE-CODE:END -->

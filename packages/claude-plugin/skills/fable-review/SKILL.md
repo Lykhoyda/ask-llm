@@ -1,8 +1,26 @@
 ---
 name: fable-review
 description: Request a review of the current code changes from the Fable model. Use when the user asks for a Fable review, says "review with Fable", wants Fable's independent perspective on a diff, or invokes /fable-review.
-user_invocable: true
 ---
+
+<!-- PORTABLE-CONTRACT:START -->
+## Portable contract
+
+Gather a bounded diff and context brief, run the independent Fable reviewer in a read-only isolated context, source-verify its findings, and disclose that the resolved runtime model cannot be independently inspected.
+<!-- PORTABLE-CONTRACT:END -->
+
+## Host adapters
+
+### Pi adapter
+
+Unsupported and intentionally not loaded or advertised by the Pi manifest. Do not start a nested Pi/Fable session. Independent Fable review remains a Claude Code capability.
+
+<!-- HOST-ADAPTER:CLAUDE-CODE:START -->
+### Claude Code adapter
+
+The existing detailed workflow below is the Claude Code adapter. Its Agent, MCP, hook, `CLAUDE_PLUGIN_ROOT`, and `AskUserQuestion` mechanics apply only on Claude Code; they do not override the Pi adapter above.
+
+
 
 # Fable Code Review
 
@@ -20,3 +38,5 @@ Request a read-only, precision-first review in an isolated Fable context.
 8. Return the agent's validated findings without adding unverified issues. State that Fable was requested but the resolved model was not independently verified, because Claude Code does not expose the resolved subagent model to skills and an organization `availableModels` policy can silently fall back to the inherited model.
 
 The `fable-reviewer` agent's `model: fable` frontmatter and the launch-time `model: "fable"` argument both request Fable. Do not substitute another reviewer or route this skill through an external MCP provider. Never claim the runtime-selected model was verified when Claude Code did not expose it.
+
+<!-- HOST-ADAPTER:CLAUDE-CODE:END -->

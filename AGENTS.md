@@ -9,6 +9,7 @@ This file is the project's committed home for project-intrinsic agent knowledge:
 - Gemini quota fallback is `gemini-3.6-flash` (ADR-138); the antigravity fallback stays `gemini-3.5-flash` deliberately — agy slugs are evidence-pinned to its live catalog (ADR-137), so never bump both in sympathy.
 - Provider default-model constants leak further than the provider package: `packages/llm-mcp/src/constants.ts` (`PROVIDERS.*.defaultModel`) is threaded into executors as `options.model` by `machine.ts`, so executors cannot use "was a model passed?" to detect user pins (see ADR-137).
 - agy (Antigravity) CLI ground truth for this repo's executor is recorded in ADR-137 (minimum 1.1.5, base slug + separate `--effort`, per-slug effort tiers, the live-captured `invalid model selection` error grammar) and ADR-141 (answers come from `--output-format json` stdout — key `response`, usage object — on every supported version; `--disable-slash-commands` is 1.1.9+ only).
+- `@ask-llm/plugin` is the one publishable Claude Code + Pi host package (ADR-142); `docs/PI-COMPATIBILITY.md` is the skill/lifecycle disposition. Pi deliberately excludes `fable-review`, uses native provider tools (not MCP), and codex-pair requires marker + Pi project trust + a user-owned canonical-project allowlist.
 
 ## Maintaining this file
 

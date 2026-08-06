@@ -13,6 +13,7 @@ export interface AntigravityExecutorOptions {
   sessionId?: string;
   readOnly?: boolean;
   onProgress?: (newOutput: string) => void;
+  signal?: AbortSignal;
 }
 
 export interface AntigravityExecutorResult {
@@ -158,7 +159,7 @@ function modelUnavailableMessage(model: string, detail: string, source: ModelSou
 }
 
 export async function executeAntigravityCLI(options: AntigravityExecutorOptions): Promise<AntigravityExecutorResult> {
-  const agyVersion = await assertSupportedAgyVersion();
+  const agyVersion = await assertSupportedAgyVersion(options.signal);
   const disableSlashCommands = isVersionAtLeast(agyVersion, ANTIGRAVITY.SLASH_COMMANDS_FLAG_MIN_VERSION);
   const sandbox = process.env[ANTIGRAVITY.SANDBOX_ENV_VAR] !== "0";
   const timeoutMs = resolveTimeoutMs(ANTIGRAVITY.TIMEOUT_ENV_VAR, ANTIGRAVITY.DEFAULT_TIMEOUT_MS);
@@ -212,6 +213,7 @@ export async function executeAntigravityCLI(options: AntigravityExecutorOptions)
       undefined,
       timeoutMs,
       commandLogging,
+      options.signal,
     );
     const durationMs = Date.now() - startedAt;
     const reportedModel = model ?? MODELS.AGY_DEFAULT_LABEL;

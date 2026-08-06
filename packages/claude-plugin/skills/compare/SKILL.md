@@ -1,8 +1,26 @@
 ---
 name: compare
 description: This skill should be used when the user asks to "compare LLMs", "see how each provider answers", "side-by-side response", "what do Gemini, Codex, Ollama, and Antigravity think", or wants raw responses from multiple providers without synthesis. Unlike /brainstorm (which synthesizes findings) or /multi-review (which validates code reviews), /compare just shows each provider's answer side-by-side.
-user_invocable: true
 ---
+
+<!-- PORTABLE-CONTRACT:START -->
+## Portable contract
+
+Send the exact same bounded prompt to two to four selected providers concurrently. Preserve input order in the result, show each response verbatim without synthesis or adjudication, and show every provider failure instead of silently dropping it. Never invoke raw provider CLIs when a canonical Ask LLM bridge is available.
+<!-- PORTABLE-CONTRACT:END -->
+
+## Host adapters
+
+### Pi adapter
+
+Use one native `ask-multi` call. Put the common prompt in `prompt` and two to four unique names in `providers`; its implementation, not model-emitted sibling calls, guarantees concurrent bounded dispatch and stable ordering.
+
+<!-- HOST-ADAPTER:CLAUDE-CODE:START -->
+### Claude Code adapter
+
+The existing detailed workflow below is the Claude Code adapter. Its Agent, MCP, hook, `CLAUDE_PLUGIN_ROOT`, and `AskUserQuestion` mechanics apply only on Claude Code; they do not override the Pi adapter above.
+
+
 
 # Compare Provider Responses Side-by-Side
 
@@ -129,3 +147,5 @@ Sub-agents in Claude Code cannot own background processes that outlive their tur
 - ✅ `timeout: 600000` on the Bash tool call
 
 Without these, providers that take longer than the surrounding turn will be SIGKILLed mid-response and you will silently get 0-byte outputs.
+
+<!-- HOST-ADAPTER:CLAUDE-CODE:END -->

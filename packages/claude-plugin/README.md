@@ -2,11 +2,11 @@
 
 <div align="center">
 
-**Claude Code plugin for AI-to-AI collaboration**
+**Canonical Claude Code + Pi host package for AI-to-AI collaboration**
 
 </div>
 
-A [Claude Code plugin](https://code.claude.com/docs/en/plugins) that adds multi-provider code review, brainstorming, and automated hooks. Get second opinions from Gemini, Codex, Ollama, and Antigravity without leaving Claude Code.
+One publishable package that adds multi-provider code review, comparison, brainstorming, verification, image, and pairing workflows to [Claude Code](https://code.claude.com/docs/en/plugins) and [Pi](https://pi.dev). Both hosts consume one skill corpus and package version; host-specific behavior is kept in explicit adapters.
 
 Part of the [Ask LLM](https://github.com/Lykhoyda/ask-llm) monorepo.
 
@@ -28,6 +28,24 @@ claude mcp add --scope user gemini -- npx -y @ask-llm/gemini-mcp
 claude mcp add --scope user codex -- npx -y @ask-llm/codex-mcp
 claude mcp add --scope user ollama -- npx -y @ask-llm/ollama-mcp
 ```
+
+### Pi
+
+```bash
+pi install npm:@ask-llm/plugin
+pi list
+```
+
+Pi discovers the portable skills as `/skill:<name>` commands and registers native `ask-codex`, `ask-gemini`, `ask-ollama`, `ask-antigravity`, and bounded concurrent `ask-multi` tools. Pi intentionally has no built-in MCP client; do not configure these as MCP servers in Pi. `fable-review` remains Claude Code-only and is excluded from Pi discovery.
+
+For codex-pair, create `.codex-pair/context.md`, ensure Pi trusts the project, then run interactive `/codex-pair` to grant user-owned canonical-project consent. The marker alone never authorizes data transfer/cost. Revoke with `/codex-pair revoke`. Pi findings are non-blocking; blocking Stop-gate and one-shot print parity are not available.
+
+```bash
+pi update npm:@ask-llm/plugin
+pi remove npm:@ask-llm/plugin
+```
+
+See the [Pi host guide](https://lykhoyda.github.io/ask-llm/plugin/pi) for security, provider authentication, project-local/temporary installs, lifecycle semantics, and troubleshooting.
 
 ## Skills
 
@@ -102,7 +120,8 @@ To disable:
 
 ## Requirements
 
-- **Claude Code** installed
+- **Claude Code or Pi 0.83.0+** installed
+- **Claude Code** installed for marketplace agents, hooks, independent Fable review, and the blocking Stop gate
 - **Gemini CLI** authenticated — required for hooks and Gemini features
 - **Codex CLI** — required for `/codex-review` and brainstorm with Codex
 - **Ollama** running locally — required for `/ollama-review`

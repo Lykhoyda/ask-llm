@@ -47,7 +47,7 @@ export const askCodexEditTool: UnifiedTool = {
     description: "Execute Codex CLI with --output-schema to get structured edit suggestions for existing files.",
   },
   category: "codex",
-  execute: async (args, onProgress, onUsage) => {
+  execute: async (args, onProgress, onUsage, signal) => {
     const { prompt, model, sessionId, includeDirs } = args;
     if (!prompt?.trim()) {
       throw new Error(ERROR_MESSAGES.NO_PROMPT_PROVIDED);
@@ -60,6 +60,7 @@ export const askCodexEditTool: UnifiedTool = {
       includeDirs: includeDirs as string[] | undefined,
       editMode: true,
       onProgress,
+      signal,
     });
 
     if (result.usage) onUsage?.(result.usage);

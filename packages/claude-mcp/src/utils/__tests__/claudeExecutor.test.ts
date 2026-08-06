@@ -178,6 +178,13 @@ describe("executeClaudeCLI", () => {
     expect(mockExecuteCommand.mock.calls[0][5]).toBe(12345);
   });
 
+  it("forwards caller cancellation to executeCommand", async () => {
+    const signal = new AbortController().signal;
+    mockExecuteCommand.mockResolvedValue(JSON.stringify({ type: "result", subtype: "success", result: "ok" }));
+    await executeClaudeCLI({ prompt: "p", signal });
+    expect(mockExecuteCommand.mock.calls[0][7]).toBe(signal);
+  });
+
   it("rejects nested execution when the MCP host is Claude Code", async () => {
     process.env[CLAUDE_HOST_ENV_VAR] = "1";
     await expect(executeClaudeCLI({ prompt: "p" })).rejects.toThrow(ERROR_MESSAGES.NESTED_SESSION);

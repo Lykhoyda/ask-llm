@@ -41,7 +41,7 @@ export const askGeminiEditTool: UnifiedTool = {
     description: "Execute Gemini CLI in change mode to get structured edit suggestions.",
   },
   category: "gemini",
-  execute: async (args, onProgress, onUsage) => {
+  execute: async (args, onProgress, onUsage, signal) => {
     const { prompt, model, includeDirs } = args;
     if (!prompt?.trim()) {
       throw new Error(ERROR_MESSAGES.NO_PROMPT_PROVIDED);
@@ -53,6 +53,7 @@ export const askGeminiEditTool: UnifiedTool = {
       changeMode: true,
       includeDirs: includeDirs as string[] | undefined,
       onProgress,
+      signal,
     });
 
     if (result.usage) onUsage?.(result.usage);

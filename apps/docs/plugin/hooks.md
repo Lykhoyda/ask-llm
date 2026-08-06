@@ -2,7 +2,9 @@
 description: The Claude Code hooks the Ask LLM plugin registers, how hook registration works, and the two hooks the plugin removed. The codex-pair continuous-review pipeline has its own dedicated page.
 ---
 
-# Hooks
+# Claude Code Hooks
+
+This page is Claude Code-specific. Pi uses native extension lifecycle events instead of these scripts; see [Pi Host Support](/plugin/pi) for its `tool_result`, debounce, delivery, consent, and shutdown mapping.
 
 Hooks are automated actions that trigger on specific Claude Code events. Every hook the Ask LLM plugin ships is part of the **codex-pair** continuous-review pipeline, so this page is the hook-mechanics reference; the feature itself, its setup, slash commands, cost, and Stop gate live on the dedicated [Codex Pair](/plugin/codex-pair) page.
 

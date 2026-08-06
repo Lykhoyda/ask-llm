@@ -1,8 +1,26 @@
 ---
 name: brainstorm-all
-description: Send a topic to ALL LLM providers (Gemini, Codex, Ollama, Antigravity) in parallel while Claude Opus performs its own independent research in parallel. Synthesizes findings from up to five participants. Shortcut for /brainstorm gemini,codex,ollama,antigravity <topic>. Requires Ollama running locally and agy installed for the Antigravity participant.
-user_invocable: true
+description: Send a topic to all external providers (Gemini, Codex, Ollama, Antigravity) concurrently after the current host model forms an independent view. Use when the user wants an all-provider brainstorm with synthesis and explicit unavailable-provider reporting.
 ---
+
+<!-- PORTABLE-CONTRACT:START -->
+## Portable contract
+
+Apply the brainstorm contract with all four external providers: Gemini, Codex, Ollama, and Antigravity. The current host model forms its independent view first; unavailable providers are reported, not silently omitted; synthesis distinguishes verified evidence from inference.
+<!-- PORTABLE-CONTRACT:END -->
+
+## Host adapters
+
+### Pi adapter
+
+Follow `/skill:brainstorm` semantics with `ask-multi` providers `gemini,codex,ollama,antigravity`, after the current Pi host model has committed its independent view.
+
+<!-- HOST-ADAPTER:CLAUDE-CODE:START -->
+### Claude Code adapter
+
+The existing detailed workflow below is the Claude Code adapter. Its Agent, MCP, hook, `CLAUDE_PLUGIN_ROOT`, and `AskUserQuestion` mechanics apply only on Claude Code; they do not override the Pi adapter above.
+
+
 
 # Multi-LLM Brainstorm (All Providers)
 
@@ -21,3 +39,5 @@ Consult all available external LLM providers (Gemini, Codex, Ollama, Antigravity
    - Run its own Claude Opus research phase in parallel with the external dispatches (Phase 3B — reads actual files, traces code, uses WebFetch/WebSearch on referenced external docs)
    - Dispatch the topic to the four external providers in parallel (Phase 3A)
    - Synthesize all findings with Claude's verified findings weighted higher than inferred ones
+
+<!-- HOST-ADAPTER:CLAUDE-CODE:END -->

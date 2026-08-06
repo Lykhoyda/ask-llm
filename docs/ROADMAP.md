@@ -417,9 +417,9 @@ These are speculative — listed for completeness, not for immediate scheduling:
 ADRs added in this triage cycle: ADR-052 through ADR-061 (9 accepted, 1 withdrawn).
 Net new tests: 136 (199 → 335; the action's 31 tests were removed when the action was withdrawn).
 
-# Strategic focus: MCP tools + Claude Code plugin
+# Strategic focus: MCP tools + dual-host package
 
-The CLI/agentic exploration was scoped intentionally. The REPL (Priority 18 below) shipped as a working feature but is **scope-capped at its current state** — it serves as a maintainer dev tool and a minimal multi-provider differentiator, but is NOT being grown into a competitor to `claude` / `gemini` / `codex` CLIs. Future engineering effort goes into the MCP tool surface and the Claude Code plugin, where user energy is actually showing up.
+The CLI/agentic exploration was scoped intentionally. The REPL (Priority 18 below) shipped as a working feature but is **scope-capped at its current state** — it serves as a maintainer dev tool and a minimal multi-provider differentiator, but is NOT being grown into a competitor to `claude` / `gemini` / `codex` CLIs. Future engineering effort goes into the MCP tool surface and the canonical Claude Code + Pi host package, where user energy is actually showing up.
 
 ## Priority 18: Interactive CLI REPL (ADR-062) — SCOPE-CAPPED
 - [x] **`npx ask-llm-mcp repl` subcommand** — Joins `doctor` and the default server-start path in `cli.ts`

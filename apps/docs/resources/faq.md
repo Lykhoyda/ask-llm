@@ -1,5 +1,5 @@
 ---
-description: Frequently asked questions about Ask LLM MCP servers, covering setup, multi-provider usage, sessions, the Claude Code plugin, and troubleshooting.
+description: Frequently asked questions about Ask LLM MCP servers and its Claude Code and Pi host package, covering setup, multi-provider usage, sessions, and troubleshooting.
 ---
 
 # Frequently Asked Questions
@@ -8,7 +8,7 @@ description: Frequently asked questions about Ask LLM MCP servers, covering setu
 
 ### What is Ask LLM?
 
-A set of MCP servers that bridge your AI client (Claude Code, Codex CLI, Cursor, Warp, Copilot, any of [40+ MCP-compatible clients](https://modelcontextprotocol.io/clients)) with up to five LLM providers through their local CLIs: OpenAI Codex, Anthropic Claude, Google Antigravity (`agy`), Ollama (fully local), and Google Gemini. Plus a Claude Code plugin layer with slash commands, reviewer subagents, and the opt-in continuous `codex-pair` review hook.
+A set of MCP servers that bridge your AI client (Claude Code, Codex CLI, Cursor, Warp, Copilot, any of [40+ MCP-compatible clients](https://modelcontextprotocol.io/clients)) with up to five LLM providers through their local CLIs: OpenAI Codex, Anthropic Claude, Google Antigravity (`agy`), Ollama (fully local), and Google Gemini. The canonical [`@ask-llm/plugin` host package](/plugin/pi) adds one portable skill corpus for Claude Code and Pi, with host-specific agents, tools, hooks, and lifecycle adapters.
 
 ### Why use this instead of the providers directly?
 
@@ -96,7 +96,7 @@ Use the `multi-llm` MCP tool:
 Use multi-llm to send "is this thread-safe?" to Gemini and Codex
 ```
 
-Or the `/compare` skill (Claude Code plugin) for the same thing with a nicer interactive surface. Or `/multi-review` if you want verified code review findings rather than raw responses.
+Or use the `/compare` skill from the Claude Code or Pi host package for the same thing with a nicer interactive surface. Use `/multi-review` if you want verified code review findings rather than raw responses; see the [Pi host guide](/plugin/pi) for its native-tool transport and limitations.
 
 ### Which model should I use?
 
