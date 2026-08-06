@@ -78,7 +78,7 @@ pi list
 
 Invoke `/skill:codex-review`, `/skill:multi-review`, `/skill:compare`, `/skill:brainstorm`, or describe the workflow naturally. The package registers `ask-codex`, `ask-gemini`, `ask-ollama`, `ask-antigravity`, and deterministic concurrent `ask-multi` tools. Provider CLI authentication is unchanged and separate from Pi's host-model login.
 
-Pi pairing is not included in this release; use explicit review skills in Pi. Claude Code's existing codex-pair hooks remain unchanged. Independent `fable-review` also remains Claude Code-only and is excluded from Pi.
+Pi codex-pair requires the repository marker, Pi project trust, **and** interactive user-owned consent via `/codex-pair`; a committed marker alone never authorizes source transfer or cost. Pi surfaces findings non-blockingly and does not claim Claude's blocking Stop-gate or one-shot print parity. Independent `fable-review` remains Claude Code-only and is excluded from Pi.
 
 Update/remove with `pi update npm:@ask-llm/plugin` and `pi remove npm:@ask-llm/plugin`. See the [Pi host guide](https://lykhoyda.github.io/ask-llm/plugin/pi) for temporary/project-local installs, trust, data transfer, troubleshooting, and the full compatibility matrix.
 
@@ -187,14 +187,16 @@ the complete package-to-executable mapping.
 
 ## Host Package: Claude Code and Pi
 
-`@ask-llm/plugin` is one package, version, release lifecycle, and canonical skill corpus. Claude Code loads its existing marketplace agents/hooks; Pi loads explicit native tools and portable skill adapters.
+`@ask-llm/plugin` is one package, version, release lifecycle, and canonical skill corpus. Claude Code loads its existing marketplace agents/hooks; Pi loads explicit native tools, portable skill adapters, and a thin lifecycle extension.
 
 | Capability | Claude Code | Codex CLI host | Pi |
 |---|---:|---:|---:|
 | Provider transport | MCP | MCP | native Ask LLM tools (no built-in MCP) |
 | Review/compare/brainstorm skills | yes | tools only | `/skill:<name>` + natural language |
 | Isolated reviewer contexts / Fable | yes | no | no; `fable-review` excluded |
-| codex-pair | hooks | no | not included |
+| codex-pair | hooks | no | lifecycle extension |
+| Blocking HIGH Stop gate | opt-in | no | no; surfaced non-blockingly |
+| Async pairing in one-shot print | n/a | no | unsupported |
 
 ### Claude Code Plugin
 
@@ -305,3 +307,4 @@ Contributions are welcome! See [open issues](https://github.com/Lykhoyda/ask-llm
 MIT License. See [LICENSE](LICENSE) for details.
 
 **Disclaimer:** This is an unofficial, third-party tool and is not affiliated with, endorsed, or sponsored by Anthropic, Google, or OpenAI.
+

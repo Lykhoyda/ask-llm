@@ -1,5 +1,5 @@
 ---
-description: Install Ask LLM as a first-class Pi package with native provider tools, portable skills, and deterministic multi-provider dispatch.
+description: Install Ask LLM as a first-class Pi package with native provider tools, portable skills, deterministic multi-provider dispatch, and opt-in codex-pair lifecycle support.
 ---
 
 # Pi Host Support
@@ -13,7 +13,7 @@ Pi is the **host harness**: it owns the conversation, host model, skills, tools,
 - Node.js 20+
 - Pi 0.83.0 or newer
 - one or more provider runtimes:
-  - authenticated `codex` CLI for Codex reviews, images, and verification
+  - authenticated `codex` CLI for Codex reviews, images, verification, and codex-pair
   - authenticated enterprise `gemini` CLI for Gemini
   - local Ollama server with the requested model pulled
   - authenticated `agy` 1.1.5+ for Antigravity
@@ -64,9 +64,10 @@ Representative commands:
 /skill:brainstorm antigravity,codex review this architecture
 /skill:codex-image create a monochrome architecture diagram
 /skill:codex-verify
+/skill:codex-pair
 ```
 
-Pi loads 11 skills. `fable-review` and the four `codex-pair` skills are intentionally Claude Code-only and are neither loaded nor advertised in Pi. Independent Fable review would require a nested Pi session or a new provider bridge, while pairing would require a separate reliable lifecycle and consent design; both are outside this release's bounded Pi surface.
+Pi loads 15 skills. `fable-review` is intentionally Claude Code-only and is neither loaded nor advertised in Pi: independent Fable review would require a nested Pi session or a new provider bridge, both outside this package's bounded design.
 
 Native tools:
 
@@ -80,9 +81,41 @@ Native tools:
 
 Tool output is bounded to Pi's 50KB/2000-line policy. Provider failures throw, so Pi records `isError: true`; Ask LLM usage remains raw metadata in `details` and is not misreported as Pi host-model cost.
 
-## Pairing
+## Pi codex-pair consent
 
-Pi pairing is not included in this release. The Pi extension registers provider tools only: it adds no edit/write event handlers, pairing commands, consent allowlist, timers, locks, or pending-finding state. Use explicit `/skill:codex-review` calls in Pi when you want a review. Claude Code's existing `codex-pair` hooks and commands remain unchanged.
+Pi codex-pair is off unless **all three** gates pass:
+
+1. the repository has `.codex-pair/context.md`;
+2. Pi considers the project trusted; and
+3. you grant consent interactively with `/codex-pair`.
+
+The third gate writes the canonical project root to your user-owned allowlist at:
+
+```text
+$PI_CODING_AGENT_DIR/ask-llm/codex-pair-projects.json
+# normally ~/.pi/agent/ask-llm/codex-pair-projects.json
+```
+
+A repository can commit a marker, so **the marker alone never authorizes source transfer or cost**. Consent confirmation states that bounded edited-file content and marker context go to your configured Codex CLI/account. Revoke it at any time:
+
+```text
+/codex-pair revoke
+```
+
+Pair controls:
+
+```text
+/codex-pair                 # status or interactive consent
+/codex-pair-pause
+/codex-pair-resume
+/codex-pair-ack <hash> <reason>
+```
+
+The extension observes only successful built-in `edit`/`write` `tool_result` events, debounces a burst to the final settled file state, deduplicates identical content, and injects findings as a persisted `steer` message without triggering an extra host-model turn. It starts no process/timer at extension load. On shutdown/reload/new/resume/fork it closes the current epoch, clears timers, aborts active provider work, waits a bounded interval, and releases owned locks. Durable logs, cache, pause, ack, consent, and pending findings are user product state; shutdown does not erase that history.
+
+Pending delivery is durable at least once across process crashes. Atomic claims prevent concurrent Pi sessions from delivering the same pending record, but a crash after `steer` succeeds and before durable cleanup can repeat it after restart. Every retry preserves the stable `details.findingId`, which receivers can use to deduplicate; Pi does not provide an atomic idempotent-message API that could guarantee exactly-once crash delivery.
+
+Pi pairing works in TUI, RPC, and a long-lived JSON process. It is unsupported in one-shot print mode because the process normally exits before asynchronous debounce/review completes and print mode does not render custom messages.
 
 ## Host feature matrix
 
@@ -93,7 +126,9 @@ Pi pairing is not included in this release. The Pi extension registers provider 
 | Isolated reviewer subagents | Yes | No | No; portable contracts run inline |
 | Independent `fable-review` | Yes | No | No; excluded |
 | `codex-image` | Yes | provider-dependent | Yes, explicit workspace-write opt-in |
-| codex-pair per-edit review | Claude hooks | No | Not included |
+| codex-pair per-edit review | Claude hooks | No | Pi lifecycle extension |
+| Blocking `blockOn: HIGH` Stop gate | Yes | No | **No**; findings are non-blocking |
+| Pairing in one-shot print mode | Hook-dependent | No | **No** |
 
 ## Update and remove
 
@@ -102,13 +137,14 @@ pi update npm:@ask-llm/plugin
 pi remove npm:@ask-llm/plugin
 ```
 
-Pi 0.83 removes its managed npm tree/settings entry. This release creates no Pi pairing state or consent allowlist. Any project `.codex-pair/` data belongs to the unchanged Claude Code integration.
+Pi 0.83 removes its managed npm tree/settings entry. User-owned `.codex-pair/` logs/cache/state and the consent allowlist remain until you delete or revoke them explicitly.
 
 ## Troubleshooting
 
 - **Package absent:** run `pi list`; reinstall with `pi install npm:@ask-llm/plugin`.
 - **Skills absent:** confirm `enableSkillCommands` is true, run `/reload`, and check `/skill:codex-review`. `fable-review` should remain absent.
 - **Project package absent:** trust the project (`/trust`, then restart) or use `--approve` for a one-run check.
+- **Pairing refuses a marker:** project trust and user-owned consent are both required; run `/codex-pair` in interactive Pi.
 - **Provider unavailable:** run the named CLI directly once to install/authenticate it (`codex`, `gemini`, `agy`) or start Ollama and pull the configured model. The native tool returns the provider package's actionable error.
-- **codex-pair absent:** this is expected in Pi. Use explicit `/skill:codex-review` calls or Claude Code for hook-driven pairing.
+- **Pairing seems silent:** use TUI/RPC/long-lived JSON, check pause status with `/codex-pair`, and inspect `.codex-pair/log.jsonl`. Print mode is intentionally unsupported.
 - **Need a refresh after update:** run `/reload` or restart Pi.

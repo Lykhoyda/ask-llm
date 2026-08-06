@@ -12,7 +12,7 @@ Ask LLM provides Model Context Protocol (MCP) servers that let any MCP-compatibl
 - `@ask-llm/ollama-mcp`: MCP server for local Ollama. No API keys, fully private. Default model: qwen3.6:27b (no fallback).
 - `@ask-llm/gemini-mcp`: MCP server for Google Gemini CLI. 1M+ token context. Default model: gemini-3.1-pro-preview → gemini-3.6-flash on quota. (Enterprise-gated since 2026-06-18.)
 - `@ask-llm/mcp`: Unified server: auto-detects installed providers and registers all available tools.
-- `@ask-llm/plugin`: Canonical Claude Code + Pi host package. One skill corpus; Claude marketplace agents/hooks; Pi native provider tools and explicit-review skills.
+- `@ask-llm/plugin`: Canonical Claude Code + Pi host package. One skill corpus; Claude marketplace agents/hooks; Pi native provider tools and consent-gated lifecycle extension.
 
 ## Installation
 
@@ -51,7 +51,7 @@ Note: every `includeDirs` parameter accepts **relative paths only**: no `..`, ab
 
 ## Claude Code and Pi Host Package
 
-For Pi: `pi install npm:@ask-llm/plugin`. Invoke `/skill:<name>`; Pi gets native `ask-codex`, `ask-gemini`, `ask-ollama`, `ask-antigravity`, and deterministic `ask-multi` tools because Pi has no built-in MCP client. `fable-review` and the `codex-pair` skill family are Claude-only and excluded from Pi. Pi pairing is not included in this release; use explicit review skills instead.
+For Pi: `pi install npm:@ask-llm/plugin`. Invoke `/skill:<name>`; Pi gets native `ask-codex`, `ask-gemini`, `ask-ollama`, `ask-antigravity`, and deterministic `ask-multi` tools because Pi has no built-in MCP client. `fable-review`, blocking Stop-gate parity, and asynchronous one-shot print pairing are intentionally unsupported. Pi codex-pair requires marker + project trust + user-owned allowlist consent.
 
 ## Claude Code Plugin
 
@@ -78,3 +78,4 @@ Plugin pages: https://lykhoyda.github.io/ask-llm/plugin/overview, https://lykhoy
 - npm (ollama): https://www.npmjs.com/package/@ask-llm/ollama-mcp
 - npm (gemini): https://www.npmjs.com/package/@ask-llm/gemini-mcp
 - npm (unified): https://www.npmjs.com/package/@ask-llm/mcp
+

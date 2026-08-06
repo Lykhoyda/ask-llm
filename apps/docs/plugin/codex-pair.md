@@ -4,7 +4,7 @@ description: codex-pair is the plugin's opt-in continuous review hook. Codex rev
 
 # Codex Pair
 
-Codex-pair is Claude Code-only. Pi does not load or advertise the codex-pair skill family and registers no pairing commands, lifecycle handlers, consent state, or automatic edit review. Use explicit review skills on Pi instead.
+Codex-pair supports both hosts with different lifecycle adapters. The detailed detached-worker and Stop-gate material on this page describes **Claude Code**. On **Pi**, successful `tool_result` edit/write events feed an in-process debounce; findings are delivered with non-triggering `steer`; project trust plus a user-owned canonical-project allowlist is required in addition to the marker; shutdown aborts active review work; blocking Stop-gate and one-shot print parity are unsupported. See [Pi Host Support](/plugin/pi#pi-codex-pair-consent).
 
 **codex-pair** is the plugin's flagship feature: continuous, opt-in code review where Codex reads every file Claude edits. It is the recall-first complement to the on-demand `/codex-review` skill. The hook is always loaded but **self-gates on a project marker file** and stays completely silent (zero cost, zero Codex calls) until a project opts in. Once enabled, a burst of edits to one file coalesces into a single debounced review of the **settled** file state, run by a detached worker; verdicts surface to Claude on both hook channels (transcript `systemMessage` plus model-visible `additionalContext`) and drain on the next edit, the next user prompt, or at turn end via the Stop hook.
 
@@ -31,7 +31,7 @@ charge). Concurrent requests are real. URL inputs are untrusted.
 EOF
 ```
 
-The marker file's *presence* is the Claude Code switch and its content is review context. It has no pairing meaning in Pi.
+On Claude Code, the marker file's *presence* is the switch and its content is review context. On Pi, marker presence is only the repository-side gate: it never authorizes provider transfer/cost without Pi project trust and separate interactive `/codex-pair` consent stored outside the repository.
 
 **Do NOT commit the `.codex-pair/` directory**: gitignore it. Each contributor's review context is their own; one developer iterating on prompt wording shouldn't dirty the shared history. The hook itself is project-policy (it's in the plugin); the marker is per-developer opt-in. Every state artifact (marker, log, cache, `ignore` globs, pause sentinel, inflight locks) nests under the single directory; one `.gitignore` line covers everything:
 
@@ -74,7 +74,7 @@ The `/codex-pair` suite is the human-facing dashboard and controls for the hook.
 | `/codex-pair` | Status dashboard. Detects whether codex-pair is active, paused, or not yet configured. First run (no marker) offers interactive setup with auto-detected project context. Later runs show current state, recent review activity, and toggle instructions |
 | `/codex-pair-pause` | Pause the hook for this project without removing the marker. Writes a `.codex-pair/state/paused` sentinel the hook checks on every edit. Use to temporarily silence reviews (noisy refactor, docs-only work) and resume later |
 | `/codex-pair-resume` | Remove the pause sentinel. The hook starts reviewing edits again on the next edit. No-op if no pause sentinel exists |
-| `/codex-pair-ack <hash> "<reason>"` | Acknowledge a HIGH finding without fixing it (known trade-off or tracked in a ticket). The `<hash>` is the content hash shown alongside the finding when the Stop gate blocks. The reason is recorded in `.codex-pair/state/acks.json` with a timestamp; acknowledged findings are skipped by the gate until the file changes |
+| `/codex-pair-ack <hash> "<reason>"` | Acknowledge a HIGH finding without fixing it (known trade-off or tracked in a ticket). The `<hash>` is the content hash shown alongside the finding when the Stop gate blocks. The reason is recorded as a concurrency-safe shard under `.codex-pair/state/acks/` with a timestamp; acknowledged findings are skipped by the gate until the file changes |
 
 ## The hook pipeline
 
@@ -269,3 +269,4 @@ The Node command picks the highest numeric semver directory under the cache and 
 Fully quit and restart Claude Code to pick up the new hook config; `/reload-plugins` refreshes plugin files but does not re-register hooks in the current session. After restarting, the next Edit/Write/MultiEdit should fire the hook automatically. Verify with `node <plugin-path>/scripts/codex-pair-log.mjs --latest` or a new `.codex-pair/log.jsonl` entry (typical wall clock 5-30s per call).
 
 Note: this workaround is per-developer (project-local) and gitignored. Once Claude Code's plugin-hook dispatch is fixed upstream, you can remove the `hooks` block and rely on the plugin's own registration again.
+

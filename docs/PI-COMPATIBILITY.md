@@ -2,7 +2,7 @@
 
 This inventory is the committed disposition for every workflow shipped by the canonical `@ask-llm/plugin` package. Pi is a **host harness**, not a consulted Ask LLM provider. Claude Code and Pi load the same skill files; portable contracts and explicit host adapters are delimited in those files.
 
-Classifications: **host-neutral**, **thin host adapter**, and **Claude-only**.
+Classifications: **host-neutral**, **thin host adapter**, **lifecycle integration**, and **Claude-only**.
 
 ## Skills
 
@@ -12,10 +12,10 @@ Classifications: **host-neutral**, **thin host adapter**, and **Claude-only**.
 | `brainstorm` | Thin host adapter | The current Pi host model commits its independent view before deterministic `ask-multi` dispatch. The host is not assumed to be Claude, and same-family overlap is disclosed. |
 | `brainstorm-all` | Thin host adapter | Same as `brainstorm`, with all four external providers. |
 | `codex-image` | Thin host adapter | Native `ask-codex` with explicit `sandbox: "workspace-write"`, followed by filesystem verification. |
-| `codex-pair` | Claude-only | Excluded from Pi discovery; Claude Code's hook and command surface remains unchanged. |
-| `codex-pair-ack` | Claude-only | Excluded from Pi discovery with the rest of the pairing command family. |
-| `codex-pair-pause` | Claude-only | Excluded from Pi discovery with the rest of the pairing command family. |
-| `codex-pair-resume` | Claude-only | Excluded from Pi discovery with the rest of the pairing command family. |
+| `codex-pair` | Lifecycle integration + thin adapter | Pi command owns consent/status; extension observes successful `tool_result` edit/write events, debounces, reviews, and injects findings. |
+| `codex-pair-ack` | Thin host adapter | Pi command dismisses a finding reminder. Pi has no blocking Stop gate. |
+| `codex-pair-pause` | Host-neutral + thin command | Shared pause sentinel; native Pi command is the convenient adapter. |
+| `codex-pair-resume` | Host-neutral + thin command | Shared pause/failure state; native Pi command is the convenient adapter. |
 | `codex-review` | Thin host adapter | Portable reviewer contract runs inline through native `ask-codex`; no false claim of isolated context. |
 | `codex-verify` | Thin host adapter | Portable claim-verification contract runs inline with focused `ask-codex` calls. |
 | `compare` | Thin host adapter | One `ask-multi` call guarantees bounded concurrent dispatch and stable result order. |
@@ -29,14 +29,31 @@ Classifications: **host-neutral**, **thin host adapter**, and **Claude-only**.
 
 The eight files under `packages/claude-plugin/agents/` are Claude Code subagent execution surfaces. Their delimited **Portable contract** sections are reusable by Pi; their frontmatter and delimited Claude Code adapters are not. Pi does not spawn nested agent processes and does not claim context isolation.
 
-Claude hooks remain unchanged and Claude-only as execution surfaces. Pi does not map the `codex-pair` lifecycle: it registers no pairing event handlers or commands and creates no pairing consent, cache, lock, log, or pending-delivery state. Explicit Pi reviews use the native provider tools. Fable remains unsupported and unloaded.
+Claude hooks remain unchanged and Claude-only as execution surfaces. Pi maps only the product behavior that needs lifecycle support:
 
-## Pairing
+| Claude Code behavior | Pi behavior |
+|---|---|
+| `PostToolUse` Edit/Write/MultiEdit | successful built-in `tool_result` for `edit` or `write`, using `event.input.path` |
+| detached debounce worker | in-process trailing debounce with max cap; no detached worker or daemon |
+| pending hook context | persisted at-least-once custom message delivered with `steer`, `triggerTurn: false`; stable `findingId` supports receiver deduplication across the bounded crash duplicate window |
+| SessionEnd cleanup | idempotent `session_shutdown`: close epoch, clear timers, abort provider work, await bounded settlement, release owned locks |
+| `blockOn: HIGH` Stop gate | **unsupported**: findings are loud but non-blocking; Pi has no safe blocking turn-end event |
+| one-shot hook output | **unsupported for asynchronous pairing in print mode**; use TUI, RPC, or a long-lived JSON process |
+| Fable subagent | **unsupported and not loaded** |
 
-Pi pairing is not included in this release. A repository `.codex-pair/context.md` marker has no Pi meaning and cannot enable automatic provider transfer or cost. Claude Code's existing marker, hook, Stop-gate, pause, acknowledgement, and logging behavior remains unchanged.
+## Security and consent
 
-The extension factory registers provider tools only. It performs no filesystem read, timer creation, or provider invocation until an explicit tool call.
+Pi pairing requires all three conditions:
+
+1. a repository `.codex-pair/context.md` marker;
+2. Pi project trust; and
+3. a user-owned allowlist entry keyed by the canonical project root, created through interactive `/codex-pair` confirmation.
+
+A committed marker alone never authorizes project-data transfer or Codex cost. Consent lives under `PI_CODING_AGENT_DIR` (normally `~/.pi/agent/ask-llm/codex-pair-projects.json`) and is revoked with `/codex-pair revoke`.
+
+The extension factory registers resources only. It performs no filesystem read, timer creation, or provider invocation until a session event, command, tool call, or successful edit/write result requires it.
 
 ## Provider bridge
 
 Pi intentionally has no built-in MCP client. The extension therefore registers native `ask-codex`, `ask-gemini`, `ask-ollama`, `ask-antigravity`, and `ask-multi` tools. Individual tools invoke each provider package's public `./register` `executeTool` contract so canonical validation, response structure, session behavior, fallbacks, and errors remain provider-owned. `ask-multi` is concrete Pi glue: a bounded `Promise.allSettled` fan-out over two to four unique providers, with stable input-order results and explicit failures.
+

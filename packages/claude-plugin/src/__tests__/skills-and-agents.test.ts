@@ -19,14 +19,7 @@ const expectedSkills = [
   "ollama-review",
   "sol-review",
 ];
-const claudeOnlySkills = new Set([
-  "codex-pair",
-  "codex-pair-ack",
-  "codex-pair-pause",
-  "codex-pair-resume",
-  "fable-review",
-]);
-const expectedPiSkills = expectedSkills.filter((skill) => !claudeOnlySkills.has(skill));
+const expectedPiSkills = expectedSkills.filter((skill) => skill !== "fable-review");
 const allowedAgentSkillFields = new Set([
   "name",
   "description",
@@ -88,15 +81,6 @@ describe("skills/", () => {
   it.each(expectedPiSkills)("%s has an explicit Pi adapter", (skill) => {
     expect(readFile(`skills/${skill}/SKILL.md`)).toMatch(/### Pi adapter/);
   });
-
-  it.each([...claudeOnlySkills].filter((skill) => skill.startsWith("codex-pair")))(
-    "%s is explicitly Claude Code-only",
-    (skill) => {
-      const content = readFile(`skills/${skill}/SKILL.md`);
-      expect(content).toContain("This skill is Claude Code-only");
-      expect(content).not.toMatch(/### Pi adapter/);
-    },
-  );
 
   it("keeps always-loaded Pi descriptions host-neutral", () => {
     for (const skill of expectedPiSkills) {
@@ -597,3 +581,4 @@ describe("agents/ — no removed codex CLI flags (#37/#38/#52)", () => {
     expect(coordinator).toContain('*) codex_effort="high" ;;');
   });
 });
+

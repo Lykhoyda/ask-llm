@@ -4,15 +4,21 @@ description: Pause codex-pair for this project without removing `.codex-pair/con
 ---
 
 <!-- PORTABLE-CONTRACT:START -->
-## Host availability
+## Portable contract
 
-This skill is Claude Code-only. Pi does not load or advertise codex-pair pause commands or pairing state. Use explicit review skills on Pi instead.
+Create the project-local `.codex-pair/state/paused` sentinel without removing the marker or history. This is a manual pause and remains until explicitly resumed.
 <!-- PORTABLE-CONTRACT:END -->
+
+## Host adapters
+
+### Pi adapter
+
+Run `/codex-pair-pause` or create the sentinel exactly as described by the portable contract.
 
 <!-- HOST-ADAPTER:CLAUDE-CODE:START -->
 ### Claude Code adapter
 
-The detailed workflow below applies only to Claude Code and preserves its existing hook and project-state mechanics.
+The existing detailed workflow below is the Claude Code adapter. Its Agent, MCP, hook, `CLAUDE_PLUGIN_ROOT`, and `AskUserQuestion` mechanics apply only on Claude Code; they do not override the Pi adapter above.
 
 
 
@@ -54,3 +60,4 @@ For permanent disable, remove the `.codex-pair/` directory instead (`rm -rf .cod
 4. If `.gitignore` in the marker directory does not already contain `.codex-pair/`, mention it as a suggestion (do not modify the user's .gitignore without asking).
 
 <!-- HOST-ADAPTER:CLAUDE-CODE:END -->
+

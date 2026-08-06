@@ -4,15 +4,21 @@ description: Show codex-pair status and set up the per-edit Codex review hook fo
 ---
 
 <!-- PORTABLE-CONTRACT:START -->
-## Host availability
+## Portable contract
 
-This skill is Claude Code-only. Pi does not load or advertise codex-pair and has no pairing commands, lifecycle handlers, consent state, or automatic edit review. Use explicit review skills on Pi instead.
+Set up and report status for recall-first per-edit Codex review. The repository marker carries review context but is not, by itself, authorization on Pi. Preserve bounded file context, debounce, pause/resume, acknowledgement, deduplication, failure disclosure, and explicit host lifecycle limitations.
 <!-- PORTABLE-CONTRACT:END -->
+
+## Host adapters
+
+### Pi adapter
+
+Pi requires project trust, this repository marker, and explicit user-owned allowlist consent through `/codex-pair`. Pairing is asynchronous in TUI/RPC/long-lived JSON modes, uses `tool_result`, and surfaces findings non-blockingly. One-shot print mode, blocking Stop-gate parity, and nested Fable execution are unsupported.
 
 <!-- HOST-ADAPTER:CLAUDE-CODE:START -->
 ### Claude Code adapter
 
-The detailed workflow below applies only to Claude Code and preserves its existing Agent, MCP, hook, `CLAUDE_PLUGIN_ROOT`, and `AskUserQuestion` mechanics.
+The existing detailed workflow below is the Claude Code adapter. Its Agent, MCP, hook, `CLAUDE_PLUGIN_ROOT`, and `AskUserQuestion` mechanics apply only on Claude Code; they do not override the Pi adapter above.
 
 
 
@@ -307,3 +313,4 @@ The three probes `/codex-review` missed exemplified the "looks fine, runs wrong"
 Subsequent lived-experience audit ([ADR-095](../../../../docs/DECISIONS.md)) confirmed the benchmark holds in real flow: codex-pair flagged 32 unique bugs during a single dense broker-implementation session in this very repo, including 2 BLOCKING bugs that `/multi-review` independently re-caught 5+ hours later. The benchmark is reproducible empirical evidence; ADR-095 is the field replication.
 
 <!-- HOST-ADAPTER:CLAUDE-CODE:END -->
+

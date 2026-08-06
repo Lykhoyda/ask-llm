@@ -15,7 +15,7 @@ vi.mock("@ask-llm/shared", async (importOriginal) => {
 });
 
 import { executeCommand, responseCache } from "@ask-llm/shared";
-import { executeCodexCLI, parseCodexEdits, processCodexEditOutput } from "../codexExecutor.js";
+import { executeCodexCLI, parseCodexEdits, processCodexEditOutput, resolveCodexTimeoutMs } from "../codexExecutor.js";
 
 const mockExecuteCommand = vi.mocked(executeCommand);
 
@@ -727,6 +727,15 @@ describe("executeCodexCLI per-provider timeout (#45)", () => {
     expect(mockExecuteCommand.mock.calls[0][5]).toBe(900_000);
   });
 
+  it("exposes the validated timeout policy for lock leases", () => {
+    process.env.GMCPT_TIMEOUT_MS = "300000";
+    process.env.ASK_CODEX_TIMEOUT_MS = "Infinity";
+    expect(resolveCodexTimeoutMs()).toBe(300_000);
+
+    process.env.GMCPT_TIMEOUT_MS = "invalid";
+    expect(resolveCodexTimeoutMs()).toBe(800_000);
+  });
+
   it("propagates the same timeout through the quota-fallback retry path", async () => {
     process.env.ASK_CODEX_TIMEOUT_MS = "900000";
     mockExecuteCommand.mockRejectedValueOnce(new Error("rate_limit_exceeded")).mockResolvedValueOnce("Codex response");
@@ -1005,3 +1014,4 @@ describe("configured preferred model tier", () => {
     expect(modelOf(1)).toBe(MODELS.PREFERRED);
   });
 });
+

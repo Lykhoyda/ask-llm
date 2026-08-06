@@ -4,15 +4,21 @@ description: Resume codex-pair for this project after a previous pause. Removes 
 ---
 
 <!-- PORTABLE-CONTRACT:START -->
-## Host availability
+## Portable contract
 
-This skill is Claude Code-only. Pi does not load or advertise codex-pair resume commands or pairing state. Use explicit review skills on Pi instead.
+Remove the project-local pause sentinel and clear the consecutive-failure counter so the next successful edit can be reviewed. Missing state is a no-op.
 <!-- PORTABLE-CONTRACT:END -->
+
+## Host adapters
+
+### Pi adapter
+
+Run `/codex-pair-resume` or remove the sentinel and failure counter exactly as described by the portable contract.
 
 <!-- HOST-ADAPTER:CLAUDE-CODE:START -->
 ### Claude Code adapter
 
-The detailed workflow below applies only to Claude Code and preserves its existing hook and project-state mechanics.
+The existing detailed workflow below is the Claude Code adapter. Its Agent, MCP, hook, `CLAUDE_PLUGIN_ROOT`, and `AskUserQuestion` mechanics apply only on Claude Code; they do not override the Pi adapter above.
 
 
 
@@ -44,3 +50,4 @@ Removes the pause sentinel written by `/codex-pair-pause`, restoring normal code
    ```
 
 <!-- HOST-ADAPTER:CLAUDE-CODE:END -->
+

@@ -102,10 +102,10 @@ describe("collectBlockingHighs", () => {
   });
 });
 
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, readdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { acksPath, addAck, readAcks } from "../../scripts/lib/state.mjs";
+import { acksPath, acksRoot, addAck, readAcks } from "../../scripts/lib/state.mjs";
 
 describe("acks state helpers", () => {
   it("addAck persists, readAcks reads back, missing file → {}", () => {
@@ -119,6 +119,7 @@ describe("acks state helpers", () => {
       expect(typeof acks.abc123.ts).toBe("string");
       addAck(dir, "def456", { reason: "pre-existing" });
       expect(Object.keys(readAcks(dir))).toHaveLength(2);
+      expect(readdirSync(acksRoot(dir)).filter((name) => name.endsWith(".json"))).toHaveLength(2);
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
@@ -449,3 +450,4 @@ describe("codex-pair-stop-gate.mjs — cross-repo (#209)", () => {
     expect((ctx.match(/more verdict\(s\) drained/g) || []).length).toBe(1);
   });
 });
+
