@@ -342,7 +342,8 @@ describe("Pi codex-pair lifecycle", () => {
   });
 
   it("normalizes leading-at and relative Pi tool paths", () => {
-    expect(__testing.normalizeToolPath("@src/a.ts", "/repo")).toBe(join("/repo", "src", "a.ts"));
+    const repo = join(root, "repo");
+    expect(__testing.normalizeToolPath("@src/a.ts", repo)).toBe(join(repo, "src", "a.ts"));
     expect(__testing.shouldSkip("/repo/node_modules/a.ts")).toBe(true);
     expect(__testing.shouldSkip("/repo/package-lock.json")).toBe(true);
     expect(__testing.shouldSkip("/repo/src/app.min.js")).toBe(true);
