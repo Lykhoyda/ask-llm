@@ -48,6 +48,9 @@ const DEFAULT_DEBOUNCE_MAX_MS = 60_000;
 const DEFAULT_MAX_FILE_BYTES = 20_000;
 const MESSAGE_TYPE = "ask-llm-codex-pair";
 const ALLOWLIST_FILE = "codex-pair-projects.json";
+const ALLOWLIST_LOCK_RETRY_MS = 25;
+const ALLOWLIST_LOCK_TIMEOUT_MS = 5_000;
+const LOCK_CONTENTION_RETRY_MS = 100;
 const PI_PENDING_DIR = "pi-pending";
 const PI_REVIEWED_DIR = "pi-reviewed";
 const SKIP_PARTS = [
@@ -61,14 +64,37 @@ const SKIP_PARTS = [
 ];
 const SKIP_SUFFIXES = [
   ".lock",
+  ".snap",
+  ".map",
+  ".min.js",
+  ".min.css",
   ".png",
   ".jpg",
   ".jpeg",
   ".gif",
   ".webp",
+  ".svg",
+  ".ico",
+  ".woff",
+  ".woff2",
+  ".ttf",
+  ".otf",
+  ".eot",
   ".pdf",
   ".zip",
+  ".tar",
   ".gz",
+  ".wasm",
+];
+const SKIP_FILENAMES = [
+  "yarn.lock",
+  "package-lock.json",
+  "pnpm-lock.yaml",
+  "cargo.lock",
+  "gemfile.lock",
+  "composer.lock",
+  "poetry.lock",
+  "go.sum",
 ];
 
 interface PairConfig {
@@ -153,10 +179,29 @@ async function isAllowed(markerDir: string): Promise<boolean> {
 
 async function setAllowed(markerDir: string, allowed: boolean): Promise<void> {
   const canonical = await canonicalDirectory(markerDir);
-  const current = await readAllowlist();
-  const projects = current.projects.filter((entry) => entry.root !== canonical);
-  if (allowed) projects.push({ root: canonical, allowedAt: new Date().toISOString() });
-  await writeJsonAtomic(allowlistPath(), { version: 1, projects } satisfies Allowlist);
+  const lockPath = `${allowlistPath()}.lock`;
+  await mkdir(dirname(lockPath), { recursive: true });
+  const deadline = Date.now() + ALLOWLIST_LOCK_TIMEOUT_MS;
+  while (true) {
+    try {
+      await writeFile(lockPath, `${process.pid}\n`, { flag: "wx", mode: 0o600 });
+      break;
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
+      if (Date.now() >= deadline) throw new Error("Timed out updating the codex-pair project allowlist");
+      await new Promise((resolveWait) => setTimeout(resolveWait, ALLOWLIST_LOCK_RETRY_MS));
+    }
+  }
+  try {
+    const current = await readAllowlist();
+    const projects = current.projects.filter((entry) => entry.root !== canonical);
+    if (allowed) projects.push({ root: canonical, allowedAt: new Date().toISOString() });
+    await writeJsonAtomic(allowlistPath(), { version: 1, projects } satisfies Allowlist);
+  } finally {
+    try {
+      await unlink(lockPath);
+    } catch {}
+  }
 }
 
 async function findMarkerUp(start: string): Promise<string | undefined> {
@@ -216,7 +261,21 @@ async function canonicalRegularFile(path: string): Promise<string | undefined> {
 
 function shouldSkip(path: string): boolean {
   const normalized = path.replaceAll("\\", "/").toLowerCase();
-  return SKIP_PARTS.some((part) => normalized.includes(part)) || SKIP_SUFFIXES.some((part) => normalized.endsWith(part));
+  return (
+    SKIP_PARTS.some((part) => normalized.includes(part)) ||
+    SKIP_FILENAMES.some((name) => normalized === name || normalized.endsWith(`/${name}`)) ||
+    SKIP_SUFFIXES.some((part) => normalized.endsWith(part))
+  );
+}
+
+function isBinaryContent(content: Buffer): boolean {
+  if (content.includes(0)) return true;
+  try {
+    new TextDecoder("utf-8", { fatal: true }).decode(content);
+    return false;
+  } catch {
+    return true;
+  }
 }
 
 function reviewedPath(markerDir: string, file: string): string {
@@ -237,17 +296,14 @@ async function readReviewed(markerDir: string, file: string): Promise<ReviewedRe
 
 async function persistFinding(finding: PairFinding): Promise<void> {
   await writeJsonAtomic(pendingPath(finding.markerDir, finding.id), finding);
+}
+
+async function markReviewed(finding: PairFinding): Promise<void> {
   await writeJsonAtomic(reviewedPath(finding.markerDir, finding.file), {
     contentHash: finding.contentHash,
     findingId: finding.id,
     deliveredAt: finding.createdAt,
   } satisfies ReviewedRecord);
-}
-
-async function clearPending(finding: PairFinding): Promise<void> {
-  try {
-    await unlink(pendingPath(finding.markerDir, finding.id));
-  } catch {}
 }
 
 function sendFinding(pi: ExtensionAPI, finding: PairFinding): void {
@@ -262,19 +318,59 @@ function sendFinding(pi: ExtensionAPI, finding: PairFinding): void {
   );
 }
 
-async function listPending(markerDir: string): Promise<PairFinding[]> {
-  const root = join(stateRoot(markerDir), PI_PENDING_DIR);
+interface ClaimedFinding {
+  claimPath: string;
+  originalPath: string;
+  finding: PairFinding;
+}
+
+function pendingRoot(markerDir: string): string {
+  return join(stateRoot(markerDir), PI_PENDING_DIR);
+}
+
+function processIsAlive(pid: number): boolean {
   try {
-    const names = (await readdir(root)).filter((name) => name.endsWith(".json")).sort();
-    const findings: PairFinding[] = [];
-    for (const name of names.slice(0, 8)) {
+    process.kill(pid, 0);
+    return true;
+  } catch (error) {
+    return (error as NodeJS.ErrnoException).code === "EPERM";
+  }
+}
+
+async function recoverAbandonedClaims(markerDir: string): Promise<void> {
+  const root = pendingRoot(markerDir);
+  try {
+    const names = (await readdir(root)).filter((name) => name.includes(".json.claim-")).sort();
+    for (const name of names) {
+      const pid = Number(name.match(/\.claim-(\d+)-/)?.[1]);
+      if (Number.isInteger(pid) && processIsAlive(pid)) continue;
+      const claimPath = join(root, name);
+      const originalPath = join(root, name.slice(0, name.indexOf(".claim-")));
       try {
-        findings.push(JSON.parse(await readFile(join(root, name), "utf8")) as PairFinding);
+        await rename(claimPath, originalPath);
       } catch {}
     }
-    return findings;
+  } catch {}
+}
+
+async function claimPending(path: string): Promise<ClaimedFinding | undefined> {
+  const claimPath = `${path}.claim-${process.pid}-${randomUUID()}`;
+  try {
+    await rename(path, claimPath);
   } catch {
-    return [];
+    return undefined;
+  }
+  try {
+    return {
+      claimPath,
+      originalPath: path,
+      finding: JSON.parse(await readFile(claimPath, "utf8")) as PairFinding,
+    };
+  } catch {
+    try {
+      await unlink(claimPath);
+    } catch {}
+    return undefined;
   }
 }
 
@@ -319,6 +415,11 @@ export function registerCodexPair(pi: ExtensionAPI): void {
     if (ctx.hasUI) ctx.ui.notify(message, "warning");
   };
 
+  const sessionOwnsProject = async (ctx: ExtensionContext, markerDir: string): Promise<boolean> => {
+    if (!ctx.isProjectTrusted()) return false;
+    return (await findMarkerUp(ctx.cwd)) === markerDir;
+  };
+
   const pairIsPaused = async (markerDir: string): Promise<boolean> => {
     const pauseInfo = readPauseInfo(markerDir);
     if (!pauseInfo) return false;
@@ -336,10 +437,90 @@ export function registerCodexPair(pi: ExtensionAPI): void {
     return false;
   };
 
-  const deliver = async (finding: PairFinding) => {
-    if (closed) return;
-    sendFinding(pi, finding);
-    await clearPending(finding);
+  const deliverClaimed = async (claimed: ClaimedFinding) => {
+    if (closed) {
+      try {
+        await rename(claimed.claimPath, claimed.originalPath);
+      } catch {}
+      return;
+    }
+    try {
+      const current = await readFile(claimed.finding.file);
+      if (hash(current.toString("utf8")) !== claimed.finding.contentHash) {
+        await unlink(claimed.claimPath);
+        return;
+      }
+      if (closed) {
+        await rename(claimed.claimPath, claimed.originalPath);
+        return;
+      }
+      sendFinding(pi, claimed.finding);
+      await markReviewed(claimed.finding);
+      await unlink(claimed.claimPath);
+    } catch (error) {
+      try {
+        await rename(claimed.claimPath, claimed.originalPath);
+      } catch {}
+      throw error;
+    }
+  };
+
+  const drainPending = async (markerDir: string) => {
+    await recoverAbandonedClaims(markerDir);
+    while (!closed) {
+      let names: string[];
+      try {
+        names = (await readdir(pendingRoot(markerDir)))
+          .filter((name) => name.endsWith(".json"))
+          .sort()
+          .slice(0, 8);
+      } catch {
+        return;
+      }
+      if (names.length === 0) return;
+      let claimedAny = false;
+      for (const name of names) {
+        const claimed = await claimPending(join(pendingRoot(markerDir), name));
+        if (!claimed) continue;
+        claimedAny = true;
+        await deliverClaimed(claimed);
+      }
+      if (!claimedAny) await new Promise((resolveWait) => setTimeout(resolveWait, LOCK_CONTENTION_RETRY_MS));
+    }
+  };
+
+  const armReview = (
+    file: string,
+    work: ScheduledReview,
+    delay: number,
+    myEpoch: number,
+    ctx: ExtensionContext,
+  ) => {
+    if (work.timer) clearTimeout(work.timer);
+    work.timer = setTimeout(() => {
+      work.timer = undefined;
+      const promise = review(file, work.generation, myEpoch, ctx).catch(async (error) => {
+        if (closed || error?.name === "AbortError") return;
+        const reason = error instanceof Error ? error.message : String(error);
+        await appendLog(work.markerDir, {
+          timestamp: new Date().toISOString(),
+          tool: work.toolName,
+          file,
+          verdict: "error",
+          reason: `Pi: ${reason}`,
+        });
+        if (isQuotaError(error)) {
+          writeAutoPause(work.markerDir, { kind: "quota", reason });
+        } else {
+          const failures = recordReviewFailure(work.markerDir, reason);
+          if (failures >= AUTOPAUSE_FAILURE_THRESHOLD)
+            writeAutoPause(work.markerDir, { kind: "failures", reason });
+        }
+        notifyRefusal(ctx, `codex-pair review failed: ${reason}`);
+      });
+      active.add(promise);
+      promise.finally(() => active.delete(promise));
+    }, delay);
   };
 
   const schedule = async (file: string, markerDir: string, toolName: string, ctx: ExtensionContext) => {
@@ -358,36 +539,15 @@ export function registerCodexPair(pi: ExtensionAPI): void {
     const remainingToCap = Math.max(0, config.debounceMaxMs - (now - next.firstAt));
     const delay = Math.min(config.debounceMs, remainingToCap);
     const myEpoch = epoch;
-    next.timer = setTimeout(() => {
-      next.timer = undefined;
-      const promise = review(file, next.generation, myEpoch, ctx).catch(async (error) => {
-        if (closed || error?.name === "AbortError") return;
-        const reason = error instanceof Error ? error.message : String(error);
-        await appendLog(markerDir, {
-          timestamp: new Date().toISOString(),
-          tool: toolName,
-          file,
-          verdict: "error",
-          reason: `Pi: ${reason}`,
-        });
-        if (isQuotaError(error)) {
-          writeAutoPause(markerDir, { kind: "quota", reason });
-        } else {
-          const failures = recordReviewFailure(markerDir, reason);
-          if (failures >= AUTOPAUSE_FAILURE_THRESHOLD) writeAutoPause(markerDir, { kind: "failures", reason });
-        }
-        notifyRefusal(ctx, `codex-pair review failed: ${reason}`);
-      });
-      active.add(promise);
-      promise.finally(() => active.delete(promise));
-    }, delay);
+    armReview(file, next, delay, myEpoch, ctx);
   };
 
   const review = async (file: string, generation: number, myEpoch: number, ctx: ExtensionContext): Promise<void> => {
     if (closed || myEpoch !== epoch) return;
     const work = scheduled.get(file);
     if (!work || work.generation !== generation) return;
-    if (!ctx.isProjectTrusted() || !(await isAllowed(work.markerDir)) || (await pairIsPaused(work.markerDir))) return;
+    if (!(await sessionOwnsProject(ctx, work.markerDir)) || !(await isAllowed(work.markerDir)) || (await pairIsPaused(work.markerDir)))
+      return;
 
     const { config, context } = await readConfig(work.markerDir);
     const lock = tryAcquireInflightLock(
@@ -397,12 +557,18 @@ export function registerCodexPair(pi: ExtensionAPI): void {
     );
     if (!lock.acquired) {
       work.firstAt = Date.now();
-      await schedule(file, work.markerDir, work.toolName, ctx);
+      if (scheduled.get(file)?.generation === generation)
+        armReview(file, work, LOCK_CONTENTION_RETRY_MS, myEpoch, ctx);
       return;
     }
 
     try {
-      const raw = await readFile(file, "utf8");
+      const rawBuffer = await readFile(file);
+      if (isBinaryContent(rawBuffer)) {
+        if (scheduled.get(file)?.generation === generation) scheduled.delete(file);
+        return;
+      }
+      const raw = rawBuffer.toString("utf8");
       const contentHash = hash(raw);
       if ((await readReviewed(work.markerDir, file))?.contentHash === contentHash) {
         scheduled.delete(file);
@@ -449,12 +615,19 @@ export function registerCodexPair(pi: ExtensionAPI): void {
         }
       }
       if (closed || myEpoch !== epoch) return;
-      const latest = await readFile(file, "utf8");
-      if (hash(latest) !== contentHash) {
-        work.firstAt = Date.now();
-        await schedule(file, work.markerDir, work.toolName, ctx);
-        return;
-      }
+      const revalidate = async (): Promise<boolean> => {
+        if (closed || myEpoch !== epoch) return false;
+        const current = scheduled.get(file);
+        if (!current || current.generation !== generation) return false;
+        const latest = await readFile(file, "utf8");
+        if (hash(latest) === contentHash && scheduled.get(file)?.generation === generation) return true;
+        if (scheduled.get(file)?.generation === generation) {
+          work.firstAt = Date.now();
+          await schedule(file, work.markerDir, work.toolName, ctx);
+        }
+        return false;
+      };
+      if (!(await revalidate())) return;
       concerns = activeConcerns(concerns, readAcks(work.markerDir));
       clearReviewFailures(work.markerDir);
       const durationMs = Date.now() - startedAt;
@@ -486,9 +659,17 @@ export function registerCodexPair(pi: ExtensionAPI): void {
         counts: { high: concerns.high.length, med: concerns.med.length, low: concerns.low.length },
         durationMs,
       });
+      if (!(await revalidate())) return;
       await persistFinding(finding);
-      scheduled.delete(file);
-      await deliver(finding);
+      if (!(await revalidate())) {
+        try {
+          await unlink(pendingPath(finding.markerDir, finding.id));
+        } catch {}
+        return;
+      }
+      if (scheduled.get(file)?.generation === generation) scheduled.delete(file);
+      const claimed = await claimPending(pendingPath(finding.markerDir, finding.id));
+      if (claimed) await deliverClaimed(claimed);
     } finally {
       releaseInflightLock(lock.lockPath);
     }
@@ -502,8 +683,8 @@ export function registerCodexPair(pi: ExtensionAPI): void {
     if (!file) return;
     const markerDir = await findMarkerUp(file);
     if (!markerDir) return;
-    if (!ctx.isProjectTrusted()) {
-      notifyRefusal(ctx, "codex-pair is disabled: Pi does not trust this project.");
+    if (!(await sessionOwnsProject(ctx, markerDir))) {
+      notifyRefusal(ctx, "codex-pair is disabled: the edited file is outside Pi's trusted project.");
       return;
     }
     if (!(await isAllowed(markerDir))) {
@@ -519,8 +700,8 @@ export function registerCodexPair(pi: ExtensionAPI): void {
     initializedSessions.add(sessionId);
     if (ctx.mode === "print") return;
     const markerDir = await findMarkerUp(ctx.cwd);
-    if (!markerDir || !ctx.isProjectTrusted() || !(await isAllowed(markerDir))) return;
-    for (const finding of await listPending(markerDir)) await deliver(finding);
+    if (!markerDir || !(await sessionOwnsProject(ctx, markerDir)) || !(await isAllowed(markerDir))) return;
+    await drainPending(markerDir);
     if (await pairIsPaused(markerDir)) notifyRefusal(ctx, "codex-pair is paused for this project.");
   });
 

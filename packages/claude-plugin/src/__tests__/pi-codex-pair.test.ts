@@ -1,4 +1,5 @@
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { createHash } from "node:crypto";
+import { mkdir, mkdtemp, realpath, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -7,6 +8,24 @@ const executeCodexCLI = vi.hoisted(() => vi.fn());
 vi.mock("@ask-llm/codex-mcp/executor", () => ({ executeCodexCLI }));
 
 import { __testing, registerCodexPair } from "../../pi/extensions/codex-pair.js";
+import { releaseInflightLock, stateRoot, tryAcquireInflightLock } from "../../scripts/lib/state.mjs";
+
+const CODEX_RESULT = {
+  response: JSON.stringify({
+    verdict: "needs-attention",
+    findings: [
+      {
+        severity: "high",
+        title: "Fixture issue",
+        body: "The changed value violates the fixture invariant.",
+        file: "src/value.ts",
+        line_start: 1,
+        recommendation: "Use the invariant value.",
+      },
+    ],
+  }),
+  usage: { fellBack: false },
+};
 
 interface Context {
   cwd: string;
@@ -54,22 +73,7 @@ beforeEach(async () => {
   priorConfigDir = process.env.PI_CODING_AGENT_DIR;
   process.env.PI_CODING_AGENT_DIR = join(root, "pi-agent");
   executeCodexCLI.mockReset();
-  executeCodexCLI.mockResolvedValue({
-    response: JSON.stringify({
-      verdict: "needs-attention",
-      findings: [
-        {
-          severity: "high",
-          title: "Fixture issue",
-          body: "The changed value violates the fixture invariant.",
-          file: "src/value.ts",
-          line_start: 1,
-          recommendation: "Use the invariant value.",
-        },
-      ],
-    }),
-    usage: { fellBack: false },
-  });
+  executeCodexCLI.mockResolvedValue(CODEX_RESULT);
 });
 
 afterEach(async () => {
@@ -79,8 +83,8 @@ afterEach(async () => {
   vi.useRealTimers();
 });
 
-async function project(debounceMs = 5) {
-  const repo = join(root, "repo");
+async function project(debounceMs = 5, name = "repo") {
+  const repo = join(root, name);
   const source = join(repo, "src", "value.ts");
   await mkdir(join(repo, ".codex-pair"), { recursive: true });
   await mkdir(join(repo, "src"), { recursive: true });
@@ -146,7 +150,27 @@ describe("Pi codex-pair lifecycle", () => {
     await instance.emit("tool_result", { toolName: "write", input: { path: source }, isError: false }, untrusted);
     await new Promise((resolve) => setTimeout(resolve, 40));
     expect(executeCodexCLI).not.toHaveBeenCalled();
-    expect(untrusted.ui.notify).toHaveBeenCalledWith(expect.stringContaining("does not trust"), "warning");
+    expect(untrusted.ui.notify).toHaveBeenCalledWith(expect.stringContaining("outside Pi's trusted project"), "warning");
+  });
+
+  it("binds trust to the edited file's marked project", async () => {
+    const trusted = await project(0, "trusted");
+    const other = await project(0, "other");
+    const instance = harness();
+    const ctx = context(trusted.repo);
+    await instance.emit("tool_result", { toolName: "write", input: { path: other.source }, isError: false }, ctx);
+    await new Promise((resolve) => setTimeout(resolve, 40));
+    expect(executeCodexCLI).not.toHaveBeenCalled();
+    expect(ctx.ui.notify).toHaveBeenCalledWith(expect.stringContaining("outside Pi's trusted project"), "warning");
+  });
+
+  it("serializes concurrent allowlist grants and revocations", async () => {
+    const first = await project(0, "first");
+    const second = await project(0, "second");
+    await Promise.all([__testing.setAllowed(first.repo, false), __testing.setAllowed(second.repo, true)]);
+    const roots = (await __testing.readAllowlist()).projects.map((entry) => entry.root);
+    expect(roots).not.toContain(await realpath(first.repo));
+    expect(roots).toContain(await realpath(second.repo));
   });
 
   it("reviews one settled final state for a repeated edit burst and delivers a non-triggering steer", async () => {
@@ -190,6 +214,72 @@ describe("Pi codex-pair lifecycle", () => {
     expect(second.messages).toHaveLength(0);
   });
 
+  it("requeues a stale generation without delivering its finding", async () => {
+    const { repo, source } = await project(0);
+    let resolveFirst: (value: typeof CODEX_RESULT) => void = () => {};
+    executeCodexCLI.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveFirst = resolve;
+        }),
+    );
+    const instance = harness();
+    const ctx = context(repo);
+    await instance.emit("tool_result", { toolName: "write", input: { path: source }, isError: false }, ctx);
+    await eventually(() => expect(executeCodexCLI).toHaveBeenCalledTimes(1));
+    await writeFile(source, "export const value = -2;\n");
+    await instance.emit("tool_result", { toolName: "edit", input: { path: source }, isError: false }, ctx);
+    resolveFirst(CODEX_RESULT);
+
+    await eventually(() => expect(instance.messages).toHaveLength(1), 2_000);
+    expect(executeCodexCLI).toHaveBeenCalledTimes(2);
+    expect(executeCodexCLI.mock.calls[1][0].prompt).toContain("export const value = -2");
+  });
+
+  it("retries lock contention with a positive backoff", async () => {
+    const { repo, source } = await project(0);
+    const lock = tryAcquireInflightLock(await realpath(repo), await realpath(source), 60_000);
+    expect(lock.acquired).toBe(true);
+    const instance = harness();
+    const ctx = context(repo);
+    await instance.emit("tool_result", { toolName: "write", input: { path: source }, isError: false }, ctx);
+    await new Promise((resolve) => setTimeout(resolve, 40));
+    expect(executeCodexCLI).not.toHaveBeenCalled();
+    releaseInflightLock(lock.lockPath);
+    await eventually(() => expect(instance.messages).toHaveLength(1), 2_000);
+  });
+
+  it("claims and drains every pending finding once across sessions", async () => {
+    const { repo, source } = await project(0);
+    const pendingDir = join(stateRoot(repo), "pi-pending");
+    await mkdir(pendingDir, { recursive: true });
+    const contentHash = createHash("sha256").update("export const value = -1;\n").digest("hex");
+    for (let index = 0; index < 10; index++) {
+      const name = index === 0 ? "finding-0.json.claim-99999999-abandoned" : `finding-${index}.json`;
+      await writeFile(
+        join(pendingDir, name),
+        `${JSON.stringify({
+          id: `finding-${index}`,
+          file: source,
+          markerDir: repo,
+          contentHash,
+          message: `finding ${index}`,
+          createdAt: new Date().toISOString(),
+        })}\n`,
+      );
+    }
+    const first = harness();
+    const second = harness();
+    const ctx = context(repo);
+    await Promise.all([
+      first.emit("session_start", {}, ctx),
+      second.emit("session_start", {}, { ...ctx, sessionManager: { getSessionId: () => "session-second" } }),
+    ]);
+    expect(first.messages.length + second.messages.length).toBe(10);
+    await first.emit("session_start", {}, ctx);
+    expect(first.messages.length + second.messages.length).toBe(10);
+  });
+
   it("aborts an active review on shutdown and never delivers from a stale epoch", async () => {
     const { repo, source } = await project(0);
     let observedSignal: AbortSignal | undefined;
@@ -212,6 +302,19 @@ describe("Pi codex-pair lifecycle", () => {
   it("normalizes leading-at and relative Pi tool paths", () => {
     expect(__testing.normalizeToolPath("@src/a.ts", "/repo")).toBe(join("/repo", "src", "a.ts"));
     expect(__testing.shouldSkip("/repo/node_modules/a.ts")).toBe(true);
+    expect(__testing.shouldSkip("/repo/package-lock.json")).toBe(true);
+    expect(__testing.shouldSkip("/repo/src/app.min.js")).toBe(true);
+    expect(__testing.shouldSkip("/repo/src/icon.svg")).toBe(true);
+    expect(__testing.shouldSkip("/repo/src/module.wasm")).toBe(true);
     expect(__testing.shouldSkip("/repo/src/a.ts")).toBe(false);
+  });
+
+  it("rejects binary content even when its extension is unknown", async () => {
+    const { repo, source } = await project(0);
+    await writeFile(source, Buffer.from([0, 97, 115, 109, 1, 0, 0, 0]));
+    const instance = harness();
+    await instance.emit("tool_result", { toolName: "write", input: { path: source }, isError: false }, context(repo));
+    await new Promise((resolve) => setTimeout(resolve, 40));
+    expect(executeCodexCLI).not.toHaveBeenCalled();
   });
 });
