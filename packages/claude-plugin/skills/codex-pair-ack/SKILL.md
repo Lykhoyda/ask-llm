@@ -1,24 +1,18 @@
 ---
 name: codex-pair-ack
-description: Acknowledge a codex-pair finding by its 16-character hash and a user-owned reason. Use when the user wants to suppress a repeated finding reminder or defer a host gate where supported.
+description: Acknowledge a Claude Code codex-pair finding by its 16-character hash and a user-owned reason. Use when the user wants to suppress a repeated finding reminder or defer the Stop gate.
 ---
 
 <!-- PORTABLE-CONTRACT:START -->
-## Portable contract
+## Host availability
 
-Acknowledge one finding by its 16-character concern hash with a non-empty user reason. Acknowledgement suppresses that finding's reminder/gate; it does not disable future reviews or claim the concern was fixed.
+This skill is Claude Code-only. Pi does not load or advertise codex-pair acknowledgement commands or finding reminders. Use explicit review skills on Pi instead.
 <!-- PORTABLE-CONTRACT:END -->
-
-## Host adapters
-
-### Pi adapter
-
-Run `/codex-pair-ack <hash> <reason>`. On Pi this dismisses the matching reminder; there is no blocking Stop gate.
 
 <!-- HOST-ADAPTER:CLAUDE-CODE:START -->
 ### Claude Code adapter
 
-The existing detailed workflow below is the Claude Code adapter. Its Agent, MCP, hook, `CLAUDE_PLUGIN_ROOT`, and `AskUserQuestion` mechanics apply only on Claude Code; they do not override the Pi adapter above.
+The detailed workflow below applies only to Claude Code and preserves its existing hook, `CLAUDE_PLUGIN_ROOT`, and Stop-gate mechanics.
 
 
 
@@ -53,7 +47,7 @@ Records an ack for the given finding hash so the codex-pair Stop-gate skips it o
    <reason>
    CODEX_PAIR_ACK_REASON
    ```
-   `addAck` writes a concurrency-safe shard under `<markerDir>/.codex-pair/state/acks/` (creating the directory if needed). The hash is passed verbatim — no resolution is performed.
+   `addAck` writes to `<markerDir>/.codex-pair/state/acks.json` (creating the directory if needed). The hash is passed verbatim — no resolution is performed.
 
 5. **Confirm** to the user:
    ```

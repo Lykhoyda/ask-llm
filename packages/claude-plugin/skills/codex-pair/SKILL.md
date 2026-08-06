@@ -4,21 +4,15 @@ description: Show codex-pair status and set up the per-edit Codex review hook fo
 ---
 
 <!-- PORTABLE-CONTRACT:START -->
-## Portable contract
+## Host availability
 
-Set up and report status for recall-first per-edit Codex review. The repository marker carries review context but is not, by itself, authorization on Pi. Preserve bounded file context, debounce, pause/resume, acknowledgement, deduplication, failure disclosure, and explicit host lifecycle limitations.
+This skill is Claude Code-only. Pi does not load or advertise codex-pair and has no pairing commands, lifecycle handlers, consent state, or automatic edit review. Use explicit review skills on Pi instead.
 <!-- PORTABLE-CONTRACT:END -->
-
-## Host adapters
-
-### Pi adapter
-
-Pi requires project trust, this repository marker, and explicit user-owned allowlist consent through `/codex-pair`. Pairing is asynchronous in TUI/RPC/long-lived JSON modes, uses `tool_result`, and surfaces findings non-blockingly. One-shot print mode, blocking Stop-gate parity, and nested Fable execution are unsupported.
 
 <!-- HOST-ADAPTER:CLAUDE-CODE:START -->
 ### Claude Code adapter
 
-The existing detailed workflow below is the Claude Code adapter. Its Agent, MCP, hook, `CLAUDE_PLUGIN_ROOT`, and `AskUserQuestion` mechanics apply only on Claude Code; they do not override the Pi adapter above.
+The detailed workflow below applies only to Claude Code and preserves its existing Agent, MCP, hook, `CLAUDE_PLUGIN_ROOT`, and `AskUserQuestion` mechanics.
 
 
 
