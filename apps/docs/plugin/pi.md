@@ -6,7 +6,7 @@ description: Install Ask LLM as a first-class Pi package with native provider to
 
 Pi is the **host harness**: it owns the conversation, host model, skills, tools, and lifecycle. Codex, Gemini, Ollama, and Antigravity remain the independent Ask LLM **providers**. Pi has no built-in MCP client, so `@ask-llm/plugin` registers native Pi tools backed by the provider packages' canonical execution contracts; do not add MCP configuration to Pi.
 
-> Pi packages run with your full user permissions and npm installs their runtime dependencies. Review package source before installation. Provider tools can transmit project material to their provider. Ollama remains local; Codex, Gemini, and Antigravity use their existing CLI credentials/accounts and may consume subscription quota or incur provider cost. Pi host-model authentication and billing are separate.
+> Installing or updating an npm package can execute lifecycle scripts from the package or its dependencies with your user account permissions. Once loaded, Pi package code has the same access. Review package and dependency source before installation or update. Provider tools can transmit project material to their provider. Ollama remains local; Codex, Gemini, and Antigravity use their existing CLI credentials/accounts and may consume subscription quota or incur provider cost. Pi host-model authentication and billing are separate.
 
 ## Prerequisites
 
