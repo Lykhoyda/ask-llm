@@ -61,4 +61,3 @@ Claude consultations run with `--safe-mode` and an explicit `Read,Glob,Grep` too
 ## Acknowledgments
 
 Reporters who follow coordinated disclosure are credited in the published GitHub Security Advisory unless they request anonymity.
-

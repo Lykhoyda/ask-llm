@@ -56,4 +56,3 @@ The extension factory registers resources only. It performs no filesystem read, 
 ## Provider bridge
 
 Pi intentionally has no built-in MCP client. The extension therefore registers native `ask-codex`, `ask-gemini`, `ask-ollama`, `ask-antigravity`, and `ask-multi` tools. Individual tools invoke each provider package's public `./register` `executeTool` contract so canonical validation, response structure, session behavior, fallbacks, and errors remain provider-owned. `ask-multi` is concrete Pi glue: a bounded `Promise.allSettled` fan-out over two to four unique providers, with stable input-order results and explicit failures.
-

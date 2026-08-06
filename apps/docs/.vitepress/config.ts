@@ -5,7 +5,7 @@ const SITE_URL = "https://lykhoyda.github.io/ask-llm";
 const SITE_HOSTNAME = "https://lykhoyda.github.io/ask-llm/";
 const SITE_TITLE = "Ask LLM";
 const SITE_DESCRIPTION =
-  "MCP servers for AI-to-AI collaboration: Codex, Claude, Antigravity, Ollama, Gemini";
+  "MCP servers and a Claude Code + Pi host package for AI-to-AI collaboration";
 
 export default withMermaid(
   defineConfig({

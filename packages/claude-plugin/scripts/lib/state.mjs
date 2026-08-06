@@ -731,4 +731,3 @@ export async function saveRepetitions(markerDir, map) {
   void markerDir;
   void map;
 }
-

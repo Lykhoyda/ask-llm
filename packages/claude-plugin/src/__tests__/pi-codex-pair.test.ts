@@ -156,7 +156,10 @@ describe("Pi codex-pair lifecycle", () => {
     await instance.emit("tool_result", { toolName: "write", input: { path: source }, isError: false }, untrusted);
     await new Promise((resolve) => setTimeout(resolve, 40));
     expect(executeCodexCLI).not.toHaveBeenCalled();
-    expect(untrusted.ui.notify).toHaveBeenCalledWith(expect.stringContaining("outside Pi's trusted project"), "warning");
+    expect(untrusted.ui.notify).toHaveBeenCalledWith(
+      expect.stringContaining("outside Pi's trusted project"),
+      "warning",
+    );
   });
 
   it("binds trust to the edited file's marked project", async () => {

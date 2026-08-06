@@ -62,4 +62,3 @@ Records an ack for the given finding hash so the codex-pair Stop-gate skips it o
    If the node one-liner exits non-zero, surface the error output so the user can diagnose it.
 
 <!-- HOST-ADAPTER:CLAUDE-CODE:END -->
-

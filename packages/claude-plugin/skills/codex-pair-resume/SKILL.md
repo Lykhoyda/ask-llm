@@ -50,4 +50,3 @@ Removes the pause sentinel written by `/codex-pair-pause`, restoring normal code
    ```
 
 <!-- HOST-ADAPTER:CLAUDE-CODE:END -->
-

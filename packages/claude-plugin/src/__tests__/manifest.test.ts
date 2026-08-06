@@ -206,4 +206,3 @@ describe("CLI binary references in package.json bin", () => {
     expect(fs.existsSync(path.join(PLUGIN_ROOT, "src", "antigravity-run.ts"))).toBe(true);
   });
 });
-

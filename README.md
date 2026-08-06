@@ -307,4 +307,3 @@ Contributions are welcome! See [open issues](https://github.com/Lykhoyda/ask-llm
 MIT License. See [LICENSE](LICENSE) for details.
 
 **Disclaimer:** This is an unofficial, third-party tool and is not affiliated with, endorsed, or sponsored by Anthropic, Google, or OpenAI.
-

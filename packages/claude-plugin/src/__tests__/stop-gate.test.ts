@@ -450,4 +450,3 @@ describe("codex-pair-stop-gate.mjs — cross-repo (#209)", () => {
     expect((ctx.match(/more verdict\(s\) drained/g) || []).length).toBe(1);
   });
 });
-

@@ -581,4 +581,3 @@ describe("agents/ — no removed codex CLI flags (#37/#38/#52)", () => {
     expect(coordinator).toContain('*) codex_effort="high" ;;');
   });
 });
-

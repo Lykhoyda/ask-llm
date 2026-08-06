@@ -133,4 +133,3 @@ Full docs at [lykhoyda.github.io/ask-llm/plugin/overview](https://lykhoyda.githu
 ## License
 
 MIT
-

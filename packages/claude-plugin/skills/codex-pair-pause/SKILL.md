@@ -60,4 +60,3 @@ For permanent disable, remove the `.codex-pair/` directory instead (`rm -rf .cod
 4. If `.gitignore` in the marker directory does not already contain `.codex-pair/`, mention it as a suggestion (do not modify the user's .gitignore without asking).
 
 <!-- HOST-ADAPTER:CLAUDE-CODE:END -->
-

@@ -192,4 +192,3 @@ The decision about when to use the hook is about **code characteristics**, not p
 | You want one comprehensive report | Code evolving fast under written constraints (spec, protocol, ADR) |
 | You're cost-sensitive (~$0.04 per review) | State coordination, concurrency, anything order-sensitive |
 | Default for everything | The "looks fine, runs wrong" failure mode would be expensive to catch later |
-

@@ -10,4 +10,3 @@
 ---
 
 Add first-class Pi host support to the canonical dual-host plugin package, including portable skills, native provider tools, deterministic multi-provider dispatch, consent-gated lifecycle pairing, package/install CI, and abortable provider execution.
-

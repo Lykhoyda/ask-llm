@@ -313,4 +313,3 @@ The three probes `/codex-review` missed exemplified the "looks fine, runs wrong"
 Subsequent lived-experience audit ([ADR-095](../../../../docs/DECISIONS.md)) confirmed the benchmark holds in real flow: codex-pair flagged 32 unique bugs during a single dense broker-implementation session in this very repo, including 2 BLOCKING bugs that `/multi-review` independently re-caught 5+ hours later. The benchmark is reproducible empirical evidence; ADR-095 is the field replication.
 
 <!-- HOST-ADAPTER:CLAUDE-CODE:END -->
-

@@ -431,4 +431,3 @@ jobs:
         printf '{"type":"get_commands"}\n' | pi -e npm:@ask-llm/plugin --mode rpc --no-session --approve > /tmp/pi-temp.jsonl
         grep -q 'skill:codex-review' /tmp/pi-temp.jsonl
         if pi list | grep -F 'npm:@ask-llm/plugin'; then echo 'FAIL: -e persisted package'; exit 1; fi
-

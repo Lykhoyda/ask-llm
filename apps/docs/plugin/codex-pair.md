@@ -269,4 +269,3 @@ The Node command picks the highest numeric semver directory under the cache and 
 Fully quit and restart Claude Code to pick up the new hook config; `/reload-plugins` refreshes plugin files but does not re-register hooks in the current session. After restarting, the next Edit/Write/MultiEdit should fire the hook automatically. Verify with `node <plugin-path>/scripts/codex-pair-log.mjs --latest` or a new `.codex-pair/log.jsonl` entry (typical wall clock 5-30s per call).
 
 Note: this workaround is per-developer (project-local) and gitignored. Once Claude Code's plugin-hook dispatch is fixed upstream, you can remove the `hooks` block and rely on the plugin's own registration again.
-

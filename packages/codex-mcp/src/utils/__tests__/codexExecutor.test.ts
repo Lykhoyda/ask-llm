@@ -1014,4 +1014,3 @@ describe("configured preferred model tier", () => {
     expect(modelOf(1)).toBe(MODELS.PREFERRED);
   });
 });
-
