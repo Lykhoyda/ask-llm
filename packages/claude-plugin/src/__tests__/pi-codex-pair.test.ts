@@ -1,11 +1,12 @@
 import { createHash } from "node:crypto";
-import { mkdir, mkdtemp, realpath, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, realpath, rm, utimes, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const executeCodexCLI = vi.hoisted(() => vi.fn());
-vi.mock("@ask-llm/codex-mcp/executor", () => ({ executeCodexCLI }));
+const resolveCodexTimeoutMs = vi.hoisted(() => vi.fn(() => 800_000));
+vi.mock("@ask-llm/codex-mcp/executor", () => ({ executeCodexCLI, resolveCodexTimeoutMs }));
 
 import { __testing, registerCodexPair } from "../../pi/extensions/codex-pair.js";
 import { releaseInflightLock, stateRoot, tryAcquireInflightLock } from "../../scripts/lib/state.mjs";
@@ -42,7 +43,10 @@ interface Context {
 function harness() {
   const handlers = new Map<string, Array<(event: Record<string, unknown>, ctx: Context) => Promise<void>>>();
   const commands = new Map<string, { handler: (args: string, ctx: Context) => Promise<void> }>();
-  const messages: Array<{ message: { content: string }; options: Record<string, unknown> }> = [];
+  const messages: Array<{
+    message: { content: string; details?: { findingId?: string } };
+    options: Record<string, unknown>;
+  }> = [];
   const pi = {
     on(name: string, handler: (event: Record<string, unknown>, ctx: Context) => Promise<void>) {
       handlers.set(name, [...(handlers.get(name) ?? []), handler]);
@@ -50,7 +54,7 @@ function harness() {
     registerCommand(name: string, command: { handler: (args: string, ctx: Context) => Promise<void> }) {
       commands.set(name, command);
     },
-    sendMessage(message: { content: string }, options: Record<string, unknown>) {
+    sendMessage(message: { content: string; details?: { findingId?: string } }, options: Record<string, unknown>) {
       messages.push({ message, options });
     },
   };
@@ -74,6 +78,8 @@ beforeEach(async () => {
   process.env.PI_CODING_AGENT_DIR = join(root, "pi-agent");
   executeCodexCLI.mockReset();
   executeCodexCLI.mockResolvedValue(CODEX_RESULT);
+  resolveCodexTimeoutMs.mockClear();
+  resolveCodexTimeoutMs.mockReturnValue(800_000);
 });
 
 afterEach(async () => {
@@ -173,6 +179,22 @@ describe("Pi codex-pair lifecycle", () => {
     expect(roots).toContain(await realpath(second.repo));
   });
 
+  it("recovers an abandoned allowlist lock after identity and age checks", async () => {
+    const { repo } = await project(0);
+    const lockPath = `${__testing.allowlistPath()}.lock`;
+    const oldDate = new Date(Date.now() - 60_000);
+    await writeFile(
+      lockPath,
+      `${JSON.stringify({ id: "abandoned", pid: 99_999_999, acquiredAt: oldDate.toISOString() })}\n`,
+    );
+    await utimes(lockPath, oldDate, oldDate);
+
+    await __testing.setAllowed(repo, false);
+
+    const roots = (await __testing.readAllowlist()).projects.map((entry) => entry.root);
+    expect(roots).not.toContain(await realpath(repo));
+  });
+
   it("reviews one settled final state for a repeated edit burst and delivers a non-triggering steer", async () => {
     const { repo, source } = await project();
     const instance = harness();
@@ -236,6 +258,20 @@ describe("Pi codex-pair lifecycle", () => {
     expect(executeCodexCLI.mock.calls[1][0].prompt).toContain("export const value = -2");
   });
 
+  it("deletes only the scheduled generation that still owns the file", () => {
+    const scheduled = new Map([["value.ts", { generation: 2 }]]);
+    expect(__testing.deleteScheduledIfOwned(scheduled as never, "value.ts", 1)).toBe(false);
+    expect(scheduled.has("value.ts")).toBe(true);
+    expect(__testing.deleteScheduledIfOwned(scheduled as never, "value.ts", 2)).toBe(true);
+    expect(scheduled.has("value.ts")).toBe(false);
+  });
+
+  it("retains persisted pending findings when shutdown closes the epoch", () => {
+    expect(__testing.shouldDiscardPending("closed")).toBe(false);
+    expect(__testing.shouldDiscardPending("superseded")).toBe(true);
+    expect(__testing.shouldDiscardPending("stale")).toBe(true);
+  });
+
   it("retries lock contention with a positive backoff", async () => {
     const { repo, source } = await project(0);
     const lock = tryAcquireInflightLock(await realpath(repo), await realpath(source), 60_000);
@@ -247,9 +283,10 @@ describe("Pi codex-pair lifecycle", () => {
     expect(executeCodexCLI).not.toHaveBeenCalled();
     releaseInflightLock(lock.lockPath);
     await eventually(() => expect(instance.messages).toHaveLength(1), 2_000);
+    expect(resolveCodexTimeoutMs).toHaveBeenCalled();
   });
 
-  it("claims and drains every pending finding once across sessions", async () => {
+  it("claims pending findings without concurrent duplicates and preserves stable IDs", async () => {
     const { repo, source } = await project(0);
     const pendingDir = join(stateRoot(repo), "pi-pending");
     await mkdir(pendingDir, { recursive: true });
@@ -276,6 +313,8 @@ describe("Pi codex-pair lifecycle", () => {
       second.emit("session_start", {}, { ...ctx, sessionManager: { getSessionId: () => "session-second" } }),
     ]);
     expect(first.messages.length + second.messages.length).toBe(10);
+    const findingIds = [...first.messages, ...second.messages].map((entry) => entry.message.details?.findingId);
+    expect(new Set(findingIds)).toEqual(new Set(Array.from({ length: 10 }, (_, index) => `finding-${index}`)));
     await first.emit("session_start", {}, ctx);
     expect(first.messages.length + second.messages.length).toBe(10);
   });

@@ -13,7 +13,7 @@ import {
 import { homedir } from "node:os";
 import { dirname, isAbsolute, join, parse, resolve } from "node:path";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { executeCodexCLI } from "@ask-llm/codex-mcp/executor";
+import { executeCodexCLI, resolveCodexTimeoutMs } from "@ask-llm/codex-mcp/executor";
 import {
   AUTOPAUSE_FAILURE_THRESHOLD,
   INFLIGHT_TTL_MIN_MS,
@@ -50,6 +50,7 @@ const MESSAGE_TYPE = "ask-llm-codex-pair";
 const ALLOWLIST_FILE = "codex-pair-projects.json";
 const ALLOWLIST_LOCK_RETRY_MS = 25;
 const ALLOWLIST_LOCK_TIMEOUT_MS = 5_000;
+const ALLOWLIST_LOCK_STALE_MS = 30_000;
 const LOCK_CONTENTION_RETRY_MS = 100;
 const PI_PENDING_DIR = "pi-pending";
 const PI_REVIEWED_DIR = "pi-reviewed";
@@ -113,6 +114,8 @@ interface ScheduledReview {
   timer?: ReturnType<typeof setTimeout>;
 }
 
+type RevalidationState = "current" | "closed" | "superseded" | "stale";
+
 interface PairFinding {
   id: string;
   file: string;
@@ -131,6 +134,12 @@ interface ReviewedRecord {
 interface Allowlist {
   version: 1;
   projects: Array<{ root: string; allowedAt: string }>;
+}
+
+interface AllowlistLock {
+  id: string;
+  pid: number;
+  acquiredAt: string;
 }
 
 function hash(value: string): string {
@@ -177,17 +186,57 @@ async function isAllowed(markerDir: string): Promise<boolean> {
   return (await readAllowlist()).projects.some((entry) => entry.root === canonical);
 }
 
+async function recoverAbandonedAllowlistLock(lockPath: string): Promise<boolean> {
+  try {
+    const content = await readFile(lockPath, "utf8");
+    const lock = JSON.parse(content) as Partial<AllowlistLock>;
+    const info = await stat(lockPath);
+    const acquiredAt = typeof lock.acquiredAt === "string" ? Date.parse(lock.acquiredAt) : Number.NaN;
+    const pid = typeof lock.pid === "number" ? lock.pid : Number.NaN;
+    if (
+      typeof lock.id !== "string" ||
+      !Number.isInteger(pid) ||
+      !Number.isFinite(acquiredAt) ||
+      Date.now() - acquiredAt <= ALLOWLIST_LOCK_STALE_MS ||
+      Date.now() - info.mtimeMs <= ALLOWLIST_LOCK_STALE_MS ||
+      processIsAlive(pid)
+    ) {
+      return false;
+    }
+    const recheckContent = await readFile(lockPath, "utf8");
+    const recheckInfo = await stat(lockPath);
+    if (recheckContent !== content || recheckInfo.mtimeMs !== info.mtimeMs) return false;
+    await unlink(lockPath);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function releaseOwnedAllowlistLock(lockPath: string, identity: string): Promise<void> {
+  try {
+    if ((await readFile(lockPath, "utf8")) === identity) await unlink(lockPath);
+  } catch {}
+}
+
 async function setAllowed(markerDir: string, allowed: boolean): Promise<void> {
   const canonical = await canonicalDirectory(markerDir);
   const lockPath = `${allowlistPath()}.lock`;
+  const lock = {
+    id: randomUUID(),
+    pid: process.pid,
+    acquiredAt: new Date().toISOString(),
+  } satisfies AllowlistLock;
+  const identity = `${JSON.stringify(lock)}\n`;
   await mkdir(dirname(lockPath), { recursive: true });
   const deadline = Date.now() + ALLOWLIST_LOCK_TIMEOUT_MS;
   while (true) {
     try {
-      await writeFile(lockPath, `${process.pid}\n`, { flag: "wx", mode: 0o600 });
+      await writeFile(lockPath, identity, { flag: "wx", mode: 0o600 });
       break;
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
+      if (await recoverAbandonedAllowlistLock(lockPath)) continue;
       if (Date.now() >= deadline) throw new Error("Timed out updating the codex-pair project allowlist");
       await new Promise((resolveWait) => setTimeout(resolveWait, ALLOWLIST_LOCK_RETRY_MS));
     }
@@ -198,9 +247,7 @@ async function setAllowed(markerDir: string, allowed: boolean): Promise<void> {
     if (allowed) projects.push({ root: canonical, allowedAt: new Date().toISOString() });
     await writeJsonAtomic(allowlistPath(), { version: 1, projects } satisfies Allowlist);
   } finally {
-    try {
-      await unlink(lockPath);
-    } catch {}
+    await releaseOwnedAllowlistLock(lockPath, identity);
   }
 }
 
@@ -266,6 +313,20 @@ function shouldSkip(path: string): boolean {
     SKIP_FILENAMES.some((name) => normalized === name || normalized.endsWith(`/${name}`)) ||
     SKIP_SUFFIXES.some((part) => normalized.endsWith(part))
   );
+}
+
+function deleteScheduledIfOwned(
+  scheduled: Map<string, ScheduledReview>,
+  file: string,
+  generation: number,
+): boolean {
+  if (scheduled.get(file)?.generation !== generation) return false;
+  scheduled.delete(file);
+  return true;
+}
+
+function shouldDiscardPending(state: RevalidationState): boolean {
+  return state === "superseded" || state === "stale";
 }
 
 function isBinaryContent(content: Buffer): boolean {
@@ -553,7 +614,7 @@ export function registerCodexPair(pi: ExtensionAPI): void {
     const lock = tryAcquireInflightLock(
       work.markerDir,
       file,
-      Math.max(INFLIGHT_TTL_MIN_MS, Number(process.env.ASK_CODEX_TIMEOUT_MS ?? 800_000)) + 60_000,
+      Math.max(INFLIGHT_TTL_MIN_MS, resolveCodexTimeoutMs()) + 60_000,
     );
     if (!lock.acquired) {
       work.firstAt = Date.now();
@@ -565,13 +626,13 @@ export function registerCodexPair(pi: ExtensionAPI): void {
     try {
       const rawBuffer = await readFile(file);
       if (isBinaryContent(rawBuffer)) {
-        if (scheduled.get(file)?.generation === generation) scheduled.delete(file);
+        deleteScheduledIfOwned(scheduled, file, generation);
         return;
       }
       const raw = rawBuffer.toString("utf8");
       const contentHash = hash(raw);
       if ((await readReviewed(work.markerDir, file))?.contentHash === contentHash) {
-        scheduled.delete(file);
+        deleteScheduledIfOwned(scheduled, file, generation);
         return;
       }
       const view = await adaptiveContent(raw, config.maxFileBytes);
@@ -615,19 +676,21 @@ export function registerCodexPair(pi: ExtensionAPI): void {
         }
       }
       if (closed || myEpoch !== epoch) return;
-      const revalidate = async (): Promise<boolean> => {
-        if (closed || myEpoch !== epoch) return false;
+      const revalidate = async (): Promise<RevalidationState> => {
+        if (closed || myEpoch !== epoch) return "closed";
         const current = scheduled.get(file);
-        if (!current || current.generation !== generation) return false;
+        if (!current || current.generation !== generation) return "superseded";
         const latest = await readFile(file, "utf8");
-        if (hash(latest) === contentHash && scheduled.get(file)?.generation === generation) return true;
+        if (closed || myEpoch !== epoch) return "closed";
+        if (scheduled.get(file)?.generation !== generation) return "superseded";
+        if (hash(latest) === contentHash) return "current";
         if (scheduled.get(file)?.generation === generation) {
           work.firstAt = Date.now();
           await schedule(file, work.markerDir, work.toolName, ctx);
         }
-        return false;
+        return "stale";
       };
-      if (!(await revalidate())) return;
+      if ((await revalidate()) !== "current") return;
       concerns = activeConcerns(concerns, readAcks(work.markerDir));
       clearReviewFailures(work.markerDir);
       const durationMs = Date.now() - startedAt;
@@ -659,15 +722,17 @@ export function registerCodexPair(pi: ExtensionAPI): void {
         counts: { high: concerns.high.length, med: concerns.med.length, low: concerns.low.length },
         durationMs,
       });
-      if (!(await revalidate())) return;
+      if ((await revalidate()) !== "current") return;
       await persistFinding(finding);
-      if (!(await revalidate())) {
+      const persistedState = await revalidate();
+      if (persistedState === "closed") return;
+      if (shouldDiscardPending(persistedState)) {
         try {
           await unlink(pendingPath(finding.markerDir, finding.id));
         } catch {}
         return;
       }
-      if (scheduled.get(file)?.generation === generation) scheduled.delete(file);
+      deleteScheduledIfOwned(scheduled, file, generation);
       const claimed = await claimPending(pendingPath(finding.markerDir, finding.id));
       if (claimed) await deliverClaimed(claimed);
     } finally {
@@ -794,9 +859,12 @@ export function registerCodexPair(pi: ExtensionAPI): void {
 export const __testing = {
   activeConcerns,
   adaptiveContent,
+  allowlistPath,
+  deleteScheduledIfOwned,
   findMarkerUp,
   normalizeToolPath,
   readAllowlist,
   setAllowed,
+  shouldDiscardPending,
   shouldSkip,
 };

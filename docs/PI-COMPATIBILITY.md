@@ -35,7 +35,7 @@ Claude hooks remain unchanged and Claude-only as execution surfaces. Pi maps onl
 |---|---|
 | `PostToolUse` Edit/Write/MultiEdit | successful built-in `tool_result` for `edit` or `write`, using `event.input.path` |
 | detached debounce worker | in-process trailing debounce with max cap; no detached worker or daemon |
-| pending hook context | persisted custom message delivered with `steer`, `triggerTurn: false` |
+| pending hook context | persisted at-least-once custom message delivered with `steer`, `triggerTurn: false`; stable `findingId` supports receiver deduplication across the bounded crash duplicate window |
 | SessionEnd cleanup | idempotent `session_shutdown`: close epoch, clear timers, abort provider work, await bounded settlement, release owned locks |
 | `blockOn: HIGH` Stop gate | **unsupported**: findings are loud but non-blocking; Pi has no safe blocking turn-end event |
 | one-shot hook output | **unsupported for asynchronous pairing in print mode**; use TUI, RPC, or a long-lived JSON process |
