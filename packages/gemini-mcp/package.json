@@ -1,6 +1,6 @@
 {
   "name": "@ask-llm/gemini-mcp",
-  "version": "1.7.0",
+  "version": "1.7.1",
   "mcpName": "io.github.Lykhoyda/ask-gemini",
   "description": "MCP server for Gemini CLI integration - for Claude IDE and other IDEs",
   "type": "module",
