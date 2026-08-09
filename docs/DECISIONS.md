@@ -1,5 +1,15 @@
 # Architectural Decisions
 
+## ADR-143: TypeScript 7 is the repository-wide compiler floor
+
+**Status:** Accepted (2026-08-09)
+
+**Context:** The monorepo compiled every workspace with TypeScript 5 while the published toolchain (tsdown declaration rollup, Vitest, `tsc --noEmit` in `yarn lint`) had moved on. TypeScript 7 ships as a native compiler whose defaults differ from 5.x in ways that reach shared configuration: ambient `@types` are no longer picked up implicitly for every program, so `tsconfig.base.json` and `scripts/tsconfig.json` silently lost Node globals. A partial upgrade — one workspace on 7, the rest on 5 — would produce divergent declaration output across packages that share `@ask-llm/shared` types.
+
+**Decision:** Move the root and all eight compiler-owned workspaces to `typescript@^7.0.2` in one step, with the surrounding toolchain raised to match: `tsdown@^0.22.14` in the five tsdown-built provider packages, `vitest@^4.1.10`, `tsx@^4.23.11`, and `packageManager: yarn@4.18.0` (`.yarnrc.yml` keeps dependency install scripts enabled so the native compiler's platform packages install). Both shared compiler configurations declare `"types": ["node"]` explicitly rather than relying on implicit `@types` inclusion. `scripts/typescript-contract.test.ts` pins the contract — every listed manifest on `^7`, at least 7.0.2; Yarn at least 4.18.0; tsdown at least 0.22.14; `node` present in both configs' `types` — and the root Vitest `scripts` project now discovers `.ts` tests alongside `.mjs` so that guard runs in CI.
+
+**Consequences:** Contributors need the pinned Yarn to install; a workspace that drifts back to TypeScript 5, an older tsdown, or a `types`-less shared config fails the contract test rather than producing subtly different declarations. Strictness, package boundaries, provider integrations, and published output are unchanged — this is a compiler and build-tooling upgrade, not a source-level migration. Historical plans and ADRs keep their original version strings as delivery evidence; the floors that matter live in the contract test.
+
 ## ADR-142: `@ask-llm/plugin` is the canonical dual-host Claude Code and Pi package
 
 **Status:** Accepted (2026-08-05)

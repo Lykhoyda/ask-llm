@@ -12,7 +12,7 @@ yarn build
 yarn test
 ```
 
-Requires Node.js 22.18+ to build (the tsdown toolchain's floor since ADR-119 — published packages still run on Node 20+) and Yarn 4 (managed via the `packageManager` field).
+Requires Node.js 22.18+ to build (the tsdown toolchain's floor since ADR-119 — published packages still run on Node 20+) and Yarn 4.18+ (managed via the `packageManager` field). Every workspace compiles with TypeScript 7 (ADR-143); `scripts/typescript-contract.test.ts` fails the build if a package drifts off that floor.
 
 ## Project layout
 
