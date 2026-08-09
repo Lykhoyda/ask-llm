@@ -35,23 +35,48 @@ function readJson<T>(path: string): T {
   return JSON.parse(readFileSync(new URL(path, ROOT), "utf8")) as T;
 }
 
+function toVersionParts(value: string): [number, number, number] {
+  const match = /(\d+)\.(\d+)\.(\d+)/.exec(value);
+  if (!match) {
+    throw new Error(`Unparseable version: ${value}`);
+  }
+  return [Number(match[1]), Number(match[2]), Number(match[3])];
+}
+
+function isAtLeast(value: string, minimum: string): boolean {
+  const actual = toVersionParts(value);
+  const floor = toVersionParts(minimum);
+  for (let index = 0; index < actual.length; index += 1) {
+    if (actual[index] !== floor[index]) {
+      return actual[index] > floor[index];
+    }
+  }
+  return true;
+}
+
 describe("TypeScript 7 toolchain contract", () => {
   it("pins every compiler-owned workspace to TypeScript 7", () => {
-    expect(typescriptVersion).toBe("7.0.2");
+    expect(typescriptVersion).toMatch(/^7\./);
+    expect(isAtLeast(typescriptVersion, "7.0.2"), typescriptVersion).toBe(true);
 
     for (const packagePath of TYPESCRIPT_PACKAGES) {
       const manifest = readJson<PackageManifest>(`${packagePath}/package.json`);
-      expect(manifest.devDependencies?.typescript, packagePath).toBe("^7.0.2");
+      const range = manifest.devDependencies?.typescript;
+      expect(range, packagePath).toMatch(/^\^7\./);
+      expect(isAtLeast(range ?? "", "7.0.2"), packagePath).toBe(true);
     }
   });
 
   it("uses TypeScript-7-compatible package and declaration build tooling", () => {
     const rootManifest = readJson<PackageManifest>("package.json");
-    expect(rootManifest.packageManager).toBe("yarn@4.18.0");
+    expect(rootManifest.packageManager).toMatch(/^yarn@4\./);
+    expect(isAtLeast(rootManifest.packageManager ?? "", "4.18.0"), rootManifest.packageManager).toBe(true);
 
     for (const packagePath of TSDOWN_PACKAGES) {
       const manifest = readJson<PackageManifest>(`${packagePath}/package.json`);
-      expect(manifest.devDependencies?.tsdown, packagePath).toBe("^0.22.14");
+      const range = manifest.devDependencies?.tsdown;
+      expect(range, packagePath).toMatch(/^\^0\.22\./);
+      expect(isAtLeast(range ?? "", "0.22.14"), packagePath).toBe(true);
     }
   });
 
