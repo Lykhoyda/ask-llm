@@ -71,9 +71,9 @@
     "@ask-llm/shared": "workspace:*",
     "@biomejs/biome": "^2.4.4",
     "@types/node": "^22.19.13",
-    "tsdown": "^0.22.2",
-    "typescript": "^5.0.0",
-    "vitest": "^4.0.18"
+    "tsdown": "^0.22.14",
+    "typescript": "^7.0.2",
+    "vitest": "^4.1.10"
   },
   "publishConfig": {
     "access": "public"
