@@ -1,5 +1,11 @@
 # @ask-llm/claude-mcp
 
+## 0.1.6
+
+### Patch Changes
+
+- [#264](https://github.com/Lykhoyda/ask-llm/pull/264) [`2433d79`](https://github.com/Lykhoyda/ask-llm/commit/2433d79453363ece39fb08da6d585039da224274) Thanks [@Lykhoyda](https://github.com/Lykhoyda)! - Add first-class Pi host support to the canonical dual-host plugin package, including portable skills, native provider tools, deterministic multi-provider dispatch, consent-gated lifecycle pairing, package/install CI, and abortable provider execution.
+
 ## 0.1.5
 
 ### Patch Changes

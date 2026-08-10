@@ -1,5 +1,18 @@
 # @ask-llm/mcp
 
+## 0.6.6
+
+### Patch Changes
+
+- [#264](https://github.com/Lykhoyda/ask-llm/pull/264) [`2433d79`](https://github.com/Lykhoyda/ask-llm/commit/2433d79453363ece39fb08da6d585039da224274) Thanks [@Lykhoyda](https://github.com/Lykhoyda)! - Add first-class Pi host support to the canonical dual-host plugin package, including portable skills, native provider tools, deterministic multi-provider dispatch, consent-gated lifecycle pairing, package/install CI, and abortable provider execution.
+
+- Updated dependencies [[`2433d79`](https://github.com/Lykhoyda/ask-llm/commit/2433d79453363ece39fb08da6d585039da224274)]:
+  - @ask-llm/gemini-mcp@1.7.1
+  - @ask-llm/codex-mcp@0.7.4
+  - @ask-llm/claude-mcp@0.1.6
+  - @ask-llm/ollama-mcp@0.5.6
+  - @ask-llm/antigravity-mcp@0.7.1
+
 ## 0.6.5
 
 ### Patch Changes

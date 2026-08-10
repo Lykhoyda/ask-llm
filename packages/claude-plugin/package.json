@@ -1,6 +1,6 @@
 {
   "name": "@ask-llm/plugin",
-  "version": "0.12.8",
+  "version": "0.13.0",
   "description": "Ask LLM review, comparison, brainstorming, image, verification, and pairing workflows for Claude Code and Pi",
   "type": "module",
   "main": "dist/index.js",
@@ -76,10 +76,10 @@
     ]
   },
   "dependencies": {
-    "@ask-llm/antigravity-mcp": "^0.7.0",
-    "@ask-llm/codex-mcp": "^0.7.3",
-    "@ask-llm/gemini-mcp": "^1.7.0",
-    "@ask-llm/ollama-mcp": "^0.5.5"
+    "@ask-llm/antigravity-mcp": "^0.7.1",
+    "@ask-llm/codex-mcp": "^0.7.4",
+    "@ask-llm/gemini-mcp": "^1.7.1",
+    "@ask-llm/ollama-mcp": "^0.5.6"
   },
   "peerDependencies": {
     "@earendil-works/pi-ai": "*",
