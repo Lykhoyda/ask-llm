@@ -53,7 +53,7 @@ const ALLOWLIST_LOCK_TIMEOUT_MS = 5_000;
 const ALLOWLIST_LOCK_STALE_MS = 30_000;
 const LOCK_CONTENTION_RETRY_MS = 100;
 const CLAIM_SUFFIX = ".claim";
-const CLAIM_WRITE_GRACE_MS = 5_000;
+const CLAIM_STALE_MS = 30_000;
 const PI_PENDING_DIR = "pi-pending";
 const PI_REVIEWED_DIR = "pi-reviewed";
 const SKIP_PARTS = [
@@ -400,9 +400,9 @@ function processIsAlive(pid: number): boolean {
   }
 }
 
-async function readClaimOwner(claimPath: string): Promise<number | undefined> {
+function parseClaimOwner(content: string): number | undefined {
   try {
-    const { pid } = JSON.parse(await readFile(claimPath, "utf8")) as { pid?: unknown };
+    const { pid } = JSON.parse(content) as { pid?: unknown };
     return typeof pid === "number" && Number.isInteger(pid) ? pid : undefined;
   } catch {
     return undefined;
@@ -415,14 +415,16 @@ async function recoverAbandonedClaims(markerDir: string): Promise<void> {
     const names = (await readdir(root)).filter((name) => name.endsWith(CLAIM_SUFFIX)).sort();
     for (const name of names) {
       const claimPath = join(root, name);
-      const pid = await readClaimOwner(claimPath);
-      if (pid === undefined) {
-        // A claim created but not yet written looks ownerless; only reclaim it once it is older than that window.
-        const stats = await stat(claimPath).catch(() => undefined);
-        if (!stats || Date.now() - stats.mtimeMs < CLAIM_WRITE_GRACE_MS) continue;
-      } else if (processIsAlive(pid)) {
-        continue;
-      }
+      const content = await readFile(claimPath, "utf8").catch(() => undefined);
+      const info = await stat(claimPath).catch(() => undefined);
+      // A live session releases and recreates claims at this same path, so only age plus an
+      // unchanged-identity recheck can tell an abandoned claim from one that was just taken.
+      if (content === undefined || !info || Date.now() - info.mtimeMs < CLAIM_STALE_MS) continue;
+      const pid = parseClaimOwner(content);
+      if (pid !== undefined && processIsAlive(pid)) continue;
+      const recheck = await readFile(claimPath, "utf8").catch(() => undefined);
+      const recheckInfo = await stat(claimPath).catch(() => undefined);
+      if (recheck !== content || recheckInfo?.mtimeMs !== info.mtimeMs) continue;
       try {
         await unlink(claimPath);
       } catch {}

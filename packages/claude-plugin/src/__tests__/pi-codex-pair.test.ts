@@ -294,7 +294,10 @@ describe("Pi codex-pair lifecycle", () => {
     const pendingDir = join(stateRoot(repo), "pi-pending");
     await mkdir(pendingDir, { recursive: true });
     const contentHash = createHash("sha256").update("export const value = -1;\n").digest("hex");
-    await writeFile(join(pendingDir, "finding-0.json.claim"), `${JSON.stringify({ pid: 99_999_999 })}\n`);
+    const abandonedClaim = join(pendingDir, "finding-0.json.claim");
+    await writeFile(abandonedClaim, `${JSON.stringify({ pid: 99_999_999 })}\n`);
+    const longAgo = new Date(Date.now() - 600_000);
+    await utimes(abandonedClaim, longAgo, longAgo);
     for (let index = 0; index < 10; index++) {
       await writeFile(
         join(pendingDir, `finding-${index}.json`),
@@ -371,6 +374,41 @@ describe("Pi codex-pair lifecycle", () => {
 
     expect(instance.messages).toHaveLength(0);
     expect((await readdir(pendingDir)).sort()).toEqual(["finding-live.json", "finding-live.json.claim"]);
+  });
+
+  it("keeps a freshly written dead-owner claim until it ages out", async () => {
+    const { repo, source } = await project(0);
+    const pendingDir = join(stateRoot(repo), "pi-pending");
+    await mkdir(pendingDir, { recursive: true });
+    await writeFile(
+      join(pendingDir, "finding-fresh.json"),
+      `${JSON.stringify({
+        id: "finding-fresh",
+        file: source,
+        markerDir: repo,
+        contentHash: createHash("sha256").update("export const value = -1;\n").digest("hex"),
+        message: "finding fresh",
+        createdAt: new Date().toISOString(),
+      })}\n`,
+    );
+    const claimPath = join(pendingDir, "finding-fresh.json.claim");
+    await writeFile(claimPath, `${JSON.stringify({ pid: 99_999_999 })}\n`);
+
+    const first = harness();
+    await first.emit("session_start", {}, context(repo));
+    expect(first.messages).toHaveLength(0);
+    expect((await readdir(pendingDir)).sort()).toEqual(["finding-fresh.json", "finding-fresh.json.claim"]);
+
+    const longAgo = new Date(Date.now() - 600_000);
+    await utimes(claimPath, longAgo, longAgo);
+    const second = harness();
+    await second.emit(
+      "session_start",
+      {},
+      { ...context(repo), sessionManager: { getSessionId: () => "session-late" } },
+    );
+    expect(second.messages).toHaveLength(1);
+    expect(await readdir(pendingDir)).toEqual([]);
   });
 
   it("aborts an active review on shutdown and never delivers from a stale epoch", async () => {
