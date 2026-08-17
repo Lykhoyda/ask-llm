@@ -94,7 +94,9 @@ let routineSpec = null;
 try {
   routineSpec = readFileSync(join(root, routineSpecPath), "utf8");
 } catch {
-  errors.push(`${routineSpecPath} is missing — the weekly model-version-watch routine reads it from the default branch`);
+  errors.push(
+    `${routineSpecPath} is missing — the weekly model-version-watch routine reads it from the default branch`,
+  );
 }
 if (routineSpec !== null) {
   const requiredReferences = [
