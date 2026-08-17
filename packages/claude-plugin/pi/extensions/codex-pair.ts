@@ -52,6 +52,8 @@ const ALLOWLIST_LOCK_RETRY_MS = 25;
 const ALLOWLIST_LOCK_TIMEOUT_MS = 5_000;
 const ALLOWLIST_LOCK_STALE_MS = 30_000;
 const LOCK_CONTENTION_RETRY_MS = 100;
+const CLAIM_SUFFIX = ".claim";
+const CLAIM_WRITE_GRACE_MS = 5_000;
 const PI_PENDING_DIR = "pi-pending";
 const PI_REVIEWED_DIR = "pi-reviewed";
 const SKIP_PARTS = [
@@ -381,7 +383,7 @@ function sendFinding(pi: ExtensionAPI, finding: PairFinding): void {
 
 interface ClaimedFinding {
   claimPath: string;
-  originalPath: string;
+  pendingPath: string;
   finding: PairFinding;
 }
 
@@ -398,39 +400,55 @@ function processIsAlive(pid: number): boolean {
   }
 }
 
+async function readClaimOwner(claimPath: string): Promise<number | undefined> {
+  try {
+    const { pid } = JSON.parse(await readFile(claimPath, "utf8")) as { pid?: unknown };
+    return typeof pid === "number" && Number.isInteger(pid) ? pid : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 async function recoverAbandonedClaims(markerDir: string): Promise<void> {
   const root = pendingRoot(markerDir);
   try {
-    const names = (await readdir(root)).filter((name) => name.includes(".json.claim-")).sort();
+    const names = (await readdir(root)).filter((name) => name.endsWith(CLAIM_SUFFIX)).sort();
     for (const name of names) {
-      const pid = Number(name.match(/\.claim-(\d+)-/)?.[1]);
-      if (Number.isInteger(pid) && processIsAlive(pid)) continue;
       const claimPath = join(root, name);
-      const originalPath = join(root, name.slice(0, name.indexOf(".claim-")));
+      const pid = await readClaimOwner(claimPath);
+      if (pid === undefined) {
+        // A claim created but not yet written looks ownerless; only reclaim it once it is older than that window.
+        const stats = await stat(claimPath).catch(() => undefined);
+        if (!stats || Date.now() - stats.mtimeMs < CLAIM_WRITE_GRACE_MS) continue;
+      } else if (processIsAlive(pid)) {
+        continue;
+      }
       try {
-        await rename(claimPath, originalPath);
+        await unlink(claimPath);
       } catch {}
     }
   } catch {}
 }
 
 async function claimPending(path: string): Promise<ClaimedFinding | undefined> {
-  const claimPath = `${path}.claim-${process.pid}-${randomUUID()}`;
+  const claimPath = `${path}${CLAIM_SUFFIX}`;
   try {
-    await rename(path, claimPath);
+    await writeFile(claimPath, `${JSON.stringify({ pid: process.pid })}\n`, { flag: "wx", mode: 0o600 });
   } catch {
     return undefined;
   }
   try {
     return {
       claimPath,
-      originalPath: path,
-      finding: JSON.parse(await readFile(claimPath, "utf8")) as PairFinding,
+      pendingPath: path,
+      finding: JSON.parse(await readFile(path, "utf8")) as PairFinding,
     };
   } catch {
-    try {
-      await unlink(claimPath);
-    } catch {}
+    for (const target of [path, claimPath]) {
+      try {
+        await unlink(target);
+      } catch {}
+    }
     return undefined;
   }
 }
@@ -498,30 +516,39 @@ export function registerCodexPair(pi: ExtensionAPI): void {
     return false;
   };
 
+  const releaseClaim = async (claimed: ClaimedFinding) => {
+    try {
+      await unlink(claimed.claimPath);
+    } catch {}
+  };
+
+  const consumeClaimed = async (claimed: ClaimedFinding) => {
+    try {
+      await unlink(claimed.pendingPath);
+    } catch {}
+    await releaseClaim(claimed);
+  };
+
   const deliverClaimed = async (claimed: ClaimedFinding) => {
     if (closed) {
-      try {
-        await rename(claimed.claimPath, claimed.originalPath);
-      } catch {}
+      await releaseClaim(claimed);
       return;
     }
     try {
       const current = await readFile(claimed.finding.file);
       if (hash(current.toString("utf8")) !== claimed.finding.contentHash) {
-        await unlink(claimed.claimPath);
+        await consumeClaimed(claimed);
         return;
       }
       if (closed) {
-        await rename(claimed.claimPath, claimed.originalPath);
+        await releaseClaim(claimed);
         return;
       }
       sendFinding(pi, claimed.finding);
       await markReviewed(claimed.finding);
-      await unlink(claimed.claimPath);
+      await consumeClaimed(claimed);
     } catch (error) {
-      try {
-        await rename(claimed.claimPath, claimed.originalPath);
-      } catch {}
+      await releaseClaim(claimed);
       throw error;
     }
   };
@@ -531,8 +558,10 @@ export function registerCodexPair(pi: ExtensionAPI): void {
     while (!closed) {
       let names: string[];
       try {
-        names = (await readdir(pendingRoot(markerDir)))
-          .filter((name) => name.endsWith(".json"))
+        const entries = await readdir(pendingRoot(markerDir));
+        const claimedNames = new Set(entries.filter((name) => name.endsWith(CLAIM_SUFFIX)));
+        names = entries
+          .filter((name) => name.endsWith(".json") && !claimedNames.has(`${name}${CLAIM_SUFFIX}`))
           .sort()
           .slice(0, 8);
       } catch {
@@ -860,6 +889,7 @@ export const __testing = {
   activeConcerns,
   adaptiveContent,
   allowlistPath,
+  claimPending,
   deleteScheduledIfOwned,
   findMarkerUp,
   normalizeToolPath,
