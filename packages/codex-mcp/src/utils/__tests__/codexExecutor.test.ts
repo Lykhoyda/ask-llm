@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { CLI, CODEX_EDIT_SCHEMA, DEFAULT_REASONING_EFFORT, MODELS } from "../../constants.js";
+import { CLI, CODEX_EDIT_SCHEMA, DEFAULT_REASONING_EFFORT, ERROR_MESSAGES, MODELS } from "../../constants.js";
 
 vi.mock("@ask-llm/shared", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@ask-llm/shared")>();
@@ -15,7 +15,13 @@ vi.mock("@ask-llm/shared", async (importOriginal) => {
 });
 
 import { executeCommand, responseCache } from "@ask-llm/shared";
-import { executeCodexCLI, parseCodexEdits, processCodexEditOutput, resolveCodexTimeoutMs } from "../codexExecutor.js";
+import {
+  executeCodexCLI,
+  isQuotaError,
+  parseCodexEdits,
+  processCodexEditOutput,
+  resolveCodexTimeoutMs,
+} from "../codexExecutor.js";
 
 const mockExecuteCommand = vi.mocked(executeCommand);
 
@@ -857,9 +863,13 @@ describe("executeCodexCLI session-continuity errors", () => {
   // beforeEach already runs vi.clearAllMocks() + sets a default resolved value,
   // so no per-test mockReset() is needed; mockRejectedValueOnce overrides for
   // the single call these tests make.
-  it("archived-session error on resume (rollout-path signal) → actionable message, no mini fallback", async () => {
+  // The fixture is the real codex 0.147.0 composition: the binary emits
+  // `thread <id> is archived`, wrapped the same way as the live-reproduced
+  // `no rollout found` sibling error (#267). Do not replace with invented text —
+  // fabricated fixtures are how this detection silently died the first time.
+  it("archived-thread error on resume (codex 0.147.0 wording) → actionable message, no mini fallback", async () => {
     mockExecuteCommand.mockRejectedValueOnce(
-      new Error("Failed to resume session from ~/.codex/archived_sessions/rollout-2026-06-05.jsonl"),
+      new Error("thread/resume: thread/resume failed: thread thread-xyz is archived (code -32600)"),
     );
     const err = await executeCodexCLI({ prompt: "follow up", sessionId: "thread-xyz" }).catch((e) => e as Error);
     expect(err.message).toMatch(/session thread-xyz is archived/i);
@@ -867,11 +877,42 @@ describe("executeCodexCLI session-continuity errors", () => {
     expect(mockExecuteCommand).toHaveBeenCalledTimes(1); // no mini fallback
   });
 
-  it("matches the prose 'session is archived' signal too (not just the rollout path)", async () => {
-    mockExecuteCommand.mockRejectedValueOnce(new Error("error: session is archived"));
+  it.each([
+    ["pre-0.147 rollout path", "Failed to resume session from ~/.codex/archived_sessions/rollout-2026-06-05.jsonl"],
+    ["pre-0.147 prose", "error: session is archived"],
+  ])("still matches legacy archived wording (%s)", async (_label, message) => {
+    mockExecuteCommand.mockRejectedValueOnce(new Error(message));
     const err = await executeCodexCLI({ prompt: "follow up", sessionId: "thread-xyz" }).catch((e) => e as Error);
     expect(err.message).toMatch(/session thread-xyz is archived/i);
     expect(err.message).toMatch(/codex unarchive thread-xyz/);
+  });
+
+  // Signal-hygiene contract (#267): matching is lowercase-substring, and the
+  // four signal lists must stay pairwise disjoint (no signal containing a
+  // signal from another list) or one error class would misroute into another —
+  // e.g. an archived resume burning a mini-model fallback retry.
+  it("error-signal lists are lowercase and pairwise disjoint", () => {
+    const lists = {
+      QUOTA_SIGNALS: ERROR_MESSAGES.QUOTA_SIGNALS,
+      ARCHIVED_SESSION_SIGNALS: ERROR_MESSAGES.ARCHIVED_SESSION_SIGNALS,
+      SESSION_CONTINUITY_SIGNALS: ERROR_MESSAGES.SESSION_CONTINUITY_SIGNALS,
+      MODEL_UNAVAILABLE_SIGNALS: ERROR_MESSAGES.MODEL_UNAVAILABLE_SIGNALS,
+    } as const;
+    const entries = Object.entries(lists) as [string, readonly string[]][];
+    for (const [, signals] of entries) {
+      for (const signal of signals) expect(signal).toBe(signal.toLowerCase());
+    }
+    for (const [nameA, listA] of entries) {
+      for (const [nameB, listB] of entries) {
+        if (nameA === nameB) continue;
+        for (const a of listA) {
+          for (const b of listB) {
+            expect(a.includes(b), `${nameA} signal "${a}" contains ${nameB} signal "${b}"`).toBe(false);
+          }
+        }
+      }
+    }
+    expect(isQuotaError(new Error("thread/resume failed: thread thread-xyz is archived (code -32600)"))).toBe(false);
   });
 
   it("archived signal without a sessionId is not special-cased (no false trigger)", async () => {

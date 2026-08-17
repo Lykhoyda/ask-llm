@@ -15,10 +15,10 @@ export const ERROR_MESSAGES = {
   ],
   // codex 0.136 archived sessions: `codex exec resume <id>` fails if the session
   // was archived. Lowercased substrings; isArchivedSessionError() lowercases
-  // before matching. "archived_sessions" is the rollout path from upstream
-  // openai/codex#19362 — confirm the exact string against a live archived
-  // session on codex >= 0.136. #139 / #141 F1.
-  ARCHIVED_SESSION_SIGNALS: ["archived_sessions", "archived session", "session is archived"],
+  // before matching. "is archived" is verbatim from the codex 0.147.0 binary,
+  // which emits `thread <id> is archived` (#267); the other two cover older
+  // builds (rollout path from upstream openai/codex#19362). #139 / #141 F1.
+  ARCHIVED_SESSION_SIGNALS: ["is archived", "archived_sessions", "archived session"],
   // An ephemeral or expired thread has no persisted rollout for `exec resume`.
   // This is a continuity failure, never quota: retrying with a mini model cannot
   // recreate the missing first turn. Verified against codex-cli 0.146.0 (#254).

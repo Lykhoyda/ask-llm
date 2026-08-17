@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { mkdir, mkdtemp, realpath, rm, utimes, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readdir, realpath, rm, utimes, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -294,10 +294,13 @@ describe("Pi codex-pair lifecycle", () => {
     const pendingDir = join(stateRoot(repo), "pi-pending");
     await mkdir(pendingDir, { recursive: true });
     const contentHash = createHash("sha256").update("export const value = -1;\n").digest("hex");
+    const abandonedClaim = join(pendingDir, "finding-0.json.claim");
+    await writeFile(abandonedClaim, `${JSON.stringify({ pid: 99_999_999 })}\n`);
+    const longAgo = new Date(Date.now() - 600_000);
+    await utimes(abandonedClaim, longAgo, longAgo);
     for (let index = 0; index < 10; index++) {
-      const name = index === 0 ? "finding-0.json.claim-99999999-abandoned" : `finding-${index}.json`;
       await writeFile(
-        join(pendingDir, name),
+        join(pendingDir, `finding-${index}.json`),
         `${JSON.stringify({
           id: `finding-${index}`,
           file: source,
@@ -320,6 +323,92 @@ describe("Pi codex-pair lifecycle", () => {
     expect(new Set(findingIds)).toEqual(new Set(Array.from({ length: 10 }, (_, index) => `finding-${index}`)));
     await first.emit("session_start", {}, ctx);
     expect(first.messages.length + second.messages.length).toBe(10);
+    expect((await readdir(pendingDir)).length).toBe(0);
+  });
+
+  it("grants a pending finding to exactly one concurrent claimant", async () => {
+    const { repo, source } = await project(0);
+    const pendingDir = join(stateRoot(repo), "pi-pending");
+    await mkdir(pendingDir, { recursive: true });
+    const path = join(pendingDir, "finding-solo.json");
+    await writeFile(
+      path,
+      `${JSON.stringify({
+        id: "finding-solo",
+        file: source,
+        markerDir: repo,
+        contentHash: createHash("sha256").update("export const value = -1;\n").digest("hex"),
+        message: "finding solo",
+        createdAt: new Date().toISOString(),
+      })}\n`,
+    );
+    const claims = await Promise.all([
+      __testing.claimPending(path),
+      __testing.claimPending(path),
+      __testing.claimPending(path),
+    ]);
+    const owned = claims.filter((claim) => claim !== undefined);
+    expect(owned).toHaveLength(1);
+    expect(owned[0]?.finding.id).toBe("finding-solo");
+  });
+
+  it("leaves a pending finding claimed by a live session to its owner", async () => {
+    const { repo, source } = await project(0);
+    const pendingDir = join(stateRoot(repo), "pi-pending");
+    await mkdir(pendingDir, { recursive: true });
+    await writeFile(
+      join(pendingDir, "finding-live.json"),
+      `${JSON.stringify({
+        id: "finding-live",
+        file: source,
+        markerDir: repo,
+        contentHash: createHash("sha256").update("export const value = -1;\n").digest("hex"),
+        message: "finding live",
+        createdAt: new Date().toISOString(),
+      })}\n`,
+    );
+    await writeFile(join(pendingDir, "finding-live.json.claim"), `${JSON.stringify({ pid: process.pid })}\n`);
+
+    const instance = harness();
+    await instance.emit("session_start", {}, context(repo));
+
+    expect(instance.messages).toHaveLength(0);
+    expect((await readdir(pendingDir)).sort()).toEqual(["finding-live.json", "finding-live.json.claim"]);
+  });
+
+  it("keeps a freshly written dead-owner claim until it ages out", async () => {
+    const { repo, source } = await project(0);
+    const pendingDir = join(stateRoot(repo), "pi-pending");
+    await mkdir(pendingDir, { recursive: true });
+    await writeFile(
+      join(pendingDir, "finding-fresh.json"),
+      `${JSON.stringify({
+        id: "finding-fresh",
+        file: source,
+        markerDir: repo,
+        contentHash: createHash("sha256").update("export const value = -1;\n").digest("hex"),
+        message: "finding fresh",
+        createdAt: new Date().toISOString(),
+      })}\n`,
+    );
+    const claimPath = join(pendingDir, "finding-fresh.json.claim");
+    await writeFile(claimPath, `${JSON.stringify({ pid: 99_999_999 })}\n`);
+
+    const first = harness();
+    await first.emit("session_start", {}, context(repo));
+    expect(first.messages).toHaveLength(0);
+    expect((await readdir(pendingDir)).sort()).toEqual(["finding-fresh.json", "finding-fresh.json.claim"]);
+
+    const longAgo = new Date(Date.now() - 600_000);
+    await utimes(claimPath, longAgo, longAgo);
+    const second = harness();
+    await second.emit(
+      "session_start",
+      {},
+      { ...context(repo), sessionManager: { getSessionId: () => "session-late" } },
+    );
+    expect(second.messages).toHaveLength(1);
+    expect(await readdir(pendingDir)).toEqual([]);
   });
 
   it("aborts an active review on shutdown and never delivers from a stale epoch", async () => {
