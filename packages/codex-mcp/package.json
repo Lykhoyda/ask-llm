@@ -1,6 +1,6 @@
 {
   "name": "@ask-llm/codex-mcp",
-  "version": "0.7.4",
+  "version": "0.7.5",
   "mcpName": "io.github.Lykhoyda/ask-codex",
   "description": "MCP server for OpenAI Codex CLI integration - for Claude IDE and other IDEs",
   "type": "module",

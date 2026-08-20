@@ -1,6 +1,6 @@
 {
   "name": "@ask-llm/antigravity-mcp",
-  "version": "0.7.1",
+  "version": "0.7.2",
   "mcpName": "io.github.Lykhoyda/ask-antigravity",
   "description": "EXPERIMENTAL MCP server for Google's Antigravity CLI (agy) — subscription-backed second opinions",
   "type": "module",

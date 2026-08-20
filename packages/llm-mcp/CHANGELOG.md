@@ -1,5 +1,23 @@
 # @ask-llm/mcp
 
+## 0.7.0
+
+### Minor Changes
+
+- [#279](https://github.com/Lykhoyda/ask-llm/pull/279) [`9d27169`](https://github.com/Lykhoyda/ask-llm/commit/9d27169fbe22c2ffbfae0be9d6cba841b98e42f1) Thanks [@Lykhoyda](https://github.com/Lykhoyda)! - Add first-class Grok consultations through explicit xAI API or official Grok CLI harnesses, with exact model selection, strict no-fallback diagnostics, redacted credentials, cancellation, telemetry, and opt-in live tests. Add a separate model-neutral Cursor Agent harness that requires provider and exact Cursor model attribution, runs read-only, and never changes trust or spend settings. The Cursor provider enum is `claude`, `codex`, `gemini`, `grok` in the unified server and Pi, and the requested model must belong to that family (Auto and noncanonical IDs are refused); `AskResponse` gains an optional `reportedModel` carrying Cursor's display label while `model` echoes the exact requested catalog ID. Prompts above 16 KB reach Grok CLI through a private `--prompt-file` (only when `grok --help` advertises it; otherwise they fail before spawn) and Cursor Agent over stdin. xAI effort coercion (`xhigh` applied as `high` on older models) and served-model alias resolution are disclosed, and an effort-rejecting 4xx is classified with the supported list.
+
+- [#278](https://github.com/Lykhoyda/ask-llm/pull/278) [`c3f3da4`](https://github.com/Lykhoyda/ask-llm/commit/c3f3da4682d7dd91118b06bd2272b0b3e5ebc1e2) Thanks [@Lykhoyda](https://github.com/Lykhoyda)! - Add an explicit, bounded `doctor --format toon` v1 pilot with structured errors, filtered-versus-capped omission counts, a `completeness` flag, truncation disclosure, contextual help, and a `--full` escape hatch. Default text and `--json` output bytes, MCP, and machine contracts are unchanged; `--full` is accepted as a no-op for text/JSON, and unknown `doctor` arguments now exit 2 with a structured error instead of being ignored.
+
+### Patch Changes
+
+- Updated dependencies [[`e685565`](https://github.com/Lykhoyda/ask-llm/commit/e68556513c59c8a2c56a64c0443c9b36eff0ec64), [`9d27169`](https://github.com/Lykhoyda/ask-llm/commit/9d27169fbe22c2ffbfae0be9d6cba841b98e42f1)]:
+  - @ask-llm/codex-mcp@0.7.5
+  - @ask-llm/gemini-mcp@1.7.2
+  - @ask-llm/claude-mcp@0.1.7
+  - @ask-llm/grok-mcp@0.1.1
+  - @ask-llm/ollama-mcp@0.5.7
+  - @ask-llm/antigravity-mcp@0.7.2
+
 ## 0.6.6
 
 ### Patch Changes
