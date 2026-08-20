@@ -71,9 +71,7 @@ export function readActiveMcpServers({
   const result = execute(command, invocation.args, invocation.options);
   if (result.error || result.status !== 0) {
     const detail = result.error?.message || result.stderr?.trim() || `exited ${result.status}`;
-    throw new Error(
-      `Unable to inspect active Claude MCP registrations: ${detail}. Run \`claude mcp list\` and resolve that failure before retrying.`,
-    );
+    throw new Error(`Unable to inspect active Claude MCP registrations: ${detail}.`);
   }
   return parseClaudeMcpList(result.stdout || "");
 }
@@ -82,7 +80,35 @@ function expectedToolName(serverName) {
   return `mcp__${serverName.replaceAll(":", "_")}__${ASK_CODEX_TOOL}`;
 }
 
-export function classifySolReviewTransport({ availableTools = [], mcpServers = {}, cliPath = "" }) {
+export function classifySolReviewTransport({
+  availableTools = [],
+  mcpServers = {},
+  cliPath = "",
+  inventoryError = null,
+}) {
+  if (inventoryError) {
+    const reason = `Ask LLM Codex MCP availability could not be determined because the active Claude MCP inventory could not be inspected: ${inventoryError}`;
+    const remediation = "Run `claude mcp list`, resolve the inventory failure, then fully restart Claude Code.";
+    if (!cliPath) {
+      return {
+        state: "inventory-unavailable",
+        transport: null,
+        toolName: null,
+        diagnostic: `${reason} The explicit CLI fallback is also unavailable.`,
+        remediation: `${remediation} Install the fallback with \`npm install -g @openai/codex\` if needed.`,
+        fallbackDisclosure: null,
+      };
+    }
+    return {
+      state: "inventory-unavailable",
+      transport: "cli",
+      toolName: null,
+      diagnostic: reason,
+      remediation,
+      fallbackDisclosure: `Transport disclosure: ${reason} Running the review through the explicit \`codex exec\` CLI fallback without claiming MCP registration or availability; validated findings will be relayed unchanged.`,
+    };
+  }
+
   const registrations = Object.entries(mcpServers).filter(([, server]) => isAskCodexRegistration(server));
   const registeredToolNames = new Set(registrations.map(([name]) => expectedToolName(name)));
   const toolName = availableTools.find((name) => isAskCodexToolName(name) && registeredToolNames.has(name));
@@ -228,16 +254,27 @@ function parseArgs(args) {
 }
 
 function readMcpServers(parsed) {
-  return parsed.mcpList === null ? readActiveMcpServers() : parseClaudeMcpList(parsed.mcpList);
+  if (parsed.mcpList !== null) {
+    return { mcpServers: parseClaudeMcpList(parsed.mcpList), inventoryError: null };
+  }
+  try {
+    return { mcpServers: readActiveMcpServers(), inventoryError: null };
+  } catch (error) {
+    return {
+      mcpServers: {},
+      inventoryError: error instanceof Error ? error.message : String(error),
+    };
+  }
 }
 
 async function main() {
   const parsed = parseArgs(process.argv.slice(2));
-  const mcpServers = readMcpServers(parsed);
+  const { mcpServers, inventoryError } = readMcpServers(parsed);
   const decision = classifySolReviewTransport({
     availableTools: parsed.tools,
     mcpServers,
     cliPath: parsed.cliPath,
+    inventoryError,
   });
 
   if (parsed.fallback) {

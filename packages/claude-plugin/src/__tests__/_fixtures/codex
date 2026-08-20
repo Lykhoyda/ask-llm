@@ -46,6 +46,11 @@ function emitAgentMessage(text) {
 }
 
 async function run() {
+  if (SCENARIO === "sol-inventory-failure-fallback" && process.argv.slice(2).join(" ") === "mcp list") {
+    process.stderr.write("malformed MCP configuration\n");
+    process.exit(1);
+  }
+
   if (SCENARIO === "sol-early-stdin-close") {
     process.stdin.destroy();
     process.stdout.write("review survived early stdin close\n");
@@ -53,6 +58,11 @@ async function run() {
   }
 
   await drainStdin();
+
+  if (SCENARIO === "sol-inventory-failure-fallback") {
+    process.stdout.write("validated review after inventory failure\n");
+    process.exit(0);
+  }
 
   // Test override: bypass scenario dispatch entirely
   if (process.env.FAKE_CODEX_RAW_STDOUT) {

@@ -87,6 +87,24 @@ describe("sol-review transport selection", () => {
     expect(decision.fallbackDisclosure).toContain("registered, but");
   });
 
+  it("uses the disclosed CLI fallback when MCP inventory is unavailable", () => {
+    const decision = classifySolReviewTransport({
+      availableTools: [],
+      mcpServers: {},
+      cliPath: "/usr/local/bin/codex",
+      inventoryError: "configuration error",
+    });
+
+    expect(decision).toMatchObject({
+      state: "inventory-unavailable",
+      transport: "cli",
+      toolName: null,
+    });
+    expect(decision.diagnostic).toContain("availability could not be determined");
+    expect(decision.fallbackDisclosure).toContain("without claiming MCP registration or availability");
+    expect(decision.remediation).toContain("claude mcp list");
+  });
+
   it("blocks with an install command when neither transport is usable", () => {
     const decision = classifySolReviewTransport({
       availableTools: [],
@@ -144,10 +162,12 @@ describe("active Claude MCP inventory", () => {
     );
   });
 
-  it("fails closed when the active inventory cannot be inspected", () => {
+  it("reports active inventory command failures to the caller", () => {
     const execute = vi.fn().mockReturnValue({ status: 1, stdout: "", stderr: "configuration error" });
 
-    expect(() => readActiveMcpServers({ execute })).toThrow(/claude mcp list/);
+    expect(() => readActiveMcpServers({ execute })).toThrow(
+      "Unable to inspect active Claude MCP registrations: configuration error.",
+    );
   });
 });
 
@@ -257,6 +277,7 @@ describe("sol-review CLI fallback", () => {
 
 describe("clean Claude installation reproduction", () => {
   const script = path.join(PLUGIN_ROOT, "scripts", "sol-review-transport.mjs");
+  const cliFixture = path.join(PLUGIN_ROOT, "src", "__tests__", "_fixtures", "codex");
 
   it("observes the active plugin registration through the executable preflight", () => {
     const result = spawnSync(
@@ -312,5 +333,29 @@ describe("clean Claude installation reproduction", () => {
     expect(result.status).toBe(1);
     expect(result.stderr).toContain("registered, but its `ask-codex` tool is unavailable");
     expect(result.stderr).toContain("@ask-llm/mcp doctor");
+  });
+
+  it("runs the disclosed CLI fallback when active MCP inventory inspection fails", () => {
+    const result = spawnSync(
+      process.execPath,
+      [script, "--fallback", "--cli-path", cliFixture],
+      {
+        encoding: "utf8",
+        input: "review this diff",
+        env: {
+          ...process.env,
+          CLAUDE_BIN: cliFixture,
+          FAKE_CODEX_SCENARIO: "sol-inventory-failure-fallback",
+        },
+      },
+    );
+
+    expect(result.status).toBe(0);
+    expect(result.stdout).toBe("validated review after inventory failure\n");
+    expect(result.stderr).toContain("availability could not be determined");
+    expect(result.stderr).toContain("without claiming MCP registration or availability");
+    expect(result.stderr).toContain("Remediation: Run `claude mcp list`");
+    expect(result.stderr).not.toContain("registration is missing");
+    expect(result.stderr).not.toContain("registered, but");
   });
 });
