@@ -3,6 +3,7 @@
 import { spawn, spawnSync } from "node:child_process";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { prepareCommandInvocation } from "./lib/process.mjs";
 
 export const ASK_CODEX_PACKAGE = "@ask-llm/codex-mcp";
 export const ASK_CODEX_TOOL = "ask-codex";
@@ -10,7 +11,15 @@ export const SOL_MODEL = "gpt-5.6-sol";
 export const TERRA_MODEL = "gpt-5.6-terra";
 
 const scriptPath = fileURLToPath(import.meta.url);
-const quotaPattern = /(?:rate.?limit|rate_limit_exceeded|usage limit|quota|too many requests|\b429\b)/i;
+const quotaSignals = [
+  "rate_limit_exceeded",
+  "quota_exceeded",
+  "429",
+  "insufficient_quota",
+  "out of credits",
+  "spend cap",
+  "usage limit",
+];
 
 export function isAskCodexToolName(name) {
   return name === ASK_CODEX_TOOL || /^mcp__.+__ask-codex$/.test(name);
@@ -48,12 +57,18 @@ export function parseClaudeMcpList(output) {
 export function readActiveMcpServers({
   command = process.env.CLAUDE_BIN || "claude",
   execute = spawnSync,
+  platform = process.platform,
 } = {}) {
-  const result = execute(command, ["mcp", "list"], {
-    cwd: process.cwd(),
-    encoding: "utf8",
-    windowsHide: true,
-  });
+  const invocation = prepareCommandInvocation(
+    ["mcp", "list"],
+    {
+      cwd: process.cwd(),
+      encoding: "utf8",
+      windowsHide: true,
+    },
+    platform,
+  );
+  const result = execute(command, invocation.args, invocation.options);
   if (result.error || result.status !== 0) {
     const detail = result.error?.message || result.stderr?.trim() || `exited ${result.status}`;
     throw new Error(
@@ -127,14 +142,25 @@ export function codexFallbackArgs(model) {
   ];
 }
 
-function executeCodex({ command, model, prompt }) {
+export function executeCodex({
+  command,
+  model,
+  prompt,
+  spawnProcess = spawn,
+  platform = process.platform,
+}) {
   return new Promise((resolveRun) => {
-    const child = spawn(command, codexFallbackArgs(model), {
-      cwd: process.cwd(),
-      env: process.env,
-      stdio: ["pipe", "pipe", "pipe"],
-      windowsHide: true,
-    });
+    const invocation = prepareCommandInvocation(
+      codexFallbackArgs(model),
+      {
+        cwd: process.cwd(),
+        env: process.env,
+        stdio: ["pipe", "pipe", "pipe"],
+        windowsHide: true,
+      },
+      platform,
+    );
+    const child = spawnProcess(command, invocation.args, invocation.options);
     let stdout = "";
     let stderr = "";
     child.stdout.setEncoding("utf8");
@@ -151,6 +177,7 @@ function executeCodex({ command, model, prompt }) {
     child.on("close", (code) => {
       resolveRun({ code: code ?? 1, stdout, stderr });
     });
+    child.stdin.on("error", () => {});
     child.stdin.end(prompt);
   });
 }
@@ -167,7 +194,9 @@ export async function runCliFallback({
   }
 
   const primaryOutput = `${primary.stderr}\n${primary.stdout}`;
-  if (!quotaPattern.test(primaryOutput) || fallbackModel === SOL_MODEL) {
+  const normalizedPrimaryOutput = primaryOutput.toLowerCase();
+  const quotaFailure = quotaSignals.some((signal) => normalizedPrimaryOutput.includes(signal));
+  if (!quotaFailure || fallbackModel === SOL_MODEL) {
     throw new Error(primaryOutput.trim() || `codex exec exited ${primary.code}`);
   }
 

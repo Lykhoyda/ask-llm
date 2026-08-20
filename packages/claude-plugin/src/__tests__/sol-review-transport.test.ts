@@ -1,10 +1,13 @@
 import { spawnSync } from "node:child_process";
+import { EventEmitter } from "node:events";
 import * as path from "node:path";
+import { PassThrough } from "node:stream";
 import { describe, expect, it, vi } from "vitest";
 import {
   ASK_CODEX_PACKAGE,
   classifySolReviewTransport,
   codexFallbackArgs,
+  executeCodex,
   parseClaudeMcpList,
   readActiveMcpServers,
   runCliFallback,
@@ -129,6 +132,18 @@ describe("active Claude MCP inventory", () => {
     expect(servers).toEqual(pluginServers);
   });
 
+  it("uses shell resolution for Claude's Windows command shim", () => {
+    const execute = vi.fn().mockReturnValue({ status: 0, stdout: connectedPluginList, stderr: "" });
+
+    readActiveMcpServers({ command: "claude.cmd", execute, platform: "win32" });
+
+    expect(execute).toHaveBeenCalledWith(
+      "claude.cmd",
+      ["mcp", "list"],
+      expect.objectContaining({ shell: true }),
+    );
+  });
+
   it("fails closed when the active inventory cannot be inspected", () => {
     const execute = vi.fn().mockReturnValue({ status: 1, stdout: "", stderr: "configuration error" });
 
@@ -182,6 +197,61 @@ describe("sol-review CLI fallback", () => {
       model: TERRA_MODEL,
       fellBack: true,
     });
+  });
+
+  it.each(["workspace is out of credits", "workspace spend cap reached"])(
+    "uses Terra for Codex workspace quota signal: %s",
+    async (quotaMessage) => {
+      const execute = vi
+        .fn()
+        .mockResolvedValueOnce({ code: 1, stdout: "", stderr: quotaMessage })
+        .mockResolvedValueOnce({ code: 0, stdout: "validated Terra finding\n", stderr: "" });
+
+      const result = await runCliFallback({ prompt: "review", execute });
+
+      expect(execute).toHaveBeenCalledTimes(2);
+      expect(result).toMatchObject({ model: TERRA_MODEL, fellBack: true });
+    },
+  );
+
+  it("uses shell resolution and quoted arguments for a Windows Codex shim", async () => {
+    const child = new EventEmitter();
+    const stdin = new PassThrough();
+    const stdout = new PassThrough();
+    const stderr = new PassThrough();
+    Object.assign(child, { stdin, stdout, stderr });
+    const spawnProcess = vi.fn().mockReturnValue(child);
+
+    const pending = executeCodex({
+      command: "codex.cmd",
+      model: SOL_MODEL,
+      prompt: "review",
+      spawnProcess,
+      platform: "win32",
+    });
+    stdout.write("review result\n");
+    child.emit("close", 0);
+
+    await expect(pending).resolves.toMatchObject({ code: 0, stdout: "review result\n" });
+    expect(spawnProcess).toHaveBeenCalledWith(
+      "codex.cmd",
+      expect.arrayContaining(['"model_reasoning_effort=\\"high\\""']),
+      expect.objectContaining({ shell: true }),
+    );
+  });
+
+  it("handles a fallback child that closes stdin before consuming the prompt", async () => {
+    const previousScenario = process.env.FAKE_CODEX_SCENARIO;
+    process.env.FAKE_CODEX_SCENARIO = "sol-early-stdin-close";
+    try {
+      const command = path.join(PLUGIN_ROOT, "src", "__tests__", "_fixtures", "codex");
+      const result = await runCliFallback({ command, prompt: "x".repeat(8 * 1024 * 1024) });
+
+      expect(result).toMatchObject({ response: "review survived early stdin close\n", fellBack: false });
+    } finally {
+      if (previousScenario === undefined) delete process.env.FAKE_CODEX_SCENARIO;
+      else process.env.FAKE_CODEX_SCENARIO = previousScenario;
+    }
   });
 });
 

@@ -14,6 +14,23 @@ import { platform } from "node:process";
 
 export const IS_WINDOWS = platform === "win32";
 
+export function quoteArgsForWindows(args) {
+  return args.map((arg) => {
+    if (arg.includes(" ") || arg.includes('"') || arg.includes("&") || arg.includes("|") || arg.includes("^")) {
+      return `"${arg.replace(/"/g, '\\"')}"`;
+    }
+    return arg;
+  });
+}
+
+export function prepareCommandInvocation(args, options, runtimePlatform = platform) {
+  const isWindows = runtimePlatform === "win32";
+  return {
+    args: isWindows ? quoteArgsForWindows(args) : args,
+    options: { ...options, shell: isWindows },
+  };
+}
+
 export function terminateProcessTree(child, signal) {
   if (!child || typeof child.pid !== "number" || child.killed || child.exitCode !== null) {
     return;

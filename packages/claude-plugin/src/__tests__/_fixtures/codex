@@ -46,6 +46,12 @@ function emitAgentMessage(text) {
 }
 
 async function run() {
+  if (SCENARIO === "sol-early-stdin-close") {
+    process.stdin.destroy();
+    process.stdout.write("review survived early stdin close\n");
+    process.exit(0);
+  }
+
   await drainStdin();
 
   // Test override: bypass scenario dispatch entirely
