@@ -46,7 +46,36 @@ function emitAgentMessage(text) {
 }
 
 async function run() {
+  if (SCENARIO === "sol-context-inventory") {
+    const expectedContext = JSON.parse(process.env.FAKE_CLAUDE_CONTEXT_ARGS || "[]");
+    const receivedArgs = process.argv.slice(2);
+    const inventorySuffix = receivedArgs.slice(-2).join(" ");
+    const receivedContext = receivedArgs.slice(0, -2);
+    if (inventorySuffix !== "mcp list" || JSON.stringify(receivedContext) !== JSON.stringify(expectedContext)) {
+      process.stderr.write("session context was not preserved\n");
+      process.exit(1);
+    }
+    process.stdout.write("plugin:ask-llm:codex: npx -y @ask-llm/codex-mcp - ✔ Connected\n");
+    process.exit(0);
+  }
+
+  if (SCENARIO === "sol-inventory-failure-fallback" && process.argv.slice(2).join(" ") === "mcp list") {
+    process.stderr.write("malformed MCP configuration\n");
+    process.exit(1);
+  }
+
+  if (SCENARIO === "sol-early-stdin-close") {
+    process.stdin.destroy();
+    process.stdout.write("review survived early stdin close\n");
+    process.exit(0);
+  }
+
   await drainStdin();
+
+  if (SCENARIO === "sol-inventory-failure-fallback") {
+    process.stdout.write("validated review after inventory failure\n");
+    process.exit(0);
+  }
 
   // Test override: bypass scenario dispatch entirely
   if (process.env.FAKE_CODEX_RAW_STDOUT) {

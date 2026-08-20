@@ -1,5 +1,15 @@
 # Architectural Decisions
 
+## ADR-144: Claude Code plugin owns Codex transport discovery
+
+**Status:** Accepted (2026-08-20)
+
+**Context:** A clean Claude Code source-plugin session exposed `/sol-review`, and `claude mcp list` reported the bundled Codex server connected, but the session's `mcp_servers` and tool surface omitted it, so the review selected the explicit `codex exec` fallback. The initiating skill, independent empty setting sources, fallback disclosure, and successful finding relay were recorded separately. Passing the same `.mcp.json` through `--mcp-config` made `mcp__codex__ask-codex` callable, which falsified a provider-service failure. The smallest counterfactual was an explicit `mcpServers` entrypoint in `plugin.json`; with that declaration, the clean parent and `sol-reviewer` sessions both exposed and invoked `mcp__plugin_ask-llm_codex__ask-codex` with the Sol/high/read-only contract. The earliest divergence was therefore plugin component discovery: the implementation relied on implicit root `.mcp.json` discovery even though the active source-plugin loader required the manifest entrypoint. A separate counterfactual also showed that a configured server can fail before exposing tools, so tool absence alone cannot distinguish missing registration from service unavailability.
+
+**Decision:** `@ask-llm/plugin` declares `mcpServers: "./.mcp.json"` in `plugin.json`, and that MCP component registers `@ask-llm/codex-mcp` as its `codex` server. The shipped `sol-review-transport.mjs` reads Claude's active MCP inventory, recognizes registrations by the canonical package or executable, and accepts an exact `ask-codex` leaf only when its client-assigned prefix maps to one of those registrations. It classifies tool, registration, and CLI availability into `preferred`, `missing-registration`, `unavailable`, or `inventory-unavailable`. The fallback boundary repeats that classification because a subagent can lack a tool exposed to its parent. Missing registration remediates with `claude mcp add --scope user codex -- npx -y @ask-llm/codex-mcp`; registered-service failure remediates with the Ask LLM doctor plus `/mcp` and a full host restart; an unreadable inventory remediates by resolving the reported `claude mcp list` failure before restarting. The same executable owns the explicit CLI fallback, preserving the Sol/high/read-only/isolation arguments, quota-only Terra retry, and stdout result relay.
+
+**Consequences:** A normal clean plugin installation discovers Codex without separate user configuration, while existing user-scoped registrations and their shorter tool names remain compatible. `/sol-review` no longer describes every absent tool as unregistered, and its fallback remains functional without changing the review or validation contract. Only Codex is bundled in this correction; other provider registration behavior is unchanged.
+
 ## ADR-143: TypeScript 7 is the repository-wide compiler floor
 
 **Status:** Accepted (2026-08-09)

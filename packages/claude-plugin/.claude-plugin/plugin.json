@@ -8,6 +8,7 @@
   },
   "repository": "https://github.com/Lykhoyda/ask-llm",
   "license": "MIT",
+  "mcpServers": "./.mcp.json",
   "keywords": [
     "gemini",
     "codex",

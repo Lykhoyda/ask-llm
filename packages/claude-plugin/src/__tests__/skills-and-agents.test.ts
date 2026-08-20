@@ -126,7 +126,6 @@ describe("agents/", () => {
       { file: "codex-reviewer.md", tool: "mcp__codex__ask-codex" },
       { file: "ollama-reviewer.md", tool: "mcp__ollama__ask-ollama" },
       { file: "antigravity-reviewer.md", tool: "mcp__antigravity__ask-antigravity" },
-      { file: "sol-reviewer.md", tool: "mcp__codex__ask-codex" },
     ];
     for (const { file, tool } of cases) {
       const { frontmatter } = parseMarkdownFrontmatter(readFile(`agents/${file}`));
@@ -148,10 +147,14 @@ describe("agents/", () => {
     for (const file of reviewerAgents) {
       const { frontmatter } = parseMarkdownFrontmatter(readFile(`agents/${file}`));
       const tools = frontmatter.tools as string[] | undefined;
-      if (!tools) continue;
-      expect(tools).not.toContain("Edit");
-      expect(tools).not.toContain("Write");
-      expect(tools).not.toContain("NotebookEdit");
+      const disallowedTools = frontmatter.disallowedTools as string[] | undefined;
+      if (tools) {
+        expect(tools).not.toContain("Edit");
+        expect(tools).not.toContain("Write");
+        expect(tools).not.toContain("NotebookEdit");
+      } else {
+        expect(disallowedTools).toEqual(expect.arrayContaining(["Edit", "Write", "NotebookEdit"]));
+      }
     }
   });
 
@@ -167,29 +170,17 @@ describe("agents/", () => {
     expect(solContent).toContain('reasoningEffort: "high"');
   });
 
-  it("sol-reviewer sanctions an exact CLI transport fallback with full disclosure (#232)", () => {
-    const content = readFile("agents/sol-reviewer.md");
-    // The sanctioned fallback command keeps the Sol pin, effort override,
-    // read-only sandbox, AND the determinism/isolation flags the MCP executor
-    // always passes (a local ~/.codex/config.toml must not override the pin).
-    expect(content).toContain(
-      'codex exec -m gpt-5.6-sol -c model_reasoning_effort="high" -s read-only --ignore-user-config --ignore-rules --skip-git-repo-check',
-    );
-    // Plugin-namespaced tool variants count as the primary transport, and the
-    // frontmatter allowlist must actually grant the variant, not just mention it.
+  it("codex-reviewer grants both authoritative Claude MCP tool identities", () => {
+    const content = readFile("agents/codex-reviewer.md");
     const tools = parseMarkdownFrontmatter(content).frontmatter.tools as string[];
+    expect(tools).toContain("mcp__codex__ask-codex");
     expect(tools).toContain("mcp__plugin_ask-llm_codex__ask-codex");
-    expect(content).toContain("mcp__plugin_ask-llm_codex__ask-codex");
-    // Transport fallback is disclosed like a model fallback, the CLI path keeps
-    // the same configurable quota ladder as the MCP executor (honoring
-    // ASK_CODEX_FALLBACK_MODEL, defaulting to Terra), and a missing CLI stops
-    // the review instead of degrading further.
-    expect(content).toMatch(/ran through `codex exec` rather than MCP/);
-    expect(content).toMatch(/retry once with `-m "\$\{ASK_CODEX_FALLBACK_MODEL:-gpt-5\.6-terra\}"`/);
-    expect(content).toMatch(/could not run/);
-    expect(content).toMatch(
-      /Do not review on another transport, on any model outside the Sol-to-fallback ladder, or in another sandbox mode/,
-    );
+  });
+
+  it("sol-reviewer inherits deferred MCP tools while denying write tools", () => {
+    const frontmatter = parseMarkdownFrontmatter(readFile("agents/sol-reviewer.md")).frontmatter;
+    expect(frontmatter.tools).toBeUndefined();
+    expect(frontmatter.disallowedTools).toEqual(expect.arrayContaining(["Edit", "Write", "NotebookEdit"]));
   });
 });
 
@@ -202,16 +193,6 @@ describe("native model review skills", () => {
     expect(content).toContain(reviewer);
     expect(content).toContain(modelPin);
     expect(content).toMatch(/distinguishes|Do not substitute|Do not route/i);
-  });
-
-  it("sol-review preflights the transport and mandates fallback disclosure (#232)", () => {
-    const content = readFile("skills/sol-review/SKILL.md");
-    expect(content).toMatch(/[Pp]reflight the transport/);
-    expect(content).toContain("command -v codex");
-    // Subagent MCP inheritance is not guaranteed; the skill must say so rather
-    // than treat parent-session availability as proof.
-    expect(content).toMatch(/do not always inherit/);
-    expect(content).toMatch(/Both fallback kinds must be disclosed/);
   });
 
   it("guards explicit Fable overrides without claiming inaccessible runtime verification", () => {

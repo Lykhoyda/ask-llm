@@ -9,6 +9,7 @@ tools:
   - Grep
   - Read
   - mcp__codex__ask-codex
+  - mcp__plugin_ask-llm_codex__ask-codex
 ---
 
 <!-- PORTABLE-CONTRACT:START -->
