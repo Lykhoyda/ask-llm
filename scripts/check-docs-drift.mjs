@@ -87,6 +87,29 @@ for (const [field, checks] of [
   }
 }
 
+// The weekly scheduled model watch reads this spec verbatim from the default
+// branch; a missing or drifted file silently disables the routine (#272).
+const routineSpecPath = ".github/routines/model-version-watch.md";
+let routineSpec = null;
+try {
+  routineSpec = readFileSync(join(root, routineSpecPath), "utf8");
+} catch {
+  errors.push(
+    `${routineSpecPath} is missing — the weekly model-version-watch routine reads it from the default branch`,
+  );
+}
+if (routineSpec !== null) {
+  const requiredReferences = [
+    "LLM default model versions - weekly tracker",
+    "ADR-137",
+    "ADR-138",
+    ...new Set([...modelChecks, ...fallbackChecks].map(([, constantsPath]) => constantsPath)),
+  ];
+  for (const reference of requiredReferences) {
+    if (!routineSpec.includes(reference)) errors.push(`${routineSpecPath} no longer references ${reference}`);
+  }
+}
+
 if (errors.length > 0) {
   console.error(errors.join("\n"));
   process.exit(1);

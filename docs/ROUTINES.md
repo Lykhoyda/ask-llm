@@ -5,6 +5,23 @@ Each routine is read-only investigation unless stated otherwise; wire via `/sche
 
 ---
 
+## Weekly default-model version watch
+
+**Purpose:** Track default/fallback model **version** drift — whether the model ids
+this repo pins are still available, still current, and still what each provider
+ships as its default. Complements (never duplicates) the upstream-CLI drift
+tracker below, which owns CLI flag/output/auth drift.
+
+**Spec:** `.github/routines/model-version-watch.md` — the scheduled agent reads
+that file from the default branch verbatim as its complete run specification, so
+it must exist at exactly that path (`scripts/check-docs-drift.mjs` enforces this
+and its structural contract). Rolling tracker issue (#272):
+`LLM default model versions - weekly tracker`.
+
+**Scope:** read-only investigation + issue/comment creation only. Do NOT modify code or open PRs.
+
+---
+
 ## Upstream-CLI drift tracker
 
 **Purpose:** Track new releases of the CLIs this monorepo wraps (gemini-cli, codex,

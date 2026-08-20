@@ -59,7 +59,7 @@ function harness() {
     },
   };
   registerCodexPair(pi as never);
-  return {
+  const instance = {
     handlers,
     commands,
     messages,
@@ -67,13 +67,17 @@ function harness() {
       for (const handler of handlers.get(name) ?? []) await handler(event, ctx);
     },
   };
+  instances.push(instance);
+  return instance;
 }
 
 let root: string;
 let priorConfigDir: string | undefined;
+let instances: Array<ReturnType<typeof harness>> = [];
 
 beforeEach(async () => {
   root = await mkdtemp(join(tmpdir(), "ask-llm-pi-pair-"));
+  instances = [];
   priorConfigDir = process.env.PI_CODING_AGENT_DIR;
   process.env.PI_CODING_AGENT_DIR = join(root, "pi-agent");
   executeCodexCLI.mockReset();
@@ -85,8 +89,11 @@ beforeEach(async () => {
 afterEach(async () => {
   if (priorConfigDir === undefined) delete process.env.PI_CODING_AGENT_DIR;
   else process.env.PI_CODING_AGENT_DIR = priorConfigDir;
-  await rm(root, { recursive: true, force: true });
   vi.useRealTimers();
+  // Drain in-flight reviews first: their trailing state writes race the recursive delete (ENOTEMPTY on Windows).
+  for (const instance of instances) await instance.emit("session_shutdown", { reason: "test" }, context(root));
+  instances = [];
+  await rm(root, { recursive: true, force: true });
 });
 
 async function project(debounceMs = 5, name = "repo") {
