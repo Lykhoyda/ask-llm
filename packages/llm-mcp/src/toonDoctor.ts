@@ -45,6 +45,13 @@ interface TruncationRecord {
   originalBytes: number;
 }
 
+interface OmissionCounts {
+  filtered: number;
+  capped: number;
+}
+
+export type DoctorCompleteness = "complete" | "partial";
+
 interface ProviderRow {
   provider: string;
   availability: "available" | "unavailable";
@@ -125,9 +132,6 @@ export function parseDoctorArguments(args: string[]): DoctorCliOptions {
     error("unknown_argument", "Unknown doctor argument", "Run ask-llm-mcp doctor --help.");
   }
 
-  if (full && format !== "toon") {
-    error("full_requires_toon", "--full is only valid with the bounded TOON pilot", "Use doctor --format toon --full.");
-  }
   return { format, full, help };
 }
 
@@ -147,7 +151,8 @@ export function doctorHelp(): string {
     "  toon          Versioned, bounded agent-facing provider diagnostics pilot",
     "",
     "Options:",
-    "  --full        Include paths, passing checks, and unbounded text (TOON only)",
+    "  --full        TOON: include paths, passing checks, and unbounded text;",
+    "                text/json are always complete, so --full is accepted as a no-op",
     "  -h, --help    Show this help",
     "",
   ].join("\n");
@@ -209,11 +214,12 @@ export function doctorToonDocument(report: DiagnosticReport, full = false) {
     fix: boundedText(check.fix, `checks[${index}].fix`, full, truncations),
   }));
 
-  const candidateProviderChecks = report.providers.flatMap((provider) =>
-    (provider.enrichment?.checks ?? [])
-      .filter((check) => full || (check.status !== "pass" && check.status !== "skip"))
-      .map((check) => ({ provider: provider.name, check })),
+  const allProviderChecks = report.providers.flatMap((provider) =>
+    (provider.enrichment?.checks ?? []).map((check) => ({ provider: provider.name, check })),
   );
+  const candidateProviderChecks = full
+    ? allProviderChecks
+    : allProviderChecks.filter(({ check }) => check.status !== "pass" && check.status !== "skip");
   const selectedProviderChecks = full
     ? candidateProviderChecks
     : candidateProviderChecks.slice(0, DOCTOR_TOON_MAX_PROVIDER_CHECKS);
@@ -227,17 +233,23 @@ export function doctorToonDocument(report: DiagnosticReport, full = false) {
 
   const providers = report.providers.map((provider, index) => providerRow(provider, index, full, truncations));
   const availableProviders = providers.filter((provider) => provider.availability === "available").length;
-  const omittedChecks = report.checks.length - checks.length;
-  const totalProviderChecks = report.providers.reduce(
-    (total, provider) => total + (provider.enrichment?.checks.length ?? 0),
-    0,
-  );
-  const omittedProviderChecks = totalProviderChecks - providerChecks.length;
-  const pathValuesOmitted = full
+  const checkOmissions: OmissionCounts = {
+    filtered: report.checks.length - candidateChecks.length,
+    capped: candidateChecks.length - checks.length,
+  };
+  const providerCheckOmissions: OmissionCounts = {
+    filtered: allProviderChecks.length - candidateProviderChecks.length,
+    capped: candidateProviderChecks.length - providerChecks.length,
+  };
+  const pathFieldsOmitted = full
     ? 0
     : Number(report.environment.resolvedPath.length > 0) +
       Number(report.environment.askLlmPath !== undefined) +
       report.providers.filter((provider) => provider.cliPath !== undefined).length;
+  const completeness: DoctorCompleteness =
+    checkOmissions.capped === 0 && providerCheckOmissions.capped === 0 && truncations.length === 0
+      ? "complete"
+      : "partial";
 
   const environment: Record<string, unknown> = {
     node: report.environment.nodeVersion,
@@ -262,6 +274,7 @@ export function doctorToonDocument(report: DiagnosticReport, full = false) {
     schemaVersion: DOCTOR_TOON_SCHEMA_VERSION,
     format: "toon",
     mode: full ? "full" : "bounded",
+    completeness,
     status: report.status,
     generatedAt: report.generatedAt,
     summary: {
@@ -277,9 +290,9 @@ export function doctorToonDocument(report: DiagnosticReport, full = false) {
     checks,
     providerChecks,
     omissions: {
-      checks: omittedChecks,
-      providerChecks: omittedProviderChecks,
-      pathValues: pathValuesOmitted,
+      checks: checkOmissions,
+      providerChecks: providerCheckOmissions,
+      pathFields: pathFieldsOmitted,
     },
     truncations,
     help: {

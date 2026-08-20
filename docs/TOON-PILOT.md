@@ -46,17 +46,20 @@ ask-llm-mcp doctor --format toon --full    # full-output escape hatch
 ask-llm-mcp doctor --help
 ```
 
+`--full` is accepted with text and JSON as a no-op because those renderings are already complete.
+
 The schema identifier is `ask-llm.doctor`, `schemaVersion: 1`. The bounded form contains:
 
 - status, timestamp, pre-computed provider/check aggregates;
+- `completeness: complete | partial`, where `partial` means at least one actionable record hit a cap or one text field was truncated;
 - all provider rows in registry order, with four fields: provider, availability, version, detail;
 - non-pass top-level checks and non-pass/non-skip enrichment checks;
 - definitive empty arrays and zero counts;
-- omission counts, per-field truncation records with original UTF-8 byte sizes, and next-step help.
+- omission counts split into `filtered` (pass/skip rows hidden by design) and `capped` (actionable rows dropped by the record cap), the number of direct path fields withheld, per-field truncation records with original UTF-8 byte sizes, and next-step help.
 
-Bounded defaults are 20 top-level checks, 20 provider enrichment checks, and 240 UTF-8 bytes per message/fix/summary/remediation. UTF-8 truncation never cuts a code point. `--full` removes those caps, restores pass/skip checks and direct path fields, and preserves the upstream order. Provider rows are never omitted, so `availability: unavailable` cannot be confused with omission.
+Bounded defaults are 20 top-level checks, 20 provider enrichment checks, and 240 UTF-8 bytes per message/fix/summary/remediation. UTF-8 truncation never cuts a code point. `--full` removes those caps, restores pass/skip checks and direct path fields, and preserves the upstream order. Provider rows are never omitted, so `availability: unavailable` cannot be confused with omission. Filtering and withheld path fields are by design and keep `completeness: complete`; only `capped > 0` or a non-empty `truncations` list makes a report `partial`.
 
-Unknown/missing/conflicting flags exit 2. Errors are one structured JSON document on stderr, or TOON when `--format toon` was explicitly selected:
+Argument validation is strict: unknown, missing, or conflicting flags exit 2 with no report on stdout. This is stricter than the previous `doctor --json` handling, which ignored unrecognised arguments; the bytes written by `doctor` and `doctor --json` themselves are unchanged. Errors are one structured JSON document on stderr, or TOON when `--format toon` was explicitly selected:
 
 ```text
 schema: ask-llm.doctor
@@ -69,13 +72,13 @@ error:
   hint: Run ask-llm-mcp doctor --help.
 ```
 
-The bounded format removes direct resolved-PATH/provider-path fields and discloses how many were omitted. It does not probe or expose any data the existing doctor report did not already contain. No prompts, model answers, session IDs, MCP payloads, or machine envelopes enter this surface. Full TOON and JSON retain the existing diagnostic path visibility by explicit request.
+The bounded format withholds the direct path fields (`environment.resolvedPath`, `environment.askLlmPath`, `providers[].path`) and reports their count as `omissions.pathFields`. It does not rewrite free text: a check message such as `Found at /usr/local/bin/codex but ...` is passed through exactly as the existing text and JSON doctor output already print it, subject only to the byte cap. The pilot does not probe or expose any data the existing doctor report did not already contain, and no prompts, model answers, session IDs, MCP payloads, or machine envelopes enter this surface. Full TOON and JSON retain the existing diagnostic path visibility by explicit request.
 
 ## Benchmark
 
 ### Live report
 
-One live report on the development environment had five provider rows, one unavailable provider, Codex enrichment, 19 enrichment checks, and actionable failures. Values below came from six interleaved runs per format; latency includes the identical provider/version/enrichment probes.
+One live report on the development environment had five provider rows, one unavailable provider, Codex enrichment, 19 enrichment checks, and actionable failures. Values below came from six interleaved runs per format; latency includes the identical provider/version/enrichment probes. The live capture predates the review-round schema refinement (`completeness` plus split `omissions`), which adds a constant 79 bytes / 24 GPT-4o tokens to every bounded report in the deterministic fixtures; applied to the live capture that is 2,407 bytes / 743 tokens, or about -70.5% bytes and -65.8% tokens versus JSON.
 
 | Format | Bytes | GPT-4o tokens | Byte change vs JSON | Token change vs JSON | Median end-to-end latency |
 |---|---:|---:|---:|---:|---:|
@@ -97,23 +100,24 @@ The fixtures are sanitized snapshots of current doctor shapes. “Single-provide
 
 | Workflow | JSON bytes | TOON bytes | Saved | JSON tokens | TOON tokens | Saved | JSON format ms | TOON format ms | Parser reliability |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| single-provider | 1,300 | 989 | 23.9% | 423 | 332 | 21.5% | 0.002 | 0.027 | 100/100 |
-| multi-provider comparison | 1,454 | 980 | 32.6% | 465 | 339 | 27.1% | 0.002 | 0.019 | 100/100 |
-| review readiness | 1,712 | 1,170 | 31.7% | 500 | 381 | 23.8% | 0.002 | 0.024 | 100/100 |
-| empty | 385 | 735 | -90.9% | 139 | 255 | -83.5% | 0.001 | 0.013 | 100/100 |
-| partial | 1,317 | 1,094 | 16.9% | 412 | 359 | 12.9% | 0.002 | 0.022 | 100/100 |
-| unavailable | 1,289 | 1,129 | 12.4% | 401 | 369 | 8.0% | 0.002 | 0.022 | 100/100 |
-| failure | 1,173 | 1,091 | 7.0% | 369 | 358 | 3.0% | 0.005 | 0.021 | 100/100 |
-| truncation | 4,362 | 1,414 | 67.6% | 630 | 382 | 39.4% | 0.002 | 0.028 | 100/100 |
+| single-provider | 1,300 | 1,068 | 17.8% | 423 | 356 | 15.8% | 0.002 | 0.027 | 100/100 |
+| multi-provider comparison | 1,454 | 1,059 | 27.2% | 465 | 363 | 21.9% | 0.002 | 0.022 | 100/100 |
+| review readiness | 1,712 | 1,249 | 27.0% | 500 | 405 | 19.0% | 0.002 | 0.026 | 100/100 |
+| empty | 385 | 814 | -111.4% | 139 | 279 | -100.7% | 0.001 | 0.015 | 100/100 |
+| partial | 1,317 | 1,173 | 10.9% | 412 | 383 | 7.0% | 0.002 | 0.025 | 100/100 |
+| unavailable | 1,289 | 1,208 | 6.3% | 401 | 393 | 2.0% | 0.002 | 0.024 | 100/100 |
+| failure | 1,173 | 1,170 | 0.3% | 369 | 382 | -3.5% | 0.002 | 0.022 | 100/100 |
+| truncation | 4,362 | 1,492 | 65.8% | 630 | 406 | 35.6% | 0.002 | 0.030 | 100/100 |
 
 Both formats require one command/turn. Clarity was assessed against five yes/no questions: overall status visible, provider attribution preserved, unavailable distinct from omitted, truncation disclosed, and next action present. Bounded TOON scored 5/5 in every fixture. Full JSON scored 3/5 in rich reports (attribution and status are present, but omission is implicit, truncation is absent, and next commands are not contextual) and 4/5 in failure fixtures where `fix` supplies the action.
 
-The empty synthetic case is deliberately unfavorable: fixed version/disclosure/help fields cost more than a tiny empty JSON object. That gap, plus modest savings for small failures, is why TOON remains negotiated rather than becoming the default.
+The empty synthetic case is deliberately unfavorable: fixed version/disclosure/help fields cost more than a tiny empty JSON object. The small failure fixture is now a slight token regression (-3.5%) after the `completeness` and split-omission fields were added for truthfulness. Those regressions are why TOON remains negotiated rather than becoming the default.
 
 ## Compatibility evidence
 
 - `doctor` default text is unchanged.
-- `doctor --json` still writes `JSON.stringify(report, null, 2)` and retains its exit behavior.
+- `doctor --json` still writes `JSON.stringify(report, null, 2)` and retains its exit behavior; `--format json` and `--json --full` produce the same bytes.
+- Unknown arguments now exit 2 with a structured error instead of being ignored; no in-repo caller passes extra arguments to `doctor`.
 - `diagnose` MCP structured content/resources are untouched.
 - MCP/JSON-RPC registration, tool schemas, and content are untouched.
 - `machine` and `machine-schema` remain one-document JSON contracts.
@@ -124,8 +128,10 @@ Behavioral coverage:
 
 ```bash
 yarn vitest run packages/llm-mcp/src/__tests__/toonDoctor.test.ts
-# 18 tests passed: negotiation, JSON alias, parser, error, empty, partial,
-# unavailable, ordering, attribution, privacy, truncation, and --full
+# 22 tests passed: negotiation, JSON alias, --full no-op, strict arguments,
+# parser, error, empty, partial, unavailable, ordering, attribution,
+# filtered-vs-capped omissions, completeness, path-field disclosure,
+# truncation, and --full
 ```
 
 ## AXI ten-principle audit
@@ -134,10 +140,10 @@ This audit distinguishes the bounded pilot from repository-wide gaps; gaps becom
 
 | # | Principle | Result | Concrete evidence |
 |---:|---|---|---|
-| 1 | Token-efficient output | **Pass (pilot)** | Live `doctor`: 2,174 → 719 estimated tokens; `yarn benchmark:toon-doctor` records every representative case, including regressions on tiny empty output. Other MCP text surfaces were not migrated. |
+| 1 | Token-efficient output | **Pass (pilot)** | Live `doctor`: 2,174 → 719 estimated tokens as captured (about 743 after the disclosure refinement); `yarn benchmark:toon-doctor` records every representative case, including regressions on tiny empty output and the small failure fixture. Other MCP text surfaces were not migrated. |
 | 2 | Minimal default schemas | **Pass (pilot)** | `providers[5]{provider,availability,version,detail}` has four fields; output from `doctor --format toon` shows one shared tabular header. |
-| 3 | Content truncation | **Pass (pilot); gap elsewhere** | Tests bound UTF-8 to 240 bytes, report `originalBytes`, and prove `--full`. Existing comparison/review prose surfaces do not consistently disclose text truncation; audit separately before changing them. |
-| 4 | Pre-computed aggregates | **Pass** | `summary` emits total/available/unavailable/omitted and shown-check counts, avoiding a second parsing/counting turn. Existing `multi-llm` and usage reports also pre-compute success/failure and token totals. |
+| 3 | Content truncation | **Pass (pilot); gap elsewhere** | Tests bound UTF-8 to 240 bytes, report `originalBytes`, flip `completeness` to `partial`, and prove `--full`. Existing comparison/review prose surfaces do not consistently disclose text truncation; audit separately before changing them. |
+| 4 | Pre-computed aggregates | **Pass** | `summary` emits total/available/unavailable/omitted and shown-check counts, and `omissions` separates filtered-by-design from capped-actionable counts, avoiding a second parsing/counting turn. Existing `multi-llm` and usage reports also pre-compute success/failure and token totals. |
 | 5 | Definitive empty states | **Pass** | Empty test decodes zero aggregates plus `providers: []`, `checks: []`, `providerChecks: []`, and `truncations: []`; usage already says “No LLM calls recorded”. |
 | 6 | Structured errors and exit codes | **Pass (pilot); gap at root dispatcher** | `doctor --format toon --wat` produces `error.code: unknown_argument`, hint, empty stdout, and exit 2. `machine` already uses 0/2/3. However, `ask-llm-mcp --help` and an unknown top-level command currently start provider detection/MCP instead of rejecting the command. Follow-up: add a top-level dispatcher contract in a separate issue. No mutations are in this pilot. |
 | 7 | Ambient context | **Pass** | TOON is explicit opt-in and doctor runs only on demand. No integration, probe, daemon, or background work was added. |

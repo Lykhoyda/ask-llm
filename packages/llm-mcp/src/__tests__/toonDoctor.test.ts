@@ -99,12 +99,23 @@ describe("doctor format negotiation", () => {
     });
   });
 
+  it("accepts --full as a no-op for text and JSON because they are already complete", () => {
+    const report = makeReport();
+    expect(parseDoctorArguments(["--full"])).toEqual({ format: "text", full: true, help: false });
+    expect(parseDoctorArguments(["--json", "--full"])).toEqual({ format: "json", full: true, help: false });
+    expect(formatDoctorOutput(report, parseDoctorArguments(["--full"]))).toBe(formatDiagnosticReport(report));
+    expect(formatDoctorOutput(report, parseDoctorArguments(["--json", "--full"]))).toBe(
+      `${JSON.stringify(report, null, 2)}\n`,
+    );
+  });
+
   it.each([
     [["--format", "yaml"], "unsupported_format"],
     [["--format"], "missing_format"],
     [["--json", "--format", "toon"], "conflicting_formats"],
-    [["--full"], "full_requires_toon"],
+    [["--full", "--full"], "duplicate_flag"],
     [["--wat"], "unknown_argument"],
+    [["--json", "--verbose"], "unknown_argument"],
   ] as const)("rejects invalid arguments actionably: %j", (args, code) => {
     expect(() => parseDoctorArguments([...args])).toThrowError(
       expect.objectContaining<Partial<DoctorArgumentError>>({ code }),
@@ -170,14 +181,40 @@ describe("bounded doctor TOON schema", () => {
     });
   });
 
-  it("distinguishes omitted detail from unavailable providers without leaking paths", () => {
+  it("distinguishes omitted detail from unavailable providers and stays complete when only filtering", () => {
     const document = doctorToonDocument(makeReport());
 
     expect(document.summary.providersOmitted).toBe(0);
-    expect(document.omissions).toEqual({ checks: 1, providerChecks: 1, pathValues: 2 });
+    expect(document.completeness).toBe("complete");
+    expect(document.omissions).toEqual({
+      checks: { filtered: 1, capped: 0 },
+      providerChecks: { filtered: 1, capped: 0 },
+      pathFields: 2,
+    });
+  });
+
+  it("omits only direct path fields in bounded mode and leaves check text unchanged", () => {
+    const report = makeReport({
+      environment: { ...makeReport().environment, askLlmPath: "/private/override" },
+      checks: [
+        {
+          name: "Provider: Codex",
+          status: "warn",
+          message: "Found at /private/bin/codex but version probe failed",
+          fix: "Reinstall Codex.",
+        },
+      ],
+    });
+    const document = doctorToonDocument(report);
+    const encoded = formatDoctorToon(report);
+
     expect(document.environment).not.toHaveProperty("resolvedPath");
+    expect(document.environment).not.toHaveProperty("askLlmPath");
     expect(document.providers.every((provider) => !("path" in provider))).toBe(true);
-    expect(formatDoctorToon(makeReport())).not.toContain("/private/bin");
+    expect(document.omissions.pathFields).toBe(3);
+    expect(encoded).not.toContain("/private/bin:/usr/bin");
+    expect(encoded).not.toContain("/private/override");
+    expect(document.checks[0].message).toBe("Found at /private/bin/codex but version probe failed");
   });
 
   it("has definitive empty arrays and zero aggregates", () => {
@@ -191,6 +228,7 @@ describe("bounded doctor TOON schema", () => {
       checksShown: 0,
       providerChecksShown: 0,
     });
+    expect(document.completeness).toBe("complete");
     expect(document.providers).toEqual([]);
     expect(document.checks).toEqual([]);
     expect(document.providerChecks).toEqual([]);
@@ -223,6 +261,7 @@ describe("bounded doctor TOON schema", () => {
       { field: "checks[0].message", originalBytes: 800 },
       { field: "checks[0].fix", originalBytes: 800 },
     ]);
+    expect(document.completeness).toBe("partial");
     expect(document.help.full).toContain("--full");
   });
 
@@ -244,9 +283,29 @@ describe("bounded doctor TOON schema", () => {
     const document = doctorToonDocument(report);
 
     expect(document.providerChecks).toHaveLength(20);
-    expect(document.omissions.providerChecks).toBe(5);
+    expect(document.omissions.providerChecks).toEqual({ filtered: 0, capped: 5 });
+    expect(document.completeness).toBe("partial");
     expect(document.truncations).toHaveLength(20);
     expect(document.truncations.some((item) => item.field.includes("[20]"))).toBe(false);
+  });
+
+  it("separates checks filtered by design from actionable checks lost to the cap", () => {
+    const passChecks = Array.from({ length: 3 }, (_, index) => ({
+      name: `pass-${index}`,
+      status: "pass" as const,
+      message: "fine",
+    }));
+    const warnChecks = Array.from({ length: 25 }, (_, index) => ({
+      name: `warn-${index}`,
+      status: "warn" as const,
+      message: `detail-${index}`,
+    }));
+    const document = doctorToonDocument(makeReport({ checks: [...passChecks, ...warnChecks] }));
+
+    expect(document.summary.checksShown).toBe(20);
+    expect(document.checks.map((check) => check.name)).toEqual(warnChecks.slice(0, 20).map((check) => check.name));
+    expect(document.omissions.checks).toEqual({ filtered: 3, capped: 5 });
+    expect(document.completeness).toBe("partial");
   });
 
   it("provides a full escape hatch with paths, pass checks, and untruncated text", () => {
@@ -268,7 +327,12 @@ describe("bounded doctor TOON schema", () => {
     expect(document.providers[0]).toMatchObject({ command: "codex", path: "/private/bin/codex" });
     expect(document.checks.map((check) => check.name)).toEqual(["pass", "warn"]);
     expect(document.checks[1].message).toBe(longMessage);
-    expect(document.omissions).toEqual({ checks: 0, providerChecks: 0, pathValues: 0 });
+    expect(document.completeness).toBe("complete");
+    expect(document.omissions).toEqual({
+      checks: { filtered: 0, capped: 0 },
+      providerChecks: { filtered: 0, capped: 0 },
+      pathFields: 0,
+    });
     expect(document.truncations).toEqual([]);
   });
 
