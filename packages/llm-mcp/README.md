@@ -71,6 +71,17 @@ Claude is intentionally suppressed when the MCP host is already Claude Code beca
 
 Codex calls are ephemeral when `sessionId` is omitted. To create a resumable Codex conversation, pass `sessionId: ""` on the first call and pass its returned Thread ID on follow-ups.
 
+## Doctor output formats
+
+```bash
+ask-llm-mcp doctor                       # human-readable (default)
+ask-llm-mcp doctor --json                # established full DiagnosticReport JSON
+ask-llm-mcp doctor --format toon         # bounded ask-llm.doctor TOON v1 pilot
+ask-llm-mcp doctor --format toon --full  # include paths, pass checks, and full text
+```
+
+TOON is explicit opt-in. It changes only this CLI rendering; MCP tools/resources, JSON-RPC, machine JSON, and model prose are unchanged. Bounded output carries `completeness: complete | partial`, separates records filtered by design from actionable records dropped by the cap, and discloses withheld path fields and truncated text. `--full` is a no-op for text/JSON. Unknown `doctor` arguments exit 2 with a structured error. See the [TOON pilot evidence](https://github.com/Lykhoyda/ask-llm/blob/main/docs/TOON-PILOT.md) for the schema, measurements, and AXI audit.
+
 ## Machine Protocol
 
 `machine` exposes a stdin-only JSON interface for factory controllers. It accepts one request of at most 2 MiB, with the prompt bounded to 150,000 characters by the schema, validates it before loading a provider, and writes exactly one typed result document to stdout. Prompts and issue content are never accepted through argv, and diagnostics go only to stderr.

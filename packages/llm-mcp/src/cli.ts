@@ -1,17 +1,19 @@
 #!/usr/bin/env node
 
-import {
-  formatDiagnosticReport,
-  Logger,
-  type MachineProvider,
-  machineRequestSchema,
-  type ProviderSpec,
-  runDiagnostics,
-} from "@ask-llm/shared";
+import { Logger, type MachineProvider, machineRequestSchema, type ProviderSpec, runDiagnostics } from "@ask-llm/shared";
 import { PROVIDERS } from "./constants.js";
 import { type ExecutorFn, startServer } from "./index.js";
 import { machineJsonSchemaBundle, runMachineRequest } from "./machine.js";
 import { startRepl } from "./repl.js";
+import {
+  DoctorArgumentError,
+  type DoctorCliOptions,
+  doctorHelp,
+  formatDoctorCliError,
+  formatDoctorOutput,
+  parseDoctorArguments,
+  requestedStructuredFormat,
+} from "./toonDoctor.js";
 import { buildProviderSpecs } from "./utils/providerSpecs.js";
 
 const MAX_MACHINE_STDIN_BYTES = 2 * 1024 * 1024;
@@ -129,17 +131,30 @@ async function runMachineCli(): Promise<number> {
   }
 }
 
-async function runDoctor(jsonOutput: boolean): Promise<number> {
+async function runDoctor(options: DoctorCliOptions): Promise<number> {
+  if (options.help) {
+    process.stdout.write(doctorHelp());
+    return 0;
+  }
+
   const specs: ProviderSpec[] = await buildProviderSpecs();
   const report = await runDiagnostics(specs);
 
-  if (jsonOutput) {
-    process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
-  } else {
-    process.stdout.write(formatDiagnosticReport(report));
-  }
+  process.stdout.write(formatDoctorOutput(report, options));
 
   return report.status === "error" ? 1 : 0;
+}
+
+async function runDoctorCli(args: string[]): Promise<number> {
+  let options: DoctorCliOptions;
+  try {
+    options = parseDoctorArguments(args);
+  } catch (error) {
+    if (!(error instanceof DoctorArgumentError)) throw error;
+    process.stderr.write(formatDoctorCliError(error, requestedStructuredFormat(args)));
+    return 2;
+  }
+  return runDoctor(options);
 }
 
 const subcommand = process.argv[2];
@@ -161,8 +176,7 @@ if (subcommand === "machine-schema") {
     },
   );
 } else if (subcommand === "doctor") {
-  const jsonOutput = process.argv.includes("--json");
-  runDoctor(jsonOutput).then(
+  runDoctorCli(process.argv.slice(3)).then(
     (code) => process.exit(code),
     (error) => {
       Logger.error("doctor failed:", error);

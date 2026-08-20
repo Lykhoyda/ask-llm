@@ -64,8 +64,10 @@ It also exposes `usage://current-session` as an MCP Resource for live JSON snaps
 The `@ask-llm/mcp` binary supports two CLI modes alongside the default MCP server:
 
 ```bash
-npx @ask-llm/mcp repl     # interactive multi-provider REPL with sessions, usage tracking, slash commands
-npx @ask-llm/mcp doctor   # diagnose Node version, PATH, provider CLIs, env vars (--json for machine output)
+npx @ask-llm/mcp repl                   # interactive multi-provider REPL
+npx @ask-llm/mcp doctor                 # human-readable diagnostics
+npx @ask-llm/mcp doctor --json          # established full JSON
+npx @ask-llm/mcp doctor --format toon  # bounded, versioned agent-facing TOON pilot
 ```
 
 ## Key Features

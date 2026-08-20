@@ -308,6 +308,7 @@ __metadata:
     "@ask-llm/shared": "workspace:*"
     "@biomejs/biome": "npm:^2.4.4"
     "@modelcontextprotocol/sdk": "npm:^1.27.1"
+    "@toon-format/toon": "npm:^4.1.1"
     "@types/node": "npm:^22.19.13"
     ajv: "npm:8.18.0"
     tsdown: "npm:^0.22.14"
@@ -2554,6 +2555,13 @@ __metadata:
   version: 1.1.0
   resolution: "@standard-schema/spec@npm:1.1.0"
   checksum: 10c0/d90f55acde4b2deb983529c87e8025fa693de1a5e8b49ecc6eb84d1fd96328add0e03d7d551442156c7432fd78165b2c26ff561b970a9a881f046abb78d6a526
+  languageName: node
+  linkType: hard
+
+"@toon-format/toon@npm:^4.1.1":
+  version: 4.1.1
+  resolution: "@toon-format/toon@npm:4.1.1"
+  checksum: 10c0/d107626fabd779fd8c41c8041c6f7cadc56f11c7a023adc50a794dc8bb0852ad52f4140bb1fe0a143b7a3229467e00c51787c303d2f2dd83d700a72e4e4eeedb
   languageName: node
   linkType: hard
 
