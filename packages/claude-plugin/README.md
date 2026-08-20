@@ -80,12 +80,30 @@ See the [Pi host guide](https://lykhoyda.github.io/ask-llm/plugin/pi) for securi
 | `/fable-review` | Isolated, read-only review requesting native Fable, with runtime verification limits disclosed |
 | `/sol-review` | Model-pinned GPT-5.6 Sol review through the bundled `ask-codex` MCP tool; missing registration and service unavailability are diagnosed separately before the explicit CLI fallback |
 | `/ollama-review` | Local review — no data leaves your machine |
-| `/brainstorm` | Multi-LLM brainstorm with Claude Opus as a first-class research participant (default external: gemini,codex) |
+| `/brainstorm` | Explicit multi-model brainstorm (default external: Antigravity + Codex); supports an exact no-Gemini Grok + GPT-5.6 Sol panel through Cursor Agent |
 | `/grok-review` | Grok review through explicit xAI API or Grok CLI harness; no fallback |
 | `/grok-pair` | Consent-gated iterative Grok reviewer through exact Cursor Agent, xAI API, or Grok CLI route; no fallback |
 | `/codex-pair` | Claude/Pi per-edit pairing dashboard; Cursor on-demand session adapter with explicit Thread ID continuity |
 | `/brainstorm-all` | Brainstorm with all five external providers (Gemini, Codex, Grok, Ollama, Antigravity) + Claude Opus research |
 | `/compare` | Side-by-side raw responses from multiple providers (no synthesis, no consensus extraction) |
+
+### Exact Grok + GPT-5.6 Sol brainstorm
+
+The preferred architect panel routes both models through the model-neutral Cursor Agent harness with provider and exact account-catalog ID kept separate:
+
+```text
+/brainstorm grok@cursor-agent:cursor-grok-4.6-high,codex@cursor-agent:gpt-5.6-sol-high "review this architecture"
+```
+
+This panel calls exactly Grok and GPT-5.6 Sol—never Gemini. Cursor `Auto`, model rewriting, and harness/provider fallback are forbidden. If one participant fails, the result is partial and cannot be presented as two-model consensus. Catalogs are account-specific; confirm these exact IDs with `agent --list-models` and replace an unavailable ID explicitly.
+
+Official Grok Build remains an explicit alternative when its installed headless contract is supported:
+
+```text
+/brainstorm grok@grok-cli:grok-build,codex@cursor-agent:gpt-5.6-sol-high "review this architecture"
+```
+
+A Grok CLI failure remains a Grok CLI failure; the workflow does not pivot to Cursor or xAI.
 
 ## Agents
 
@@ -96,7 +114,7 @@ See the [Pi host guide](https://lykhoyda.github.io/ask-llm/plugin/pi) for securi
 | fable-reviewer | purple | Fable-requested review with source-verified findings |
 | sol-reviewer | blue | GPT-5.6 Sol review through Codex with source validation |
 | ollama-reviewer | yellow | 4-phase: context, prompt, synthesis, validation (local) |
-| brainstorm-coordinator | magenta | Claude Opus research + parallel multi-LLM consultation with synthesis; verified findings weighted higher than inferred |
+| brainstorm-coordinator | magenta | Source-grounded research + parallel multi-model consultation; exact two-model mode keeps the host non-voting and partial failures out of consensus |
 
 ## Hooks
 
@@ -149,7 +167,8 @@ To disable:
 - **Claude Code, Cursor Agent, or Pi 0.83.0+** installed
 - **Claude Code** installed for marketplace agents, hooks, independent Fable review, and the blocking Stop gate
 - **Gemini CLI** authenticated — required for hooks and Gemini features
-- **Codex CLI** — required for `/codex-review` and brainstorm with Codex
+- **Codex CLI** — required for `/codex-review` and direct-Codex brainstorm routes
+- **Cursor Agent CLI** authenticated with exact catalog IDs — required only for `@cursor-agent` brainstorm routes
 - **Ollama** running locally — required for `/ollama-review`
 
 ## Documentation

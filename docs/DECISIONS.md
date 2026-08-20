@@ -1,5 +1,14 @@
 # Architectural Decisions
 
+## ADR-148: Brainstorm has an exact Grok + GPT-5.6 Sol panel with mechanical consensus eligibility
+
+**Status:** Accepted (2026-08-20)
+
+**Context:** ADR-146 made Grok and the model-neutral Cursor Agent harness available, but `/brainstorm` still accepted only provider names and dispatched raw provider commands. That could not express the architect workflow's exact Cursor catalog IDs, could not prove Gemini was excluded, and left a one-response partial run vulnerable to being summarized as multi-model consensus. Cursor catalog IDs, direct Grok IDs, provider identity, and display labels are different contracts and must not be inferred from each other.
+
+**Decision:** Extend `/brainstorm` participant syntax to `provider@harness:exact-model-id` while preserving compatible bare-provider lists and the `antigravity,codex` default. The preferred architect invocation is exactly `grok@cursor-agent:cursor-grok-4.6-high,codex@cursor-agent:gpt-5.6-sol-high`; Claude performs a pre-dispatch evidence memo but is non-voting, and Gemini plus every unselected route are explicitly excluded. A packaged `ask-brainstorm-run` process validates exactly one Grok and one GPT-5.6 Sol participant, starts both concurrently, preserves provider/harness/requested/actual/reported identity, rejects Cursor Auto and unsupported routes, and returns an ordered `complete | partial | failed` report. It never selects another route. Official Grok Build remains explicit as `grok@grok-cli:grok-build`; direct Codex remains explicit and any missing/unverifiable model attribution or reported fallback excludes that response from exact-panel consensus.
+
+**Consequences:** Two-model consensus is mechanically eligible only when both exact participants succeed; one success is partial and can produce only participant-attributed insights, while two failures produce no panel synthesis. Cursor authentication/model/harness failures and direct Grok failures remain attached to the requested participant instead of triggering Gemini, xAI, Grok CLI, Cursor, or Codex substitution. Account catalogs can change, so examples are exact known IDs but unavailable IDs fail with discovery guidance rather than being silently rewritten.
 ## ADR-147: Pair workflows use portable contracts and native host adapters
 
 **Status:** Accepted (2026-08-21)

@@ -62,6 +62,7 @@ Representative commands:
 /skill:multi-review
 /skill:compare gemini,codex explain this API design
 /skill:brainstorm antigravity,codex review this architecture
+/skill:brainstorm grok@cursor-agent:cursor-grok-4.6-high,codex@cursor-agent:gpt-5.6-sol-high review this architecture
 /skill:codex-image create a monochrome architecture diagram
 /skill:codex-verify
 /skill:codex-pair
@@ -124,7 +125,7 @@ Pi pairing works in TUI, RPC, and a long-lived JSON process. It is unsupported i
 | Capability | Claude Code | Cursor Agent | Codex CLI host | Pi |
 |---|---:|---:|---:|---:|
 | Provider MCP servers | Yes | Yes | Yes | No; native tools instead |
-| Review/compare/brainstorm skills | Yes | Agent Skills | MCP tools only | Yes, `/skill:<name>` + natural language |
+| Review/compare/brainstorm skills | Yes | Agent Skills | MCP tools only | Yes, `/skill:<name>` + natural language; exact Grok + Sol mode calls native `ask-cursor-agent` twice and never `ask-multi`/Gemini |
 | Isolated reviewer subagents | Yes | Host-dependent | No | No; portable contracts run inline |
 | Independent `fable-review` | Yes | No; excluded | No | No; excluded |
 | `codex-image` | Yes | provider-dependent | provider-dependent | Yes, explicit workspace-write opt-in |

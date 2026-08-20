@@ -1,63 +1,88 @@
 ---
 name: brainstorm
-description: Send a topic to multiple LLM providers concurrently after the current host model forms an independent view, then synthesize all findings. Usage /brainstorm [providers] <topic>. External providers default to antigravity,codex. Example /brainstorm antigravity,codex,ollama "review this architecture"
+description: Send a topic to an explicit multi-model panel, then synthesize findings with truthful provider, harness, and model attribution. Usage /brainstorm [participants] <topic>. Defaults to antigravity,codex. Preferred Grok route uses Cursor Agent with an exact catalog ID.
 ---
 
 <!-- PORTABLE-CONTRACT:START -->
 ## Portable contract
 
-The current host model must form and record an independent analysis before seeing external answers. Then send the same bounded topic and Context Brief concurrently to the selected providers, cross-check claims against source where possible, and synthesize consensus, unique insights, contradictions, rejected false positives, and confidence. Report the actual host model/providers and disclose possible same-family overlap.
+For the standard workflow, the current host model records an independent analysis before seeing external answers, then sends the same bounded topic and Context Brief concurrently to the selected providers. For the exact Grok + GPT-5.6 Sol workflow, the host is a non-voting evidence verifier/synthesizer: the brainstorming panel has exactly those two requested participants. Cross-check source where possible and synthesize consensus, unique insights, contradictions, rejected false positives, failures, and confidence. Keep provider, harness, requested model ID, reported display label, and actual model separate. Never select Cursor Auto, infer a requested ID from a display label, silently change a model, or pivot to another harness/provider.
 <!-- PORTABLE-CONTRACT:END -->
 
 ## Host adapters
 
 ### Pi adapter
 
-The current Pi host model completes its independent view first, records its actual provider/model, and only then calls native `ask-multi`. Do not claim the host is Claude Opus or that the coordinator has an isolated context.
+The current Pi host model completes its independent evidence memo first. Standard provider lists use native `ask-multi`. A routed participant uses the matching native tool instead: `provider@cursor-agent:model` calls `ask-cursor-agent` with separate `provider` and exact `model`; direct Grok calls `ask-grok` with the explicit `harness` and exact model. For the exact Grok + Sol panel, issue only these two consultations (concurrently when the host supports it):
+
+- `ask-cursor-agent({ provider: "grok", model: "cursor-grok-4.6-high", prompt })`
+- `ask-cursor-agent({ provider: "codex", model: "gpt-5.6-sol-high", prompt })`
+
+Do not call `ask-multi` for that panel because it cannot express Cursor harness identity, and do not call Gemini. Treat the host memo as non-voting verification evidence, not a third panel answer. If either participant fails, label the run partial and do not claim two-model consensus.
 
 <!-- HOST-ADAPTER:CLAUDE-CODE:START -->
 ### Claude Code adapter
 
 The existing detailed workflow below is the Claude Code adapter. Its Agent, MCP, hook, `CLAUDE_PLUGIN_ROOT`, and `AskUserQuestion` mechanics apply only on Claude Code; they do not override the Pi adapter above.
 
-
-
 # Multi-LLM Brainstorm
 
-Consult multiple external LLM providers simultaneously on a topic while Claude Opus performs its own independent research in parallel, then synthesize the findings from all participants.
+Consult an explicitly selected panel on a topic, then synthesize the responses against source-grounded host research.
 
 ## Instructions
 
-### Phase 1: Parse arguments
+### Phase 1: Parse arguments and freeze participant identity
 
-- If the first argument looks like a comma-separated provider list (e.g., `antigravity,codex` or `gemini,codex,grok,ollama`), use those as the external providers
-- If no provider list is given, default to `antigravity,codex`
-- Valid external providers: `gemini`, `codex`, `grok`, `ollama`, `antigravity`
-- `grok` requires `XAI_API_KEY` for the default API harness or official Grok Build auth with `ASK_GROK_HARNESS=grok-cli`; it may consume metered/plan usage and never falls back
-- `antigravity` requires `agy` installed + logged in; if it's unavailable the coordinator surfaces that and continues with the other providers
-- Everything after the provider list (or all args if no list) is the topic
-- Claude Opus is always a participant — it's not in the provider list because it runs inside the coordinator
+- The first argument may be a comma-separated participant list.
+- Compatible bare provider names remain supported: `gemini`, `codex`, `grok`, `ollama`, `antigravity`. If omitted, default to `antigravity,codex`.
+- Bare `grok` retains the existing direct canonical runner and its explicit `ASK_GROK_HARNESS` selection (`xai-api` default or `grok-cli`) for compatibility. That direct route never falls back.
+- Preferred explicit syntax is `provider@harness:exact-model-id`. Supported routed participants are:
+  - `grok@cursor-agent:<exact ID from agent --list-models>` (preferred Grok route)
+  - `codex@cursor-agent:<exact GPT-5.6 Sol ID from agent --list-models>`
+  - `grok@grok-cli:<exact ID from grok models>` (explicit Grok Build alternative)
+  - `grok@xai-api:<exact ID from GET /v1/models>`
+  - `codex@codex-cli:gpt-5.6-sol` (explicit direct Codex alternative; any reported fallback makes the exact panel partial)
+- Never accept `Auto`, map a display label to an ID, or substitute a route. A missing registration/harness, unavailable model, auth failure, or unsupported provider/harness pair is a participant failure with its actionable error preserved.
+- Everything after the participant list is the topic.
+- In standard mode, Claude Opus remains a participant. In the exact Grok + Sol mode below, Claude is only the non-voting evidence verifier/synthesizer so the panel has exactly two participants.
+
+**Architect workflow — exactly Grok + GPT-5.6 Sol, no Gemini:**
+
+```text
+/brainstorm grok@cursor-agent:cursor-grok-4.6-high,codex@cursor-agent:gpt-5.6-sol-high "review this architecture"
+```
+
+These IDs are exact catalog examples verified for this workflow; account catalogs can change, so use `agent --list-models` and replace an unavailable ID explicitly. The coordinator must not call Gemini, the direct Grok runner, xAI API, Grok Build, or Codex CLI for this invocation.
+
+**Explicit Grok Build alternative (still no Gemini):**
+
+```text
+/brainstorm grok@grok-cli:grok-build,codex@cursor-agent:gpt-5.6-sol-high "review this architecture"
+```
+
+This route is valid only when the installed Grok Build contract supports Ask LLM's headless JSON/read-only flags. Failure is terminal for the Grok participant; do not pivot to Cursor or xAI.
 
 ### Phase 2: Determine and prepare the brainstorm topic
 
-- If the user provided a topic directly, use it
-- If the context is about code changes, gather the relevant diff:
-  - `git status --short` first to see what's modified/added/deleted
-  - `git add -N <new-files>` for untracked files the user wants included
-  - `git diff` + `git diff --cached` combined
-  - **Filter noise**: exclude `:!docs/` `:!apps/docs/` `:!*.md` `:!yarn.lock` `:!*.lock` `:!*.png` from the pathspec — providers don't need to review your ADR/doc additions
-  - **Size-check**: if combined diff > 150KB, ask the user before sending (the providers will take 5–15 min on payloads that large)
-- If the context is a design/plan, gather the relevant documentation or conversation context
-- If no topic is clear, ask the user what they'd like to brainstorm about
-- Create a compact **Context Brief** before launching the coordinator. Keep it tiny for simple topics; add detail when the request is architecture/design/security/concurrency/migration related, spans packages, references external specs, or depends on conversation context external providers cannot see.
+- If the user provided a topic directly, use it.
+- For code changes, gather relevant context:
+  - Run `git status --short` first.
+  - Use `git add -N <new-files>` for untracked files the user wants included.
+  - Combine `git diff` and `git diff --cached`.
+  - Exclude noise with `:!docs/` `:!apps/docs/` `:!*.md` `:!yarn.lock` `:!*.lock` `:!*.png`.
+  - If the combined diff exceeds 150KB, ask before sending.
+- For a design/plan, gather relevant documentation and conversation context.
+- If no topic is clear, ask what to brainstorm.
+- Create a compact **Context Brief**. It must list the exact requested participant identities, not just display names:
 
 ```markdown
 ## Context Brief
 
 Intent:
 - User request:
-- Brainstorm mode:
-- Providers: <list the selected providers for this run>
+- Brainstorm mode: <standard | exact-grok-sol>
+- Participants: <provider via harness, exact requested model for each>
+- Explicitly excluded: <for exact-grok-sol: Gemini and every unselected route>
 
 Scope:
 - Changed/referenced files:
@@ -83,24 +108,21 @@ Open questions:
 
 ### Phase 3: Launch the brainstorm-coordinator agent
 
-Launch with: the topic, the selected external providers list, the Context Brief, and any gathered context (diff/files/docs).
+Pass the topic, exact participant specs, Context Brief, and gathered context. The coordinator:
 
-The coordinator handles:
-- Phase 3B: its own Claude Opus research (reads actual files, traces code, uses WebFetch/WebSearch on referenced external docs) — runs FIRST so Claude doesn't anchor on external responses
-- Context Brief update: after Phase 3B, records verified files/docs and unverified assumptions before external dispatch
-- Phase 3A: external provider dispatch via a single blocking foreground Bash call (ADR-050 dispatch pattern)
-- Phase 4: synthesis — consensus, unique insights, contradictions across all participants
-- Verified findings (backed by Claude's file reads) are weighted higher than inferred ones
-- Failed providers are surfaced inline with their stderr, not silently dropped
+- researches independently before dispatch and records any unverified assumptions;
+- treats that research as non-voting verification evidence in exact two-model mode;
+- uses the packaged `dist/brainstorm-run.js` for the exact Grok + Sol panel so both requests start concurrently within one blocking foreground process;
+- uses only the selected routes and exact IDs;
+- surfaces every failure and preserves provider/harness/model attribution; and
+- synthesizes only after dispatch completes.
 
-### Phase 4: Present the coordinator's synthesis
+### Phase 4: Present synthesis truthfully
 
-Pass through the coordinator's structured output. If the coordinator returned a partial result (some providers failed), present what landed and explicitly note what's missing — don't paraphrase or hide compromises.
+Pass through the coordinator's structured output. A two-model consensus exists only when both requested participants succeeded and independently support the point. If one fails, label the run **partial**, attribute surviving insights to the model that produced them, and never describe them as consensus. If both fail, report failure and provide no panel synthesis. The host's verification memo may verify or reject claims, but it cannot turn one participant's answer into two-model agreement.
 
 ## Important — verification matters
 
-Confidence scores are not an oracle. The coordinator's Phase 3B exists specifically because external LLMs can return high-confidence findings that turn out to be factually wrong (a real example from 2026-04-17: Gemini returned 95/100-confidence claims that were contradicted by the actual `.d.ts` file). Claude's "Verified" findings carry more weight than external "Inferred" findings precisely for this reason.
-
-If you want a code-review-specific version of this with explicit per-finding source verification, use `/multi-review` instead.
+Confidence scores are not an oracle. External LLMs can return high-confidence claims contradicted by source. Verified findings carry more weight than inferred findings, while participant counts and consensus eligibility remain mechanical and cannot be upgraded by confidence. For code-review-specific per-finding verification, use `/multi-review`.
 
 <!-- HOST-ADAPTER:CLAUDE-CODE:END -->
