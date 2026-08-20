@@ -7,8 +7,10 @@ description: Common issues and solutions for Ask LLM MCP servers. Connection err
 > **Run the doctor first.** `npx @ask-llm/mcp doctor` checks Node version, PATH, every provider CLI's presence + version, and env vars. It works even when MCP can't start. 90%+ of setup issues are caught here with a clear failed-check line; fix from the bottom of the report up.
 
 ```bash
-npx @ask-llm/mcp doctor          # human-readable
-npx @ask-llm/mcp doctor --json   # machine-readable, exit 1 on error
+npx @ask-llm/mcp doctor                       # human-readable
+npx @ask-llm/mcp doctor --json                # established full JSON, exit 1 on error
+npx @ask-llm/mcp doctor --format toon         # bounded, versioned agent-facing TOON pilot
+npx @ask-llm/mcp doctor --format toon --full  # full TOON escape hatch
 ```
 
 <script setup>

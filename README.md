@@ -275,8 +275,10 @@ The orchestrator binary (`@ask-llm/mcp`) supports two CLI modes alongside the de
 npx @ask-llm/mcp repl
 
 # Diagnose your setup — Node version, PATH, provider CLI versions, env vars
-npx @ask-llm/mcp doctor          # human-readable
-npx @ask-llm/mcp doctor --json   # machine-readable, exit 1 on error
+npx @ask-llm/mcp doctor                       # human-readable
+npx @ask-llm/mcp doctor --json                # established full JSON, exit 1 on error
+npx @ask-llm/mcp doctor --format toon         # bounded, versioned agent-facing TOON pilot
+npx @ask-llm/mcp doctor --format toon --full  # full TOON escape hatch
 ```
 
 The REPL ships sessions per provider (`/provider gemini`, `/provider codex`, `/new`, `/sessions`, `/usage`) and inherits all the executor behavior (quota fallback, stream-json output for Gemini, native session resume).

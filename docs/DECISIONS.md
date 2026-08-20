@@ -1,5 +1,15 @@
 # Architectural Decisions
 
+## ADR-145: One bounded TOON pilot on the `ask-llm-mcp doctor` CLI
+
+**Status:** Accepted (2026-08-20)
+
+**Context:** Issue #270 requires one evidence-selected, structured, read-only TOON pilot without changing MCP/JSON-RPC, machine envelopes, or model prose. Pre-change measurements found the live full doctor JSON was the largest useful candidate (8,155 bytes / 2,174 GPT-4o tokens), while a representative usage snapshot was 1,020 / 353, multi-provider comparison metadata without prose was 404 / 139, and a review payload was 390 / 104. Doctor also applies before single-provider consultation, multi-provider comparison, and review, and naturally represents empty, partial, unavailable, and failed readiness. Usage lacks actionable provider failures; comparison formatting would touch an MCP tool response beside model prose; review would overlap stable machine contracts and the separate #271 work.
+
+**Decision:** Pilot TOON only on the CLI doctor via explicit `doctor --format toon`; preserve default text and byte-compatible `doctor --json`, and accept `--format json` as the explicit spelling. Schema `ask-llm.doctor` version 1 has a bounded default: all providers in registry order with four fields each, pre-computed availability/check counts, only actionable non-pass checks, 20-record caps, 240-byte UTF-8 text bounds, explicit omission/truncation records, definitive empty arrays, and contextual full/JSON/docs help. `--full` restores paths, pass/skip enrichment, uncapped records, and untruncated text. Unknown/conflicting arguments exit 2 with a structured JSON error, or TOON when TOON was explicitly requested. The implementation is doctor-specific and uses the official strict TOON 4.1 codec; it is not a serialization framework.
+
+**Consequences:** The captured live bounded report fell from 8,156 bytes / 2,174 tokens to 2,328 / 719 (71.5% bytes and 66.9% estimated tokens saved); full TOON remained an escape hatch at 6,010 / 1,784. Six interleaved live runs had median end-to-end latency 3,977.9ms JSON vs 3,990.1ms bounded TOON, while deterministic formatter overhead was ~0.02ms. Official strict-parser checks were 100/100 for every representative fixture. Small synthetic empty/failure reports can be larger than JSON because versioning, disclosure, and help are fixed overhead; TOON therefore remains explicit opt-in. Evidence, the AXI audit, limitations, and reproducible commands live in `docs/TOON-PILOT.md` and `scripts/benchmark-toon-doctor.ts`. MCP tools/resources, JSON-RPC, machine JSON, provider behavior, model prose, and #271 are unchanged.
+
 ## ADR-144: Claude Code plugin owns Codex transport discovery
 
 **Status:** Accepted (2026-08-20)
