@@ -4,7 +4,7 @@ description: Claude Code plugin for AI-to-AI collaboration. Multi-provider code 
 
 # Claude Code Host
 
-`@ask-llm/plugin` is the canonical dual-host package. This page covers its Claude Code marketplace adapter. For the same portable skill corpus with native tools and Pi lifecycle events, see [Pi Host Support](/plugin/pi).
+`@ask-llm/plugin` is the canonical multi-host package. This page covers its Claude Code marketplace adapter. For the same portable skill corpus through Cursor Agent Skills/MCP, see [Cursor Agent Host](/plugin/cursor); for native Pi tools and lifecycle events, see [Pi Host Support](/plugin/pi).
 
 The **Ask LLM plugin** brings the second opinion into Claude Code itself: slash-command reviews (`/codex-review`, `/multi-review`), multi-model brainstorming (`/brainstorm`), and an opt-in continuous review hook (`codex-pair`) that checks every edit as you make it. Under the hood it adds review skills, brainstorm agents, and automated hooks.
 
@@ -30,7 +30,7 @@ claude --plugin-dir ./packages/claude-plugin
 
 ### MCP Servers
 
-The plugin ships the Codex MCP registration used by `/codex-review` and `/sol-review`. Fully restart Claude Code after installation or upgrade, then run `/mcp`; the `plugin:ask-llm:codex` server should be connected and expose `ask-codex` automatically.
+The plugin ships Codex, Grok, and unified Ask LLM MCP registrations used by review and pairing commands. Fully restart Claude Code after installation or upgrade, then run `/mcp`; `plugin:ask-llm:codex`, `plugin:ask-llm:grok`, and `plugin:ask-llm:unified` should be connected. They expose exact `ask-codex`, `ask-grok`, and model-neutral `ask-cursor-agent` capabilities.
 
 Existing user-scoped Codex registrations remain supported if you prefer the shorter `codex:ask-codex` name. Register the other provider servers at user scope:
 
@@ -54,6 +54,8 @@ If Codex registration is missing, provision it explicitly with `claude mcp add -
 | `/fable-review` | Fable | Native isolated review, pinned to Fable |
 | `/sol-review` | GPT-5.6 Sol | Model-pinned review through Codex |
 | `/grok-review` | Grok | Explicit xAI API or Grok CLI review; metered/plan-aware, no harness or model fallback |
+| `/grok-pair` | Grok | Consent-gated iterative reviewer through exact Cursor Agent, xAI API, or Grok CLI route; no fallback |
+| `/codex-pair` | Codex | Continuous Claude hook dashboard; Cursor uses the separate on-demand persisted-session adapter |
 | `/ollama-review` | Ollama | Local review, no data leaves your machine |
 | `/antigravity-review` | Antigravity | Subscription-backed second opinion via Google `agy` (experimental) |
 | `/brainstorm` | Multi + Claude Opus | Claude Opus researches the topic against real files in parallel with external providers, then synthesizes findings |
@@ -103,7 +105,7 @@ These commands are available after cloning and building the plugin locally. Mark
 
 The plugin uses several Claude Code integration points:
 
-1. **`plugin.json` + `.mcp.json`**: Explicitly declares and configures the canonical `@ask-llm/codex-mcp` component for Claude Code plugin sessions; other providers remain user-scoped (see [Installation](#installation))
+1. **`plugin.json` + `.mcp.json`**: Explicitly declares Codex, Grok, and unified MCP components for Claude Code plugin sessions (see [Installation](#installation)); the separate `.cursor-plugin/plugin.json` + `mcp.json` adapter uses Cursor's supported surfaces
 2. **Skills** (`skills/`): User-invocable slash commands that trigger review or brainstorm workflows
 3. **Agents** (`agents/`): Handle the actual interaction with each provider using confidence-based filtering (80%+ threshold). Agents read `CLAUDE.md` for project conventions when available.
 4. **Hooks** (`hooks/`): Run the opt-in codex-pair continuous review pipeline: per-edit PostToolUse reviews, verdict drains on user prompts and at turn end, the opt-in Stop gate, and session lifecycle

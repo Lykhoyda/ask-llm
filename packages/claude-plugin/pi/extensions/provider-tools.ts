@@ -87,6 +87,10 @@ const cursorAgentSchema = Type.Object({
     description:
       "Exact ID from agent --list-models; echoed back as `model`, with the CLI display label in `reportedModel`. Auto and other noncanonical IDs are refused.",
   }),
+  includeDirs: Type.Optional(relativeDirs),
+  sessionId: Type.Optional(
+    Type.String({ description: "Prior Cursor conversation ID to resume; omit first, then reuse the returned ID." }),
+  ),
 });
 
 const askMultiSchema = Type.Object({
@@ -239,6 +243,8 @@ export function registerProviderTools(pi: ExtensionAPI): void {
         prompt: params.prompt,
         provider: params.provider,
         model: params.model,
+        includeDirs: params.includeDirs,
+        sessionId: params.sessionId,
         signal,
         onProgress: progressForwarder(onUpdate, params.provider),
       });
@@ -250,6 +256,7 @@ export function registerProviderTools(pi: ExtensionAPI): void {
           harness: result.harness,
           model: result.model,
           reportedModel: result.reportedModel,
+          sessionId: result.sessionId,
           askLlmUsage: result.usage,
           outputTruncated: text.truncated,
         },

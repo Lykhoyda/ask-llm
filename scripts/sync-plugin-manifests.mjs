@@ -9,6 +9,7 @@ import { fileURLToPath } from "node:url";
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const SOURCE = resolve(ROOT, "packages/claude-plugin/package.json");
 const PLUGIN_JSON = resolve(ROOT, "packages/claude-plugin/.claude-plugin/plugin.json");
+const CURSOR_PLUGIN_JSON = resolve(ROOT, "packages/claude-plugin/.cursor-plugin/plugin.json");
 const MARKETPLACE_JSON = resolve(ROOT, ".claude-plugin/marketplace.json");
 const PLUGIN_NAME = "ask-llm";
 const CHECK_ONLY = process.argv.includes("--check");
@@ -21,12 +22,12 @@ async function writeJson(path, data) {
   await writeFile(path, `${JSON.stringify(data, null, 2)}\n`);
 }
 
-async function syncPluginJson(version) {
-  const pluginJson = await readJson(PLUGIN_JSON);
+async function syncPluginJson(path, version) {
+  const pluginJson = await readJson(path);
   if (pluginJson.version === version) return false;
   if (!CHECK_ONLY) {
     pluginJson.version = version;
-    await writeJson(PLUGIN_JSON, pluginJson);
+    await writeJson(path, pluginJson);
   }
   return true;
 }
@@ -52,12 +53,15 @@ async function main() {
     throw new Error(`${SOURCE}: missing "version" field`);
   }
 
-  const pluginChanged = await syncPluginJson(version);
+  const pluginChanged = await syncPluginJson(PLUGIN_JSON, version);
+  const cursorPluginChanged = await syncPluginJson(CURSOR_PLUGIN_JSON, version);
   const marketplaceChanged = await syncMarketplaceJson(version);
 
-  const changed = [pluginChanged ? "plugin.json" : null, marketplaceChanged ? "marketplace.json" : null].filter(
-    Boolean,
-  );
+  const changed = [
+    pluginChanged ? ".claude-plugin/plugin.json" : null,
+    cursorPluginChanged ? ".cursor-plugin/plugin.json" : null,
+    marketplaceChanged ? "marketplace.json" : null,
+  ].filter(Boolean);
 
   if (CHECK_ONLY && changed.length > 0) {
     throw new Error(`${changed.join(", ")} must match package.json version ${version}; run yarn changeset:version`);

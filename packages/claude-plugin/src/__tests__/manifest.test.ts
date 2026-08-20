@@ -77,10 +77,39 @@ describe("Claude Code MCP manifest", () => {
     mcpServers: Record<string, { command: string; args: string[] }>;
   }>(".mcp.json");
 
-  it("registers the canonical Ask LLM Codex server for clean plugin installs", () => {
-    expect(mcp.mcpServers.codex).toEqual({
-      command: "npx",
-      args: ["-y", "@ask-llm/codex-mcp"],
+  it("registers exact Codex, Grok, and unified Cursor-route servers for clean plugin installs", () => {
+    expect(mcp.mcpServers).toMatchObject({
+      codex: { command: "npx", args: ["-y", "@ask-llm/codex-mcp"] },
+      grok: { command: "npx", args: ["-y", "@ask-llm/grok-mcp"] },
+      unified: { command: "npx", args: ["-y", "@ask-llm/mcp"] },
+    });
+  });
+});
+
+describe("Cursor plugin adapter", () => {
+  const manifest = readJson<{
+    name: string;
+    version: string;
+    skills: string[];
+    mcpServers: string;
+  }>(".cursor-plugin/plugin.json");
+  const mcp = readJson<{ mcpServers: Record<string, { command: string; args: string[] }> }>("mcp.json");
+
+  it("uses Cursor's native skill and MCP plugin surfaces rather than Claude hook registration", () => {
+    expect(manifest.name).toBe("ask-llm");
+    expect(manifest.version).toBe(readJson<{ version: string }>("package.json").version);
+    expect(manifest.skills).toContain("./skills/codex-pair");
+    expect(manifest.skills).toContain("./skills/grok-pair");
+    expect(manifest.skills).not.toContain("./skills/fable-review");
+    expect(manifest.mcpServers).toBe("./mcp.json");
+    expect(manifest).not.toHaveProperty("hooks");
+  });
+
+  it("registers split Codex/Grok tools plus the model-neutral Cursor route", () => {
+    expect(mcp.mcpServers).toEqual({
+      codex: { command: "npx", args: ["-y", "@ask-llm/codex-mcp"] },
+      grok: { command: "npx", args: ["-y", "@ask-llm/grok-mcp"] },
+      "ask-llm": { command: "npx", args: ["-y", "@ask-llm/mcp"] },
     });
   });
 });
@@ -200,6 +229,8 @@ describe("dual-host package manifest", () => {
   it("ships every runtime resource needed by both hosts", () => {
     for (const resource of [
       ".claude-plugin/",
+      ".cursor-plugin/",
+      "mcp.json",
       "agents/",
       "dist/",
       "hooks/",

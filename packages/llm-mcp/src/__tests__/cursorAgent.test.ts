@@ -70,6 +70,52 @@ describe("model-neutral Cursor Agent harness", () => {
     expect(result.response).toContain("[Cursor Agent reported model: Grok 4.6]");
   });
 
+  it("passes validated include directories and resumes the returned Cursor session without changing attribution", async () => {
+    const first = await executeCursorAgent({
+      provider: "grok",
+      model: "cursor-grok-4.6-high",
+      prompt: "review",
+      includeDirs: ["packages/api", "docs"],
+    });
+    expect(first.sessionId).toBe("session-fixture");
+    expect(executeCommandMock.mock.calls[0][1]).toEqual([
+      "--print",
+      "--output-format",
+      "stream-json",
+      "--stream-partial-output",
+      "--mode",
+      "ask",
+      "--model",
+      "cursor-grok-4.6-high",
+      "--add-dir",
+      "packages/api",
+      "--add-dir",
+      "docs",
+      "review",
+    ]);
+
+    await executeCursorAgent({
+      provider: "grok",
+      model: "cursor-grok-4.6-high",
+      prompt: "check the fix",
+      sessionId: first.sessionId,
+    });
+    expect(executeCommandMock.mock.calls[1][1]).toContain("--resume");
+    expect(executeCommandMock.mock.calls[1][1]).toContain("session-fixture");
+  });
+
+  it("rejects unsafe include directories before spawning", async () => {
+    await expect(
+      executeCursorAgent({
+        provider: "grok",
+        model: "cursor-grok-4.6-high",
+        prompt: "review",
+        includeDirs: ["../outside"],
+      }),
+    ).rejects.toThrow(/Directory paths must be relative/);
+    expect(executeCommandMock).not.toHaveBeenCalled();
+  });
+
   it("passes the Cursor-specific timeout to the cancellable command boundary", async () => {
     process.env.ASK_CURSOR_TIMEOUT_MS = "4321";
     await executeCursorAgent({ provider: "grok", model: "cursor-grok-4.6-high", prompt: "review" });

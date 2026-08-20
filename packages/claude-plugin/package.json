@@ -43,7 +43,9 @@
   "homepage": "https://github.com/Lykhoyda/ask-llm#readme",
   "files": [
     ".claude-plugin/",
+    ".cursor-plugin/",
     ".mcp.json",
+    "mcp.json",
     "agents/",
     "codex-pair-defaults.json",
     "dist/",

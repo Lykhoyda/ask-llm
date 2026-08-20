@@ -84,6 +84,8 @@ describe("Pi provider tools", () => {
       "prompt",
       "provider",
       "model",
+      "includeDirs",
+      "sessionId",
     ]);
     expect(byName("ask-cursor-agent").parameters.properties?.provider).toMatchObject({
       enum: ["claude", "codex", "gemini", "grok"],
@@ -99,6 +101,7 @@ describe("Pi provider tools", () => {
       model: "cursor-grok-4.6-high",
       reportedModel: "Grok 4.6",
       harness: "cursor-agent",
+      sessionId: "cursor-session",
       usage: { provider: "grok", model: "cursor-grok-4.6-high", fellBack: false },
     });
     const controller = new AbortController();
@@ -110,6 +113,8 @@ describe("Pi provider tools", () => {
       prompt: "review",
       provider: "grok",
       model: "cursor-grok-4.6-high",
+      includeDirs: undefined,
+      sessionId: undefined,
       signal: controller.signal,
       onProgress: undefined,
     });
@@ -118,6 +123,7 @@ describe("Pi provider tools", () => {
       harness: "cursor-agent",
       model: "cursor-grok-4.6-high",
       reportedModel: "Grok 4.6",
+      sessionId: "cursor-session",
       askLlmUsage: { fellBack: false },
     });
   });

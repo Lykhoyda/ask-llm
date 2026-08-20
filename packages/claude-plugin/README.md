@@ -2,11 +2,11 @@
 
 <div align="center">
 
-**Canonical Claude Code + Pi host package for AI-to-AI collaboration**
+**Canonical Claude Code, Cursor Agent, and Pi host package for AI-to-AI collaboration**
 
 </div>
 
-One publishable package that adds multi-provider code review, comparison, brainstorming, verification, image, and pairing workflows to [Claude Code](https://code.claude.com/docs/en/plugins) and [Pi](https://pi.dev). Both hosts consume one skill corpus and package version; host-specific behavior is kept in explicit adapters.
+One publishable package that adds multi-provider code review, comparison, brainstorming, verification, image, and pairing workflows to [Claude Code](https://code.claude.com/docs/en/plugins), [Cursor Agent](https://cursor.com/docs/skills), and [Pi](https://pi.dev). The hosts consume one skill corpus and package version; host-specific behavior is kept in explicit adapters.
 
 Part of the [Ask LLM](https://github.com/Lykhoyda/ask-llm) monorepo.
 
@@ -23,15 +23,25 @@ Part of the [Ask LLM](https://github.com/Lykhoyda/ask-llm) monorepo.
 
 ### MCP Servers
 
-The plugin bundles the supported Codex MCP registration under Claude Code's plugin namespace. After installation or upgrade, fully restart Claude Code and run `/mcp`; `plugin:ask-llm:codex` should be connected and `/sol-review` will select its `ask-codex` tool automatically.
+The plugin bundles Codex, Grok, and unified Ask LLM MCP registrations under Claude Code's plugin namespace. After installation or upgrade, fully restart Claude Code and run `/mcp`; `plugin:ask-llm:codex`, `plugin:ask-llm:grok`, and `plugin:ask-llm:unified` should be connected. `/sol-review` selects `ask-codex`; `/grok-pair` selects an exact `ask-cursor-agent` or `ask-grok` route.
 
-Existing user-scoped Codex registrations remain compatible and keep the shorter `codex:ask-codex` name. The other provider servers are still registered explicitly at user scope:
+Existing user-scoped Codex and Grok registrations remain compatible and keep their shorter names. Providers not bundled for pairing are registered explicitly at user scope:
 
 ```bash
 claude mcp add --scope user gemini -- npx -y @ask-llm/gemini-mcp
 claude mcp add --scope user ollama -- npx -y @ask-llm/ollama-mcp
 claude mcp add --scope user antigravity -- npx -y @ask-llm/antigravity-mcp
 ```
+
+### Cursor Agent
+
+Cursor's supported Agent Skills surface exposes `/codex-pair` and `/grok-pair`; its MCP surface comes from `mcp.json`. For a source checkout:
+
+```bash
+agent --plugin-dir ./packages/claude-plugin
+```
+
+`/codex-pair` uses the exact `ask-codex` leaf with explicit consent, model, reasoning effort, include directories, resumable Thread ID, cancellation, and result relay. It does not pretend Claude-only hooks are active. If installing only MCP configuration, copy the three entries from `mcp.json` to project `.cursor/mcp.json` or user `~/.cursor/mcp.json`, then restart Cursor Agent.
 
 If Codex is missing entirely, register it explicitly with `claude mcp add --scope user codex -- npx -y @ask-llm/codex-mcp`. If `/mcp` shows the bundled registration but it is disconnected, run `npx -y @ask-llm/mcp doctor` and restart Claude Code. `/sol-review` preserves source-plugin and session-local MCP/settings context when reading the active `claude mcp list` inventory, reports missing and unavailable states separately, and discloses the explicit `codex exec` fallback after failed health or MCP transport failure.
 
@@ -42,7 +52,7 @@ pi install npm:@ask-llm/plugin
 pi list
 ```
 
-Pi discovers the portable skills as `/skill:<name>` commands and registers native `ask-codex`, `ask-gemini`, `ask-grok`, `ask-ollama`, `ask-antigravity`, model-neutral `ask-cursor-agent`, and bounded concurrent `ask-multi` tools. Pi intentionally has no built-in MCP client; do not configure these as MCP servers in Pi. `fable-review` remains Claude Code-only and is excluded from Pi discovery.
+Pi discovers the portable skills as `/skill:<name>` commands and registers native `ask-codex`, `ask-gemini`, `ask-grok`, `ask-ollama`, `ask-antigravity`, model-neutral `ask-cursor-agent`, and bounded concurrent `ask-multi` tools. Pi intentionally has no built-in MCP client; do not configure these as MCP servers in Pi. `fable-review` and `grok-pair` are excluded from Pi discovery; Grok pairing currently has Claude/Cursor adapters, while Pi retains its dedicated Codex pairing lifecycle.
 
 For codex-pair, create `.codex-pair/context.md`, ensure Pi trusts the project, then run interactive `/codex-pair` to grant user-owned canonical-project consent. The marker alone never authorizes data transfer/cost. Revoke with `/codex-pair revoke`. Pi findings are non-blocking; blocking Stop-gate and one-shot print parity are not available.
 
@@ -65,6 +75,8 @@ See the [Pi host guide](https://lykhoyda.github.io/ask-llm/plugin/pi) for securi
 | `/ollama-review` | Local review — no data leaves your machine |
 | `/brainstorm` | Multi-LLM brainstorm with Claude Opus as a first-class research participant (default external: gemini,codex) |
 | `/grok-review` | Grok review through explicit xAI API or Grok CLI harness; no fallback |
+| `/grok-pair` | Consent-gated iterative Grok reviewer through exact Cursor Agent, xAI API, or Grok CLI route; no fallback |
+| `/codex-pair` | Claude/Pi per-edit pairing dashboard; Cursor on-demand session adapter with explicit Thread ID continuity |
 | `/brainstorm-all` | Brainstorm with all five external providers (Gemini, Codex, Grok, Ollama, Antigravity) + Claude Opus research |
 | `/compare` | Side-by-side raw responses from multiple providers (no synthesis, no consensus extraction) |
 
@@ -127,7 +139,7 @@ To disable:
 
 ## Requirements
 
-- **Claude Code or Pi 0.83.0+** installed
+- **Claude Code, Cursor Agent, or Pi 0.83.0+** installed
 - **Claude Code** installed for marketplace agents, hooks, independent Fable review, and the blocking Stop gate
 - **Gemini CLI** authenticated — required for hooks and Gemini features
 - **Codex CLI** — required for `/codex-review` and brainstorm with Codex

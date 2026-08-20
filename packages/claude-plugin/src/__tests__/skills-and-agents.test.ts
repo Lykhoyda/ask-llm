@@ -15,12 +15,13 @@ const expectedSkills = [
   "compare",
   "fable-review",
   "gemini-review",
+  "grok-pair",
   "grok-review",
   "multi-review",
   "ollama-review",
   "sol-review",
 ];
-const expectedPiSkills = expectedSkills.filter((skill) => skill !== "fable-review");
+const expectedPiSkills = expectedSkills.filter((skill) => skill !== "fable-review" && skill !== "grok-pair");
 const allowedAgentSkillFields = new Set([
   "name",
   "description",

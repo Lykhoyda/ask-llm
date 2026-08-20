@@ -8,7 +8,7 @@
       "command": "npx",
       "args": ["-y", "@ask-llm/grok-mcp"]
     },
-    "unified": {
+    "ask-llm": {
       "command": "npx",
       "args": ["-y", "@ask-llm/mcp"]
     }

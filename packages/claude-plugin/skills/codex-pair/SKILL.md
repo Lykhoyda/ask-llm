@@ -1,12 +1,13 @@
 ---
 name: codex-pair
-description: Show codex-pair status and set up the per-edit Codex review hook for this project. Detects whether codex-pair is active, paused, or not yet configured. On first run (no marker), offers interactive setup with auto-detected project context. On subsequent runs, shows current state, recent review activity, and toggle instructions. The per-edit hook itself runs automatically; this command is the human-facing dashboard for it.
+description: Pair with Codex using the host's supported lifecycle. On Claude Code and Pi, manages the proven opt-in per-edit review flow; on Cursor Agent, runs an explicit consent-gated iterative reviewer session through ask-codex without assuming Claude hooks or namespaces.
+disable-model-invocation: true
 ---
 
 <!-- PORTABLE-CONTRACT:START -->
 ## Portable contract
 
-Set up and report status for recall-first per-edit Codex review. The repository marker carries review context but is not, by itself, authorization on Pi. Preserve bounded file context, debounce, pause/resume, acknowledgement, deduplication, failure disclosure, and explicit host lifecycle limitations.
+Use Codex as an explicit read-only reviewer while the host remains the editor. Apply `../pairing-contract.md`. Where the host supports the established per-edit integration, set up and report its status: the repository marker carries review context but is not, by itself, authorization on Pi. Preserve bounded file context, include-directory handling, reasoning effort, session continuity where supported, consent, cancellation, actionable relay, failure disclosure, and explicit host lifecycle limitations.
 <!-- PORTABLE-CONTRACT:END -->
 
 ## Host adapters
@@ -14,6 +15,25 @@ Set up and report status for recall-first per-edit Codex review. The repository 
 ### Pi adapter
 
 Pi requires project trust, this repository marker, and explicit user-owned allowlist consent through `/codex-pair`. Pairing is asynchronous in TUI/RPC/long-lived JSON modes, uses `tool_result`, and surfaces findings non-blockingly. One-shot print mode, blocking Stop-gate parity, and nested Fable execution are unsupported.
+
+### Cursor Agent adapter
+
+Cursor discovers this `SKILL.md` through its supported Agent Skills surface; `/codex-pair` attaches it as an explicit command. Do **not** use Claude Code's `PostToolUse`, `Stop`, `SessionStart`, `SessionEnd`, `CLAUDE_PLUGIN_ROOT`, `AskUserQuestion`, or plugin tool namespaces. This adapter is an on-demand iterative pairing session, not a claim that Claude hooks were registered in Cursor.
+
+1. Read `../pairing-contract.md`. Resolve an exposed MCP tool whose exact leaf is `ask-codex`; do not assume its server prefix and do not downgrade to generic `ask-llm`. If absent, stop with:
+   ```json
+   {"mcpServers":{"codex":{"command":"npx","args":["-y","@ask-llm/codex-mcp"]}}}
+   ```
+   Save that as project `.cursor/mcp.json` or user `~/.cursor/mcp.json`, ensure `codex` is authenticated, reload MCP/restart Cursor Agent, and invoke `/codex-pair` again.
+2. Parse optional `model=<exact ID>`, `effort=low|medium|high|xhigh|max`, and `include=dir1,dir2`. Reject absolute, `..`, and `~` include paths; cap at 32. Build a bounded context manifest (20 KB/file, 100 KB/request) from task requirements, relevant project instructions, changed files, and tests. Do not send secrets or unrelated files.
+3. Before the first provider call, show host=`Cursor Agent`, reviewer provider=`codex`, transport=`ask-codex`/Codex CLI, exact model, reasoning effort, include directories, read-only sandbox, data/quota boundary, and fresh persisted-session intent. Ask for explicit confirmation using Cursor's normal conversational approval surface. Refusal ends `cancelled` with no provider call.
+4. First call exactly:
+   ```text
+   ask-codex({ prompt, model, reasoningEffort, includeDirs, sessionId: "", sandbox: "read-only" })
+   ```
+   The prompt assigns Codex the independent reviewer role and requests actionable severity/file/line evidence. Capture the returned structured `sessionId`/Thread ID and actual model. Relay feedback before changing code; verify every finding against source and label it accepted, rejected, or deferred.
+5. At meaningful checkpoints, call the same `ask-codex` tool with the captured `sessionId`, same model/effort, bounded delta, and `sandbox: "read-only"`. Omit `includeDirs` on resumed calls because `codex exec resume` does not support them; never silently strip them from the first call. If no session ID was returned, stop with a session diagnostic instead of pretending continuity.
+6. A Cursor interrupt cancels the MCP request. Report `cancelled` and never retry another tool/model/provider. Preserve earlier feedback on later failure and report `failed (partial)`. On success report `completed` with host, provider, requested/actual model, effort, session reuse count, context/include directories, accepted/rejected/deferred actions, and any reported Codex quota fallback. Never conceal fallback or rewrite a model.
 
 <!-- HOST-ADAPTER:CLAUDE-CODE:START -->
 ### Claude Code adapter

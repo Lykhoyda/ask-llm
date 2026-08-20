@@ -1,0 +1,31 @@
+{
+  "name": "ask-llm",
+  "displayName": "Ask LLM",
+  "version": "0.13.0",
+  "description": "Portable AI-to-AI review and pairing workflows for Cursor Agent with explicit provider transports.",
+  "author": {
+    "name": "Anton Lykhoyda"
+  },
+  "license": "MIT",
+  "keywords": ["cursor", "codex", "grok", "pair-programming", "code-review"],
+  "skills": [
+    "./skills/antigravity-review",
+    "./skills/brainstorm",
+    "./skills/brainstorm-all",
+    "./skills/codex-image",
+    "./skills/codex-pair",
+    "./skills/codex-pair-ack",
+    "./skills/codex-pair-pause",
+    "./skills/codex-pair-resume",
+    "./skills/codex-review",
+    "./skills/codex-verify",
+    "./skills/compare",
+    "./skills/gemini-review",
+    "./skills/grok-pair",
+    "./skills/grok-review",
+    "./skills/multi-review",
+    "./skills/ollama-review",
+    "./skills/sol-review"
+  ],
+  "mcpServers": "./mcp.json"
+}

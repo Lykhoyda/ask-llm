@@ -1,5 +1,15 @@
 # Architectural Decisions
 
+## ADR-147: Pair workflows use portable contracts and native host adapters
+
+**Status:** Accepted (2026-08-21)
+
+**Context:** Claude Code's proven `codex-pair` combines a slash-command dashboard with Claude-specific hooks, while Cursor Agent exposes standard Agent Skills, Cursor Plugin MCP registration, and different lifecycle semantics. Grok additionally separates provider, direct API/CLI transport, and the model-neutral Cursor harness. Reusing Claude hook names, plugin namespaces, or generic provider calls would either make Cursor pairing inert or silently discard model/effort/include/session guarantees.
+
+**Decision:** Keep Claude `codex-pair` behavior unchanged and extract a portable pair contract covering reviewer/editor roles, bounded context, explicit consent, safe relative include directories, immutable transport/model attribution, feedback relay, cancellation, sessions, partial failure, and terminal reporting. Add a Cursor Plugin adapter that discovers `/codex-pair` through Agent Skills and calls the exact `ask-codex` MCP capability as an on-demand persisted reviewer session; it never claims Claude hooks are active. Add Claude `/grok-pair` with one explicitly selected route: Cursor Agent when configured, xAI API, or Grok CLI. Host, provider, harness, requested model, reasoning semantics, and reported display label remain distinct; Auto, generic-call downgrade, and cross-route/provider/model fallback are forbidden. Unified `ask-llm` now forwards supported `includeDirs` and `reasoningEffort` and rejects unsupported combinations rather than stripping them. Cursor Agent consultations accept validated `--add-dir` roots and structured session resume.
+
+**Consequences:** Claude retains continuous per-edit Codex review; Cursor gets a truthful on-demand pair lifecycle through its supported surfaces. Grok pairing can prioritize Cursor without conflating it with the Grok provider or removing direct routes. Pi continues its existing Codex lifecycle adapter and does not advertise `grok-pair` until it has dedicated consent/lifecycle support. Canonical contracts and host guidance live in `packages/claude-plugin/skills/pairing-contract.md`, the pair skills, and `apps/docs/plugin/cursor.md`.
+
 ## ADR-146: Grok is first-class across explicit API/CLI harnesses; Cursor remains model-neutral
 
 **Status:** Accepted (2026-08-20)
