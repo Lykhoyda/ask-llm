@@ -225,7 +225,7 @@ Send a one-shot prompt through either xAI's Responses API (`xai-api`, default) o
 - **Package:** @ask-llm/grok-mcp
 - **Parameters:**
   - `prompt` (string, required): The review, question, or analysis task.
-  - `model` (string, optional): Exact xAI API model ID, sent unchanged. Default: `grok-4.6`. There is no fallback.
+  - `model` (string, optional): Exact selected-harness model ID, sent unchanged. Default: `grok-4.6` (xAI API) or `grok-build` (Grok CLI). There is no fallback.
   - `harness` (string, optional): `xai-api` or `grok-cli`; default `xai-api` or `ASK_GROK_HARNESS`. No harness failover.
   - `reasoningEffort` (string, optional): `low`, `medium`, `high`, or `xhigh`; default `high`.
 - **Returns:** Grok text plus standard structured provider/model/usage metadata. Machine-mode callers get strict JSON Schema output.
@@ -279,7 +279,7 @@ Use Cursor Agent as a model-neutral read-only harness. Requires an authenticated
 - **Package:** @ask-llm/mcp
 - **Parameters:** `provider` (canonical model provider), `model` (required exact ID from `agent --list-models`), `prompt`.
 - **Behavior:** `agent --print --mode ask`; no `--force`, no automatic `--trust`, no Auto model, no spend-limit changes, and no fallback.
-- **Returns:** Standard AskResponse with separate provider, actual model, and `harness: "cursor-agent"`.
+- **Returns:** Standard AskResponse with separate provider, the exact requested Cursor ID echoed as `model`, Cursor's display label as optional `reportedModel`, and `harness: "cursor-agent"`.
 
 ### multi-llm
 
@@ -452,7 +452,7 @@ All MCP servers handle errors gracefully:
 |----------|---------|-------------|
 | XAI_API_KEY | required for xai-api | xAI credential; never logged/returned |
 | ASK_GROK_HARNESS | xai-api | Explicit xai-api or grok-cli selection; no failover |
-| ASK_GROK_MODEL | grok-4.6 | Exact selected-harness Grok model ID |
+| ASK_GROK_MODEL | grok-4.6 (API) / grok-build (CLI) | Exact selected-harness Grok model ID |
 | ASK_GROK_REASONING_EFFORT | high | low, medium, high, or xhigh |
 | ASK_GROK_MAX_OUTPUT_TOKENS | 16384 | xAI API output cap to bound accidental spend |
 | ASK_GROK_TIMEOUT_MS | 600000 | Grok API/CLI timeout |

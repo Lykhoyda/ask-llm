@@ -2,12 +2,12 @@
 
 MCP server for one-shot Grok consultations through either the supported xAI Responses API (`xai-api`, default) or official Grok Build headless CLI (`grok-cli`). Harness and model selection remain separate, with no automatic failover.
 
-- Default exact model ID: `grok-4.6`
+- Default exact model IDs: `grok-4.6` (xAI API) and `grok-build` (Grok CLI); CLI IDs come from `grok models`
 - Reasoning effort: `low`, `medium`, `high` (default), `xhigh` — xAI documents `xhigh` for `grok-4.6` and later and applies it as `high` on older models; Ask LLM sends the requested effort unchanged, discloses that coercion as a progress note, and classifies an effort-rejecting 4xx with the supported list
 - Prompts above 16 KB reach the Grok CLI through a private `--prompt-file` (0600, removed after the run) instead of argv, but only after `grok --help` advertises the flag (present in official Grok Build 1.0.5); otherwise the call fails before spawn with an update-or-shorten diagnostic and no argv retry
 - No model rewriting, substitution, or fallback
 - Strict JSON Schema support for machine-mode callers
-- Cancellation and timeout abort the underlying HTTP request
+- Cancellation and timeout abort the underlying HTTP request or terminate the CLI process
 - Stable, redacted diagnostics for credentials, models, quota/rate limits, transport, malformed output, and safety refusals
 
 ## Setup
@@ -74,6 +74,6 @@ GROK_CLI_LIVE_TEST=1 GROK_CLI_LIVE_MODEL=grok-4.6 \
   yarn test --project @ask-llm/grok-mcp
 ```
 
-For the model-neutral Cursor Agent harness, use `ask-cursor-agent` from `@ask-llm/mcp`; it requires a canonical provider family (`claude`, `codex`, `gemini`, `grok`) plus an exact `agent --list-models` ID, verifies that the requested and CLI-reported model belong to that family (refusing mismatches, Auto, and other noncanonical IDs), pipes prompts above 16 KB over stdin, and never changes Cursor spend/trust settings.
+For the model-neutral Cursor Agent harness, use `ask-cursor-agent` from `@ask-llm/mcp`; it requires a canonical provider family (`claude`, `codex`, `gemini`, `grok`) plus an exact `agent --list-models` ID, verifies the requested ID against that family before spawn (refusing mismatches, Auto, and other noncanonical IDs), echoes the exact ID as `model` with Cursor's display label as optional `reportedModel`, pipes prompts above 16 KB over stdin, and never changes Cursor spend/trust settings.
 
 See the full provider guide: <https://lykhoyda.github.io/ask-llm/providers/grok>.

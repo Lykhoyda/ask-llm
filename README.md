@@ -222,7 +222,7 @@ The **Ask LLM plugin** adds multi-provider code review, brainstorming, and autom
 | <nobr>`/grok-review`</nobr> | Metered Grok review through xAI with exact model attribution and no fallback |
 | <nobr>`/ollama-review`</nobr> | Local review — no data leaves your machine |
 | <nobr>`/antigravity-review`</nobr> | Subscription-backed review via Google Antigravity (`agy`) — experimental |
-| <nobr>`/brainstorm`</nobr> | Multi-LLM brainstorm: Claude Opus researches the topic against real files in parallel with external providers (Gemini/Codex/Ollama), then synthesizes all findings with verified findings weighted higher |
+| <nobr>`/brainstorm`</nobr> | Multi-LLM brainstorm: Claude Opus researches the topic against real files in parallel with external providers (Gemini/Codex/Grok/Ollama/Antigravity), then synthesizes all findings with verified findings weighted higher |
 | <nobr>`/compare`</nobr> | Side-by-side raw responses from multiple providers, no synthesis — for when you want to see how each provider phrases the same answer |
 | <nobr>**`codex-pair` hook**</nobr> | Opt-in continuous review — runs Codex against every Edit/Write/MultiEdit when a `.codex-pair/context.md` marker is present in the project |
 

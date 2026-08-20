@@ -10,7 +10,7 @@
 
 </div>
 
-A unified [MCP](https://modelcontextprotocol.io/) server that auto-detects installed LLM providers (Gemini, Codex, Claude, Ollama, Antigravity) and registers only the available tools. One install, all providers. Works with Claude Code, Codex CLI, Cursor, Warp, Copilot, and [40+ other MCP clients](https://modelcontextprotocol.io/clients).
+A unified [MCP](https://modelcontextprotocol.io/) server that detects configured LLM providers (Gemini, Codex, Claude, Grok, Ollama, Antigravity) and registers only the available tools. One install, all providers. Works with Claude Code, Codex CLI, Cursor, Warp, Copilot, and [40+ other MCP clients](https://modelcontextprotocol.io/clients).
 
 Part of the [Ask LLM](https://github.com/Lykhoyda/ask-llm) monorepo.
 
