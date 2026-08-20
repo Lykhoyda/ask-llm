@@ -1,6 +1,6 @@
 # Architectural Decisions
 
-## ADR-145: Grok is first-class across explicit API/CLI harnesses; Cursor remains model-neutral
+## ADR-146: Grok is first-class across explicit API/CLI harnesses; Cursor remains model-neutral
 
 **Status:** Accepted (2026-08-20)
 
