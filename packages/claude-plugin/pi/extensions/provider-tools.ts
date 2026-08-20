@@ -84,7 +84,8 @@ const cursorAgentSchema = Type.Object({
   }),
   model: Type.String({
     minLength: 1,
-    description: "Exact ID from agent --list-models. Auto and other noncanonical IDs are refused.",
+    description:
+      "Exact ID from agent --list-models; echoed back as `model`, with the CLI display label in `reportedModel`. Auto and other noncanonical IDs are refused.",
   }),
 });
 
@@ -248,6 +249,7 @@ export function registerProviderTools(pi: ExtensionAPI): void {
           provider: result.provider,
           harness: result.harness,
           model: result.model,
+          reportedModel: result.reportedModel,
           askLlmUsage: result.usage,
           outputTruncated: text.truncated,
         },

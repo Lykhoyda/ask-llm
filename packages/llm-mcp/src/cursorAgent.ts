@@ -36,6 +36,7 @@ export interface CursorAgentOptions {
 export interface CursorAgentResult {
   response: string;
   model: string;
+  reportedModel: string | undefined;
   provider: CursorProviderName;
   sessionId: string | undefined;
   usage: UsageStats;
@@ -123,19 +124,32 @@ function parseEvents(raw: string): CursorEvent[] {
   return events;
 }
 
-function assertModelFamily(provider: CursorProviderName, model: string, source: "requested" | "reported"): void {
+function assertRequestedModelFamily(provider: CursorProviderName, model: string): void {
   const family = cursorModelFamily(model);
   const catalog = CURSOR_PROVIDERS.join(", ");
   if (family === null) {
     throw new Error(
-      `Cursor Agent ${source} model "${model}" does not belong to a canonical provider family (${catalog}). Ask LLM refuses Cursor Auto and other noncanonical catalog IDs; choose an exact provider-backed ID from \`agent --list-models\`. No fallback was attempted.`,
+      `Cursor Agent requested model "${model}" does not belong to a canonical provider family (${catalog}). Ask LLM refuses Cursor Auto and other noncanonical catalog IDs; choose an exact provider-backed ID from \`agent --list-models\`. No fallback was attempted.`,
     );
   }
   if (family !== provider) {
     throw new Error(
-      `Cursor Agent ${source} model "${model}" belongs to provider "${family}", not the requested provider "${provider}". Pass provider="${family}" or choose a ${provider} model from \`agent --list-models\`. Ask LLM does not rewrite the attribution. No fallback was attempted.`,
+      `Cursor Agent requested model "${model}" belongs to provider "${family}", not the requested provider "${provider}". Pass provider="${family}" or choose a ${provider} model from \`agent --list-models\`. Ask LLM does not rewrite the attribution. No fallback was attempted.`,
     );
   }
+}
+
+function assertReportedModelFamily(provider: CursorProviderName, model: string, reportedModel: string): void {
+  const family = cursorModelFamily(reportedModel);
+  if (family === null || family === provider) return;
+  throw new Error(
+    `Cursor Agent reported model "${reportedModel}" (provider "${family}") for requested ${provider} model "${model}". Ask LLM refuses cross-provider substitution and does not retry. No fallback was attempted.`,
+  );
+}
+
+function reportedModelFooter(model: string, reportedModel: string | undefined): string {
+  if (!reportedModel || reportedModel === model) return "";
+  return `\n[Cursor Agent reported model: ${reportedModel}]`;
 }
 
 export async function probeCursorAgent(): Promise<boolean> {
@@ -176,7 +190,7 @@ export async function executeCursorAgent(options: CursorAgentOptions): Promise<C
       `Cursor Agent provider "${String(options.provider)}" is not a canonical Cursor catalog provider (${CURSOR_PROVIDERS.join(", ")}). No fallback was attempted.`,
     );
   }
-  assertModelFamily(options.provider, model, "requested");
+  assertRequestedModelFamily(options.provider, model);
   const timeoutMs = resolveTimeoutMs(EXECUTION.CURSOR_TIMEOUT_ENV_VAR, EXECUTION.DEFAULT_CURSOR_TIMEOUT_MS);
   const promptViaStdin = Buffer.byteLength(options.prompt, "utf8") > CURSOR_STDIN_THRESHOLD_BYTES;
   const args = [
@@ -213,14 +227,14 @@ export async function executeCursorAgent(options: CursorAgentOptions): Promise<C
   const resultEvent = [...events].reverse().find((event) => event.type === "result");
   const content = resultEvent?.result?.trimEnd();
   if (!content) throw new Error("Cursor Agent returned no final result. No fallback was attempted.");
-  const reportedModel = events.find((event) => event.type === "system" && event.subtype === "init")?.model?.trim();
-  if (reportedModel) assertModelFamily(options.provider, reportedModel, "reported");
+  const reportedModel =
+    events.find((event) => event.type === "system" && event.subtype === "init")?.model?.trim() || undefined;
+  if (reportedModel) assertReportedModelFamily(options.provider, model, reportedModel);
   options.onProgress?.(content.slice(-150));
-  const actualModel = reportedModel || model;
   const usageEvent = [...events].reverse().find((event) => event.usage)?.usage;
   const usage: UsageStats = {
     provider: options.provider,
-    model: actualModel,
+    model,
     inputTokens: usageEvent?.input_tokens,
     outputTokens: usageEvent?.output_tokens,
     cachedTokens: usageEvent?.cached_tokens,
@@ -230,8 +244,9 @@ export async function executeCursorAgent(options: CursorAgentOptions): Promise<C
   };
 
   return {
-    response: `${content}${formatUsageStats(usage)}`,
-    model: actualModel,
+    response: `${content}${formatUsageStats(usage)}${reportedModelFooter(model, reportedModel)}`,
+    model,
+    reportedModel,
     provider: options.provider,
     sessionId: undefined,
     usage,

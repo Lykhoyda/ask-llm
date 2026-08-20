@@ -65,7 +65,7 @@ The orchestrator exposes a **single `ask-llm` tool** (not one tool per provider 
 | Tool | Purpose |
 |------|---------|
 | `ask-llm` | Route a prompt to a provider via the `provider` param (`gemini`, `codex`, `claude`, `grok`, `ollama`, `antigravity`); optional `harness` selects xai-api/grok-cli for Grok only; for Codex continuity, pass `sessionId: ""` first, then resume with the returned ID |
-| `ask-cursor-agent` | Model-neutral Cursor harness with separate provider (`claude`, `codex`, `gemini`, `grok`) + exact model ID; the requested and CLI-reported model must belong to that provider family (Auto/noncanonical IDs are refused); prompts above 16 KB go over stdin; read-only ask mode, no fallback |
+| `ask-cursor-agent` | Model-neutral Cursor harness with separate provider (`claude`, `codex`, `gemini`, `grok`) + exact model ID; the requested ID must belong to that provider family (Auto/noncanonical IDs are refused) and is echoed back as `model`, with Cursor's display label in optional `reportedModel` (cross-provider labels fail the call); prompts above 16 KB go over stdin; read-only ask mode, no fallback |
 | `multi-llm` | Dispatch one prompt to multiple providers in parallel; structured per-provider report |
 | `get-usage-stats` | Per-session token totals + per-provider/model breakdowns (in-memory) |
 | `diagnose` | Environment diagnostics — provider CLI presence + versions |

@@ -110,7 +110,7 @@ API responses use `store: false`, so this integration does not opt into xAI's de
 
 ## Cursor Agent model-neutral path
 
-The unified server and Pi host expose `ask-cursor-agent` separately from `ask-grok`. It requires both `provider` — one of the canonical provider families Cursor can serve: `claude`, `codex`, `gemini`, `grok` — and an exact Cursor `model`; this prevents the Cursor transport from masquerading as a model provider. Ask LLM derives the model family from the requested ID before spawning and again from the model the CLI reports in its init event, and refuses (without fallback) when either disagrees with `provider` or is noncanonical (Cursor Auto, `composer-*`, and similar):
+The unified server and Pi host expose `ask-cursor-agent` separately from `ask-grok`. It requires both `provider` — one of the canonical provider families Cursor can serve: `claude`, `codex`, `gemini`, `grok` — and an exact Cursor `model`; this prevents the Cursor transport from masquerading as a model provider. Ask LLM derives the model family from the requested ID before spawning and refuses (without fallback) when it disagrees with `provider` or is noncanonical (Cursor Auto, `composer-*`, and similar); the CLI-reported display label is checked afterwards only for cross-provider contradictions:
 
 ```json
 {
@@ -120,7 +120,7 @@ The unified server and Pi host expose `ask-cursor-agent` separately from `ask-gr
 }
 ```
 
-The model list is account-specific and can change; always run `agent --list-models`. Cursor may consume included usage or on-demand spend according to the user's Cursor plan. Ask LLM does not enable on-demand spend, alter limits, select Auto, trust a workspace, or retry another model. A `provider`/`model` mismatch (for example `provider: "claude"` with `cursor-grok-4.6-high`) is rejected before the CLI runs, and a CLI that reports a model from another family or a noncanonical model fails the call rather than mislabeling the attribution.
+The model list is account-specific and can change; always run `agent --list-models`. Cursor may consume included usage or on-demand spend according to the user's Cursor plan. Ask LLM does not enable on-demand spend, alter limits, select Auto, trust a workspace, or retry another model. A `provider`/`model` mismatch (for example `provider: "claude"` with `cursor-grok-4.6-high`) or a noncanonical requested ID is rejected before the CLI runs. The response's `model` (and `usage.model`) always echoes the exact requested catalog ID; Cursor's `system/init` event reports a human display label (for example `Grok 4.6`), which Ask LLM returns separately as the optional `reportedModel` field and as a footer line. That label is used only for coarse corroboration: a label that clearly belongs to another provider family fails the call as a cross-provider substitution, while an unclassifiable label is surfaced, not guessed at.
 
 ## Pricing and cost safety
 

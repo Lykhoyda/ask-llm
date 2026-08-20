@@ -21,6 +21,7 @@ export const askResponseSchema = z.object({
   sessionId: z.string().optional(),
   usage: usageStatsSchema.optional(),
   harness: harnessSchema.optional(),
+  reportedModel: z.string().optional(),
 });
 
 export type AskResponse = z.infer<typeof askResponseSchema>;

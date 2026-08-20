@@ -391,7 +391,7 @@ export async function startServer() {
       .string()
       .min(1)
       .describe(
-        "Exact Cursor catalog model ID from `agent --list-models`; Ask LLM does not rewrite it and refuses Auto or other noncanonical IDs.",
+        "Exact Cursor catalog model ID from `agent --list-models`; Ask LLM does not rewrite it, echoes it back as `model`, and refuses Auto or other noncanonical IDs. The CLI's display label is returned separately as `reportedModel`.",
       ),
     prompt: z.string().min(1).max(100000).describe("Question, review, or analysis task for Cursor Agent ask mode."),
   });
@@ -427,6 +427,7 @@ export async function startServer() {
           model: result.model,
           usage: result.usage,
           harness: result.harness,
+          reportedModel: result.reportedModel,
         };
         const structuredContent: Record<string, unknown> = { ...structured };
         return {

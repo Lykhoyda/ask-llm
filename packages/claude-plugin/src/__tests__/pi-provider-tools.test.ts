@@ -97,6 +97,7 @@ describe("Pi provider tools", () => {
       response: "cursor result",
       provider: "grok",
       model: "cursor-grok-4.6-high",
+      reportedModel: "Grok 4.6",
       harness: "cursor-agent",
       usage: { provider: "grok", model: "cursor-grok-4.6-high", fellBack: false },
     });
@@ -116,6 +117,7 @@ describe("Pi provider tools", () => {
       provider: "grok",
       harness: "cursor-agent",
       model: "cursor-grok-4.6-high",
+      reportedModel: "Grok 4.6",
       askLlmUsage: { fellBack: false },
     });
   });

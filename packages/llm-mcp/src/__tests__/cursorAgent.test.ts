@@ -15,7 +15,7 @@ import {
   probeCursorAgent,
 } from "../cursorAgent.js";
 
-function stream(model = "cursor-grok-4.6-high", result = "Cursor review"): string {
+function stream(model = "Grok 4.6", result = "Cursor review"): string {
   return [
     JSON.stringify({ type: "system", subtype: "init", model, session_id: "session-fixture" }),
     JSON.stringify({ type: "assistant", message: { content: [{ type: "text", text: result }] } }),
@@ -62,9 +62,12 @@ describe("model-neutral Cursor Agent harness", () => {
     expect(result).toMatchObject({
       provider: "grok",
       model: "cursor-grok-4.6-high",
+      reportedModel: "Grok 4.6",
       harness: "cursor-agent",
-      usage: { provider: "grok", fellBack: false },
+      usage: { provider: "grok", model: "cursor-grok-4.6-high", fellBack: false },
     });
+    expect(result.response).toContain("model: cursor-grok-4.6-high");
+    expect(result.response).toContain("[Cursor Agent reported model: Grok 4.6]");
   });
 
   it("passes the Cursor-specific timeout to the cancellable command boundary", async () => {
@@ -74,7 +77,7 @@ describe("model-neutral Cursor Agent harness", () => {
   });
 
   it("is model-neutral and preserves a non-Grok provider/model pair", async () => {
-    executeCommandMock.mockResolvedValueOnce(stream("claude-opus-5-thinking-high", "Claude via Cursor"));
+    executeCommandMock.mockResolvedValueOnce(stream("Claude Opus 5 (Thinking, High)", "Claude via Cursor"));
     const result = await executeCursorAgent({
       provider: "claude",
       model: "claude-opus-5-thinking-high",
@@ -82,6 +85,7 @@ describe("model-neutral Cursor Agent harness", () => {
     });
     expect(result.provider).toBe("claude");
     expect(result.model).toBe("claude-opus-5-thinking-high");
+    expect(result.reportedModel).toBe("Claude Opus 5 (Thinking, High)");
     expect(result.response).toContain("Claude via Cursor");
   });
 
@@ -221,24 +225,45 @@ describe("Cursor provider attribution is verified against the model family", () 
     expect(executeCommandMock).not.toHaveBeenCalled();
   });
 
-  it("refuses when the CLI reports a model from a different family than the requested provider", async () => {
-    executeCommandMock.mockResolvedValueOnce(stream("claude-opus-5-thinking-high", "served by claude"));
+  it("fails terminally when the CLI display label reveals a cross-provider substitution", async () => {
+    executeCommandMock.mockResolvedValueOnce(stream("Claude Opus 5 (Thinking, High)", "served by claude"));
     await expect(
       executeCursorAgent({ provider: "grok", model: "cursor-grok-4.6-high", prompt: "review" }),
-    ).rejects.toThrow(/reported model "claude-opus-5-thinking-high" belongs to provider "claude"/);
+    ).rejects.toThrow(
+      /reported model "Claude Opus 5 \(Thinking, High\)" \(provider "claude"\) for requested grok model/,
+    );
+    expect(executeCommandMock).toHaveBeenCalledTimes(1);
   });
 
-  it("refuses when the CLI silently resolves the request to a noncanonical model", async () => {
-    executeCommandMock.mockResolvedValueOnce(stream("auto", "served by auto"));
-    await expect(
-      executeCursorAgent({ provider: "grok", model: "cursor-grok-4.6-high", prompt: "review" }),
-    ).rejects.toThrow(/reported model "auto" does not belong to a canonical provider family/);
-  });
-
-  it("accepts a CLI-reported model in the same family and reports it truthfully", async () => {
-    executeCommandMock.mockResolvedValueOnce(stream("grok-4.6", "served"));
+  it("keeps the requested catalog ID and surfaces a label it cannot classify instead of guessing", async () => {
+    executeCommandMock.mockResolvedValueOnce(stream("Auto", "served"));
     const result = await executeCursorAgent({ provider: "grok", model: "cursor-grok-4.6-high", prompt: "review" });
-    expect(result.model).toBe("grok-4.6");
-    expect(result.usage.model).toBe("grok-4.6");
+    expect(result.model).toBe("cursor-grok-4.6-high");
+    expect(result.usage.model).toBe("cursor-grok-4.6-high");
+    expect(result.reportedModel).toBe("Auto");
+    expect(result.response).toContain("[Cursor Agent reported model: Auto]");
+  });
+
+  it("corroborates a same-family display label and still reports the exact requested ID", async () => {
+    executeCommandMock.mockResolvedValueOnce(stream("Grok 4.6 (High)", "served"));
+    const result = await executeCursorAgent({ provider: "grok", model: "cursor-grok-4.6-high", prompt: "review" });
+    expect(result.model).toBe("cursor-grok-4.6-high");
+    expect(result.usage.model).toBe("cursor-grok-4.6-high");
+    expect(result.reportedModel).toBe("Grok 4.6 (High)");
+  });
+
+  it("omits reportedModel and the footer when the CLI emits no init event", async () => {
+    executeCommandMock.mockResolvedValueOnce(
+      JSON.stringify({
+        type: "result",
+        subtype: "success",
+        result: "bare",
+        usage: { input_tokens: 1, output_tokens: 1 },
+      }),
+    );
+    const result = await executeCursorAgent({ provider: "grok", model: "cursor-grok-4.6-high", prompt: "review" });
+    expect(result.reportedModel).toBeUndefined();
+    expect(result.model).toBe("cursor-grok-4.6-high");
+    expect(result.response).not.toContain("reported model");
   });
 });
