@@ -21,6 +21,7 @@ export const API = {
 } as const;
 
 export const REASONING_EFFORTS = ["low", "medium", "high", "xhigh"] as const;
+export const REASONING_DOCS_URL = "https://docs.x.ai/developers/model-capabilities/text/reasoning";
 export type GrokReasoningEffort = (typeof REASONING_EFFORTS)[number];
 
 export const ERROR_MESSAGES = {

@@ -6,7 +6,15 @@ vi.mock("@ask-llm/shared", async (importOriginal) => {
   return { ...actual, executeCommand: executeCommandMock };
 });
 
-import { executeGrokCLI, listGrokCliModels, probeGrokCli } from "../grokCliExecutor.js";
+import { existsSync, readFileSync } from "node:fs";
+import { dirname } from "node:path";
+import {
+  executeGrokCLI,
+  GROK_CLI_PROMPT_FILE_THRESHOLD_BYTES,
+  listGrokCliModels,
+  probeGrokCli,
+} from "../grokCliExecutor.js";
+import { constrainPromptToSchema } from "../structuredOutput.js";
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -118,5 +126,61 @@ describe("Grok CLI harness", () => {
 
     executeCommandMock.mockResolvedValueOnce("grok-build  Grok Build\ngrok-4.6  Grok 4.6\n");
     await expect(listGrokCliModels()).resolves.toEqual(["grok-build", "grok-4.6"]);
+  });
+
+  it("does not embed the schema constraint twice when the machine layer already appended it", async () => {
+    const outputSchema = { type: "object", properties: { ok: { type: "boolean" } }, required: ["ok"] };
+    const preConstrained = constrainPromptToSchema("judge", outputSchema);
+    await executeGrokCLI({ prompt: preConstrained, outputSchema });
+    const args: string[] = executeCommandMock.mock.calls[0][1];
+    expect(args[2]).toBe(preConstrained);
+    expect(args[2].split("Return only one JSON object matching this JSON Schema").length).toBe(2);
+  });
+
+  it("hands prompts above the byte threshold to the CLI through a private --prompt-file and cleans it up", async () => {
+    const prompt = "p".repeat(GROK_CLI_PROMPT_FILE_THRESHOLD_BYTES + 1);
+    let observedPath = "";
+    let observedContent = "";
+    executeCommandMock.mockImplementationOnce(async (_command: string, args: string[]) => {
+      observedPath = args[args.indexOf("--prompt-file") + 1];
+      observedContent = readFileSync(observedPath, "utf8");
+      return JSON.stringify({ model: "grok-build", response: "ok" });
+    });
+
+    await executeGrokCLI({ prompt });
+
+    const [command, args, , , stdin, , logging] = executeCommandMock.mock.calls[0];
+    expect(command).toBe("grok");
+    expect(args.slice(0, 3)).toEqual(["--no-auto-update", "--prompt-file", observedPath]);
+    expect(args).not.toContain("-p");
+    expect(args).not.toContain(prompt);
+    expect(stdin).toBeUndefined();
+    expect(logging).toEqual({ sensitiveValues: [] });
+    expect(observedContent).toBe(prompt);
+    expect(existsSync(observedPath)).toBe(false);
+    expect(existsSync(dirname(observedPath))).toBe(false);
+  });
+
+  it("counts UTF-8 bytes for the prompt-file threshold and keeps threshold-sized prompts on argv", async () => {
+    const atThreshold = "p".repeat(GROK_CLI_PROMPT_FILE_THRESHOLD_BYTES);
+    await executeGrokCLI({ prompt: atThreshold });
+    expect(executeCommandMock.mock.calls[0][1].slice(1, 3)).toEqual(["-p", atThreshold]);
+
+    const multibyte = "é".repeat(GROK_CLI_PROMPT_FILE_THRESHOLD_BYTES / 2 + 1);
+    await executeGrokCLI({ prompt: multibyte });
+    expect(executeCommandMock.mock.calls[1][1]).toContain("--prompt-file");
+  });
+
+  it("removes the prompt file and explains an unsupported --prompt-file flag without retrying on argv", async () => {
+    let observedPath = "";
+    executeCommandMock.mockImplementationOnce(async (_command: string, args: string[]) => {
+      observedPath = args[args.indexOf("--prompt-file") + 1];
+      throw new Error("error: unexpected argument '--prompt-file' found");
+    });
+    await expect(executeGrokCLI({ prompt: "q".repeat(GROK_CLI_PROMPT_FILE_THRESHOLD_BYTES + 1) })).rejects.toThrow(
+      /rejected --prompt-file.*Update Grok Build.*No fallback/,
+    );
+    expect(executeCommandMock).toHaveBeenCalledTimes(1);
+    expect(existsSync(observedPath)).toBe(false);
   });
 });

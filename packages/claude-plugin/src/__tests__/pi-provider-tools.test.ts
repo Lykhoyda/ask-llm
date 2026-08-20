@@ -14,7 +14,10 @@ vi.mock("@ask-llm/gemini-mcp/register", () => ({ executeTool: calls.gemini }));
 vi.mock("@ask-llm/grok-mcp/register", () => ({ executeTool: calls.grok }));
 vi.mock("@ask-llm/ollama-mcp/register", () => ({ executeTool: calls.ollama }));
 vi.mock("@ask-llm/antigravity-mcp/register", () => ({ executeTool: calls.antigravity }));
-vi.mock("@ask-llm/mcp/cursor", () => ({ executeCursorAgent: calls.cursor }));
+vi.mock("@ask-llm/mcp/cursor", () => ({
+  executeCursorAgent: calls.cursor,
+  CURSOR_PROVIDERS: ["claude", "codex", "gemini", "grok"],
+}));
 
 import { registerProviderTools } from "../../pi/extensions/provider-tools.js";
 
@@ -82,6 +85,9 @@ describe("Pi provider tools", () => {
       "provider",
       "model",
     ]);
+    expect(byName("ask-cursor-agent").parameters.properties?.provider).toMatchObject({
+      enum: ["claude", "codex", "gemini", "grok"],
+    });
     expect(Object.keys(byName("ask-ollama").parameters.properties ?? {})).toEqual(["prompt", "model", "sessionId"]);
     expect(Object.keys(byName("ask-antigravity").parameters.properties ?? {})).toEqual(["prompt", "includeDirs"]);
   });

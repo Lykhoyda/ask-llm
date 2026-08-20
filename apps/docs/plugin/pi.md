@@ -76,7 +76,7 @@ Native tools:
 | `ask-codex` | complete prompt/model/reasoning/session/includeDirs/preferred/sandbox schema; read-only default |
 | `ask-gemini` | prompt/model/session schema and canonical quota fallback |
 | `ask-grok` | prompt/model/reasoning plus explicit `xai-api` or `grok-cli` harness; no model/harness fallback |
-| `ask-cursor-agent` | model-neutral Cursor harness with separate provider + exact account model ID; read-only ask mode |
+| `ask-cursor-agent` | model-neutral Cursor harness with separate provider (`claude`, `codex`, `gemini`, `grok`) + exact account model ID, verified against the requested and CLI-reported model family; read-only ask mode |
 | `ask-ollama` | prompt/model/session schema; local-only, no silent model substitution |
 | `ask-antigravity` | prompt/includeDirs schema and supported-`agy` checks |
 | `ask-multi` | same prompt to 2–5 unique providers via bounded `Promise.allSettled`; stable input-order records and explicit failures |

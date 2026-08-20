@@ -6,11 +6,12 @@ import { executeTool as executeCodexTool } from "@ask-llm/codex-mcp/register";
 import { executeTool as executeGeminiTool } from "@ask-llm/gemini-mcp/register";
 import { executeTool as executeGrokTool } from "@ask-llm/grok-mcp/register";
 import { executeTool as executeOllamaTool } from "@ask-llm/ollama-mcp/register";
-import { executeCursorAgent } from "@ask-llm/mcp/cursor";
+import { CURSOR_PROVIDERS, executeCursorAgent } from "@ask-llm/mcp/cursor";
 import { Type } from "typebox";
 
 const providerNames = ["codex", "gemini", "grok", "ollama", "antigravity"] as const;
 type ProviderName = (typeof providerNames)[number];
+const cursorProviderNames = CURSOR_PROVIDERS;
 
 type CanonicalResult =
   | string
@@ -77,8 +78,14 @@ const providerOptionSchemas = {
 
 const cursorAgentSchema = Type.Object({
   prompt,
-  provider: StringEnum(providerNames),
-  model: Type.String({ minLength: 1, description: "Exact ID from agent --list-models." }),
+  provider: StringEnum(cursorProviderNames, {
+    description:
+      "Canonical provider family of the Cursor model (claude, codex, gemini, grok); verified against the requested and CLI-reported model ID.",
+  }),
+  model: Type.String({
+    minLength: 1,
+    description: "Exact ID from agent --list-models. Auto and other noncanonical IDs are refused.",
+  }),
 });
 
 const askMultiSchema = Type.Object({
@@ -145,7 +152,7 @@ type ProgressUpdate = {
   details: Record<string, unknown>;
 };
 
-function progressForwarder(onUpdate: ((result: ProgressUpdate) => void) | undefined, provider: ProviderName) {
+function progressForwarder(onUpdate: ((result: ProgressUpdate) => void) | undefined, provider: string) {
   return onUpdate
     ? (text: string) => {
         const output = bounded(text);
@@ -224,7 +231,7 @@ export function registerProviderTools(pi: ExtensionAPI): void {
     name: "ask-cursor-agent",
     label: "Ask via Cursor Agent",
     description:
-      "Use Cursor Agent as a model-neutral read-only harness. Provider and exact model ID are separate. Requires an authenticated Cursor CLI and may consume included usage or on-demand spend; no spend settings or fallback are changed.",
+      "Use Cursor Agent as a model-neutral read-only harness. Provider (claude, codex, gemini, grok) and exact model ID are separate and must agree; Auto or noncanonical catalog IDs are refused. Prompts above 16KB are piped over stdin. Requires an authenticated Cursor CLI and may consume included usage or on-demand spend; no spend settings or fallback are changed.",
     parameters: cursorAgentSchema,
     async execute(_toolCallId, params, signal, onUpdate) {
       const result = await executeCursorAgent({

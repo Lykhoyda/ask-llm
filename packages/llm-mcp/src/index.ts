@@ -3,6 +3,7 @@ import {
   type AskResponse,
   askResponseSchema,
   PROVIDERS as CANONICAL_PROVIDERS,
+  CURSOR_PROVIDERS,
   createDiagnoseTool,
   createProgressTracker,
   createSessionUsage,
@@ -382,12 +383,16 @@ export async function startServer() {
 
   const cursorAgentSchema = z.object({
     provider: z
-      .enum(CANONICAL_PROVIDERS)
-      .describe("Model provider selected inside Cursor Agent; kept separate from the cursor-agent harness."),
+      .enum(CURSOR_PROVIDERS)
+      .describe(
+        "Canonical provider family of the selected Cursor model (claude, codex, gemini, grok); kept separate from the cursor-agent harness and verified against the requested and CLI-reported model ID.",
+      ),
     model: z
       .string()
       .min(1)
-      .describe("Exact Cursor catalog model ID from `agent --list-models`; Ask LLM does not rewrite it."),
+      .describe(
+        "Exact Cursor catalog model ID from `agent --list-models`; Ask LLM does not rewrite it and refuses Auto or other noncanonical IDs.",
+      ),
     prompt: z.string().min(1).max(100000).describe("Question, review, or analysis task for Cursor Agent ask mode."),
   });
   server.registerTool(

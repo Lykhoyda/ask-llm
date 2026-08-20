@@ -79,7 +79,7 @@ agent --list-models
 | Grok Build CLI | `harness: "grok-cli"` or `ASK_GROK_HARNESS=grok-cli` | `grok login` or `XAI_API_KEY` | `grok models` | `--sandbox read-only`, one turn, no subagents/memory/web search |
 | Cursor Agent | unified `ask-cursor-agent` tool | `agent login` or `CURSOR_API_KEY` | `agent --list-models` | `--mode ask`; Ask LLM never passes `--force` or `--trust` |
 
-The documented xAI API identifier is **`grok-4.6`**. Reasoning variants are not separate model IDs: use the `reasoning.effort` request parameter (`low`, `medium`, `high`, or `xhigh`), default `high`.
+The documented xAI API identifier is **`grok-4.6`**. Reasoning variants are not separate model IDs: use the `reasoning.effort` request parameter (`low`, `medium`, `high`, or `xhigh`), default `high`. Per the [xAI reasoning docs](https://docs.x.ai/developers/model-capabilities/text/reasoning), `xhigh` is available on `grok-4.6` and later; on models that do not support it (for example `grok-4.5`) xAI applies it as `high`, and the API does not report the effort actually used. Ask LLM sends the requested effort unchanged and discloses that possible coercion as a progress note whenever `xhigh` is sent. If the model rejects the effort with a 4xx, the error names the model and effort, lists the supported values, and links the docs; no fallback is attempted.
 
 Ask LLM sends the selected model string unchanged. It never rewrites aliases, substitutes a model, or retries on another model. If xAI rejects the ID, the error names the requested model and points to discovery:
 
@@ -88,7 +88,11 @@ curl --fail https://api.x.ai/v1/models \
   -H "Authorization: Bearer $XAI_API_KEY"
 ```
 
-Grok Build's documented default catalog alias is `grok-build` (the coding agent is powered by Grok 4.6). Grok CLI model IDs come from `grok models` and Cursor IDs come from `agent --list-models`; these are harness-specific catalogs and are not interchangeable. For example, Cursor may expose Grok as `cursor-grok-4.6-high` while xAI's API ID is `grok-4.6`. Pass the exact ID from the selected catalog. For consistency-sensitive API workflows, choose an exact dated ID returned for your xAI team. `grok-4.6` is xAI's stable alias and may resolve to a dated deployment; Ask LLM reports the actual `model` returned by the API.
+Grok Build's documented default catalog alias is `grok-build` (the coding agent is powered by Grok 4.6). Grok CLI model IDs come from `grok models` and Cursor IDs come from `agent --list-models`; these are harness-specific catalogs and are not interchangeable. For example, Cursor may expose Grok as `cursor-grok-4.6-high` while xAI's API ID is `grok-4.6`. Pass the exact ID from the selected catalog. For consistency-sensitive API workflows, choose an exact dated ID returned for your xAI team. `grok-4.6` is xAI's stable alias and may resolve to a dated deployment; Ask LLM reports the actual `model` returned by the API and emits a progress note whenever the served ID differs from the requested one.
+
+### Large prompts
+
+Prompts above 16 KB (`EXECUTION.STDIN_THRESHOLD_BYTES`, counted in UTF-8 bytes) never travel as a single argv element. The Grok CLI harness writes them to a private temp file (`0600`) and passes `--prompt-file`; the file is removed after the run, including on failure and cancellation. A Grok Build that does not understand `--prompt-file` fails with an explicit update-or-shorten diagnostic instead of a generic spawn error. The Cursor Agent harness pipes such prompts over stdin and omits the positional prompt argument. The xAI API path has no argv limit.
 
 ## Configuration
 
@@ -106,7 +110,7 @@ API responses use `store: false`, so this integration does not opt into xAI's de
 
 ## Cursor Agent model-neutral path
 
-The unified server and Pi host expose `ask-cursor-agent` separately from `ask-grok`. It requires both `provider` and an exact Cursor `model`; this prevents the Cursor transport from masquerading as a model provider:
+The unified server and Pi host expose `ask-cursor-agent` separately from `ask-grok`. It requires both `provider` — one of the canonical provider families Cursor can serve: `claude`, `codex`, `gemini`, `grok` — and an exact Cursor `model`; this prevents the Cursor transport from masquerading as a model provider. Ask LLM derives the model family from the requested ID before spawning and again from the model the CLI reports in its init event, and refuses (without fallback) when either disagrees with `provider` or is noncanonical (Cursor Auto, `composer-*`, and similar):
 
 ```json
 {
@@ -116,7 +120,7 @@ The unified server and Pi host expose `ask-cursor-agent` separately from `ask-gr
 }
 ```
 
-The model list is account-specific and can change; always run `agent --list-models`. Cursor may consume included usage or on-demand spend according to the user's Cursor plan. Ask LLM does not enable on-demand spend, alter limits, select Auto, trust a workspace, or retry another model.
+The model list is account-specific and can change; always run `agent --list-models`. Cursor may consume included usage or on-demand spend according to the user's Cursor plan. Ask LLM does not enable on-demand spend, alter limits, select Auto, trust a workspace, or retry another model. A `provider`/`model` mismatch (for example `provider: "claude"` with `cursor-grok-4.6-high`) is rejected before the CLI runs, and a CLI that reports a model from another family or a noncanonical model fails the call rather than mislabeling the attribution.
 
 ## Pricing and cost safety
 
@@ -131,7 +135,7 @@ Once a prompt reaches 200k tokens, xAI applies long-context rates to all tokens 
 
 ## Errors and refusals
 
-The API and CLI harnesses return stable Grok-specific diagnostics for missing/invalid `XAI_API_KEY`, unsupported model IDs, HTTP 402/429 credits or rate limits, transport/5xx failures, malformed or incomplete responses, and safety refusals. None of these paths falls back. Error details are bounded and the configured key is redacted before any diagnostic is created.
+The API and CLI harnesses return stable Grok-specific diagnostics for missing/invalid `XAI_API_KEY`, unsupported model IDs, rejected reasoning effort, HTTP 402/429 credits or rate limits, transport/5xx failures, malformed or incomplete responses, safety refusals, and (CLI) an unsupported `--prompt-file` flag. None of these paths falls back. Error details are bounded and the configured key is redacted before any diagnostic is created.
 
 ## Live tests
 

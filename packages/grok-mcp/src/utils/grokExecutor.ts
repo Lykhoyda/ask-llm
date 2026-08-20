@@ -15,6 +15,7 @@ import {
   type GrokReasoningEffort,
   MODEL_DISCOVERY_TIMEOUT_MS,
   MODELS,
+  REASONING_DOCS_URL,
   REASONING_EFFORTS,
   XAI_API_BASE_URL,
   XAI_API_KEY_ENV,
@@ -182,7 +183,12 @@ function looksLikeQuotaError(detail: string): boolean {
   );
 }
 
-function httpError(status: number, detail: string, model: string): Error {
+function looksLikeEffortError(detail: string): boolean {
+  const lower = detail.toLowerCase();
+  return lower.includes("reasoning") || lower.includes("effort");
+}
+
+function httpError(status: number, detail: string, model: string, effort?: GrokReasoningEffort): Error {
   if (status === 401 || status === 403) return new Error(ERROR_MESSAGES.INVALID_CREDENTIALS);
   if (looksLikeSafetyError(detail)) {
     return new Error(`${ERROR_MESSAGES.SAFETY_REFUSAL}${detail ? ` Detail: ${detail}` : ""}`);
@@ -196,6 +202,11 @@ function httpError(status: number, detail: string, model: string): Error {
   if (status >= 500) {
     return new Error(
       `Grok API transport failed with HTTP ${status}${detail ? `: ${detail}` : ""}. Retry later or check xAI service status. No fallback was attempted.`,
+    );
+  }
+  if (effort && status >= 400 && looksLikeEffortError(detail)) {
+    return new Error(
+      `Grok model "${model}" rejected reasoning effort "${effort}" with HTTP ${status}${detail ? `: ${detail}` : ""}. Pick a supported effort (${REASONING_EFFORTS.join(", ")}) via reasoningEffort or ASK_GROK_REASONING_EFFORT; see ${REASONING_DOCS_URL}. The model was not changed and no fallback was attempted.`,
     );
   }
   return new Error(
@@ -325,6 +336,20 @@ export async function listModels(signal?: AbortSignal): Promise<string[]> {
   return payload.data.flatMap((entry) => (typeof entry.id === "string" ? [entry.id] : []));
 }
 
+function discloseEffortCoercion(effort: GrokReasoningEffort, model: string, onProgress?: (note: string) => void): void {
+  if (effort !== "xhigh") return;
+  const note = `Reasoning effort xhigh was sent for "${model}". xAI documents xhigh for grok-4.6 and later and silently applies it as high on models that do not support it; the API does not report the effort actually used (${REASONING_DOCS_URL}).`;
+  Logger.warn(note);
+  onProgress?.(note);
+}
+
+function discloseModelResolution(requested: string, served: string, onProgress?: (note: string) => void): void {
+  if (served === requested) return;
+  const note = `xAI served model "${served}" for requested "${requested}" (provider-side alias resolution; Ask LLM sent the requested ID unchanged and reports the served model).`;
+  Logger.warn(note);
+  onProgress?.(note);
+}
+
 export async function executeGrokAPI(options: GrokExecutorOptions): Promise<GrokExecutorResult> {
   const secret = apiKey();
   const model = options.model?.trim() || MODELS.DEFAULT;
@@ -344,6 +369,7 @@ export async function executeGrokAPI(options: GrokExecutorOptions): Promise<Grok
     }
   }
 
+  discloseEffortCoercion(effort, model, options.onProgress);
   const timeoutMs = resolveTimeoutMs(EXECUTION.GROK_TIMEOUT_ENV_VAR, EXECUTION.DEFAULT_GROK_TIMEOUT_MS);
   const startedAt = Date.now();
   const { response, body } = await requestJson(
@@ -363,8 +389,8 @@ export async function executeGrokAPI(options: GrokExecutorOptions): Promise<Grok
   if (!isResponsesPayload(body)) throw new Error(ERROR_MESSAGES.MALFORMED_RESPONSE);
   const payload = body;
   const detail = errorDetail(payload.error, secret);
-  if (!response.ok) throw httpError(response.status, detail, model);
-  if (payload.error) throw httpError(500, detail, model);
+  if (!response.ok) throw httpError(response.status, detail, model, effort);
+  if (payload.error) throw httpError(500, detail, model, effort);
   if (payload.status === "incomplete") {
     const reason = cleanDetail(payload.incomplete_details?.reason, secret);
     throw new Error(
@@ -377,7 +403,8 @@ export async function executeGrokAPI(options: GrokExecutorOptions): Promise<Grok
 
   const content = outputText(payload, secret);
   if (!content) throw new Error(ERROR_MESSAGES.MALFORMED_RESPONSE);
-  const actualModel = typeof payload.model === "string" && payload.model.trim() ? payload.model : model;
+  const actualModel = typeof payload.model === "string" && payload.model.trim() ? payload.model.trim() : model;
+  discloseModelResolution(model, actualModel, options.onProgress);
   const usage = buildUsageStats(payload, actualModel, Date.now() - startedAt);
   const formatted = `${content}${formatUsageStats(usage)}`;
 

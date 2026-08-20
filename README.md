@@ -252,7 +252,7 @@ See the [plugin docs](https://lykhoyda.github.io/ask-llm/plugin/overview) for de
 | `ask-codex` | @ask-llm/codex-mcp | Send prompts to Codex CLI. GPT-5.6 Sol with Terra fallback; omit `sessionId` for ephemeral use, or pass `sessionId: ""` first to persist and resume |
 | `ask-claude` | @ask-llm/claude-mcp | Send prompts to Claude Code CLI. Opus with Sonnet fallback; native sessions; Read/Glob/Grep-only workspace access |
 | `ask-grok` | @ask-llm/grok-mcp | Send a one-shot Grok prompt through explicit `xai-api` (default) or `grok-cli`; exact harness model ID; no harness/model fallback |
-| `ask-cursor-agent` | @ask-llm/mcp | Model-neutral Cursor Agent harness: separate provider + exact Cursor catalog model, read-only ask mode, no force/trust/spend changes/fallback |
+| `ask-cursor-agent` | @ask-llm/mcp | Model-neutral Cursor Agent harness: separate provider (`claude`, `codex`, `gemini`, `grok`) + exact Cursor catalog model verified against that family, read-only ask mode, no force/trust/spend changes/fallback |
 | `ask-ollama` | @ask-llm/ollama-mcp | Send prompts to local Ollama. Fully private, zero cost. Server-side conversation replay via `sessionId` |
 | `ask-antigravity` | @ask-llm/antigravity-mcp | Send a prompt to Google Antigravity (`agy`) for a subscription-backed second opinion. Experimental; one-shot |
 | `ask-llm` | @ask-llm/mcp | Unified orchestrator — pick provider per call. Fan out to all installed providers |

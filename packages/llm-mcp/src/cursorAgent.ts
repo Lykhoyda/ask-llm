@@ -1,11 +1,15 @@
 import {
+  CURSOR_PROVIDERS,
+  type CursorProviderName,
+  cursorModelFamily,
   EXECUTION,
   executeCommand,
   formatUsageStats,
-  type ProviderName,
   resolveTimeoutMs,
   type UsageStats,
 } from "@ask-llm/shared";
+
+export { CURSOR_PROVIDERS, type CursorProviderName, cursorModelFamily } from "@ask-llm/shared";
 
 interface CursorEvent {
   type?: string;
@@ -23,7 +27,7 @@ interface CursorEvent {
 
 export interface CursorAgentOptions {
   prompt: string;
-  provider: ProviderName;
+  provider: CursorProviderName;
   model: string;
   onProgress?: (newOutput: string) => void;
   signal?: AbortSignal;
@@ -32,11 +36,13 @@ export interface CursorAgentOptions {
 export interface CursorAgentResult {
   response: string;
   model: string;
-  provider: ProviderName;
+  provider: CursorProviderName;
   sessionId: string | undefined;
   usage: UsageStats;
   harness: "cursor-agent";
 }
+
+export const CURSOR_STDIN_THRESHOLD_BYTES = EXECUTION.STDIN_THRESHOLD_BYTES;
 
 function isPresent(value: string | undefined): value is string {
   return value !== undefined && value.length > 0;
@@ -50,7 +56,7 @@ function redactCursorSecrets(message: string): string {
   return result.slice(0, EXECUTION.ERROR_TRUNCATE_LENGTH);
 }
 
-function classifyCursorError(error: unknown, model: string): Error {
+function classifyCursorError(error: unknown, model: string, promptViaStdin = false): Error {
   const detail = redactCursorSecrets(error instanceof Error ? error.message : String(error));
   const lower = detail.toLowerCase();
   if (lower.includes("not found") || lower.includes("enoent")) {
@@ -83,6 +89,11 @@ function classifyCursorError(error: unknown, model: string): Error {
   if (["safety", "policy", "refus"].some((part) => lower.includes(part))) {
     return new Error("Cursor Agent returned a safety refusal. Revise the prompt; no fallback was attempted.");
   }
+  if (promptViaStdin && lower.includes("prompt")) {
+    return new Error(
+      `Cursor Agent did not accept a prompt larger than ${CURSOR_STDIN_THRESHOLD_BYTES} bytes over stdin: ${detail}. Update Cursor CLI to a version that reads piped prompts, or shorten the prompt. No fallback was attempted.`,
+    );
+  }
   return new Error(`Cursor Agent harness failed: ${detail}. No fallback was attempted.`);
 }
 
@@ -110,6 +121,21 @@ function parseEvents(raw: string): CursorEvent[] {
     }
   }
   return events;
+}
+
+function assertModelFamily(provider: CursorProviderName, model: string, source: "requested" | "reported"): void {
+  const family = cursorModelFamily(model);
+  const catalog = CURSOR_PROVIDERS.join(", ");
+  if (family === null) {
+    throw new Error(
+      `Cursor Agent ${source} model "${model}" does not belong to a canonical provider family (${catalog}). Ask LLM refuses Cursor Auto and other noncanonical catalog IDs; choose an exact provider-backed ID from \`agent --list-models\`. No fallback was attempted.`,
+    );
+  }
+  if (family !== provider) {
+    throw new Error(
+      `Cursor Agent ${source} model "${model}" belongs to provider "${family}", not the requested provider "${provider}". Pass provider="${family}" or choose a ${provider} model from \`agent --list-models\`. Ask LLM does not rewrite the attribution. No fallback was attempted.`,
+    );
+  }
 }
 
 export async function probeCursorAgent(): Promise<boolean> {
@@ -145,7 +171,14 @@ export async function listCursorModels(signal?: AbortSignal): Promise<string[]> 
 export async function executeCursorAgent(options: CursorAgentOptions): Promise<CursorAgentResult> {
   const model = options.model.trim();
   if (!model) throw new Error("Cursor Agent requires an exact model ID from `agent --list-models`.");
+  if (!CURSOR_PROVIDERS.includes(options.provider)) {
+    throw new Error(
+      `Cursor Agent provider "${String(options.provider)}" is not a canonical Cursor catalog provider (${CURSOR_PROVIDERS.join(", ")}). No fallback was attempted.`,
+    );
+  }
+  assertModelFamily(options.provider, model, "requested");
   const timeoutMs = resolveTimeoutMs(EXECUTION.CURSOR_TIMEOUT_ENV_VAR, EXECUTION.DEFAULT_CURSOR_TIMEOUT_MS);
+  const promptViaStdin = Buffer.byteLength(options.prompt, "utf8") > CURSOR_STDIN_THRESHOLD_BYTES;
   const args = [
     "--print",
     "--output-format",
@@ -155,7 +188,7 @@ export async function executeCursorAgent(options: CursorAgentOptions): Promise<C
     "ask",
     "--model",
     model,
-    options.prompt,
+    ...(promptViaStdin ? [] : [options.prompt]),
   ];
   const startedAt = Date.now();
 
@@ -166,22 +199,24 @@ export async function executeCursorAgent(options: CursorAgentOptions): Promise<C
       args,
       undefined,
       undefined,
-      undefined,
+      promptViaStdin ? options.prompt : undefined,
       timeoutMs,
-      { sensitiveValues: [options.prompt] },
+      { sensitiveValues: promptViaStdin ? [] : [options.prompt] },
       options.signal,
     );
   } catch (error) {
     if (options.signal?.aborted) throw error;
-    throw classifyCursorError(error, model);
+    throw classifyCursorError(error, model, promptViaStdin);
   }
 
   const events = parseEvents(raw);
   const resultEvent = [...events].reverse().find((event) => event.type === "result");
   const content = resultEvent?.result?.trimEnd();
   if (!content) throw new Error("Cursor Agent returned no final result. No fallback was attempted.");
+  const reportedModel = events.find((event) => event.type === "system" && event.subtype === "init")?.model?.trim();
+  if (reportedModel) assertModelFamily(options.provider, reportedModel, "reported");
   options.onProgress?.(content.slice(-150));
-  const actualModel = events.find((event) => event.type === "system" && event.subtype === "init")?.model ?? model;
+  const actualModel = reportedModel || model;
   const usageEvent = [...events].reverse().find((event) => event.usage)?.usage;
   const usage: UsageStats = {
     provider: options.provider,

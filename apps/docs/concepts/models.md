@@ -52,7 +52,7 @@ Or programmatically:
 { "name": "ask-llm", "arguments": { "provider": "gemini", "model": "gemini-3.6-flash", "prompt": "..." } }
 ```
 
-For Grok, choose the harness first. Discover API IDs with authenticated `GET https://api.x.ai/v1/models`, or CLI IDs with `grok models`, then pass the desired ID unchanged. Reasoning depth is a separate `reasoningEffort` parameter (`low`, `medium`, `high`, `xhigh`), not a model suffix. There is no harness or model fallback. Cursor Agent is separate and model-neutral: `ask-cursor-agent` requires a canonical provider plus an exact account ID from `agent --list-models` (for example a Cursor Grok ID may differ from xAI's API ID).
+For Grok, choose the harness first. Discover API IDs with authenticated `GET https://api.x.ai/v1/models`, or CLI IDs with `grok models`, then pass the desired ID unchanged. Reasoning depth is a separate `reasoningEffort` parameter (`low`, `medium`, `high`, `xhigh`), not a model suffix. There is no harness or model fallback. Cursor Agent is separate and model-neutral: `ask-cursor-agent` requires a canonical provider family (`claude`, `codex`, `gemini`, `grok`) plus an exact account ID from `agent --list-models` (for example a Cursor Grok ID may differ from xAI's API ID); the ID must belong to that family, and Cursor Auto or other noncanonical IDs are refused.
 
 For Codex, common overrides:
 

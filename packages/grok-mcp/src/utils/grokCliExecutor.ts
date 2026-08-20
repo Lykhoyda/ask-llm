@@ -1,3 +1,6 @@
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { EXECUTION, executeCommand, formatUsageStats, resolveTimeoutMs, type UsageStats } from "@ask-llm/shared";
 import {
   ERROR_MESSAGES,
@@ -39,6 +42,8 @@ export interface GrokCliExecutorResult {
   usage: UsageStats;
   harness: "grok-cli";
 }
+
+export const GROK_CLI_PROMPT_FILE_THRESHOLD_BYTES = EXECUTION.STDIN_THRESHOLD_BYTES;
 
 function isPresent(value: string | undefined): value is string {
   return value !== undefined && value.length > 0;
@@ -90,7 +95,7 @@ function responseText(envelope: GrokCliEnvelope): string {
   return typeof value === "string" ? value.trimEnd() : "";
 }
 
-function classifyCliError(error: unknown, model: string): Error {
+function classifyCliError(error: unknown, model: string, promptFile = false): Error {
   const detail = redactCliSecrets(error instanceof Error ? error.message : String(error));
   const lower = detail.toLowerCase();
   if (
@@ -99,6 +104,11 @@ function classifyCliError(error: unknown, model: string): Error {
   ) {
     return new Error(
       "Grok CLI harness is unavailable. Install Grok Build from https://x.ai/cli/install.sh and verify headless JSON support with `grok --help`. No fallback was attempted.",
+    );
+  }
+  if (promptFile && lower.includes("prompt-file")) {
+    return new Error(
+      `Grok CLI rejected --prompt-file, which Ask LLM uses for prompts larger than ${GROK_CLI_PROMPT_FILE_THRESHOLD_BYTES} bytes: ${detail}. Update Grok Build to a version that supports --prompt-file, or shorten the prompt. No fallback was attempted.`,
     );
   }
   if (["unauthorized", "authentication", "login", "api key", "401", "403"].some((part) => lower.includes(part))) {
@@ -141,15 +151,43 @@ export async function listGrokCliModels(signal?: AbortSignal): Promise<string[]>
   }
 }
 
+interface PromptFile {
+  path: string;
+  cleanup: () => Promise<void>;
+}
+
+async function writePromptFile(prompt: string): Promise<PromptFile> {
+  let directory: string;
+  try {
+    directory = await mkdtemp(join(tmpdir(), "ask-grok-prompt-"));
+  } catch (error) {
+    throw new Error(
+      `Grok CLI prompt exceeds ${GROK_CLI_PROMPT_FILE_THRESHOLD_BYTES} bytes but Ask LLM could not create a private temp directory for --prompt-file: ${redactCliSecrets(error instanceof Error ? error.message : String(error))}. Shorten the prompt or fix the temp directory. No fallback was attempted.`,
+    );
+  }
+  const cleanup = () => rm(directory, { recursive: true, force: true }).catch(() => undefined);
+  const path = join(directory, "prompt.md");
+  try {
+    await writeFile(path, prompt, { encoding: "utf8", mode: 0o600 });
+  } catch (error) {
+    await cleanup();
+    throw new Error(
+      `Grok CLI prompt exceeds ${GROK_CLI_PROMPT_FILE_THRESHOLD_BYTES} bytes but Ask LLM could not write the private --prompt-file: ${redactCliSecrets(error instanceof Error ? error.message : String(error))}. Shorten the prompt or fix the temp directory. No fallback was attempted.`,
+    );
+  }
+  return { path, cleanup };
+}
+
 export async function executeGrokCLI(options: GrokCliExecutorOptions): Promise<GrokCliExecutorResult> {
   const model = options.model?.trim() || process.env.ASK_GROK_MODEL || GROK_CLI_FACTORY_DEFAULT_MODEL;
   const reasoningEffort = effort(options.reasoningEffort);
   const timeoutMs = resolveTimeoutMs(EXECUTION.GROK_TIMEOUT_ENV_VAR, EXECUTION.DEFAULT_GROK_TIMEOUT_MS);
   const prompt = options.outputSchema ? constrainPromptToSchema(options.prompt, options.outputSchema) : options.prompt;
+  const usePromptFile = Buffer.byteLength(prompt, "utf8") > GROK_CLI_PROMPT_FILE_THRESHOLD_BYTES;
+  const promptFile = usePromptFile ? await writePromptFile(prompt) : undefined;
   const args = [
     "--no-auto-update",
-    "-p",
-    prompt,
+    ...(promptFile ? ["--prompt-file", promptFile.path] : ["-p", prompt]),
     "--output-format",
     "json",
     "--model",
@@ -175,12 +213,14 @@ export async function executeGrokCLI(options: GrokCliExecutorOptions): Promise<G
       undefined,
       undefined,
       timeoutMs,
-      { sensitiveValues: [prompt] },
+      { sensitiveValues: promptFile ? [] : [prompt] },
       options.signal,
     );
   } catch (error) {
     if (options.signal?.aborted) throw error;
-    throw classifyCliError(error, model);
+    throw classifyCliError(error, model, usePromptFile);
+  } finally {
+    await promptFile?.cleanup();
   }
 
   const envelope = parseEnvelope(raw);

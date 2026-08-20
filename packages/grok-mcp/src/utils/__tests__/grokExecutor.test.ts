@@ -164,11 +164,35 @@ describe("response contract", () => {
     expect(result.response).toContain("12 thinking");
   });
 
-  it("reports the model returned by xAI when it differs from the requested alias", async () => {
+  it("reports and discloses the model returned by xAI when it differs from the requested alias", async () => {
     fetchMock.mockResolvedValueOnce(successResponse({ model: "fixture-resolved-model" }));
-    const result = await executeGrokAPI({ prompt: "alias" });
+    const onProgress = vi.fn();
+    const result = await executeGrokAPI({ prompt: "alias", onProgress });
     expect(result.model).toBe("fixture-resolved-model");
     expect(result.usage.model).toBe("fixture-resolved-model");
+    expect(result.usage.fellBack).toBe(false);
+    expect(onProgress).toHaveBeenCalledWith(
+      expect.stringMatching(
+        new RegExp(`served model "fixture-resolved-model" for requested "${FACTORY_DEFAULT_MODEL}"`),
+      ),
+    );
+  });
+
+  it("stays silent about model resolution when xAI serves the requested ID", async () => {
+    const onProgress = vi.fn();
+    await executeGrokAPI({ prompt: "same", onProgress });
+    expect(onProgress.mock.calls.flat().join(" ")).not.toMatch(/served model/);
+  });
+
+  it("discloses that xhigh is applied as high on models without xhigh support", async () => {
+    const onProgress = vi.fn();
+    await executeGrokAPI({ prompt: "deep", reasoningEffort: "xhigh", onProgress });
+    expect(onProgress).toHaveBeenCalledWith(expect.stringMatching(/xhigh.*applies it as high.*docs\.x\.ai/));
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body as string).reasoning).toEqual({ effort: "xhigh" });
+
+    onProgress.mockClear();
+    await executeGrokAPI({ prompt: "deep-high", reasoningEffort: "high", onProgress });
+    expect(onProgress.mock.calls.flat().join(" ")).not.toMatch(/xhigh/);
   });
 
   it("surfaces a typed safety refusal and does not retry", async () => {
@@ -231,6 +255,26 @@ describe("credential, model, quota, and transport diagnostics", () => {
       /quota, credits, or rate limit.*does not.*fall back/,
     );
     expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("classifies a 4xx that rejects the reasoning effort without changing model or effort", async () => {
+    fetchMock.mockResolvedValueOnce(
+      apiError(400, { code: "invalid_request", message: "reasoning.effort 'xhigh' is not supported for this model" }),
+    );
+    const message = await executeGrokAPI({ prompt: "test", model: "fixture-model", reasoningEffort: "xhigh" }).catch(
+      (error: Error) => error.message,
+    );
+    expect(message).toMatch(/model "fixture-model" rejected reasoning effort "xhigh" with HTTP 400/);
+    expect(message).toMatch(/low, medium, high, xhigh/);
+    expect(message).toMatch(/ASK_GROK_REASONING_EFFORT/);
+    expect(message).toMatch(/docs\.x\.ai.*reasoning/);
+    expect(message).toMatch(/no fallback was attempted/i);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps a generic 4xx without effort wording on the model/schema diagnostic", async () => {
+    fetchMock.mockResolvedValueOnce(apiError(400, { code: "invalid_request", message: "schema is invalid" }));
+    await expect(executeGrokAPI({ prompt: "test" })).rejects.toThrow(/Check the exact model ID and JSON Schema/);
   });
 
   it("normalizes safety errors returned before generation", async () => {
