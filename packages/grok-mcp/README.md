@@ -4,7 +4,7 @@ MCP server for one-shot Grok consultations through either the supported xAI Resp
 
 - Default exact model ID: `grok-4.6`
 - Reasoning effort: `low`, `medium`, `high` (default), `xhigh` — xAI documents `xhigh` for `grok-4.6` and later and applies it as `high` on older models; Ask LLM sends the requested effort unchanged, discloses that coercion as a progress note, and classifies an effort-rejecting 4xx with the supported list
-- Prompts above 16 KB reach the Grok CLI through a private `--prompt-file` (0600, removed after the run) instead of argv
+- Prompts above 16 KB reach the Grok CLI through a private `--prompt-file` (0600, removed after the run) instead of argv, but only after `grok --help` advertises the flag (present in official Grok Build 1.0.5); otherwise the call fails before spawn with an update-or-shorten diagnostic and no argv retry
 - No model rewriting, substitution, or fallback
 - Strict JSON Schema support for machine-mode callers
 - Cancellation and timeout abort the underlying HTTP request

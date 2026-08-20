@@ -92,7 +92,7 @@ Grok Build's documented default catalog alias is `grok-build` (the coding agent 
 
 ### Large prompts
 
-Prompts above 16 KB (`EXECUTION.STDIN_THRESHOLD_BYTES`, counted in UTF-8 bytes) never travel as a single argv element. The Grok CLI harness writes them to a private temp file (`0600`) and passes `--prompt-file`; the file is removed after the run, including on failure and cancellation. A Grok Build that does not understand `--prompt-file` fails with an explicit update-or-shorten diagnostic instead of a generic spawn error. The Cursor Agent harness pipes such prompts over stdin and omits the positional prompt argument. The xAI API path has no argv limit.
+Prompts above 16 KB (`EXECUTION.STDIN_THRESHOLD_BYTES`, counted in UTF-8 bytes) never travel as a single argv element. Before spawning the consultation, the Grok CLI harness capability-probes the installed CLI with `grok --help`; only when that help advertises `--prompt-file` (verified against the official Grok Build 1.0.5 `grok --help` output and its embedded docs) does Ask LLM write the prompt to a private temp file (`0600`) and pass `--prompt-file`. The file is removed after the run, including on failure and cancellation. An installed Grok Build that does not advertise the flag fails before any spawn with an explicit update-or-shorten diagnostic; Ask LLM never retries a large prompt on argv. Prompts at or below the threshold keep using `-p` with no probe. The Cursor Agent harness pipes such prompts over stdin and omits the positional prompt argument. The xAI API path has no argv limit.
 
 ## Configuration
 

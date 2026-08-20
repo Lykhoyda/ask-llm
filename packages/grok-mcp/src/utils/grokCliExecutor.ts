@@ -44,6 +44,8 @@ export interface GrokCliExecutorResult {
 }
 
 export const GROK_CLI_PROMPT_FILE_THRESHOLD_BYTES = EXECUTION.STDIN_THRESHOLD_BYTES;
+const GROK_CLI_PROMPT_FILE_FLAG = "--prompt-file";
+const CAPABILITY_PROBE_TIMEOUT_MS = 5000;
 
 function isPresent(value: string | undefined): value is string {
   return value !== undefined && value.length > 0;
@@ -130,13 +132,44 @@ function classifyCliError(error: unknown, model: string, promptFile = false): Er
   return new Error(`Grok CLI harness failed: ${detail}. No fallback was attempted.`);
 }
 
+async function readGrokHelp(signal?: AbortSignal): Promise<string> {
+  return executeCommand(
+    "grok",
+    ["--help"],
+    undefined,
+    undefined,
+    undefined,
+    CAPABILITY_PROBE_TIMEOUT_MS,
+    undefined,
+    signal,
+  );
+}
+
 export async function probeGrokCli(): Promise<boolean> {
   try {
-    const help = await executeCommand("grok", ["--help"], undefined, undefined, undefined, 5000);
+    const help = await readGrokHelp();
     return help.includes("--output-format") && (help.includes("--single") || help.includes("-p"));
   } catch {
     return false;
   }
+}
+
+export async function probeGrokPromptFileSupport(signal?: AbortSignal): Promise<boolean> {
+  return (await readGrokHelp(signal)).includes(GROK_CLI_PROMPT_FILE_FLAG);
+}
+
+async function assertPromptFileSupport(promptBytes: number, model: string, signal?: AbortSignal): Promise<void> {
+  let supported: boolean;
+  try {
+    supported = await probeGrokPromptFileSupport(signal);
+  } catch (error) {
+    if (signal?.aborted) throw error;
+    throw classifyCliError(error, model);
+  }
+  if (supported) return;
+  throw new Error(
+    `Grok CLI prompt is ${promptBytes} bytes, above the ${GROK_CLI_PROMPT_FILE_THRESHOLD_BYTES}-byte argv threshold, but the installed Grok Build does not advertise ${GROK_CLI_PROMPT_FILE_FLAG} in \`grok --help\`. Update Grok Build (1.0.5 and later document ${GROK_CLI_PROMPT_FILE_FLAG}) or shorten the prompt. Ask LLM does not retry large prompts on argv, and no fallback was attempted.`,
+  );
 }
 
 export async function listGrokCliModels(signal?: AbortSignal): Promise<string[]> {
@@ -183,11 +216,13 @@ export async function executeGrokCLI(options: GrokCliExecutorOptions): Promise<G
   const reasoningEffort = effort(options.reasoningEffort);
   const timeoutMs = resolveTimeoutMs(EXECUTION.GROK_TIMEOUT_ENV_VAR, EXECUTION.DEFAULT_GROK_TIMEOUT_MS);
   const prompt = options.outputSchema ? constrainPromptToSchema(options.prompt, options.outputSchema) : options.prompt;
-  const usePromptFile = Buffer.byteLength(prompt, "utf8") > GROK_CLI_PROMPT_FILE_THRESHOLD_BYTES;
+  const promptBytes = Buffer.byteLength(prompt, "utf8");
+  const usePromptFile = promptBytes > GROK_CLI_PROMPT_FILE_THRESHOLD_BYTES;
+  if (usePromptFile) await assertPromptFileSupport(promptBytes, model, options.signal);
   const promptFile = usePromptFile ? await writePromptFile(prompt) : undefined;
   const args = [
     "--no-auto-update",
-    ...(promptFile ? ["--prompt-file", promptFile.path] : ["-p", prompt]),
+    ...(promptFile ? [GROK_CLI_PROMPT_FILE_FLAG, promptFile.path] : ["-p", prompt]),
     "--output-format",
     "json",
     "--model",
