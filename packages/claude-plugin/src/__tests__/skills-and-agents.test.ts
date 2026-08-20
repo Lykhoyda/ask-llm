@@ -180,9 +180,7 @@ describe("agents/", () => {
   it("sol-reviewer inherits deferred MCP tools while denying write tools", () => {
     const frontmatter = parseMarkdownFrontmatter(readFile("agents/sol-reviewer.md")).frontmatter;
     expect(frontmatter.tools).toBeUndefined();
-    expect(frontmatter.disallowedTools).toEqual(
-      expect.arrayContaining(["Edit", "Write", "NotebookEdit"]),
-    );
+    expect(frontmatter.disallowedTools).toEqual(expect.arrayContaining(["Edit", "Write", "NotebookEdit"]));
   });
 });
 

@@ -24,10 +24,8 @@ const userScopedServers = {
 const pluginServers = {
   "plugin:ask-llm:codex": { commandLine: `npx -y ${ASK_CODEX_PACKAGE}`, status: "✔ Connected" },
 };
-const connectedPluginList =
-  "plugin:ask-llm:codex: npx -y @ask-llm/codex-mcp - ✔ Connected\n";
-const disconnectedPluginList =
-  "plugin:ask-llm:codex: npx -y @ask-llm/codex-mcp - ✘ Failed to connect - ECONNREFUSED\n";
+const connectedPluginList = "plugin:ask-llm:codex: npx -y @ask-llm/codex-mcp - ✔ Connected\n";
+const disconnectedPluginList = "plugin:ask-llm:codex: npx -y @ask-llm/codex-mcp - ✘ Failed to connect - ECONNREFUSED\n";
 
 describe("sol-review transport selection", () => {
   it("selects the authoritative ask-codex MCP tool when available", () => {
@@ -190,11 +188,7 @@ describe("active Claude MCP inventory", () => {
 
     readActiveMcpServers({ command: "claude.cmd", execute, platform: "win32" });
 
-    expect(execute).toHaveBeenCalledWith(
-      "claude.cmd",
-      ["mcp", "list"],
-      expect.objectContaining({ shell: true }),
-    );
+    expect(execute).toHaveBeenCalledWith("claude.cmd", ["mcp", "list"], expect.objectContaining({ shell: true }));
   });
 
   it("preserves session-local Claude discovery context", () => {
@@ -277,20 +271,20 @@ describe("sol-review CLI fallback", () => {
     });
   });
 
-  it.each(["workspace is out of credits", "workspace spend cap reached"])(
-    "uses Terra for Codex workspace quota signal: %s",
-    async (quotaMessage) => {
-      const execute = vi
-        .fn()
-        .mockResolvedValueOnce({ code: 1, stdout: "", stderr: quotaMessage })
-        .mockResolvedValueOnce({ code: 0, stdout: "validated Terra finding\n", stderr: "" });
+  it.each([
+    "workspace is out of credits",
+    "workspace spend cap reached",
+  ])("uses Terra for Codex workspace quota signal: %s", async (quotaMessage) => {
+    const execute = vi
+      .fn()
+      .mockResolvedValueOnce({ code: 1, stdout: "", stderr: quotaMessage })
+      .mockResolvedValueOnce({ code: 0, stdout: "validated Terra finding\n", stderr: "" });
 
-      const result = await runCliFallback({ prompt: "review", execute });
+    const result = await runCliFallback({ prompt: "review", execute });
 
-      expect(execute).toHaveBeenCalledTimes(2);
-      expect(result).toMatchObject({ model: TERRA_MODEL, fellBack: true });
-    },
-  );
+    expect(execute).toHaveBeenCalledTimes(2);
+    expect(result).toMatchObject({ model: TERRA_MODEL, fellBack: true });
+  });
 
   it("uses shell resolution and quoted arguments for a Windows Codex shim", async () => {
     const child = new EventEmitter();
@@ -413,19 +407,15 @@ describe("clean Claude installation reproduction", () => {
   });
 
   it("runs the disclosed CLI fallback when active MCP inventory inspection fails", () => {
-    const result = spawnSync(
-      process.execPath,
-      [script, "--fallback", "--cli-path", cliFixture],
-      {
-        encoding: "utf8",
-        input: "review this diff",
-        env: {
-          ...process.env,
-          CLAUDE_BIN: cliFixture,
-          FAKE_CODEX_SCENARIO: "sol-inventory-failure-fallback",
-        },
+    const result = spawnSync(process.execPath, [script, "--fallback", "--cli-path", cliFixture], {
+      encoding: "utf8",
+      input: "review this diff",
+      env: {
+        ...process.env,
+        CLAUDE_BIN: cliFixture,
+        FAKE_CODEX_SCENARIO: "sol-inventory-failure-fallback",
       },
-    );
+    });
 
     expect(result.status).toBe(0);
     expect(result.stdout).toBe("validated review after inventory failure\n");
@@ -450,14 +440,7 @@ describe("clean Claude installation reproduction", () => {
     ];
     const result = spawnSync(
       process.execPath,
-      [
-        script,
-        ...contextArgs,
-        "--tool",
-        "mcp__plugin_ask-llm_codex__ask-codex",
-        "--cli-path",
-        "/fake/codex",
-      ],
+      [script, ...contextArgs, "--tool", "mcp__plugin_ask-llm_codex__ask-codex", "--cli-path", "/fake/codex"],
       {
         encoding: "utf8",
         env: {
@@ -547,9 +530,7 @@ describe("clean Claude installation reproduction", () => {
           const message = event.message as { content?: Array<Record<string, unknown>> } | undefined;
           return message?.content?.filter((content) => content.type === "tool_use") ?? [];
         });
-        const askCodexCall = toolUses.find(
-          (content) => content.name === "mcp__plugin_ask-llm_codex__ask-codex",
-        );
+        const askCodexCall = toolUses.find((content) => content.name === "mcp__plugin_ask-llm_codex__ask-codex");
 
         expect(askCodexCall, result.stdout).toMatchObject({
           input: {

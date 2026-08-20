@@ -133,9 +133,10 @@ export function classifySolReviewTransport({
 
   const registered = registrations.length > 0;
   const state = registered || mcpFailed ? "unavailable" : "missing-registration";
-  const remediation = registered || mcpFailed
-    ? "Run `npx -y @ask-llm/mcp doctor`, inspect `/mcp`, then fully restart Claude Code."
-    : "Run `claude mcp add --scope user codex -- npx -y @ask-llm/codex-mcp`, fully restart Claude Code, then verify with `/mcp`.";
+  const remediation =
+    registered || mcpFailed
+      ? "Run `npx -y @ask-llm/mcp doctor`, inspect `/mcp`, then fully restart Claude Code."
+      : "Run `claude mcp add --scope user codex -- npx -y @ask-llm/codex-mcp`, fully restart Claude Code, then verify with `/mcp`.";
   const unavailableRegistration = registrations.find(([, server]) => !isAvailableMcpServer(server));
   const reason = mcpFailed
     ? "Ask LLM Codex MCP invocation failed in this session, so the preferred transport is unavailable."
@@ -181,13 +182,7 @@ export function codexFallbackArgs(model) {
   ];
 }
 
-export function executeCodex({
-  command,
-  model,
-  prompt,
-  spawnProcess = spawn,
-  platform = process.platform,
-}) {
+export function executeCodex({ command, model, prompt, spawnProcess = spawn, platform = process.platform }) {
   return new Promise((resolveRun) => {
     const invocation = prepareCommandInvocation(
       codexFallbackArgs(model),
@@ -262,12 +257,7 @@ function parseArgs(args) {
     mcpFailed: false,
     claudeContextArgs: [],
   };
-  const claudeContextValueFlags = new Set([
-    "--plugin-dir",
-    "--mcp-config",
-    "--settings",
-    "--setting-sources",
-  ]);
+  const claudeContextValueFlags = new Set(["--plugin-dir", "--mcp-config", "--settings", "--setting-sources"]);
   for (let index = 0; index < args.length; index += 1) {
     const arg = args[index];
     if (arg === "--fallback") parsed.fallback = true;
