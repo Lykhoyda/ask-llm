@@ -1,5 +1,7 @@
 import { spawnSync } from "node:child_process";
 import { EventEmitter } from "node:events";
+import * as fs from "node:fs";
+import * as os from "node:os";
 import * as path from "node:path";
 import { PassThrough } from "node:stream";
 import { describe, expect, it, vi } from "vitest";
@@ -334,6 +336,12 @@ describe("sol-review CLI fallback", () => {
 describe("clean Claude installation reproduction", () => {
   const script = path.join(PLUGIN_ROOT, "scripts", "sol-review-transport.mjs");
   const cliFixture = path.join(PLUGIN_ROOT, "src", "__tests__", "_fixtures", "codex");
+  const liveClaudePrompt = [
+    "Call the authoritative Ask LLM Codex ask-codex MCP tool exactly once",
+    "with model gpt-5.6-sol, reasoningEffort high, sandbox read-only,",
+    'and prompt "Reply with ONLY: MCP_TOOL_EXECUTED_276".',
+    "Do not use Bash and do not fall back. Then return its exact response.",
+  ].join(" ");
 
   it("observes the active plugin registration through the executable preflight", () => {
     const result = spawnSync(
@@ -495,4 +503,79 @@ describe("clean Claude installation reproduction", () => {
     expect(result.stderr).toContain("codex exec");
     expect(result.stderr).toContain("@ask-llm/mcp doctor");
   });
+
+  it.runIf(process.env.ASK_LLM_CLAUDE_E2E === "1")(
+    "exposes and invokes the preferred tool in a clean Claude reviewer session",
+    () => {
+      const consumerDir = fs.mkdtempSync(path.join(os.tmpdir(), "ask-llm-sol-review-"));
+      try {
+        const result = spawnSync(
+          process.env.CLAUDE_BIN || "claude",
+          [
+            "--plugin-dir",
+            PLUGIN_ROOT,
+            "--setting-sources",
+            "",
+            "--no-session-persistence",
+            "--dangerously-skip-permissions",
+            "--max-budget-usd",
+            "0.75",
+            "--allowedTools",
+            "mcp__plugin_ask-llm_codex",
+            "--output-format",
+            "stream-json",
+            "--verbose",
+            "--agent",
+            "ask-llm:sol-reviewer",
+            "-p",
+            liveClaudePrompt,
+          ],
+          {
+            cwd: consumerDir,
+            encoding: "utf8",
+            timeout: 90_000,
+            maxBuffer: 10 * 1024 * 1024,
+          },
+        );
+
+        expect(result.status, result.stderr || result.stdout).toBe(0);
+        const events = result.stdout
+          .split(/\r?\n/)
+          .filter(Boolean)
+          .map((line) => JSON.parse(line) as Record<string, unknown>);
+        const toolUses = events.flatMap((event) => {
+          const message = event.message as { content?: Array<Record<string, unknown>> } | undefined;
+          return message?.content?.filter((content) => content.type === "tool_use") ?? [];
+        });
+        const askCodexCall = toolUses.find(
+          (content) => content.name === "mcp__plugin_ask-llm_codex__ask-codex",
+        );
+
+        expect(askCodexCall, result.stdout).toMatchObject({
+          input: {
+            model: SOL_MODEL,
+            reasoningEffort: "high",
+            sandbox: "read-only",
+          },
+        });
+        const toolResult = events
+          .flatMap((event) => {
+            const message = event.message as { content?: Array<Record<string, unknown>> } | undefined;
+            return message?.content?.filter((content) => content.type === "tool_result") ?? [];
+          })
+          .find((content) => content.tool_use_id === askCodexCall?.id);
+        expect(toolResult, result.stdout).toBeDefined();
+        const payload = JSON.parse(String(toolResult?.content)) as Record<string, unknown>;
+        expect(payload).toMatchObject({
+          provider: "codex",
+          model: SOL_MODEL,
+          usage: { fellBack: false },
+        });
+        expect(payload.response).toContain("MCP_TOOL_EXECUTED_276");
+      } finally {
+        fs.rmSync(consumerDir, { recursive: true, force: true });
+      }
+    },
+    120_000,
+  );
 });

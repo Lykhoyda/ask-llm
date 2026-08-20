@@ -100,7 +100,7 @@ These commands are available after cloning and building the plugin locally. Mark
 
 The plugin uses several Claude Code integration points:
 
-1. **`.mcp.json`**: Registers the canonical `@ask-llm/codex-mcp` server for Claude Code plugin sessions; other providers remain user-scoped (see [Installation](#installation))
+1. **`plugin.json` + `.mcp.json`**: Explicitly declares and configures the canonical `@ask-llm/codex-mcp` component for Claude Code plugin sessions; other providers remain user-scoped (see [Installation](#installation))
 2. **Skills** (`skills/`): User-invocable slash commands that trigger review or brainstorm workflows
 3. **Agents** (`agents/`): Handle the actual interaction with each provider using confidence-based filtering (80%+ threshold). Agents read `CLAUDE.md` for project conventions when available.
 4. **Hooks** (`hooks/`): Run the opt-in codex-pair continuous review pipeline: per-edit PostToolUse reviews, verdict drains on user prompts and at turn end, the opt-in Stop gate, and session lifecycle

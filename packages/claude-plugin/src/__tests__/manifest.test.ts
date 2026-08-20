@@ -7,6 +7,7 @@ interface PluginManifest {
   name: string;
   version: string;
   description: string;
+  mcpServers?: string;
   author?: { name: string; url?: string };
   repository?: string;
   license?: string;
@@ -55,6 +56,18 @@ describe("plugin.json manifest", () => {
   it("declares author and repository", () => {
     expect(manifest.author?.name).toBeTruthy();
     expect(manifest.repository).toMatch(/github\.com/);
+  });
+
+  it("declares the MCP component entrypoint used by Claude plugin loading", () => {
+    expect(manifest.mcpServers).toBe("./.mcp.json");
+    const mcpPath = path.resolve(PLUGIN_ROOT, manifest.mcpServers as string);
+    const mcp = JSON.parse(fs.readFileSync(mcpPath, "utf8")) as {
+      mcpServers: Record<string, { command: string; args: string[] }>;
+    };
+    expect(mcp.mcpServers.codex).toEqual({
+      command: "npx",
+      args: ["-y", "@ask-llm/codex-mcp"],
+    });
   });
 });
 

@@ -4,13 +4,10 @@ description: Coordinates an isolated, read-only code review explicitly pinned to
 model: opus
 effort: high
 color: blue
-tools:
-  - Bash
-  - Glob
-  - Grep
-  - Read
-  - mcp__codex__ask-codex
-  - mcp__plugin_ask-llm_codex__ask-codex
+disallowedTools:
+  - Edit
+  - Write
+  - NotebookEdit
 ---
 
 <!-- PORTABLE-CONTRACT:START -->

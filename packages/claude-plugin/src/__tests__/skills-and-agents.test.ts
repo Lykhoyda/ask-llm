@@ -126,7 +126,6 @@ describe("agents/", () => {
       { file: "codex-reviewer.md", tool: "mcp__codex__ask-codex" },
       { file: "ollama-reviewer.md", tool: "mcp__ollama__ask-ollama" },
       { file: "antigravity-reviewer.md", tool: "mcp__antigravity__ask-antigravity" },
-      { file: "sol-reviewer.md", tool: "mcp__codex__ask-codex" },
     ];
     for (const { file, tool } of cases) {
       const { frontmatter } = parseMarkdownFrontmatter(readFile(`agents/${file}`));
@@ -148,10 +147,14 @@ describe("agents/", () => {
     for (const file of reviewerAgents) {
       const { frontmatter } = parseMarkdownFrontmatter(readFile(`agents/${file}`));
       const tools = frontmatter.tools as string[] | undefined;
-      if (!tools) continue;
-      expect(tools).not.toContain("Edit");
-      expect(tools).not.toContain("Write");
-      expect(tools).not.toContain("NotebookEdit");
+      const disallowedTools = frontmatter.disallowedTools as string[] | undefined;
+      if (tools) {
+        expect(tools).not.toContain("Edit");
+        expect(tools).not.toContain("Write");
+        expect(tools).not.toContain("NotebookEdit");
+      } else {
+        expect(disallowedTools).toEqual(expect.arrayContaining(["Edit", "Write", "NotebookEdit"]));
+      }
     }
   });
 
@@ -167,11 +170,19 @@ describe("agents/", () => {
     expect(solContent).toContain('reasoningEffort: "high"');
   });
 
-  it.each(["codex-reviewer", "sol-reviewer"])("%s grants both authoritative Claude MCP tool identities", (agent) => {
-    const content = readFile(`agents/${agent}.md`);
+  it("codex-reviewer grants both authoritative Claude MCP tool identities", () => {
+    const content = readFile("agents/codex-reviewer.md");
     const tools = parseMarkdownFrontmatter(content).frontmatter.tools as string[];
     expect(tools).toContain("mcp__codex__ask-codex");
     expect(tools).toContain("mcp__plugin_ask-llm_codex__ask-codex");
+  });
+
+  it("sol-reviewer inherits deferred MCP tools while denying write tools", () => {
+    const frontmatter = parseMarkdownFrontmatter(readFile("agents/sol-reviewer.md")).frontmatter;
+    expect(frontmatter.tools).toBeUndefined();
+    expect(frontmatter.disallowedTools).toEqual(
+      expect.arrayContaining(["Edit", "Write", "NotebookEdit"]),
+    );
   });
 });
 
