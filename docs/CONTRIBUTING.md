@@ -22,6 +22,7 @@ Requires Node.js 22.18+ to build (the tsdown toolchain's floor since ADR-119 —
 | `packages/gemini-mcp/` | Gemini provider (`@ask-llm/gemini-mcp`) |
 | `packages/codex-mcp/` | Codex provider (`@ask-llm/codex-mcp`) |
 | `packages/claude-mcp/` | Claude provider (`@ask-llm/claude-mcp`) |
+| `packages/grok-mcp/` | Grok/xAI API provider (`@ask-llm/grok-mcp`) |
 | `packages/ollama-mcp/` | Ollama provider (`@ask-llm/ollama-mcp`) |
 | `packages/antigravity-mcp/` | Antigravity provider (`@ask-llm/antigravity-mcp`) |
 | `packages/llm-mcp/` | Orchestrator that auto-detects installed providers (`@ask-llm/mcp`) |
@@ -83,7 +84,7 @@ Interactive prompt asks (a) which packages your change affects, (b) the bump typ
 
 **You don't need to manually bump `package.json` versions.** The bot does that.
 
-You can pick "patch" for any package even if your change doesn't directly touch it. IMPORTANT (ADR-119): `@ask-llm/shared` is private and INLINED into each MCP's `dist/` at build time by tsdown — and because shared is only a devDependency of the MCPs, the changesets internal-dependents cascade does NOT fire for it (verified empirically 2026-06-10). Any change to `packages/shared/src/**` MUST ship with a changeset that explicitly lists all six publishable packages (`@ask-llm/gemini-mcp`, `@ask-llm/codex-mcp`, `@ask-llm/claude-mcp`, `@ask-llm/ollama-mcp`, `@ask-llm/antigravity-mcp`, `@ask-llm/mcp`) — otherwise the fix never reaches npm. CI enforces this via `scripts/check-shared-changeset.mjs`.
+You can pick "patch" for any package even if your change doesn't directly touch it. IMPORTANT (ADR-119): `@ask-llm/shared` is private and INLINED into each MCP's `dist/` at build time by tsdown — and because shared is only a devDependency of the MCPs, the changesets internal-dependents cascade does NOT fire for it (verified empirically 2026-06-10). Any change to `packages/shared/src/**` MUST ship with a changeset that explicitly lists all seven publishable MCP packages (`@ask-llm/gemini-mcp`, `@ask-llm/codex-mcp`, `@ask-llm/claude-mcp`, `@ask-llm/grok-mcp`, `@ask-llm/ollama-mcp`, `@ask-llm/antigravity-mcp`, `@ask-llm/mcp`) — otherwise the fix never reaches npm. CI enforces this via `scripts/check-shared-changeset.mjs`.
 
 `@ask-llm/plugin` is the single publishable Claude Code + Pi package. Changesets publishes it to npm for Pi while the same package version and canonical skill corpus continue through the Claude Code marketplace. `packages/claude-plugin/package.json` is authoritative; `yarn changeset:version` mirrors its version to the plugin and marketplace manifests, and lint verifies all three stay synchronized. See [ADR-142](DECISIONS.md) for the host and release contract.
 

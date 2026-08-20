@@ -4,11 +4,14 @@ import { StringEnum } from "@earendil-works/pi-ai";
 import { executeTool as executeAntigravityTool } from "@ask-llm/antigravity-mcp/register";
 import { executeTool as executeCodexTool } from "@ask-llm/codex-mcp/register";
 import { executeTool as executeGeminiTool } from "@ask-llm/gemini-mcp/register";
+import { executeTool as executeGrokTool } from "@ask-llm/grok-mcp/register";
 import { executeTool as executeOllamaTool } from "@ask-llm/ollama-mcp/register";
+import { CURSOR_PROVIDERS, executeCursorAgent } from "@ask-llm/mcp/cursor";
 import { Type } from "typebox";
 
-const providerNames = ["codex", "gemini", "ollama", "antigravity"] as const;
+const providerNames = ["codex", "gemini", "grok", "ollama", "antigravity"] as const;
 type ProviderName = (typeof providerNames)[number];
+const cursorProviderNames = CURSOR_PROVIDERS;
 
 type CanonicalResult =
   | string
@@ -24,6 +27,7 @@ type CanonicalExecute = (
 const executors: Record<ProviderName, { tool: string; execute: CanonicalExecute }> = {
   codex: { tool: "ask-codex", execute: executeCodexTool as CanonicalExecute },
   gemini: { tool: "ask-gemini", execute: executeGeminiTool as CanonicalExecute },
+  grok: { tool: "ask-grok", execute: executeGrokTool as CanonicalExecute },
   ollama: { tool: "ask-ollama", execute: executeOllamaTool as CanonicalExecute },
   antigravity: { tool: "ask-antigravity", execute: executeAntigravityTool as CanonicalExecute },
 };
@@ -48,6 +52,12 @@ const geminiSchema = Type.Object({
   model: Type.Optional(Type.String({ minLength: 1 })),
   sessionId: Type.Optional(Type.String()),
 });
+const grokSchema = Type.Object({
+  prompt,
+  model: Type.Optional(Type.String({ minLength: 1 })),
+  harness: Type.Optional(StringEnum(["xai-api", "grok-cli"] as const)),
+  reasoningEffort: Type.Optional(StringEnum(["low", "medium", "high", "xhigh"] as const)),
+});
 const ollamaSchema = Type.Object({
   prompt,
   model: Type.Optional(Type.String({ minLength: 1 })),
@@ -61,21 +71,36 @@ const antigravitySchema = Type.Object({
 const providerOptionSchemas = {
   codex: Type.Omit(codexSchema, ["prompt"]),
   gemini: Type.Omit(geminiSchema, ["prompt"]),
+  grok: Type.Omit(grokSchema, ["prompt"]),
   ollama: Type.Omit(ollamaSchema, ["prompt"]),
   antigravity: Type.Omit(antigravitySchema, ["prompt"]),
 };
+
+const cursorAgentSchema = Type.Object({
+  prompt,
+  provider: StringEnum(cursorProviderNames, {
+    description:
+      "Canonical provider family of the Cursor model (claude, codex, gemini, grok); verified against the requested and CLI-reported model ID.",
+  }),
+  model: Type.String({
+    minLength: 1,
+    description:
+      "Exact ID from agent --list-models; echoed back as `model`, with the CLI display label in `reportedModel`. Auto and other noncanonical IDs are refused.",
+  }),
+});
 
 const askMultiSchema = Type.Object({
   prompt,
   providers: Type.Array(StringEnum(providerNames), {
     minItems: 2,
-    maxItems: 4,
-    description: "Two to four unique providers. Results preserve this input order.",
+    maxItems: 5,
+    description: "Two to five unique providers. Results preserve this input order.",
   }),
   options: Type.Optional(
     Type.Object({
       codex: Type.Optional(providerOptionSchemas.codex),
       gemini: Type.Optional(providerOptionSchemas.gemini),
+      grok: Type.Optional(providerOptionSchemas.grok),
       ollama: Type.Optional(providerOptionSchemas.ollama),
       antigravity: Type.Optional(providerOptionSchemas.antigravity),
     }),
@@ -128,7 +153,7 @@ type ProgressUpdate = {
   details: Record<string, unknown>;
 };
 
-function progressForwarder(onUpdate: ((result: ProgressUpdate) => void) | undefined, provider: ProviderName) {
+function progressForwarder(onUpdate: ((result: ProgressUpdate) => void) | undefined, provider: string) {
   return onUpdate
     ? (text: string) => {
         const output = bounded(text);
@@ -179,6 +204,14 @@ export function registerProviderTools(pi: ExtensionAPI): void {
     provider: "gemini",
   });
   registerProviderTool(pi, {
+    name: "ask-grok",
+    label: "Ask Grok",
+    description:
+      "Consult Grok through Ask LLM's canonical xAI API executor. Requires XAI_API_KEY and may incur metered API charges; no billing changes or model fallback are performed. Output is bounded to Pi's 50KB/2000-line limits.",
+    parameters: grokSchema,
+    provider: "grok",
+  });
+  registerProviderTool(pi, {
     name: "ask-ollama",
     label: "Ask Ollama",
     description:
@@ -196,10 +229,39 @@ export function registerProviderTools(pi: ExtensionAPI): void {
   });
 
   pi.registerTool({
+    name: "ask-cursor-agent",
+    label: "Ask via Cursor Agent",
+    description:
+      "Use Cursor Agent as a model-neutral read-only harness. Provider (claude, codex, gemini, grok) and exact model ID are separate and must agree; Auto or noncanonical catalog IDs are refused. Prompts above 16KB are piped over stdin. Requires an authenticated Cursor CLI and may consume included usage or on-demand spend; no spend settings or fallback are changed.",
+    parameters: cursorAgentSchema,
+    async execute(_toolCallId, params, signal, onUpdate) {
+      const result = await executeCursorAgent({
+        prompt: params.prompt,
+        provider: params.provider,
+        model: params.model,
+        signal,
+        onProgress: progressForwarder(onUpdate, params.provider),
+      });
+      const text = bounded(result.response);
+      return {
+        content: [{ type: "text", text: text.text }],
+        details: {
+          provider: result.provider,
+          harness: result.harness,
+          model: result.model,
+          reportedModel: result.reportedModel,
+          askLlmUsage: result.usage,
+          outputTruncated: text.truncated,
+        },
+      };
+    },
+  });
+
+  pi.registerTool({
     name: "ask-multi",
     label: "Ask Multiple Providers",
     description:
-      "Send exactly the same prompt to two to four Ask LLM providers concurrently. Dispatch is deterministic and bounded; results preserve provider input order and report every failure instead of silently dropping it.",
+      "Send exactly the same prompt to two to five Ask LLM providers concurrently. Dispatch is deterministic and bounded; results preserve provider input order and report every failure instead of silently dropping it.",
     parameters: askMultiSchema,
     async execute(_toolCallId, params, signal, onUpdate) {
       const unique = [...new Set(params.providers)];

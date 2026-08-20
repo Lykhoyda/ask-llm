@@ -82,6 +82,8 @@ export async function buildProviderSpecs(): Promise<ProviderSpec[]> {
       command: config.command,
       installHint,
       probeAvailability,
+      availabilitySuccess: config.availabilitySuccess,
+      availabilityFailure: config.availabilityFailure,
       assessVersion,
       enrich,
     });

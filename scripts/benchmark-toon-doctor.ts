@@ -35,6 +35,8 @@ function report(overrides: Partial<DiagnosticReport> = {}): DiagnosticReport {
       timeoutMs: 210_000,
       codexTimeoutMs: 800_000,
       claudeTimeoutMs: 600_000,
+      grokTimeoutMs: 600_000,
+      cursorHarnessTimeoutMs: 600_000,
       geminiTimeoutMs: 210_000,
     },
     providers: [],

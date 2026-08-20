@@ -33,6 +33,11 @@ export const EXECUTION = {
   // ceiling below Codex's reasoning-model allowance while leaving enough room
   // for native tool-assisted reads and subscription-backed generation.
   DEFAULT_CLAUDE_TIMEOUT_MS: 600_000,
+  // Grok 4.6 reasoning can run for several minutes, especially at high/xhigh.
+  // Match the other long-running API-backed reviewer ceiling.
+  DEFAULT_GROK_TIMEOUT_MS: 600_000,
+  // Cursor Agent can perform repository reads before its final model answer.
+  DEFAULT_CURSOR_TIMEOUT_MS: 600_000,
   // Local Ollama models can spend minutes loading weights or generating on
   // modest hardware (the default is a 27b model), so the bound is generous —
   // its job is to catch a wedged server, not to police slow generation.
@@ -41,6 +46,8 @@ export const EXECUTION = {
   CODEX_TIMEOUT_ENV_VAR: "ASK_CODEX_TIMEOUT_MS",
   CLAUDE_TIMEOUT_ENV_VAR: "ASK_CLAUDE_TIMEOUT_MS",
   GEMINI_TIMEOUT_ENV_VAR: "ASK_GEMINI_TIMEOUT_MS",
+  GROK_TIMEOUT_ENV_VAR: "ASK_GROK_TIMEOUT_MS",
+  CURSOR_TIMEOUT_ENV_VAR: "ASK_CURSOR_TIMEOUT_MS",
   OLLAMA_TIMEOUT_ENV_VAR: "ASK_OLLAMA_TIMEOUT_MS",
   ERROR_TRUNCATE_LENGTH: 2000,
   STDIN_THRESHOLD_BYTES: 16_384,

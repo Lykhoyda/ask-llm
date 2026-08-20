@@ -30,9 +30,10 @@ Consult multiple external LLM providers simultaneously on a topic while Claude O
 
 ### Phase 1: Parse arguments
 
-- If the first argument looks like a comma-separated provider list (e.g., `antigravity,codex` or `gemini,codex,ollama`), use those as the external providers
+- If the first argument looks like a comma-separated provider list (e.g., `antigravity,codex` or `gemini,codex,grok,ollama`), use those as the external providers
 - If no provider list is given, default to `antigravity,codex`
-- Valid external providers: `gemini`, `codex`, `ollama`, `antigravity`
+- Valid external providers: `gemini`, `codex`, `grok`, `ollama`, `antigravity`
+- `grok` requires `XAI_API_KEY` for the default API harness or official Grok Build auth with `ASK_GROK_HARNESS=grok-cli`; it may consume metered/plan usage and never falls back
 - `antigravity` requires `agy` installed + logged in; if it's unavailable the coordinator surfaces that and continues with the other providers
 - Everything after the provider list (or all args if no list) is the topic
 - Claude Opus is always a participant — it's not in the provider list because it runs inside the coordinator

@@ -56,6 +56,7 @@ export interface DispatchOptions {
   providers: string[];
   getExecutor: (provider: string) => ExecutorFn | undefined;
   recordUsage?: (stats: UsageStats) => void;
+  signal?: AbortSignal;
 }
 
 export async function dispatchMultiLlm(opts: DispatchOptions): Promise<MultiLlmReport> {
@@ -74,7 +75,7 @@ export async function dispatchMultiLlm(opts: DispatchOptions): Promise<MultiLlmR
       };
     }
     try {
-      const result = await executor({ prompt: opts.prompt });
+      const result = await executor({ prompt: opts.prompt, signal: opts.signal });
       if (result.usage) opts.recordUsage?.(result.usage);
       return {
         provider,

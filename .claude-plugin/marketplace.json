@@ -5,7 +5,7 @@
     "email": "lykhoyda@gmail.com"
   },
   "metadata": {
-    "description": "Claude Code plugins for AI-to-AI collaboration with Codex, Antigravity, Ollama, and Gemini",
+    "description": "Claude Code plugins for AI-to-AI collaboration with Codex, Grok, Antigravity, Ollama, and Gemini",
     "version": "1.0.0"
   },
   "plugins": [
@@ -16,7 +16,7 @@
         "url": "https://github.com/Lykhoyda/ask-llm.git",
         "path": "packages/claude-plugin"
       },
-      "description": "AI-to-AI collaboration — review code, brainstorm ideas, and debate plans across Codex, Antigravity, Ollama, and Gemini providers",
+      "description": "AI-to-AI collaboration — review code and debate plans across Codex, Grok, Antigravity, Ollama, and Gemini providers",
       "version": "0.13.0",
       "author": {
         "name": "Anton Lykhoyda"
@@ -28,6 +28,8 @@
         "ai",
         "gemini",
         "codex",
+        "grok",
+        "xai",
         "ollama",
         "antigravity",
         "mcp",

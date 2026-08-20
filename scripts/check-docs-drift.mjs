@@ -57,6 +57,7 @@ const modelChecks = [
   ["codex", "packages/codex-mcp/src/constants.ts", /FACTORY_DEFAULT_MODEL = "([^"]+)"/],
   ["claude", "packages/claude-mcp/src/constants.ts", /FACTORY_DEFAULT_MODEL = "([^"]+)"/],
   ["gemini", "packages/gemini-mcp/src/constants.ts", /FACTORY_DEFAULT_MODEL = "([^"]+)"/],
+  ["grok", "packages/grok-mcp/src/constants.ts", /FACTORY_DEFAULT_MODEL = "([^"]+)"/],
   ["ollama", "packages/ollama-mcp/src/constants.ts", /FACTORY_DEFAULT_MODEL = "([^"]+)"/],
   ["antigravity", "packages/antigravity-mcp/src/constants.ts", /DEFAULT: "([^"]+)"/],
 ];

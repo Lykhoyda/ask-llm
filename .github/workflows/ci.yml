@@ -279,7 +279,7 @@ jobs:
     - name: Pack all publishable tarballs (npm pack — the real publish shape)
       run: |
         mkdir -p tarballs
-        for p in gemini-mcp codex-mcp claude-mcp ollama-mcp antigravity-mcp llm-mcp claude-plugin; do
+        for p in gemini-mcp codex-mcp claude-mcp grok-mcp ollama-mcp antigravity-mcp llm-mcp claude-plugin; do
           (cd "packages/$p" && npm pack --pack-destination "$GITHUB_WORKSPACE/tarballs")
         done
         ls -la tarballs
@@ -327,6 +327,7 @@ jobs:
           "ask-llm-gemini-mcp:ask-gemini-mcp" \
           "ask-llm-codex-mcp:ask-codex-mcp" \
           "ask-llm-claude-mcp:ask-claude-mcp" \
+          "ask-llm-grok-mcp:ask-grok-mcp" \
           "ask-llm-ollama-mcp:ask-ollama-mcp" \
           "ask-llm-antigravity-mcp:ask-antigravity-mcp"; do
           tarball_prefix="${entry%%:*}"

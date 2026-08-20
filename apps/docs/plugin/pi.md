@@ -4,7 +4,7 @@ description: Install Ask LLM as a first-class Pi package with native provider to
 
 # Pi Host Support
 
-Pi is the **host harness**: it owns the conversation, host model, skills, tools, and lifecycle. Codex, Gemini, Ollama, and Antigravity remain the independent Ask LLM **providers**. Pi has no built-in MCP client, so `@ask-llm/plugin` registers native Pi tools backed by the provider packages' canonical execution contracts; do not add MCP configuration to Pi.
+Pi is the **host harness**: it owns the conversation, host model, skills, tools, and lifecycle. Codex, Gemini, Grok, Ollama, and Antigravity remain the independent Ask LLM **providers**. Pi has no built-in MCP client, so `@ask-llm/plugin` registers native Pi tools backed by the provider packages' canonical execution contracts; do not add MCP configuration to Pi.
 
 > Installing or updating an npm package can execute lifecycle scripts from the package or its dependencies with your user account permissions. Once loaded, Pi package code has the same access. Review package and dependency source before installation or update. Provider tools can transmit project material to their provider. Ollama remains local; Codex, Gemini, and Antigravity use their existing CLI credentials/accounts and may consume subscription quota or incur provider cost. Pi host-model authentication and billing are separate.
 
@@ -75,9 +75,11 @@ Native tools:
 |---|---|
 | `ask-codex` | complete prompt/model/reasoning/session/includeDirs/preferred/sandbox schema; read-only default |
 | `ask-gemini` | prompt/model/session schema and canonical quota fallback |
+| `ask-grok` | prompt/model/reasoning plus explicit `xai-api` or `grok-cli` harness; no model/harness fallback |
+| `ask-cursor-agent` | model-neutral Cursor harness with separate provider (`claude`, `codex`, `gemini`, `grok`) + exact account model ID, verified against the requested model family, with the exact ID echoed as `model` and Cursor's display label as `reportedModel`; read-only ask mode |
 | `ask-ollama` | prompt/model/session schema; local-only, no silent model substitution |
 | `ask-antigravity` | prompt/includeDirs schema and supported-`agy` checks |
-| `ask-multi` | same prompt to 2–4 unique providers via bounded `Promise.allSettled`; stable input-order records and explicit failures |
+| `ask-multi` | same prompt to 2–5 unique providers via bounded `Promise.allSettled`; stable input-order records and explicit failures |
 
 Tool output is bounded to Pi's 50KB/2000-line policy. Provider failures throw, so Pi records `isError: true`; Ask LLM usage remains raw metadata in `details` and is not misreported as Pi host-model cost.
 

@@ -41,7 +41,7 @@ npm install -g @google/gemini-cli && gemini login
 
 :::
 
-Not sure which? See each provider's page: [Codex](/providers/codex), [Claude](/providers/claude), [Antigravity](/providers/antigravity), [Ollama](/providers/ollama), [Gemini](/providers/gemini).
+Not sure which? See each provider's page: [Codex](/providers/codex), [Claude](/providers/claude), [Grok](/providers/grok), [Antigravity](/providers/antigravity), [Ollama](/providers/ollama), [Gemini](/providers/gemini).
 
 ## 2. Register the MCP server
 

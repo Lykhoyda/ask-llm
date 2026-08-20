@@ -16,6 +16,8 @@ function makeReport(overrides: Partial<DiagnosticReport> = {}): DiagnosticReport
       codexTimeoutMs: 800000,
       claudeTimeoutMs: 600000,
       geminiTimeoutMs: 210000,
+      grokTimeoutMs: 600000,
+      cursorHarnessTimeoutMs: 600000,
     },
     providers: [],
     checks: [
@@ -37,13 +39,15 @@ describe("formatDiagnosticReport", () => {
     expect(out).toContain("✗ ask-llm doctor — ERROR");
   });
 
-  it("includes platform and per-provider timeouts in environment section (#45)", () => {
+  it("includes platform and per-provider timeouts in the environment section", () => {
     const out = formatDiagnosticReport(makeReport());
     expect(out).toContain("Platform: darwin/arm64");
     // Per-provider line replaces the old single "Timeout:" line. Diagnose
     // output is what users paste into bug reports — the provider breakdown
     // makes "why did codex time out at 210s?" answerable at a glance.
-    expect(out).toContain("Timeouts: codex=800000ms, claude=600000ms, gemini=210000ms");
+    expect(out).toContain(
+      "Timeouts: codex=800000ms, claude=600000ms, grok=600000ms, cursor-harness=600000ms, gemini=210000ms",
+    );
   });
 
   it("flags Node version as TOO OLD when nodeOk is false", () => {
@@ -60,6 +64,8 @@ describe("formatDiagnosticReport", () => {
           codexTimeoutMs: 800000,
           claudeTimeoutMs: 600000,
           geminiTimeoutMs: 210000,
+          grokTimeoutMs: 600000,
+          cursorHarnessTimeoutMs: 600000,
         },
       }),
     );

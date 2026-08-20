@@ -59,6 +59,8 @@ export interface DiagnosticReport {
     codexTimeoutMs: number;
     claudeTimeoutMs: number;
     geminiTimeoutMs: number;
+    grokTimeoutMs: number;
+    cursorHarnessTimeoutMs: number;
   };
   providers: ProviderProbe[];
   checks: DiagnosticCheck[];
@@ -71,6 +73,8 @@ export interface ProviderSpec {
   versionArgs?: string[];
   installHint?: string;
   probeAvailability?: () => Promise<boolean>;
+  availabilitySuccess?: string;
+  availabilityFailure?: string;
   assessVersion?: (
     version: string | undefined,
     probeError: string | undefined,
@@ -159,21 +163,23 @@ export async function runDiagnostics(providers: ProviderSpec[]): Promise<Diagnos
       } catch {
         available = false;
       }
+      const successMessage = spec.availabilitySuccess ?? "endpoint reachable";
+      const failureMessage = spec.availabilityFailure ?? "endpoint unreachable";
       providerProbes.push({
         name: spec.name,
         command: spec.command,
         available,
         cliPath: undefined,
         cliVersion: undefined,
-        error: available ? undefined : "endpoint unreachable",
+        error: available ? undefined : failureMessage,
       });
       checks.push(
         available
-          ? { name: `Provider: ${spec.name}`, status: "pass", message: "endpoint reachable" }
+          ? { name: `Provider: ${spec.name}`, status: "pass", message: successMessage }
           : {
               name: `Provider: ${spec.name}`,
               status: "warn",
-              message: "endpoint unreachable",
+              message: failureMessage,
               fix: spec.installHint,
             },
       );
@@ -253,6 +259,11 @@ export async function runDiagnostics(providers: ProviderSpec[]): Promise<Diagnos
   const codexTimeoutMs = resolveTimeoutMs(EXECUTION.CODEX_TIMEOUT_ENV_VAR, EXECUTION.DEFAULT_CODEX_TIMEOUT_MS);
   const claudeTimeoutMs = resolveTimeoutMs(EXECUTION.CLAUDE_TIMEOUT_ENV_VAR, EXECUTION.DEFAULT_CLAUDE_TIMEOUT_MS);
   const geminiTimeoutMs = resolveTimeoutMs(EXECUTION.GEMINI_TIMEOUT_ENV_VAR, EXECUTION.DEFAULT_TIMEOUT_MS);
+  const grokTimeoutMs = resolveTimeoutMs(EXECUTION.GROK_TIMEOUT_ENV_VAR, EXECUTION.DEFAULT_GROK_TIMEOUT_MS);
+  const cursorHarnessTimeoutMs = resolveTimeoutMs(
+    EXECUTION.CURSOR_TIMEOUT_ENV_VAR,
+    EXECUTION.DEFAULT_CURSOR_TIMEOUT_MS,
+  );
 
   const hasFailure = checks.some((c) => c.status === "fail");
   const hasWarn = checks.some((c) => c.status === "warn");
@@ -272,6 +283,8 @@ export async function runDiagnostics(providers: ProviderSpec[]): Promise<Diagnos
       codexTimeoutMs,
       claudeTimeoutMs,
       geminiTimeoutMs,
+      grokTimeoutMs,
+      cursorHarnessTimeoutMs,
     },
     providers: providerProbes,
     checks,
@@ -299,7 +312,7 @@ export function formatDiagnosticReport(report: DiagnosticReport): string {
   lines.push(`  Node:     ${report.environment.nodeVersion}${report.environment.nodeOk ? "" : " (TOO OLD)"}`);
   lines.push(`  Platform: ${report.environment.platform}/${report.environment.arch}`);
   lines.push(
-    `  Timeouts: codex=${report.environment.codexTimeoutMs}ms, claude=${report.environment.claudeTimeoutMs}ms, gemini=${report.environment.geminiTimeoutMs}ms`,
+    `  Timeouts: codex=${report.environment.codexTimeoutMs}ms, claude=${report.environment.claudeTimeoutMs}ms, grok=${report.environment.grokTimeoutMs}ms, cursor-harness=${report.environment.cursorHarnessTimeoutMs}ms, gemini=${report.environment.geminiTimeoutMs}ms`,
   );
   if (report.environment.askLlmPath) {
     lines.push(`  ASK_LLM_PATH: set (${report.environment.askLlmPath.split(":").length} entries)`);

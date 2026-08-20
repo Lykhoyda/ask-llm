@@ -58,6 +58,16 @@ Get a second opinion from OpenAI Codex (GPT-5.6 Sol) on your current changes.
 
 Falls back to GPT-5.6 Terra automatically if you hit quota limits.
 
+### `/grok-review`
+
+Get a Grok second opinion through the explicitly selected `xai-api` (default) or `grok-cli` harness.
+
+```text
+/grok-review
+```
+
+The API path requires `XAI_API_KEY` and can incur xAI charges; the CLI path requires official Grok Build login or API-key auth. Both use exact harness catalog model IDs and never fall back. See [Grok setup and cost safety](/providers/grok).
+
 ### `/ollama-review`
 
 Get a second opinion from a local Ollama model. No API keys needed; all processing stays on your machine.
@@ -105,7 +115,7 @@ Send a topic to multiple LLM providers AND have Claude Opus perform its own inde
 
 ### `/brainstorm-all`
 
-Shortcut for `/brainstorm gemini,codex,ollama,antigravity <topic>`. Sends to all four external providers (Gemini, Codex, Ollama, Antigravity) plus the always-on Claude Opus research phase; up to five participants total.
+Shortcut for `/brainstorm gemini,codex,grok,ollama,antigravity <topic>`. Sends to all five external providers (Gemini, Codex, Grok, Ollama, Antigravity) plus the always-on Claude Opus research phase; up to six participants total.
 
 ```text
 /brainstorm-all What's the best caching strategy for our API?

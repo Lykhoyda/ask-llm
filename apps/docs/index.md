@@ -1,6 +1,6 @@
 ---
 layout: home
-description: MCP servers for AI-to-AI collaboration. Claude and Codex review each other's work; Antigravity, Ollama, and Gemini extend the bench.
+description: MCP servers for AI-to-AI collaboration. Claude and Codex review each other's work; Grok, Antigravity, Ollama, and Gemini extend the bench.
 ---
 
 <div class="vp-doc home-content">

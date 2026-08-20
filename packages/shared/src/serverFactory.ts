@@ -39,6 +39,8 @@ const diagnosticReportSchema = z.object({
     codexTimeoutMs: z.number(),
     claudeTimeoutMs: z.number(),
     geminiTimeoutMs: z.number(),
+    grokTimeoutMs: z.number(),
+    cursorHarnessTimeoutMs: z.number(),
   }),
   providers: z.array(diagnosticProviderSchema),
   checks: z.array(diagnosticCheckSchema),
@@ -148,6 +150,7 @@ interface RegisterToolsOptions {
     args: BaseToolArguments,
     onProgress?: (output: string) => void,
     onUsage?: (stats: UsageStats) => void,
+    signal?: AbortSignal,
   ) => Promise<ToolResult>;
   getPromptMessage: (name: string, args: Record<string, string>) => string;
   progressMessages: (op: string) => string[];
@@ -196,6 +199,7 @@ export function registerTools({
               handle.updateOutput(newOutput);
             },
             sessionUsage ? (stats) => sessionUsage.record(stats) : undefined,
+            extra.signal,
           );
 
           await handle.stop(true);

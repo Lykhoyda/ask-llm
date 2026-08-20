@@ -24,6 +24,15 @@ export const providers: ProviderExecutor[] = [
     },
   },
   {
+    name: "grok",
+    command: "xai-api",
+    async execute(prompt: string) {
+      const { executeGrok } = await import("@ask-llm/grok-mcp/executor");
+      const result = await executeGrok({ prompt });
+      return result.response;
+    },
+  },
+  {
     name: "ollama",
     command: "ollama",
     async execute(prompt: string) {

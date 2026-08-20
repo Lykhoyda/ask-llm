@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 import { providers } from "../index.js";
 
 describe("ProviderExecutor wiring", () => {
-  it("exports exactly four providers", () => {
-    expect(providers).toHaveLength(4);
+  it("exports exactly five providers", () => {
+    expect(providers).toHaveLength(5);
   });
 
   it("each provider has the expected name and CLI command", () => {
@@ -11,6 +11,7 @@ describe("ProviderExecutor wiring", () => {
     const expectedCommand: Record<string, string> = {
       gemini: "gemini",
       codex: "codex",
+      grok: "xai-api",
       ollama: "ollama",
       antigravity: "agy",
     };
@@ -30,6 +31,7 @@ describe("ProviderExecutor wiring", () => {
     const names = providers.map((p) => p.name);
     expect(names).toContain("gemini");
     expect(names).toContain("codex");
+    expect(names).toContain("grok");
     expect(names).toContain("ollama");
     expect(names).toContain("antigravity");
   });

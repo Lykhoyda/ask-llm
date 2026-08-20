@@ -1,19 +1,19 @@
 ---
 name: compare
-description: This skill should be used when the user asks to "compare LLMs", "see how each provider answers", "side-by-side response", "what do Gemini, Codex, Ollama, and Antigravity think", or wants raw responses from multiple providers without synthesis. Unlike /brainstorm (which synthesizes findings) or /multi-review (which validates code reviews), /compare just shows each provider's answer side-by-side.
+description: This skill should be used when the user asks to "compare LLMs", "see how each provider answers", "side-by-side response", "what do Gemini, Codex, Grok, Ollama, and Antigravity think", or wants raw responses from multiple providers without synthesis. Unlike /brainstorm (which synthesizes findings) or /multi-review (which validates code reviews), /compare just shows each provider's answer side-by-side.
 ---
 
 <!-- PORTABLE-CONTRACT:START -->
 ## Portable contract
 
-Send the exact same bounded prompt to two to four selected providers concurrently. Preserve input order in the result, show each response verbatim without synthesis or adjudication, and show every provider failure instead of silently dropping it. Never invoke raw provider CLIs when a canonical Ask LLM bridge is available.
+Send the exact same bounded prompt to two to five selected providers concurrently. Preserve input order in the result, show each response verbatim without synthesis or adjudication, and show every provider failure instead of silently dropping it. Never invoke raw provider CLIs when a canonical Ask LLM bridge is available.
 <!-- PORTABLE-CONTRACT:END -->
 
 ## Host adapters
 
 ### Pi adapter
 
-Use one native `ask-multi` call. Put the common prompt in `prompt` and two to four unique names in `providers`; its implementation, not model-emitted sibling calls, guarantees concurrent bounded dispatch and stable ordering.
+Use one native `ask-multi` call. Put the common prompt in `prompt` and two to five unique names in `providers`; its implementation, not model-emitted sibling calls, guarantees concurrent bounded dispatch and stable ordering.
 
 <!-- HOST-ADAPTER:CLAUDE-CODE:START -->
 ### Claude Code adapter
@@ -41,8 +41,8 @@ If you're reviewing a code diff → use `/multi-review` instead.
 
 Extract from the user's message:
 1. **The question/prompt** to send to all providers (the meaningful payload)
-2. **Optional provider filter** — if the user says "compare gemini and codex", only those two; otherwise default to all four (gemini, codex, ollama, antigravity)
-3. **Optional context files** — if the user references files (`@path/to/file`), Read each referenced file and inline its contents into the shared provider prompt under a clearly labeled `<context_file path="...">` block. `@file` expansion is Gemini-only; passing the literal path to Codex, Ollama, or Antigravity silently drops the context. For a file too large to inline safely, include the relevant excerpts and state what was omitted.
+2. **Optional provider filter** — if the user says "compare gemini and codex", only those two; otherwise default to all five (gemini, codex, grok, ollama, antigravity)
+3. **Optional context files** — if the user references files (`@path/to/file`), Read each referenced file and inline its contents into the shared provider prompt under a clearly labeled `<context_file path="...">` block. `@file` expansion is Gemini-only; passing the literal path to Codex, Ollama, Grok, or Antigravity silently drops the context. For a file too large to inline safely, include the relevant excerpts and state what was omitted.
 
 If the question is missing or ambiguous, ask the user to clarify before dispatching.
 
@@ -61,6 +61,9 @@ gem_pid=$!
 GMCPT_TIMEOUT_MS=480000 node ${CLAUDE_PLUGIN_ROOT}/dist/codex-run.js "$PROMPT" > "$workdir/codex.out" 2> "$workdir/codex.err" &
 codex_pid=$!
 
+GMCPT_TIMEOUT_MS=480000 node ${CLAUDE_PLUGIN_ROOT}/dist/grok-run.js "$PROMPT" > "$workdir/grok.out" 2> "$workdir/grok.err" &
+grok_pid=$!
+
 GMCPT_TIMEOUT_MS=480000 node ${CLAUDE_PLUGIN_ROOT}/dist/ollama-run.js "$PROMPT" > "$workdir/ollama.out" 2> "$workdir/ollama.err" &
 ollama_pid=$!
 
@@ -69,6 +72,7 @@ antigravity_pid=$!
 
 gemini_rc=0; wait $gem_pid || gemini_rc=$?
 codex_rc=0; wait $codex_pid || codex_rc=$?
+grok_rc=0; wait $grok_pid || grok_rc=$?
 ollama_rc=0; wait $ollama_pid || ollama_rc=$?
 antigravity_rc=0; wait $antigravity_pid || antigravity_rc=$?
 
@@ -85,6 +89,7 @@ dump_provider() {
 
 dump_provider gemini "$gemini_rc"
 dump_provider codex "$codex_rc"
+dump_provider grok "$grok_rc"
 dump_provider ollama "$ollama_rc"
 dump_provider antigravity "$antigravity_rc"
 ```
@@ -108,6 +113,9 @@ Output structure:
 > <verbatim provider response, do NOT paraphrase>
 
 ### Codex
+> <verbatim provider response>
+
+### Grok
 > <verbatim provider response>
 
 ### Ollama

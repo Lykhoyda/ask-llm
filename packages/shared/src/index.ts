@@ -71,8 +71,8 @@ export {
 export { relativeDirSchema } from "./pathValidation.js";
 export type { ProgressHandle } from "./progressTracker.js";
 export { createProgressTracker } from "./progressTracker.js";
-export type { ProviderName } from "./providers.js";
-export { PROVIDERS } from "./providers.js";
+export type { CursorProviderName, ProviderName } from "./providers.js";
+export { CURSOR_PROVIDERS, cursorModelFamily, PROVIDERS } from "./providers.js";
 export type { StructuredToolResult, ToolResult, UnifiedTool } from "./registry.js";
 export { executeTool, getPromptMessage, toolRegistry } from "./registry.js";
 export type { ResponseCacheOptions } from "./responseCache.js";

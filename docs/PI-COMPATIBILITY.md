@@ -10,7 +10,7 @@ Classifications: **host-neutral**, **thin host adapter**, **lifecycle integratio
 |---|---|---|
 | `antigravity-review` | Thin host adapter | Portable review contract runs inline through native `ask-antigravity`. |
 | `brainstorm` | Thin host adapter | The current Pi host model commits its independent view before deterministic `ask-multi` dispatch. The host is not assumed to be Claude, and same-family overlap is disclosed. |
-| `brainstorm-all` | Thin host adapter | Same as `brainstorm`, with all four external providers. |
+| `brainstorm-all` | Thin host adapter | Same as `brainstorm`, with all five external providers. |
 | `codex-image` | Thin host adapter | Native `ask-codex` with explicit `sandbox: "workspace-write"`, followed by filesystem verification. |
 | `codex-pair` | Lifecycle integration + thin adapter | Pi command owns consent/status; extension observes successful `tool_result` edit/write events, debounces, reviews, and injects findings. |
 | `codex-pair-ack` | Thin host adapter | Pi command dismisses a finding reminder. Pi has no blocking Stop gate. |
@@ -21,13 +21,14 @@ Classifications: **host-neutral**, **thin host adapter**, **lifecycle integratio
 | `compare` | Thin host adapter | One `ask-multi` call guarantees bounded concurrent dispatch and stable result order. |
 | `fable-review` | Claude-only | Retained for Claude Code's independent Fable agent, but excluded from Pi discovery and advertising. No nested Pi session or Fable provider bridge is added. |
 | `gemini-review` | Thin host adapter | Portable review contract runs inline through native `ask-gemini`. |
+| `grok-review` | Thin host adapter | Portable review contract runs inline through native `ask-grok`; the explicit `xai-api`/`grok-cli` harness and exact model are disclosed, with no fallback. |
 | `multi-review` | Thin host adapter | One `ask-multi` dispatch followed by host-side source verification. |
 | `ollama-review` | Thin host adapter | Portable review contract runs inline through local native `ask-ollama`. |
 | `sol-review` | Thin host adapter | Native `ask-codex`, explicitly pinned to Sol/high/read-only, with fallback disclosure. |
 
 ## Agents and hooks
 
-The eight files under `packages/claude-plugin/agents/` are Claude Code subagent execution surfaces. Their delimited **Portable contract** sections are reusable by Pi; their frontmatter and delimited Claude Code adapters are not. Pi does not spawn nested agent processes and does not claim context isolation.
+The nine files under `packages/claude-plugin/agents/` are Claude Code subagent execution surfaces. Their delimited **Portable contract** sections are reusable by Pi; their frontmatter and delimited Claude Code adapters are not. Pi does not spawn nested agent processes and does not claim context isolation.
 
 Claude hooks remain unchanged and Claude-only as execution surfaces. Pi maps only the product behavior that needs lifecycle support:
 
@@ -55,4 +56,4 @@ The extension factory registers resources only. It performs no filesystem read, 
 
 ## Provider bridge
 
-Pi intentionally has no built-in MCP client. The extension therefore registers native `ask-codex`, `ask-gemini`, `ask-ollama`, `ask-antigravity`, and `ask-multi` tools. Individual tools invoke each provider package's public `./register` `executeTool` contract so canonical validation, response structure, session behavior, fallbacks, and errors remain provider-owned. `ask-multi` is concrete Pi glue: a bounded `Promise.allSettled` fan-out over two to four unique providers, with stable input-order results and explicit failures.
+Pi intentionally has no built-in MCP client. The extension therefore registers native `ask-codex`, `ask-gemini`, `ask-grok`, `ask-ollama`, `ask-antigravity`, the model-neutral `ask-cursor-agent` harness tool, and `ask-multi` tools. Individual tools invoke each provider package's public `./register` `executeTool` contract so canonical validation, response structure, session behavior, fallbacks, and errors remain provider-owned. `ask-multi` is concrete Pi glue: a bounded `Promise.allSettled` fan-out over two to five unique providers, with stable input-order results and explicit failures.

@@ -42,7 +42,7 @@ pi install npm:@ask-llm/plugin
 pi list
 ```
 
-Pi discovers the portable skills as `/skill:<name>` commands and registers native `ask-codex`, `ask-gemini`, `ask-ollama`, `ask-antigravity`, and bounded concurrent `ask-multi` tools. Pi intentionally has no built-in MCP client; do not configure these as MCP servers in Pi. `fable-review` remains Claude Code-only and is excluded from Pi discovery.
+Pi discovers the portable skills as `/skill:<name>` commands and registers native `ask-codex`, `ask-gemini`, `ask-grok`, `ask-ollama`, `ask-antigravity`, model-neutral `ask-cursor-agent`, and bounded concurrent `ask-multi` tools. Pi intentionally has no built-in MCP client; do not configure these as MCP servers in Pi. `fable-review` remains Claude Code-only and is excluded from Pi discovery.
 
 For codex-pair, create `.codex-pair/context.md`, ensure Pi trusts the project, then run interactive `/codex-pair` to grant user-owned canonical-project consent. The marker alone never authorizes data transfer/cost. Revoke with `/codex-pair revoke`. Pi findings are non-blocking; blocking Stop-gate and one-shot print parity are not available.
 
@@ -64,7 +64,8 @@ See the [Pi host guide](https://lykhoyda.github.io/ask-llm/plugin/pi) for securi
 | `/sol-review` | Model-pinned GPT-5.6 Sol review through the bundled `ask-codex` MCP tool; missing registration and service unavailability are diagnosed separately before the explicit CLI fallback |
 | `/ollama-review` | Local review — no data leaves your machine |
 | `/brainstorm` | Multi-LLM brainstorm with Claude Opus as a first-class research participant (default external: gemini,codex) |
-| `/brainstorm-all` | Brainstorm with all four external providers (Gemini, Codex, Ollama, Antigravity) + Claude Opus research |
+| `/grok-review` | Grok review through explicit xAI API or Grok CLI harness; no fallback |
+| `/brainstorm-all` | Brainstorm with all five external providers (Gemini, Codex, Grok, Ollama, Antigravity) + Claude Opus research |
 | `/compare` | Side-by-side raw responses from multiple providers (no synthesis, no consensus extraction) |
 
 ## Agents

@@ -187,6 +187,100 @@ describe("runMachineRequest", () => {
     expect(machineResultSchema.safeParse(result).success).toBe(true);
   });
 
+  it("passes Grok a strict role schema and reports no fallback or session", async () => {
+    const executor: ExecutorFn = vi.fn().mockResolvedValue({
+      response: JSON.stringify(reviewPayload),
+      model: "grok-4.6",
+      usage: {
+        provider: "grok",
+        model: "grok-4.6",
+        inputTokens: 30,
+        outputTokens: 12,
+        cachedTokens: 0,
+        thinkingTokens: 5,
+        durationMs: 40,
+        fellBack: false,
+      },
+    });
+    const input = request({ provider: "grok", model: "grok-4.6", writerProvider: "claude" });
+
+    const result = await runMachineRequest(input, deps(executor));
+
+    expect(executor).toHaveBeenCalledWith({
+      prompt: buildRolePrompt(machineRequestSchema.parse(input)),
+      model: "grok-4.6",
+      includeDirs: ["packages/core"],
+      sandbox: "read-only",
+      readOnly: true,
+      outputSchema: canonicalize(z.toJSONSchema(reviewPayloadSchema)),
+    });
+    expect(result).toMatchObject({
+      status: "success",
+      provider: "grok",
+      actualModel: "grok-4.6",
+      fallback: { occurred: false, requestedModel: "grok-4.6", actualModel: "grok-4.6" },
+      session: null,
+      usage: { inputTokens: 30, outputTokens: 12, totalTokens: 42 },
+    });
+  });
+
+  it("leaves an unpinned Grok model to the selected harness and reports the model it actually used", async () => {
+    const executor: ExecutorFn = vi.fn().mockResolvedValue({
+      response: JSON.stringify(reviewPayload),
+      model: "grok-build",
+      usage: { provider: "grok", model: "grok-build", inputTokens: 3, outputTokens: 2, durationMs: 5, fellBack: false },
+    });
+    const { model: _omitted, ...unpinned } = request({ provider: "grok", writerProvider: "claude" });
+
+    const result = await runMachineRequest(unpinned, deps(executor));
+
+    expect(executor).toHaveBeenCalledWith(expect.objectContaining({ model: undefined }));
+    expect(result).toMatchObject({
+      status: "success",
+      actualModel: "grok-build",
+      fallback: { occurred: false, requestedModel: "grok-build", actualModel: "grok-build" },
+    });
+  });
+
+  it("validates Grok CLI structured replies once at the shared boundary and labels mismatches schema_invalid", async () => {
+    const rawResponse = 'Sure:\n```json\n{"summary":"x","findings":[],"extra":1}\n```';
+    const executor: ExecutorFn = vi.fn().mockResolvedValue({
+      response: rawResponse,
+      model: "grok-build",
+      harness: "grok-cli",
+      usage: { provider: "grok", model: "grok-build", inputTokens: 3, outputTokens: 2, durationMs: 5, fellBack: false },
+    });
+    const { model: _omitted, ...unpinned } = request({ provider: "grok", writerProvider: "claude" });
+
+    const result = await runMachineRequest(unpinned, deps(executor));
+
+    expect(result).toMatchObject({
+      status: "failed",
+      actualModel: "grok-build",
+      rawResponseSha256: createHash("sha256").update(rawResponse).digest("hex"),
+      failure: { kind: "schema_invalid", message: "Provider output did not contain a valid review payload" },
+    });
+
+    const conforming = `Here you go:\n\`\`\`json\n${JSON.stringify(reviewPayload)}\n\`\`\``;
+    const okExecutor: ExecutorFn = vi.fn().mockResolvedValue({ response: conforming, model: "grok-build" });
+    await expect(runMachineRequest(unpinned, deps(okExecutor))).resolves.toMatchObject({
+      status: "success",
+      actualModel: "grok-build",
+      payload: reviewPayload,
+    });
+  });
+
+  it("pins the Grok model from ASK_GROK_MODEL when the request leaves it unset", async () => {
+    const executor: ExecutorFn = vi
+      .fn()
+      .mockResolvedValue({ response: JSON.stringify(reviewPayload), model: "grok-4.6" });
+    const { model: _omitted, ...unpinned } = request({ provider: "grok", writerProvider: "claude" });
+
+    await runMachineRequest(unpinned, deps(executor, { env: { ASK_GROK_MODEL: "grok-4.6" } }));
+
+    expect(executor).toHaveBeenCalledWith(expect.objectContaining({ model: "grok-4.6" }));
+  });
+
   it("gives Antigravity read-only mode and reports its actual fallback model and transcript", async () => {
     const executor: ExecutorFn = vi.fn().mockResolvedValue({
       response: JSON.stringify(brainstormPayload),

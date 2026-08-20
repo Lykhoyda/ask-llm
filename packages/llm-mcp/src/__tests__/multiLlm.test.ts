@@ -40,6 +40,22 @@ describe("dispatchMultiLlm", () => {
     expect(report.results.find((r) => r.provider === "codex")?.sessionId).toBe("thread-123");
   });
 
+  it("forwards one cancellation signal to every provider dispatch", async () => {
+    const controller = new AbortController();
+    const exGrok = executor("grok answer");
+    const exCodex = executor("codex answer");
+
+    await dispatchMultiLlm({
+      prompt: "review",
+      providers: ["grok", "codex"],
+      getExecutor: (provider) => (provider === "grok" ? exGrok : exCodex),
+      signal: controller.signal,
+    });
+
+    expect(exGrok).toHaveBeenCalledWith({ prompt: "review", signal: controller.signal });
+    expect(exCodex).toHaveBeenCalledWith({ prompt: "review", signal: controller.signal });
+  });
+
   it("records usage stats via the recordUsage callback for each successful call", async () => {
     const recorded: UsageStats[] = [];
     const exGemini = executor("a", undefined, makeUsage({ provider: "gemini", inputTokens: 100 }));

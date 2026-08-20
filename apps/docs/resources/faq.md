@@ -8,14 +8,14 @@ description: Frequently asked questions about Ask LLM MCP servers and its Claude
 
 ### What is Ask LLM?
 
-A set of MCP servers that bridge your AI client (Claude Code, Codex CLI, Cursor, Warp, Copilot, any of [40+ MCP-compatible clients](https://modelcontextprotocol.io/clients)) with up to five LLM providers through their local CLIs: OpenAI Codex, Anthropic Claude, Google Antigravity (`agy`), Ollama (fully local), and Google Gemini. The canonical [`@ask-llm/plugin` host package](/plugin/pi) adds one portable skill corpus for Claude Code and Pi, with host-specific agents, tools, hooks, and lifecycle adapters.
+A set of MCP servers that bridge your AI client (Claude Code, Codex CLI, Cursor, Warp, Copilot, any of [40+ MCP-compatible clients](https://modelcontextprotocol.io/clients)) with six model providers through explicit API, CLI, or local-HTTP harnesses: OpenAI Codex, Anthropic Claude, xAI Grok, Google Antigravity (`agy`), Ollama, and Google Gemini. Cursor Agent is a separate model-neutral harness. The canonical [`@ask-llm/plugin` host package](/plugin/pi) adds one portable skill corpus for Claude Code and Pi, with host-specific agents, tools, hooks, and lifecycle adapters.
 
 ### Why use this instead of the providers directly?
 
 - **One interface for every provider**: you don't switch between separate CLIs
 - **Multi-provider parallel dispatch**: `multi-llm` and `/compare` send the same prompt to multiple providers in one call
 - **Verified code review**: `/multi-review` cross-checks each finding against source before presenting (catches false positives)
-- **Session continuity across providers**: `sessionId` works across four session-capable providers (Claude, Gemini, Codex, Ollama); Antigravity is single-turn
+- **Session continuity across providers**: `sessionId` works across four session-capable providers (Claude, Gemini, Codex, Ollama); Grok and Antigravity are single-turn
 - **Built-in operational hardening**: quota fallback, PATH resolution, stdin handling, stream-json output for live progressive content
 - **Diagnostic surface**: `npx @ask-llm/mcp doctor` and the `diagnose` MCP tool tell you what's wrong before you have to investigate
 
@@ -24,13 +24,15 @@ A set of MCP servers that bridge your AI client (Claude Code, Codex CLI, Cursor,
 The MCP servers are MIT-licensed and free. Provider costs depend on which provider you use:
 - **Codex**: per OpenAI billing
 - **Claude**: covered by your Claude subscription or Anthropic billing, depending on Claude Code authentication
+- **Grok**: xAI API is metered; Grok CLI follows its authenticated plan. Ask LLM never enables billing/credits/overage and never falls back
+- **Cursor Agent harness**: follows included usage/on-demand spend in your Cursor plan; Ask LLM never changes spend limits
 - **Antigravity**: covered by your Google AI Pro/Ultra subscription (no per-token billing)
 - **Ollama**: free (runs locally on your machine)
 - **Gemini**: requires a Gemini Code Assist Standard/Enterprise seat ([enterprise-gated from 2026-06-18](/providers/gemini))
 
 ### Why is Gemini enterprise-gated, and what should I use instead?
 
-From 2026-06-18, Google restricts Gemini CLI to Gemini Code Assist Standard/Enterprise seats, and free, Google AI Pro, and Ultra accounts lose access. `@ask-llm/gemini-mcp` still installs, but a non-enterprise account will then see actionable guidance instead of output. Use **Codex** (`ask-codex`), **Claude** (`ask-claude` from a non-Claude host), **Antigravity** (`ask-antigravity`, the Google-sanctioned successor, subscription-backed via Google AI Pro/Ultra), or **Ollama** (`ask-ollama`) instead. See [Antigravity](/providers/antigravity).
+From 2026-06-18, Google restricts Gemini CLI to Gemini Code Assist Standard/Enterprise seats, and free, Google AI Pro, and Ultra accounts lose access. `@ask-llm/gemini-mcp` still installs, but a non-enterprise account will then see actionable guidance instead of output. Use **Codex** (`ask-codex`), **Claude** (`ask-claude` from a non-Claude host), **Antigravity** (`ask-antigravity`, the Google-sanctioned successor, subscription-backed via Google AI Pro/Ultra), **Grok** (`ask-grok`, explicit API/CLI harness with no fallback), or **Ollama** (`ask-ollama`) instead. See [Antigravity](/providers/antigravity).
 
 ### Does it work on Windows?
 

@@ -8,6 +8,7 @@
     "ask-antigravity-run": "dist/antigravity-run.js",
     "ask-codex-run": "dist/codex-run.js",
     "ask-gemini-run": "dist/run.js",
+    "ask-grok-run": "dist/grok-run.js",
     "ask-ollama-run": "dist/ollama-run.js"
   },
   "scripts": {
@@ -21,6 +22,8 @@
     "claude-code-plugin",
     "codex",
     "gemini",
+    "grok",
+    "xai",
     "ollama",
     "antigravity",
     "code-review",
@@ -70,6 +73,7 @@
       "./skills/codex-verify/SKILL.md",
       "./skills/compare/SKILL.md",
       "./skills/gemini-review/SKILL.md",
+      "./skills/grok-review/SKILL.md",
       "./skills/multi-review/SKILL.md",
       "./skills/ollama-review/SKILL.md",
       "./skills/sol-review/SKILL.md"
@@ -79,6 +83,8 @@
     "@ask-llm/antigravity-mcp": "^0.7.1",
     "@ask-llm/codex-mcp": "^0.7.4",
     "@ask-llm/gemini-mcp": "^1.7.1",
+    "@ask-llm/grok-mcp": "^0.1.0",
+    "@ask-llm/mcp": "^0.6.6",
     "@ask-llm/ollama-mcp": "^0.5.6"
   },
   "peerDependencies": {

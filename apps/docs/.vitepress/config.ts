@@ -114,6 +114,7 @@ export default withMermaid(
           items: [
             { text: "Codex", link: "/providers/codex" },
             { text: "Claude", link: "/providers/claude" },
+            { text: "Grok", link: "/providers/grok" },
             { text: "Antigravity", link: "/providers/antigravity" },
             { text: "Ollama", link: "/providers/ollama" },
             { text: "Gemini", link: "/providers/gemini" },
@@ -145,6 +146,7 @@ export default withMermaid(
           items: [
             { text: "Codex", link: "/providers/codex" },
             { text: "Claude", link: "/providers/claude" },
+            { text: "Grok", link: "/providers/grok" },
             { text: "Antigravity", link: "/providers/antigravity" },
             { text: "Ollama", link: "/providers/ollama" },
             { text: "Gemini", link: "/providers/gemini" },

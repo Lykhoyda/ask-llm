@@ -11,6 +11,7 @@ const TYPESCRIPT_PACKAGES = [
   "packages/claude-plugin",
   "packages/codex-mcp",
   "packages/gemini-mcp",
+  "packages/grok-mcp",
   "packages/llm-mcp",
   "packages/ollama-mcp",
   "packages/shared",

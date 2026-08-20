@@ -1,10 +1,10 @@
 ---
-description: Architecture and execution flow of Ask LLM, from natural language prompts through the MCP protocol to Codex, Claude, Antigravity, Ollama, and Gemini providers.
+description: Architecture and execution flow of Ask LLM, from natural language prompts through the MCP protocol to Codex, Claude, Grok, Antigravity, Ollama, and Gemini providers.
 ---
 
 # How It Works
 
-Ask LLM is a set of MCP servers that bridge your AI client (Claude Code, Codex CLI, Cursor, etc.) with up to five LLM providers through their local CLIs: OpenAI's Codex, Anthropic's Claude, Google's Antigravity (`agy`), Ollama (fully local models), and Google's Gemini. Your client decides when to delegate work to one or more providers based on what you ask. Provider and host are separate roles: Claude can host a Codex consultation, and Codex can host a Claude consultation.
+Ask LLM is a set of MCP servers that bridge your AI client (Claude Code, Codex CLI, Cursor, etc.) with six LLM providers through explicit API, CLI, or local-HTTP harnesses: OpenAI Codex, Anthropic Claude, xAI Grok, Google Antigravity (`agy`), Ollama, and Google Gemini. Cursor Agent is a separate model-neutral harness, not a seventh provider. Your client decides when to delegate work to one or more providers based on what you ask. Provider and host are separate roles: Claude can host a Codex consultation, and Codex can host a Claude consultation.
 
 Claude Code does not allow a nested Claude Code subprocess. When the MCP host is Claude Code, the unified server therefore suppresses the Claude provider; it remains available from Codex and other clients.
 
@@ -36,7 +36,7 @@ Each provider's executor wraps the underlying CLI with operational hardening tha
 - **Stdin handling**: Codex needs an EOF-terminated pipe rather than `/dev/null`, otherwise it errors out
 - **PATH resolution**: macOS GUI clients (Claude Desktop) don't inherit your shell's PATH; the server resolves it from your login shell at startup
 - **Live progressive output**: Gemini's `--output-format stream-json` deltas are parsed and forwarded to MCP progress notifications, so users see Gemini's prose unfolding rather than a frozen wait
-- **Session continuity**: Claude, Gemini, Codex, and Ollama support multi-turn via the `sessionId` parameter; Codex requires `sessionId: ""` on turn one to persist a resumable thread, while an omitted value stays ephemeral (Antigravity is single-turn)
+- **Session continuity**: Claude, Gemini, Codex, and Ollama support multi-turn via the `sessionId` parameter; Codex requires `sessionId: ""` on turn one to persist a resumable thread, while an omitted value stays ephemeral (Grok and Antigravity are single-turn)
 - **Read-only Claude consultations**: `ask-claude` uses safe mode and exposes only Read, Glob, and Grep; the MCP host performs any edits
 - **Structured responses**: every `ask-*` tool returns both human-readable text AND a structured `AskResponse` (provider, response, model, sessionId, usage) via MCP `outputSchema` so programmatic clients don't have to parse the response footer
 

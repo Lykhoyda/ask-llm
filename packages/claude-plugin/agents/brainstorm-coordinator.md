@@ -12,6 +12,7 @@ tools:
   - WebSearch
   - mcp__gemini__ask-gemini
   - mcp__codex__ask-codex
+  - mcp__grok__ask-grok
   - mcp__ollama__ask-ollama
   - mcp__antigravity__ask-antigravity
 ---
@@ -32,7 +33,7 @@ The frontmatter and detailed implementation below define Claude Code subagent ex
 You are a brainstorming coordinator powered by Claude Opus. You have two jobs:
 
 1. **You are a first-class research participant.** Perform your own deep, independent analysis of the topic — read the actual files, trace the real code paths, factor in framework-specific semantics. Your findings go into the synthesis as peer input, not as commentary on what the external providers said.
-2. **You orchestrate external consultations.** Dispatch the topic to the selected external providers (Antigravity, Codex, Ollama, Gemini — default: antigravity,codex) via a **single blocking foreground Bash call**, collect their responses, and combine them with your own research in a structured synthesis.
+2. **You orchestrate external consultations.** Dispatch the topic to the selected external providers (Antigravity, Codex, Grok, Ollama, Gemini — default: antigravity,codex) via a **single blocking foreground Bash call**, collect their responses, and combine them with your own research in a structured synthesis.
 
 You run on Opus and you have filesystem access. Skipping your own research phase wastes the one participant with the strongest grounding — don't do it.
 
@@ -117,6 +118,7 @@ The user specifies which external providers to use. Default is `antigravity,code
 - `antigravity` — Google Antigravity, subscription-backed via your Google AI Pro/Ultra plan, via the `agy` CLI (experimental; requires `agy` >=1.1.5 installed + logged in)
 - `gemini` — Google Gemini (large context, strong at analysis) via the `gemini` CLI
 - `codex` — OpenAI Codex (strong at code reasoning) via `codex exec --sandbox read-only`
+- `grok` — Grok through the canonical runner and explicit `ASK_GROK_HARNESS` (`xai-api` default or `grok-cli`); may incur xAI API/plan usage and never falls back
 - `ollama` — Local Ollama (private, no data leaves machine) via the `ollama` CLI
 
 **Required Bash tool call parameters:**
@@ -185,6 +187,12 @@ esac
   > "$workdir/codex.out" 2> "$workdir/codex.err" &
 pid_codex=$!
 
+# Only include this block if grok was requested. The canonical runner preserves
+# explicit API-vs-CLI harness selection, key redaction, timeout/cancellation,
+# actual model attribution, and the no-fallback contract.
+node "${CLAUDE_PLUGIN_ROOT}/dist/grok-run.js" "$(cat "$workdir/prompt.md")" > "$workdir/grok.out" 2> "$workdir/grok.err" &
+pid_grok=$!
+
 # Only include this line if ollama was requested:
 ollama run "${ASK_OLLAMA_MODEL:-qwen3.6:27b}" < "$workdir/prompt.md" > "$workdir/ollama.out" 2> "$workdir/ollama.err" &
 pid_ollama=$!
@@ -196,6 +204,7 @@ pid_ollama=$!
 wait "$pid_antigravity" 2>/dev/null; rc_antigravity=$?
 wait "$pid_gemini" 2>/dev/null; rc_gemini=$?
 wait "$pid_codex"  2>/dev/null; rc_codex=$?
+wait "$pid_grok"   2>/dev/null; rc_grok=$?
 wait "$pid_ollama" 2>/dev/null; rc_ollama=$?
 
 # Dump everything so the tool result is self-contained for Phase 4.
@@ -211,6 +220,10 @@ echo "===== CODEX (rc=$rc_codex) ====="
 cat "$workdir/codex.out" 2>/dev/null
 echo "===== CODEX STDERR ====="
 cat "$workdir/codex.err" 2>/dev/null
+echo "===== GROK (rc=$rc_grok) ====="
+cat "$workdir/grok.out" 2>/dev/null
+echo "===== GROK STDERR ====="
+cat "$workdir/grok.err" 2>/dev/null
 echo "===== OLLAMA (rc=$rc_ollama) ====="
 cat "$workdir/ollama.out" 2>/dev/null
 echo "===== OLLAMA STDERR ====="

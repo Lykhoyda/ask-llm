@@ -7,6 +7,8 @@ export interface ProviderConfig {
   modelEnvVar?: string;
   availabilityModule?: string;
   availabilityFn?: string;
+  availabilitySuccess?: string;
+  availabilityFailure?: string;
   supportProbeModule?: string;
   supportProbeFn?: string;
   versionAssessmentModule?: string;
@@ -43,6 +45,18 @@ export const PROVIDERS: Record<string, ProviderConfig> = {
     modelEnvVar: "ASK_CLAUDE_MODEL",
     disabledWhenEnvVar: "CLAUDECODE",
   },
+  grok: {
+    name: "Grok",
+    command: "xai-api",
+    executorModule: "@ask-llm/grok-mcp/executor",
+    executorFn: "executeGrok",
+    defaultModel: "grok-4.6",
+    modelEnvVar: "ASK_GROK_MODEL",
+    availabilityModule: "@ask-llm/grok-mcp/executor",
+    availabilityFn: "isGrokProviderAvailable",
+    availabilitySuccess: "XAI_API_KEY is configured (no inference request made)",
+    availabilityFailure: "XAI_API_KEY is not configured",
+  },
   ollama: {
     name: "Ollama",
     command: "ollama",
@@ -70,6 +84,7 @@ export const INSTALL_HINTS: Record<string, string> = {
   gemini: "npm install -g @google/gemini-cli",
   codex: "npm install -g @openai/codex",
   claude: "npm install -g @anthropic-ai/claude-code, then run `claude` once to authenticate",
+  grok: "Set XAI_API_KEY from https://console.x.ai/team/default/api-keys (metered xAI API; Ask LLM never enables billing or credits)",
   ollama: "https://ollama.com — then: ollama pull qwen3.6:27b",
   antigravity:
     "Install Google Antigravity (agy) >=1.1.5 from https://antigravity.google, verify with `agy --version`, then run `agy` once to log in",

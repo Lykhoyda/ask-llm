@@ -115,6 +115,7 @@ jobs:
             @ask-llm/gemini-mcp \
             @ask-llm/codex-mcp \
             @ask-llm/claude-mcp \
+            @ask-llm/grok-mcp \
             @ask-llm/ollama-mcp \
             @ask-llm/antigravity-mcp \
             @ask-llm/mcp \
@@ -161,7 +162,7 @@ jobs:
       - name: Sync versions from package.json to server.json and marketplace.json
         if: steps.changesets.outputs.published == 'true' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.retry_registry_publish)
         run: |
-          for entry in "gemini-mcp:server.json" "codex-mcp:packages/codex-mcp/server.json" "claude-mcp:packages/claude-mcp/server.json" "ollama-mcp:packages/ollama-mcp/server.json" "antigravity-mcp:packages/antigravity-mcp/server.json" "llm-mcp:packages/llm-mcp/server.json"; do
+          for entry in "gemini-mcp:server.json" "codex-mcp:packages/codex-mcp/server.json" "claude-mcp:packages/claude-mcp/server.json" "grok-mcp:packages/grok-mcp/server.json" "ollama-mcp:packages/ollama-mcp/server.json" "antigravity-mcp:packages/antigravity-mcp/server.json" "llm-mcp:packages/llm-mcp/server.json"; do
             pkg="${entry%%:*}"
             file="${entry#*:}"
             PKG_VERSION=$(node -p "require('./packages/$pkg/package.json').version")
@@ -182,6 +183,7 @@ jobs:
           server.json
           packages/codex-mcp/server.json
           packages/claude-mcp/server.json
+          packages/grok-mcp/server.json
           packages/ollama-mcp/server.json
           packages/antigravity-mcp/server.json
           packages/llm-mcp/server.json

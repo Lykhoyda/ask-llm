@@ -1,0 +1,76 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.Lykhoyda/ask-grok",
+  "description": "Consult Grok through xAI's metered API with exact model selection and no fallback",
+  "repository": {
+    "url": "https://github.com/Lykhoyda/ask-llm",
+    "source": "github"
+  },
+  "version": "0.1.0",
+  "packages": [
+    {
+      "registryType": "npm",
+      "identifier": "@ask-llm/grok-mcp",
+      "version": "0.1.0",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "XAI_API_KEY",
+          "description": "xAI API key used only for requests to https://api.x.ai",
+          "isRequired": true,
+          "format": "string",
+          "isSecret": true
+        },
+        {
+          "name": "ASK_GROK_HARNESS",
+          "description": "Explicit harness: xai-api (default) or grok-cli; no automatic failover",
+          "isRequired": false,
+          "format": "string",
+          "isSecret": false,
+          "default": "xai-api"
+        },
+        {
+          "name": "ASK_GROK_MODEL",
+          "description": "Exact selected-harness model override (API default grok-4.6; CLI default grok-build; no fallback)",
+          "isRequired": false,
+          "format": "string",
+          "isSecret": false
+        },
+        {
+          "name": "ASK_GROK_REASONING_EFFORT",
+          "description": "Reasoning effort: low, medium, high, or xhigh (default: high)",
+          "isRequired": false,
+          "format": "string",
+          "isSecret": false,
+          "default": "high"
+        },
+        {
+          "name": "ASK_GROK_MAX_OUTPUT_TOKENS",
+          "description": "xAI API output-token ceiling to bound accidental spend (default: 16384)",
+          "isRequired": false,
+          "format": "string",
+          "isSecret": false,
+          "default": "16384"
+        },
+        {
+          "name": "ASK_GROK_TIMEOUT_MS",
+          "description": "Timeout for xAI API requests in milliseconds (default: 600000)",
+          "isRequired": false,
+          "format": "string",
+          "isSecret": false,
+          "default": "600000"
+        },
+        {
+          "name": "GMCPT_LOG_LEVEL",
+          "description": "Log verbosity: debug, info, warn, error (default: warn)",
+          "isRequired": false,
+          "format": "string",
+          "isSecret": false,
+          "default": "warn"
+        }
+      ]
+    }
+  ]
+}
