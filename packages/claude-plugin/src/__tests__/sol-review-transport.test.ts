@@ -26,6 +26,13 @@ const pluginServers = {
 };
 const connectedPluginList = "plugin:ask-llm:codex: npx -y @ask-llm/codex-mcp - ✔ Connected\n";
 const disconnectedPluginList = "plugin:ask-llm:codex: npx -y @ask-llm/codex-mcp - ✘ Failed to connect - ECONNREFUSED\n";
+const cliFixture = path.join(
+  PLUGIN_ROOT,
+  "src",
+  "__tests__",
+  "_fixtures",
+  process.platform === "win32" ? "codex.cmd" : "codex",
+);
 
 describe("sol-review transport selection", () => {
   it("selects the authoritative ask-codex MCP tool when available", () => {
@@ -316,8 +323,7 @@ describe("sol-review CLI fallback", () => {
     const previousScenario = process.env.FAKE_CODEX_SCENARIO;
     process.env.FAKE_CODEX_SCENARIO = "sol-early-stdin-close";
     try {
-      const command = path.join(PLUGIN_ROOT, "src", "__tests__", "_fixtures", "codex");
-      const result = await runCliFallback({ command, prompt: "x".repeat(8 * 1024 * 1024) });
+      const result = await runCliFallback({ command: cliFixture, prompt: "x".repeat(8 * 1024 * 1024) });
 
       expect(result).toMatchObject({ response: "review survived early stdin close\n", fellBack: false });
     } finally {
@@ -329,7 +335,6 @@ describe("sol-review CLI fallback", () => {
 
 describe("clean Claude installation reproduction", () => {
   const script = path.join(PLUGIN_ROOT, "scripts", "sol-review-transport.mjs");
-  const cliFixture = path.join(PLUGIN_ROOT, "src", "__tests__", "_fixtures", "codex");
   const liveClaudePrompt = [
     "Call the authoritative Ask LLM Codex ask-codex MCP tool exactly once",
     "with model gpt-5.6-sol, reasoningEffort high, sandbox read-only,",
