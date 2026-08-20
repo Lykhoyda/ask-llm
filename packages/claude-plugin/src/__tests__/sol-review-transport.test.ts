@@ -5,21 +5,28 @@ import {
   ASK_CODEX_PACKAGE,
   classifySolReviewTransport,
   codexFallbackArgs,
+  parseClaudeMcpList,
+  readActiveMcpServers,
   runCliFallback,
   SOL_MODEL,
   TERRA_MODEL,
 } from "../../scripts/sol-review-transport.mjs";
 import { PLUGIN_ROOT } from "./_helpers.js";
 
-const bundledServers = {
+const userScopedServers = {
   codex: { command: "npx", args: ["-y", ASK_CODEX_PACKAGE] },
 };
+const pluginServers = {
+  "plugin:ask-llm:codex": { commandLine: `npx -y ${ASK_CODEX_PACKAGE}`, status: "✔ Connected" },
+};
+const connectedPluginList =
+  "plugin:ask-llm:codex: npx -y @ask-llm/codex-mcp - ✔ Connected\n";
 
 describe("sol-review transport selection", () => {
   it("selects the authoritative ask-codex MCP tool when available", () => {
     const decision = classifySolReviewTransport({
       availableTools: ["mcp__plugin_ask-llm_codex__ask-codex"],
-      mcpServers: bundledServers,
+      mcpServers: pluginServers,
       cliPath: "/usr/local/bin/codex",
     });
 
@@ -34,7 +41,17 @@ describe("sol-review transport selection", () => {
   it("does not mistake sibling Codex tools for the review transport", () => {
     const decision = classifySolReviewTransport({
       availableTools: ["mcp__codex__ask-codex-edit"],
-      mcpServers: bundledServers,
+      mcpServers: userScopedServers,
+      cliPath: "/usr/local/bin/codex",
+    });
+
+    expect(decision).toMatchObject({ state: "unavailable", transport: "cli", toolName: null });
+  });
+
+  it("rejects an exact leaf tool from an unrelated server", () => {
+    const decision = classifySolReviewTransport({
+      availableTools: ["mcp__other__ask-codex"],
+      mcpServers: userScopedServers,
       cliPath: "/usr/local/bin/codex",
     });
 
@@ -57,7 +74,7 @@ describe("sol-review transport selection", () => {
   it("distinguishes an unavailable registered service from missing registration", () => {
     const decision = classifySolReviewTransport({
       availableTools: [],
-      mcpServers: bundledServers,
+      mcpServers: userScopedServers,
       cliPath: "/usr/local/bin/codex",
     });
 
@@ -77,6 +94,45 @@ describe("sol-review transport selection", () => {
     expect(decision.state).toBe("missing-registration");
     expect(decision.transport).toBeNull();
     expect(decision.remediation).toContain("npm install -g @openai/codex");
+  });
+});
+
+describe("active Claude MCP inventory", () => {
+  it("normalizes the public claude mcp list output", () => {
+    expect(
+      parseClaudeMcpList(
+        [
+          "Checking MCP server health…",
+          "plugin:ask-llm:codex: npx -y @ask-llm/codex-mcp - ✔ Connected",
+          "other: npx -y unrelated-server - ✘ Failed to connect",
+        ].join("\n"),
+      ),
+    ).toEqual({
+      "plugin:ask-llm:codex": {
+        commandLine: "npx -y @ask-llm/codex-mcp",
+        status: "✔ Connected",
+      },
+      other: { commandLine: "npx -y unrelated-server", status: "✘ Failed to connect" },
+    });
+  });
+
+  it("queries Claude's active registration inventory", () => {
+    const execute = vi.fn().mockReturnValue({ status: 0, stdout: connectedPluginList, stderr: "" });
+
+    const servers = readActiveMcpServers({ command: "/usr/local/bin/claude", execute });
+
+    expect(execute).toHaveBeenCalledWith(
+      "/usr/local/bin/claude",
+      ["mcp", "list"],
+      expect.objectContaining({ encoding: "utf8" }),
+    );
+    expect(servers).toEqual(pluginServers);
+  });
+
+  it("fails closed when the active inventory cannot be inspected", () => {
+    const execute = vi.fn().mockReturnValue({ status: 1, stdout: "", stderr: "configuration error" });
+
+    expect(() => readActiveMcpServers({ execute })).toThrow(/claude mcp list/);
   });
 });
 
@@ -132,10 +188,18 @@ describe("sol-review CLI fallback", () => {
 describe("clean Claude installation reproduction", () => {
   const script = path.join(PLUGIN_ROOT, "scripts", "sol-review-transport.mjs");
 
-  it("observes the bundled registration through the executable preflight", () => {
+  it("observes the active plugin registration through the executable preflight", () => {
     const result = spawnSync(
       process.execPath,
-      [script, "--tool", "mcp__plugin_ask-llm_codex__ask-codex", "--cli-path", "/fake/codex"],
+      [
+        script,
+        "--mcp-list",
+        connectedPluginList,
+        "--tool",
+        "mcp__plugin_ask-llm_codex__ask-codex",
+        "--cli-path",
+        "/fake/codex",
+      ],
       { encoding: "utf8" },
     );
 
@@ -143,19 +207,21 @@ describe("clean Claude installation reproduction", () => {
     expect(JSON.parse(result.stdout)).toMatchObject({ state: "preferred", transport: "mcp" });
   });
 
-  it("classifies a disconnected clean-install server as unavailable rather than unregistered", () => {
-    const result = spawnSync(process.execPath, [script, "--cli-path", "/fake/codex"], {
-      encoding: "utf8",
-    });
+  it("classifies a disconnected active server as unavailable rather than unregistered", () => {
+    const result = spawnSync(
+      process.execPath,
+      [script, "--mcp-list", connectedPluginList, "--cli-path", "/fake/codex"],
+      { encoding: "utf8" },
+    );
 
     expect(result.status).toBe(0);
     expect(JSON.parse(result.stdout)).toMatchObject({ state: "unavailable", transport: "cli" });
   });
 
-  it("reproduces the pre-fix missing-registration state with an empty install manifest", () => {
+  it("classifies missing registration from an empty active inventory", () => {
     const result = spawnSync(
       process.execPath,
-      [script, "--mcp-json", '{"mcpServers":{}}', "--cli-path", "/fake/codex"],
+      [script, "--mcp-list", "No MCP servers configured.", "--cli-path", "/fake/codex"],
       { encoding: "utf8" },
     );
 
@@ -164,5 +230,17 @@ describe("clean Claude installation reproduction", () => {
       state: "missing-registration",
       transport: "cli",
     });
+  });
+
+  it("reclassifies an absent subagent tool before allowing CLI fallback", () => {
+    const result = spawnSync(
+      process.execPath,
+      [script, "--fallback", "--mcp-list", connectedPluginList, "--cli-path", ""],
+      { encoding: "utf8", input: "review this diff" },
+    );
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("registered, but its `ask-codex` tool is unavailable");
+    expect(result.stderr).toContain("@ask-llm/mcp doctor");
   });
 });

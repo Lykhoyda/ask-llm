@@ -300,7 +300,7 @@ If no Ask LLM Codex server is listed, the registration is missing; provision the
 claude mcp add --scope user codex -- npx -y @ask-llm/codex-mcp
 ```
 
-If `plugin:ask-llm:codex` or `codex` is listed but disconnected, the service is registered but unavailable. Diagnose the provider and restart the host:
+If `plugin:ask-llm:codex` or `codex` appears in `claude mcp list` but is disconnected, the service is registered but unavailable. `/sol-review` uses this active inventory rather than its bundled manifest to distinguish that state from a missing registration. Diagnose the provider and restart the host:
 
 ```bash
 npx -y @ask-llm/mcp doctor

@@ -1,8 +1,7 @@
 #!/usr/bin/env node
 
-import { spawn } from "node:child_process";
-import { readFileSync } from "node:fs";
-import { dirname, resolve } from "node:path";
+import { spawn, spawnSync } from "node:child_process";
+import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 export const ASK_CODEX_PACKAGE = "@ask-llm/codex-mcp";
@@ -11,7 +10,6 @@ export const SOL_MODEL = "gpt-5.6-sol";
 export const TERRA_MODEL = "gpt-5.6-terra";
 
 const scriptPath = fileURLToPath(import.meta.url);
-const defaultConfigPath = resolve(dirname(scriptPath), "..", ".mcp.json");
 const quotaPattern = /(?:rate.?limit|rate_limit_exceeded|usage limit|quota|too many requests|\b429\b)/i;
 
 export function isAskCodexToolName(name) {
@@ -22,11 +20,57 @@ export function isAskCodexRegistration(server) {
   if (!server || typeof server !== "object") return false;
   const command = typeof server.command === "string" ? server.command : "";
   const args = Array.isArray(server.args) ? server.args.filter((arg) => typeof arg === "string") : [];
-  return command.endsWith("ask-codex-mcp") || args.includes(ASK_CODEX_PACKAGE);
+  const commandLine = typeof server.commandLine === "string" ? server.commandLine : "";
+  return (
+    /(?:^|[/\\])ask-codex-mcp(?:\.cmd|\.exe)?$/.test(command) ||
+    args.includes(ASK_CODEX_PACKAGE) ||
+    /(?:^|\s)@ask-llm\/codex-mcp(?:@[^\s]+)?(?:\s|$)/.test(commandLine) ||
+    /(?:^|[/\\])ask-codex-mcp(?:\.cmd|\.exe)?(?:\s|$)/.test(commandLine)
+  );
+}
+
+export function parseClaudeMcpList(output) {
+  const servers = {};
+  for (const line of output.split(/\r?\n/)) {
+    const separator = line.indexOf(": ");
+    if (separator <= 0) continue;
+    const name = line.slice(0, separator).trim();
+    const details = line.slice(separator + 2).trim();
+    const statusSeparator = details.lastIndexOf(" - ");
+    servers[name] = {
+      commandLine: statusSeparator === -1 ? details : details.slice(0, statusSeparator).trim(),
+      status: statusSeparator === -1 ? "" : details.slice(statusSeparator + 3).trim(),
+    };
+  }
+  return servers;
+}
+
+export function readActiveMcpServers({
+  command = process.env.CLAUDE_BIN || "claude",
+  execute = spawnSync,
+} = {}) {
+  const result = execute(command, ["mcp", "list"], {
+    cwd: process.cwd(),
+    encoding: "utf8",
+    windowsHide: true,
+  });
+  if (result.error || result.status !== 0) {
+    const detail = result.error?.message || result.stderr?.trim() || `exited ${result.status}`;
+    throw new Error(
+      `Unable to inspect active Claude MCP registrations: ${detail}. Run \`claude mcp list\` and resolve that failure before retrying.`,
+    );
+  }
+  return parseClaudeMcpList(result.stdout || "");
+}
+
+function expectedToolName(serverName) {
+  return `mcp__${serverName.replaceAll(":", "_")}__${ASK_CODEX_TOOL}`;
 }
 
 export function classifySolReviewTransport({ availableTools = [], mcpServers = {}, cliPath = "" }) {
-  const toolName = availableTools.find(isAskCodexToolName);
+  const registrations = Object.entries(mcpServers).filter(([, server]) => isAskCodexRegistration(server));
+  const registeredToolNames = new Set(registrations.map(([name]) => expectedToolName(name)));
+  const toolName = availableTools.find((name) => isAskCodexToolName(name) && registeredToolNames.has(name));
   if (toolName) {
     return {
       state: "preferred",
@@ -38,7 +82,7 @@ export function classifySolReviewTransport({ availableTools = [], mcpServers = {
     };
   }
 
-  const registered = Object.values(mcpServers).some(isAskCodexRegistration);
+  const registered = registrations.length > 0;
   const state = registered ? "unavailable" : "missing-registration";
   const remediation = registered
     ? "Run `npx -y @ask-llm/mcp doctor`, inspect `/mcp`, then fully restart Claude Code."
@@ -142,33 +186,44 @@ export async function runCliFallback({
 }
 
 function parseArgs(args) {
-  const parsed = { tools: [], cliPath: "", configPath: defaultConfigPath, mcpJson: null, fallback: false };
+  const parsed = { tools: [], cliPath: "", mcpList: null, fallback: false };
   for (let index = 0; index < args.length; index += 1) {
     const arg = args[index];
     if (arg === "--fallback") parsed.fallback = true;
     else if (arg === "--tool") parsed.tools.push(args[++index] ?? "");
     else if (arg === "--cli-path") parsed.cliPath = args[++index] ?? "";
-    else if (arg === "--config") parsed.configPath = args[++index] ?? defaultConfigPath;
-    else if (arg === "--mcp-json") parsed.mcpJson = args[++index] ?? "";
+    else if (arg === "--mcp-list") parsed.mcpList = args[++index] ?? "";
     else throw new Error(`Unknown argument: ${arg}`);
   }
   return parsed;
 }
 
 function readMcpServers(parsed) {
-  const raw = parsed.mcpJson ?? readFileSync(parsed.configPath, "utf8");
-  const config = JSON.parse(raw);
-  return config?.mcpServers && typeof config.mcpServers === "object" ? config.mcpServers : {};
+  return parsed.mcpList === null ? readActiveMcpServers() : parseClaudeMcpList(parsed.mcpList);
 }
 
 async function main() {
   const parsed = parseArgs(process.argv.slice(2));
+  const mcpServers = readMcpServers(parsed);
+  const decision = classifySolReviewTransport({
+    availableTools: parsed.tools,
+    mcpServers,
+    cliPath: parsed.cliPath,
+  });
+
   if (parsed.fallback) {
+    if (decision.transport !== "cli") {
+      if (decision.transport === "mcp") {
+        throw new Error(`Ask LLM Codex MCP is available as ${decision.toolName}; CLI fallback was not started.`);
+      }
+      throw new Error(`${decision.diagnostic} ${decision.remediation}`);
+    }
+    process.stderr.write(`${decision.fallbackDisclosure}\nRemediation: ${decision.remediation}\n`);
     let prompt = "";
     process.stdin.setEncoding("utf8");
     for await (const chunk of process.stdin) prompt += chunk;
     if (!prompt.trim()) throw new Error("Sol review CLI fallback requires a prompt on stdin.");
-    const result = await runCliFallback({ prompt });
+    const result = await runCliFallback({ prompt, command: parsed.cliPath });
     process.stderr.write(
       `Transport disclosure: review ran through codex exec (${result.model}, high effort, read-only).\n`,
     );
@@ -180,11 +235,6 @@ async function main() {
     return;
   }
 
-  const decision = classifySolReviewTransport({
-    availableTools: parsed.tools,
-    mcpServers: readMcpServers(parsed),
-    cliPath: parsed.cliPath,
-  });
   process.stdout.write(`${JSON.stringify(decision)}\n`);
   if (!decision.transport) process.exitCode = 1;
 }

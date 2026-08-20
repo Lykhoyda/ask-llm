@@ -33,7 +33,7 @@ claude mcp add --scope user ollama -- npx -y @ask-llm/ollama-mcp
 claude mcp add --scope user antigravity -- npx -y @ask-llm/antigravity-mcp
 ```
 
-If Codex is missing entirely, register it explicitly with `claude mcp add --scope user codex -- npx -y @ask-llm/codex-mcp`. If `/mcp` shows the bundled registration but it is disconnected, run `npx -y @ask-llm/mcp doctor` and restart Claude Code. `/sol-review` reports those two states separately before using its explicit `codex exec` fallback.
+If Codex is missing entirely, register it explicitly with `claude mcp add --scope user codex -- npx -y @ask-llm/codex-mcp`. If `/mcp` shows the bundled registration but it is disconnected, run `npx -y @ask-llm/mcp doctor` and restart Claude Code. `/sol-review` reads the active `claude mcp list` inventory, reports those two states separately, and repeats the check inside its reviewer before using the explicit `codex exec` fallback.
 
 ### Pi
 

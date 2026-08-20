@@ -33,10 +33,10 @@ Run a read-only, precision-first review explicitly pinned to GPT-5.6 Sol at high
 3. If the combined diff is empty, report that there are no changes to review.
 4. Read the root and file-scoped `CLAUDE.md` files plus any ADRs cited by changed code.
 5. Preflight the transport through the shipped executable contract:
-   - Search the current tool surface for the authoritative `ask-codex` tool identity. The server prefix is client-assigned, so both `mcp__codex__ask-codex` and plugin-namespaced forms such as `mcp__plugin_ask-llm_codex__ask-codex` are valid; similarly named tools such as `ask-codex-edit` are not.
+   - Search the current tool surface for the exact `ask-codex` leaf tool. The executable correlates its client-assigned server prefix with an active `@ask-llm/codex-mcp` registration; similarly named tools and tools from unrelated servers are not authoritative.
    - Run `node "${CLAUDE_PLUGIN_ROOT}/scripts/sol-review-transport.mjs" --cli-path "$(command -v codex || true)"`, adding `--tool "<resolved tool name>"` only when the exact `ask-codex` tool resolved.
-   - Preserve the returned `state`, `diagnostic`, `remediation`, and `fallbackDisclosure`. `missing-registration` means the supported server is not configured; `unavailable` means it is configured but did not expose its tool. Do not collapse those states into a generic "no MCP" message. If `transport` is null, stop and show the executable remediation instead of launching the agent.
-   - Parent availability remains advisory because subagents do not always inherit the session's MCP servers. The reviewer repeats the tool check and uses the same classified state if it must fall back.
+   - Preserve the returned `state`, `diagnostic`, `remediation`, and `fallbackDisclosure`. The executable reads `claude mcp list`: `missing-registration` means that active inventory has no supported registration; `unavailable` means it contains the registration but the current tool surface does not expose its tool. Do not collapse those states into a generic "no MCP" message. If `transport` is null, stop and show the executable remediation instead of launching the agent.
+   - Parent availability remains advisory because subagents do not always inherit the session's MCP servers. The reviewer's fallback runner re-reads the active inventory and reclassifies the absent subagent tool before executing the CLI fallback.
 6. Launch the `sol-reviewer` agent with the diff and a compact context brief containing the changed files, applicable conventions, referenced ADRs, the user's requested review focus, and the complete preflight result.
 7. Return the agent's validated findings without adding unverified issues.
 

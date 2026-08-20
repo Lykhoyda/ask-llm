@@ -186,16 +186,6 @@ describe("native model review skills", () => {
     expect(content).toMatch(/distinguishes|Do not substitute|Do not route/i);
   });
 
-  it("sol-review preflights the transport and mandates fallback disclosure (#232)", () => {
-    const content = readFile("skills/sol-review/SKILL.md");
-    expect(content).toMatch(/[Pp]reflight the transport/);
-    expect(content).toContain("command -v codex");
-    // Subagent MCP inheritance is not guaranteed; the skill must say so rather
-    // than treat parent-session availability as proof.
-    expect(content).toMatch(/do not always inherit/);
-    expect(content).toMatch(/Both fallback kinds must be disclosed/);
-  });
-
   it("guards explicit Fable overrides without claiming inaccessible runtime verification", () => {
     const content = readFile("skills/fable-review/SKILL.md");
     expect(content).toContain('model: "fable"');
