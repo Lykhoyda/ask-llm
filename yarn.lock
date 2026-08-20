@@ -296,7 +296,24 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@ask-llm/mcp@workspace:packages/llm-mcp":
+"@ask-llm/grok-mcp@npm:^0.1.0, @ask-llm/grok-mcp@workspace:packages/grok-mcp":
+  version: 0.0.0-use.local
+  resolution: "@ask-llm/grok-mcp@workspace:packages/grok-mcp"
+  dependencies:
+    "@ask-llm/shared": "workspace:*"
+    "@biomejs/biome": "npm:^2.4.4"
+    "@modelcontextprotocol/sdk": "npm:^1.27.1"
+    "@types/node": "npm:^22.19.13"
+    tsdown: "npm:^0.22.14"
+    typescript: "npm:^7.0.2"
+    vitest: "npm:^4.1.10"
+    zod: "npm:^4.3.6"
+  bin:
+    ask-grok-mcp: dist/cli.js
+  languageName: unknown
+  linkType: soft
+
+"@ask-llm/mcp@npm:^0.6.6, @ask-llm/mcp@workspace:packages/llm-mcp":
   version: 0.0.0-use.local
   resolution: "@ask-llm/mcp@workspace:packages/llm-mcp"
   dependencies:
@@ -304,6 +321,7 @@ __metadata:
     "@ask-llm/claude-mcp": "npm:^0.1.6"
     "@ask-llm/codex-mcp": "npm:^0.7.4"
     "@ask-llm/gemini-mcp": "npm:^1.7.1"
+    "@ask-llm/grok-mcp": "npm:^0.1.0"
     "@ask-llm/ollama-mcp": "npm:^0.5.6"
     "@ask-llm/shared": "workspace:*"
     "@biomejs/biome": "npm:^2.4.4"
@@ -344,6 +362,8 @@ __metadata:
     "@ask-llm/antigravity-mcp": "npm:^0.7.1"
     "@ask-llm/codex-mcp": "npm:^0.7.4"
     "@ask-llm/gemini-mcp": "npm:^1.7.1"
+    "@ask-llm/grok-mcp": "npm:^0.1.0"
+    "@ask-llm/mcp": "npm:^0.6.6"
     "@ask-llm/ollama-mcp": "npm:^0.5.6"
     "@biomejs/biome": "npm:^2.4.4"
     "@earendil-works/pi-ai": "npm:^0.83.0"
@@ -360,6 +380,7 @@ __metadata:
     ask-antigravity-run: dist/antigravity-run.js
     ask-codex-run: dist/codex-run.js
     ask-gemini-run: dist/run.js
+    ask-grok-run: dist/grok-run.js
     ask-ollama-run: dist/ollama-run.js
   languageName: unknown
   linkType: soft

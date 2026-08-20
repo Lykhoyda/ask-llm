@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// CI guard (ADR-119 fallback): the six publishable MCPs embed @ask-llm/shared
+// CI guard (ADR-119 fallback): the publishable MCPs embed @ask-llm/shared
 // at build time (tsdown), so a shared change MUST ship with a changeset
 // covering all six — otherwise the fix silently never reaches npm.
 import { execFileSync } from "node:child_process";
@@ -7,6 +7,7 @@ import fs from "node:fs";
 
 const REQUIRED = [
   "@ask-llm/gemini-mcp",
+  "@ask-llm/grok-mcp",
   "@ask-llm/codex-mcp",
   "@ask-llm/claude-mcp",
   "@ask-llm/ollama-mcp",
@@ -40,4 +41,4 @@ if (missing.length > 0) {
   console.error("[shared-changeset] shared is INLINED into the MCPs (ADR-119) — without these bumps the fix never publishes.");
   process.exit(1);
 }
-console.log("[shared-changeset] shared change covered by changesets for all 6 MCPs — OK");
+console.log(`[shared-changeset] shared change covered by changesets for all ${REQUIRED.length} MCPs — OK`);

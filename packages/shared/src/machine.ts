@@ -12,7 +12,7 @@ export const providerFailureKindSchema = z.enum([
 ]);
 
 export const machineRoleSchema = z.enum(["brainstorm", "review", "verify"]);
-export const MACHINE_PROVIDERS = ["codex", "claude", "antigravity"] as const;
+export const MACHINE_PROVIDERS = ["codex", "claude", "grok", "antigravity"] as const;
 export const machineProviderSchema = z.enum(MACHINE_PROVIDERS);
 export const actorProviderSchema = z.enum(PROVIDERS);
 

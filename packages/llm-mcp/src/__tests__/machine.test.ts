@@ -187,6 +187,43 @@ describe("runMachineRequest", () => {
     expect(machineResultSchema.safeParse(result).success).toBe(true);
   });
 
+  it("passes Grok a strict role schema and reports no fallback or session", async () => {
+    const executor: ExecutorFn = vi.fn().mockResolvedValue({
+      response: JSON.stringify(reviewPayload),
+      model: "grok-4.6",
+      usage: {
+        provider: "grok",
+        model: "grok-4.6",
+        inputTokens: 30,
+        outputTokens: 12,
+        cachedTokens: 0,
+        thinkingTokens: 5,
+        durationMs: 40,
+        fellBack: false,
+      },
+    });
+    const input = request({ provider: "grok", model: "grok-4.6", writerProvider: "claude" });
+
+    const result = await runMachineRequest(input, deps(executor));
+
+    expect(executor).toHaveBeenCalledWith({
+      prompt: buildRolePrompt(machineRequestSchema.parse(input)),
+      model: "grok-4.6",
+      includeDirs: ["packages/core"],
+      sandbox: "read-only",
+      readOnly: true,
+      outputSchema: canonicalize(z.toJSONSchema(reviewPayloadSchema)),
+    });
+    expect(result).toMatchObject({
+      status: "success",
+      provider: "grok",
+      actualModel: "grok-4.6",
+      fallback: { occurred: false, requestedModel: "grok-4.6", actualModel: "grok-4.6" },
+      session: null,
+      usage: { inputTokens: 30, outputTokens: 12, totalTokens: 42 },
+    });
+  });
+
   it("gives Antigravity read-only mode and reports its actual fallback model and transcript", async () => {
     const executor: ExecutorFn = vi.fn().mockResolvedValue({
       response: JSON.stringify(brainstormPayload),

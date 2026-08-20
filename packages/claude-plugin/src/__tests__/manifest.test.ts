@@ -40,15 +40,16 @@ describe("plugin.json manifest", () => {
     expect(manifest.version).toMatch(/^\d+\.\d+\.\d+/);
   });
 
-  it("includes the standard keyword set (all four providers)", () => {
+  it("includes the standard keyword set for every plugin provider", () => {
     expect(manifest.keywords).toContain("gemini");
     expect(manifest.keywords).toContain("codex");
+    expect(manifest.keywords).toContain("grok");
     expect(manifest.keywords).toContain("ollama");
     expect(manifest.keywords).toContain("antigravity");
   });
 
-  it("description names all four providers", () => {
-    for (const provider of ["Gemini", "Codex", "Ollama", "Antigravity"]) {
+  it("description names every plugin provider", () => {
+    for (const provider of ["Gemini", "Codex", "Grok", "Ollama", "Antigravity"]) {
       expect(manifest.description).toContain(provider);
     }
   });
@@ -110,7 +111,9 @@ describe("marketplace.json", () => {
       | { description?: string; keywords?: string[] }
       | undefined;
     expect(entry?.description).toContain("Antigravity");
+    expect(entry?.description).toContain("Grok");
     expect(entry?.keywords).toContain("antigravity");
+    expect(entry?.keywords).toContain("grok");
   });
 });
 
@@ -187,8 +190,9 @@ describe("dual-host package manifest", () => {
 
   it("declares one thin Pi extension and the canonical skills with Fable excluded", () => {
     expect(pkg.pi.extensions).toEqual(["./pi/extensions/index.ts"]);
-    expect(pkg.pi.skills).toHaveLength(15);
+    expect(pkg.pi.skills).toHaveLength(16);
     expect(pkg.pi.skills).toContain("./skills/codex-review/SKILL.md");
+    expect(pkg.pi.skills).toContain("./skills/grok-review/SKILL.md");
     expect(pkg.pi.skills).not.toContain("./skills/fable-review/SKILL.md");
     expect(fs.existsSync(path.join(PLUGIN_ROOT, "pi", "extensions", "index.ts"))).toBe(true);
   });
@@ -218,9 +222,10 @@ describe("dual-host package manifest", () => {
 describe("CLI binary references in package.json bin", () => {
   const pkg = readJson<{ bin: Record<string, string> }>("package.json");
 
-  it("declares all four runner binaries", () => {
+  it("declares all five runner binaries", () => {
     expect(pkg.bin["ask-gemini-run"]).toBe("dist/run.js");
     expect(pkg.bin["ask-codex-run"]).toBe("dist/codex-run.js");
+    expect(pkg.bin["ask-grok-run"]).toBe("dist/grok-run.js");
     expect(pkg.bin["ask-ollama-run"]).toBe("dist/ollama-run.js");
     expect(pkg.bin["ask-antigravity-run"]).toBe("dist/antigravity-run.js");
   });
@@ -228,6 +233,7 @@ describe("CLI binary references in package.json bin", () => {
   it("each declared binary source exists in src/", () => {
     expect(fs.existsSync(path.join(PLUGIN_ROOT, "src", "run.ts"))).toBe(true);
     expect(fs.existsSync(path.join(PLUGIN_ROOT, "src", "codex-run.ts"))).toBe(true);
+    expect(fs.existsSync(path.join(PLUGIN_ROOT, "src", "grok-run.ts"))).toBe(true);
     expect(fs.existsSync(path.join(PLUGIN_ROOT, "src", "ollama-run.ts"))).toBe(true);
     expect(fs.existsSync(path.join(PLUGIN_ROOT, "src", "antigravity-run.ts"))).toBe(true);
   });

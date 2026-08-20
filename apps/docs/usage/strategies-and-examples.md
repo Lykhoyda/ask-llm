@@ -1,5 +1,5 @@
 ---
-description: Proven recipes for AI-to-AI code review, architecture debates, and large-codebase analysis using Codex, Antigravity, Ollama, Gemini, and multi-provider parallel dispatch.
+description: Proven recipes for AI-to-AI code review, architecture debates, and large-codebase analysis using Codex, Grok, Antigravity, Ollama, Gemini, and multi-provider parallel dispatch.
 ---
 
 # Strategies & Examples
@@ -17,7 +17,7 @@ What is the purpose of this project? Read @. (current directory)
 review @routes/**/*.js for OWASP vulnerabilities
 ```
 
-This is a Gemini CLI feature; Codex, Antigravity, and Ollama don't have direct equivalents. Quote or paste the relevant code into the prompt instead, or use `multi-llm` and let Gemini handle the file reading while the others work from the same prompt text.
+This is a Gemini CLI feature; Codex, Grok, Antigravity, and Ollama don't have direct equivalents. Quote or paste the relevant code into the prompt instead, or use `multi-llm` and let Gemini handle the file reading while the others work from the same prompt text.
 
 > **Tip:** Including `package.json` (`@package.json @src/`) helps Gemini understand your dependencies before analyzing your code.
 
@@ -114,7 +114,7 @@ Call 3: Ask Codex to write tests for the fix, sessionId abc-123
         → continues the same thread
 ```
 
-Claude, Gemini, Codex, and Ollama support sessions; Antigravity is single-turn. Codex requires `sessionId: ""` on the first call to create a resumable thread; omitting it keeps the call ephemeral. Claude sessions are available from Codex and other non-Claude hosts. For programmatic clients, the `sessionId` is also exposed structurally via `result.structuredContent.sessionId`; no need to regex-parse the response footer.
+Claude, Gemini, Codex, and Ollama support sessions; Grok and Antigravity are single-turn. Codex requires `sessionId: ""` on the first call to create a resumable thread; omitting it keeps the call ephemeral. Claude sessions are available from Codex and other non-Claude hosts. For programmatic clients, the `sessionId` is also exposed structurally via `result.structuredContent.sessionId`; no need to regex-parse the response footer.
 
 ### 6. Quick Sanity Check via REPL
 

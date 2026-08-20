@@ -3,8 +3,8 @@ import { askResponseSchema } from "../askResponse.js";
 import { PROVIDERS } from "../providers.js";
 
 describe("PROVIDERS single source of truth", () => {
-  it("lists all five providers", () => {
-    expect(PROVIDERS).toEqual(["gemini", "codex", "claude", "ollama", "antigravity"]);
+  it("lists all six providers", () => {
+    expect(PROVIDERS).toEqual(["gemini", "codex", "claude", "grok", "ollama", "antigravity"]);
   });
 
   it("askResponseSchema accepts every provider in PROVIDERS", () => {

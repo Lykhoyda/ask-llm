@@ -12,12 +12,15 @@ const usageStatsSchema = z.object({
   fellBack: z.boolean(),
 });
 
+export const harnessSchema = z.enum(["xai-api", "grok-cli", "cursor-agent"]);
+
 export const askResponseSchema = z.object({
   provider: z.enum(PROVIDERS),
   response: z.string(),
   model: z.string(),
   sessionId: z.string().optional(),
   usage: usageStatsSchema.optional(),
+  harness: harnessSchema.optional(),
 });
 
 export type AskResponse = z.infer<typeof askResponseSchema>;

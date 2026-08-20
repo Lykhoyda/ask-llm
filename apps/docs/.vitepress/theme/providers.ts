@@ -5,7 +5,7 @@
 // Values are drift-checked against packages/*/src/constants.ts by
 // scripts/check-docs-drift.mjs. Update BOTH when a default model changes.
 
-export type ProviderId = "codex" | "claude" | "antigravity" | "ollama" | "gemini" | "unified";
+export type ProviderId = "codex" | "claude" | "grok" | "antigravity" | "ollama" | "gemini" | "unified";
 
 export interface ProviderDoc {
   id: ProviderId;
@@ -50,6 +50,19 @@ export const PROVIDER_DOCS: Record<ProviderId, ProviderDoc> = {
     tagline: "Opus-powered read-only reviewer for Codex CLI and other non-Claude hosts. The reverse path.",
     tools: ["ask-claude", "get-usage-stats", "ping"],
     docPath: "/providers/claude",
+  },
+  grok: {
+    id: "grok",
+    name: "Grok",
+    pkg: "@ask-llm/grok-mcp",
+    serverName: "grok",
+    cliInstall: "# create an API key at https://console.x.ai/team/default/api-keys",
+    defaultModel: "grok-4.6",
+    defaultEffort: "high",
+    tier: "supporting",
+    tagline: "Grok 4.6 through xAI's metered API. Exact model selection with no fallback.",
+    tools: ["ask-grok", "get-usage-stats", "ping"],
+    docPath: "/providers/grok",
   },
   antigravity: {
     id: "antigravity",
@@ -102,14 +115,14 @@ export const PROVIDER_DOCS: Record<ProviderId, ProviderDoc> = {
     defaultModel: "per provider",
     tier: "unified",
     tagline:
-      "All providers in one server. Auto-detects installed CLIs, routes each request, or fans one prompt out to several.",
+      "All providers in one server. Detects configured APIs and installed CLIs, routes each request, or fans one prompt out to several.",
     tools: ["ask-llm", "multi-llm", "get-usage-stats", "diagnose", "ping"],
     docPath: "/providers/unified",
   },
 };
 
 export const HERO_IDS: ProviderId[] = ["claude", "codex"];
-export const SUPPORTING_IDS: ProviderId[] = ["antigravity", "ollama", "gemini"];
+export const SUPPORTING_IDS: ProviderId[] = ["grok", "antigravity", "ollama", "gemini"];
 
 export function providerList(): ProviderDoc[] {
   return Object.values(PROVIDER_DOCS);

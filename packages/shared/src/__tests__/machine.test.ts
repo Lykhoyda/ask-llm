@@ -61,7 +61,7 @@ describe("machineRequestSchema", () => {
     ).toBe(true);
   });
 
-  it.each(["codex", "claude", "antigravity"])("accepts the safe machine provider %s", (provider) => {
+  it.each(["codex", "claude", "grok", "antigravity"])("accepts the safe machine provider %s", (provider) => {
     expect(
       machineRequestSchema.safeParse({
         schemaVersion: 1,

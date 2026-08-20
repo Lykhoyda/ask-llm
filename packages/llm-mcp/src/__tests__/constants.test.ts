@@ -26,10 +26,12 @@ describe("provider registry drift guard", () => {
     expect({
       codex: PROVIDERS.codex?.modelEnvVar,
       claude: PROVIDERS.claude?.modelEnvVar,
+      grok: PROVIDERS.grok?.modelEnvVar,
       antigravity: PROVIDERS.antigravity?.modelEnvVar,
     }).toEqual({
       codex: "ASK_CODEX_MODEL",
       claude: "ASK_CLAUDE_MODEL",
+      grok: "ASK_GROK_MODEL",
       antigravity: "ASK_ANTIGRAVITY_MODEL",
     });
   });

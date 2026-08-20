@@ -45,6 +45,25 @@ describe("registerTools duplicate-name guard", () => {
     ).toThrow(/duplicate tool name.*ping/i);
   });
 
+  it("forwards MCP cancellation to the canonical tool executor", async () => {
+    const registerTool = vi.fn();
+    const server = { registerTool } as unknown as McpServer;
+    const executeTool = vi.fn().mockResolvedValue("ok");
+    registerTools({
+      server,
+      tools: [makeTool("ask-grok")],
+      executeTool,
+      getPromptMessage: () => "",
+      progressMessages: () => [],
+    });
+    const handler = registerTool.mock.calls[0][2];
+    const controller = new AbortController();
+
+    await handler({}, { signal: controller.signal, sendNotification: vi.fn() });
+
+    expect(executeTool.mock.calls[0][4]).toBe(controller.signal);
+  });
+
   it("registers distinct names without throwing", () => {
     const server = { registerTool: vi.fn() } as unknown as McpServer;
 

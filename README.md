@@ -12,6 +12,7 @@
 | [`@ask-llm/gemini-mcp`](https://www.npmjs.com/package/@ask-llm/gemini-mcp) | MCP Server | [![npm](https://img.shields.io/npm/v/@ask-llm/gemini-mcp)](https://www.npmjs.com/package/@ask-llm/gemini-mcp) | [![downloads](https://img.shields.io/npm/dt/@ask-llm/gemini-mcp)](https://www.npmjs.com/package/@ask-llm/gemini-mcp) |
 | [`@ask-llm/codex-mcp`](https://www.npmjs.com/package/@ask-llm/codex-mcp) | MCP Server | [![npm](https://img.shields.io/npm/v/@ask-llm/codex-mcp)](https://www.npmjs.com/package/@ask-llm/codex-mcp) | [![downloads](https://img.shields.io/npm/dt/@ask-llm/codex-mcp)](https://www.npmjs.com/package/@ask-llm/codex-mcp) |
 | [`@ask-llm/claude-mcp`](https://www.npmjs.com/package/@ask-llm/claude-mcp) | MCP Server | [![npm](https://img.shields.io/npm/v/@ask-llm/claude-mcp)](https://www.npmjs.com/package/@ask-llm/claude-mcp) | [![downloads](https://img.shields.io/npm/dt/@ask-llm/claude-mcp)](https://www.npmjs.com/package/@ask-llm/claude-mcp) |
+| [`@ask-llm/grok-mcp`](https://www.npmjs.com/package/@ask-llm/grok-mcp) | MCP Server | [![npm](https://img.shields.io/npm/v/@ask-llm/grok-mcp)](https://www.npmjs.com/package/@ask-llm/grok-mcp) | [![downloads](https://img.shields.io/npm/dt/@ask-llm/grok-mcp)](https://www.npmjs.com/package/@ask-llm/grok-mcp) |
 | [`@ask-llm/ollama-mcp`](https://www.npmjs.com/package/@ask-llm/ollama-mcp) | MCP Server | [![npm](https://img.shields.io/npm/v/@ask-llm/ollama-mcp)](https://www.npmjs.com/package/@ask-llm/ollama-mcp) | [![downloads](https://img.shields.io/npm/dt/@ask-llm/ollama-mcp)](https://www.npmjs.com/package/@ask-llm/ollama-mcp) |
 | [`@ask-llm/antigravity-mcp`](https://www.npmjs.com/package/@ask-llm/antigravity-mcp) | MCP Server | [![npm](https://img.shields.io/npm/v/@ask-llm/antigravity-mcp)](https://www.npmjs.com/package/@ask-llm/antigravity-mcp) | [![downloads](https://img.shields.io/npm/dt/@ask-llm/antigravity-mcp)](https://www.npmjs.com/package/@ask-llm/antigravity-mcp) |
 | [`@ask-llm/mcp`](https://www.npmjs.com/package/@ask-llm/mcp) | MCP Server | [![npm](https://img.shields.io/npm/v/@ask-llm/mcp)](https://www.npmjs.com/package/@ask-llm/mcp) | [![downloads](https://img.shields.io/npm/dt/@ask-llm/mcp)](https://www.npmjs.com/package/@ask-llm/mcp) |
@@ -21,7 +22,7 @@
 
 </div>
 
-**Get a second opinion before you ship.** Ask LLM lets your AI assistant — Claude Code, Codex CLI, Cursor, Claude Desktop, or any of [40+ MCP clients](https://modelcontextprotocol.io/clients) — consult a _second_ model to review your code, debate a plan, or catch a bug it might have missed. Pick the reviewer that fits: OpenAI **Codex** (GPT-5.6 Sol → Terra), Anthropic **Claude** (Opus → Sonnet), Google **Antigravity** (`agy`), a local **Ollama** model, or **Gemini** (1M+ token context). Standard [MCP](https://modelcontextprotocol.io/), no prompt hacks.
+**Get a second opinion before you ship.** Ask LLM lets your AI assistant — Claude Code, Codex CLI, Cursor, Claude Desktop, or any of [40+ MCP clients](https://modelcontextprotocol.io/clients) — consult a _second_ model to review your code, debate a plan, or catch a bug it might have missed. Pick the reviewer that fits: OpenAI **Codex** (GPT-5.6 Sol → Terra), Anthropic **Claude** (Opus → Sonnet), xAI **Grok** 4.6 via API or Grok CLI (no fallback), Google **Antigravity** (`agy`), a local **Ollama** model, or **Gemini** (1M+ token context). Standard [MCP](https://modelcontextprotocol.io/), no prompt hacks.
 
 > **⚠️ Gemini CLI goes enterprise-only on 2026-06-18:** From that date Google restricts Gemini CLI to **Gemini Code Assist Standard/Enterprise** seats, and free, Google AI Pro, and Ultra accounts lose access. `@ask-llm/gemini-mcp` still installs, but a non-enterprise account then surfaces actionable guidance instead of output. Free/Pro users: switch to **`ask-antigravity`** (the Google-sanctioned successor, subscription-backed via Google AI Pro/Ultra), **`ask-codex`**, **`ask-claude`**, or **`ask-ollama`**. [Announcement](https://developers.googleblog.com/an-important-update-transitioning-gemini-cli-to-antigravity-cli/)
 
@@ -61,6 +62,7 @@ claude mcp add --scope user ask-llm -- npx -y @ask-llm/mcp
 ```bash
 claude mcp add --scope user gemini -- npx -y @ask-llm/gemini-mcp
 claude mcp add --scope user codex -- npx -y @ask-llm/codex-mcp
+claude mcp add --scope user grok -e XAI_API_KEY="$XAI_API_KEY" -- npx -y @ask-llm/grok-mcp
 claude mcp add --scope user ollama -- npx -y @ask-llm/ollama-mcp
 claude mcp add --scope user antigravity -- npx -y @ask-llm/antigravity-mcp
 ```
@@ -76,7 +78,7 @@ pi install npm:@ask-llm/plugin
 pi list
 ```
 
-Invoke `/skill:codex-review`, `/skill:multi-review`, `/skill:compare`, `/skill:brainstorm`, or describe the workflow naturally. The package registers `ask-codex`, `ask-gemini`, `ask-ollama`, `ask-antigravity`, and deterministic concurrent `ask-multi` tools. Provider CLI authentication is unchanged and separate from Pi's host-model login.
+Invoke `/skill:codex-review`, `/skill:multi-review`, `/skill:compare`, `/skill:brainstorm`, or describe the workflow naturally. The package registers `ask-codex`, `ask-gemini`, `ask-grok`, `ask-ollama`, `ask-antigravity`, model-neutral `ask-cursor-agent`, and deterministic concurrent `ask-multi` tools. Provider CLI authentication is unchanged and separate from Pi's host-model login.
 
 Pi codex-pair requires the repository marker, Pi project trust, **and** interactive user-owned consent via `/codex-pair`; a committed marker alone never authorizes source transfer or cost. Pi surfaces findings non-blockingly and does not claim Claude's blocking Stop-gate or one-shot print parity. Independent `fable-review` remains Claude Code-only and is excluded from Pi.
 
@@ -151,7 +153,7 @@ codex mcp add claude -- npx -y @ask-llm/claude-mcp
 { "command": "npx", "args": ["-y", "@ask-llm/mcp"] }
 ```
 
-Replace `@ask-llm/mcp` with `@ask-llm/codex-mcp`, `@ask-llm/claude-mcp`, `@ask-llm/antigravity-mcp`, `@ask-llm/ollama-mcp`, or `@ask-llm/gemini-mcp` for a single provider.
+Replace `@ask-llm/mcp` with `@ask-llm/codex-mcp`, `@ask-llm/claude-mcp`, `@ask-llm/grok-mcp`, `@ask-llm/antigravity-mcp`, `@ask-llm/ollama-mcp`, or `@ask-llm/gemini-mcp` for a single provider.
 
 </details>
 
@@ -180,6 +182,7 @@ the complete package-to-executable mapping.
 |----------|----------|----------------------------|-------|
 | **Codex** | Code reasoning, targeted reviews, architecture critique | `gpt-5.6-sol` → `gpt-5.6-terra` | Requires an OpenAI/Codex account |
 | **Claude** | Independent review from Codex or another non-Claude host | `opus` → `sonnet` | Claude Code CLI; native sessions; read-only tools |
+| **Grok** | Grok 4.6 critique through xAI API or official Grok CLI | API `grok-4.6`, reasoning `high` (no fallback) | Harness selected separately; exact harness catalog ID sent unchanged |
 | **Antigravity** | A subscription-backed second opinion; larger-context reads | `gemini-3.1-pro` → `gemini-3.5-flash` (both at `--effort high`) | Google AI Pro/Ultra plan; one-shot, experimental |
 | **Ollama** | Private/local review, zero cost, offline | `qwen3.6:27b` (no auto-fallback) | Runs entirely on your machine |
 | **Gemini** | Whole-codebase reads (1M+ tokens) | `gemini-3.1-pro-preview` → `gemini-3.6-flash` | ⚠️ Enterprise-gated from 2026-06-18 |
@@ -216,6 +219,7 @@ The **Ask LLM plugin** adds multi-provider code review, brainstorming, and autom
 | <nobr>`/codex-review`</nobr> | Codex-only review with confidence filtering |
 | <nobr>`/fable-review`</nobr> | Isolated, read-only review that requests the native Fable model and discloses runtime verification limits |
 | <nobr>`/sol-review`</nobr> | Model-pinned GPT-5.6 Sol review through Codex |
+| <nobr>`/grok-review`</nobr> | Metered Grok review through xAI with exact model attribution and no fallback |
 | <nobr>`/ollama-review`</nobr> | Local review — no data leaves your machine |
 | <nobr>`/antigravity-review`</nobr> | Subscription-backed review via Google Antigravity (`agy`) — experimental |
 | <nobr>`/brainstorm`</nobr> | Multi-LLM brainstorm: Claude Opus researches the topic against real files in parallel with external providers (Gemini/Codex/Ollama), then synthesizes all findings with verified findings weighted higher |
@@ -232,6 +236,8 @@ See the [plugin docs](https://lykhoyda.github.io/ask-llm/plugin/overview) for de
 - **At least one provider:**
   - [Codex CLI](https://github.com/openai/codex) — installed and authenticated
   - [Claude Code CLI](https://docs.anthropic.com/en/docs/claude-code/getting-started) — installed and authenticated (for Codex/other clients consulting Claude)
+  - [xAI API](https://docs.x.ai/) — set `XAI_API_KEY` for the default metered Grok harness; or install/authenticate official Grok Build and set `ASK_GROK_HARNESS=grok-cli`
+  - [Cursor CLI](https://cursor.com/docs/cli) — optional model-neutral harness; authenticate and choose an exact ID from `agent --list-models`
   - [Antigravity CLI](https://antigravity.google) (`agy`) >=1.1.5 — installed and logged in once (Google AI Pro/Ultra); verify with `agy --version`
   - [Ollama](https://ollama.com) — running locally with a model pulled (`ollama pull qwen3.6:27b`)
   - [Gemini CLI](https://github.com/google-gemini/gemini-cli) — `npm install -g @google/gemini-cli && gemini login` (enterprise-gated from 2026-06-18)
@@ -245,6 +251,8 @@ See the [plugin docs](https://lykhoyda.github.io/ask-llm/plugin/overview) for de
 | `fetch-chunk` | @ask-llm/gemini-mcp | Retrieve chunks from cached large responses |
 | `ask-codex` | @ask-llm/codex-mcp | Send prompts to Codex CLI. GPT-5.6 Sol with Terra fallback; omit `sessionId` for ephemeral use, or pass `sessionId: ""` first to persist and resume |
 | `ask-claude` | @ask-llm/claude-mcp | Send prompts to Claude Code CLI. Opus with Sonnet fallback; native sessions; Read/Glob/Grep-only workspace access |
+| `ask-grok` | @ask-llm/grok-mcp | Send a one-shot Grok prompt through explicit `xai-api` (default) or `grok-cli`; exact harness model ID; no harness/model fallback |
+| `ask-cursor-agent` | @ask-llm/mcp | Model-neutral Cursor Agent harness: separate provider + exact Cursor catalog model, read-only ask mode, no force/trust/spend changes/fallback |
 | `ask-ollama` | @ask-llm/ollama-mcp | Send prompts to local Ollama. Fully private, zero cost. Server-side conversation replay via `sessionId` |
 | `ask-antigravity` | @ask-llm/antigravity-mcp | Send a prompt to Google Antigravity (`agy`) for a subscription-backed second opinion. Experimental; one-shot |
 | `ask-llm` | @ask-llm/mcp | Unified orchestrator — pick provider per call. Fan out to all installed providers |
@@ -290,10 +298,11 @@ The REPL ships sessions per provider (`/provider gemini`, `/provider codex`, `/n
 | Gemini | `gemini-3.1-pro-preview` | `gemini-3.6-flash` (on quota) |
 | Codex | `gpt-5.6-sol` | `gpt-5.6-terra` (on quota) |
 | Claude | `opus` | `sonnet` (on overload/unavailability) |
+| Grok | API: `grok-4.6`; CLI: exact `grok models` ID (effort `high`) | — (explicit harness/model selection; no fallback) |
 | Antigravity | `gemini-3.1-pro` (`--effort high`) | `gemini-3.5-flash` (on rate limit); model-less recovery if a shipped slug is rejected |
 | Ollama | `qwen3.6:27b` | — (local; errors if the model isn't pulled) |
 
-Gemini, Codex, Claude, and Antigravity automatically fall back under their documented provider-specific conditions. Ollama runs locally and never substitutes a model — if the requested model isn't pulled, it returns a clear `ollama pull` error.
+Gemini, Codex, Claude, and Antigravity automatically fall back under their documented provider-specific conditions. Grok and Ollama never substitute a model: Grok preserves the explicit API/CLI harness catalog selection, while Ollama preserves the locally pulled model — if the requested model isn't pulled, it returns a clear `ollama pull` error.
 
 ## Documentation
 
@@ -308,4 +317,4 @@ Contributions are welcome! See [open issues](https://github.com/Lykhoyda/ask-llm
 
 MIT License. See [LICENSE](LICENSE) for details.
 
-**Disclaimer:** This is an unofficial, third-party tool and is not affiliated with, endorsed, or sponsored by Anthropic, Google, or OpenAI.
+**Disclaimer:** This is an unofficial, third-party tool and is not affiliated with, endorsed, or sponsored by Anthropic, Google, OpenAI, or xAI.

@@ -1,5 +1,5 @@
 ---
-description: Continue conversations across multiple tool calls using session IDs. Claude, Gemini, Codex, and Ollama support multi-turn; Antigravity is single-turn.
+description: Continue conversations across multiple tool calls using session IDs. Claude, Gemini, Codex, and Ollama support multi-turn; Grok and Antigravity are single-turn.
 ---
 
 # Multi-Turn Sessions

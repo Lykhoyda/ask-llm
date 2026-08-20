@@ -54,6 +54,7 @@ CI-enforced by `scripts/check-docs-drift.mjs`). Read the current values from:
 | gemini | `packages/gemini-mcp/src/constants.ts` | `FACTORY_DEFAULT_MODEL`, `MODELS.FLASH` (quota fallback) |
 | codex | `packages/codex-mcp/src/constants.ts` | `FACTORY_DEFAULT_MODEL`, `MODELS.FALLBACK` |
 | claude | `packages/claude-mcp/src/constants.ts` | `FACTORY_DEFAULT_MODEL`, `MODELS.FALLBACK` |
+| grok | `packages/grok-mcp/src/constants.ts` | `FACTORY_DEFAULT_MODEL`, `REASONING_EFFORTS`, `GROK_HARNESSES`; enumerate xAI `GET /v1/models`, `grok models`, and relevant `agent --list-models` IDs separately |
 | ollama | `packages/ollama-mcp/src/constants.ts` | `FACTORY_DEFAULT_MODEL` |
 | antigravity | `packages/antigravity-mcp/src/constants.ts` | `MODELS.DEFAULT`, `MODELS.FALLBACK` |
 

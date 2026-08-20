@@ -19,6 +19,17 @@ describe("PROVIDERS registry", () => {
     expect(PROVIDERS.antigravity.executorFn).toBe("executeAntigravityCLI");
   });
 
+  it("registers Grok as an xAI API-backed provider", () => {
+    expect(PROVIDERS.grok).toMatchObject({
+      command: "xai-api",
+      executorModule: "@ask-llm/grok-mcp/executor",
+      executorFn: "executeGrok",
+      defaultModel: "grok-4.6",
+      modelEnvVar: "ASK_GROK_MODEL",
+      availabilityFn: "isGrokProviderAvailable",
+    });
+  });
+
   it("registers Claude as a Claude Code CLI-backed provider", () => {
     expect(PROVIDERS.claude).toBeDefined();
     expect(PROVIDERS.claude.command).toBe("claude");

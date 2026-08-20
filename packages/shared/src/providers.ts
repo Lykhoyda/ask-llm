@@ -5,6 +5,6 @@
  * monorepo must derive from this tuple — hand-maintained copies drifted when
  * antigravity was added (see BUGS.md 2026-07-02 audit entry).
  */
-export const PROVIDERS = ["gemini", "codex", "claude", "ollama", "antigravity"] as const;
+export const PROVIDERS = ["gemini", "codex", "claude", "grok", "ollama", "antigravity"] as const;
 
 export type ProviderName = (typeof PROVIDERS)[number];

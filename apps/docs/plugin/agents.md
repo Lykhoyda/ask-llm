@@ -27,7 +27,7 @@ Provider-backed review agents use a 3-phase workflow with confidence-based filte
 
 **Phase 2: Provider Consultation**
 - Construct a targeted prompt with the diff and conventions
-- Call the respective provider (Codex, Antigravity, Ollama, or Gemini)
+- Call the respective provider (Codex, Grok, Antigravity, Ollama, or Gemini)
 - Parse the structured response
 
 **Phase 3: Synthesis**
@@ -42,6 +42,10 @@ Sends code changes to OpenAI Codex (GPT-5.6 Sol) for review. Automatic fallback 
 ### `antigravity-reviewer`
 
 Sends code changes to Google Antigravity (`agy`) for a subscription-backed review via your Google AI Pro/Ultra plan. Experimental; the Gemini CLI successor.
+
+### `grok-reviewer`
+
+Sends code changes to Grok through the selected xAI API or official Grok CLI harness. Exact model and harness attribution are preserved; failures never route to another model/provider. API data transfer and pricing are explicit.
 
 ### `ollama-reviewer`
 
@@ -71,7 +75,7 @@ Orchestrates multi-LLM brainstorming sessions with **Claude Opus as a first-clas
    - **Contradictions**: Verified findings outrank inferred ones in tie-breaking
    - **Recommendations**: Prioritized by impact and confidence
 
-The `Participants Consulted` section lists Claude Opus alongside Gemini/Codex/Ollama with a `(verified against real files: ...)` annotation for grounded findings. This agent is invoked by the `/brainstorm` and `/brainstorm-all` skills.
+The `Participants Consulted` section lists Claude Opus alongside Gemini/Codex/Grok/Ollama/Antigravity with a `(verified against real files: ...)` annotation for grounded findings. This agent is invoked by the `/brainstorm` and `/brainstorm-all` skills.
 
 ## Running Agents Directly
 

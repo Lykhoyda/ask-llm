@@ -1,5 +1,17 @@
 # Architectural Decisions
 
+## ADR-145: Grok is first-class across explicit API/CLI harnesses; Cursor remains model-neutral
+
+**Status:** Accepted (2026-08-26)
+
+**Context:** Ask LLM's provider architecture covered authenticated CLI transports and local HTTP, but not Grok, and it treated each provider executor as if transport and model identity were always the same axis. That breaks down for Grok 4.6: xAI exposes the exact `grok-4.6` API identifier and reasoning effort through the Responses API; Grok Build exposes its own headless CLI catalog; Cursor Agent exposes an account-specific catalog spanning several model providers. Cursor is a harness, not a provider, and catalog IDs such as `cursor-grok-4.6-high` must not be rewritten into xAI API IDs.
+
+**Decision:** Add `@ask-llm/grok-mcp` with an explicit `harness` selection: `xai-api` (default) or `grok-cli`. There is no automatic harness fallback. The API harness uses native `fetch` only to the fixed xAI `POST https://api.x.ai/v1/responses` origin, sets `store:false`, caps output at 16,384 tokens by default, enables no server-side tools or priority tier, and uses strict JSON Schema where requested. The CLI harness capability-probes the official headless/JSON flags, runs one `grok -p --output-format json` turn in a read-only sandbox with subagents, memory, and web search disabled, and accepts cached login or `XAI_API_KEY`. Both send the selected model unchanged, share the documented effort enum, return `usage.fellBack:false`, terminate on every auth/model/quota/safety/transport/malformed-output failure, and propagate cancellation to the underlying HTTP request or process.
+
+Add a separate `ask-cursor-agent` tool to the unified and Pi surfaces. It requires both a canonical model provider and an exact ID from `agent --list-models`; runs Cursor in `--print --mode ask` with no `--force` and no automatic `--trust`; and reports `harness:"cursor-agent"` alongside the explicit provider and CLI-reported model. It never selects Cursor Auto, changes on-demand spend or limits, or falls back. `AskResponse.harness` is additive and optional so existing providers keep their contract. Prompt arguments are redacted from command logs; API/Cursor credentials and bounded upstream details are redacted before diagnostics cross boundaries. Live billed API tests require both `GROK_LIVE_TEST=1` and `XAI_API_KEY`; mandatory API, Grok CLI, and Cursor suites mock their transport/command boundaries.
+
+**Consequences:** Grok is available through API and official CLI paths without conflating their model catalogs. Cursor Agent can consult Grok, Claude, Codex, Gemini, or another canonical provider without becoming a fake provider itself. The xAI API remains the default and only path eligible for machine-mode native strict output; CLI responses are prompt-constrained and locally validated. Operators explicitly own xAI and Cursor plan/spend implications, workspace trust, and CLI login. Actual harness and model attribution are visible, and no error silently moves the request to a different transport, provider, or model.
+
 ## ADR-145: One bounded TOON pilot on the `ask-llm-mcp doctor` CLI
 
 **Status:** Accepted (2026-08-20)

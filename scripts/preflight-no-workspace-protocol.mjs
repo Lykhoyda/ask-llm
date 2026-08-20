@@ -25,10 +25,11 @@ const CANONICAL_PACKAGES = {
   "claude-mcp": { name: "@ask-llm/claude-mcp", bins: ["ask-claude-mcp"] },
   "claude-plugin": {
     name: "@ask-llm/plugin",
-    bins: ["ask-antigravity-run", "ask-codex-run", "ask-gemini-run", "ask-ollama-run"],
+    bins: ["ask-antigravity-run", "ask-codex-run", "ask-gemini-run", "ask-grok-run", "ask-ollama-run"],
   },
   "codex-mcp": { name: "@ask-llm/codex-mcp", bins: ["ask-codex-mcp"] },
   "gemini-mcp": { name: "@ask-llm/gemini-mcp", bins: ["ask-gemini-mcp"] },
+  "grok-mcp": { name: "@ask-llm/grok-mcp", bins: ["ask-grok-mcp"] },
   "llm-mcp": { name: "@ask-llm/mcp", bins: ["ask-llm-mcp"] },
   "ollama-mcp": { name: "@ask-llm/ollama-mcp", bins: ["ask-ollama-mcp"] },
 };
@@ -37,6 +38,7 @@ const MCP_REGISTRY_MANIFESTS = [
   "packages/antigravity-mcp/server.json",
   "packages/claude-mcp/server.json",
   "packages/codex-mcp/server.json",
+  "packages/grok-mcp/server.json",
   "packages/llm-mcp/server.json",
   "packages/ollama-mcp/server.json",
 ];

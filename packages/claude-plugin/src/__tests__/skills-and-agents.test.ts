@@ -15,6 +15,7 @@ const expectedSkills = [
   "compare",
   "fable-review",
   "gemini-review",
+  "grok-review",
   "multi-review",
   "ollama-review",
   "sol-review",
@@ -37,6 +38,7 @@ const expectedAgents = [
   "codex-verifier.md",
   "fable-reviewer.md",
   "gemini-reviewer.md",
+  "grok-reviewer.md",
   "ollama-reviewer.md",
   "sol-reviewer.md",
 ];
@@ -124,6 +126,7 @@ describe("agents/", () => {
     const cases: Array<{ file: string; tool: string }> = [
       { file: "gemini-reviewer.md", tool: "mcp__gemini__ask-gemini" },
       { file: "codex-reviewer.md", tool: "mcp__codex__ask-codex" },
+      { file: "grok-reviewer.md", tool: "mcp__grok__ask-grok" },
       { file: "ollama-reviewer.md", tool: "mcp__ollama__ask-ollama" },
       { file: "antigravity-reviewer.md", tool: "mcp__antigravity__ask-antigravity" },
     ];
@@ -139,6 +142,7 @@ describe("agents/", () => {
     const reviewerAgents = [
       "gemini-reviewer.md",
       "codex-reviewer.md",
+      "grok-reviewer.md",
       "ollama-reviewer.md",
       "antigravity-reviewer.md",
       "fable-reviewer.md",

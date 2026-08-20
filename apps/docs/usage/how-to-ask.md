@@ -8,7 +8,7 @@ You don't need to memorize commands or rigid syntax to use Ask LLM. The MCP tool
 
 ## Just Ask Naturally
 
-Because your MCP-enabled assistant natively integrates these tools, it knows when to route requests to Codex, Claude, Antigravity, Ollama, or Gemini based on what you say:
+Because your MCP-enabled assistant natively integrates these tools, it knows when to route requests to Codex, Claude, Grok, Antigravity, Ollama, or Gemini based on what you say:
 
 - *"Ask Codex to review my staged changes for security issues before I commit."*
 - *"Ask Claude for an independent critique of this plan before Codex implements it."*
@@ -40,7 +40,7 @@ Ask Gemini to give me a high-level overview of @. (current directory)
 Ask Gemini to scan @routes/**/*.js for OWASP issues
 ```
 
-This is a Gemini CLI feature; `@` syntax is interpreted by `gemini`, not by the MCP server. Codex, Claude, Antigravity, and Ollama don't interpret `@`, so quote or paste the relevant code into the prompt (Claude and Antigravity can take file context via `includeDirs` → `--add-dir`).
+This is a Gemini CLI feature; `@` syntax is interpreted by `gemini`, not by the MCP server. Codex, Claude, Grok, Antigravity, and Ollama don't interpret `@`, so quote or paste the relevant code into the prompt (Claude and Antigravity can take file context via `includeDirs` → `--add-dir`).
 
 ---
 
@@ -84,7 +84,7 @@ Self-diagnosis: Node version, PATH resolution, provider CLI presence + versions.
 
 Zero-cost connection test. Lists detected providers.
 
-### Per-provider servers (`@ask-llm/gemini-mcp`, `@ask-llm/codex-mcp`, `@ask-llm/claude-mcp`, `@ask-llm/ollama-mcp`, `@ask-llm/antigravity-mcp`)
+### Per-provider servers (`@ask-llm/gemini-mcp`, `@ask-llm/codex-mcp`, `@ask-llm/claude-mcp`, `@ask-llm/grok-mcp`, `@ask-llm/ollama-mcp`, `@ask-llm/antigravity-mcp`)
 
 Each per-provider server exposes its provider's `ask-*` tool with the richer per-provider parameter set, plus the shared `get-usage-stats` and `ping`.
 

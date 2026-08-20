@@ -16,6 +16,11 @@ vi.mock("@ask-llm/claude-mcp/executor", () => ({
   executeClaudeCLI: vi.fn().mockResolvedValue({ response: "claude response", sessionId: undefined }),
 }));
 
+vi.mock("@ask-llm/grok-mcp/executor", () => ({
+  executeGrok: vi.fn().mockResolvedValue({ response: "grok response", model: "grok-4.6" }),
+  isGrokProviderAvailable: vi.fn().mockResolvedValue(false),
+}));
+
 vi.mock("@ask-llm/ollama-mcp/executor", () => ({
   executeOllamaCLI: vi.fn().mockResolvedValue({ response: "ollama response", model: "qwen3.6:27b" }),
   isProviderAvailable: vi.fn().mockResolvedValue(false),
@@ -31,6 +36,7 @@ import { probeAgySupport } from "@ask-llm/antigravity-mcp/executor";
 import { executeClaudeCLI } from "@ask-llm/claude-mcp/executor";
 import { executeCodexCLI } from "@ask-llm/codex-mcp/executor";
 import { executeGeminiCLI } from "@ask-llm/gemini-mcp/executor";
+import { executeGrok, isGrokProviderAvailable as mockIsGrokAvailable } from "@ask-llm/grok-mcp/executor";
 import { executeOllamaCLI, isProviderAvailable as mockIsOllamaAvailable } from "@ask-llm/ollama-mcp/executor";
 import { buildAskLlmSchema, detectProviders, formatProviderPing, getLoadedExecutor } from "../index.js";
 import { isCommandAvailable } from "../utils/availability.js";
@@ -61,6 +67,7 @@ beforeEach(() => {
   vi.resetAllMocks();
   mockIsCommandAvailable.mockResolvedValue(false);
   mockProbeAgySupport.mockResolvedValue(missingAgy);
+  vi.mocked(mockIsGrokAvailable).mockResolvedValue(false);
   vi.mocked(mockIsOllamaAvailable).mockResolvedValue(false);
   vi.mocked(executeGeminiCLI).mockResolvedValue({ response: "gemini response", sessionId: undefined });
   vi.mocked(executeCodexCLI).mockResolvedValue({ response: "codex response", threadId: undefined });
@@ -75,6 +82,21 @@ beforeEach(() => {
       outputTokens: undefined,
       cachedTokens: undefined,
       thinkingTokens: undefined,
+      durationMs: 1,
+      fellBack: false,
+    },
+  });
+  vi.mocked(executeGrok).mockResolvedValue({
+    response: "grok response",
+    model: "grok-4.6",
+    sessionId: undefined,
+    usage: {
+      provider: "grok",
+      model: "grok-4.6",
+      inputTokens: 1,
+      outputTokens: 1,
+      cachedTokens: 0,
+      thinkingTokens: 0,
       durationMs: 1,
       fellBack: false,
     },
@@ -107,6 +129,15 @@ describe("detectProviders", () => {
     expect(status.available).toContain("codex");
     expect(status.missing).toContain("gemini");
     expect(status.missing).toContain("ollama");
+  });
+
+  it("detects Grok when provider-scoped xAI credentials are configured", async () => {
+    vi.mocked(mockIsGrokAvailable).mockResolvedValue(true);
+
+    const status = await detectProviders();
+
+    expect(status.available).toContain("grok");
+    expect(getLoadedExecutor("grok")).toBeDefined();
   });
 
   it("detects ollama when server is running", async () => {
@@ -143,12 +174,13 @@ describe("detectProviders", () => {
 
   it("detects all when all providers are available", async () => {
     mockIsCommandAvailable.mockResolvedValue(true);
+    vi.mocked(mockIsGrokAvailable).mockResolvedValue(true);
     vi.mocked(mockIsOllamaAvailable).mockResolvedValue(true);
     mockProbeAgySupport.mockResolvedValue(supportedAgy);
 
     const status = await detectProviders();
 
-    expect(status.available).toEqual(["gemini", "codex", "claude", "ollama", "antigravity"]);
+    expect(status.available).toEqual(["gemini", "codex", "claude", "grok", "ollama", "antigravity"]);
     expect(status.missing).toHaveLength(0);
   });
 
@@ -159,7 +191,7 @@ describe("detectProviders", () => {
     const status = await detectProviders();
 
     expect(status.available).toHaveLength(0);
-    expect(status.missing).toEqual(["gemini", "codex", "claude", "ollama", "antigravity"]);
+    expect(status.missing).toEqual(["gemini", "codex", "claude", "grok", "ollama", "antigravity"]);
   });
 
   it("reports unsupported agy as detected but unavailable with upgrade details", async () => {
@@ -238,6 +270,14 @@ describe("provider selection and ping", () => {
 
     expect(schema.safeParse({ provider: "codex", prompt: "q" }).success).toBe(true);
     expect(schema.safeParse({ provider: "antigravity", prompt: "q" }).success).toBe(false);
+  });
+
+  it("keeps Grok harness selection separate and rejects it for other providers", () => {
+    const schema = buildAskLlmSchema(["grok", "codex"]);
+
+    expect(schema.safeParse({ provider: "grok", harness: "xai-api", prompt: "q" }).success).toBe(true);
+    expect(schema.safeParse({ provider: "grok", harness: "grok-cli", prompt: "q" }).success).toBe(true);
+    expect(schema.safeParse({ provider: "codex", harness: "grok-cli", prompt: "q" }).success).toBe(false);
   });
 
   it("documents the Codex persisted-first-turn session contract", () => {

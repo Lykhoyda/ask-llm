@@ -44,6 +44,8 @@ Add to `claude_desktop_config.json`:
   - [Gemini CLI](https://github.com/google-gemini/gemini-cli) for `ask-gemini` tools
   - [Codex CLI](https://github.com/openai/codex) for `ask-codex` tools
   - [Claude Code CLI](https://docs.anthropic.com/en/docs/claude-code/getting-started) for Codex and other non-Claude hosts to consult Claude
+  - `XAI_API_KEY` for the default xAI Grok harness, or official Grok Build with `ASK_GROK_HARNESS=grok-cli`
+  - Cursor CLI authentication for optional model-neutral `ask-cursor-agent`
   - [Ollama](https://ollama.com) running locally for `ask-ollama` tools
 
 ## How It Works
@@ -51,9 +53,10 @@ Add to `claude_desktop_config.json`:
 On startup, the unified server:
 
 1. Checks CLI availability (Gemini, Codex, Claude, Antigravity)
-2. Checks HTTP availability via health endpoints (Ollama)
-3. Dynamically imports and registers tools from available providers
-4. Exposes only the tools for providers that are actually installed
+2. Checks HTTP readiness for Ollama and the explicitly selected Grok API/CLI harness without billed inference
+3. Keeps Cursor Agent model-neutral: provider and exact `agent --list-models` ID are required separately
+4. Dynamically imports and registers tools from available providers
+5. Exposes only the tools for providers that are actually installed
 
 ## Tools
 
@@ -61,7 +64,8 @@ The orchestrator exposes a **single `ask-llm` tool** (not one tool per provider 
 
 | Tool | Purpose |
 |------|---------|
-| `ask-llm` | Route a prompt to a provider via the `provider` param (`gemini`, `codex`, `claude`, `ollama`, `antigravity`); for Codex continuity, pass `sessionId: ""` first, then resume with the returned ID |
+| `ask-llm` | Route a prompt to a provider via the `provider` param (`gemini`, `codex`, `claude`, `grok`, `ollama`, `antigravity`); optional `harness` selects xai-api/grok-cli for Grok only; for Codex continuity, pass `sessionId: ""` first, then resume with the returned ID |
+| `ask-cursor-agent` | Model-neutral Cursor harness with separate provider + exact model ID; read-only ask mode, no fallback |
 | `multi-llm` | Dispatch one prompt to multiple providers in parallel; structured per-provider report |
 | `get-usage-stats` | Per-session token totals + per-provider/model breakdowns (in-memory) |
 | `diagnose` | Environment diagnostics — provider CLI presence + versions |
