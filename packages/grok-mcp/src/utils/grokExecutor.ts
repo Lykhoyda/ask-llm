@@ -19,7 +19,7 @@ import {
   XAI_API_BASE_URL,
   XAI_API_KEY_ENV,
 } from "../constants.js";
-import { type JsonSchema, validateStructuredOutput } from "./structuredOutput.js";
+import type { JsonSchema } from "./structuredOutput.js";
 
 interface XaiErrorDetail {
   code?: string;
@@ -375,9 +375,8 @@ export async function executeGrokAPI(options: GrokExecutorOptions): Promise<Grok
     throw new Error(`Grok API returned unexpected response status "${cleanDetail(payload.status, secret)}".`);
   }
 
-  const text = outputText(payload, secret);
-  if (!text) throw new Error(ERROR_MESSAGES.MALFORMED_RESPONSE);
-  const content = options.outputSchema ? validateStructuredOutput(text, options.outputSchema, "Grok API") : text;
+  const content = outputText(payload, secret);
+  if (!content) throw new Error(ERROR_MESSAGES.MALFORMED_RESPONSE);
   const actualModel = typeof payload.model === "string" && payload.model.trim() ? payload.model : model;
   const usage = buildUsageStats(payload, actualModel, Date.now() - startedAt);
   const formatted = `${content}${formatUsageStats(usage)}`;

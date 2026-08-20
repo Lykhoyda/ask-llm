@@ -38,7 +38,9 @@ export async function executeGrok(options: GrokRouterOptions) {
   const harness = resolveHarness(options.harness);
   if (harness === "xai-api") return executeGrokAPI(options);
   if (options.outputSchema) {
-    options.onProgress?.("Grok CLI structured output is prompt-constrained and validated locally.");
+    options.onProgress?.(
+      "Grok CLI structured output is prompt-constrained; the shared machine boundary validates the JSON payload.",
+    );
   }
   return executeGrokCLI(options);
 }

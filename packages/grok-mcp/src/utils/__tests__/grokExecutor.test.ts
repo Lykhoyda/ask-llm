@@ -129,13 +129,6 @@ describe("xAI Responses API request", () => {
       required: ["verdict"],
       additionalProperties: false,
     };
-    fetchMock.mockImplementation(() =>
-      Promise.resolve(
-        successResponse({
-          output: [{ type: "message", content: [{ type: "output_text", text: '{"verdict":"ok"}' }] }],
-        }),
-      ),
-    );
 
     await executeGrokAPI({ prompt: "structured", outputSchema });
     await executeGrokAPI({ prompt: "structured", outputSchema });
@@ -321,29 +314,6 @@ describe("model discovery and caching", () => {
     expect(first.usage).toMatchObject({ provider: "grok", model: "fixture-resolved-model", inputTokens: 120 });
     expect(second).toMatchObject({ model: "fixture-resolved-model", response: first.response, usage: undefined });
     expect(fetchMock).toHaveBeenCalledOnce();
-  });
-
-  it("validates structured API output locally against the requested schema", async () => {
-    const outputSchema = {
-      type: "object",
-      properties: { verdict: { type: "string" } },
-      required: ["verdict"],
-      additionalProperties: false,
-    };
-    fetchMock.mockResolvedValueOnce(
-      successResponse({ output: [{ type: "message", content: [{ type: "output_text", text: '{"verdict":"ok"}' }] }] }),
-    );
-    await expect(executeGrokAPI({ prompt: "judge", outputSchema })).resolves.toMatchObject({
-      response: expect.stringContaining('{"verdict":"ok"}'),
-    });
-
-    fetchMock.mockResolvedValueOnce(
-      successResponse({ output: [{ type: "message", content: [{ type: "output_text", text: '{"verdict":1}' }] }] }),
-    );
-    await expect(executeGrokAPI({ prompt: "judge", outputSchema })).rejects.toThrow(
-      /Grok API output did not match the requested JSON Schema.*No fallback was attempted/,
-    );
-    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
   it("caches only identical unstructured requests with the same effort", async () => {

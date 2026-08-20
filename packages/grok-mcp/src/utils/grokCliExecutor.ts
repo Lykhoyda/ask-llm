@@ -6,7 +6,7 @@ import {
   type GrokReasoningEffort,
   REASONING_EFFORTS,
 } from "../constants.js";
-import { constrainPromptToSchema, type JsonSchema, validateStructuredOutput } from "./structuredOutput.js";
+import { constrainPromptToSchema, type JsonSchema } from "./structuredOutput.js";
 
 interface GrokCliEnvelope {
   model?: string;
@@ -184,9 +184,8 @@ export async function executeGrokCLI(options: GrokCliExecutorOptions): Promise<G
   }
 
   const envelope = parseEnvelope(raw);
-  const text = responseText(envelope);
-  if (!text) throw new Error("Grok CLI returned no final response. No fallback was attempted.");
-  const content = options.outputSchema ? validateStructuredOutput(text, options.outputSchema, "Grok CLI") : text;
+  const content = responseText(envelope);
+  if (!content) throw new Error("Grok CLI returned no final response. No fallback was attempted.");
   options.onProgress?.(content.slice(-150));
   const actualModel = envelope.model?.trim() || model;
   const usage: UsageStats = {

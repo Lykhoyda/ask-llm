@@ -242,6 +242,34 @@ describe("runMachineRequest", () => {
     });
   });
 
+  it("validates Grok CLI structured replies once at the shared boundary and labels mismatches schema_invalid", async () => {
+    const rawResponse = 'Sure:\n```json\n{"summary":"x","findings":[],"extra":1}\n```';
+    const executor: ExecutorFn = vi.fn().mockResolvedValue({
+      response: rawResponse,
+      model: "grok-build",
+      harness: "grok-cli",
+      usage: { provider: "grok", model: "grok-build", inputTokens: 3, outputTokens: 2, durationMs: 5, fellBack: false },
+    });
+    const { model: _omitted, ...unpinned } = request({ provider: "grok", writerProvider: "claude" });
+
+    const result = await runMachineRequest(unpinned, deps(executor));
+
+    expect(result).toMatchObject({
+      status: "failed",
+      actualModel: "grok-build",
+      rawResponseSha256: createHash("sha256").update(rawResponse).digest("hex"),
+      failure: { kind: "schema_invalid", message: "Provider output did not contain a valid review payload" },
+    });
+
+    const conforming = `Here you go:\n\`\`\`json\n${JSON.stringify(reviewPayload)}\n\`\`\``;
+    const okExecutor: ExecutorFn = vi.fn().mockResolvedValue({ response: conforming, model: "grok-build" });
+    await expect(runMachineRequest(unpinned, deps(okExecutor))).resolves.toMatchObject({
+      status: "success",
+      actualModel: "grok-build",
+      payload: reviewPayload,
+    });
+  });
+
   it("pins the Grok model from ASK_GROK_MODEL when the request leaves it unset", async () => {
     const executor: ExecutorFn = vi
       .fn()

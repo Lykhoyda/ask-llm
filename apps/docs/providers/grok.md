@@ -69,7 +69,7 @@ agent --list-models
 | `get-usage-stats` | In-memory input/output/cached/reasoning token totals by model |
 | `ping` | Validate the key through `GET /v1/models` and list exact IDs without a billed inference call |
 
-`ask-grok` returns the standard human-readable result plus structured `AskResponse` fields: `provider: "grok"`, the actual model, normalized usage, the selected `harness`, and `fellBack: false`. Machine-mode role schemas use strict xAI JSON Schema on `xai-api`; CLI output remains prompt-constrained and is validated locally.
+`ask-grok` returns the standard human-readable result plus structured `AskResponse` fields: `provider: "grok"`, the actual model, normalized usage, the selected `harness`, and `fellBack: false`. Machine-mode role schemas use strict xAI JSON Schema on `xai-api` and a prompt constraint carrying the same schema on `grok-cli`; the shared machine boundary validates the returned JSON payload locally exactly once for both transports, so a non-conforming reply is reported as `schema_invalid` with the actual model.
 
 ## Harnesses stay separate from models
 

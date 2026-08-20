@@ -46,7 +46,7 @@ describe("Grok harness routing", () => {
     const onProgress = vi.fn();
     await executeGrok({ prompt: "judge", harness: "grok-cli", outputSchema, onProgress });
     expect(mocks.cli).toHaveBeenCalledWith(expect.objectContaining({ outputSchema, harness: "grok-cli" }));
-    expect(onProgress).toHaveBeenCalledWith(expect.stringMatching(/validated locally/));
+    expect(onProgress).toHaveBeenCalledWith(expect.stringMatching(/shared machine boundary validates/));
   });
 
   it("checks readiness only for the configured default harness", async () => {
