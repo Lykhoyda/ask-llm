@@ -288,12 +288,30 @@ If `ask-llm` isn't there, install it:
 /reload-plugins
 ```
 
-The plugin's MCP servers also need to be registered, typically done at user scope:
+The plugin bundles its Codex MCP registration. After installing or upgrading, fully restart Claude Code and inspect it:
+
+```text
+/mcp
+```
+
+If no Ask LLM Codex server is listed, the registration is missing; provision the supported server explicitly:
+
+```bash
+claude mcp add --scope user codex -- npx -y @ask-llm/codex-mcp
+```
+
+If `plugin:ask-llm:codex` or `codex` is listed but disconnected, the service is registered but unavailable. Diagnose the provider and restart the host:
+
+```bash
+npx -y @ask-llm/mcp doctor
+```
+
+The other provider servers remain user-scoped:
 
 ```bash
 claude mcp add --scope user gemini -- npx -y @ask-llm/gemini-mcp
-claude mcp add --scope user codex  -- npx -y @ask-llm/codex-mcp
 claude mcp add --scope user ollama -- npx -y @ask-llm/ollama-mcp
+claude mcp add --scope user antigravity -- npx -y @ask-llm/antigravity-mcp
 ```
 
 </TroubleshootingModal>

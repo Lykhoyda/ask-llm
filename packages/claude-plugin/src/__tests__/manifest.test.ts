@@ -58,6 +58,19 @@ describe("plugin.json manifest", () => {
   });
 });
 
+describe("Claude Code MCP manifest", () => {
+  const mcp = readJson<{
+    mcpServers: Record<string, { command: string; args: string[] }>;
+  }>(".mcp.json");
+
+  it("registers the canonical Ask LLM Codex server for clean plugin installs", () => {
+    expect(mcp.mcpServers.codex).toEqual({
+      command: "npx",
+      args: ["-y", "@ask-llm/codex-mcp"],
+    });
+  });
+});
+
 describe("marketplace.json", () => {
   const marketplace = JSON.parse(
     fs.readFileSync(path.join(REPO_ROOT, ".claude-plugin", "marketplace.json"), "utf-8"),

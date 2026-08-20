@@ -21,13 +21,19 @@ Part of the [Ask LLM](https://github.com/Lykhoyda/ask-llm) monorepo.
 
 > **After installing or upgrading, fully restart Claude Code** (quit and reopen) so the codex-pair `PostToolUse` hook registers. Claude Code binds hooks at session start; `/reload-plugins` refreshes the plugin cache but does **not** re-register hooks in a pre-existing session, so codex-pair won't auto-fire on edits until you restart (see [#74](https://github.com/Lykhoyda/ask-llm/issues/74)). Run `/codex-pair` afterwards to confirm the hook is wired up.
 
-### MCP Servers (user scope for short tool names)
+### MCP Servers
+
+The plugin bundles the supported Codex MCP registration under Claude Code's plugin namespace. After installation or upgrade, fully restart Claude Code and run `/mcp`; `plugin:ask-llm:codex` should be connected and `/sol-review` will select its `ask-codex` tool automatically.
+
+Existing user-scoped Codex registrations remain compatible and keep the shorter `codex:ask-codex` name. The other provider servers are still registered explicitly at user scope:
 
 ```bash
 claude mcp add --scope user gemini -- npx -y @ask-llm/gemini-mcp
-claude mcp add --scope user codex -- npx -y @ask-llm/codex-mcp
 claude mcp add --scope user ollama -- npx -y @ask-llm/ollama-mcp
+claude mcp add --scope user antigravity -- npx -y @ask-llm/antigravity-mcp
 ```
+
+If Codex is missing entirely, register it explicitly with `claude mcp add --scope user codex -- npx -y @ask-llm/codex-mcp`. If `/mcp` shows the bundled registration but it is disconnected, run `npx -y @ask-llm/mcp doctor` and restart Claude Code. `/sol-review` reports those two states separately before using its explicit `codex exec` fallback.
 
 ### Pi
 
@@ -55,7 +61,7 @@ See the [Pi host guide](https://lykhoyda.github.io/ask-llm/plugin/pi) for securi
 | `/gemini-review` | Gemini-only code review with confidence filtering |
 | `/codex-review` | Codex-only code review (precision-first, ≥80 confidence — default for routine PR review) |
 | `/fable-review` | Isolated, read-only review requesting native Fable, with runtime verification limits disclosed |
-| `/sol-review` | Model-pinned GPT-5.6 Sol review through Codex. Uses the `ask-codex` MCP tool when available; subagent contexts without it fall back to the `codex` CLI, so keep the CLI installed and authenticated |
+| `/sol-review` | Model-pinned GPT-5.6 Sol review through the bundled `ask-codex` MCP tool; missing registration and service unavailability are diagnosed separately before the explicit CLI fallback |
 | `/ollama-review` | Local review — no data leaves your machine |
 | `/brainstorm` | Multi-LLM brainstorm with Claude Opus as a first-class research participant (default external: gemini,codex) |
 | `/brainstorm-all` | Brainstorm with all four external providers (Gemini, Codex, Ollama, Antigravity) + Claude Opus research |

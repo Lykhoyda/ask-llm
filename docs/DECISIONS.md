@@ -1,5 +1,15 @@
 # Architectural Decisions
 
+## ADR-144: Claude Code plugin owns Codex transport discovery
+
+**Status:** Accepted (2026-08-20)
+
+**Context:** A clean Claude Code session loading `@ask-llm/plugin` exposed `/sol-review` but no MCP servers, so transport preflight selected the explicit `codex exec` fallback even though the plugin already depended on `@ask-llm/codex-mcp`. A normal session with no user-scoped Codex registration confirmed the initiating skill, empty `mcp_servers`, fallback disclosure, and successful relay of the validated finding. Registering the canonical Codex server against the same fixture made `mcp__codex__ask-codex` available and `/sol-review` selected it with the same Sol/high/read-only contract and finding. The earliest repository divergence was the 2026-04-02 removal of plugin-bundled servers to avoid long tool prefixes; later support for plugin-namespaced tool names did not restore installation-time discovery. A separate counterfactual also showed that a configured server can fail before exposing tools, so tool absence alone cannot distinguish missing registration from service unavailability.
+
+**Decision:** `@ask-llm/plugin` registers `@ask-llm/codex-mcp` as its `codex` server in `.mcp.json`; client-assigned prefixes remain variable, while the authoritative leaf identity is `ask-codex`. The shipped `sol-review-transport.mjs` executable classifies exact tool availability, canonical server registration, and CLI availability into `preferred`, `missing-registration`, or `unavailable`. Missing registration remediates with `claude mcp add --scope user codex -- npx -y @ask-llm/codex-mcp`; registered-service failure remediates with the Ask LLM doctor plus `/mcp` and a full host restart. The same executable owns the explicit CLI fallback, preserving the Sol/high/read-only/isolation arguments, quota-only Terra retry, and stdout result relay.
+
+**Consequences:** A normal clean plugin installation discovers Codex without separate user configuration, while existing user-scoped registrations and their shorter tool names remain compatible. `/sol-review` no longer describes every absent tool as unregistered, and its fallback remains functional without changing the review or validation contract. Only Codex is bundled in this correction; other provider registration behavior is unchanged.
+
 ## ADR-143: TypeScript 7 is the repository-wide compiler floor
 
 **Status:** Accepted (2026-08-09)

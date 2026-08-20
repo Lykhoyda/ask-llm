@@ -30,16 +30,17 @@ claude --plugin-dir ./packages/claude-plugin
 
 ### MCP Servers
 
-The plugin's review skills and reviewer agents call provider-specific MCP servers (for example, `codex:ask-codex`), so register them at user scope for short tool names:
+The plugin ships the Codex MCP registration used by `/codex-review` and `/sol-review`. Fully restart Claude Code after installation or upgrade, then run `/mcp`; the `plugin:ask-llm:codex` server should be connected and expose `ask-codex` automatically.
+
+Existing user-scoped Codex registrations remain supported if you prefer the shorter `codex:ask-codex` name. Register the other provider servers at user scope:
 
 ```bash
-claude mcp add --scope user codex -- npx -y @ask-llm/codex-mcp
 claude mcp add --scope user antigravity -- npx -y @ask-llm/antigravity-mcp
 claude mcp add --scope user ollama -- npx -y @ask-llm/ollama-mcp
 claude mcp add --scope user gemini -- npx -y @ask-llm/gemini-mcp
 ```
 
-This gives you `codex:ask-codex` rather than `plugin:ask-llm:codex:ask-codex`.
+If Codex registration is missing, provision it explicitly with `claude mcp add --scope user codex -- npx -y @ask-llm/codex-mcp`. If `/mcp` lists the server but it is disconnected, run `npx -y @ask-llm/mcp doctor` and fully restart Claude Code. `/sol-review` distinguishes those states before disclosing and using its `codex exec` fallback.
 
 ## What's Included
 
@@ -58,7 +59,7 @@ This gives you `codex:ask-codex` rather than `plugin:ask-llm:codex:ask-codex`.
 | `/brainstorm-all` | All + Claude Opus | Brainstorm with all four external providers (Gemini, Codex, Ollama, Antigravity) plus Claude Opus research |
 | `/compare` | Multi (configurable) | Side-by-side raw responses from selected providers: no synthesis, no consensus extraction. Use when you want to see how each provider phrases the same answer |
 
-> `/codex-review` and `/sol-review` require the Codex CLI and registered Codex MCP server; `/ollama-review`, `/antigravity-review`, and `/brainstorm` require the respective CLI tools to be installed and authenticated.
+> `/codex-review` and `/sol-review` require an installed, authenticated Codex CLI; the plugin supplies their MCP registration. `/ollama-review`, `/antigravity-review`, and `/brainstorm` require the respective CLI tools and MCP servers to be installed and authenticated.
 >
 > Looking for **continuous background review** (not a slash command)? See [`codex-pair`](/plugin/codex-pair), a PostToolUse hook that runs Codex against every file edit when a project has opted in via a marker file. It's the recall-first complement to `/codex-review`.
 
@@ -99,7 +100,7 @@ These commands are available after cloning and building the plugin locally. Mark
 
 The plugin uses several Claude Code integration points:
 
-1. **`.mcp.json`**: Ships an empty `mcpServers` map; provider MCP servers are registered separately at user scope (see [Installation](#installation))
+1. **`.mcp.json`**: Registers the canonical `@ask-llm/codex-mcp` server for Claude Code plugin sessions; other providers remain user-scoped (see [Installation](#installation))
 2. **Skills** (`skills/`): User-invocable slash commands that trigger review or brainstorm workflows
 3. **Agents** (`agents/`): Handle the actual interaction with each provider using confidence-based filtering (80%+ threshold). Agents read `CLAUDE.md` for project conventions when available.
 4. **Hooks** (`hooks/`): Run the opt-in codex-pair continuous review pipeline: per-edit PostToolUse reviews, verdict drains on user prompts and at turn end, the opt-in Stop gate, and session lifecycle
