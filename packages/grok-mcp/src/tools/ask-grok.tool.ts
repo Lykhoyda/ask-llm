@@ -69,7 +69,7 @@ export const askGrokTool: UnifiedTool = {
       onProgress,
       signal,
     });
-    onUsage?.(result.usage);
+    if (result.usage) onUsage?.(result.usage);
 
     const text = `${STATUS_MESSAGES.GROK_RESPONSE}\n${result.response}`;
     const structured: AskResponse = {

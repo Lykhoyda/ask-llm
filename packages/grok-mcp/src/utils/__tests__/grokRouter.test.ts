@@ -41,6 +41,14 @@ describe("Grok harness routing", () => {
     expect(mocks.api).not.toHaveBeenCalled();
   });
 
+  it("forwards the output schema to the Grok CLI harness for local validation", async () => {
+    const outputSchema = { type: "object", properties: { ok: { type: "boolean" } }, required: ["ok"] };
+    const onProgress = vi.fn();
+    await executeGrok({ prompt: "judge", harness: "grok-cli", outputSchema, onProgress });
+    expect(mocks.cli).toHaveBeenCalledWith(expect.objectContaining({ outputSchema, harness: "grok-cli" }));
+    expect(onProgress).toHaveBeenCalledWith(expect.stringMatching(/validated locally/));
+  });
+
   it("checks readiness only for the configured default harness", async () => {
     mocks.apiAvailable.mockResolvedValue(true);
     await expect(isGrokProviderAvailable()).resolves.toBe(true);

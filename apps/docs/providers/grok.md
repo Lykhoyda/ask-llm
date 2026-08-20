@@ -127,7 +127,7 @@ The xAI API and API-key-backed Grok CLI can incur xAI charges. Browser-authentic
 | below 200k tokens | $2.00 | $0.50 | $6.00 |
 | 200k tokens or more | $4.00 | $1.00 | $12.00 |
 
-Once a prompt reaches 200k tokens, xAI applies long-context rates to all tokens in the request. Prices and account availability can change; check the [official pricing page](https://docs.x.ai/developers/pricing) before use. Plain identical one-shot requests use Ask LLM's response cache; strict structured requests always make a fresh API call.
+Once a prompt reaches 200k tokens, xAI applies long-context rates to all tokens in the request. Prices and account availability can change; check the [official pricing page](https://docs.x.ai/developers/pricing) before use. Plain identical one-shot requests use Ask LLM's response cache and report no new usage when served from it; strict structured requests always make a fresh API call.
 
 ## Errors and refusals
 

@@ -90,6 +90,46 @@ describe("Grok CLI harness", () => {
     expect(executeCommandMock).toHaveBeenCalledTimes(5);
   });
 
+  it("constrains the prompt to the requested JSON Schema and returns only validated structured output", async () => {
+    const outputSchema = {
+      type: "object",
+      properties: { verdict: { type: "string" }, score: { type: "integer" } },
+      required: ["verdict", "score"],
+      additionalProperties: false,
+    };
+    executeCommandMock.mockResolvedValueOnce(
+      JSON.stringify({ model: "grok-build", response: 'Sure:\n```json\n{"verdict":"ship","score":9}\n```' }),
+    );
+
+    const result = await executeGrokCLI({ prompt: "judge", outputSchema });
+
+    const [, args, , , , , logging] = executeCommandMock.mock.calls[0];
+    expect(args[2]).toBe(
+      `judge\n\nReturn only one JSON object matching this JSON Schema: ${JSON.stringify(outputSchema)}`,
+    );
+    expect(logging).toEqual({ sensitiveValues: [args[2]] });
+    expect(result.response.startsWith('{"verdict":"ship","score":9}')).toBe(true);
+    expect(JSON.parse(result.response.slice(0, result.response.indexOf("}") + 1))).toEqual({
+      verdict: "ship",
+      score: 9,
+    });
+  });
+
+  it("rejects CLI output that violates the requested JSON Schema without retrying", async () => {
+    const outputSchema = {
+      type: "object",
+      properties: { verdict: { type: "string" } },
+      required: ["verdict"],
+      additionalProperties: false,
+    };
+    executeCommandMock.mockResolvedValueOnce(JSON.stringify({ response: '{"verdict":42}' }));
+
+    await expect(executeGrokCLI({ prompt: "judge", outputSchema })).rejects.toThrow(
+      /Grok CLI output did not match the requested JSON Schema \(verdict: .*\).*No fallback was attempted/,
+    );
+    expect(executeCommandMock).toHaveBeenCalledOnce();
+  });
+
   it("capability-probes the official headless flags and parses model discovery", async () => {
     executeCommandMock.mockResolvedValueOnce("--single --output-format --model --sandbox");
     await expect(probeGrokCli()).resolves.toBe(true);

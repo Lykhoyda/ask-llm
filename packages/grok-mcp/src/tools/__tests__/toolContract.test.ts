@@ -50,6 +50,23 @@ describe("Grok provider contract", () => {
     });
   });
 
+  it("does not record session usage for a consultation served from the response cache", async () => {
+    const tool = toolRegistry.find((entry) => entry.name === "ask-grok");
+    const onUsage = vi.fn();
+    await tool?.execute({ prompt: "cached review" }, undefined, onUsage);
+    const cached = await tool?.execute({ prompt: "cached review" }, undefined, onUsage);
+
+    expect(fetchMock).toHaveBeenCalledOnce();
+    expect(onUsage).toHaveBeenCalledOnce();
+    if (!cached || typeof cached === "string") throw new Error("expected structured result");
+    expect(cached.structuredContent).toMatchObject({
+      provider: "grok",
+      model: FACTORY_DEFAULT_MODEL,
+      harness: "xai-api",
+    });
+    expect(cached.structuredContent.usage).toBeUndefined();
+  });
+
   it("forwards cancellation to the HTTP transport", async () => {
     const controller = new AbortController();
     fetchMock.mockImplementationOnce(

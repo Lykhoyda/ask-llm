@@ -19,6 +19,7 @@ import {
   XAI_API_BASE_URL,
   XAI_API_KEY_ENV,
 } from "../constants.js";
+import { type JsonSchema, validateStructuredOutput } from "./structuredOutput.js";
 
 interface XaiErrorDetail {
   code?: string;
@@ -66,7 +67,7 @@ export interface GrokExecutorOptions {
   prompt: string;
   model?: string;
   reasoningEffort?: GrokReasoningEffort;
-  outputSchema?: Record<string, unknown>;
+  outputSchema?: JsonSchema;
   onProgress?: (newOutput: string) => void;
   signal?: AbortSignal;
 }
@@ -75,7 +76,7 @@ export interface GrokExecutorResult {
   response: string;
   model: string;
   sessionId: undefined;
-  usage: UsageStats;
+  usage: UsageStats | undefined;
   harness: "xai-api";
 }
 
@@ -83,21 +84,11 @@ function cachedResult(value: string): GrokExecutorResult | null {
   try {
     const parsed: unknown = JSON.parse(value);
     if (!isObject(parsed) || typeof parsed.response !== "string" || typeof parsed.model !== "string") return null;
-    if (!isObject(parsed.usage) || parsed.usage.provider !== "grok" || parsed.usage.model !== parsed.model) return null;
     return {
       response: parsed.response,
       model: parsed.model,
       sessionId: undefined,
-      usage: {
-        provider: "grok",
-        model: parsed.model,
-        inputTokens: typeof parsed.usage.inputTokens === "number" ? parsed.usage.inputTokens : undefined,
-        outputTokens: typeof parsed.usage.outputTokens === "number" ? parsed.usage.outputTokens : undefined,
-        cachedTokens: typeof parsed.usage.cachedTokens === "number" ? parsed.usage.cachedTokens : undefined,
-        thinkingTokens: typeof parsed.usage.thinkingTokens === "number" ? parsed.usage.thinkingTokens : undefined,
-        durationMs: typeof parsed.usage.durationMs === "number" ? parsed.usage.durationMs : 0,
-        fellBack: false,
-      },
+      usage: undefined,
       harness: "xai-api",
     };
   } catch {
@@ -384,8 +375,9 @@ export async function executeGrokAPI(options: GrokExecutorOptions): Promise<Grok
     throw new Error(`Grok API returned unexpected response status "${cleanDetail(payload.status, secret)}".`);
   }
 
-  const content = outputText(payload, secret);
-  if (!content) throw new Error(ERROR_MESSAGES.MALFORMED_RESPONSE);
+  const text = outputText(payload, secret);
+  if (!text) throw new Error(ERROR_MESSAGES.MALFORMED_RESPONSE);
+  const content = options.outputSchema ? validateStructuredOutput(text, options.outputSchema, "Grok API") : text;
   const actualModel = typeof payload.model === "string" && payload.model.trim() ? payload.model : model;
   const usage = buildUsageStats(payload, actualModel, Date.now() - startedAt);
   const formatted = `${content}${formatUsageStats(usage)}`;
@@ -398,6 +390,6 @@ export async function executeGrokAPI(options: GrokExecutorOptions): Promise<Grok
     usage,
     harness: "xai-api",
   };
-  if (cacheKey) responseCache.set(cacheKey, JSON.stringify(result));
+  if (cacheKey) responseCache.set(cacheKey, JSON.stringify({ response: formatted, model: actualModel }));
   return result;
 }

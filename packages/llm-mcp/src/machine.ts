@@ -203,10 +203,23 @@ function normalizeUsage(result: ExecutorResult | undefined): NormalizedTokenUsag
   return { inputTokens, outputTokens, totalTokens: inputTokens + outputTokens };
 }
 
-function resolveEffectiveModel(request: MachineRequest, env: Readonly<Record<string, string | undefined>>): string {
+function pinnedModel(request: MachineRequest, env: Readonly<Record<string, string | undefined>>): string | null {
   const provider = PROVIDERS[request.provider];
   const configuredModel = provider?.modelEnvVar ? env[provider.modelEnvVar] : undefined;
-  return nonEmptyString(request.model) ?? nonEmptyString(configuredModel) ?? provider.defaultModel;
+  return nonEmptyString(request.model) ?? nonEmptyString(configuredModel);
+}
+
+function resolveEffectiveModel(request: MachineRequest, env: Readonly<Record<string, string | undefined>>): string {
+  return pinnedModel(request, env) ?? PROVIDERS[request.provider].defaultModel;
+}
+
+function executorModel(
+  request: MachineRequest,
+  env: Readonly<Record<string, string | undefined>>,
+  effectiveRequestedModel: string,
+): string | undefined {
+  if (request.provider !== "grok") return effectiveRequestedModel;
+  return pinnedModel(request, env) ?? undefined;
 }
 
 function fallbackFor(
@@ -317,7 +330,8 @@ function successResult(
 
 export async function runMachineRequest(input: unknown, deps: MachineDeps): Promise<MachineResult> {
   const request = machineRequestSchema.parse(input);
-  const effectiveRequestedModel = resolveEffectiveModel(request, deps.env ?? process.env);
+  const env = deps.env ?? process.env;
+  const effectiveRequestedModel = resolveEffectiveModel(request, env);
   const executor = await deps.loadExecutor(request.provider);
   if (!executor) return failureResult(request, "tool_unavailable", 0, effectiveRequestedModel);
 
@@ -325,7 +339,7 @@ export async function runMachineRequest(input: unknown, deps: MachineDeps): Prom
   try {
     const result = await executor({
       prompt: buildRolePrompt(request),
-      model: effectiveRequestedModel,
+      model: executorModel(request, env, effectiveRequestedModel),
       includeDirs: request.includeDirs,
       sandbox: "read-only",
       readOnly: true,

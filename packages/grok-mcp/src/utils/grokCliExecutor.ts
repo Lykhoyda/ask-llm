@@ -6,6 +6,7 @@ import {
   type GrokReasoningEffort,
   REASONING_EFFORTS,
 } from "../constants.js";
+import { constrainPromptToSchema, type JsonSchema, validateStructuredOutput } from "./structuredOutput.js";
 
 interface GrokCliEnvelope {
   model?: string;
@@ -26,6 +27,7 @@ export interface GrokCliExecutorOptions {
   prompt: string;
   model?: string;
   reasoningEffort?: GrokReasoningEffort;
+  outputSchema?: JsonSchema;
   onProgress?: (newOutput: string) => void;
   signal?: AbortSignal;
 }
@@ -143,10 +145,11 @@ export async function executeGrokCLI(options: GrokCliExecutorOptions): Promise<G
   const model = options.model?.trim() || process.env.ASK_GROK_MODEL || GROK_CLI_FACTORY_DEFAULT_MODEL;
   const reasoningEffort = effort(options.reasoningEffort);
   const timeoutMs = resolveTimeoutMs(EXECUTION.GROK_TIMEOUT_ENV_VAR, EXECUTION.DEFAULT_GROK_TIMEOUT_MS);
+  const prompt = options.outputSchema ? constrainPromptToSchema(options.prompt, options.outputSchema) : options.prompt;
   const args = [
     "--no-auto-update",
     "-p",
-    options.prompt,
+    prompt,
     "--output-format",
     "json",
     "--model",
@@ -172,7 +175,7 @@ export async function executeGrokCLI(options: GrokCliExecutorOptions): Promise<G
       undefined,
       undefined,
       timeoutMs,
-      { sensitiveValues: [options.prompt] },
+      { sensitiveValues: [prompt] },
       options.signal,
     );
   } catch (error) {
@@ -181,8 +184,9 @@ export async function executeGrokCLI(options: GrokCliExecutorOptions): Promise<G
   }
 
   const envelope = parseEnvelope(raw);
-  const content = responseText(envelope);
-  if (!content) throw new Error("Grok CLI returned no final response. No fallback was attempted.");
+  const text = responseText(envelope);
+  if (!text) throw new Error("Grok CLI returned no final response. No fallback was attempted.");
+  const content = options.outputSchema ? validateStructuredOutput(text, options.outputSchema, "Grok CLI") : text;
   options.onProgress?.(content.slice(-150));
   const actualModel = envelope.model?.trim() || model;
   const usage: UsageStats = {
