@@ -45,7 +45,7 @@ export function parseClaudeMcpList(output) {
     if (separator <= 0) continue;
     const name = line.slice(0, separator).trim();
     const details = line.slice(separator + 2).trim();
-    const statusSeparator = details.lastIndexOf(" - ");
+    const statusSeparator = details.search(/ - (?=(?:✔|✘|!|⏸|cached\b|not configured\b|disabled\b))/i);
     servers[name] = {
       commandLine: statusSeparator === -1 ? details : details.slice(0, statusSeparator).trim(),
       status: statusSeparator === -1 ? "" : details.slice(statusSeparator + 3).trim(),
@@ -58,9 +58,10 @@ export function readActiveMcpServers({
   command = process.env.CLAUDE_BIN || "claude",
   execute = spawnSync,
   platform = process.platform,
+  contextArgs = [],
 } = {}) {
   const invocation = prepareCommandInvocation(
-    ["mcp", "list"],
+    [...contextArgs, "mcp", "list"],
     {
       cwd: process.cwd(),
       encoding: "utf8",
@@ -80,11 +81,17 @@ function expectedToolName(serverName) {
   return `mcp__${serverName.replaceAll(":", "_")}__${ASK_CODEX_TOOL}`;
 }
 
+function isAvailableMcpServer(server) {
+  const status = typeof server?.status === "string" ? server.status.trim() : "";
+  return !status || /^✔\s*Connected\b/i.test(status) || /^cached\b.*\bconnects on first use\b/i.test(status);
+}
+
 export function classifySolReviewTransport({
   availableTools = [],
   mcpServers = {},
   cliPath = "",
   inventoryError = null,
+  mcpFailed = false,
 }) {
   if (inventoryError) {
     const reason = `Ask LLM Codex MCP availability could not be determined because the active Claude MCP inventory could not be inspected: ${inventoryError}`;
@@ -110,9 +117,10 @@ export function classifySolReviewTransport({
   }
 
   const registrations = Object.entries(mcpServers).filter(([, server]) => isAskCodexRegistration(server));
-  const registeredToolNames = new Set(registrations.map(([name]) => expectedToolName(name)));
+  const availableRegistrations = registrations.filter(([, server]) => isAvailableMcpServer(server));
+  const registeredToolNames = new Set(availableRegistrations.map(([name]) => expectedToolName(name)));
   const toolName = availableTools.find((name) => isAskCodexToolName(name) && registeredToolNames.has(name));
-  if (toolName) {
+  if (toolName && !mcpFailed) {
     return {
       state: "preferred",
       transport: "mcp",
@@ -124,13 +132,18 @@ export function classifySolReviewTransport({
   }
 
   const registered = registrations.length > 0;
-  const state = registered ? "unavailable" : "missing-registration";
-  const remediation = registered
+  const state = registered || mcpFailed ? "unavailable" : "missing-registration";
+  const remediation = registered || mcpFailed
     ? "Run `npx -y @ask-llm/mcp doctor`, inspect `/mcp`, then fully restart Claude Code."
     : "Run `claude mcp add --scope user codex -- npx -y @ask-llm/codex-mcp`, fully restart Claude Code, then verify with `/mcp`.";
-  const reason = registered
-    ? "Ask LLM Codex MCP is registered, but its `ask-codex` tool is unavailable in this session."
-    : "Ask LLM Codex MCP registration is missing from this Claude Code installation.";
+  const unavailableRegistration = registrations.find(([, server]) => !isAvailableMcpServer(server));
+  const reason = mcpFailed
+    ? "Ask LLM Codex MCP invocation failed in this session, so the preferred transport is unavailable."
+    : unavailableRegistration
+      ? `Ask LLM Codex MCP is registered, but active inventory reports it unavailable: ${unavailableRegistration[1].status}.`
+      : registered
+        ? "Ask LLM Codex MCP is registered, but its `ask-codex` tool is unavailable in this session."
+        : "Ask LLM Codex MCP registration is missing from this Claude Code installation.";
 
   if (!cliPath) {
     return {
@@ -241,14 +254,33 @@ export async function runCliFallback({
 }
 
 function parseArgs(args) {
-  const parsed = { tools: [], cliPath: "", mcpList: null, fallback: false };
+  const parsed = {
+    tools: [],
+    cliPath: "",
+    mcpList: null,
+    fallback: false,
+    mcpFailed: false,
+    claudeContextArgs: [],
+  };
+  const claudeContextValueFlags = new Set([
+    "--plugin-dir",
+    "--mcp-config",
+    "--settings",
+    "--setting-sources",
+  ]);
   for (let index = 0; index < args.length; index += 1) {
     const arg = args[index];
     if (arg === "--fallback") parsed.fallback = true;
+    else if (arg === "--mcp-failed") parsed.mcpFailed = true;
     else if (arg === "--tool") parsed.tools.push(args[++index] ?? "");
     else if (arg === "--cli-path") parsed.cliPath = args[++index] ?? "";
     else if (arg === "--mcp-list") parsed.mcpList = args[++index] ?? "";
-    else throw new Error(`Unknown argument: ${arg}`);
+    else if (arg === "--strict-mcp-config") parsed.claudeContextArgs.push(arg);
+    else if (claudeContextValueFlags.has(arg)) {
+      const value = args[++index];
+      if (value === undefined) throw new Error(`Missing value for ${arg}`);
+      parsed.claudeContextArgs.push(arg, value);
+    } else throw new Error(`Unknown argument: ${arg}`);
   }
   return parsed;
 }
@@ -258,7 +290,10 @@ function readMcpServers(parsed) {
     return { mcpServers: parseClaudeMcpList(parsed.mcpList), inventoryError: null };
   }
   try {
-    return { mcpServers: readActiveMcpServers(), inventoryError: null };
+    return {
+      mcpServers: readActiveMcpServers({ contextArgs: parsed.claudeContextArgs }),
+      inventoryError: null,
+    };
   } catch (error) {
     return {
       mcpServers: {},
@@ -275,6 +310,7 @@ async function main() {
     mcpServers,
     cliPath: parsed.cliPath,
     inventoryError,
+    mcpFailed: parsed.mcpFailed,
   });
 
   if (parsed.fallback) {

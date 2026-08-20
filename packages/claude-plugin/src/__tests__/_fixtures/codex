@@ -46,6 +46,19 @@ function emitAgentMessage(text) {
 }
 
 async function run() {
+  if (SCENARIO === "sol-context-inventory") {
+    const expectedContext = JSON.parse(process.env.FAKE_CLAUDE_CONTEXT_ARGS || "[]");
+    const receivedArgs = process.argv.slice(2);
+    const inventorySuffix = receivedArgs.slice(-2).join(" ");
+    const receivedContext = receivedArgs.slice(0, -2);
+    if (inventorySuffix !== "mcp list" || JSON.stringify(receivedContext) !== JSON.stringify(expectedContext)) {
+      process.stderr.write("session context was not preserved\n");
+      process.exit(1);
+    }
+    process.stdout.write("plugin:ask-llm:codex: npx -y @ask-llm/codex-mcp - ✔ Connected\n");
+    process.exit(0);
+  }
+
   if (SCENARIO === "sol-inventory-failure-fallback" && process.argv.slice(2).join(" ") === "mcp list") {
     process.stderr.write("malformed MCP configuration\n");
     process.exit(1);

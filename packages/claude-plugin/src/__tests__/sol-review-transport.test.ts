@@ -24,6 +24,8 @@ const pluginServers = {
 };
 const connectedPluginList =
   "plugin:ask-llm:codex: npx -y @ask-llm/codex-mcp - ✔ Connected\n";
+const disconnectedPluginList =
+  "plugin:ask-llm:codex: npx -y @ask-llm/codex-mcp - ✘ Failed to connect - ECONNREFUSED\n";
 
 describe("sol-review transport selection", () => {
   it("selects the authoritative ask-codex MCP tool when available", () => {
@@ -87,6 +89,37 @@ describe("sol-review transport selection", () => {
     expect(decision.fallbackDisclosure).toContain("registered, but");
   });
 
+  it("rejects a stale tool when active inventory reports its server disconnected", () => {
+    const decision = classifySolReviewTransport({
+      availableTools: ["mcp__plugin_ask-llm_codex__ask-codex"],
+      mcpServers: {
+        "plugin:ask-llm:codex": {
+          commandLine: `npx -y ${ASK_CODEX_PACKAGE}`,
+          status: "✘ Failed to connect - ECONNREFUSED",
+        },
+      },
+      cliPath: "/usr/local/bin/codex",
+    });
+
+    expect(decision).toMatchObject({ state: "unavailable", transport: "cli", toolName: null });
+    expect(decision.diagnostic).toContain("active inventory reports it unavailable");
+    expect(decision.fallbackDisclosure).toContain("codex exec");
+    expect(decision.remediation).toContain("@ask-llm/mcp doctor");
+  });
+
+  it("routes a preferred MCP invocation failure through the disclosed CLI fallback", () => {
+    const decision = classifySolReviewTransport({
+      availableTools: ["mcp__plugin_ask-llm_codex__ask-codex"],
+      mcpServers: pluginServers,
+      cliPath: "/usr/local/bin/codex",
+      mcpFailed: true,
+    });
+
+    expect(decision).toMatchObject({ state: "unavailable", transport: "cli", toolName: null });
+    expect(decision.diagnostic).toContain("invocation failed");
+    expect(decision.remediation).toContain("@ask-llm/mcp doctor");
+  });
+
   it("uses the disclosed CLI fallback when MCP inventory is unavailable", () => {
     const decision = classifySolReviewTransport({
       availableTools: [],
@@ -125,7 +158,7 @@ describe("active Claude MCP inventory", () => {
         [
           "Checking MCP server health…",
           "plugin:ask-llm:codex: npx -y @ask-llm/codex-mcp - ✔ Connected",
-          "other: npx -y unrelated-server - ✘ Failed to connect",
+          "other: npx -y unrelated-server - ✘ Failed to connect - ECONNREFUSED",
         ].join("\n"),
       ),
     ).toEqual({
@@ -133,7 +166,7 @@ describe("active Claude MCP inventory", () => {
         commandLine: "npx -y @ask-llm/codex-mcp",
         status: "✔ Connected",
       },
-      other: { commandLine: "npx -y unrelated-server", status: "✘ Failed to connect" },
+      other: { commandLine: "npx -y unrelated-server", status: "✘ Failed to connect - ECONNREFUSED" },
     });
   });
 
@@ -159,6 +192,29 @@ describe("active Claude MCP inventory", () => {
       "claude.cmd",
       ["mcp", "list"],
       expect.objectContaining({ shell: true }),
+    );
+  });
+
+  it("preserves session-local Claude discovery context", () => {
+    const execute = vi.fn().mockReturnValue({ status: 0, stdout: connectedPluginList, stderr: "" });
+    const contextArgs = [
+      "--plugin-dir",
+      "/source/plugin",
+      "--mcp-config",
+      "/tmp/session-mcp.json",
+      "--settings",
+      "/tmp/session-settings.json",
+      "--setting-sources",
+      "user,project,local",
+      "--strict-mcp-config",
+    ];
+
+    readActiveMcpServers({ execute, contextArgs });
+
+    expect(execute).toHaveBeenCalledWith(
+      "claude",
+      [...contextArgs, "mcp", "list"],
+      expect.objectContaining({ encoding: "utf8" }),
     );
   });
 
@@ -298,15 +354,28 @@ describe("clean Claude installation reproduction", () => {
     expect(JSON.parse(result.stdout)).toMatchObject({ state: "preferred", transport: "mcp" });
   });
 
-  it("classifies a disconnected active server as unavailable rather than unregistered", () => {
+  it("classifies a stale tool on a disconnected active server as unavailable", () => {
     const result = spawnSync(
       process.execPath,
-      [script, "--mcp-list", connectedPluginList, "--cli-path", "/fake/codex"],
+      [
+        script,
+        "--mcp-list",
+        disconnectedPluginList,
+        "--tool",
+        "mcp__plugin_ask-llm_codex__ask-codex",
+        "--cli-path",
+        "/fake/codex",
+      ],
       { encoding: "utf8" },
     );
 
     expect(result.status).toBe(0);
-    expect(JSON.parse(result.stdout)).toMatchObject({ state: "unavailable", transport: "cli" });
+    expect(JSON.parse(result.stdout)).toMatchObject({
+      state: "unavailable",
+      transport: "cli",
+      remediation: expect.stringContaining("@ask-llm/mcp doctor"),
+      fallbackDisclosure: expect.stringContaining("codex exec"),
+    });
   });
 
   it("classifies missing registration from an empty active inventory", () => {
@@ -357,5 +426,73 @@ describe("clean Claude installation reproduction", () => {
     expect(result.stderr).toContain("Remediation: Run `claude mcp list`");
     expect(result.stderr).not.toContain("registration is missing");
     expect(result.stderr).not.toContain("registered, but");
+  });
+
+  it("preserves source-plugin and session-local configuration during executable discovery", () => {
+    const contextArgs = [
+      "--plugin-dir",
+      PLUGIN_ROOT,
+      "--mcp-config",
+      "/tmp/session-mcp.json",
+      "--settings",
+      "/tmp/session-settings.json",
+      "--setting-sources",
+      "user,project,local",
+      "--strict-mcp-config",
+    ];
+    const result = spawnSync(
+      process.execPath,
+      [
+        script,
+        ...contextArgs,
+        "--tool",
+        "mcp__plugin_ask-llm_codex__ask-codex",
+        "--cli-path",
+        "/fake/codex",
+      ],
+      {
+        encoding: "utf8",
+        env: {
+          ...process.env,
+          CLAUDE_BIN: cliFixture,
+          FAKE_CODEX_SCENARIO: "sol-context-inventory",
+          FAKE_CLAUDE_CONTEXT_ARGS: JSON.stringify(contextArgs),
+        },
+      },
+    );
+
+    expect(result.status).toBe(0);
+    expect(JSON.parse(result.stdout)).toMatchObject({ state: "preferred", transport: "mcp" });
+  });
+
+  it("executes the disclosed CLI fallback after an MCP invocation failure", () => {
+    const result = spawnSync(
+      process.execPath,
+      [
+        script,
+        "--fallback",
+        "--mcp-failed",
+        "--mcp-list",
+        connectedPluginList,
+        "--tool",
+        "mcp__plugin_ask-llm_codex__ask-codex",
+        "--cli-path",
+        cliFixture,
+      ],
+      {
+        encoding: "utf8",
+        input: "review this diff",
+        env: {
+          ...process.env,
+          FAKE_CODEX_RAW_STDOUT: "validated review after MCP transport failure\n",
+        },
+      },
+    );
+
+    expect(result.status).toBe(0);
+    expect(result.stdout).toBe("validated review after MCP transport failure\n");
+    expect(result.stderr).toContain("MCP invocation failed");
+    expect(result.stderr).toContain("codex exec");
+    expect(result.stderr).toContain("@ask-llm/mcp doctor");
   });
 });

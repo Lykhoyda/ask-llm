@@ -40,7 +40,7 @@ claude mcp add --scope user ollama -- npx -y @ask-llm/ollama-mcp
 claude mcp add --scope user gemini -- npx -y @ask-llm/gemini-mcp
 ```
 
-If Codex registration is missing, provision it explicitly with `claude mcp add --scope user codex -- npx -y @ask-llm/codex-mcp`. If `/mcp` lists the server but it is disconnected, run `npx -y @ask-llm/mcp doctor` and fully restart Claude Code. `/sol-review` classifies those states from the active `claude mcp list` inventory and repeats the check inside its reviewer before disclosing and using the `codex exec` fallback.
+If Codex registration is missing, provision it explicitly with `claude mcp add --scope user codex -- npx -y @ask-llm/codex-mcp`. If `/mcp` lists the server but it is disconnected, run `npx -y @ask-llm/mcp doctor` and fully restart Claude Code. `/sol-review` preserves source-plugin and session-local MCP/settings context when reading the active `claude mcp list` inventory, treats failed health or an MCP transport failure as unavailable, and discloses the explicit `codex exec` fallback.
 
 ## What's Included
 
