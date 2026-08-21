@@ -10,7 +10,12 @@ vi.mock("@ask-llm/mcp/cursor", () => ({ executeCursorAgent: calls.cursor }));
 vi.mock("@ask-llm/grok-mcp/executor", () => ({ executeGrok: calls.grok }));
 vi.mock("@ask-llm/codex-mcp/executor", () => ({ executeCodexCLI: calls.codex }));
 
-import { parseBrainstormParticipant, runBrainstormPanel, validateBrainstormPanel } from "../brainstorm-panel.js";
+import {
+  isSameProductResolution,
+  parseBrainstormParticipant,
+  runBrainstormPanel,
+  validateBrainstormPanel,
+} from "../brainstorm-panel.js";
 
 const cursorPanel = [
   parseBrainstormParticipant("grok@cursor-agent:cursor-grok-4.6-high"),
@@ -28,15 +33,19 @@ function cursorResult(provider: "grok" | "codex", model: string, response = `${p
   };
 }
 
+function grokResult(model: string, harness: "grok-cli" | "xai-api", response = "direct grok answer") {
+  return {
+    response,
+    model,
+    harness,
+    usage: { provider: "grok", model, fellBack: false },
+  };
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
   calls.cursor.mockImplementation(({ provider, model }) => Promise.resolve(cursorResult(provider, model)));
-  calls.grok.mockResolvedValue({
-    response: "direct grok answer",
-    model: "grok-build",
-    harness: "grok-cli",
-    usage: { provider: "grok", model: "grok-build", fellBack: false },
-  });
+  calls.grok.mockResolvedValue(grokResult("grok-build", "grok-cli"));
   calls.codex.mockResolvedValue({
     response: "direct sol answer",
     usage: { provider: "codex", model: "gpt-5.6-sol", fellBack: false },
@@ -153,49 +162,7 @@ describe("exact panel routing", () => {
       status: "rejected",
       error: expect.stringContaining("authentication failed"),
     });
-  });
-
-  it("rejects a direct Codex fallback instead of attributing Terra as Sol", async () => {
-    calls.codex.mockResolvedValueOnce({
-      response: "terra answered",
-      usage: { provider: "codex", model: "gpt-5.6-terra", fellBack: true },
-    });
-    const report = await runBrainstormPanel({
-      prompt: "architecture",
-      participants: [
-        parseBrainstormParticipant("grok@grok-cli:grok-build"),
-        parseBrainstormParticipant("codex@codex-cli:gpt-5.6-sol"),
-      ],
-    });
-
-    expect(report.participants[1]).toMatchObject({
-      provider: "codex",
-      requestedModel: "gpt-5.6-sol",
-      actualModel: "gpt-5.6-terra",
-      status: "rejected",
-      error: expect.stringMatching(/reported "gpt-5\.6-terra"|model fallback/),
-    });
-    expect(report.consensusEligible).toBe(false);
-  });
-
-  it("keeps requested catalog IDs and reported display labels separate in attribution", async () => {
-    const report = await runBrainstormPanel({ prompt: "architecture", participants: cursorPanel });
-    expect(report.participants).toEqual([
-      expect.objectContaining({
-        provider: "grok",
-        harness: "cursor-agent",
-        requestedModel: "cursor-grok-4.6-high",
-        actualModel: "cursor-grok-4.6-high",
-        reportedModel: "Cursor Grok 4.6",
-      }),
-      expect.objectContaining({
-        provider: "codex",
-        harness: "cursor-agent",
-        requestedModel: "gpt-5.6-sol-high",
-        actualModel: "gpt-5.6-sol-high",
-        reportedModel: "GPT-5.6 Sol 1M High",
-      }),
-    ]);
+    expect(report.participants[0].modelVerification).toBeUndefined();
   });
 
   it("prefixes progress with provider, harness, and exact model instead of a display label", async () => {
@@ -239,6 +206,181 @@ describe("exact panel routing", () => {
   });
 });
 
+describe("truthful model attribution", () => {
+  it("treats Cursor's echoed requested ID as selected-only and keeps the display label a separate label", async () => {
+    const report = await runBrainstormPanel({ prompt: "architecture", participants: cursorPanel });
+
+    expect(report.status).toBe("complete");
+    expect(report.participants).toEqual([
+      expect.objectContaining({
+        provider: "grok",
+        harness: "cursor-agent",
+        requestedModel: "cursor-grok-4.6-high",
+        reportedModel: "Cursor Grok 4.6",
+        modelVerification: "selected-unverified",
+        status: "fulfilled",
+      }),
+      expect.objectContaining({
+        provider: "codex",
+        harness: "cursor-agent",
+        requestedModel: "gpt-5.6-sol-high",
+        reportedModel: "GPT-5.6 Sol 1M High",
+        modelVerification: "selected-unverified",
+        status: "fulfilled",
+      }),
+    ]);
+    for (const participant of report.participants) {
+      expect(participant).not.toHaveProperty("observedModel");
+      expect(participant).not.toHaveProperty("actualModel");
+      expect(participant.attributionNote).toMatch(/selected-only and unverifiable/);
+      expect(participant.attributionNote).toContain(`"${participant.reportedModel}"`);
+    }
+  });
+
+  it("records the served ID as observed for direct Grok routes when it matches the request", async () => {
+    const report = await runBrainstormPanel({
+      prompt: "architecture",
+      participants: [
+        parseBrainstormParticipant("grok@grok-cli:grok-build"),
+        parseBrainstormParticipant("codex@cursor-agent:gpt-5.6-sol-high"),
+      ],
+    });
+
+    expect(report.participants[0]).toMatchObject({
+      requestedModel: "grok-build",
+      observedModel: "grok-build",
+      modelVerification: "observed-exact",
+      status: "fulfilled",
+    });
+    expect(report.participants[0]).not.toHaveProperty("reportedModel");
+  });
+
+  it("keeps a disclosed same-product xAI alias/snapshot resolution eligible without rewriting the request", async () => {
+    calls.grok.mockResolvedValueOnce(grokResult("grok-4.6-1015", "xai-api"));
+    const report = await runBrainstormPanel({
+      prompt: "architecture",
+      participants: [
+        parseBrainstormParticipant("grok@xai-api:grok-4.6"),
+        parseBrainstormParticipant("codex@cursor-agent:gpt-5.6-sol-high"),
+      ],
+    });
+
+    expect(calls.grok).toHaveBeenCalledWith(expect.objectContaining({ model: "grok-4.6", harness: "xai-api" }));
+    expect(report.status).toBe("complete");
+    expect(report.consensusEligible).toBe(true);
+    expect(report.participants[0]).toMatchObject({
+      requestedModel: "grok-4.6",
+      observedModel: "grok-4.6-1015",
+      modelVerification: "observed-alias",
+      status: "fulfilled",
+      attributionNote: expect.stringContaining('served "grok-4.6-1015" for requested "grok-4.6"'),
+    });
+  });
+
+  it("rejects a direct Grok response served by a different model as a mismatch", async () => {
+    calls.grok.mockResolvedValueOnce(grokResult("grok-3", "xai-api"));
+    const report = await runBrainstormPanel({
+      prompt: "architecture",
+      participants: [
+        parseBrainstormParticipant("grok@xai-api:grok-4.6"),
+        parseBrainstormParticipant("codex@cursor-agent:gpt-5.6-sol-high"),
+      ],
+    });
+
+    expect(report.status).toBe("partial");
+    expect(report.consensusEligible).toBe(false);
+    expect(report.participants[0]).toMatchObject({
+      requestedModel: "grok-4.6",
+      observedModel: "grok-3",
+      modelVerification: "mismatch",
+      status: "rejected",
+      error: expect.stringContaining('requested exact model "grok-4.6" but reported "grok-3"'),
+    });
+    expect(calls.grok).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    ["grok-4.6", "grok-4.6", true],
+    ["grok-4.6", "GROK-4.6", true],
+    ["grok-4.6", "grok-4.6-1015", true],
+    ["grok-4.6", "grok-4.6-2026-08-01", true],
+    ["grok-4.6", "grok-4.6-fast", false],
+    ["grok-4.6", "grok-4.61", false],
+    ["grok-4.6", "grok-3", false],
+    ["grok-4.6-1015", "grok-4.6", false],
+  ])("same-product resolution of requested %s served %s is %s", (requested, served, expected) => {
+    expect(isSameProductResolution(requested, served)).toBe(expected);
+  });
+
+  it("rejects a direct Codex fallback instead of attributing Terra as Sol", async () => {
+    calls.codex.mockResolvedValueOnce({
+      response: "terra answered",
+      usage: { provider: "codex", model: "gpt-5.6-terra", fellBack: true },
+    });
+    const report = await runBrainstormPanel({
+      prompt: "architecture",
+      participants: [
+        parseBrainstormParticipant("grok@grok-cli:grok-build"),
+        parseBrainstormParticipant("codex@codex-cli:gpt-5.6-sol"),
+      ],
+    });
+
+    expect(report.participants[1]).toMatchObject({
+      provider: "codex",
+      requestedModel: "gpt-5.6-sol",
+      modelVerification: "fallback",
+      status: "rejected",
+      error: expect.stringContaining('fallback to "gpt-5.6-terra" for requested "gpt-5.6-sol"'),
+    });
+    expect(report.participants[1]).not.toHaveProperty("response");
+    expect(report.consensusEligible).toBe(false);
+  });
+
+  it("keeps a direct Codex response served from the response cache eligible but selected-only", async () => {
+    calls.codex.mockResolvedValueOnce({ response: "cached sol answer", threadId: undefined, usage: undefined });
+    const report = await runBrainstormPanel({
+      prompt: "architecture",
+      participants: [
+        parseBrainstormParticipant("grok@grok-cli:grok-build"),
+        parseBrainstormParticipant("codex@codex-cli:gpt-5.6-sol"),
+      ],
+    });
+
+    expect(report.status).toBe("complete");
+    expect(report.participants[1]).toMatchObject({
+      provider: "codex",
+      harness: "codex-cli",
+      requestedModel: "gpt-5.6-sol",
+      modelVerification: "selected-unverified",
+      response: "cached sol answer",
+      status: "fulfilled",
+      attributionNote: expect.stringContaining("response cache"),
+    });
+    expect(report.participants[1]).not.toHaveProperty("observedModel");
+  });
+
+  it("rejects a direct Codex run that reports a different model without a fallback flag", async () => {
+    calls.codex.mockResolvedValueOnce({
+      response: "other model answered",
+      usage: { provider: "codex", model: "gpt-5.6", fellBack: false },
+    });
+    const report = await runBrainstormPanel({
+      prompt: "architecture",
+      participants: [
+        parseBrainstormParticipant("grok@grok-cli:grok-build"),
+        parseBrainstormParticipant("codex@codex-cli:gpt-5.6-sol"),
+      ],
+    });
+
+    expect(report.participants[1]).toMatchObject({
+      modelVerification: "mismatch",
+      status: "rejected",
+      error: expect.stringContaining('ran "gpt-5.6" instead of requested "gpt-5.6-sol"'),
+    });
+    expect(report.status).toBe("partial");
+  });
+});
+
 describe("deterministic two-model synthesis eligibility", () => {
   it("allows two-model consensus only after both exact participants succeed", async () => {
     const report = await runBrainstormPanel({ prompt: "architecture", participants: cursorPanel });
@@ -276,5 +418,14 @@ describe("deterministic two-model synthesis eligibility", () => {
       response: "Sol-only insight",
     });
     expect(report.synthesisRule).toContain("attribute surviving insights to that participant only");
+  });
+
+  it("reports failed with no consensus when both participants fail", async () => {
+    calls.cursor.mockRejectedValue(new Error("Cursor Agent harness is unavailable. No fallback was attempted."));
+    const report = await runBrainstormPanel({ prompt: "architecture", participants: cursorPanel });
+
+    expect(report.status).toBe("failed");
+    expect(report.consensusEligible).toBe(false);
+    expect(report.participants.every(({ status }) => status === "rejected")).toBe(true);
   });
 });

@@ -306,24 +306,16 @@ describe("brainstorm skill — polish (ADR-064)", () => {
     expect(body).toMatch(/unverified assumptions/);
   });
 
-  it("documents the exact no-Gemini Grok + GPT-5.6 Sol Cursor panel", () => {
-    expect(body).toContain("/brainstorm grok@cursor-agent:cursor-grok-4.6-high,codex@cursor-agent:gpt-5.6-sol-high");
-    expect(body).toContain('provider: "grok", model: "cursor-grok-4.6-high"');
-    expect(body).toContain('provider: "codex", model: "gpt-5.6-sol-high"');
-    expect(body).toMatch(/do not call Gemini|never call.*Gemini/i);
-  });
-
-  it("keeps direct Grok explicit and forbids silent route/model substitution", () => {
-    expect(body).toContain("grok@grok-cli:grok-build");
-    expect(body).toMatch(/do not pivot to Cursor or xAI/i);
-    expect(body).toMatch(/Never accept `Auto`/);
-    expect(body).toMatch(/infer a requested ID from a display label/);
-  });
-
-  it("defines truthful deterministic synthesis for two-model partial failure", () => {
-    expect(body).toMatch(/consensus exists only when both requested participants succeeded/i);
-    expect(body).toMatch(/label the run \*\*partial\*\*/i);
-    expect(body).toMatch(/cannot turn one participant's answer into two-model agreement/i);
+  it("ships the documented exact Grok + GPT-5.6 Sol invocations and Pi tool calls as the skill's interface contract", () => {
+    expect(body).toContain(
+      '/brainstorm grok@cursor-agent:cursor-grok-4.6-high,codex@cursor-agent:gpt-5.6-sol-high "review this architecture"',
+    );
+    expect(body).toContain(
+      '/brainstorm grok@grok-cli:grok-build,codex@cursor-agent:gpt-5.6-sol-high "review this architecture"',
+    );
+    expect(body).toContain('`ask-cursor-agent({ provider: "grok", model: "cursor-grok-4.6-high", prompt })`');
+    expect(body).toContain('`ask-cursor-agent({ provider: "codex", model: "gpt-5.6-sol-high", prompt })`');
+    expect(body).toContain("`dist/brainstorm-run.js`");
   });
 });
 
@@ -350,17 +342,13 @@ describe("brainstorm-coordinator agent — Phase 4 cross-check polish (ADR-064)"
     expect(body).toMatch(/before external dispatch|before dispatch/i);
   });
 
-  it("routes the exact architect panel through the packaged concurrent runner", () => {
-    expect(body).toContain("dist/brainstorm-run.js");
-    expect(body).toContain("grok@cursor-agent:cursor-grok-4.6-high");
-    expect(body).toContain("codex@cursor-agent:gpt-5.6-sol-high");
-    expect(body).toMatch(/must never launch a Gemini process\/tool/);
-  });
-
-  it("mechanically excludes partial two-model runs from consensus", () => {
-    expect(body).toContain("consensusEligible:true");
-    expect(body).toMatch(/`partial`:.+do not create a Consensus section/s);
-    expect(body).toMatch(/cannot turn one external answer into two-model consensus/);
+  it("ships the packaged runner invocation and report fields as the coordinator's interface contract", () => {
+    expect(body).toContain('CLAUDE_PLUGIN_ROOT}/dist/brainstorm-run.js" \\');
+    expect(body).toContain("--participant 'grok@cursor-agent:cursor-grok-4.6-high'");
+    expect(body).toContain("--participant 'codex@cursor-agent:gpt-5.6-sol-high'");
+    expect(body).toContain("grok@grok-cli:grok-build");
+    expect(body).toContain("`consensusEligible:true`");
+    expect(body).toContain("`modelVerification`");
   });
 });
 

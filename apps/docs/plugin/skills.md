@@ -92,7 +92,7 @@ Experimental and one-shot (no multi-turn). Requires `agy` installed + logged in 
 
 ### `/brainstorm`
 
-Send a topic to an explicit multi-model panel, ground it with independent Claude Opus research, then synthesize the findings. Provider, harness, requested catalog ID, actual model, and Cursor's optional reported display label remain separate. The coordinator agent runs:
+Send a topic to an explicit multi-model panel, ground it with independent Claude Opus research, then synthesize the findings. Provider, harness, requested catalog ID, independently observed served model (direct xAI API / Grok CLI only; a disclosed same-product alias/snapshot stays eligible), and Cursor's optional reported display label remain separate. Cursor Agent and Codex CLI echo the requested ID, so those attributions are selected-only and unverifiable rather than an actual model. The coordinator agent runs:
 
 1. **Phase 3B: Claude Opus research.** Claude reads actual files, traces real code paths, fetches referenced docs, and forms findings tagged Verified or Inferred. In standard mode Claude is a participant. In the exact Grok + Sol mode it is a non-voting evidence verifier, so the requested panel remains exactly two models.
 2. **Phase 3A: External dispatch.** A single foreground blocking Bash call sends the topic to each requested external provider in parallel and waits for all of them. Up to 10 minutes total (Bash tool max). It's a foreground blocking call, not a background-job dispatch, because sub-agents can't own processes that outlive their turn.
