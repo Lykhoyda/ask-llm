@@ -1,5 +1,13 @@
 # @ask-llm/codex-mcp
 
+## 0.7.5
+
+### Patch Changes
+
+- [#273](https://github.com/Lykhoyda/ask-llm/pull/273) [`e685565`](https://github.com/Lykhoyda/ask-llm/commit/e68556513c59c8a2c56a64c0443c9b36eff0ec64) Thanks [@Lykhoyda](https://github.com/Lykhoyda)! - Fix archived-session detection on codex 0.147.0+ by matching the real `thread <id> is archived` error wording, restoring the actionable `codex unarchive` guidance on resume failures.
+
+- [#279](https://github.com/Lykhoyda/ask-llm/pull/279) [`9d27169`](https://github.com/Lykhoyda/ask-llm/commit/9d27169fbe22c2ffbfae0be9d6cba841b98e42f1) Thanks [@Lykhoyda](https://github.com/Lykhoyda)! - Add first-class Grok consultations through explicit xAI API or official Grok CLI harnesses, with exact model selection, strict no-fallback diagnostics, redacted credentials, cancellation, telemetry, and opt-in live tests. Add a separate model-neutral Cursor Agent harness that requires provider and exact Cursor model attribution, runs read-only, and never changes trust or spend settings. The Cursor provider enum is `claude`, `codex`, `gemini`, `grok` in the unified server and Pi, and the requested model must belong to that family (Auto and noncanonical IDs are refused); `AskResponse` gains an optional `reportedModel` carrying Cursor's display label while `model` echoes the exact requested catalog ID. Prompts above 16 KB reach Grok CLI through a private `--prompt-file` (only when `grok --help` advertises it; otherwise they fail before spawn) and Cursor Agent over stdin. xAI effort coercion (`xhigh` applied as `high` on older models) and served-model alias resolution are disclosed, and an effort-rejecting 4xx is classified with the supported list.
+
 ## 0.7.4
 
 ### Patch Changes
