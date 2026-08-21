@@ -101,12 +101,17 @@ export function validateBrainstormPanel(participants: BrainstormParticipant[]): 
   }
 }
 
+const LATEST_ALIAS_SUFFIX = "-latest";
+
 export function isSameProductResolution(requested: string, observed: string): boolean {
   const requestedId = requested.trim().toLowerCase();
   const observedId = observed.trim().toLowerCase();
   if (requestedId === observedId) return true;
-  if (!observedId.startsWith(`${requestedId}-`)) return false;
-  return /^[0-9][0-9.-]*$/.test(observedId.slice(requestedId.length + 1));
+  const productId = requestedId.endsWith(LATEST_ALIAS_SUFFIX)
+    ? requestedId.slice(0, -LATEST_ALIAS_SUFFIX.length)
+    : requestedId;
+  if (!productId || !observedId.startsWith(`${productId}-`)) return false;
+  return /^[0-9][0-9.-]*$/.test(observedId.slice(productId.length + 1));
 }
 
 interface ObservedAttribution {
@@ -207,7 +212,26 @@ async function invokeParticipant(
           `${participant.harness} reported a model fallback for requested "${participant.model}". The response is excluded from two-model consensus.`,
         );
       }
-      observedModel = result.model;
+      if (!result.reportedModel) {
+        if (result.model !== participant.model) {
+          modelVerification = "mismatch";
+          throw new Error(
+            `${participant.provider} via ${participant.harness} ran "${result.model}" instead of requested "${participant.model}". The response is excluded from two-model consensus; no additional route was attempted.`,
+          );
+        }
+        modelVerification = "selected-unverified";
+        return {
+          ...base,
+          modelVerification,
+          attributionNote: selectedOnlyNote(
+            participant,
+            `${participant.harness} reported no served model ID, so only the requested ID is known`,
+          ),
+          response: result.response,
+          status: "fulfilled",
+        };
+      }
+      observedModel = result.reportedModel;
       let observed: ObservedAttribution;
       try {
         observed = classifyObservedModel(participant, observedModel);

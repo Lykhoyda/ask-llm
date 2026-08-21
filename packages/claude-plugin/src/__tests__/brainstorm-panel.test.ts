@@ -33,12 +33,18 @@ function cursorResult(provider: "grok" | "codex", model: string, response = `${p
   };
 }
 
-function grokResult(model: string, harness: "grok-cli" | "xai-api", response = "direct grok answer") {
+function grokResult(
+  model: string,
+  harness: "grok-cli" | "xai-api",
+  overrides: { response?: string; reportedModel?: string } = {},
+) {
   return {
-    response,
+    response: "direct grok answer",
     model,
+    reportedModel: model,
     harness,
     usage: { provider: "grok", model, fellBack: false },
+    ...overrides,
   };
 }
 
@@ -255,6 +261,47 @@ describe("truthful model attribution", () => {
     expect(report.participants[0]).not.toHaveProperty("reportedModel");
   });
 
+  it("keeps a direct Grok response selected-only when the harness reports no served model ID", async () => {
+    calls.grok.mockResolvedValueOnce(grokResult("grok-build", "grok-cli", { reportedModel: undefined }));
+    const report = await runBrainstormPanel({
+      prompt: "architecture",
+      participants: [
+        parseBrainstormParticipant("grok@grok-cli:grok-build"),
+        parseBrainstormParticipant("codex@cursor-agent:gpt-5.6-sol-high"),
+      ],
+    });
+
+    expect(report.status).toBe("complete");
+    expect(report.participants[0]).toMatchObject({
+      requestedModel: "grok-build",
+      modelVerification: "selected-unverified",
+      status: "fulfilled",
+      attributionNote: expect.stringContaining("reported no served model ID"),
+    });
+    expect(report.participants[0]).not.toHaveProperty("observedModel");
+    expect(report.participants[0].attributionNote).not.toMatch(/reported served model/);
+  });
+
+  it("treats a documented xAI -latest alias resolving to a dated same-product ID as observed-alias", async () => {
+    calls.grok.mockResolvedValueOnce(grokResult("grok-4-0709", "xai-api"));
+    const report = await runBrainstormPanel({
+      prompt: "architecture",
+      participants: [
+        parseBrainstormParticipant("grok@xai-api:grok-4-latest"),
+        parseBrainstormParticipant("codex@cursor-agent:gpt-5.6-sol-high"),
+      ],
+    });
+
+    expect(calls.grok).toHaveBeenCalledWith(expect.objectContaining({ model: "grok-4-latest" }));
+    expect(report.status).toBe("complete");
+    expect(report.participants[0]).toMatchObject({
+      requestedModel: "grok-4-latest",
+      observedModel: "grok-4-0709",
+      modelVerification: "observed-alias",
+      status: "fulfilled",
+    });
+  });
+
   it("keeps a disclosed same-product xAI alias/snapshot resolution eligible without rewriting the request", async () => {
     calls.grok.mockResolvedValueOnce(grokResult("grok-4.6-1015", "xai-api"));
     const report = await runBrainstormPanel({
@@ -308,6 +355,12 @@ describe("truthful model attribution", () => {
     ["grok-4.6", "grok-4.61", false],
     ["grok-4.6", "grok-3", false],
     ["grok-4.6-1015", "grok-4.6", false],
+    ["grok-4-latest", "grok-4-latest", true],
+    ["grok-4-latest", "grok-4-0709", true],
+    ["grok-4-latest", "grok-4", false],
+    ["grok-4-latest", "grok-4-fast", false],
+    ["grok-4-latest", "grok-4-latest-0709", false],
+    ["-latest", "-0709", false],
   ])("same-product resolution of requested %s served %s is %s", (requested, served, expected) => {
     expect(isSameProductResolution(requested, served)).toBe(expected);
   });

@@ -76,6 +76,7 @@ export interface GrokExecutorOptions {
 export interface GrokExecutorResult {
   response: string;
   model: string;
+  reportedModel: string | undefined;
   sessionId: undefined;
   usage: UsageStats | undefined;
   harness: "xai-api";
@@ -88,6 +89,7 @@ function cachedResult(value: string): GrokExecutorResult | null {
     return {
       response: parsed.response,
       model: parsed.model,
+      reportedModel: typeof parsed.reportedModel === "string" ? parsed.reportedModel : undefined,
       sessionId: undefined,
       usage: undefined,
       harness: "xai-api",
@@ -403,7 +405,8 @@ export async function executeGrokAPI(options: GrokExecutorOptions): Promise<Grok
 
   const content = outputText(payload, secret);
   if (!content) throw new Error(ERROR_MESSAGES.MALFORMED_RESPONSE);
-  const actualModel = typeof payload.model === "string" && payload.model.trim() ? payload.model.trim() : model;
+  const reportedModel = typeof payload.model === "string" && payload.model.trim() ? payload.model.trim() : undefined;
+  const actualModel = reportedModel ?? model;
   discloseModelResolution(model, actualModel, options.onProgress);
   const usage = buildUsageStats(payload, actualModel, Date.now() - startedAt);
   const formatted = `${content}${formatUsageStats(usage)}`;
@@ -412,10 +415,13 @@ export async function executeGrokAPI(options: GrokExecutorOptions): Promise<Grok
   const result: GrokExecutorResult = {
     response: formatted,
     model: actualModel,
+    reportedModel,
     sessionId: undefined,
     usage,
     harness: "xai-api",
   };
-  if (cacheKey) responseCache.set(cacheKey, JSON.stringify({ response: formatted, model: actualModel }));
+  if (cacheKey) {
+    responseCache.set(cacheKey, JSON.stringify({ response: formatted, model: actualModel, reportedModel }));
+  }
   return result;
 }
