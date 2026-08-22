@@ -16,9 +16,9 @@
 | [`@ask-llm/ollama-mcp`](https://www.npmjs.com/package/@ask-llm/ollama-mcp) | MCP Server | [![npm](https://img.shields.io/npm/v/@ask-llm/ollama-mcp)](https://www.npmjs.com/package/@ask-llm/ollama-mcp) | [![downloads](https://img.shields.io/npm/dt/@ask-llm/ollama-mcp)](https://www.npmjs.com/package/@ask-llm/ollama-mcp) |
 | [`@ask-llm/antigravity-mcp`](https://www.npmjs.com/package/@ask-llm/antigravity-mcp) | MCP Server | [![npm](https://img.shields.io/npm/v/@ask-llm/antigravity-mcp)](https://www.npmjs.com/package/@ask-llm/antigravity-mcp) | [![downloads](https://img.shields.io/npm/dt/@ask-llm/antigravity-mcp)](https://www.npmjs.com/package/@ask-llm/antigravity-mcp) |
 | [`@ask-llm/mcp`](https://www.npmjs.com/package/@ask-llm/mcp) | MCP Server | [![npm](https://img.shields.io/npm/v/@ask-llm/mcp)](https://www.npmjs.com/package/@ask-llm/mcp) | [![downloads](https://img.shields.io/npm/dt/@ask-llm/mcp)](https://www.npmjs.com/package/@ask-llm/mcp) |
-| [`@ask-llm/plugin`](https://www.npmjs.com/package/@ask-llm/plugin) | Claude Code + Pi Host Package | [![npm](https://img.shields.io/npm/v/@ask-llm/plugin)](https://www.npmjs.com/package/@ask-llm/plugin) | [![downloads](https://img.shields.io/npm/dt/@ask-llm/plugin)](https://www.npmjs.com/package/@ask-llm/plugin) |
+| [`@ask-llm/plugin`](https://www.npmjs.com/package/@ask-llm/plugin) | Claude Code + Cursor Agent + Pi Host Package | [![npm](https://img.shields.io/npm/v/@ask-llm/plugin)](https://www.npmjs.com/package/@ask-llm/plugin) | [![downloads](https://img.shields.io/npm/dt/@ask-llm/plugin)](https://www.npmjs.com/package/@ask-llm/plugin) |
 
-**MCP servers + Claude Code/Pi host package for AI-to-AI collaboration**
+**MCP servers + Claude Code/Cursor Agent/Pi host package for AI-to-AI collaboration**
 
 </div>
 
@@ -71,7 +71,7 @@ claude mcp add --scope user antigravity -- npx -y @ask-llm/antigravity-mcp
 
 ### Pi
 
-Pi is a host harness, not another consulted provider. Install the canonical dual-host package; it exposes the shared skills plus native provider tools because Pi intentionally has no built-in MCP client:
+Pi is a host harness, not another consulted provider. Install the canonical multi-host package; it exposes the shared skills plus native provider tools because Pi intentionally has no built-in MCP client:
 
 ```bash
 pi install npm:@ask-llm/plugin
@@ -188,18 +188,19 @@ the complete package-to-executable mapping.
 | **Gemini** | Whole-codebase reads (1M+ tokens) | `gemini-3.1-pro-preview` → `gemini-3.6-flash` | ⚠️ Enterprise-gated from 2026-06-18 |
 | **Unified (`ask-llm`)** | One install for all of the above; fan out in parallel | routes per call | **Recommended** |
 
-## Host Package: Claude Code and Pi
+## Host Package: Claude Code, Cursor Agent, and Pi
 
-`@ask-llm/plugin` is one package, version, release lifecycle, and canonical skill corpus. Claude Code loads its existing marketplace agents/hooks; Pi loads explicit native tools, portable skill adapters, and a thin lifecycle extension.
+`@ask-llm/plugin` is one package, version, release lifecycle, and canonical skill corpus. Claude Code loads its existing marketplace agents/hooks; Cursor Agent loads the same skills through its Agent Skills surface plus `mcp.json` (`agent --plugin-dir ./packages/claude-plugin`; see the [Cursor Agent host guide](https://lykhoyda.github.io/ask-llm/plugin/cursor)); Pi loads explicit native tools, portable skill adapters, and a thin lifecycle extension.
 
-| Capability | Claude Code | Codex CLI host | Pi |
-|---|---:|---:|---:|
-| Provider transport | MCP | MCP | native Ask LLM tools (no built-in MCP) |
-| Review/compare/brainstorm skills | yes | tools only | `/skill:<name>` + natural language |
-| Isolated reviewer contexts / Fable | yes | no | no; `fable-review` excluded |
-| codex-pair | hooks | no | lifecycle extension |
-| Blocking HIGH Stop gate | opt-in | no | no; surfaced non-blockingly |
-| Async pairing in one-shot print | n/a | no | unsupported |
+| Capability | Claude Code | Cursor Agent | Codex CLI host | Pi |
+|---|---:|---:|---:|---:|
+| Provider transport | MCP | MCP (`mcp.json`) | MCP | native Ask LLM tools (no built-in MCP) |
+| Review/compare/brainstorm skills | yes | Agent Skills | tools only | `/skill:<name>` + natural language |
+| Isolated reviewer contexts / Fable | yes | no; `fable-review` excluded | no | no; `fable-review` excluded |
+| codex-pair | hooks | on-demand persisted session | no | lifecycle extension |
+| `/grok-pair` | yes (explicit Cursor/xAI/CLI route) | `ask-grok` routes only | no | excluded |
+| Blocking HIGH Stop gate | opt-in | no | no | no; surfaced non-blockingly |
+| Async pairing in one-shot print | n/a | on-demand skill | no | unsupported |
 
 ### Claude Code Plugin
 

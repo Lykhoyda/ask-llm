@@ -1,5 +1,5 @@
 ---
-description: Frequently asked questions about Ask LLM MCP servers and its Claude Code and Pi host package, covering setup, multi-provider usage, sessions, and troubleshooting.
+description: Frequently asked questions about Ask LLM MCP servers and its Claude Code, Cursor Agent, and Pi host package, covering setup, multi-provider usage, sessions, and troubleshooting.
 ---
 
 # Frequently Asked Questions

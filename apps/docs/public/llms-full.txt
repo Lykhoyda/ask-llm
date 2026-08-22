@@ -6,7 +6,7 @@ This file contains everything an AI agent needs to integrate with Ask LLM MCP se
 
 ## Architecture
 
-Ask LLM is a monorepo with 8 published npm packages + 1 private shared library. `@ask-llm/plugin` is the canonical Claude Code + Pi host package:
+Ask LLM is a monorepo with 8 published npm packages + 1 private shared library. `@ask-llm/plugin` is the canonical Claude Code + Cursor Agent + Pi host package:
 
 ```
 packages/shared/         @ask-llm/shared      Internal shared code (inlined into each MCP at build: registry, executor, sessions, usage)
@@ -17,8 +17,16 @@ packages/antigravity-mcp @ask-llm/antigravity-mcp  MCP server for Google Antigra
 packages/ollama-mcp/     @ask-llm/ollama-mcp       MCP server for local Ollama LLMs
 packages/gemini-mcp/     @ask-llm/gemini-mcp       MCP server for Google Gemini CLI
 packages/llm-mcp/        @ask-llm/mcp          Unified MCP server (auto-detects providers)
-packages/claude-plugin   @ask-llm/plugin      Claude Code + Pi host package (one skill corpus; host adapters)
+packages/claude-plugin   @ask-llm/plugin      Claude Code + Cursor Agent + Pi host package (one skill corpus; host adapters)
 ```
+
+## Cursor Agent host quick start
+
+```bash
+agent --plugin-dir ./packages/claude-plugin   # from a source checkout
+```
+
+Cursor loads `.cursor-plugin/plugin.json`: the canonical skills through Agent Skills (`/codex-pair`, `/grok-pair`, and the review/brainstorm/compare skills) plus `mcp.json` registering the `codex`, `grok`, and `ask-llm` servers. It never consumes Claude hooks, `${CLAUDE_PLUGIN_ROOT}`, or plugin namespaces, and omits the `-ack`/`-pause`/`-resume` toggles (no background reviewer). MCP-only setup: copy the `mcp.json` entries into `.cursor/mcp.json`. Guide: https://lykhoyda.github.io/ask-llm/plugin/cursor
 
 ## Pi host quick start
 
@@ -26,7 +34,7 @@ packages/claude-plugin   @ask-llm/plugin      Claude Code + Pi host package (one
 pi install npm:@ask-llm/plugin
 ```
 
-Pi is the host, not a consulted provider, and has no built-in MCP client. The package registers native `ask-codex`, `ask-gemini`, `ask-grok`, `ask-ollama`, `ask-antigravity`, model-neutral `ask-cursor-agent`, and deterministic `ask-multi`; skills use `/skill:<name>`. `fable-review` is excluded. Pi codex-pair requires marker + project trust + interactive user-owned allowlist consent, surfaces findings non-blockingly, and does not support asynchronous pairing in one-shot print mode.
+Pi is the host, not a consulted provider, and has no built-in MCP client. The package registers native `ask-codex`, `ask-gemini`, `ask-grok`, `ask-ollama`, `ask-antigravity`, model-neutral `ask-cursor-agent`, and deterministic `ask-multi`; skills use `/skill:<name>`. `fable-review` and `grok-pair` are excluded. Pi codex-pair requires marker + project trust + interactive user-owned allowlist consent, surfaces findings non-blockingly, and does not support asynchronous pairing in one-shot print mode.
 
 ## Prerequisites
 
@@ -269,6 +277,9 @@ Route a single prompt to any one installed provider (unified server).
   - `provider` (string, required): Which provider to route to: one of gemini, codex, claude, grok, ollama, antigravity. Must be one that is installed/detected; there is no default.
   - `model` (string, optional): Provider-specific model override.
   - `sessionId` (string, optional): For Codex, omit it for an ephemeral call, pass `""` to create a fresh persisted thread, or pass a non-empty returned Thread ID to resume. For other session-capable providers, pass a prior session ID to resume.
+  - `harness` (string, optional): `xai-api` or `grok-cli`; valid only with `provider: "grok"`.
+  - `includeDirs` (string[], optional): Relative workspace directories forwarded only to codex, claude, or antigravity; other providers reject it instead of silently dropping it. Codex accepts it only on a fresh call (`sessionId` omitted or `""`), never on a resumed thread.
+  - `reasoningEffort` (string, optional): `low` | `medium` | `high` | `xhigh` | `max`, forwarded only to codex (all five) or grok (no `max`); unsupported combinations are schema errors, never stripped.
 - **Returns:** The chosen provider's text response plus a structured payload (including the resolved provider and model, so quota fallbacks are visible).
 - **Annotations:** readOnlyHint=false, destructiveHint=false, openWorldHint=true
 
@@ -277,9 +288,9 @@ Route a single prompt to any one installed provider (unified server).
 Use Cursor Agent as a model-neutral read-only harness. Requires an authenticated `agent` CLI.
 
 - **Package:** @ask-llm/mcp
-- **Parameters:** `provider` (canonical model provider), `model` (required exact ID from `agent --list-models`), `prompt`.
-- **Behavior:** `agent --print --mode ask`; no `--force`, no automatic `--trust`, no Auto model, no spend-limit changes, and no fallback.
-- **Returns:** Standard AskResponse with separate provider, the exact requested Cursor ID echoed as `model`, Cursor's display label as optional `reportedModel`, and `harness: "cursor-agent"`.
+- **Parameters:** `provider` (canonical model provider), `model` (required exact ID from `agent --list-models`), `prompt`, `includeDirs` (optional relative directories mapped to repeated `--add-dir`), `sessionId` (optional prior Cursor conversation ID; omit on the first call).
+- **Behavior:** `agent --print --mode ask`; no `--force`, no automatic `--trust`, no Auto model, no spend-limit changes, and no fallback. A provided `sessionId` is passed as `--resume`.
+- **Returns:** Standard AskResponse with separate provider, the exact requested Cursor ID echoed as `model`, Cursor's display label as optional `reportedModel`, the Cursor conversation ID as `sessionId` (reuse it to resume), and `harness: "cursor-agent"`.
 
 ### multi-llm
 
@@ -410,7 +421,8 @@ Launches Antigravity and Codex reviews in parallel with a validation pipeline an
 | /compare | Side-by-side raw responses from multiple providers (no synthesis) |
 | /codex-verify | Verify the assistant's claims against actual state using Codex (read-only) |
 | /codex-image | Generate images via Codex (gpt-image-2) |
-| /codex-pair (+ -ack, -pause, -resume) | Seamless per-edit Codex pairing dashboard and controls |
+| /grok-pair | Consent-gated iterative Grok reviewer through one explicit route (Cursor Agent `ask-cursor-agent`, xAI API, or Grok CLI); exact model/effort attribution, no fallback; needs user-scoped `@ask-llm/mcp` / `@ask-llm/grok-mcp` |
+| /codex-pair (+ -ack, -pause, -resume) | Seamless per-edit Codex pairing dashboard and controls (Claude/Pi); on Cursor Agent the same skill runs an on-demand persisted `ask-codex` session without the toggles |
 
 ### Agents
 
