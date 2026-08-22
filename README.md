@@ -194,11 +194,11 @@ the complete package-to-executable mapping.
 
 | Capability | Claude Code | Cursor Agent | Codex CLI host | Pi |
 |---|---:|---:|---:|---:|
-| Provider transport | MCP | MCP (`mcp.json`) | MCP | native Ask LLM tools (no built-in MCP) |
+| Provider transport | MCP | MCP (`mcp.json`, unified `ask-llm` only) | MCP | native Ask LLM tools (no built-in MCP) |
 | Review/compare/brainstorm skills | yes | Agent Skills | tools only | `/skill:<name>` + natural language |
 | Isolated reviewer contexts / Fable | yes | no; `fable-review` excluded | no | no; `fable-review` excluded |
 | codex-pair | hooks | on-demand persisted session | no | lifecycle extension |
-| `/grok-pair` | yes (explicit Cursor/xAI/CLI route) | `ask-grok` routes only | no | excluded |
+| `/grok-pair` | yes (explicit Cursor/xAI/CLI route) | direct xAI/CLI routes via pinned unified `ask-llm` (or user-installed `ask-grok`) | no | excluded |
 | Blocking HIGH Stop gate | opt-in | no | no | no; surfaced non-blockingly |
 | Async pairing in one-shot print | n/a | on-demand skill | no | unsupported |
 

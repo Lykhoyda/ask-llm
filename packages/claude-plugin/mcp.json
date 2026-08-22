@@ -1,16 +1,11 @@
 {
   "mcpServers": {
-    "codex": {
-      "command": "npx",
-      "args": ["-y", "@ask-llm/codex-mcp"]
-    },
-    "grok": {
-      "command": "npx",
-      "args": ["-y", "@ask-llm/grok-mcp"]
-    },
     "ask-llm": {
       "command": "npx",
-      "args": ["-y", "@ask-llm/mcp"]
+      "args": [
+        "-y",
+        "@ask-llm/mcp"
+      ]
     }
   }
 }

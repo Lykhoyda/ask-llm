@@ -20,5 +20,6 @@
   ],
   "agents": [],
   "commands": [],
+  "hooks": {},
   "mcpServers": "./mcp.json"
 }

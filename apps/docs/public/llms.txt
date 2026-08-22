@@ -55,7 +55,7 @@ Note: every `includeDirs` parameter accepts **relative paths only**: no `..`, ab
 
 ## Claude Code, Cursor Agent, and Pi Host Package
 
-For Cursor Agent: `agent --plugin-dir ./packages/claude-plugin` from a source checkout loads `.cursor-plugin/plugin.json` (Agent Skills exposing exactly `/codex-pair` and `/grok-pair`, plus `mcp.json` registering codex, grok, and ask-llm servers); no Claude hooks, namespaces, or the `-ack`/`-pause`/`-resume` toggles. Guide: https://lykhoyda.github.io/ask-llm/plugin/cursor
+For Cursor Agent: `agent --plugin-dir ./packages/claude-plugin` from a source checkout loads `.cursor-plugin/plugin.json` (Agent Skills exposing exactly `/codex-pair` and `/grok-pair`; explicit empty `agents`/`commands`/`hooks`; `mcp.json` registering only the unified `ask-llm` server, with `@ask-llm/codex-mcp`/`@ask-llm/grok-mcp` as optional user installs); no Claude hooks, namespaces, or the `-ack`/`-pause`/`-resume` toggles. Guide: https://lykhoyda.github.io/ask-llm/plugin/cursor
 
 For Pi: `pi install npm:@ask-llm/plugin`. Invoke `/skill:<name>`; Pi gets native `ask-codex`, `ask-gemini`, `ask-grok`, `ask-ollama`, `ask-antigravity`, model-neutral `ask-cursor-agent`, and deterministic `ask-multi` tools because Pi has no built-in MCP client. `fable-review`, `grok-pair`, blocking Stop-gate parity, and asynchronous one-shot print pairing are intentionally unsupported. Pi codex-pair requires marker + project trust + user-owned allowlist consent.
 

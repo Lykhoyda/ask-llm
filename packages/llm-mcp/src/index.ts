@@ -126,6 +126,7 @@ export async function detectProviders(): Promise<ProviderStatus> {
     Object.entries(PROVIDERS).map(async ([key, provider]) => {
       let found: boolean;
       let support: ProviderSupportProbe | undefined;
+      let probeError: string | undefined;
       const disabled = Boolean(provider.disabledWhenEnvVar && process.env[provider.disabledWhenEnvVar]);
       if (disabled) {
         found = false;
@@ -152,17 +153,18 @@ export async function detectProviders(): Promise<ProviderStatus> {
         try {
           const mod = await import(provider.availabilityModule);
           found = await (mod[provider.availabilityFn] as () => Promise<boolean>)();
-        } catch {
+        } catch (error) {
           found = false;
+          probeError = error instanceof Error ? error.message : String(error);
         }
       } else {
         found = await isCommandAvailable(provider.command);
       }
-      return { key, provider, found, disabled, support };
+      return { key, provider, found, disabled, support, probeError };
     }),
   );
 
-  for (const { key, provider, found, disabled, support } of checks) {
+  for (const { key, provider, found, disabled, support, probeError } of checks) {
     loadedExecutors.delete(key);
     if (found) {
       try {
@@ -214,18 +216,18 @@ export async function detectProviders(): Promise<ProviderStatus> {
         continue;
       }
       const hint = INSTALL_HINTS[key] ?? "";
+      const failure = provider.availabilityFailure ?? `${provider.name} (${provider.command}) was not found on PATH.`;
+      const message = probeError ? `${failure} (readiness probe failed: ${probeError})` : failure;
       missing.push(key);
       unavailable.push({
         key,
         provider: provider.name,
         state: "missing",
         detected: false,
-        message: provider.availabilityFailure ?? `${provider.name} (${provider.command}) was not found on PATH.`,
+        message,
         remediation: hint || undefined,
       });
-      Logger.warn(
-        `Provider ${provider.name} (${provider.command}) — ${provider.availabilityFailure ?? "not found"}${hint ? `. Configure: ${hint}` : ""}`,
-      );
+      Logger.warn(`Provider ${provider.name} (${provider.command}) — ${message}${hint ? `. Configure: ${hint}` : ""}`);
     }
   }
 

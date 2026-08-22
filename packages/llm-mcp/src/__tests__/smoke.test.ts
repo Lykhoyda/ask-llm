@@ -190,6 +190,20 @@ describe("detectProviders", () => {
     expect(status.missing).toHaveLength(0);
   });
 
+  it("surfaces a failed Grok readiness probe (e.g. unsupported ASK_GROK_HARNESS) instead of a bare missing message", async () => {
+    vi.mocked(mockIsGrokAvailable).mockRejectedValue(new Error('Unsupported Grok harness "automatic"'));
+    mockIsCommandAvailable.mockResolvedValue(false);
+
+    const status = await detectProviders();
+
+    expect(status.available).not.toContain("grok");
+    expect(status.missing).toContain("grok");
+    const grok = status.unavailable.find((entry) => entry.key === "grok");
+    expect(grok?.state).toBe("missing");
+    expect(grok?.message).toContain("ASK_GROK_HARNESS");
+    expect(grok?.message).toContain('Unsupported Grok harness "automatic"');
+  });
+
   it("reports all missing when no providers available", async () => {
     mockIsCommandAvailable.mockResolvedValue(false);
     vi.mocked(mockIsOllamaAvailable).mockResolvedValue(false);

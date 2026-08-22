@@ -55,8 +55,9 @@ export const PROVIDERS: Record<string, ProviderConfig> = {
     availabilityModule: "@ask-llm/grok-mcp/executor",
     availabilityFn: "isGrokProviderAvailable",
     availabilitySuccess:
-      "XAI_API_KEY is configured or Grok CLI headless JSON support is available (no inference request made)",
-    availabilityFailure: "XAI_API_KEY is not configured and Grok CLI headless JSON support is unavailable",
+      "XAI_API_KEY is configured or Grok CLI headless JSON support is available; with ASK_GROK_HARNESS set, only that configured harness was probed (no inference request made)",
+    availabilityFailure:
+      "No ready Grok harness: without ASK_GROK_HARNESS neither XAI_API_KEY nor Grok CLI headless JSON support was detected; with ASK_GROK_HARNESS set, readiness is pinned to that configured harness only (xai-api needs XAI_API_KEY, grok-cli needs authenticated Grok Build with headless JSON flags)",
   },
   ollama: {
     name: "Ollama",

@@ -13,7 +13,7 @@ Apply `../pairing-contract.md`. The host is the editor and Grok is the explicit 
 
 ### Cursor Agent adapter
 
-When Cursor itself hosts this skill, do not recursively launch `ask-cursor-agent`. Offer only the explicit direct routes (`xai-api` or `grok-cli`) through an exact `ask-grok` leaf or a fully pinned unified `ask-llm` leaf, and follow the same consent and no-fallback contract. A unified call must specify `provider: "grok"`, exact `harness`, exact `model`, and `reasoningEffort`; direct Grok is one-shot and does not accept include directories or sessions.
+When Cursor itself hosts this skill, do not recursively launch `ask-cursor-agent`. Offer only the explicit direct routes (`xai-api` or `grok-cli`) through an exact `ask-grok` leaf or a fully pinned unified `ask-llm` leaf, and follow the same consent and no-fallback contract. The Cursor plugin bundle registers only the unified `ask-llm` server; a separately user-installed `grok` entry (`@ask-llm/grok-mcp`) exposes the deterministic `ask-grok` leaf and is preferred when exposed. A unified call must specify `provider: "grok"`, exact `harness`, exact `model`, and `reasoningEffort`; direct Grok is one-shot and does not accept include directories or sessions.
 
 If neither leaf is exposed, stop and give this Cursor-native setup (never `claude mcp add`):
 
@@ -21,7 +21,7 @@ If neither leaf is exposed, stop and give this Cursor-native setup (never `claud
 {"mcpServers":{"ask-llm":{"command":"npx","args":["-y","@ask-llm/mcp"]}}}
 ```
 
-Save it as project `.cursor/mcp.json` or user `~/.cursor/mcp.json`. For `xai-api`, ensure `XAI_API_KEY` is present in the MCP server process environment; keep any literal secret in the user-level config and never commit it. For `grok-cli`, install/authenticate Grok Build and verify `grok --help` advertises headless JSON support. Reload the server from **Cursor Settings → Tools & MCP** or restart Cursor Agent, verify that `ask-llm` is exposed, then invoke `/grok-pair` again. The split alternative is the same entry named `grok` with package `@ask-llm/grok-mcp`, which exposes `ask-grok`; do not configure both merely to create fallback.
+Save it as project `.cursor/mcp.json` or user `~/.cursor/mcp.json`. For `xai-api`, ensure `XAI_API_KEY` is present in the MCP server process environment; keep any literal secret in the user-level config and never commit it. For `grok-cli`, install/authenticate Grok Build and verify `grok --help` advertises headless JSON support. Reload the server from **Cursor Settings → Tools & MCP** or restart Cursor Agent, verify that `ask-llm` is exposed, then invoke `/grok-pair` again. The split alternative is the same entry named `grok` with package `@ask-llm/grok-mcp`, which exposes `ask-grok`; keep one registration per server and do not configure both merely to create fallback.
 
 <!-- HOST-ADAPTER:CLAUDE-CODE:START -->
 ### Claude Code adapter
