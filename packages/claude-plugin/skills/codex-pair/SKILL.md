@@ -1,6 +1,6 @@
 ---
 name: codex-pair
-description: Pair with Codex using the host's supported lifecycle. On Claude Code and Pi, manages the proven opt-in per-edit review flow; on Cursor Agent, runs an explicit consent-gated iterative reviewer session through ask-codex without assuming Claude hooks or namespaces.
+description: Pair with Codex using the host's supported lifecycle. On Claude Code and Pi, manages the proven opt-in per-edit review flow; on Cursor Agent, runs an explicit consent-gated iterative reviewer session through an exact ask-codex leaf or fully pinned unified ask-llm without assuming Claude hooks or namespaces.
 ---
 
 <!-- PORTABLE-CONTRACT:START -->

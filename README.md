@@ -237,7 +237,7 @@ See the [plugin docs](https://lykhoyda.github.io/ask-llm/plugin/overview) for de
 - **At least one provider:**
   - [Codex CLI](https://github.com/openai/codex) — installed and authenticated
   - [Claude Code CLI](https://docs.anthropic.com/en/docs/claude-code/getting-started) — installed and authenticated (for Codex/other clients consulting Claude)
-  - [xAI API](https://docs.x.ai/) — set `XAI_API_KEY` for the default metered Grok harness; or install/authenticate official Grok Build and set `ASK_GROK_HARNESS=grok-cli`
+  - [xAI API](https://docs.x.ai/) — set `XAI_API_KEY` for the default metered Grok harness; or install/authenticate official Grok Build (pin `harness: "grok-cli"` per request, or set `ASK_GROK_HARNESS=grok-cli` as the default; no failover)
   - [Cursor CLI](https://cursor.com/docs/cli) — optional model-neutral harness; authenticate and choose an exact ID from `agent --list-models`
   - [Antigravity CLI](https://antigravity.google) (`agy`) >=1.1.5 — installed and logged in once (Google AI Pro/Ultra); verify with `agy --version`
   - [Ollama](https://ollama.com) — running locally with a model pulled (`ollama pull qwen3.6:27b`)

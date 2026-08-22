@@ -422,7 +422,7 @@ Launches Antigravity and Codex reviews in parallel with a validation pipeline an
 | /codex-verify | Verify the assistant's claims against actual state using Codex (read-only) |
 | /codex-image | Generate images via Codex (gpt-image-2) |
 | /grok-pair | Consent-gated iterative Grok reviewer through one explicit route (Cursor Agent `ask-cursor-agent`, xAI API, or Grok CLI); exact model/effort attribution, no fallback; needs user-scoped `@ask-llm/mcp` / `@ask-llm/grok-mcp` |
-| /codex-pair (+ -ack, -pause, -resume) | Seamless per-edit Codex pairing dashboard and controls (Claude/Pi); on Cursor Agent the same skill runs an on-demand persisted `ask-codex` session without the toggles |
+| /codex-pair (+ -ack, -pause, -resume) | Seamless per-edit Codex pairing dashboard and controls (Claude/Pi); on Cursor Agent the same skill runs an on-demand persisted Codex session (user-installed `ask-codex` leaf when exposed, otherwise fully pinned unified `ask-llm`) without the toggles |
 
 ### Agents
 

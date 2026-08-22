@@ -24,7 +24,7 @@ Or install globally: `npm install -g @ask-llm/mcp`
    - [Gemini CLI](https://github.com/google-gemini/gemini-cli) for `ask-gemini` tools
    - [Codex CLI](https://github.com/openai/codex) for `ask-codex` tools
    - [Claude Code CLI](https://docs.anthropic.com/en/docs/claude-code/getting-started) for Codex and other non-Claude hosts to consult Claude
-   - [xAI API key](https://console.x.ai/team/default/api-keys) in `XAI_API_KEY` for the default metered Grok harness, or official Grok Build with `ASK_GROK_HARNESS=grok-cli`
+   - [xAI API key](https://console.x.ai/team/default/api-keys) in `XAI_API_KEY` for the default metered Grok harness, or authenticated official Grok Build with headless JSON support (pin `harness: "grok-cli"` per request, or set `ASK_GROK_HARNESS=grok-cli` to make it the default; never automatic failover)
    - [Cursor CLI](https://cursor.com/docs/cli) authenticated for the optional model-neutral `ask-cursor-agent` tool
    - [Ollama](https://ollama.com) running locally for `ask-ollama` tools
 

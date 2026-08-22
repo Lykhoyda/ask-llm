@@ -8,7 +8,7 @@ description: Frequently asked questions about Ask LLM MCP servers and its Claude
 
 ### What is Ask LLM?
 
-A set of MCP servers that bridge your AI client (Claude Code, Codex CLI, Cursor, Warp, Copilot, any of [40+ MCP-compatible clients](https://modelcontextprotocol.io/clients)) with six model providers through explicit API, CLI, or local-HTTP harnesses: OpenAI Codex, Anthropic Claude, xAI Grok, Google Antigravity (`agy`), Ollama, and Google Gemini. Cursor Agent is a separate model-neutral harness. The canonical [`@ask-llm/plugin` host package](/plugin/pi) adds one portable skill corpus for Claude Code and Pi, with host-specific agents, tools, hooks, and lifecycle adapters.
+A set of MCP servers that bridge your AI client (Claude Code, Codex CLI, Cursor, Warp, Copilot, any of [40+ MCP-compatible clients](https://modelcontextprotocol.io/clients)) with six model providers through explicit API, CLI, or local-HTTP harnesses: OpenAI Codex, Anthropic Claude, xAI Grok, Google Antigravity (`agy`), Ollama, and Google Gemini. Cursor Agent is a separate model-neutral harness. The canonical [`@ask-llm/plugin` host package](/plugin/pi) adds one portable skill corpus for Claude Code, Cursor Agent, and Pi, with host-specific agents, tools, hooks, and lifecycle adapters.
 
 ### Why use this instead of the providers directly?
 
