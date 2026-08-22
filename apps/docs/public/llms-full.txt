@@ -26,7 +26,7 @@ packages/claude-plugin   @ask-llm/plugin      Claude Code + Cursor Agent + Pi ho
 agent --plugin-dir ./packages/claude-plugin   # from a source checkout
 ```
 
-Cursor loads `.cursor-plugin/plugin.json`: the canonical skills through Agent Skills (`/codex-pair`, `/grok-pair`, and the review/brainstorm/compare skills) plus `mcp.json` registering the `codex`, `grok`, and `ask-llm` servers. It never consumes Claude hooks, `${CLAUDE_PLUGIN_ROOT}`, or plugin namespaces, and omits the `-ack`/`-pause`/`-resume` toggles (no background reviewer). MCP-only setup: copy the `mcp.json` entries into `.cursor/mcp.json`. Guide: https://lykhoyda.github.io/ask-llm/plugin/cursor
+Cursor loads `.cursor-plugin/plugin.json`: exactly the Cursor-adapted `/codex-pair` and `/grok-pair` skills through Agent Skills (`agents`/`commands` are explicitly empty; the review/brainstorm/compare skills stay Claude/Pi-only for now) plus `mcp.json` registering the `codex`, `grok`, and `ask-llm` servers. It never consumes Claude hooks, `${CLAUDE_PLUGIN_ROOT}`, or plugin namespaces, and omits the `-ack`/`-pause`/`-resume` toggles (no background reviewer). MCP-only setup: copy the `mcp.json` entries into `.cursor/mcp.json`. Guide: https://lykhoyda.github.io/ask-llm/plugin/cursor
 
 ## Pi host quick start
 

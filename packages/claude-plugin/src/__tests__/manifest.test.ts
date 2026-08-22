@@ -1,7 +1,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { describe, expect, it } from "vitest";
-import { PLUGIN_ROOT, REPO_ROOT, readJson } from "./_helpers.js";
+import { listSubdirs, PLUGIN_ROOT, REPO_ROOT, readJson } from "./_helpers.js";
 
 interface PluginManifest {
   name: string;
@@ -89,31 +89,43 @@ describe("Cursor plugin adapter", () => {
     name: string;
     version: string;
     skills: string[];
+    agents?: string[];
+    commands?: string[];
     mcpServers: string;
   }>(".cursor-plugin/plugin.json");
   const mcp = readJson<{ mcpServers: Record<string, { command: string; args: string[] }> }>("mcp.json");
+  const CURSOR_PAIR_SKILLS = ["./skills/codex-pair", "./skills/grok-pair"];
 
   it("uses Cursor's native skill and MCP plugin surfaces rather than Claude hook registration", () => {
     expect(manifest.name).toBe("ask-llm");
     expect(manifest.version).toBe(readJson<{ version: string }>("package.json").version);
-    expect(manifest.skills).toContain("./skills/codex-pair");
-    expect(manifest.skills).toContain("./skills/grok-pair");
-    expect(manifest.skills).not.toContain("./skills/fable-review");
     expect(manifest.mcpServers).toBe("./mcp.json");
     expect(manifest).not.toHaveProperty("hooks");
   });
 
-  it("resolves every listed skill to a shipped SKILL.md directory", () => {
+  it("exposes exactly the two Cursor-adapted pair skills", () => {
+    expect(manifest.skills).toEqual(CURSOR_PAIR_SKILLS);
     for (const skill of manifest.skills) {
-      expect(skill.startsWith("./skills/")).toBe(true);
       expect(fs.existsSync(path.join(PLUGIN_ROOT, skill, "SKILL.md"))).toBe(true);
     }
   });
 
-  it("omits the hook-lifecycle toggles that only act on the Claude/Pi background reviewer", () => {
+  it("excludes every other shipped skill, including the hook-lifecycle toggles and Claude-oriented workflows", () => {
+    const shipped = listSubdirs("skills").map((name) => `./skills/${name}`);
+    const excluded = shipped.filter((skill) => !CURSOR_PAIR_SKILLS.includes(skill));
+    expect(excluded.length).toBeGreaterThan(0);
     for (const hookOnly of ["./skills/codex-pair-ack", "./skills/codex-pair-pause", "./skills/codex-pair-resume"]) {
-      expect(manifest.skills).not.toContain(hookOnly);
+      expect(excluded).toContain(hookOnly);
     }
+    for (const skill of excluded) {
+      expect(manifest.skills).not.toContain(skill);
+    }
+  });
+
+  it("replaces agents/ and commands/ folder discovery with explicit empty lists so Claude agents are not auto-loaded", () => {
+    expect(manifest.agents).toEqual([]);
+    expect(manifest.commands).toEqual([]);
+    expect(fs.existsSync(path.join(PLUGIN_ROOT, "agents"))).toBe(true);
   });
 
   it("registers split Codex/Grok tools plus the model-neutral Cursor route", () => {

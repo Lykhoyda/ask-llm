@@ -7,22 +7,18 @@
     "name": "Anton Lykhoyda"
   },
   "license": "MIT",
-  "keywords": ["cursor", "codex", "grok", "pair-programming", "code-review"],
-  "skills": [
-    "./skills/antigravity-review",
-    "./skills/brainstorm",
-    "./skills/brainstorm-all",
-    "./skills/codex-image",
-    "./skills/codex-pair",
-    "./skills/codex-review",
-    "./skills/codex-verify",
-    "./skills/compare",
-    "./skills/gemini-review",
-    "./skills/grok-pair",
-    "./skills/grok-review",
-    "./skills/multi-review",
-    "./skills/ollama-review",
-    "./skills/sol-review"
+  "keywords": [
+    "cursor",
+    "codex",
+    "grok",
+    "pair-programming",
+    "code-review"
   ],
+  "skills": [
+    "./skills/codex-pair",
+    "./skills/grok-pair"
+  ],
+  "agents": [],
+  "commands": [],
   "mcpServers": "./mcp.json"
 }

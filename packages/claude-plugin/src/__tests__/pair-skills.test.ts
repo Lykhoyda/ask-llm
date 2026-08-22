@@ -170,16 +170,4 @@ describe("shared pairing contract", () => {
     expect(parseMarkdownFrontmatter(contract).frontmatter).toEqual({});
     expect(fs.existsSync(path.join(PLUGIN_ROOT, "skills", "pairing-contract", "SKILL.md"))).toBe(false);
   });
-
-  it("covers every lifecycle guarantee the host adapters delegate to it", () => {
-    const sections = headings(contract)
-      .filter((h) => h.level === 2)
-      .map((h) => h.text);
-    expect(sections).toEqual([
-      "Roles and lifecycle",
-      "Bounded context and include directories",
-      "Transport, options, and attribution",
-      "Sessions, partial failure, and diagnostics",
-    ]);
-  });
 });

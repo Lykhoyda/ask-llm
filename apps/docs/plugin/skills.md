@@ -4,7 +4,7 @@ description: Slash commands for AI code review, brainstorming, and side-by-side 
 
 # Skills
 
-Skills are canonical portable workflows shared by Claude Code, Cursor Agent, and Pi. In Claude Code or Cursor invoke `/name`; in Pi invoke `/skill:name` or use natural-language matching. Each file delimits its portable contract and host adapters. Claude can use isolated reviewer agents; Cursor uses native Agent Skills plus MCP; Pi runs the portable contract inline with native Ask LLM tools and does not claim isolated context.
+Skills are canonical portable workflows shared by Claude Code, Cursor Agent, and Pi. In Claude Code invoke `/name`; in Pi invoke `/skill:name` or use natural-language matching; Cursor currently exposes only the adapted `/codex-pair` and `/grok-pair` skills. Each file delimits its portable contract and host adapters. Claude can use isolated reviewer agents; Cursor uses native Agent Skills plus MCP; Pi runs the portable contract inline with native Ask LLM tools and does not claim isolated context.
 
 > `/fable-review` runs as a native isolated Claude Code agent and needs no MCP server. It is intentionally excluded from Pi discovery; Pi does not start a nested Fable session. On Pi, provider skills use native tools rather than MCP configuration. The Claude Code plugin bundles the Codex MCP registration used by `/sol-review` and `/codex-review`; `/ollama-review` and `/antigravity-review` require their respective MCP servers; see [Plugin Overview](/plugin/overview#installation).
 

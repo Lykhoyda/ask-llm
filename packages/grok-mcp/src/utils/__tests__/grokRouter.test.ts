@@ -17,11 +17,14 @@ vi.mock("../grokCliExecutor.js", () => ({
   listGrokCliModels: vi.fn(),
 }));
 
+import { ERROR_MESSAGES } from "../../constants.js";
 import { executeGrok, isGrokProviderAvailable } from "../grokRouter.js";
 
 beforeEach(() => {
   vi.clearAllMocks();
   delete process.env.ASK_GROK_HARNESS;
+  mocks.apiAvailable.mockResolvedValue(true);
+  mocks.cliAvailable.mockResolvedValue(false);
   mocks.api.mockResolvedValue({ response: "api", model: "grok-4.6", harness: "xai-api" });
   mocks.cli.mockResolvedValue({ response: "cli", model: "grok-4.6", harness: "grok-cli" });
 });
@@ -30,6 +33,39 @@ describe("Grok harness routing", () => {
   it("defaults to xAI API without silently probing or falling back to the CLI", async () => {
     await expect(executeGrok({ prompt: "review" })).resolves.toMatchObject({ harness: "xai-api" });
     expect(mocks.api).toHaveBeenCalledOnce();
+    expect(mocks.cli).not.toHaveBeenCalled();
+  });
+
+  it("names the explicit CLI pin when a default-route call has no API key but the CLI is ready", async () => {
+    mocks.apiAvailable.mockResolvedValue(false);
+    mocks.cliAvailable.mockResolvedValue(true);
+
+    await expect(executeGrok({ prompt: "review" })).rejects.toThrow(ERROR_MESSAGES.MISSING_CREDENTIALS_CLI_DETECTED);
+    expect(mocks.api).not.toHaveBeenCalled();
+    expect(mocks.cli).not.toHaveBeenCalled();
+  });
+
+  it("keeps the plain missing-credential path when neither transport is ready on the default route", async () => {
+    mocks.apiAvailable.mockResolvedValue(false);
+    mocks.cliAvailable.mockResolvedValue(false);
+    mocks.api.mockRejectedValue(new Error(ERROR_MESSAGES.MISSING_CREDENTIALS));
+
+    await expect(executeGrok({ prompt: "review" })).rejects.toThrow(ERROR_MESSAGES.MISSING_CREDENTIALS);
+    expect(mocks.api).toHaveBeenCalledOnce();
+    expect(mocks.cli).not.toHaveBeenCalled();
+  });
+
+  it("does not probe the CLI when the API harness was pinned explicitly", async () => {
+    mocks.apiAvailable.mockResolvedValue(false);
+    mocks.cliAvailable.mockResolvedValue(true);
+    mocks.api.mockRejectedValue(new Error(ERROR_MESSAGES.MISSING_CREDENTIALS));
+
+    await expect(executeGrok({ prompt: "review", harness: "xai-api" })).rejects.toThrow(
+      ERROR_MESSAGES.MISSING_CREDENTIALS,
+    );
+    process.env.ASK_GROK_HARNESS = "xai-api";
+    await expect(executeGrok({ prompt: "review" })).rejects.toThrow(ERROR_MESSAGES.MISSING_CREDENTIALS);
+    expect(mocks.cliAvailable).not.toHaveBeenCalled();
     expect(mocks.cli).not.toHaveBeenCalled();
   });
 
@@ -65,6 +101,33 @@ describe("Grok harness routing", () => {
     await expect(isGrokProviderAvailable()).resolves.toBe(true);
     expect(mocks.apiAvailable).toHaveBeenCalledOnce();
     expect(mocks.cliAvailable).toHaveBeenCalledOnce();
+  });
+
+  it("tracks an explicit ASK_GROK_HARNESS=grok-cli default instead of a stale API key", async () => {
+    process.env.ASK_GROK_HARNESS = "grok-cli";
+    mocks.apiAvailable.mockResolvedValue(true);
+    mocks.cliAvailable.mockResolvedValue(false);
+
+    await expect(isGrokProviderAvailable()).resolves.toBe(false);
+    expect(mocks.cliAvailable).toHaveBeenCalledOnce();
+    expect(mocks.apiAvailable).not.toHaveBeenCalled();
+  });
+
+  it("tracks an explicit ASK_GROK_HARNESS=xai-api default instead of a present CLI", async () => {
+    process.env.ASK_GROK_HARNESS = "xai-api";
+    mocks.apiAvailable.mockResolvedValue(false);
+    mocks.cliAvailable.mockResolvedValue(true);
+
+    await expect(isGrokProviderAvailable()).resolves.toBe(false);
+    expect(mocks.apiAvailable).toHaveBeenCalledOnce();
+    expect(mocks.cliAvailable).not.toHaveBeenCalled();
+  });
+
+  it("reports an unsupported ASK_GROK_HARNESS during discovery instead of probing a guessed transport", async () => {
+    process.env.ASK_GROK_HARNESS = "automatic";
+    await expect(isGrokProviderAvailable()).rejects.toThrow(/Unsupported Grok harness/);
+    expect(mocks.apiAvailable).not.toHaveBeenCalled();
+    expect(mocks.cliAvailable).not.toHaveBeenCalled();
   });
 
   it("can probe one selected harness without treating the other as fallback", async () => {

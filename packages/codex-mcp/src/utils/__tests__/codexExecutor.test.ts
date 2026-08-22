@@ -83,7 +83,7 @@ describe("executeCodexCLI argument construction", () => {
   });
 
   it("builds exact resume argv with stable sandbox config and excludes unsupported flags", async () => {
-    await executeCodexCLI({ prompt: "hello", sessionId: "thread-abc-123", includeDirs: ["packages/api"] });
+    await executeCodexCLI({ prompt: "hello", sessionId: "thread-abc-123" });
 
     const [, args] = mockExecuteCommand.mock.calls[0];
     expect(args).toEqual([
@@ -169,6 +169,21 @@ describe("reasoning effort", () => {
 });
 
 describe("includeDirs → --add-dir (#59)", () => {
+  it("rejects includeDirs on a resumed session before spawning codex instead of dropping them", async () => {
+    await expect(
+      executeCodexCLI({ prompt: "x", sessionId: "thread-abc-123", includeDirs: ["packages/api"] }),
+    ).rejects.toThrow(ERROR_MESSAGES.INCLUDE_DIRS_ON_RESUME);
+    expect(mockExecuteCommand).not.toHaveBeenCalled();
+  });
+
+  it('still accepts includeDirs on a fresh persisted session (sessionId "")', async () => {
+    await executeCodexCLI({ prompt: "x", sessionId: "", includeDirs: ["packages/api"] });
+    const [, args] = mockExecuteCommand.mock.calls[0];
+    expect(args).toContain(CLI.FLAGS.ADD_DIR);
+    expect(args).toContain("packages/api");
+    expect(args).not.toContain(CLI.COMMANDS.RESUME);
+  });
+
   it("maps includeDirs to one --add-dir flag per directory", async () => {
     await executeCodexCLI({ prompt: "x", includeDirs: ["/repo/pkg-a", "/repo/pkg-b"] });
     const [, args] = mockExecuteCommand.mock.calls[0];

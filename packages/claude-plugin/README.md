@@ -42,7 +42,7 @@ claude mcp add --scope user antigravity -- npx -y @ask-llm/antigravity-mcp
 
 ### Cursor Agent
 
-Cursor's supported Agent Skills surface exposes `/codex-pair` and `/grok-pair`; its MCP surface comes from `mcp.json`. For a source checkout:
+Cursor's supported Agent Skills surface exposes exactly `/codex-pair` and `/grok-pair` (the manifest sets `agents: []` and `commands: []`, and the other skills stay Claude/Pi-only until they get Cursor adapters); its MCP surface comes from `mcp.json`. For a source checkout:
 
 ```bash
 agent --plugin-dir ./packages/claude-plugin

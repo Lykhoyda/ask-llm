@@ -1,4 +1,10 @@
-import { FACTORY_DEFAULT_HARNESS, GROK_HARNESSES, type GrokHarness, type GrokReasoningEffort } from "../constants.js";
+import {
+  ERROR_MESSAGES,
+  FACTORY_DEFAULT_HARNESS,
+  GROK_HARNESSES,
+  type GrokHarness,
+  type GrokReasoningEffort,
+} from "../constants.js";
 import { executeGrokCLI, listGrokCliModels, probeGrokCli } from "./grokCliExecutor.js";
 import { executeGrokAPI, isProviderAvailable as isApiConfigured, listModels } from "./grokExecutor.js";
 
@@ -30,10 +36,14 @@ export async function isGrokProviderAvailable(harness?: GrokHarness): Promise<bo
     return resolveHarness(harness) === "xai-api" ? isApiConfigured() : probeGrokCli();
   }
 
-  // Unified MCP discovers providers before it has a request-level harness. A
-  // successful probe for either explicit transport must therefore load the
-  // router; executeGrok still selects exactly one requested/default harness and
-  // never falls back between them.
+  if (process.env.ASK_GROK_HARNESS) {
+    return isGrokProviderAvailable(resolveHarness());
+  }
+
+  // Without an override, unified MCP discovers providers before it has a
+  // request-level harness. A successful probe for either explicit transport
+  // must therefore load the router; executeGrok still selects exactly one
+  // requested/default harness and never falls back between them.
   if (await isApiConfigured()) return true;
   return probeGrokCli();
 }
@@ -44,7 +54,13 @@ export async function listGrokModels(harness?: GrokHarness, signal?: AbortSignal
 
 export async function executeGrok(options: GrokRouterOptions) {
   const harness = resolveHarness(options.harness);
-  if (harness === "xai-api") return executeGrokAPI(options);
+  if (harness === "xai-api") {
+    const implicitDefault = !options.harness && !process.env.ASK_GROK_HARNESS;
+    if (implicitDefault && !(await isApiConfigured()) && (await probeGrokCli())) {
+      throw new Error(ERROR_MESSAGES.MISSING_CREDENTIALS_CLI_DETECTED);
+    }
+    return executeGrokAPI(options);
+  }
   if (options.outputSchema) {
     options.onProgress?.(
       "Grok CLI structured output is prompt-constrained; the shared machine boundary validates the JSON payload.",

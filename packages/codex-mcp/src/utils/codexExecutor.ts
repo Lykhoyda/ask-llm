@@ -406,6 +406,9 @@ export async function executeCodexCLI(options: CodexExecutorOptions): Promise<Co
   const model = options.model || MODELS.DEFAULT;
   const reasoningEffort = options.reasoningEffort || DEFAULT_REASONING_EFFORT;
   const sessionId = options.sessionId;
+  if (sessionId && options.includeDirs?.length) {
+    throw new Error(ERROR_MESSAGES.INCLUDE_DIRS_ON_RESUME);
+  }
   const editMode = options.editMode === true;
   const outputSchema = options.outputSchema ?? (editMode ? CODEX_EDIT_SCHEMA : undefined);
   // All ask-codex surfaces are second-opinion/proposal tools: Codex reads and

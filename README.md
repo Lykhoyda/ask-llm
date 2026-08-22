@@ -190,7 +190,7 @@ the complete package-to-executable mapping.
 
 ## Host Package: Claude Code, Cursor Agent, and Pi
 
-`@ask-llm/plugin` is one package, version, release lifecycle, and canonical skill corpus. Claude Code loads its existing marketplace agents/hooks; Cursor Agent loads the same skills through its Agent Skills surface plus `mcp.json` (`agent --plugin-dir ./packages/claude-plugin`; see the [Cursor Agent host guide](https://lykhoyda.github.io/ask-llm/plugin/cursor)); Pi loads explicit native tools, portable skill adapters, and a thin lifecycle extension.
+`@ask-llm/plugin` is one package, version, release lifecycle, and canonical skill corpus. Claude Code loads its existing marketplace agents/hooks; Cursor Agent loads the adapted `/codex-pair` and `/grok-pair` skills through its Agent Skills surface plus `mcp.json` (`agent --plugin-dir ./packages/claude-plugin`; see the [Cursor Agent host guide](https://lykhoyda.github.io/ask-llm/plugin/cursor)); Pi loads explicit native tools, portable skill adapters, and a thin lifecycle extension.
 
 | Capability | Claude Code | Cursor Agent | Codex CLI host | Pi |
 |---|---:|---:|---:|---:|
