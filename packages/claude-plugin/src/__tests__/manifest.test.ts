@@ -77,11 +77,9 @@ describe("Claude Code MCP manifest", () => {
     mcpServers: Record<string, { command: string; args: string[] }>;
   }>(".mcp.json");
 
-  it("registers exact Codex, Grok, and unified Cursor-route servers for clean plugin installs", () => {
-    expect(mcp.mcpServers).toMatchObject({
+  it("registers only the canonical Ask LLM Codex server; Cursor/Grok routes stay user-installed", () => {
+    expect(mcp.mcpServers).toEqual({
       codex: { command: "npx", args: ["-y", "@ask-llm/codex-mcp"] },
-      grok: { command: "npx", args: ["-y", "@ask-llm/grok-mcp"] },
-      unified: { command: "npx", args: ["-y", "@ask-llm/mcp"] },
     });
   });
 });
@@ -103,6 +101,19 @@ describe("Cursor plugin adapter", () => {
     expect(manifest.skills).not.toContain("./skills/fable-review");
     expect(manifest.mcpServers).toBe("./mcp.json");
     expect(manifest).not.toHaveProperty("hooks");
+  });
+
+  it("resolves every listed skill to a shipped SKILL.md directory", () => {
+    for (const skill of manifest.skills) {
+      expect(skill.startsWith("./skills/")).toBe(true);
+      expect(fs.existsSync(path.join(PLUGIN_ROOT, skill, "SKILL.md"))).toBe(true);
+    }
+  });
+
+  it("omits the hook-lifecycle toggles that only act on the Claude/Pi background reviewer", () => {
+    for (const hookOnly of ["./skills/codex-pair-ack", "./skills/codex-pair-pause", "./skills/codex-pair-resume"]) {
+      expect(manifest.skills).not.toContain(hookOnly);
+    }
   });
 
   it("registers split Codex/Grok tools plus the model-neutral Cursor route", () => {

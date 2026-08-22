@@ -1,7 +1,6 @@
 ---
 name: codex-pair
 description: Pair with Codex using the host's supported lifecycle. On Claude Code and Pi, manages the proven opt-in per-edit review flow; on Cursor Agent, runs an explicit consent-gated iterative reviewer session through ask-codex without assuming Claude hooks or namespaces.
-disable-model-invocation: true
 ---
 
 <!-- PORTABLE-CONTRACT:START -->
@@ -20,7 +19,7 @@ Pi requires project trust, this repository marker, and explicit user-owned allow
 
 Cursor discovers this `SKILL.md` through its supported Agent Skills surface; `/codex-pair` attaches it as an explicit command. Do **not** use Claude Code's `PostToolUse`, `Stop`, `SessionStart`, `SessionEnd`, `CLAUDE_PLUGIN_ROOT`, `AskUserQuestion`, or plugin tool namespaces. This adapter is an on-demand iterative pairing session, not a claim that Claude hooks were registered in Cursor.
 
-1. Read `../pairing-contract.md`. Resolve an exposed MCP tool whose exact leaf is `ask-codex`; do not assume its server prefix and do not downgrade to generic `ask-llm`. If absent, stop with:
+1. Read `../pairing-contract.md`. Resolve an exposed MCP tool whose exact leaf is `ask-codex`; do not assume its server prefix. When only the unified `ask-llm` leaf is registered, it may serve as the transport with `provider: "codex"` and every option (model, reasoning effort, include directories, session) pinned explicitly; its schema rejects unsupported combinations instead of stripping them and Codex runs read-only by default. Never make an unpinned generic call. If neither tool is exposed, stop with:
    ```json
    {"mcpServers":{"codex":{"command":"npx","args":["-y","@ask-llm/codex-mcp"]}}}
    ```
@@ -31,8 +30,8 @@ Cursor discovers this `SKILL.md` through its supported Agent Skills surface; `/c
    ```text
    ask-codex({ prompt, model, reasoningEffort, includeDirs, sessionId: "", sandbox: "read-only" })
    ```
-   The prompt assigns Codex the independent reviewer role and requests actionable severity/file/line evidence. Capture the returned structured `sessionId`/Thread ID and actual model. Relay feedback before changing code; verify every finding against source and label it accepted, rejected, or deferred.
-5. At meaningful checkpoints, call the same `ask-codex` tool with the captured `sessionId`, same model/effort, bounded delta, and `sandbox: "read-only"`. Omit `includeDirs` on resumed calls because `codex exec resume` does not support them; never silently strip them from the first call. If no session ID was returned, stop with a session diagnostic instead of pretending continuity.
+   or, on the unified transport, `ask-llm({ provider: "codex", prompt, model, reasoningEffort, includeDirs, sessionId: "" })`. The prompt assigns Codex the independent reviewer role and requests actionable severity/file/line evidence. Capture the returned structured `sessionId`/Thread ID and actual model. Relay feedback before changing code; verify every finding against source and label it accepted, rejected, or deferred.
+5. At meaningful checkpoints, call the same tool with the captured `sessionId`, same model/effort, bounded delta, and `sandbox: "read-only"`. Omit `includeDirs` on resumed calls because `codex exec resume` does not support them (the unified schema rejects that combination outright); never silently strip them from the first call. If no session ID was returned, stop with a session diagnostic instead of pretending continuity.
 6. A Cursor interrupt cancels the MCP request. Report `cancelled` and never retry another tool/model/provider. Preserve earlier feedback on later failure and report `failed (partial)`. On success report `completed` with host, provider, requested/actual model, effort, session reuse count, context/include directories, accepted/rejected/deferred actions, and any reported Codex quota fallback. Never conceal fallback or rewrite a model.
 
 <!-- HOST-ADAPTER:CLAUDE-CODE:START -->

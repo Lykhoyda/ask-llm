@@ -30,7 +30,14 @@ claude --plugin-dir ./packages/claude-plugin
 
 ### MCP Servers
 
-The plugin ships Codex, Grok, and unified Ask LLM MCP registrations used by review and pairing commands. Fully restart Claude Code after installation or upgrade, then run `/mcp`; `plugin:ask-llm:codex`, `plugin:ask-llm:grok`, and `plugin:ask-llm:unified` should be connected. They expose exact `ask-codex`, `ask-grok`, and model-neutral `ask-cursor-agent` capabilities.
+The plugin ships only the Codex MCP registration used by review and pairing commands. Fully restart Claude Code after installation or upgrade, then run `/mcp`; `plugin:ask-llm:codex` should be connected and expose the exact `ask-codex` capability.
+
+`/grok-pair` relies on user-scoped servers instead of plugin bundling. Install the unified Ask LLM server (recommended: it exposes model-neutral `ask-cursor-agent` and the unified `ask-llm` tool, which pair skills call only with provider, harness, exact model, and effort pinned) and, optionally, the split Grok server for the `ask-grok` leaf:
+
+```bash
+claude mcp add --scope user ask-llm -- npx -y @ask-llm/mcp
+claude mcp add --scope user grok -- npx -y @ask-llm/grok-mcp
+```
 
 Existing user-scoped Codex registrations remain supported if you prefer the shorter `codex:ask-codex` name. Register the other provider servers at user scope:
 
@@ -105,7 +112,7 @@ These commands are available after cloning and building the plugin locally. Mark
 
 The plugin uses several Claude Code integration points:
 
-1. **`plugin.json` + `.mcp.json`**: Explicitly declares Codex, Grok, and unified MCP components for Claude Code plugin sessions (see [Installation](#installation)); the separate `.cursor-plugin/plugin.json` + `mcp.json` adapter uses Cursor's supported surfaces
+1. **`plugin.json` + `.mcp.json`**: Explicitly declares the Codex MCP component for Claude Code plugin sessions (see [Installation](#installation)); Cursor/Grok routes use user-scoped `@ask-llm/mcp` and `@ask-llm/grok-mcp` registrations, and the separate `.cursor-plugin/plugin.json` + `mcp.json` adapter uses Cursor's supported surfaces
 2. **Skills** (`skills/`): User-invocable slash commands that trigger review or brainstorm workflows
 3. **Agents** (`agents/`): Handle the actual interaction with each provider using confidence-based filtering (80%+ threshold). Agents read `CLAUDE.md` for project conventions when available.
 4. **Hooks** (`hooks/`): Run the opt-in codex-pair continuous review pipeline: per-edit PostToolUse reviews, verdict drains on user prompts and at turn end, the opt-in Stop gate, and session lifecycle

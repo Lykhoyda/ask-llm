@@ -23,9 +23,16 @@ Part of the [Ask LLM](https://github.com/Lykhoyda/ask-llm) monorepo.
 
 ### MCP Servers
 
-The plugin bundles Codex, Grok, and unified Ask LLM MCP registrations under Claude Code's plugin namespace. After installation or upgrade, fully restart Claude Code and run `/mcp`; `plugin:ask-llm:codex`, `plugin:ask-llm:grok`, and `plugin:ask-llm:unified` should be connected. `/sol-review` selects `ask-codex`; `/grok-pair` selects an exact `ask-cursor-agent` or `ask-grok` route.
+The plugin bundles only the Codex MCP registration under Claude Code's plugin namespace. After installation or upgrade, fully restart Claude Code and run `/mcp`; `plugin:ask-llm:codex` should be connected. `/sol-review` selects `ask-codex`.
 
-Existing user-scoped Codex and Grok registrations remain compatible and keep their shorter names. Providers not bundled for pairing are registered explicitly at user scope:
+`/grok-pair` does not add servers to the plugin. Register the unified Ask LLM server at user scope (the recommended install: it exposes `ask-cursor-agent` for the Cursor Agent route plus the unified `ask-llm` tool, which pair skills call only fully pinned) and, optionally, the split Grok server for the `ask-grok` leaf:
+
+```bash
+claude mcp add --scope user ask-llm -- npx -y @ask-llm/mcp
+claude mcp add --scope user grok -- npx -y @ask-llm/grok-mcp
+```
+
+Existing user-scoped Codex registrations remain compatible and keep their shorter names. Other providers are registered explicitly at user scope:
 
 ```bash
 claude mcp add --scope user gemini -- npx -y @ask-llm/gemini-mcp

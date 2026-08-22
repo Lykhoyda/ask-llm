@@ -1,94 +1,139 @@
+import * as fs from "node:fs";
+import * as path from "node:path";
 import { describe, expect, it } from "vitest";
-import { readFile } from "./_helpers.js";
+import { PLUGIN_ROOT, parseMarkdownFrontmatter, readFile, readJson } from "./_helpers.js";
 
-const contract = readFile("skills/pairing-contract.md");
-const codex = readFile("skills/codex-pair/SKILL.md");
-const grok = readFile("skills/grok-pair/SKILL.md");
+const PORTABLE_START = "<!-- PORTABLE-CONTRACT:START -->";
+const PORTABLE_END = "<!-- PORTABLE-CONTRACT:END -->";
+const CLAUDE_START = "<!-- HOST-ADAPTER:CLAUDE-CODE:START -->";
+const CLAUDE_END = "<!-- HOST-ADAPTER:CLAUDE-CODE:END -->";
+const PAIR_SKILLS = ["codex-pair", "grok-pair"] as const;
 
-describe("portable pair lifecycle", () => {
-  it("bounds context, gates consent, relays findings, and terminates every lifecycle", () => {
-    expect(contract).toMatch(/idle -> consented -> active -> completed \| cancelled \| failed/);
-    expect(contract).toMatch(/20 KB per file/);
-    expect(contract).toMatch(/100 KB per provider request/);
-    expect(contract).toMatch(/Refusal returns `cancelled` without.*invoking a provider/s);
-    expect(contract).toMatch(/relay each reviewer response before acting/);
-    expect(contract).toMatch(/failed \(partial\)/);
-    expect(contract).toMatch(/interrupt cancels the in-flight MCP call/);
-  });
+interface Heading {
+  level: number;
+  text: string;
+  offset: number;
+}
 
-  it("keeps transport/model attribution exact with no fallback", () => {
-    for (const phrase of [
-      "host harness",
-      "provider",
-      "execution harness/transport",
-      "exact requested model ID",
-      "reportedModel",
-      "Never choose Cursor Auto",
-      "Never silently drop a requested directory",
-    ]) {
-      expect(contract).toContain(phrase);
-    }
-    expect(contract).toMatch(/missing tool is a setup failure.*never permission to use a generic call/s);
+function headings(markdown: string): Heading[] {
+  const out: Heading[] = [];
+  let offset = 0;
+  let inFence = false;
+  for (const line of markdown.split("\n")) {
+    if (/^\s*```/.test(line)) inFence = !inFence;
+    const match = !inFence && line.match(/^(#{1,6})\s+(.+?)\s*$/);
+    if (match) out.push({ level: match[1].length, text: match[2], offset });
+    offset += line.length + 1;
+  }
+  return out;
+}
+
+function occurrences(haystack: string, needle: string): number[] {
+  const found: number[] = [];
+  let from = 0;
+  for (;;) {
+    const idx = haystack.indexOf(needle, from);
+    if (idx === -1) return found;
+    found.push(idx);
+    from = idx + needle.length;
+  }
+}
+
+function adapterHeadings(body: string): Heading[] {
+  const all = headings(body);
+  const host = all.find((h) => h.level === 2 && h.text === "Host adapters");
+  if (!host) return [];
+  return all.filter((h) => h.level === 3 && h.offset > host.offset && /adapter$/.test(h.text));
+}
+
+function adapterSections(body: string, range?: { from: number; to: number }): string[] {
+  return adapterHeadings(body)
+    .filter((h) => !range || (h.offset >= range.from && h.offset < range.to))
+    .map((h) => h.text.replace(/ adapter$/, ""));
+}
+
+function parsePairSkill(name: string) {
+  const raw = readFile(`skills/${name}/SKILL.md`);
+  const { frontmatter, body } = parseMarkdownFrontmatter(raw);
+  const portable = occurrences(body, PORTABLE_START);
+  const portableEnd = occurrences(body, PORTABLE_END);
+  const claude = occurrences(body, CLAUDE_START);
+  const claudeEnd = occurrences(body, CLAUDE_END);
+  return { frontmatter, body, portable, portableEnd, claude, claudeEnd };
+}
+
+describe("pair skill structure", () => {
+  for (const name of PAIR_SKILLS) {
+    describe(name, () => {
+      const skill = parsePairSkill(name);
+
+      it("keeps Claude natural-language discovery available alongside the explicit slash command", () => {
+        expect(skill.frontmatter.name).toBe(name);
+        expect(typeof skill.frontmatter.description).toBe("string");
+        expect((skill.frontmatter.description as string).length).toBeGreaterThan(0);
+        expect(skill.frontmatter).not.toHaveProperty("disable-model-invocation");
+      });
+
+      it("delimits exactly one portable contract followed by exactly one Claude-only adapter block", () => {
+        expect(skill.portable).toHaveLength(1);
+        expect(skill.portableEnd).toHaveLength(1);
+        expect(skill.claude).toHaveLength(1);
+        expect(skill.claudeEnd).toHaveLength(1);
+        expect(skill.portable[0]).toBeLessThan(skill.portableEnd[0]);
+        expect(skill.portableEnd[0]).toBeLessThan(skill.claude[0]);
+        expect(skill.claude[0]).toBeLessThan(skill.claudeEnd[0]);
+        const contractBody = skill.body.slice(skill.portable[0] + PORTABLE_START.length, skill.portableEnd[0]).trim();
+        expect(contractBody.length).toBeGreaterThan(0);
+      });
+
+      it("references the shipped shared pairing contract from the portable block", () => {
+        const contractBody = skill.body.slice(skill.portable[0], skill.portableEnd[0]);
+        const ref = contractBody.match(/`(\.\.\/pairing-contract\.md)`/);
+        expect(ref).not.toBeNull();
+        const resolved = path.resolve(PLUGIN_ROOT, "skills", name, ref?.[1] ?? "");
+        expect(fs.existsSync(resolved)).toBe(true);
+        expect(path.relative(PLUGIN_ROOT, resolved)).toBe(path.join("skills", "pairing-contract.md"));
+        const shipped = readJson<{ files: string[] }>("package.json").files;
+        expect(shipped).toContain("skills/");
+      });
+
+      it("places the non-Claude host adapters outside the Claude-only block", () => {
+        const outside = adapterSections(skill.body, { from: 0, to: skill.claude[0] });
+        expect(outside).toContain("Cursor Agent");
+        expect(outside).not.toContain("Claude Code");
+        expect(adapterSections(skill.body, { from: skill.claude[0], to: skill.claudeEnd[0] })).toEqual(["Claude Code"]);
+      });
+    });
+  }
+
+  it("codex-pair keeps its Pi adapter while grok-pair stays Claude + Cursor only", () => {
+    const codex = parsePairSkill("codex-pair");
+    const grok = parsePairSkill("grok-pair");
+    expect(adapterSections(codex.body)).toEqual(["Pi", "Cursor Agent", "Claude Code"]);
+    expect(adapterSections(grok.body)).toEqual(["Cursor Agent", "Claude Code"]);
+    const piSkills = readJson<{ pi: { skills: string[] } }>("package.json").pi.skills;
+    expect(piSkills).toContain("./skills/codex-pair/SKILL.md");
+    expect(piSkills).not.toContain("./skills/grok-pair/SKILL.md");
   });
 });
 
-describe("Claude /grok-pair", () => {
-  it("selects Cursor, xAI API, or Grok CLI explicitly and never silently falls back", () => {
-    expect(grok).toContain("route=cursor-agent");
-    expect(grok).toContain("route=xai-api");
-    expect(grok).toContain("route=grok-cli");
-    expect(grok).toContain('provider: "grok"');
-    expect(grok).toContain("never use Auto");
-    expect(grok).toMatch(/route\/model\/effort are immutable/);
-    expect(grok).toMatch(/failure is terminal for that route/);
+describe("shared pairing contract", () => {
+  const contract = readFile("skills/pairing-contract.md");
+
+  it("is a plain shared document, not a discoverable skill", () => {
+    expect(parseMarkdownFrontmatter(contract).frontmatter).toEqual({});
+    expect(fs.existsSync(path.join(PLUGIN_ROOT, "skills", "pairing-contract", "SKILL.md"))).toBe(false);
   });
 
-  it("covers consent refusal, include dirs, sessions, partial failure, cancellation, and diagnostics", () => {
-    expect(grok).toContain("AskUserQuestion");
-    expect(grok).toMatch(/Do not invoke a tool.*on refusal/);
-    expect(grok).toContain("includeDirs");
-    expect(grok).toContain("reuse the returned `sessionId`");
-    expect(grok).toContain("failed (partial)");
-    expect(grok).toMatch(/user cancels or interrupts.*stop the in-flight MCP call/s);
-    expect(grok).toContain("Missing Cursor tool");
-    expect(grok).toContain("Missing direct tool");
-    expect(grok).toContain("no fallback was attempted");
-  });
-
-  it("keeps Cursor harness/provider/model/display label distinct", () => {
-    expect(grok).toContain("Host: Claude Code");
-    expect(grok).toContain("Reviewer provider: grok");
-    expect(grok).toContain("Requested model:");
-    expect(grok).toContain("Reported model:");
-    expect(grok).toMatch(/cross-provider label.*failure/);
-  });
-});
-
-describe("Cursor Agent /codex-pair", () => {
-  it("uses Cursor skills and exact ask-codex capability without Claude-only assumptions", () => {
-    expect(codex).toMatch(/Cursor discovers this `SKILL\.md`/);
-    for (const claudeOnly of ["PostToolUse", "Stop", "CLAUDE_PLUGIN_ROOT", "AskUserQuestion"]) {
-      expect(codex).toContain(claudeOnly);
-    }
-    expect(codex).toMatch(/Do \*\*not\*\* use Claude Code/);
-    expect(codex).toMatch(/exact leaf is `ask-codex`/);
-    expect(codex).toMatch(/do not.*generic `ask-llm`/);
-  });
-
-  it("preserves effort, includes, persisted session, cancellation, and failure relay", () => {
-    expect(codex).toContain("reasoningEffort");
-    expect(codex).toContain("includeDirs");
-    expect(codex).toContain('sessionId: ""');
-    expect(codex).toMatch(/Omit `includeDirs` on resumed calls/);
-    expect(codex).toMatch(/Cursor interrupt cancels the MCP request/);
-    expect(codex).toContain("failed (partial)");
-    expect(codex).toContain("@ask-llm/codex-mcp");
-  });
-
-  it("preserves the existing Claude adapter", () => {
-    expect(codex).toContain("<!-- HOST-ADAPTER:CLAUDE-CODE:START -->");
-    expect(codex).toContain("Phase 1: Detect current state");
-    expect(codex).toContain("Phase 3: Interactive setup");
-    expect(codex).toContain("Phase 5: Active dashboard");
+  it("covers every lifecycle guarantee the host adapters delegate to it", () => {
+    const sections = headings(contract)
+      .filter((h) => h.level === 2)
+      .map((h) => h.text);
+    expect(sections).toEqual([
+      "Roles and lifecycle",
+      "Bounded context and include directories",
+      "Transport, options, and attribution",
+      "Sessions, partial failure, and diagnostics",
+    ]);
   });
 });

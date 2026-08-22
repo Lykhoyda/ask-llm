@@ -276,7 +276,7 @@ export function buildAskLlmSchema(availableProviders: string[], excludedProvider
         .max(32)
         .optional()
         .describe(
-          "Relative workspace directories exposed to providers that support additional read roots (Codex, Claude, and Antigravity). Unsupported providers are rejected instead of silently dropping this option.",
+          'Relative workspace directories exposed to providers that support additional read roots (Codex, Claude, and Antigravity). Unsupported providers are rejected instead of silently dropping this option; Codex only accepts it on a fresh call (sessionId omitted or ""), never on a resumed thread.',
         ),
       reasoningEffort: z
         .enum(["low", "medium", "high", "xhigh", "max"])
@@ -298,6 +298,14 @@ export function buildAskLlmSchema(availableProviders: string[], excludedProvider
           code: "custom",
           path: ["includeDirs"],
           message: `includeDirs is not supported by provider=${value.provider}; Ask LLM will not silently strip it`,
+        });
+      }
+      if (value.provider === "codex" && value.includeDirs && value.sessionId) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["includeDirs"],
+          message:
+            'includeDirs cannot be added to a resumed Codex session because `codex exec resume` has no --add-dir; establish directories on the first call with sessionId "" and omit includeDirs when resuming',
         });
       }
       if (value.reasoningEffort && value.provider !== "codex" && value.provider !== "grok") {

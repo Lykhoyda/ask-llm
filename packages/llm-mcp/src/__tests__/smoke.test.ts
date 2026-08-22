@@ -301,6 +301,25 @@ describe("provider selection and ping", () => {
     expect(schema.safeParse({ provider: "codex", prompt: "q", includeDirs: ["../outside"] }).success).toBe(false);
   });
 
+  it("rejects includeDirs on resumed Codex sessions instead of dropping them at spawn", () => {
+    const schema = buildAskLlmSchema(["codex"]);
+
+    expect(
+      schema.safeParse({ provider: "codex", prompt: "q", sessionId: "", includeDirs: ["packages/core"] }).success,
+    ).toBe(true);
+    const resumed = schema.safeParse({
+      provider: "codex",
+      prompt: "q",
+      sessionId: "thread-123",
+      includeDirs: ["packages/core"],
+    });
+    expect(resumed.success).toBe(false);
+    if (!resumed.success) {
+      expect(resumed.error.issues.map((issue) => issue.path.join("."))).toContain("includeDirs");
+    }
+    expect(schema.safeParse({ provider: "codex", prompt: "q", sessionId: "thread-123" }).success).toBe(true);
+  });
+
   it("documents the Codex persisted-first-turn session contract", () => {
     const schema = buildAskLlmSchema(["codex"]);
 

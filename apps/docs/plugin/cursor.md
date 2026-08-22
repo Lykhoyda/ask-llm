@@ -14,11 +14,11 @@ yarn build
 agent --plugin-dir ./packages/claude-plugin
 ```
 
-Installed plugins expose `/codex-pair` and `/grok-pair` in Cursor's `/` skill menu. If you only want MCP setup, copy `packages/claude-plugin/mcp.json` entries to project `.cursor/mcp.json` or user `~/.cursor/mcp.json`, then restart/reload Cursor Agent. The adapter registers:
+Installed plugins expose `/codex-pair` and `/grok-pair` in Cursor's `/` skill menu. The Cursor manifest deliberately omits `/codex-pair-ack`, `/codex-pair-pause`, and `/codex-pair-resume`: those toggle the Claude Code/Pi background per-edit reviewer through `.codex-pair/state` sentinels, and Cursor's on-demand session has no background reviewer for them to act on. If you only want MCP setup, copy `packages/claude-plugin/mcp.json` entries to project `.cursor/mcp.json` or user `~/.cursor/mcp.json`, then restart/reload Cursor Agent. The adapter registers:
 
 - `codex` → `@ask-llm/codex-mcp` (`ask-codex`);
 - `grok` → `@ask-llm/grok-mcp` (`ask-grok`);
-- `ask-llm` → `@ask-llm/mcp` (`ask-cursor-agent` plus unified tools).
+- `ask-llm` → `@ask-llm/mcp` (`ask-cursor-agent` plus the unified `ask-llm` tool, which pair skills call only fully pinned — provider, exact model, effort, include directories, session — never as a generic fallback).
 
 ## `/codex-pair` on Cursor
 
@@ -32,7 +32,7 @@ Example:
 /codex-pair model=gpt-5.6-sol effort=high include=packages/api,packages/shared review this migration
 ```
 
-If `ask-codex` is absent, configure the exact server instead of using a generic call:
+If `ask-codex` is absent but the unified `ask-llm` tool is registered, `/codex-pair` may use it with `provider: "codex"` and every option pinned; the unified schema rejects unsupported combinations (including `includeDirs` on a resumed thread) instead of stripping them. If neither is present, configure the exact server instead of using a generic call:
 
 ```json
 {
@@ -55,5 +55,6 @@ When Cursor itself is the host, `/grok-pair` does not recursively invoke Cursor 
 | Include directories | Per-edit context from marker/project | Explicit safe relative `includeDirs` on first Codex call |
 | Completion gate | Optional Claude Stop hook | Explicit completed/cancelled/failed session report |
 | Cancellation | Claude hook/provider process lifecycle | Cursor MCP AbortSignal/interrupt |
+| Pause / resume / ack | `/codex-pair-pause`, `/codex-pair-resume`, `/codex-pair-ack` toggle the background hook | Not exposed — no background reviewer; end or restart the on-demand session |
 
 The portable contract is canonical in `packages/claude-plugin/skills/pairing-contract.md`; host adapters must not claim lifecycle guarantees their host does not provide.

@@ -20,7 +20,7 @@ Additional directories must be explicit relative workspace paths: no absolute pa
 
 ## Transport, options, and attribution
 
-Select one route before the first call and keep it immutable for the run. Resolve tools by their exact leaf capability (`ask-codex`, `ask-grok`, or `ask-cursor-agent`), not by assuming a Claude plugin namespace. A missing tool is a setup failure, never permission to use a generic call.
+Select one route before the first call and keep it immutable for the run. Resolve tools by their exact leaf capability (`ask-codex`, `ask-grok`, or `ask-cursor-agent`), not by assuming a Claude plugin namespace. The unified `ask-llm` tool is an acceptable transport only when the call pins provider, harness where applicable, exact model, reasoning effort, include directories, and session explicitly and its schema rejects unsupported combinations rather than stripping them; it is never an unpinned generic call and never a fallback for a failed split tool. A missing tool is a setup failure, never permission to use a generic call.
 
 Every call and final report must keep these separate:
 

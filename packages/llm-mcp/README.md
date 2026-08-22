@@ -64,7 +64,7 @@ The orchestrator exposes a **single `ask-llm` tool** (not one tool per provider 
 
 | Tool | Purpose |
 |------|---------|
-| `ask-llm` | Route a prompt to a provider via `provider`; optional `harness` selects xai-api/grok-cli for Grok only. Supported `includeDirs` (Codex/Claude/Antigravity) and `reasoningEffort` (Codex/Grok) are forwarded; unsupported combinations fail validation instead of being stripped. For Codex continuity, pass `sessionId: ""` first, then resume with the returned ID. |
+| `ask-llm` | Route a prompt to a provider via `provider`; optional `harness` selects xai-api/grok-cli for Grok only. Supported `includeDirs` (Codex/Claude/Antigravity) and `reasoningEffort` (Codex/Grok) are forwarded; unsupported combinations fail validation instead of being stripped. For Codex continuity, pass `sessionId: ""` first, then resume with the returned ID; resumed Codex calls reject `includeDirs` (no `--add-dir` on `codex exec resume`) instead of dropping them. |
 | `ask-cursor-agent` | Model-neutral Cursor harness with separate provider (`claude`, `codex`, `gemini`, `grok`) + exact model ID; Auto/noncanonical IDs are refused and the ID is echoed as `model`, with Cursor's display label in optional `reportedModel` (cross-provider labels fail). Safe relative `includeDirs` map to repeated `--add-dir`; omit `sessionId` first and reuse the returned Cursor conversation ID with `--resume`. Prompts above 16 KB go over stdin; read-only ask mode, no fallback. |
 | `multi-llm` | Dispatch one prompt to multiple providers in parallel; structured per-provider report |
 | `get-usage-stats` | Per-session token totals + per-provider/model breakdowns (in-memory) |

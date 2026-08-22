@@ -3,14 +3,6 @@
     "codex": {
       "command": "npx",
       "args": ["-y", "@ask-llm/codex-mcp"]
-    },
-    "grok": {
-      "command": "npx",
-      "args": ["-y", "@ask-llm/grok-mcp"]
-    },
-    "unified": {
-      "command": "npx",
-      "args": ["-y", "@ask-llm/mcp"]
     }
   }
 }
