@@ -5,6 +5,12 @@ import { executeCursorAgent } from "@ask-llm/mcp/cursor";
 export const BRAINSTORM_PANEL_PROVIDERS = ["grok", "codex"] as const;
 export type BrainstormPanelProvider = (typeof BRAINSTORM_PANEL_PROVIDERS)[number];
 export type BrainstormPanelHarness = "cursor-agent" | "grok-cli" | "xai-api" | "codex-cli";
+export const BARE_BRAINSTORM_PROVIDERS = ["gemini", "codex", "grok", "ollama", "antigravity"] as const;
+export type BareBrainstormProvider = (typeof BARE_BRAINSTORM_PROVIDERS)[number];
+
+export type BrainstormParticipantList =
+  | { mode: "bare"; providers: BareBrainstormProvider[] }
+  | { mode: "exact"; participants: BrainstormParticipant[] };
 
 export type BrainstormModelVerification =
   | "observed-exact"
@@ -69,6 +75,32 @@ export function parseBrainstormParticipant(spec: string): BrainstormParticipant 
     );
   }
   return participant;
+}
+
+function isBareProvider(spec: string): spec is BareBrainstormProvider {
+  return (BARE_BRAINSTORM_PROVIDERS as readonly string[]).includes(spec);
+}
+
+export function parseBrainstormParticipantList(specs: string[]): BrainstormParticipantList {
+  const trimmed = specs.map((spec) => spec.trim()).filter(Boolean);
+  if (trimmed.length === 0) throw new Error("The brainstorm participant list is empty.");
+  const bare = trimmed.filter((spec) => !spec.includes("@"));
+  const routed = trimmed.filter((spec) => spec.includes("@"));
+  if (bare.length > 0 && routed.length > 0) {
+    throw new Error(
+      `Mixed brainstorm participant lists are not supported: routed ${routed.map((spec) => `"${spec}"`).join(", ")} cannot be combined with bare ${bare.map((spec) => `"${spec}"`).join(", ")}. Use either an all-bare provider list or the exact routed Grok + GPT-5.6 Sol panel. No participant was substituted, rerouted, or dispatched.`,
+    );
+  }
+  if (routed.length > 0) {
+    return { mode: "exact", participants: routed.map(parseBrainstormParticipant) };
+  }
+  const unknown = bare.find((spec) => !isBareProvider(spec));
+  if (unknown) {
+    throw new Error(
+      `Unknown brainstorm provider "${unknown}". Supported bare providers: ${BARE_BRAINSTORM_PROVIDERS.join(", ")}; routed participants use provider@harness:exact-model-id. No substitute was selected.`,
+    );
+  }
+  return { mode: "bare", providers: bare.filter(isBareProvider) };
 }
 
 export function validateBrainstormPanel(participants: BrainstormParticipant[]): void {

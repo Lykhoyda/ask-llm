@@ -13,6 +13,7 @@ vi.mock("@ask-llm/codex-mcp/executor", () => ({ executeCodexCLI: calls.codex }))
 import {
   isSameProductResolution,
   parseBrainstormParticipant,
+  parseBrainstormParticipantList,
   runBrainstormPanel,
   validateBrainstormPanel,
 } from "../brainstorm-panel.js";
@@ -87,6 +88,47 @@ describe("Grok + GPT-5.6 Sol brainstorm participant contract", () => {
   it("requires exactly one Grok and one Codex participant", () => {
     expect(() => validateBrainstormPanel([cursorPanel[0]])).toThrow(/exactly two/);
     expect(() => validateBrainstormPanel([cursorPanel[0], cursorPanel[0]])).toThrow(/one Grok.*one Codex/);
+  });
+});
+
+describe("participant list classification", () => {
+  it("keeps an all-bare provider list on the compatible standard path", () => {
+    expect(parseBrainstormParticipantList(["antigravity", "codex"])).toEqual({
+      mode: "bare",
+      providers: ["antigravity", "codex"],
+    });
+    expect(parseBrainstormParticipantList(["gemini", "grok", "ollama"])).toEqual({
+      mode: "bare",
+      providers: ["gemini", "grok", "ollama"],
+    });
+  });
+
+  it("returns the exact routed panel participants for an all-routed list", () => {
+    expect(
+      parseBrainstormParticipantList(["grok@cursor-agent:cursor-grok-4.6-high", "codex@cursor-agent:gpt-5.6-sol-high"]),
+    ).toEqual({ mode: "exact", participants: cursorPanel });
+  });
+
+  it.each([
+    [["grok@cursor-agent:cursor-grok-4.6-high", "antigravity"]],
+    [["antigravity", "grok@cursor-agent:cursor-grok-4.6-high"]],
+    [["codex@cursor-agent:gpt-5.6-sol-high", "grok"]],
+    [["gemini", "codex", "grok@grok-cli:grok-build"]],
+  ])("refuses the mixed routed-and-bare list %j before any executor call", (specs) => {
+    expect(() => parseBrainstormParticipantList(specs)).toThrow(
+      /Mixed brainstorm participant lists are not supported.*No participant was substituted, rerouted, or dispatched/,
+    );
+    expect(calls.cursor).not.toHaveBeenCalled();
+    expect(calls.grok).not.toHaveBeenCalled();
+    expect(calls.codex).not.toHaveBeenCalled();
+  });
+
+  it("rejects unknown bare providers and empty lists without selecting a substitute", () => {
+    expect(() => parseBrainstormParticipantList(["claude"])).toThrow(/Unknown brainstorm provider "claude"/);
+    expect(() => parseBrainstormParticipantList([" ", ""])).toThrow(/empty/);
+    expect(calls.cursor).not.toHaveBeenCalled();
+    expect(calls.grok).not.toHaveBeenCalled();
+    expect(calls.codex).not.toHaveBeenCalled();
   });
 });
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { parseBrainstormParticipant, runBrainstormPanel } from "./brainstorm-panel.js";
+import { parseBrainstormParticipantList, runBrainstormPanel } from "./brainstorm-panel.js";
 
 function parseArgs(argv: string[]): string[] {
   const participants: string[] = [];
@@ -27,10 +27,16 @@ async function readStdin(): Promise<string> {
 async function main(): Promise<void> {
   try {
     const specs = parseArgs(process.argv.slice(2));
+    const list = parseBrainstormParticipantList(specs);
+    if (list.mode !== "exact") {
+      throw new Error(
+        `ask-brainstorm-run executes only the exact routed Grok + GPT-5.6 Sol panel; bare providers (${list.providers.join(", ")}) use the standard coordinator dispatch. No participant was dispatched.`,
+      );
+    }
     const prompt = await readStdin();
     const report = await runBrainstormPanel({
       prompt,
-      participants: specs.map(parseBrainstormParticipant),
+      participants: list.participants,
       onProgress: (message) => console.error(message),
     });
     console.log(JSON.stringify(report, null, 2));

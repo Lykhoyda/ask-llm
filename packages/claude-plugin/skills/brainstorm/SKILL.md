@@ -43,6 +43,7 @@ Consult an explicitly selected panel on a topic, then synthesize the responses a
   - `grok@xai-api:<exact ID from GET /v1/models>`
   - `codex@codex-cli:gpt-5.6-sol` (explicit direct Codex alternative; any reported fallback makes the exact panel partial)
 - Never accept `Auto`, map a display label to an ID, or substitute a route. A missing registration/harness, unavailable model, auth failure, or unsupported provider/harness pair is a participant failure with its actionable error preserved.
+- A participant list must be either all bare provider names or all routed `provider@harness:exact-model-id` specs. A mixed list (for example `grok@cursor-agent:cursor-grok-4.6-high,antigravity`) is refused before any dispatch with the "Mixed brainstorm participant lists are not supported" error; no participant is rerouted to a bare runner, substituted, or dispatched. Generalized mixed panels are deferred to a future ADR.
 - Everything after the participant list is the topic.
 - In standard mode, Claude Opus remains a participant. In the exact Grok + Sol mode below, Claude is only the non-voting evidence verifier/synthesizer so the panel has exactly two participants.
 
