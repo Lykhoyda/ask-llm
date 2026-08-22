@@ -25,13 +25,15 @@ Codex CLI:
 codex mcp add grok --env XAI_API_KEY="$XAI_API_KEY" -- npx -y @ask-llm/grok-mcp
 ```
 
-To use the CLI harness instead, install official Grok Build, authenticate, then set the harness explicitly:
+To make the CLI harness the server-wide default, install official Grok Build, authenticate, then set:
 
 ```bash
 curl -fsSL https://x.ai/cli/install.sh | bash
 grok login
 export ASK_GROK_HARNESS=grok-cli
 ```
+
+A caller that pins `harness: "grok-cli"` per request does not need that environment override. The unified `@ask-llm/mcp` startup probe loads Grok when either `XAI_API_KEY` is configured or Grok Build advertises the required headless JSON flags; execution still uses only the requested/default harness and never fails over.
 
 xAI API usage is metered separately from consumer subscriptions. This package never enables billing, buys credits, requests capacity, enables overage/priority processing, or retries another model. Requests set `store:false` and enable no xAI server-side tools.
 

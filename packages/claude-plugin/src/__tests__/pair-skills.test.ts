@@ -52,6 +52,18 @@ function adapterSections(body: string, range?: { from: number; to: number }): st
     .map((h) => h.text.replace(/ adapter$/, ""));
 }
 
+function adapterBody(body: string, name: string): string {
+  const all = headings(body);
+  const start = all.find((heading) => heading.level === 3 && heading.text === `${name} adapter`);
+  if (!start) throw new Error(`Missing ${name} adapter`);
+  const end = all.find((heading) => heading.offset > start.offset && heading.level <= start.level);
+  return body.slice(start.offset, end?.offset ?? body.length);
+}
+
+function jsonCodeBlocks(markdown: string): unknown[] {
+  return [...markdown.matchAll(/^[ \t]*```json\s*\n([\s\S]*?)\n[ \t]*```/gm)].map((match) => JSON.parse(match[1]));
+}
+
 function parsePairSkill(name: string) {
   const raw = readFile(`skills/${name}/SKILL.md`);
   const { frontmatter, body } = parseMarkdownFrontmatter(raw);
@@ -114,6 +126,40 @@ describe("pair skill structure", () => {
     const piSkills = readJson<{ pi: { skills: string[] } }>("package.json").pi.skills;
     expect(piSkills).toContain("./skills/codex-pair/SKILL.md");
     expect(piSkills).not.toContain("./skills/grok-pair/SKILL.md");
+  });
+
+  it.each(PAIR_SKILLS)("%s publishes a valid Cursor-native unified MCP setup", (name) => {
+    const cursor = adapterBody(parsePairSkill(name).body, "Cursor Agent");
+    const setup = jsonCodeBlocks(cursor).find(
+      (block): block is { mcpServers: Record<string, { command: string; args: string[] }> } =>
+        !Array.isArray(block) && typeof block === "object" && block !== null && "mcpServers" in block,
+    );
+    expect(setup).toEqual({
+      mcpServers: { "ask-llm": { command: "npx", args: ["-y", "@ask-llm/mcp"] } },
+    });
+  });
+
+  it("codex-pair publishes fully pinned first-call protocol shapes for Cursor", () => {
+    const cursor = adapterBody(parsePairSkill("codex-pair").body, "Cursor Agent");
+    const calls = jsonCodeBlocks(cursor).find(Array.isArray) as
+      | Array<{ tool: string; arguments: Record<string, unknown> }>
+      | undefined;
+    expect(calls?.map((call) => call.tool)).toEqual(["ask-codex", "ask-llm"]);
+    for (const call of calls ?? []) {
+      expect(Object.keys(call.arguments).sort()).toEqual(
+        [
+          ...(call.tool === "ask-llm" ? ["provider"] : ["sandbox"]),
+          "includeDirs",
+          "model",
+          "prompt",
+          "reasoningEffort",
+          "sessionId",
+        ].sort(),
+      );
+      expect(call.arguments.model).toBe("<required exact ID>");
+      expect(call.arguments.reasoningEffort).toBe("<required effort>");
+      expect(call.arguments.sessionId).toBe("");
+    }
   });
 });
 

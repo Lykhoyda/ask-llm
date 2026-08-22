@@ -171,7 +171,7 @@ Claude Code's `/grok-pair` selects one immutable Grok route: `cursor-agent` (pre
 /grok-pair route=xai-api model=grok-4.6 effort=xhigh review this change
 ```
 
-On Claude Code the Cursor and direct Grok tools come from user-scoped registrations (`claude mcp add --scope user ask-llm -- npx -y @ask-llm/mcp`, optionally `claude mcp add --scope user grok -- npx -y @ask-llm/grok-mcp`); the plugin itself bundles only Codex. The unified `ask-llm` tool is used only with provider, harness, exact model, and effort pinned. When Cursor itself hosts `/grok-pair`, it avoids recursive Cursor invocation and offers only explicit `ask-grok` API/CLI routes.
+On Claude Code the Cursor and direct Grok tools come from user-scoped registrations (`claude mcp add --scope user ask-llm -- npx -y @ask-llm/mcp`, optionally `claude mcp add --scope user grok -- npx -y @ask-llm/grok-mcp`); the plugin itself bundles only Codex. The unified `ask-llm` tool is used only with provider, harness, exact model, and effort pinned. When Cursor itself hosts `/grok-pair`, it avoids recursive Cursor invocation and offers only explicit API/CLI routes through `ask-grok` or that fully pinned unified form; missing tools produce `.cursor/mcp.json` plus Cursor Tools & MCP reload guidance, never Claude-only setup commands.
 
 ### `codex-pair`: host lifecycle + dashboard
 

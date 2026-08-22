@@ -131,13 +131,19 @@ describe("detectProviders", () => {
     expect(status.missing).toContain("ollama");
   });
 
-  it("detects Grok when provider-scoped xAI credentials are configured", async () => {
+  it("loads Grok when either harness is ready, then preserves a request-level CLI selection", async () => {
     vi.mocked(mockIsGrokAvailable).mockResolvedValue(true);
 
     const status = await detectProviders();
+    const executor = getLoadedExecutor("grok");
 
+    expect(mockIsGrokAvailable).toHaveBeenCalledWith();
     expect(status.available).toContain("grok");
-    expect(getLoadedExecutor("grok")).toBeDefined();
+    expect(executor).toBeDefined();
+    await executor?.({ prompt: "review", harness: "grok-cli", model: "grok-build", reasoningEffort: "high" });
+    expect(executeGrok).toHaveBeenCalledWith(
+      expect.objectContaining({ harness: "grok-cli", model: "grok-build", reasoningEffort: "high" }),
+    );
   });
 
   it("detects ollama when server is running", async () => {

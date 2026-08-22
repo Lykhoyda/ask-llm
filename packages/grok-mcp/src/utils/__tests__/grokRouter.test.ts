@@ -49,15 +49,32 @@ describe("Grok harness routing", () => {
     expect(onProgress).toHaveBeenCalledWith(expect.stringMatching(/shared machine boundary validates/));
   });
 
-  it("checks readiness only for the configured default harness", async () => {
+  it("loads the unified router for an API-only installation without probing the CLI", async () => {
     mocks.apiAvailable.mockResolvedValue(true);
-    await expect(isGrokProviderAvailable()).resolves.toBe(true);
-    expect(mocks.cliAvailable).not.toHaveBeenCalled();
+    mocks.cliAvailable.mockResolvedValue(false);
 
-    process.env.ASK_GROK_HARNESS = "grok-cli";
-    mocks.cliAvailable.mockResolvedValue(true);
     await expect(isGrokProviderAvailable()).resolves.toBe(true);
-    expect(mocks.apiAvailable).toHaveBeenCalledTimes(1);
+    expect(mocks.apiAvailable).toHaveBeenCalledOnce();
+    expect(mocks.cliAvailable).not.toHaveBeenCalled();
+  });
+
+  it("loads the unified router for a CLI-only installation without a harness environment override", async () => {
+    mocks.apiAvailable.mockResolvedValue(false);
+    mocks.cliAvailable.mockResolvedValue(true);
+
+    await expect(isGrokProviderAvailable()).resolves.toBe(true);
+    expect(mocks.apiAvailable).toHaveBeenCalledOnce();
+    expect(mocks.cliAvailable).toHaveBeenCalledOnce();
+  });
+
+  it("can probe one selected harness without treating the other as fallback", async () => {
+    mocks.apiAvailable.mockResolvedValue(false);
+    mocks.cliAvailable.mockResolvedValue(true);
+
+    await expect(isGrokProviderAvailable("xai-api")).resolves.toBe(false);
+    expect(mocks.cliAvailable).not.toHaveBeenCalled();
+    await expect(isGrokProviderAvailable("grok-cli")).resolves.toBe(true);
+    expect(mocks.cliAvailable).toHaveBeenCalledOnce();
   });
 
   it("rejects unknown harnesses before executing either transport", async () => {

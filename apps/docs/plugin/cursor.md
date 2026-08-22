@@ -22,7 +22,7 @@ Installed plugins expose `/codex-pair` and `/grok-pair` in Cursor's `/` skill me
 
 ## `/codex-pair` on Cursor
 
-Cursor's `/codex-pair` is an on-demand iterative pair session. Cursor remains the editor; an authenticated Codex CLI is the explicit read-only reviewer. Before calling the provider it reports the exact model, reasoning effort, bounded files, relative include directories, quota/data boundary, and asks for consent.
+Cursor's `/codex-pair` is an on-demand iterative pair session. Cursor remains the editor; an authenticated Codex CLI is the explicit read-only reviewer. Both `model=<exact ID>` and `effort=low|medium|high|xhigh|max` are required: the adapter cannot safely infer environment defaults inside a separately spawned MCP server. If either is omitted, pairing stops before extra context is read or consent is requested. Before calling the provider it reports those exact choices, bounded files, relative include directories, quota/data boundary, and asks for consent.
 
 The first `ask-codex` call passes `sessionId: ""` to create a persisted thread and may pass up to 32 safe relative `includeDirs`. Follow-ups reuse the returned structured Thread ID and omit `includeDirs`, because `codex exec resume` does not support `--add-dir`. Feedback is relayed and source-verified before Cursor edits. Interrupts cancel the MCP call; unavailable tools/models, partial failures, and any Codex quota fallback are reported rather than hidden.
 
@@ -32,19 +32,33 @@ Example:
 /codex-pair model=gpt-5.6-sol effort=high include=packages/api,packages/shared review this migration
 ```
 
-If `ask-codex` is absent but the unified `ask-llm` tool is registered, `/codex-pair` may use it with `provider: "codex"` and every option pinned; the unified schema rejects unsupported combinations (including `includeDirs` on a resumed thread) instead of stripping them. If neither is present, configure the exact server instead of using a generic call:
+If `ask-codex` is absent but the unified `ask-llm` tool is registered, `/codex-pair` may use it with `provider: "codex"` and every option pinned; the unified schema rejects unsupported combinations (including `includeDirs` on a resumed thread) instead of stripping them. If neither is present, install the recommended unified server instead of making a generic call:
 
 ```json
 {
   "mcpServers": {
-    "codex": { "command": "npx", "args": ["-y", "@ask-llm/codex-mcp"] }
+    "ask-llm": { "command": "npx", "args": ["-y", "@ask-llm/mcp"] }
   }
 }
 ```
 
+Save it in project `.cursor/mcp.json` or user `~/.cursor/mcp.json`, authenticate `codex`, then reload the server from **Cursor Settings → Tools & MCP** or restart Cursor Agent. A `codex` entry using `@ask-llm/codex-mcp` remains the split-tool alternative.
+
 ## `/grok-pair` route safety
 
-When Cursor itself is the host, `/grok-pair` does not recursively invoke Cursor Agent. Select `xai-api` or `grok-cli` through `ask-grok`, with exact harness/model/effort and no fallback. Claude Code may instead select Grok through the model-neutral `ask-cursor-agent` tool; that route keeps host, provider, Cursor harness, exact catalog ID, and optional display label separate and refuses Auto or cross-provider substitution.
+When Cursor itself is the host, `/grok-pair` does not recursively invoke Cursor Agent. Select `xai-api` or `grok-cli` through `ask-grok`, or through unified `ask-llm` with provider, harness, exact model, and effort all pinned; there is no fallback. Claude Code may instead select Grok through the model-neutral `ask-cursor-agent` tool; that route keeps host, provider, Cursor harness, exact catalog ID, and optional display label separate and refuses Auto or cross-provider substitution.
+
+If neither direct leaf is exposed, configure the recommended unified server and reload Cursor MCP:
+
+```json
+{
+  "mcpServers": {
+    "ask-llm": { "command": "npx", "args": ["-y", "@ask-llm/mcp"] }
+  }
+}
+```
+
+Save it in project `.cursor/mcp.json` or user `~/.cursor/mcp.json`. The `xai-api` route needs `XAI_API_KEY` in the MCP process environment; keep literal secrets in user-level configuration and never commit them. The `grok-cli` route needs authenticated Grok Build with headless JSON flags visible in `grok --help`. Reload from **Cursor Settings → Tools & MCP** or restart Cursor Agent, then invoke `/grok-pair` again. Unified startup probes both direct harnesses, so a CLI-only login works without setting `ASK_GROK_HARNESS=grok-cli`; the request still pins `harness: "grok-cli"`, and no API fallback occurs.
 
 ## Lifecycle differences
 

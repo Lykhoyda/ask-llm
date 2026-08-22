@@ -8,7 +8,7 @@ The host remains the only editor. The consulted model is an explicit, read-only 
 
 `idle -> consented -> active -> completed | cancelled | failed`
 
-Before `active`, show the user the provider, harness, exact requested model, reasoning effort, directories/files to be shared, credential/cost boundary, and whether a resumable provider session will be created. Refusal returns `cancelled` without creating a marker, reading extra directories, or invoking a provider.
+Before `active`, resolve and show the user the provider, harness, exact requested model, reasoning effort, directories/files to be shared, credential/cost boundary, and whether a resumable provider session will be created. If the host cannot read the provider process's configured model and effort deterministically, require the user to supply both rather than inferring defaults that may differ across environments. Missing choices stop before extra context reads, consent, or provider invocation. Refusal returns `cancelled` without creating a marker, reading extra directories, or invoking a provider.
 
 During `active`, relay each reviewer response before acting on it, verify findings against source, state accepted/rejected/deferred actions, and send only the bounded delta needed for the next checkpoint. The user or host interrupt cancels the in-flight MCP call; do not retry it under another tool, harness, model, or provider. End with one explicit `completed`, `cancelled`, or `failed` report.
 

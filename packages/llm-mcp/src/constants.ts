@@ -54,8 +54,9 @@ export const PROVIDERS: Record<string, ProviderConfig> = {
     modelEnvVar: "ASK_GROK_MODEL",
     availabilityModule: "@ask-llm/grok-mcp/executor",
     availabilityFn: "isGrokProviderAvailable",
-    availabilitySuccess: "XAI_API_KEY is configured (no inference request made)",
-    availabilityFailure: "XAI_API_KEY is not configured",
+    availabilitySuccess:
+      "XAI_API_KEY is configured or Grok CLI headless JSON support is available (no inference request made)",
+    availabilityFailure: "XAI_API_KEY is not configured and Grok CLI headless JSON support is unavailable",
   },
   ollama: {
     name: "Ollama",
@@ -84,7 +85,7 @@ export const INSTALL_HINTS: Record<string, string> = {
   gemini: "npm install -g @google/gemini-cli",
   codex: "npm install -g @openai/codex",
   claude: "npm install -g @anthropic-ai/claude-code, then run `claude` once to authenticate",
-  grok: "Set XAI_API_KEY from https://console.x.ai/team/default/api-keys (metered xAI API; Ask LLM never enables billing or credits)",
+  grok: "Set XAI_API_KEY from https://console.x.ai/team/default/api-keys for xai-api, or install/authenticate Grok Build and verify `grok --help` advertises headless JSON flags for grok-cli; routes never fall back",
   ollama: "https://ollama.com — then: ollama pull qwen3.6:27b",
   antigravity:
     "Install Google Antigravity (agy) >=1.1.5 from https://antigravity.google, verify with `agy --version`, then run `agy` once to log in",

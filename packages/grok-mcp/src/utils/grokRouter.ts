@@ -25,9 +25,17 @@ function resolveHarness(explicit?: GrokHarness): GrokHarness {
   throw new Error(`Unsupported Grok harness "${configured}". Use one of: ${GROK_HARNESSES.join(", ")}.`);
 }
 
-export async function isGrokProviderAvailable(): Promise<boolean> {
-  const harness = resolveHarness();
-  return harness === "xai-api" ? isApiConfigured() : probeGrokCli();
+export async function isGrokProviderAvailable(harness?: GrokHarness): Promise<boolean> {
+  if (harness) {
+    return resolveHarness(harness) === "xai-api" ? isApiConfigured() : probeGrokCli();
+  }
+
+  // Unified MCP discovers providers before it has a request-level harness. A
+  // successful probe for either explicit transport must therefore load the
+  // router; executeGrok still selects exactly one requested/default harness and
+  // never falls back between them.
+  if (await isApiConfigured()) return true;
+  return probeGrokCli();
 }
 
 export async function listGrokModels(harness?: GrokHarness, signal?: AbortSignal): Promise<string[]> {

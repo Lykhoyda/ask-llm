@@ -44,7 +44,7 @@ Add to `claude_desktop_config.json`:
   - [Gemini CLI](https://github.com/google-gemini/gemini-cli) for `ask-gemini` tools
   - [Codex CLI](https://github.com/openai/codex) for `ask-codex` tools
   - [Claude Code CLI](https://docs.anthropic.com/en/docs/claude-code/getting-started) for Codex and other non-Claude hosts to consult Claude
-  - `XAI_API_KEY` for the default xAI Grok harness, or official Grok Build with `ASK_GROK_HARNESS=grok-cli`
+  - `XAI_API_KEY` for the default xAI Grok harness, or authenticated official Grok Build with headless JSON support (an explicit request-level `harness: "grok-cli"` does not require `ASK_GROK_HARNESS`)
   - Cursor CLI authentication for optional model-neutral `ask-cursor-agent`
   - [Ollama](https://ollama.com) running locally for `ask-ollama` tools
 
@@ -53,7 +53,7 @@ Add to `claude_desktop_config.json`:
 On startup, the unified server:
 
 1. Checks CLI availability (Gemini, Codex, Claude, Antigravity)
-2. Checks HTTP readiness for Ollama and the explicitly selected Grok API/CLI harness without billed inference
+2. Checks HTTP readiness for Ollama and probes both Grok API/CLI readiness paths without billed inference, so either explicit request-level Grok harness can be routed independently of the server-wide default
 3. Keeps Cursor Agent model-neutral: a canonical provider family and exact `agent --list-models` ID are required separately and verified against each other
 4. Dynamically imports and registers tools from available providers
 5. Exposes only the tools for providers that are actually installed
