@@ -415,7 +415,7 @@ Launches Antigravity and Codex reviews in parallel with a validation pipeline an
 | /antigravity-review | Antigravity-only code review (subscription-backed) |
 | /ollama-review | Local Ollama code review: no data leaves machine |
 | /gemini-review | Gemini-only code review with confidence filtering |
-| /brainstorm [providers] topic | Multi-LLM brainstorm; Claude researches in parallel (default external providers: antigravity,codex) |
+| /brainstorm [participants] topic | Multi-LLM brainstorm; Claude researches in parallel (default external providers: antigravity,codex). Participants are either all bare provider names or all routed provider@harness:exact-model-id specs; the exact no-Gemini panel is grok@cursor-agent:cursor-grok-4.6-high,codex@cursor-agent:gpt-5.6-sol-high (one failure = partial, never two-model consensus) |
 | /brainstorm-all topic | Brainstorm with all five providers (gemini, codex, grok, ollama, antigravity) |
 | /grok-review | Grok review through explicit xAI API or Grok CLI harness; no fallback |
 | /compare | Side-by-side raw responses from multiple providers (no synthesis) |
@@ -435,7 +435,7 @@ Launches Antigravity and Codex reviews in parallel with a validation pipeline an
 | ollama-reviewer | Isolated local Ollama review, confidence-filtered findings |
 | gemini-reviewer | Isolated Gemini review, confidence-filtered findings |
 | codex-verifier | Verifies the assistant's claims against actual state (STATUS + CONFIDENCE) |
-| brainstorm-coordinator | Claude's own research + parallel external-provider consultation, synthesized |
+| brainstorm-coordinator | Claude's own research + parallel external-provider consultation, synthesized; non-voting in the exact Grok + GPT-5.6 Sol mode |
 
 ### Hooks
 

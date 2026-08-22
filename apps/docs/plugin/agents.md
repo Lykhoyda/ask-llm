@@ -59,7 +59,7 @@ Sends code changes to Google Gemini for review. Leverages Gemini's massive conte
 
 ### `brainstorm-coordinator`
 
-Orchestrates multi-LLM brainstorming sessions with **Claude Opus as a first-class research participant**, not just an orchestrator. The agent runs four phases sequentially within a single sub-agent turn:
+Orchestrates multi-LLM brainstorming sessions with **Claude Opus as a first-class research participant** in standard mode. In the exact Grok + GPT-5.6 Sol mode (see [`/brainstorm`](/plugin/skills#brainstorm)) Claude's research is a non-voting evidence memo, the panel is exactly the two requested participants, and one participant failure makes the run partial rather than two-model consensus. The agent runs four phases sequentially within a single sub-agent turn:
 
 **Phase 1: Context Gathering.** Identify the topic, gather diffs/files/conversation context referenced by it.
 
@@ -67,7 +67,7 @@ Orchestrates multi-LLM brainstorming sessions with **Claude Opus as a first-clas
 
 **Phase 3B: Claude Opus Research (runs first).** Claude reads the actual artifacts referenced by the topic with `Read`/`Glob`/`Grep`, traces real code paths, uses `WebFetch`/`WebSearch` for any referenced external docs, and forms its own independent findings. Each finding is tagged **Verified** (backed by an actual file Read or fetched doc) or **Inferred** (reasoned from the topic description). This phase MUST complete before Phase 3A so Claude cannot anchor on external responses.
 
-**Phase 3A: External Provider Dispatch (runs after 3B).** A SINGLE foreground blocking Bash call dispatches all selected external providers in parallel via direct backgrounding (`cmd > out 2>&1 &`) plus per-PID `wait`, with `timeout: 600000` (10 min, the Bash tool maximum). Background jobs are explicitly forbidden because sub-agents cannot own processes that outlive their turn; Codex at high reasoning effort gets SIGKILLed silently otherwise. Per-provider stdout AND stderr are captured so failures are loud.
+**Phase 3A: External Provider Dispatch (runs after 3B).** A SINGLE foreground blocking Bash call dispatches all selected external providers in parallel via direct backgrounding (`cmd > out 2>&1 &`) plus per-PID `wait`, with `timeout: 600000` (10 min, the Bash tool maximum). The exact Grok + Sol panel instead runs one foreground `ask-brainstorm-run` process that owns both concurrent routed participants. Background jobs are explicitly forbidden because sub-agents cannot own processes that outlive their turn; Codex at high reasoning effort gets SIGKILLed silently otherwise. Per-provider stdout AND stderr are captured so failures are loud.
 
 **Phase 4: Synthesis.** Combines Claude's Phase 3B findings with the external responses:
    - **Consensus**: Where multiple participants agree (verified Claude + external = highest confidence)
@@ -75,7 +75,7 @@ Orchestrates multi-LLM brainstorming sessions with **Claude Opus as a first-clas
    - **Contradictions**: Verified findings outrank inferred ones in tie-breaking
    - **Recommendations**: Prioritized by impact and confidence
 
-The `Participants Consulted` section lists Claude Opus alongside Gemini/Codex/Grok/Ollama/Antigravity with a `(verified against real files: ...)` annotation for grounded findings. This agent is invoked by the `/brainstorm` and `/brainstorm-all` skills.
+The `Participants Consulted` section lists each participant by provider, harness, and requested model (Claude Opus with a `(verified against real files: ...)` annotation; in exact mode it is marked non-voting and Gemini is listed as explicitly excluded). This agent is invoked by the `/brainstorm` and `/brainstorm-all` skills.
 
 ## Running Agents Directly
 
