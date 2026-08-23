@@ -52,7 +52,7 @@ See [`CLAUDE.md`](../CLAUDE.md) for the full architecture.
 
 ## Pre-push smoke tests
 
-A Husky `pre-push` hook runs real smoke tests against your locally installed CLIs (Ollama, Antigravity, Codex). Quota and rate-limit errors are treated as skip-with-warning so consecutive pushes don't sabotage each other (see [ADR-051](DECISIONS.md)). Force a hard fail with `FORCE_SMOKE=1 git push`. Skip entirely with `git push --no-verify` if needed.
+A Husky `pre-push` hook runs `scripts/smoke-test.sh`, which executes each provider package's `src/__tests__/integration.test.ts` (Ollama, Antigravity, Codex, Claude) against your locally installed CLIs. Quota and rate-limit errors are treated as skip-with-warning so consecutive pushes don't sabotage each other (see [ADR-051](DECISIONS.md)). Force a hard fail with `FORCE_SMOKE=1 git push`. Skip entirely with `git push --no-verify` if needed.
 
 ## Adding a new tool
 

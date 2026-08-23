@@ -2,6 +2,12 @@
 
 ## Open
 
+### ~~Canonical smoke runner never ran the provider suites, and log-wide quota matching could mask real failures~~ FIXED (ADR-149)
+- **Severity:** Medium (the pre-push multi-harness smoke gate was not exercising the provider integration tests; after the first fix, a real Codex auth/integration failure could be skipped as "quota")
+- **Discovered:** 2026-08-23, while validating issue #280 (PR #296); the second defect was raised as a P1 in PR review.
+- **Root cause:** (1) `scripts/smoke-test.sh` ran `yarn workspace <pkg> run test`, which resolved the repository-root Vitest project (scripts only) instead of the package suite. (2) The first fix selected whole package directories, so unit tests ran too and `QUOTA_PATTERN` — scanned over the entire log — matched successful fixture strings from `packages/codex-mcp/src/__tests__/quota-detection.test.ts`, turning a non-quota failure into a quota skip.
+- **Status:** **FIXED** (ADR-149): each smoke entry now runs exactly one `packages/<name>/src/__tests__/integration.test.ts` from the repository root, so the scanned log holds only live-integration output. `scripts/smoke-test.test.mjs` pins that every entry selects the intended package integration test (never the root project or a unit file) and that a non-quota Codex integration failure stays a hard failure.
+
 ### codex-pair reviewer hallucinates "injected review prompt" findings on files containing box/arrow glyphs
 - **Severity:** Medium (false HIGH findings; with the opt-in Stop gate enabled these could block sessions on phantom issues)
 - **Discovered:** 2026-07-13/14, dogfooding during the docs-overhaul brainstorm/plan
