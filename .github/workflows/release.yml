@@ -25,7 +25,7 @@ on:
 concurrency: ${{ github.workflow }}-${{ github.ref }}
 
 permissions:
-  contents: write       # changesets/action commits version bumps + creates tags; gh release create needs this too
+  contents: write       # changesets/action commits version bumps; explicit package tags + unified release write refs
   pull-requests: write  # changesets/action opens the Version Packages PR
   issues: write         # failure reporter opens/comments on release-broken issues
   id-token: write       # OIDC for mcp-publisher (no token required)
@@ -188,10 +188,16 @@ jobs:
           packages/antigravity-mcp/server.json
           packages/llm-mcp/server.json
 
+      # changesets/action creates package tags only in the runner when
+      # createGithubReleases is false. Preserve the intended remote tag contract
+      # explicitly, including on selective Registry/release recovery (ADR-149).
+      - name: Create or verify per-package Git tags
+        if: steps.changesets.outputs.published == 'true' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.retry_registry_publish)
+        run: node scripts/create-or-verify-package-tags.mjs --verify-npm-git-head
+
       # Unified GitHub Release tagged at gemini's version (legacy convention from when this
-      # was a fork of gemini-mcp-tool). The per-package tags created by changesets/action
-      # also exist (@ask-llm/gemini-mcp@1.6.4 etc.) — both are kept so URL-bookmarked release
-      # pages from v1.5.x..v1.6.x still resolve.
+      # was a fork of gemini-mcp-tool). It remains the single human-facing GitHub Release,
+      # alongside remote per-package source tags used for package-level audit/diff links.
       - name: Get gemini version for unified release tag
         if: steps.changesets.outputs.published == 'true' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.retry_registry_publish)
         id: gemini_version
@@ -264,14 +270,15 @@ jobs:
               `- npm authentication or package permission failure (only when the first failed step/log says npm returned an authentication or authorization error)`,
               `- Pinned mcp-publisher download or checksum verification failed`,
               `- MCP Registry OIDC authentication, manifest validation, exact-record verification, or publication failed`,
+              `- Per-package Git tag history, npm gitHead, or remote-ref verification failed`,
               `- npm, GitHub, or MCP Registry outage`,
               ``,
               `**Fix path:**`,
               `1. Open the run above and identify the first failed step; do not infer NODE_AUTH_TOKEN failure from this issue template.`,
               `2. Check npm and MCP Registry state before retrying because npm publication may have succeeded before a later Registry failure.`,
               `3. Correct the reported auth, validation, mismatch, or service failure. Registry retries verify existing exact versions and publish only missing versions.`,
-              `4. Retry Registry/release recovery on main with retry_registry_publish=true; this path does not re-enter npm publication.`,
-              `5. Close this issue only after the recovery run is green and all expected npm, Registry, and unified-release versions are externally verified.`,
+              `4. Retry Registry/release recovery on main with retry_registry_publish=true; this path does not re-enter npm publication and also creates or verifies package tags.`,
+              `5. Close this issue only after the recovery run is green and all expected npm, Registry, package-tag, and unified-release versions are externally verified.`,
             ].join("\n");
             await github.rest.issues.create({
               owner: context.repo.owner,

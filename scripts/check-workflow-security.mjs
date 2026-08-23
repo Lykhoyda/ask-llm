@@ -52,6 +52,15 @@ if (
 if (!release.includes("Create or verify unified GitHub Release")) {
   errors.push("Registry recovery must create or verify the unified GitHub release");
 }
+if (!/^\s+createGithubReleases:\s*false\b/m.test(release) || /^\s+createGithubReleases:\s*true\b/m.test(release)) {
+  errors.push("Release automation must keep per-package GitHub Release pages disabled");
+}
+if (!release.includes("Create or verify per-package Git tags")) {
+  errors.push("Normal publication and Registry recovery must create or verify per-package Git tags");
+}
+if (!release.includes("node scripts/create-or-verify-package-tags.mjs --verify-npm-git-head")) {
+  errors.push("Release automation must use the fail-closed per-package tag helper with npm gitHead verification");
+}
 
 if (errors.length > 0) {
   console.error(errors.join("\n"));
