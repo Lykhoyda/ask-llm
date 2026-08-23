@@ -27,12 +27,13 @@ QUOTA_PATTERN='rateLimitExceeded|RESOURCE_EXHAUSTED|TerminalQuotaError|exhausted
 # and treat the first failure as final (useful for debugging real regressions).
 RETRY_DELAY_SEC=${RETRY_DELAY_SEC:-5}
 
+REPO_ROOT="$(CDPATH= cd "$(dirname "$0")/.." && pwd)"
 TMPFILE="$(mktemp /tmp/ask-llm-smoke-XXXXXX)"
 trap 'rm -f "$TMPFILE"' EXIT HUP INT TERM
 
 run_smoke() {
   label="$1"
-  workspace="$2"
+  package_path="$2"
 
   attempt=1
   max_attempts=2
@@ -47,7 +48,7 @@ run_smoke() {
     : > "$TMPFILE"
 
     rc=0
-    SMOKE_TEST=1 yarn workspace "$workspace" run test -- --reporter=verbose 2>&1 | tee "$TMPFILE" || rc=$?
+    (cd "$REPO_ROOT" && SMOKE_TEST=1 yarn test "$package_path" --reporter=verbose) 2>&1 | tee "$TMPFILE" || rc=$?
 
     if [ "$rc" -eq 0 ]; then
       if [ "$attempt" -gt 1 ]; then
@@ -97,9 +98,9 @@ fi
 echo "=== Smoke Tests ==="
 echo ""
 
-run_smoke "Ollama"      "@ask-llm/ollama-mcp"
-run_smoke "Antigravity" "@ask-llm/antigravity-mcp"
-run_smoke "Codex"       "@ask-llm/codex-mcp"
-run_smoke "Claude"      "@ask-llm/claude-mcp"
+run_smoke "Ollama"      "packages/ollama-mcp"
+run_smoke "Antigravity" "packages/antigravity-mcp"
+run_smoke "Codex"       "packages/codex-mcp"
+run_smoke "Claude"      "packages/claude-mcp"
 
 echo "=== Smoke tests done (any quota-skipped providers were warned above) ==="

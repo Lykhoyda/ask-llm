@@ -4,6 +4,7 @@ import { Logger, type MachineProvider, machineRequestSchema, type ProviderSpec, 
 import { PROVIDERS } from "./constants.js";
 import { type ExecutorFn, startServer } from "./index.js";
 import { machineJsonSchemaBundle, runMachineRequest } from "./machine.js";
+import { readPackageJson } from "./packageMetadata.js";
 import { startRepl } from "./repl.js";
 import {
   DoctorArgumentError,
@@ -126,7 +127,9 @@ async function runMachineCli(): Promise<number> {
     return 0;
   } catch (error) {
     if (!(error instanceof MachineInputError)) throw error;
-    process.stderr.write("machine input rejected: expected one valid JSON request on stdin\n");
+    process.stderr.write(
+      "machine input rejected: expected one valid JSON request on stdin\nUsage: ask-llm-mcp machine\n",
+    );
     return 2;
   }
 }
@@ -157,9 +160,45 @@ async function runDoctorCli(args: string[]): Promise<number> {
   return runDoctor(options);
 }
 
-const subcommand = process.argv[2];
+function cliHelp(): string {
+  return [
+    "Usage:",
+    "  ask-llm-mcp                         Start the MCP server on stdio",
+    "  ask-llm-mcp <command> [options]     Run a CLI command",
+    "",
+    "Commands:",
+    "  doctor          Report provider and environment diagnostics",
+    "  repl            Start the interactive multi-provider REPL",
+    "  machine         Process one machine request from stdin",
+    "  machine-schema  Print the machine protocol schema bundle",
+    "",
+    "Options:",
+    "  -h, --help      Show this help",
+    "  -V, --version   Show the package version",
+    "",
+    "Run ask-llm-mcp doctor --help for doctor options.",
+    "",
+  ].join("\n");
+}
 
-if (subcommand === "machine-schema") {
+function rejectUnsupportedArgument(): void {
+  process.stderr.write(`Error: unsupported command or argument.\n\n${cliHelp()}`);
+  process.exitCode = 2;
+}
+
+const args = process.argv.slice(2);
+const subcommand = args[0];
+
+if (args.length === 0) {
+  startServer().catch((error) => {
+    Logger.error("Fatal error:", error);
+    process.exit(1);
+  });
+} else if (args.length === 1 && (subcommand === "--help" || subcommand === "-h")) {
+  process.stdout.write(cliHelp());
+} else if (args.length === 1 && (subcommand === "--version" || subcommand === "-V")) {
+  process.stdout.write(`${readPackageJson().version}\n`);
+} else if (subcommand === "machine-schema" && args.length === 1) {
   writeMachineDocument(machineJsonSchemaBundle()).then(
     () => process.exit(0),
     () => {
@@ -176,14 +215,14 @@ if (subcommand === "machine-schema") {
     },
   );
 } else if (subcommand === "doctor") {
-  runDoctorCli(process.argv.slice(3)).then(
+  runDoctorCli(args.slice(1)).then(
     (code) => process.exit(code),
     (error) => {
       Logger.error("doctor failed:", error);
       process.exit(1);
     },
   );
-} else if (subcommand === "repl") {
+} else if (subcommand === "repl" && args.length === 1) {
   startRepl().then(
     (code) => process.exit(code),
     (error) => {
@@ -192,8 +231,5 @@ if (subcommand === "machine-schema") {
     },
   );
 } else {
-  startServer().catch((error) => {
-    Logger.error("Fatal error:", error);
-    process.exit(1);
-  });
+  rejectUnsupportedArgument();
 }
