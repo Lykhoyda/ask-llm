@@ -78,7 +78,7 @@ Per-session token totals, fallback counts, breakdowns by provider/model. In-memo
 
 #### `diagnose`
 
-Self-diagnosis: Node version, PATH resolution, provider CLI presence + versions. Read-only. Returns both human-readable text and a structured `DiagnosticReport`.
+Self-diagnosis: Node version, PATH resolution, provider CLI presence + versions. Read-only. Returns both human-readable text and a structured `DiagnosticReport`; provider entries can include nested `enrichment` (`heading`, `overall`, and detailed `checks` with optional remediation), including Codex's `codex doctor --json` health details when available.
 
 #### `ping`
 

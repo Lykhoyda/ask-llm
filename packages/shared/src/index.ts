@@ -24,7 +24,17 @@ export type {
   ProviderSpec,
   ProviderVersionAssessment,
 } from "./doctor.js";
-export { formatDiagnosticReport, runDiagnostics } from "./doctor.js";
+export {
+  checkStatusSchema,
+  diagnosticCheckSchema,
+  diagnosticProviderSchema,
+  diagnosticReportSchema,
+  formatDiagnosticReport,
+  overallStatusSchema,
+  providerEnrichmentCheckSchema,
+  providerEnrichmentSchema,
+  runDiagnostics,
+} from "./doctor.js";
 export { Logger } from "./logger.js";
 export type {
   ActorProvider,

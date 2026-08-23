@@ -9,6 +9,7 @@ import {
   createUsageStatsTool,
   Logger,
   type ProviderName,
+  type ProviderSpec,
   registerSessionUsageResource,
   relativeDirSchema,
   type UsageStats,
@@ -336,6 +337,33 @@ const PROGRESS_MESSAGES = (op: string) => [
   `${op} - Still working...`,
 ];
 
+export function registerDiagnoseTool(server: McpServer, diagnoseSpecs: ProviderSpec[]): void {
+  const diagnoseTool = createDiagnoseTool(diagnoseSpecs);
+  const diagnoseOutputShape = diagnoseTool.outputSchema
+    ? (diagnoseTool.outputSchema as z.ZodObject<z.ZodRawShape>).shape
+    : undefined;
+  server.registerTool(
+    diagnoseTool.name,
+    {
+      description: diagnoseTool.description,
+      inputSchema: {},
+      ...(diagnoseOutputShape ? { outputSchema: diagnoseOutputShape } : {}),
+      annotations: diagnoseTool.annotations,
+    },
+    async (): Promise<CallToolResult> => {
+      const result = await diagnoseTool.execute({});
+      if (typeof result === "string") {
+        return { content: [{ type: "text", text: result }], isError: false };
+      }
+      return {
+        content: [{ type: "text", text: result.text }],
+        structuredContent: result.structuredContent,
+        isError: false,
+      };
+    },
+  );
+}
+
 export async function startServer() {
   Logger.debug("init @ask-llm/mcp");
   Logger.checkNodeVersion();
@@ -583,30 +611,7 @@ export async function startServer() {
   );
 
   const diagnoseSpecs = await buildProviderSpecs();
-  const diagnoseTool = createDiagnoseTool(diagnoseSpecs);
-  const diagnoseOutputShape = diagnoseTool.outputSchema
-    ? (diagnoseTool.outputSchema as z.ZodObject<z.ZodRawShape>).shape
-    : undefined;
-  server.registerTool(
-    diagnoseTool.name,
-    {
-      description: diagnoseTool.description,
-      inputSchema: {},
-      ...(diagnoseOutputShape ? { outputSchema: diagnoseOutputShape } : {}),
-      annotations: diagnoseTool.annotations,
-    },
-    async (): Promise<CallToolResult> => {
-      const result = await diagnoseTool.execute({});
-      if (typeof result === "string") {
-        return { content: [{ type: "text", text: result }], isError: false };
-      }
-      return {
-        content: [{ type: "text", text: result.text }],
-        structuredContent: result.structuredContent,
-        isError: false,
-      };
-    },
-  );
+  registerDiagnoseTool(server, diagnoseSpecs);
 
   Logger.warn(`@ask-llm/mcp v${version} — 6 tools, ${available.length} provider(s): ${available.join(", ") || "none"}`);
 

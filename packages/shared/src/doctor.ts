@@ -1,33 +1,40 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
+import { z } from "zod";
 import { resolveTimeoutMs } from "./commandExecutor.js";
 import { EXECUTION } from "./constants.js";
 import { resolveShellPath } from "./shellPath.js";
 
 const execFileAsync = promisify(execFile);
 
-export type CheckStatus = "pass" | "warn" | "fail" | "skip";
-export type OverallStatus = "ok" | "warning" | "error";
+export const checkStatusSchema = z.enum(["pass", "warn", "fail", "skip"]);
+export type CheckStatus = z.infer<typeof checkStatusSchema>;
 
-export interface DiagnosticCheck {
-  name: string;
-  status: CheckStatus;
-  message: string;
-  fix?: string;
-}
+export const overallStatusSchema = z.enum(["ok", "warning", "error"]);
+export type OverallStatus = z.infer<typeof overallStatusSchema>;
 
-export interface ProviderEnrichmentCheck {
-  name: string;
-  status: CheckStatus;
-  summary: string;
-  remediation?: string;
-}
+export const diagnosticCheckSchema = z.object({
+  name: z.string(),
+  status: checkStatusSchema,
+  message: z.string(),
+  fix: z.string().optional(),
+});
+export type DiagnosticCheck = z.infer<typeof diagnosticCheckSchema>;
 
-export interface ProviderEnrichment {
-  heading: string;
-  overall: OverallStatus;
-  checks: ProviderEnrichmentCheck[];
-}
+export const providerEnrichmentCheckSchema = z.object({
+  name: z.string(),
+  status: checkStatusSchema,
+  summary: z.string(),
+  remediation: z.string().optional(),
+});
+export type ProviderEnrichmentCheck = z.infer<typeof providerEnrichmentCheckSchema>;
+
+export const providerEnrichmentSchema = z.object({
+  heading: z.string(),
+  overall: overallStatusSchema,
+  checks: z.array(providerEnrichmentCheckSchema),
+});
+export type ProviderEnrichment = z.infer<typeof providerEnrichmentSchema>;
 
 export interface ProviderVersionAssessment {
   available: boolean;
@@ -35,36 +42,38 @@ export interface ProviderVersionAssessment {
   fix?: string;
 }
 
-export interface ProviderProbe {
-  name: string;
-  command: string;
-  available: boolean;
-  cliPath: string | undefined;
-  cliVersion: string | undefined;
-  error: string | undefined;
-  enrichment?: ProviderEnrichment;
-}
+export const diagnosticProviderSchema = z.object({
+  name: z.string(),
+  command: z.string(),
+  available: z.boolean(),
+  cliPath: z.string().optional(),
+  cliVersion: z.string().optional(),
+  error: z.string().optional(),
+  enrichment: providerEnrichmentSchema.optional(),
+});
+export type ProviderProbe = z.infer<typeof diagnosticProviderSchema>;
 
-export interface DiagnosticReport {
-  status: OverallStatus;
-  generatedAt: string;
-  environment: {
-    nodeVersion: string;
-    nodeOk: boolean;
-    platform: string;
-    arch: string;
-    resolvedPath: string;
-    askLlmPath: string | undefined;
-    timeoutMs: number;
-    codexTimeoutMs: number;
-    claudeTimeoutMs: number;
-    geminiTimeoutMs: number;
-    grokTimeoutMs: number;
-    cursorHarnessTimeoutMs: number;
-  };
-  providers: ProviderProbe[];
-  checks: DiagnosticCheck[];
-}
+export const diagnosticReportSchema = z.object({
+  status: overallStatusSchema,
+  generatedAt: z.string(),
+  environment: z.object({
+    nodeVersion: z.string(),
+    nodeOk: z.boolean(),
+    platform: z.string(),
+    arch: z.string(),
+    resolvedPath: z.string(),
+    askLlmPath: z.string().optional(),
+    timeoutMs: z.number(),
+    codexTimeoutMs: z.number(),
+    claudeTimeoutMs: z.number(),
+    geminiTimeoutMs: z.number(),
+    grokTimeoutMs: z.number(),
+    cursorHarnessTimeoutMs: z.number(),
+  }),
+  providers: z.array(diagnosticProviderSchema),
+  checks: z.array(diagnosticCheckSchema),
+});
+export type DiagnosticReport = z.infer<typeof diagnosticReportSchema>;
 
 export interface ProviderSpec {
   key: string;
