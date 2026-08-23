@@ -300,10 +300,22 @@ describe("brainstorm skill — polish (ADR-064)", () => {
 
   it("requires passing a Context Brief into the coordinator", () => {
     expect(body).toMatch(/Context Brief/);
-    expect(body).toMatch(/Providers: <list the selected providers for this run>/);
+    expect(body).toMatch(/Participants: <provider via harness, exact requested model for each>/);
     expect(body).toMatch(/Included files\/docs/);
     expect(body).toMatch(/Excluded files\/docs and reason/);
     expect(body).toMatch(/unverified assumptions/);
+  });
+
+  it("ships the documented exact Grok + GPT-5.6 Sol invocations and Pi tool calls as the skill's interface contract", () => {
+    expect(body).toContain(
+      '/brainstorm grok@cursor-agent:cursor-grok-4.6-high,codex@cursor-agent:gpt-5.6-sol-high "review this architecture"',
+    );
+    expect(body).toContain(
+      '/brainstorm grok@grok-cli:grok-build,codex@cursor-agent:gpt-5.6-sol-high "review this architecture"',
+    );
+    expect(body).toContain('`ask-cursor-agent({ provider: "grok", model: "cursor-grok-4.6-high", prompt })`');
+    expect(body).toContain('`ask-cursor-agent({ provider: "codex", model: "gpt-5.6-sol-high", prompt })`');
+    expect(body).toContain("`dist/brainstorm-run.js`");
   });
 });
 
@@ -328,6 +340,15 @@ describe("brainstorm-coordinator agent — Phase 4 cross-check polish (ADR-064)"
     expect(body).toMatch(/verified files\/docs|files\/docs you verified/i);
     expect(body).toMatch(/assumptions remain unverified|unverified assumptions/i);
     expect(body).toMatch(/before external dispatch|before dispatch/i);
+  });
+
+  it("ships the packaged runner invocation and report fields as the coordinator's interface contract", () => {
+    expect(body).toContain('CLAUDE_PLUGIN_ROOT}/dist/brainstorm-run.js" \\');
+    expect(body).toContain("--participant 'grok@cursor-agent:cursor-grok-4.6-high'");
+    expect(body).toContain("--participant 'codex@cursor-agent:gpt-5.6-sol-high'");
+    expect(body).toContain("grok@grok-cli:grok-build");
+    expect(body).toContain("`consensusEligible:true`");
+    expect(body).toContain("`modelVerification`");
   });
 });
 

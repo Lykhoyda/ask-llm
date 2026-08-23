@@ -169,6 +169,7 @@ describe("response contract", () => {
     const onProgress = vi.fn();
     const result = await executeGrokAPI({ prompt: "alias", onProgress });
     expect(result.model).toBe("fixture-resolved-model");
+    expect(result.reportedModel).toBe("fixture-resolved-model");
     expect(result.usage.model).toBe("fixture-resolved-model");
     expect(result.usage.fellBack).toBe(false);
     expect(onProgress).toHaveBeenCalledWith(
@@ -180,8 +181,16 @@ describe("response contract", () => {
 
   it("stays silent about model resolution when xAI serves the requested ID", async () => {
     const onProgress = vi.fn();
-    await executeGrokAPI({ prompt: "same", onProgress });
+    const result = await executeGrokAPI({ prompt: "same", onProgress });
+    expect(result.reportedModel).toBe(FACTORY_DEFAULT_MODEL);
     expect(onProgress.mock.calls.flat().join(" ")).not.toMatch(/served model/);
+  });
+
+  it("keeps the requested model effective but leaves reportedModel empty when the payload omits model", async () => {
+    fetchMock.mockResolvedValueOnce(successResponse({ model: undefined }));
+    const result = await executeGrokAPI({ prompt: "no model", model: "grok-4.6" });
+    expect(result).toMatchObject({ model: "grok-4.6", reportedModel: undefined });
+    expect(result.usage.model).toBe("grok-4.6");
   });
 
   it("discloses that xhigh is applied as high on models without xhigh support", async () => {
@@ -356,7 +365,12 @@ describe("model discovery and caching", () => {
     const second = await executeGrokAPI({ prompt: "alias cache" });
 
     expect(first.usage).toMatchObject({ provider: "grok", model: "fixture-resolved-model", inputTokens: 120 });
-    expect(second).toMatchObject({ model: "fixture-resolved-model", response: first.response, usage: undefined });
+    expect(second).toMatchObject({
+      model: "fixture-resolved-model",
+      reportedModel: "fixture-resolved-model",
+      response: first.response,
+      usage: undefined,
+    });
     expect(fetchMock).toHaveBeenCalledOnce();
   });
 

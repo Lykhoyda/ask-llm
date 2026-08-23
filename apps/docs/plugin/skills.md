@@ -92,9 +92,9 @@ Experimental and one-shot (no multi-turn). Requires `agy` installed + logged in 
 
 ### `/brainstorm`
 
-Send a topic to multiple LLM providers AND have Claude Opus perform its own independent research in the same run, then synthesize all findings. The coordinator agent runs:
+Send a topic to an explicit multi-model panel, ground it with independent Claude Opus research, then synthesize the findings. Provider, harness, requested catalog ID, independently observed served model (direct xAI API / Grok CLI only; a disclosed same-product alias/snapshot stays eligible), and Cursor's optional reported display label remain separate. Cursor Agent and Codex CLI echo the requested ID, so those attributions are selected-only and unverifiable rather than an actual model. The coordinator agent runs:
 
-1. **Phase 3B: Claude Opus research.** Claude reads the actual files, traces real code paths, fetches any referenced external docs, and forms independent findings tagged Verified or Inferred. Always runs; Claude is a first-class participant, not just an orchestrator.
+1. **Phase 3B: Claude Opus research.** Claude reads actual files, traces real code paths, fetches referenced docs, and forms findings tagged Verified or Inferred. In standard mode Claude is a participant. In the exact Grok + Sol mode it is a non-voting evidence verifier, so the requested panel remains exactly two models.
 2. **Phase 3A: External dispatch.** A single foreground blocking Bash call sends the topic to each requested external provider in parallel and waits for all of them. Up to 10 minutes total (Bash tool max). It's a foreground blocking call, not a background-job dispatch, because sub-agents can't own processes that outlive their turn.
 3. **Phase 4: Synthesis.** Combines Claude's findings with the external responses:
 
@@ -109,9 +109,19 @@ Send a topic to multiple LLM providers AND have Claude Opus perform its own inde
 
 # Custom external providers
 /brainstorm gemini,codex,ollama Review this authentication approach
+
+# Architect panel: exactly Grok + GPT-5.6 Sol via Cursor Agent; Gemini excluded
+/brainstorm grok@cursor-agent:cursor-grok-4.6-high,codex@cursor-agent:gpt-5.6-sol-high "review this architecture"
+
+# Explicit direct-Grok alternative; never pivots away from Grok Build
+/brainstorm grok@grok-cli:grok-build,codex@cursor-agent:gpt-5.6-sol-high "review this architecture"
 ```
 
-**Default external providers:** `antigravity,codex` (avoids unnecessary Ollama calls if not needed). **Claude Opus is always a participant** because it runs inside the coordinator; it isn't in the provider list.
+**Default external providers:** `antigravity,codex` (avoids unnecessary Ollama calls). Compatible bare provider lists remain supported. For predictable routing use `provider@harness:exact-model-id`; the preferred Grok path is Cursor Agent. A list is either all bare names or all routed specs—mixing them (for example `grok@cursor-agent:cursor-grok-4.6-high,antigravity`) is refused before any provider is called, with no rerouting or substitution; generalized mixed panels are deferred to a future ADR. Exact IDs come from the selected harness catalog (`agent --list-models`, `grok models`, or xAI `/v1/models`) and are never translated between catalogs.
+
+The architect panel invokes only the two listed Cursor participants: `provider: "grok"` with `model: "cursor-grok-4.6-high"`, and `provider: "codex"` with `model: "gpt-5.6-sol-high"`. It never calls Gemini or Cursor `Auto`. If registration, authentication, model availability, or route support fails for either participant, the result is **partial** and surviving insights are attributed only to the model that answered—never called two-model consensus. Claude's evidence can verify claims but cannot supply the missing vote.
+
+The `grok-cli` form is supported only when the installed official Grok Build exposes Ask LLM's required headless JSON/read-only contract. A direct-route failure is terminal for that participant; there is no silent pivot among Cursor Agent, Grok CLI, or xAI API.
 
 ### `/brainstorm-all`
 

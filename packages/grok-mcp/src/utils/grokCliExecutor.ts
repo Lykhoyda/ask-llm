@@ -38,6 +38,7 @@ export interface GrokCliExecutorOptions {
 export interface GrokCliExecutorResult {
   response: string;
   model: string;
+  reportedModel: string | undefined;
   sessionId: undefined;
   usage: UsageStats;
   harness: "grok-cli";
@@ -262,7 +263,8 @@ export async function executeGrokCLI(options: GrokCliExecutorOptions): Promise<G
   const content = responseText(envelope);
   if (!content) throw new Error("Grok CLI returned no final response. No fallback was attempted.");
   options.onProgress?.(content.slice(-150));
-  const actualModel = envelope.model?.trim() || model;
+  const reportedModel = envelope.model?.trim() || undefined;
+  const actualModel = reportedModel ?? model;
   const usage: UsageStats = {
     provider: "grok",
     model: actualModel,
@@ -276,6 +278,7 @@ export async function executeGrokCLI(options: GrokCliExecutorOptions): Promise<G
   return {
     response: `${content}${formatUsageStats(usage)}`,
     model: actualModel,
+    reportedModel,
     sessionId: undefined,
     usage,
     harness: "grok-cli",

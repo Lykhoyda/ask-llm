@@ -313,8 +313,9 @@ describe("dual-host package manifest", () => {
 describe("CLI binary references in package.json bin", () => {
   const pkg = readJson<{ bin: Record<string, string> }>("package.json");
 
-  it("declares all five runner binaries", () => {
+  it("declares all provider runners and the exact two-model brainstorm runner", () => {
     expect(pkg.bin["ask-gemini-run"]).toBe("dist/run.js");
+    expect(pkg.bin["ask-brainstorm-run"]).toBe("dist/brainstorm-run.js");
     expect(pkg.bin["ask-codex-run"]).toBe("dist/codex-run.js");
     expect(pkg.bin["ask-grok-run"]).toBe("dist/grok-run.js");
     expect(pkg.bin["ask-ollama-run"]).toBe("dist/ollama-run.js");
@@ -323,6 +324,7 @@ describe("CLI binary references in package.json bin", () => {
 
   it("each declared binary source exists in src/", () => {
     expect(fs.existsSync(path.join(PLUGIN_ROOT, "src", "run.ts"))).toBe(true);
+    expect(fs.existsSync(path.join(PLUGIN_ROOT, "src", "brainstorm-run.ts"))).toBe(true);
     expect(fs.existsSync(path.join(PLUGIN_ROOT, "src", "codex-run.ts"))).toBe(true);
     expect(fs.existsSync(path.join(PLUGIN_ROOT, "src", "grok-run.ts"))).toBe(true);
     expect(fs.existsSync(path.join(PLUGIN_ROOT, "src", "ollama-run.ts"))).toBe(true);

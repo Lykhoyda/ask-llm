@@ -71,10 +71,18 @@ describe("Grok CLI harness", () => {
     const result = await executeGrokCLI({ prompt: "review" });
     expect(result).toMatchObject({
       model: "grok-4.6",
+      reportedModel: "grok-4.6",
       harness: "grok-cli",
       usage: { provider: "grok", thinkingTokens: 3, fellBack: false },
     });
     expect(result.response).toContain("CLI review");
+  });
+
+  it("keeps the requested model effective but leaves reportedModel empty when the CLI omits it", async () => {
+    executeCommandMock.mockResolvedValueOnce(JSON.stringify({ response: "no model field" }));
+    const result = await executeGrokCLI({ prompt: "review", model: "grok-build" });
+    expect(result).toMatchObject({ model: "grok-build", reportedModel: undefined, harness: "grok-cli" });
+    expect(result.usage.model).toBe("grok-build");
   });
 
   it("propagates cancellation to the command boundary", async () => {
