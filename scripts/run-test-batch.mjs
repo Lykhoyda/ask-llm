@@ -27,7 +27,7 @@ export function assignTestFiles(files, { index, count }) {
   return [...files].sort((a, b) => a.localeCompare(b, "en")).filter((_, position) => position % count === index - 1);
 }
 
-function vitestInvocation(args, runtime = {}) {
+export function vitestInvocation(args, runtime = {}) {
   return {
     command: runtime.nodePath ?? process.execPath,
     args: [runtime.vitestPath ?? resolveVitestPath(), ...args],

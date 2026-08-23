@@ -3,7 +3,7 @@
 #
 # Use this when your machine can't run a provider's factory-default model.
 # The published defaults (pinned by contract tests) and CI stay unchanged;
-# only your local pre-push smoke run is affected.
+# only an explicitly authorized legacy live run is affected.
 #
 # Example — the factory-default Ollama model (qwen3.6:27b) is too big for this
 # box, so point the smoke run at a small model you've already `ollama pull`ed:

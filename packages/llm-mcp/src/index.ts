@@ -1,4 +1,3 @@
-import { createRequire } from "node:module";
 import {
   type AskResponse,
   askResponseSchema,
@@ -22,17 +21,9 @@ import { z } from "zod";
 import { getEligibleProviderKeys, INSTALL_HINTS, PROVIDERS } from "./constants.js";
 import { executeCursorAgent } from "./cursorAgent.js";
 import { buildMultiLlmInputSchema, dispatchMultiLlm, formatMultiLlmReport, multiLlmReportSchema } from "./multiLlm.js";
+import { readPackageJson } from "./packageMetadata.js";
 import { isCommandAvailable } from "./utils/availability.js";
 import { buildProviderSpecs } from "./utils/providerSpecs.js";
-
-function readPackageJson(): { name: string; version: string } {
-  try {
-    const require = createRequire(import.meta.url);
-    return require("../package.json") as { name: string; version: string };
-  } catch {
-    return { name: "@ask-llm/mcp", version: "0.0.0" };
-  }
-}
 
 export interface ProviderStatus {
   available: string[];
