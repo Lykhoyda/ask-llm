@@ -221,7 +221,7 @@ jobs:
 
       # changesets/action creates package tags only in the runner when
       # createGithubReleases is false. Preserve the intended remote tag contract
-      # explicitly, including on selective Registry/release recovery (ADR-149).
+      # explicitly, including on selective Registry/release recovery (ADR-150).
       # Runs after the unified release so a tag failure cannot block unified
       # release creation or verification; the helper is idempotent on rerun.
       - name: Create or verify per-package Git tags

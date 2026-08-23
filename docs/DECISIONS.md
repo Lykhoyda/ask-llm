@@ -1,6 +1,6 @@
 # Architectural Decisions
 
-## ADR-149: Public packages keep immutable remote source tags beside one unified GitHub Release
+## ADR-150: Public packages keep immutable remote source tags beside one unified GitHub Release
 
 **Status:** Accepted (2026-08-23)
 
