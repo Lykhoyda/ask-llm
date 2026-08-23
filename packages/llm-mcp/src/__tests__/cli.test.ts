@@ -1,9 +1,9 @@
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, readFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { describe, expect, it } from "vitest";
+import { afterAll, describe, expect, it } from "vitest";
 
 const cliPath = fileURLToPath(new URL("../../dist/cli.js", import.meta.url));
 const packageJsonPath = fileURLToPath(new URL("../../package.json", import.meta.url));
@@ -31,6 +31,10 @@ const UNSUPPORTED_ARGUMENT_OUTPUT = `Error: unsupported command or argument.\n\n
 const SERVER_START_MARKER = `@ask-llm/mcp v${packageVersion} — 6 tools`;
 const EMPTY_PATH_DIR = mkdtempSync(join(tmpdir(), "ask-llm-cli-empty-path-"));
 const UNREACHABLE_OLLAMA_HOST = "http://127.0.0.1:9";
+
+afterAll(() => {
+  rmSync(EMPTY_PATH_DIR, { force: true, recursive: true });
+});
 
 interface CliResult {
   status: number | null;

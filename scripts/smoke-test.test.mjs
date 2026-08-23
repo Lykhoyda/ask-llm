@@ -21,7 +21,23 @@ afterEach(() => {
   for (const directory of temporaryDirectories.splice(0)) rmSync(directory, { force: true, recursive: true });
 });
 
-describe("canonical smoke runner", () => {
+describe("legacy provider smoke runner", () => {
+  it.skipIf(isWindows)("refuses live provider calls without explicit legacy authorization", () => {
+    const { ASK_LLM_LEGACY_LIVE_SMOKE: _legacyAuthorization, ...hostEnv } = process.env;
+    const result = spawnSync("bash", [SMOKE_SCRIPT], {
+      cwd: tmpdir(),
+      encoding: "utf8",
+      env: hostEnv,
+      timeout: 10_000,
+    });
+
+    expect(result.error).toBeUndefined();
+    expect(result.status).toBe(2);
+    expect(result.stdout).toBe("");
+    expect(result.stderr).toContain("Refusing legacy live provider calls");
+    expect(result.stderr).toContain("yarn prepr:harness");
+  });
+
   it.skipIf(isWindows)("invokes every smoke entry from the repository root with its explicit package path", () => {
     const fakeBin = mkdtempSync(join(tmpdir(), "ask-llm-smoke-bin-"));
     temporaryDirectories.push(fakeBin);
@@ -40,6 +56,7 @@ describe("canonical smoke runner", () => {
         ...process.env,
         PATH: `${fakeBin}${delimiter}${process.env.PATH ?? ""}`,
         SMOKE_CAPTURE: capturePath,
+        ASK_LLM_LEGACY_LIVE_SMOKE: "1",
       },
       timeout: 10_000,
     });
@@ -98,6 +115,7 @@ describe("canonical smoke runner", () => {
         ...process.env,
         PATH: `${fakeBin}${delimiter}${process.env.PATH ?? ""}`,
         NO_SMOKE_RETRY: "1",
+        ASK_LLM_LEGACY_LIVE_SMOKE: "1",
       },
       timeout: 10_000,
     });
