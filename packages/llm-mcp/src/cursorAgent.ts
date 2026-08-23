@@ -5,6 +5,7 @@ import {
   EXECUTION,
   executeCommand,
   formatUsageStats,
+  relativeDirSchema,
   resolveTimeoutMs,
   type UsageStats,
 } from "@ask-llm/shared";
@@ -17,6 +18,7 @@ interface CursorEvent {
   model?: string;
   result?: string;
   message?: { content?: Array<{ type?: string; text?: string }> };
+  session_id?: string;
   usage?: {
     input_tokens?: number;
     output_tokens?: number;
@@ -29,6 +31,8 @@ export interface CursorAgentOptions {
   prompt: string;
   provider: CursorProviderName;
   model: string;
+  includeDirs?: string[];
+  sessionId?: string;
   onProgress?: (newOutput: string) => void;
   signal?: AbortSignal;
 }
@@ -193,6 +197,8 @@ export async function executeCursorAgent(options: CursorAgentOptions): Promise<C
   assertRequestedModelFamily(options.provider, model);
   const timeoutMs = resolveTimeoutMs(EXECUTION.CURSOR_TIMEOUT_ENV_VAR, EXECUTION.DEFAULT_CURSOR_TIMEOUT_MS);
   const promptViaStdin = Buffer.byteLength(options.prompt, "utf8") > CURSOR_STDIN_THRESHOLD_BYTES;
+  const includeDirs = (options.includeDirs ?? []).map((dir) => relativeDirSchema.parse(dir));
+  const sessionId = options.sessionId?.trim() || undefined;
   const args = [
     "--print",
     "--output-format",
@@ -202,6 +208,8 @@ export async function executeCursorAgent(options: CursorAgentOptions): Promise<C
     "ask",
     "--model",
     model,
+    ...(sessionId ? ["--resume", sessionId] : []),
+    ...includeDirs.flatMap((dir) => ["--add-dir", dir]),
     ...(promptViaStdin ? [] : [options.prompt]),
   ];
   const startedAt = Date.now();
@@ -227,8 +235,9 @@ export async function executeCursorAgent(options: CursorAgentOptions): Promise<C
   const resultEvent = [...events].reverse().find((event) => event.type === "result");
   const content = resultEvent?.result?.trimEnd();
   if (!content) throw new Error("Cursor Agent returned no final result. No fallback was attempted.");
-  const reportedModel =
-    events.find((event) => event.type === "system" && event.subtype === "init")?.model?.trim() || undefined;
+  const initEvent = events.find((event) => event.type === "system" && event.subtype === "init");
+  const reportedModel = initEvent?.model?.trim() || undefined;
+  const resolvedSessionId = initEvent?.session_id?.trim() || sessionId;
   if (reportedModel) assertReportedModelFamily(options.provider, model, reportedModel);
   options.onProgress?.(content.slice(-150));
   const usageEvent = [...events].reverse().find((event) => event.usage)?.usage;
@@ -248,7 +257,7 @@ export async function executeCursorAgent(options: CursorAgentOptions): Promise<C
     model,
     reportedModel,
     provider: options.provider,
-    sessionId: undefined,
+    sessionId: resolvedSessionId,
     usage,
     harness: "cursor-agent",
   };

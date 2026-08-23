@@ -28,6 +28,8 @@ export const ERROR_MESSAGES = {
   NO_PROMPT_PROVIDED: "Please provide a prompt for analysis. Ask a question or describe the code you want reviewed.",
   MISSING_CREDENTIALS:
     "Grok authentication is not configured. Set XAI_API_KEY to an xAI API key from https://console.x.ai/team/default/api-keys. xAI API billing is separate and may incur usage charges.",
+  MISSING_CREDENTIALS_CLI_DETECTED:
+    'XAI_API_KEY is not configured, so the default xai-api harness cannot run, but an authenticated Grok CLI with headless JSON support was detected. Ask LLM never falls back between harnesses: pin harness "grok-cli" on this request, or set ASK_GROK_HARNESS=grok-cli to make the CLI the default, or set XAI_API_KEY to use the xAI API.',
   INVALID_CREDENTIALS:
     "Grok authentication failed. Verify XAI_API_KEY and the key's xAI team permissions. The key was not logged or returned.",
   RATE_LIMITED:

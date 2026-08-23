@@ -39,7 +39,7 @@ const askCodexArgsSchema = z.object({
     .array(relativeDirSchema)
     .optional()
     .describe(
-      "Additional directories Codex may access alongside the working directory on a fresh call (maps to codex `--add-dir`, repeatable; Codex resume does not support this flag). Must be relative paths (e.g., 'packages/api'). Useful in monorepos where relevant context spans sibling packages.",
+      "Additional directories Codex may access alongside the working directory on a fresh call (maps to codex `--add-dir`, repeatable). Rejected together with a resumed sessionId because `codex exec resume` has no --add-dir; directories are never silently dropped. Must be relative paths (e.g., 'packages/api'). Useful in monorepos where relevant context spans sibling packages.",
     ),
   preferred: z
     .boolean()

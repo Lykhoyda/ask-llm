@@ -21,6 +21,7 @@ Classifications: **host-neutral**, **thin host adapter**, **lifecycle integratio
 | `compare` | Thin host adapter | One `ask-multi` call guarantees bounded concurrent dispatch and stable result order. |
 | `fable-review` | Claude-only | Retained for Claude Code's independent Fable agent, but excluded from Pi discovery and advertising. No nested Pi session or Fable provider bridge is added. |
 | `gemini-review` | Thin host adapter | Portable review contract runs inline through native `ask-gemini`. |
+| `grok-pair` | Claude/Cursor host adapter; excluded from Pi | Claude selects explicit Cursor/xAI/CLI Grok routes; Cursor avoids recursive Cursor invocation. Pi does not advertise this command until a dedicated consent/lifecycle adapter exists. |
 | `grok-review` | Thin host adapter | Portable review contract runs inline through native `ask-grok`; the explicit `xai-api`/`grok-cli` harness and exact model are disclosed, with no fallback. |
 | `multi-review` | Thin host adapter | One `ask-multi` dispatch followed by host-side source verification. |
 | `ollama-review` | Thin host adapter | Portable review contract runs inline through local native `ask-ollama`. |

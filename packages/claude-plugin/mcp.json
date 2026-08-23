@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "ask-llm": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@ask-llm/mcp"
+      ]
+    }
+  }
+}

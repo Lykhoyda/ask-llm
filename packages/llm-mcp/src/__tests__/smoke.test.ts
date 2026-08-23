@@ -131,13 +131,19 @@ describe("detectProviders", () => {
     expect(status.missing).toContain("ollama");
   });
 
-  it("detects Grok when provider-scoped xAI credentials are configured", async () => {
+  it("loads Grok when either harness is ready, then preserves a request-level CLI selection", async () => {
     vi.mocked(mockIsGrokAvailable).mockResolvedValue(true);
 
     const status = await detectProviders();
+    const executor = getLoadedExecutor("grok");
 
+    expect(mockIsGrokAvailable).toHaveBeenCalledWith();
     expect(status.available).toContain("grok");
-    expect(getLoadedExecutor("grok")).toBeDefined();
+    expect(executor).toBeDefined();
+    await executor?.({ prompt: "review", harness: "grok-cli", model: "grok-build", reasoningEffort: "high" });
+    expect(executeGrok).toHaveBeenCalledWith(
+      expect.objectContaining({ harness: "grok-cli", model: "grok-build", reasoningEffort: "high" }),
+    );
   });
 
   it("detects ollama when server is running", async () => {
@@ -182,6 +188,20 @@ describe("detectProviders", () => {
 
     expect(status.available).toEqual(["gemini", "codex", "claude", "grok", "ollama", "antigravity"]);
     expect(status.missing).toHaveLength(0);
+  });
+
+  it("surfaces a failed Grok readiness probe (e.g. unsupported ASK_GROK_HARNESS) instead of a bare missing message", async () => {
+    vi.mocked(mockIsGrokAvailable).mockRejectedValue(new Error('Unsupported Grok harness "automatic"'));
+    mockIsCommandAvailable.mockResolvedValue(false);
+
+    const status = await detectProviders();
+
+    expect(status.available).not.toContain("grok");
+    expect(status.missing).toContain("grok");
+    const grok = status.unavailable.find((entry) => entry.key === "grok");
+    expect(grok?.state).toBe("missing");
+    expect(grok?.message).toContain("ASK_GROK_HARNESS");
+    expect(grok?.message).toContain('Unsupported Grok harness "automatic"');
   });
 
   it("reports all missing when no providers available", async () => {
@@ -278,6 +298,46 @@ describe("provider selection and ping", () => {
     expect(schema.safeParse({ provider: "grok", harness: "xai-api", prompt: "q" }).success).toBe(true);
     expect(schema.safeParse({ provider: "grok", harness: "grok-cli", prompt: "q" }).success).toBe(true);
     expect(schema.safeParse({ provider: "codex", harness: "grok-cli", prompt: "q" }).success).toBe(false);
+  });
+
+  it("preserves provider-native effort/include options and rejects unsupported combinations", () => {
+    const schema = buildAskLlmSchema(["grok", "codex", "gemini", "ollama"]);
+
+    expect(
+      schema.safeParse({
+        provider: "codex",
+        prompt: "q",
+        includeDirs: ["packages/core"],
+        reasoningEffort: "max",
+      }).success,
+    ).toBe(true);
+    expect(
+      schema.safeParse({ provider: "grok", prompt: "q", harness: "xai-api", reasoningEffort: "xhigh" }).success,
+    ).toBe(true);
+    expect(schema.safeParse({ provider: "grok", prompt: "q", reasoningEffort: "max" }).success).toBe(false);
+    expect(schema.safeParse({ provider: "grok", prompt: "q", includeDirs: ["packages/core"] }).success).toBe(false);
+    expect(schema.safeParse({ provider: "gemini", prompt: "q", includeDirs: ["packages/core"] }).success).toBe(false);
+    expect(schema.safeParse({ provider: "ollama", prompt: "q", reasoningEffort: "high" }).success).toBe(false);
+    expect(schema.safeParse({ provider: "codex", prompt: "q", includeDirs: ["../outside"] }).success).toBe(false);
+  });
+
+  it("rejects includeDirs on resumed Codex sessions instead of dropping them at spawn", () => {
+    const schema = buildAskLlmSchema(["codex"]);
+
+    expect(
+      schema.safeParse({ provider: "codex", prompt: "q", sessionId: "", includeDirs: ["packages/core"] }).success,
+    ).toBe(true);
+    const resumed = schema.safeParse({
+      provider: "codex",
+      prompt: "q",
+      sessionId: "thread-123",
+      includeDirs: ["packages/core"],
+    });
+    expect(resumed.success).toBe(false);
+    if (!resumed.success) {
+      expect(resumed.error.issues.map((issue) => issue.path.join("."))).toContain("includeDirs");
+    }
+    expect(schema.safeParse({ provider: "codex", prompt: "q", sessionId: "thread-123" }).success).toBe(true);
   });
 
   it("documents the Codex persisted-first-turn session contract", () => {

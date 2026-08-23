@@ -72,7 +72,12 @@ describe("Grok provider contract", () => {
     fetchMock.mockImplementationOnce(
       (_url: string, init: RequestInit) =>
         new Promise((_resolve, reject) => {
-          init.signal?.addEventListener("abort", () => reject(init.signal?.reason));
+          // Mirror real fetch: an already-aborted signal rejects immediately.
+          if (init.signal?.aborted) {
+            reject(init.signal.reason);
+            return;
+          }
+          init.signal?.addEventListener("abort", () => reject(init.signal?.reason), { once: true });
         }),
     );
     const tool = toolRegistry.find((entry) => entry.name === "ask-grok");

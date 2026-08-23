@@ -24,7 +24,7 @@ Or install globally: `npm install -g @ask-llm/mcp`
    - [Gemini CLI](https://github.com/google-gemini/gemini-cli) for `ask-gemini` tools
    - [Codex CLI](https://github.com/openai/codex) for `ask-codex` tools
    - [Claude Code CLI](https://docs.anthropic.com/en/docs/claude-code/getting-started) for Codex and other non-Claude hosts to consult Claude
-   - [xAI API key](https://console.x.ai/team/default/api-keys) in `XAI_API_KEY` for the default metered Grok harness, or official Grok Build with `ASK_GROK_HARNESS=grok-cli`
+   - [xAI API key](https://console.x.ai/team/default/api-keys) in `XAI_API_KEY` for the default metered Grok harness, or authenticated official Grok Build with headless JSON support (pin `harness: "grok-cli"` per request, or set `ASK_GROK_HARNESS=grok-cli` to make it the default; never automatic failover)
    - [Cursor CLI](https://cursor.com/docs/cli) authenticated for the optional model-neutral `ask-cursor-agent` tool
    - [Ollama](https://ollama.com) running locally for `ask-ollama` tools
 
@@ -43,8 +43,8 @@ The orchestrator exposes a single `ask-llm` tool (not one per provider), so the 
 
 | Tool | Purpose |
 |------|---------|
-| `ask-llm` | Single unified tool; picks the provider via `provider` parameter (`gemini`, `codex`, `claude`, `grok`, `ollama`, `antigravity`). For Codex continuity, pass `sessionId: ""` first, then resume with the returned ID |
-| `ask-cursor-agent` | Model-neutral Cursor Agent harness. Requires separate `provider` (`claude`, `codex`, `gemini`, `grok`), exact `model` from `agent --list-models`, and `prompt`; the requested model must match the provider family (Auto and noncanonical IDs are refused) and is echoed back as `model`, with Cursor's display label in optional `reportedModel`; prompts above 16 KB are piped over stdin; read-only ask mode, no fallback |
+| `ask-llm` | Single unified tool; picks the provider via `provider` parameter (`gemini`, `codex`, `claude`, `grok`, `ollama`, `antigravity`). Optional `harness` (Grok only), `includeDirs` (Codex/Claude/Antigravity) and `reasoningEffort` (Codex/Grok) are forwarded; unsupported combinations fail validation instead of being stripped. For Codex continuity, pass `sessionId: ""` first, then resume with the returned ID; resumed Codex calls reject `includeDirs` |
+| `ask-cursor-agent` | Model-neutral Cursor Agent harness. Requires separate `provider` (`claude`, `codex`, `gemini`, `grok`), exact `model` from `agent --list-models`, and `prompt`; the requested model must match the provider family (Auto and noncanonical IDs are refused) and is echoed back as `model`, with Cursor's display label in optional `reportedModel`; optional relative `includeDirs` map to repeated `--add-dir`, and the returned Cursor conversation `sessionId` can be passed back to resume; prompts above 16 KB are piped over stdin; read-only ask mode, no fallback |
 | `multi-llm` | Dispatch the same prompt to multiple providers in parallel; returns per-provider responses + usage in one call |
 | `get-usage-stats` | Per-session token totals + breakdowns by provider/model; in-memory, no persistence |
 | `diagnose` | Self-diagnosis: Node version, PATH, provider CLI presence + versions. Read-only |
@@ -83,7 +83,7 @@ npx @ask-llm/mcp doctor --format toon  # bounded, versioned agent-facing TOON pi
 - **Grok harness selection:** `xai-api` (default) or official headless `grok-cli`, never automatic failover
 - **Cursor Agent harness:** exact account model ID + separate provider attribution verified against the model family, `--mode ask`, no force/trust/spend changes/fallback
 - **Grok API cost safety:** exact model IDs, no fallback, `store:false`, no billing/credits/priority changes
-- **Session continuity** across four session-capable providers: Claude/Gemini (`--resume`), Codex (`exec resume`), Ollama (server-side replay); Antigravity is single-turn
+- **Session continuity** across four session-capable providers: Claude/Gemini (`--resume`), Codex (`exec resume`), Ollama (server-side replay), plus Cursor Agent conversations (`--resume`); Grok and Antigravity are single-turn
 - **Graceful degradation** if a provider is unavailable
 
 ## npm

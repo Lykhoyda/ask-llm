@@ -4,7 +4,7 @@ description: Slash commands for AI code review, brainstorming, and side-by-side 
 
 # Skills
 
-Skills are canonical portable workflows shared by Claude Code and Pi. In Claude Code invoke `/name`; in Pi invoke `/skill:name` or use natural-language matching. Each file delimits its portable contract and host adapters. Claude can use isolated reviewer agents; Pi runs the portable contract inline with native Ask LLM tools and does not claim isolated context.
+Skills are canonical portable workflows shared by Claude Code, Cursor Agent, and Pi. In Claude Code invoke `/name`; in Pi invoke `/skill:name` or use natural-language matching; Cursor currently exposes only the adapted `/codex-pair` and `/grok-pair` skills. Each file delimits its portable contract and host adapters. Claude can use isolated reviewer agents; Cursor uses native Agent Skills plus MCP; Pi runs the portable contract inline with native Ask LLM tools and does not claim isolated context.
 
 > `/fable-review` runs as a native isolated Claude Code agent and needs no MCP server. It is intentionally excluded from Pi discovery; Pi does not start a nested Fable session. On Pi, provider skills use native tools rather than MCP configuration. The Claude Code plugin bundles the Codex MCP registration used by `/sol-review` and `/codex-review`; `/ollama-review` and `/antigravity-review` require their respective MCP servers; see [Plugin Overview](/plugin/overview#installation).
 
@@ -160,7 +160,18 @@ Use when:
 If you want consensus extraction → use `/brainstorm` instead.
 If you're reviewing a code diff → use `/multi-review` instead.
 
-## Background Continuous Review
+## Pair Programming
+
+### `/grok-pair`: explicit Grok reviewer lifecycle
+
+Claude Code's `/grok-pair` selects one immutable Grok route: `cursor-agent` (preferred when configured with an exact Grok-family ID from `agent --list-models`), `xai-api`, or `grok-cli`. Before provider work it shows provider, harness, exact model, reasoning semantics, bounded files/include directories, session support, and cost boundary for consent. Claude remains the editor; Grok feedback is relayed and verified at each checkpoint. Cancellation, partial failure, and final attribution are explicit; Auto, model rewriting, and provider/harness fallback are forbidden.
+
+```text
+/grok-pair route=cursor-agent model=cursor-grok-4.6-high include=packages/api review this change
+/grok-pair route=xai-api model=grok-4.6 effort=xhigh review this change
+```
+
+On Claude Code the Cursor and direct Grok tools come from user-scoped registrations (`claude mcp add --scope user ask-llm -- npx -y @ask-llm/mcp`, optionally `claude mcp add --scope user grok -- npx -y @ask-llm/grok-mcp`); the plugin itself bundles only Codex. The unified `ask-llm` tool is used only with provider, harness, exact model, and effort pinned. When Cursor itself hosts `/grok-pair`, it avoids recursive Cursor invocation and offers only explicit API/CLI routes through `ask-grok` or that fully pinned unified form; missing tools produce `.cursor/mcp.json` plus Cursor Tools & MCP reload guidance, never Claude-only setup commands.
 
 ### `codex-pair`: host lifecycle + dashboard
 
@@ -168,6 +179,7 @@ If you're reviewing a code diff → use `/multi-review` instead.
 
 - **Claude Code:** the PostToolUse hook fires after `Edit` / `Write` / `MultiEdit` when a marker exists.
 - **Pi:** the extension observes successful built-in `tool_result` edit/write events and additionally requires project trust plus user-owned allowlist consent through `/codex-pair`. A committed marker alone is never consent. Findings use non-triggering `steer` delivery and are non-blocking; print-mode asynchronous pairing is unsupported.
+- **Cursor Agent:** the supported Agent Skills surface runs an on-demand consent-gated pair session through a user-installed `ask-codex` leaf when exposed, otherwise the fully pinned unified `ask-llm`; the first call creates a persisted Thread ID with model, effort, and include directories, and follow-ups resume it without claiming Claude hooks are active. See [Cursor Agent Host](/plugin/cursor).
 - **`/codex-pair`**: a user-invocable slash command that shows current status (active / paused / not configured) and runs interactive setup on first use. Use this when you want to enable codex-pair on a new project (auto-detects context from your README + manifests, drafts the marker, asks you to confirm) or check whether it's currently running. Pairs with `/codex-pair-pause` and `/codex-pair-resume` (the imperative toggles).
 
 > This is the "hidden" surface of the plugin: the hook ships in every install but is disabled by default until a project opts in. The full mechanism, env vars, and cost characteristics live in [Codex Pair](/plugin/codex-pair).

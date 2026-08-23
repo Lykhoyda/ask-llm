@@ -13,7 +13,7 @@ Ask LLM provides Model Context Protocol (MCP) servers that let any MCP-compatibl
 - `@ask-llm/ollama-mcp`: MCP server for local Ollama. No API keys, fully private. Default model: qwen3.6:27b (no fallback).
 - `@ask-llm/gemini-mcp`: MCP server for Google Gemini CLI. 1M+ token context. Default model: gemini-3.1-pro-preview → gemini-3.6-flash on quota. (Enterprise-gated since 2026-06-18.)
 - `@ask-llm/mcp`: Unified server: auto-detects installed providers and registers all available tools.
-- `@ask-llm/plugin`: Canonical Claude Code + Pi host package. One skill corpus; Claude marketplace agents/hooks; Pi native provider tools and consent-gated lifecycle extension.
+- `@ask-llm/plugin`: Canonical Claude Code + Cursor Agent + Pi host package. One skill corpus; Claude marketplace agents/hooks; Cursor Plugin Agent Skills + `mcp.json`; Pi native provider tools and consent-gated lifecycle extension.
 
 ## Installation
 
@@ -44,8 +44,8 @@ codex mcp add claude -- npx -y @ask-llm/claude-mcp
 | ask-gemini | @ask-llm/gemini-mcp | prompt (required), model (optional), sessionId (optional) | Send prompts to Gemini CLI. Use @ syntax for files. sessionId resumes a conversation. |
 | ask-gemini-edit | @ask-llm/gemini-mcp | prompt (required), model (optional), includeDirs (optional) | Get structured OLD/NEW code edit blocks from Gemini. |
 | fetch-chunk | @ask-llm/gemini-mcp | cacheKey (required), chunkIndex (required) | Retrieve subsequent chunks from cached large responses. |
-| ask-llm | @ask-llm/mcp | prompt (required), provider (required), model (optional), sessionId (optional) | Route a prompt to a chosen installed provider (codex/claude/grok/antigravity/ollama/gemini). |
-| ask-cursor-agent | @ask-llm/mcp | provider (required), model (required exact Cursor ID), prompt (required) | Model-neutral Cursor harness in read-only ask mode; no force, trust, spend changes, or fallback. |
+| ask-llm | @ask-llm/mcp | prompt (required), provider (required), model (optional), sessionId (optional), harness (optional, grok only), includeDirs (optional: codex/claude/antigravity), reasoningEffort (optional: codex/grok) | Route a prompt to a chosen installed provider (codex/claude/grok/antigravity/ollama/gemini). Unsupported includeDirs/reasoningEffort combinations fail validation instead of being stripped; resumed Codex threads reject includeDirs. |
+| ask-cursor-agent | @ask-llm/mcp | provider (required), model (required exact Cursor ID), prompt (required), includeDirs (optional, relative `--add-dir` roots), sessionId (optional; reuse the returned Cursor conversation ID to `--resume`) | Model-neutral Cursor harness in read-only ask mode; no force, trust, spend changes, or fallback. |
 | multi-llm | @ask-llm/mcp | prompt (required), providers (optional) | Dispatch one prompt to multiple providers in parallel; returns a structured report. |
 | get-usage-stats | all packages | (none) | Session usage aggregation (tokens, calls) for the provider. |
 | diagnose | @ask-llm/mcp | (none) | Environment diagnostics: which provider CLIs are installed and reachable. |
@@ -53,9 +53,11 @@ codex mcp add claude -- npx -y @ask-llm/claude-mcp
 
 Note: every `includeDirs` parameter accepts **relative paths only**: no `..`, absolute paths, or `~` (rejected by schema validation).
 
-## Claude Code and Pi Host Package
+## Claude Code, Cursor Agent, and Pi Host Package
 
-For Pi: `pi install npm:@ask-llm/plugin`. Invoke `/skill:<name>`; Pi gets native `ask-codex`, `ask-gemini`, `ask-grok`, `ask-ollama`, `ask-antigravity`, model-neutral `ask-cursor-agent`, and deterministic `ask-multi` tools because Pi has no built-in MCP client. `fable-review`, blocking Stop-gate parity, and asynchronous one-shot print pairing are intentionally unsupported. Pi codex-pair requires marker + project trust + user-owned allowlist consent.
+For Cursor Agent: `agent --plugin-dir ./packages/claude-plugin` from a source checkout loads `.cursor-plugin/plugin.json` (Agent Skills exposing exactly `/codex-pair` and `/grok-pair`; explicit empty `agents`/`commands`/`hooks`; `mcp.json` registering only the unified `ask-llm` server, with `@ask-llm/codex-mcp`/`@ask-llm/grok-mcp` as optional user installs); no Claude hooks, namespaces, or the `-ack`/`-pause`/`-resume` toggles. Guide: https://lykhoyda.github.io/ask-llm/plugin/cursor
+
+For Pi: `pi install npm:@ask-llm/plugin`. Invoke `/skill:<name>`; Pi gets native `ask-codex`, `ask-gemini`, `ask-grok`, `ask-ollama`, `ask-antigravity`, model-neutral `ask-cursor-agent`, and deterministic `ask-multi` tools because Pi has no built-in MCP client. `fable-review`, `grok-pair`, blocking Stop-gate parity, and asynchronous one-shot print pairing are intentionally unsupported. Pi codex-pair requires marker + project trust + user-owned allowlist consent.
 
 ## Claude Code Plugin
 
@@ -66,10 +68,10 @@ Install the plugin for review skills, brainstorm agents, and automated hooks:
 /plugin install ask-llm@ask-llm-plugins
 ```
 
-Skills: /multi-review, /fable-review, /sol-review, /codex-review, /grok-review, /antigravity-review, /ollama-review, /gemini-review, /brainstorm, /brainstorm-all, /compare, /codex-verify, /codex-image, /codex-pair (+ -ack, -pause, -resume)
+Skills: /multi-review, /fable-review, /sol-review, /codex-review, /grok-review, /antigravity-review, /ollama-review, /gemini-review, /brainstorm, /brainstorm-all, /compare, /codex-verify, /codex-image, /grok-pair, /codex-pair (+ -ack, -pause, -resume)
 
 codex-pair (flagship): opt-in continuous review. Codex reviews every file edit as Claude makes it, gated on a .codex-pair/context.md marker (zero cost without it). Debounced per-edit reviews, HIGH/MED verdicts surface on the next turn, opt-in Stop gate blocks turn-end on unaddressed HIGH findings. Full page: https://lykhoyda.github.io/ask-llm/plugin/codex-pair
-Plugin pages: https://lykhoyda.github.io/ask-llm/plugin/overview, https://lykhoyda.github.io/ask-llm/plugin/codex-pair, https://lykhoyda.github.io/ask-llm/plugin/skills, https://lykhoyda.github.io/ask-llm/plugin/hooks, https://lykhoyda.github.io/ask-llm/plugin/agents
+Plugin pages: https://lykhoyda.github.io/ask-llm/plugin/overview, https://lykhoyda.github.io/ask-llm/plugin/cursor, https://lykhoyda.github.io/ask-llm/plugin/codex-pair, https://lykhoyda.github.io/ask-llm/plugin/skills, https://lykhoyda.github.io/ask-llm/plugin/hooks, https://lykhoyda.github.io/ask-llm/plugin/agents
 
 ## Links
 

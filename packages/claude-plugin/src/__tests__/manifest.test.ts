@@ -1,7 +1,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { describe, expect, it } from "vitest";
-import { PLUGIN_ROOT, REPO_ROOT, readJson } from "./_helpers.js";
+import { listSubdirs, PLUGIN_ROOT, REPO_ROOT, readJson } from "./_helpers.js";
 
 interface PluginManifest {
   name: string;
@@ -77,10 +77,99 @@ describe("Claude Code MCP manifest", () => {
     mcpServers: Record<string, { command: string; args: string[] }>;
   }>(".mcp.json");
 
-  it("registers the canonical Ask LLM Codex server for clean plugin installs", () => {
-    expect(mcp.mcpServers.codex).toEqual({
-      command: "npx",
-      args: ["-y", "@ask-llm/codex-mcp"],
+  it("registers only the canonical Ask LLM Codex server; Cursor/Grok routes stay user-installed", () => {
+    expect(mcp.mcpServers).toEqual({
+      codex: { command: "npx", args: ["-y", "@ask-llm/codex-mcp"] },
+    });
+  });
+});
+
+interface CursorManifest {
+  name: string;
+  version: string;
+  skills?: string | string[];
+  agents?: string | string[];
+  commands?: string | string[];
+  rules?: string | string[];
+  hooks?: string | Record<string, unknown>;
+  mcpServers?: string | Record<string, unknown> | Array<string | Record<string, unknown>>;
+}
+
+function resolveCursorComponents(manifest: CursorManifest) {
+  const pathList = (value: string | string[] | undefined, folder: string): string[] => {
+    if (value === undefined) {
+      return fs.existsSync(path.join(PLUGIN_ROOT, folder)) ? [`<auto:${folder}>`] : [];
+    }
+    return Array.isArray(value) ? value : [value];
+  };
+  const hooks = (() => {
+    if (manifest.hooks === undefined) {
+      return fs.existsSync(path.join(PLUGIN_ROOT, "hooks", "hooks.json")) ? ["<auto:hooks/hooks.json>"] : [];
+    }
+    if (typeof manifest.hooks === "string") return [manifest.hooks];
+    const inline = (manifest.hooks.hooks as Record<string, unknown> | undefined) ?? manifest.hooks;
+    return Object.keys(inline);
+  })();
+  return {
+    skills: pathList(manifest.skills, "skills"),
+    agents: pathList(manifest.agents, "agents"),
+    commands: pathList(manifest.commands, "commands"),
+    rules: pathList(manifest.rules, "rules"),
+    hooks,
+  };
+}
+
+describe("Cursor plugin adapter", () => {
+  const manifest = readJson<CursorManifest>(".cursor-plugin/plugin.json");
+  const mcp = readJson<{ mcpServers: Record<string, { command: string; args: string[] }> }>("mcp.json");
+  const CURSOR_PAIR_SKILLS = ["./skills/codex-pair", "./skills/grok-pair"];
+
+  it("uses Cursor's native skill and MCP plugin surfaces rather than Claude hook registration", () => {
+    expect(manifest.name).toBe("ask-llm");
+    expect(manifest.version).toBe(readJson<{ version: string }>("package.json").version);
+    expect(manifest.mcpServers).toBe("./mcp.json");
+  });
+
+  it("resolves on Cursor to exactly the two pair skills and no agents, commands, rules, or hooks", () => {
+    expect(resolveCursorComponents(manifest)).toEqual({
+      skills: CURSOR_PAIR_SKILLS,
+      agents: [],
+      commands: [],
+      rules: [],
+      hooks: [],
+    });
+  });
+
+  it("exposes exactly the two Cursor-adapted pair skills", () => {
+    expect(manifest.skills).toEqual(CURSOR_PAIR_SKILLS);
+    for (const skill of manifest.skills) {
+      expect(fs.existsSync(path.join(PLUGIN_ROOT, skill, "SKILL.md"))).toBe(true);
+    }
+  });
+
+  it("excludes every other shipped skill, including the hook-lifecycle toggles and Claude-oriented workflows", () => {
+    const shipped = listSubdirs("skills").map((name) => `./skills/${name}`);
+    const excluded = shipped.filter((skill) => !CURSOR_PAIR_SKILLS.includes(skill));
+    expect(excluded.length).toBeGreaterThan(0);
+    for (const hookOnly of ["./skills/codex-pair-ack", "./skills/codex-pair-pause", "./skills/codex-pair-resume"]) {
+      expect(excluded).toContain(hookOnly);
+    }
+    for (const skill of excluded) {
+      expect(manifest.skills).not.toContain(skill);
+    }
+  });
+
+  it("replaces agents/, commands/, and hooks/hooks.json discovery with explicit empty Cursor-schema values", () => {
+    expect(manifest.agents).toEqual([]);
+    expect(manifest.commands).toEqual([]);
+    expect(manifest.hooks).toEqual({});
+    expect(fs.existsSync(path.join(PLUGIN_ROOT, "agents"))).toBe(true);
+    expect(fs.existsSync(path.join(PLUGIN_ROOT, "hooks", "hooks.json"))).toBe(true);
+  });
+
+  it("bundles exactly one unified Ask LLM server; split Codex/Grok servers stay user-installed", () => {
+    expect(mcp.mcpServers).toEqual({
+      "ask-llm": { command: "npx", args: ["-y", "@ask-llm/mcp"] },
     });
   });
 });
@@ -200,6 +289,8 @@ describe("dual-host package manifest", () => {
   it("ships every runtime resource needed by both hosts", () => {
     for (const resource of [
       ".claude-plugin/",
+      ".cursor-plugin/",
+      "mcp.json",
       "agents/",
       "dist/",
       "hooks/",

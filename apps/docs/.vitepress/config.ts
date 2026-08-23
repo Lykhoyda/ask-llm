@@ -4,8 +4,7 @@ import { withMermaid } from "vitepress-plugin-mermaid";
 const SITE_URL = "https://lykhoyda.github.io/ask-llm";
 const SITE_HOSTNAME = "https://lykhoyda.github.io/ask-llm/";
 const SITE_TITLE = "Ask LLM";
-const SITE_DESCRIPTION =
-  "MCP servers and a Claude Code + Pi host package for AI-to-AI collaboration";
+const SITE_DESCRIPTION = "MCP servers and a Claude Code + Cursor Agent + Pi host package for AI-to-AI collaboration";
 
 export default withMermaid(
   defineConfig({
@@ -75,16 +74,12 @@ export default withMermaid(
 
     // Generate per-page OG, Twitter, and canonical tags dynamically.
     transformPageData(pageData) {
-      const title = pageData.title
-        ? `${pageData.title} | ${SITE_TITLE}`
-        : SITE_TITLE;
+      const title = pageData.title ? `${pageData.title} | ${SITE_TITLE}` : SITE_TITLE;
       const description = pageData.description || SITE_DESCRIPTION;
 
       // Build the canonical URL from the relative path.
       // index.md → /ask-llm/ ; providers/gemini.md → /ask-llm/providers/gemini.html
-      const pagePath = pageData.relativePath
-        .replace(/index\.md$/, "")
-        .replace(/\.md$/, ".html");
+      const pagePath = pageData.relativePath.replace(/index\.md$/, "").replace(/\.md$/, ".html");
       const canonicalUrl = `${SITE_URL}/${pagePath}`;
       const ogImageUrl = `${SITE_URL}/og-image.png`;
 
@@ -125,6 +120,7 @@ export default withMermaid(
           text: "Host Packages",
           items: [
             { text: "Claude Code", link: "/plugin/overview" },
+            { text: "Cursor Agent", link: "/plugin/cursor" },
             { text: "Pi", link: "/plugin/pi" },
             { text: "Codex Pair", link: "/plugin/codex-pair" },
           ],
@@ -158,6 +154,7 @@ export default withMermaid(
           collapsed: false,
           items: [
             { text: "Claude Code", link: "/plugin/overview" },
+            { text: "Cursor Agent", link: "/plugin/cursor" },
             { text: "Pi", link: "/plugin/pi" },
             { text: "Codex Pair", link: "/plugin/codex-pair" },
             { text: "Skills", link: "/plugin/skills" },
@@ -199,9 +196,7 @@ export default withMermaid(
         },
       ],
 
-      socialLinks: [
-        { icon: "github", link: "https://github.com/Lykhoyda/ask-llm" },
-      ],
+      socialLinks: [{ icon: "github", link: "https://github.com/Lykhoyda/ask-llm" }],
 
       footer: {
         message: "Released under the MIT License.",

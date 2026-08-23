@@ -67,7 +67,7 @@ Representative commands:
 /skill:codex-pair
 ```
 
-Pi loads 15 skills. `fable-review` is intentionally Claude Code-only and is neither loaded nor advertised in Pi: independent Fable review would require a nested Pi session or a new provider bridge, both outside this package's bounded design.
+Pi loads 16 skills. `fable-review` and `grok-pair` are intentionally excluded and are neither loaded nor advertised: independent Fable review would require a nested Pi session or provider bridge, while Grok pairing still needs a dedicated Pi consent/lifecycle adapter.
 
 Native tools:
 
@@ -76,7 +76,7 @@ Native tools:
 | `ask-codex` | complete prompt/model/reasoning/session/includeDirs/preferred/sandbox schema; read-only default |
 | `ask-gemini` | prompt/model/session schema and canonical quota fallback |
 | `ask-grok` | prompt/model/reasoning plus explicit `xai-api` or `grok-cli` harness; no model/harness fallback |
-| `ask-cursor-agent` | model-neutral Cursor harness with separate provider (`claude`, `codex`, `gemini`, `grok`) + exact account model ID, verified against the requested model family, with the exact ID echoed as `model` and Cursor's display label as `reportedModel`; read-only ask mode |
+| `ask-cursor-agent` | model-neutral Cursor harness with separate provider + exact account model ID, safe relative `includeDirs`, and optional returned/resumed Cursor `sessionId`; the exact ID is echoed as `model`, Cursor's label stays separate as `reportedModel`, and read-only ask mode never falls back |
 | `ask-ollama` | prompt/model/session schema; local-only, no silent model substitution |
 | `ask-antigravity` | prompt/includeDirs schema and supported-`agy` checks |
 | `ask-multi` | same prompt to 2–5 unique providers via bounded `Promise.allSettled`; stable input-order records and explicit failures |
@@ -121,16 +121,16 @@ Pi pairing works in TUI, RPC, and a long-lived JSON process. It is unsupported i
 
 ## Host feature matrix
 
-| Capability | Claude Code | Codex CLI host | Pi |
-|---|---:|---:|---:|
-| Provider MCP servers | Yes | Yes | No; native tools instead |
-| Review/compare/brainstorm skills | Yes | MCP tools only | Yes, `/skill:<name>` + natural language |
-| Isolated reviewer subagents | Yes | No | No; portable contracts run inline |
-| Independent `fable-review` | Yes | No | No; excluded |
-| `codex-image` | Yes | provider-dependent | Yes, explicit workspace-write opt-in |
-| codex-pair per-edit review | Claude hooks | No | Pi lifecycle extension |
-| Blocking `blockOn: HIGH` Stop gate | Yes | No | **No**; findings are non-blocking |
-| Pairing in one-shot print mode | Hook-dependent | No | **No** |
+| Capability | Claude Code | Cursor Agent | Codex CLI host | Pi |
+|---|---:|---:|---:|---:|
+| Provider MCP servers | Yes | Yes | Yes | No; native tools instead |
+| Review/compare/brainstorm skills | Yes | Agent Skills | MCP tools only | Yes, `/skill:<name>` + natural language |
+| Isolated reviewer subagents | Yes | Host-dependent | No | No; portable contracts run inline |
+| Independent `fable-review` | Yes | No; excluded | No | No; excluded |
+| `codex-image` | Yes | provider-dependent | provider-dependent | Yes, explicit workspace-write opt-in |
+| codex-pair | Claude per-edit hooks | On-demand persisted session | No | Pi lifecycle extension |
+| Blocking `blockOn: HIGH` Stop gate | Yes | No claim | No | **No**; findings are non-blocking |
+| Pairing in one-shot print mode | Hook-dependent | On-demand skill | No | **No** |
 
 ## Update and remove
 

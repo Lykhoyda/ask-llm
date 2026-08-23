@@ -11,6 +11,7 @@ import {
   Logger,
   type ProviderName,
   registerSessionUsageResource,
+  relativeDirSchema,
   type UsageStats,
 } from "@ask-llm/shared";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
@@ -71,6 +72,7 @@ export type ExecutorFn = (options: {
   outputSchema?: Record<string, unknown>;
   readOnly?: boolean;
   harness?: "xai-api" | "grok-cli";
+  reasoningEffort?: "low" | "medium" | "high" | "xhigh" | "max";
   onProgress?: (output: string) => void;
   signal?: AbortSignal;
 }) => Promise<{
@@ -124,6 +126,7 @@ export async function detectProviders(): Promise<ProviderStatus> {
     Object.entries(PROVIDERS).map(async ([key, provider]) => {
       let found: boolean;
       let support: ProviderSupportProbe | undefined;
+      let probeError: string | undefined;
       const disabled = Boolean(provider.disabledWhenEnvVar && process.env[provider.disabledWhenEnvVar]);
       if (disabled) {
         found = false;
@@ -150,17 +153,18 @@ export async function detectProviders(): Promise<ProviderStatus> {
         try {
           const mod = await import(provider.availabilityModule);
           found = await (mod[provider.availabilityFn] as () => Promise<boolean>)();
-        } catch {
+        } catch (error) {
           found = false;
+          probeError = error instanceof Error ? error.message : String(error);
         }
       } else {
         found = await isCommandAvailable(provider.command);
       }
-      return { key, provider, found, disabled, support };
+      return { key, provider, found, disabled, support, probeError };
     }),
   );
 
-  for (const { key, provider, found, disabled, support } of checks) {
+  for (const { key, provider, found, disabled, support, probeError } of checks) {
     loadedExecutors.delete(key);
     if (found) {
       try {
@@ -212,18 +216,18 @@ export async function detectProviders(): Promise<ProviderStatus> {
         continue;
       }
       const hint = INSTALL_HINTS[key] ?? "";
+      const failure = provider.availabilityFailure ?? `${provider.name} (${provider.command}) was not found on PATH.`;
+      const message = probeError ? `${failure} (readiness probe failed: ${probeError})` : failure;
       missing.push(key);
       unavailable.push({
         key,
         provider: provider.name,
         state: "missing",
         detected: false,
-        message: provider.availabilityFailure ?? `${provider.name} (${provider.command}) was not found on PATH.`,
+        message,
         remediation: hint || undefined,
       });
-      Logger.warn(
-        `Provider ${provider.name} (${provider.command}) — ${provider.availabilityFailure ?? "not found"}${hint ? `. Configure: ${hint}` : ""}`,
-      );
+      Logger.warn(`Provider ${provider.name} (${provider.command}) — ${message}${hint ? `. Configure: ${hint}` : ""}`);
     }
   }
 
@@ -269,6 +273,19 @@ export function buildAskLlmSchema(availableProviders: string[], excludedProvider
         .describe(
           'Optional session ID. For Codex, pass "" on the first call to create a persisted thread, then pass its returned Thread ID to resume; omitting it makes the call ephemeral. For other session-capable providers, pass a prior Session ID to resume. Claude/Gemini use --resume, Codex uses exec resume, and Ollama uses server-side replay. Grok and Antigravity are one-shot.',
         ),
+      includeDirs: z
+        .array(relativeDirSchema)
+        .max(32)
+        .optional()
+        .describe(
+          'Relative workspace directories exposed to providers that support additional read roots (Codex, Claude, and Antigravity). Unsupported providers are rejected instead of silently dropping this option; Codex only accepts it on a fresh call (sessionId omitted or ""), never on a resumed thread.',
+        ),
+      reasoningEffort: z
+        .enum(["low", "medium", "high", "xhigh", "max"])
+        .optional()
+        .describe(
+          "Provider-native reasoning effort. Codex accepts low/medium/high/xhigh/max; Grok accepts low/medium/high/xhigh. Unsupported provider/effort combinations are rejected, never stripped.",
+        ),
     })
     .superRefine((value, ctx) => {
       if ((value.harness === "xai-api" || value.harness === "grok-cli") && value.provider !== "grok") {
@@ -276,6 +293,35 @@ export function buildAskLlmSchema(availableProviders: string[], excludedProvider
           code: "custom",
           path: ["harness"],
           message: `${value.harness} is only valid with provider=grok`,
+        });
+      }
+      if (value.includeDirs && !["codex", "claude", "antigravity"].includes(value.provider)) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["includeDirs"],
+          message: `includeDirs is not supported by provider=${value.provider}; Ask LLM will not silently strip it`,
+        });
+      }
+      if (value.provider === "codex" && value.includeDirs && value.sessionId) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["includeDirs"],
+          message:
+            'includeDirs cannot be added to a resumed Codex session because `codex exec resume` has no --add-dir; establish directories on the first call with sessionId "" and omit includeDirs when resuming',
+        });
+      }
+      if (value.reasoningEffort && value.provider !== "codex" && value.provider !== "grok") {
+        ctx.addIssue({
+          code: "custom",
+          path: ["reasoningEffort"],
+          message: `reasoningEffort is not supported by provider=${value.provider}; Ask LLM will not silently strip it`,
+        });
+      }
+      if (value.provider === "grok" && value.reasoningEffort === "max") {
+        ctx.addIssue({
+          code: "custom",
+          path: ["reasoningEffort"],
+          message: "Grok reasoningEffort must be low, medium, high, or xhigh",
         });
       }
     });
@@ -326,7 +372,7 @@ export async function startServer() {
     async (args: Record<string, unknown>, extra: ToolExtra): Promise<CallToolResult> => {
       const progress = createProgressTracker("ask-llm", extra, PROGRESS_MESSAGES("ask-llm"));
       try {
-        const { provider, prompt, model, sessionId, harness } = askLlmSchema.parse(args);
+        const { provider, prompt, model, sessionId, harness, includeDirs, reasoningEffort } = askLlmSchema.parse(args);
         Logger.toolInvocation("ask-llm", args);
 
         const executor = loadedExecutors.get(provider);
@@ -341,6 +387,8 @@ export async function startServer() {
           prompt,
           model,
           sessionId,
+          includeDirs,
+          reasoningEffort,
           harness: harness === "xai-api" || harness === "grok-cli" ? harness : undefined,
           onProgress: (output) => {
             progress.updateOutput(output);
@@ -394,6 +442,15 @@ export async function startServer() {
         "Exact Cursor catalog model ID from `agent --list-models`; Ask LLM does not rewrite it, echoes it back as `model`, and refuses Auto or other noncanonical IDs. The CLI's display label is returned separately as `reportedModel`.",
       ),
     prompt: z.string().min(1).max(100000).describe("Question, review, or analysis task for Cursor Agent ask mode."),
+    includeDirs: z
+      .array(relativeDirSchema)
+      .max(32)
+      .optional()
+      .describe("Relative additional workspace directories passed to Cursor Agent with repeatable --add-dir."),
+    sessionId: z
+      .string()
+      .optional()
+      .describe("Prior Cursor conversation ID to resume. Omit on the first call and reuse the returned sessionId."),
   });
   server.registerTool(
     "ask-cursor-agent",
@@ -425,13 +482,19 @@ export async function startServer() {
           provider: result.provider,
           response: result.response,
           model: result.model,
+          sessionId: result.sessionId,
           usage: result.usage,
           harness: result.harness,
           reportedModel: result.reportedModel,
         };
         const structuredContent: Record<string, unknown> = { ...structured };
         return {
-          content: [{ type: "text", text: `${result.provider} via Cursor Agent:\n${result.response}` }],
+          content: [
+            {
+              type: "text",
+              text: `${result.provider} via Cursor Agent:\n${result.response}${result.sessionId ? `\n\n[Session ID: ${result.sessionId}]` : ""}`,
+            },
+          ],
           structuredContent,
           isError: false,
         };

@@ -35,6 +35,8 @@ export const ERROR_MESSAGES = {
   NO_PROMPT_PROVIDED:
     "Please provide a prompt for analysis. Ask general questions or describe the code you want reviewed.",
   TOOL_NOT_FOUND: "not found in registry",
+  INCLUDE_DIRS_ON_RESUME:
+    'includeDirs cannot be added to a resumed Codex session because `codex exec resume` has no --add-dir; Ask LLM will not silently drop the requested directories. Establish directories on the first call with sessionId "" and omit includeDirs when resuming, or start a fresh session.',
 } as const;
 
 export const STATUS_MESSAGES = {
