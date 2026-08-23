@@ -2,7 +2,7 @@
 
 This file is the project's committed home for project-intrinsic agent knowledge: build, test, release, architecture, and sharp-edge notes that should travel with the code.
 
-- Build/test: `yarn install --immutable`, then `yarn build` (topological — run it BEFORE `yarn test`; workspace tests resolve sibling packages from `dist/`, so unbuilt `@ask-llm/shared` fails every suite). Lint via `yarn lint` (biome format is enforced; `biome check --write` fixes).
+- Build/test: `yarn install --immutable`, then `yarn build` (topological — run it BEFORE `yarn test`; workspace tests resolve sibling packages from `dist/`, so unbuilt `@ask-llm/shared` fails every suite). Lint via `yarn lint` (biome format is enforced; `biome check --write` fixes). Harness-facing changes use the canonical local-only `yarn prepr:harness` gate; opt-in live authorization and evidence rules are in `docs/HARNESS-SMOKE.md`.
 - Architecture decisions live in `docs/DECISIONS.md` (numbered ADRs, newest prepended at the top); provider behavior differences are deliberate and cataloged in `docs/PROVIDER-PARITY.md` — read both before "aligning" providers.
 - Docs-model drift is CI-enforced: `scripts/check-docs-drift.mjs` requires `apps/docs/.vitepress/theme/providers.ts` `defaultModel` (and gemini/antigravity `fallbackModel`) values to match each package's `constants.ts` literally, matched inside each provider's own object block. Change both together.
 - MCP Registry rejects duplicate versions. Keep normal and recovery publication routed through `scripts/publish-mcp-registry.mjs`; it verifies exact existing records and publishes only missing ones (ADR-139). A manual registry retry must not re-enter npm publication.

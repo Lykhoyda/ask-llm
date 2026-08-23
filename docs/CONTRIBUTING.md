@@ -50,9 +50,15 @@ See [`CLAUDE.md`](../CLAUDE.md) for the full architecture.
 7. **Update `docs/ROADMAP.md` and `docs/BUGS.md`** if your change resolves a tracked item.
 8. **Add a changeset** if your change affects published packages. See "Versioning your change" below.
 
-## Pre-push smoke tests
+## Local harness smoke tests
 
-A Husky `pre-push` hook runs real smoke tests against your locally installed CLIs (Ollama, Antigravity, Codex). Quota and rate-limit errors are treated as skip-with-warning so consecutive pushes don't sabotage each other (see [ADR-051](DECISIONS.md)). Force a hard fail with `FORCE_SMOKE=1 git push`. Skip entirely with `git push --no-verify` if needed.
+Harness-facing changes use one explicit, local-only pre-PR gate:
+
+```bash
+yarn prepr:harness
+```
+
+It runs the immutable install, build, lint, full test suite, and deterministic real-adapter/fake-transport multi-harness matrix. The Husky `pre-push` hook runs only the fast deterministic matrix; it never spends quota. Optional live calls require explicit per-surface and exact-model authorization and are never required by CI. Results distinguish `PASS`, `FAIL`, `SKIP_UNAVAILABLE`, and `SKIP_NOT_AUTHORIZED`; missing optional tools never look green. See [Local harness smoke gate](HARNESS-SMOKE.md) for prerequisites, cost boundaries, cleanup, troubleshooting, and the PR evidence format.
 
 ## Adding a new tool
 
