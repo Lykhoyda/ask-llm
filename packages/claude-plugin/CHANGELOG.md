@@ -1,5 +1,21 @@
 # @ask-llm/plugin
 
+## 0.15.0
+
+### Minor Changes
+
+- [#290](https://github.com/Lykhoyda/ask-llm/pull/290) [`af77cd8`](https://github.com/Lykhoyda/ask-llm/commit/af77cd8b90cb836f87a39893d52e983a36fbea53) Thanks [@Lykhoyda](https://github.com/Lykhoyda)! - Add an exact Grok + GPT-5.6 Sol brainstorming panel with Cursor Agent as the preferred model-neutral harness, explicit direct-Grok alternatives, deterministic partial-failure synthesis rules, truthful route/model attribution, and no Gemini or silent fallback in the two-model workflow.
+
+- [#291](https://github.com/Lykhoyda/ask-llm/pull/291) [`d989ec9`](https://github.com/Lykhoyda/ask-llm/commit/d989ec916f71eefe5fe0814d5c1eb75d29dfe89f) Thanks [@Lykhoyda](https://github.com/Lykhoyda)! - Add a first-class Claude Code `/grok-pair` workflow with explicit Cursor Agent, xAI API, or Grok CLI routes and no silent fallback. Add Cursor Plugin/Agent Skills support for `/codex-pair` with consent, bounded context, exact Codex model/effort/include options, persisted session reuse, cancellation, and actionable diagnostics. Unified Ask LLM now forwards supported reasoning/include options, rejects `includeDirs` on resumed Codex threads instead of dropping them (enforced once in the shared Codex executor so the split `ask-codex` and Pi tools fail closed too), and Cursor Agent consultations support validated include directories plus structured session resume. The Claude plugin keeps bundling only Codex; `@ask-llm/mcp` and `@ask-llm/grok-mcp` are user-scoped installs for the Grok routes. Unified startup now detects authenticated Grok CLI-only installations without requiring an API key or server-wide harness override (an explicit `ASK_GROK_HARNESS` keeps readiness on that harness), while execution remains pinned to the request's explicit harness with no fallback and a CLI-only default-route call reports the `harness: "grok-cli"` pin instead of a bare missing-key error. The Cursor plugin manifest exposes exactly `/codex-pair` and `/grok-pair` with explicit empty `agents`/`commands`/`hooks`, and its `mcp.json` bundles only the unified `ask-llm` server (split Codex/Grok servers are optional user installs).
+
+### Patch Changes
+
+- [#293](https://github.com/Lykhoyda/ask-llm/pull/293) [`fc4be66`](https://github.com/Lykhoyda/ask-llm/commit/fc4be66cef40a0d3691540fad404b5a11b93a0e4) Thanks [@Lykhoyda](https://github.com/Lykhoyda)! - Document Pi's pre-dispatch refusal of brainstorm participant lists that mix routed model specs with bare provider names.
+
+- Updated dependencies [[`d989ec9`](https://github.com/Lykhoyda/ask-llm/commit/d989ec916f71eefe5fe0814d5c1eb75d29dfe89f), [`fa272ee`](https://github.com/Lykhoyda/ask-llm/commit/fa272ee9c5ea1bd8ea85673fc0a757a0cd81a509), [`af77cd8`](https://github.com/Lykhoyda/ask-llm/commit/af77cd8b90cb836f87a39893d52e983a36fbea53)]:
+  - @ask-llm/mcp@0.8.0
+  - @ask-llm/grok-mcp@0.1.2
+
 ## 0.14.0
 
 ### Minor Changes

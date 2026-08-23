@@ -1,6 +1,6 @@
 {
   "name": "@ask-llm/mcp",
-  "version": "0.7.0",
+  "version": "0.8.0",
   "mcpName": "io.github.Lykhoyda/ask-llm",
   "description": "Unified MCP server for multi-LLM consultation — routes Gemini, Codex, Claude, Grok, Ollama, and Antigravity behind runtime availability checks",
   "type": "module",
@@ -76,7 +76,7 @@
     "@ask-llm/claude-mcp": "^0.1.7",
     "@ask-llm/codex-mcp": "^0.7.5",
     "@ask-llm/gemini-mcp": "^1.7.2",
-    "@ask-llm/grok-mcp": "^0.1.1",
+    "@ask-llm/grok-mcp": "^0.1.2",
     "@ask-llm/ollama-mcp": "^0.5.7",
     "@modelcontextprotocol/sdk": "^1.27.1",
     "@toon-format/toon": "^4.1.1",
