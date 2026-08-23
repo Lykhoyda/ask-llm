@@ -25,7 +25,14 @@ const CANONICAL_PACKAGES = {
   "claude-mcp": { name: "@ask-llm/claude-mcp", bins: ["ask-claude-mcp"] },
   "claude-plugin": {
     name: "@ask-llm/plugin",
-    bins: ["ask-antigravity-run", "ask-codex-run", "ask-gemini-run", "ask-grok-run", "ask-ollama-run"],
+    bins: [
+      "ask-antigravity-run",
+      "ask-brainstorm-run",
+      "ask-codex-run",
+      "ask-gemini-run",
+      "ask-grok-run",
+      "ask-ollama-run",
+    ],
   },
   "codex-mcp": { name: "@ask-llm/codex-mcp", bins: ["ask-codex-mcp"] },
   "gemini-mcp": { name: "@ask-llm/gemini-mcp", bins: ["ask-gemini-mcp"] },

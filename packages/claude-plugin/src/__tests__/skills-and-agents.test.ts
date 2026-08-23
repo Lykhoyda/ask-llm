@@ -280,6 +280,7 @@ describe("multi-review skill — load-bearing polish (ADR-064)", () => {
 describe("brainstorm skill — polish (ADR-064)", () => {
   const content = readFile("skills/brainstorm/SKILL.md");
   const { body } = parseMarkdownFrontmatter(content);
+  const piAdapter = body.slice(body.indexOf("### Pi adapter"), body.indexOf("<!-- HOST-ADAPTER:CLAUDE-CODE:START -->"));
 
   it("documents diff preprocessing for code-context brainstorms", () => {
     expect(body).toMatch(/git add -N/);
@@ -304,6 +305,12 @@ describe("brainstorm skill — polish (ADR-064)", () => {
     expect(body).toMatch(/Included files\/docs/);
     expect(body).toMatch(/Excluded files\/docs and reason/);
     expect(body).toMatch(/unverified assumptions/);
+  });
+
+  it("pins Pi's pre-dispatch refusal contract for mixed routed and bare participant lists", () => {
+    expect(piAdapter).toMatch(/mix(?:es|ing).+routed.+bare|mix(?:es|ing).+bare.+routed/is);
+    expect(piAdapter).toMatch(/refus\w*.+before.+tool call/is);
+    expect(piAdapter).toMatch(/nothing.+dispatch\w*.+substitut\w*/is);
   });
 
   it("ships the documented exact Grok + GPT-5.6 Sol invocations and Pi tool calls as the skill's interface contract", () => {
