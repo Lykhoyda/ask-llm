@@ -103,14 +103,27 @@ export function findVersionIntroducingCommit(packageInfo, { cwd, git = defaultGi
   return candidates[0];
 }
 
+export class NpmGitHeadMismatchError extends Error {
+  constructor(identity, expected, found) {
+    super(`npm gitHead mismatch for ${identity}: expected ${expected}, found ${found}`);
+    this.name = "NpmGitHeadMismatchError";
+    this.code = "NPM_GITHEAD_MISMATCH";
+    this.identity = identity;
+    this.expected = expected;
+    this.found = found;
+  }
+}
+
 export function verifyNpmGitHead(packageInfo, target, { cwd, npm = defaultNpm } = {}) {
   const identity = `${packageInfo.name}@${packageInfo.version}`;
   const result = npm(["view", identity, "gitHead", "--json"], { cwd });
+  if (result.status !== 0) {
+    const detail = (result.stderr || result.stdout || "").trim();
+    throw new Error(`npm view ${identity} gitHead failed${detail ? `: ${detail}` : ""}`);
+  }
   const gitHead = parseJson(result.stdout, `npm gitHead for ${identity}`);
   if (!COMMIT_PATTERN.test(gitHead)) throw new Error(`npm ${identity} has no valid gitHead`);
-  if (gitHead !== target) {
-    throw new Error(`npm gitHead mismatch for ${identity}: expected ${target}, found ${gitHead}`);
-  }
+  if (gitHead !== target) throw new NpmGitHeadMismatchError(identity, target, gitHead);
 }
 
 export function lookupRemoteTag(tagRef, { cwd, remote, git = defaultGit } = {}) {
@@ -163,6 +176,7 @@ export function createOrVerifyPackageTags(
       try {
         verifyNpmGitHead(packageInfo, target, { cwd: root, npm });
       } catch (error) {
+        if (!(error instanceof NpmGitHeadMismatchError)) throw error;
         log.error(`INCONSISTENT ${tag}: ${error.message}`);
         inconsistent.push({ ...packageInfo, tag, target, reason: error.message });
         continue;

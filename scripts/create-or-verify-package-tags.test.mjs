@@ -185,6 +185,23 @@ test("an npm gitHead mismatch skips only the affected package, still tags consis
   assert.match(lines.find((line) => line.startsWith("INCONSISTENT ")), /@ask-llm\/two@2\.0\.0.*npm gitHead mismatch/);
 });
 
+test("a failing npm view is not treated as a gitHead mismatch and creates no tags", () => {
+  const { root, remote, release } = fixture();
+  const { logger, lines } = silentLog();
+  const npm = (args) =>
+    args[1] === "@ask-llm/two@2.0.0"
+      ? { status: 1, stdout: "", stderr: "npm ERR! 503 Service Unavailable" }
+      : { status: 0, stdout: `"${release}"\n`, stderr: "" };
+
+  assert.throws(
+    () => createOrVerifyPackageTags({ cwd: root, remote, verifyNpm: true }, { npm, log: logger }),
+    (error) => /npm view @ask-llm\/two@2\.0\.0 gitHead failed.*503/.test(error.message) && !/publishing a new version/.test(error.message),
+  );
+  assert.equal(remoteTarget(root, remote, "@ask-llm/one@1.0.0"), null);
+  assert.equal(remoteTarget(root, remote, "@ask-llm/two@2.0.0"), null);
+  assert.equal(lines.some((line) => line.startsWith("INCONSISTENT ")), false);
+});
+
 test("dry-run reports missing tags without mutating the remote", () => {
   const { root, remote } = fixture();
   const { logger, lines } = silentLog();
