@@ -2,7 +2,7 @@ name: Release
 
 # Driven by changesets/action (ADR-076). Two modes per main-branch push:
 #   1. Pending changesets exist  → opens/updates a "chore: version packages" PR
-#   2. The push WAS that version-packages PR merging → publishes to npm, then to MCP Registry, then GitHub Release
+#   2. The push WAS that version-packages PR merging → publishes to npm, MCP Registry, unified Release, then package tags
 on:
   push:
     branches: ["main"]
@@ -12,7 +12,7 @@ on:
   workflow_dispatch:
     inputs:
       retry_registry_publish:
-        description: Verify/repair MCP Registry versions and the unified release without npm publication
+        description: Verify/repair MCP Registry, unified release, and package tags without npm publication
         required: false
         type: boolean
         default: false

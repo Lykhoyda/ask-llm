@@ -185,24 +185,32 @@ export function createOrVerifyPackageTags(
     plans.push({ ...packageInfo, tag, tagRef: `refs/tags/${tag}`, target });
   }
 
-  // Verify every remote ref before creating any missing refs. A mismatch in one
-  // package therefore cannot turn a recovery into a new partial completion.
+  // Inspect every remote ref before creating any missing refs. Report the full
+  // mismatch set in one run, then fail before any push can make the state more
+  // partial. Dry-runs also report matching and missing refs before that failure.
+  const mismatches = [];
   for (const plan of plans) {
     plan.remoteTarget = lookupRemoteTag(plan.tagRef, { cwd: root, remote, git });
     if (plan.remoteTarget && plan.remoteTarget !== plan.target) {
-      const message = `MISMATCH ${plan.tag}: expected ${plan.target}, found ${plan.remoteTarget}`;
-      log.error(message);
-      throw new Error(`Remote tag mismatch for ${plan.tag}: expected ${plan.target}, found ${plan.remoteTarget}`);
+      mismatches.push(plan);
+      log.error(`MISMATCH ${plan.tag}: expected ${plan.target}, found ${plan.remoteTarget}`);
     }
   }
 
   const missing = plans.filter((plan) => plan.remoteTarget === null);
-  for (const plan of plans.filter((candidate) => candidate.remoteTarget !== null)) {
-    log.log(`VERIFIED ${plan.tag} at ${plan.target}`);
-  }
+  const matching = plans.filter((plan) => plan.remoteTarget !== null && !mismatches.includes(plan));
+  for (const plan of matching) log.log(`VERIFIED ${plan.tag} at ${plan.target}`);
   if (dryRun) {
     for (const plan of missing) log.log(`MISSING ${plan.tag} at ${plan.target} (dry-run; would create)`);
-  } else {
+  }
+  if (mismatches.length > 0) {
+    throw new Error(
+      `Remote tag mismatch for ${mismatches
+        .map((plan) => `${plan.tag}: expected ${plan.target}, found ${plan.remoteTarget}`)
+        .join("; ")}`,
+    );
+  }
+  if (!dryRun) {
     for (const plan of missing) pushMissingTag(plan, { cwd: root, remote, git, log });
   }
 

@@ -4,6 +4,7 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "nod
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, test } from "vitest";
+import { parse as parseYaml } from "yaml";
 import {
   createOrVerifyPackageTags,
   findVersionIntroducingCommit,
@@ -54,6 +55,7 @@ function fixture() {
   git(root, "config", "user.name", "Package Tag Test");
   git(root, "config", "user.email", "package-tags@example.test");
   git(root, "config", "commit.gpgsign", "false");
+  git(root, "config", "tag.gpgSign", "false");
 
   writePackage(root, "one", "@ask-llm/one", "0.9.0");
   writePackage(root, "two", "@ask-llm/two", "0.8.0");
@@ -124,6 +126,21 @@ test("a mismatched remote tag fails before any missing tag is pushed", () => {
   );
   assert.equal(remoteTarget(root, remote, "@ask-llm/two@2.0.0"), null);
   assert.equal(remoteTarget(root, remote, "@ask-llm/one@1.0.0"), previous);
+});
+
+test("dry-run reports every mismatched remote tag before one failure and never retags", () => {
+  const { root, remote, previous } = fixture();
+  git(root, "push", remote, `${previous}:refs/tags/@ask-llm/one@1.0.0`);
+  git(root, "push", remote, `${previous}:refs/tags/@ask-llm/two@2.0.0`);
+  const { logger, lines } = silentLog();
+
+  assert.throws(
+    () => createOrVerifyPackageTags({ cwd: root, remote, dryRun: true }, { log: logger }),
+    (error) => error.message.includes("@ask-llm/one@1.0.0") && error.message.includes("@ask-llm/two@2.0.0"),
+  );
+  assert.equal(lines.filter((line) => line.startsWith("MISMATCH ")).length, 2);
+  assert.equal(remoteTarget(root, remote, "@ask-llm/one@1.0.0"), previous);
+  assert.equal(remoteTarget(root, remote, "@ask-llm/two@2.0.0"), previous);
 });
 
 test("partial completion verifies an existing tag and creates only the missing tag", () => {
@@ -250,22 +267,22 @@ test("fails when a version was introduced more than once on first-parent history
   assert.throws(() => findVersionIntroducingCommit(packageInfo, { cwd: root }), /Ambiguous first-parent history/);
 });
 
-test("workflow runs the package-tag helper for normal publication and retry_registry_publish recovery", () => {
-  const workflow = readFileSync(join(import.meta.dirname, "../.github/workflows/release.yml"), "utf8");
-  const step = workflow.match(
-    /- name: Create or verify per-package Git tags\n(?<body>[\s\S]*?)\n\s+- name: Open tracking issue on release failure/,
-  )?.groups?.body;
+test("workflow structurally runs package tags after the unified release for publication and recovery", () => {
+  const workflow = parseYaml(readFileSync(join(import.meta.dirname, "../.github/workflows/release.yml"), "utf8"));
+  const steps = workflow.jobs.release.steps;
+  const tagSteps = steps.filter((step) => step.name === "Create or verify per-package Git tags");
+  const unifiedSteps = steps.filter((step) => step.name === "Create or verify unified GitHub Release");
+  const failureStep = steps.find((step) => step.name === "Open tracking issue on release failure");
+  const changesetsStep = steps.find((step) => step.name === "Create Release PR or Publish");
+  const expectedGate =
+    "steps.changesets.outputs.published == 'true' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.retry_registry_publish)";
 
-  assert.ok(step, "package-tag step must run last before failure tracking so it cannot gate the unified release");
-  assert.ok(
-    workflow.indexOf("- name: Create or verify unified GitHub Release") <
-      workflow.indexOf("- name: Create or verify per-package Git tags"),
-    "unified release step must run before the package-tag step",
-  );
-  assert.match(step, /steps\.changesets\.outputs\.published == 'true'/);
-  assert.match(step, /github\.ref == 'refs\/heads\/main'/);
-  assert.match(step, /inputs\.retry_registry_publish/);
-  assert.match(step, /node scripts\/create-or-verify-package-tags\.mjs --verify-npm-git-head/);
-  assert.match(workflow, /createGithubReleases: false/);
-  assert.equal((workflow.match(/- name: Create or verify unified GitHub Release/g) ?? []).length, 1);
+  assert.equal(tagSteps.length, 1);
+  assert.equal(unifiedSteps.length, 1);
+  assert.equal(tagSteps[0].run, "node scripts/create-or-verify-package-tags.mjs --verify-npm-git-head");
+  assert.equal(tagSteps[0].if, expectedGate);
+  assert.equal(unifiedSteps[0].if, expectedGate);
+  assert.equal(changesetsStep.with.createGithubReleases, false);
+  assert.ok(steps.indexOf(unifiedSteps[0]) < steps.indexOf(tagSteps[0]));
+  assert.ok(steps.indexOf(tagSteps[0]) < steps.indexOf(failureStep));
 });
