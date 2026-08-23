@@ -15,7 +15,7 @@ All providers in one MCP server. Detects which provider CLIs/endpoints are avail
 
 <InstallSnippet provider="unified" />
 
-Or install globally: `npm install -g @ask-llm/mcp`
+Or install globally: `npm install -g @ask-llm/mcp`. The installed `ask-llm-mcp` binary starts the MCP server only when invoked without arguments; see [CLI argument contract](#cli-argument-contract) for its command-line modes.
 
 ## Prerequisites
 
@@ -62,16 +62,9 @@ It also exposes `usage://current-session` as an MCP Resource for live JSON snaps
 
 <FanOut />
 
-## CLI Subcommands
+## CLI argument contract
 
-The `@ask-llm/mcp` binary supports two CLI modes alongside the default MCP server:
-
-```bash
-npx @ask-llm/mcp repl                   # interactive multi-provider REPL
-npx @ask-llm/mcp doctor                 # human-readable diagnostics
-npx @ask-llm/mcp doctor --json          # established full JSON
-npx @ask-llm/mcp doctor --format toon  # bounded, versioned agent-facing TOON pilot
-```
+Run `ask-llm-mcp --help` for the canonical list of supported commands and options. With no arguments, the binary starts the stdio MCP server. Help and version flags print and exit without provider detection or server startup; unsupported commands and arguments print usage and exit nonzero. The binary's help output remains the command reference so this installation page does not duplicate it.
 
 ## Key Features
 
