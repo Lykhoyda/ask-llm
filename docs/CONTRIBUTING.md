@@ -58,7 +58,7 @@ Harness-facing changes use one explicit, local-only pre-PR gate:
 yarn prepr:harness
 ```
 
-It runs the immutable install, build, lint, full test suite, and deterministic fake multi-harness matrix. The Husky `pre-push` hook runs only the fast deterministic matrix; it never spends quota. Optional live calls require explicit per-surface and exact-model authorization and are never required by CI. Results distinguish `PASS`, `FAIL`, `SKIP_UNAVAILABLE`, and `SKIP_NOT_AUTHORIZED`; missing optional tools never look green. See [Local harness smoke gate](HARNESS-SMOKE.md) for prerequisites, cost boundaries, cleanup, troubleshooting, and the PR evidence format.
+It runs the immutable install, build, lint, full test suite, and deterministic real-adapter/fake-transport multi-harness matrix. The Husky `pre-push` hook runs only the fast deterministic matrix; it never spends quota. Optional live calls require explicit per-surface and exact-model authorization and are never required by CI. Results distinguish `PASS`, `FAIL`, `SKIP_UNAVAILABLE`, and `SKIP_NOT_AUTHORIZED`; missing optional tools never look green. See [Local harness smoke gate](HARNESS-SMOKE.md) for prerequisites, cost boundaries, cleanup, troubleshooting, and the PR evidence format.
 
 ## Adding a new tool
 

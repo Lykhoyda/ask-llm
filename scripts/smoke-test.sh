@@ -7,6 +7,15 @@
 set -e
 set -o pipefail
 
+# Legacy provider-integration runner retained for manual diagnosis only. The
+# canonical pre-PR gate is scripts/pre-pr-harness-smoke.sh. Never let muscle
+# memory bypass ADR-149's explicit live-spend boundary.
+if [ "${ASK_LLM_LEGACY_LIVE_SMOKE:-}" != "1" ]; then
+  echo "Refusing legacy live provider calls. Use 'yarn prepr:harness' (deterministic)," >&2
+  echo "or set ASK_LLM_LEGACY_LIVE_SMOKE=1 only for an intentional manual legacy run." >&2
+  exit 2
+fi
+
 # When the smoke test itself burns the very provider quota that the next push
 # needs, we get a rate-limit-self-defeating loop: push N fails because pushes
 # 1..N-1 consumed the window. Detect quota/rate-limit errors and treat them as

@@ -6,18 +6,18 @@ Harness-facing changes must pass the local-only pre-PR gate:
 yarn prepr:harness
 ```
 
-This is the canonical command. It owns the immutable install, dependency-ordered build, lint, complete test suite, deterministic harness smoke, cleanup, and evidence format. The deterministic mode uses fake transports and never reads credentials, starts sessions, or calls a model. CI keeps its existing build/lint/test checks; live smoke is additive, local-only, and never required by CI.
+This is the canonical command. It owns the immutable install, dependency-ordered build, lint, complete test suite, deterministic harness smoke, cleanup, and evidence format. Deterministic mode runs the real brainstorm, Cursor, Codex, Grok, and Pi adapters against private fake CLI transports; deleting a skill route or losing a real adapter option fails instead of accepting a manufactured marker. It never reads credentials, starts provider sessions, or calls a model. CI keeps its existing build/lint/test checks; live smoke is additive, local-only, and never required by CI.
 
 ## Result vocabulary
 
 Every surface receives exactly one result:
 
-- `PASS` — the selected harness kept the exact model and read-only options, reported truthful selected-only/observed attribution, did not fallback, and did not mutate the repository.
+- `PASS` — a real adapter reached its selected fake/live transport, kept separate provider and exact model identities plus read-only options, reported truthful selected-only/observed attribution, did not fallback, and did not mutate the isolated workspace or repository.
 - `FAIL` — invocation, timeout, exit, model, fallback, option, mutation, redaction, or cleanup contract failed.
 - `SKIP_UNAVAILABLE` — the optional executable/surface is absent. This is never printed as green. Pi's `/grok-pair` is an intentional unavailable surface under ADR-147.
 - `SKIP_NOT_AUTHORIZED` — the executable exists, but the contributor did not authorize that live surface/model or its local catalog requires authentication.
 
-The matrix covers Claude Code `/brainstorm`, `/codex-pair`, and `/grok-pair`; Cursor Agent's pair skills and exact `/brainstorm` participant route; Pi's `/skill:brainstorm`, `/skill:codex-pair`, native provider adapter, and explicit `/grok-pair` exclusion; direct Codex CLI brainstorm/pair routes; and direct Grok Build brainstorm/pair routes.
+The matrix covers Claude Code `/brainstorm`, `/codex-pair`, and `/grok-pair`; Cursor Agent's pair skills and exact `/brainstorm` participant route; Pi's `/skill:brainstorm`, `/skill:codex-pair`, native provider adapter, and explicit `/grok-pair` exclusion; direct Codex CLI brainstorm/pair routes; and direct Grok Build brainstorm/pair routes. Pi codex-pair is covered deterministically through its real extension/provider boundary, but live one-shot print mode reports `SKIP_UNAVAILABLE`: the lifecycle requires TUI/RPC/long-lived JSON, project trust, a marker, and a user-owned allowlist.
 
 ## Optional live mode and cost boundary
 
@@ -26,19 +26,26 @@ Live mode can consume subscription quota or metered spend. It is refused unless 
 ```bash
 export ASK_LLM_HARNESS_SMOKE_LIVE=1
 export ASK_LLM_HARNESS_SMOKE_AUTHORIZED='cursor-agent:/codex-pair,grok-cli:/brainstorm-route'
-export ASK_LLM_HARNESS_SMOKE_CURSOR_CODEX_MODEL='exact-id-from-agent-list-models'
+export ASK_LLM_HARNESS_SMOKE_CURSOR_HOST_MODEL='exact-host-id-from-agent-list-models'
+export ASK_LLM_HARNESS_SMOKE_CODEX_MODEL='exact-reviewer-id-from-codex-models-cache'
+export ASK_LLM_HARNESS_SMOKE_CODEX_EFFORT='high'
 export ASK_LLM_HARNESS_SMOKE_GROK_MODEL='exact-id-from-grok-models'
+export ASK_LLM_HARNESS_SMOKE_GROK_EFFORT='high'
 yarn prepr:harness --live
 ```
 
 Use `ASK_LLM_HARNESS_SMOKE_AUTHORIZED=all` only when intentionally authorizing every installed leg. Exact IDs are mandatory; the runner never invents, normalizes, or substitutes one. Model variables are:
 
 - `ASK_LLM_HARNESS_SMOKE_CLAUDE_MODEL`
-- `ASK_LLM_HARNESS_SMOKE_CURSOR_GROK_MODEL`
-- `ASK_LLM_HARNESS_SMOKE_CURSOR_CODEX_MODEL`
-- `ASK_LLM_HARNESS_SMOKE_PI_MODEL` (exact `provider/model`)
+- `ASK_LLM_HARNESS_SMOKE_CURSOR_HOST_MODEL` (Cursor host model; separate from every reviewer)
+- `ASK_LLM_HARNESS_SMOKE_CURSOR_GROK_MODEL` (exact Grok-family Cursor participant)
+- `ASK_LLM_HARNESS_SMOKE_CURSOR_CODEX_MODEL` (exact Codex-family Cursor participant)
+- `ASK_LLM_HARNESS_SMOKE_PI_MODEL` (exact Pi host `provider/model`)
 - `ASK_LLM_HARNESS_SMOKE_CODEX_MODEL`
 - `ASK_LLM_HARNESS_SMOKE_GROK_MODEL`
+- `ASK_LLM_HARNESS_SMOKE_CODEX_EFFORT` and `ASK_LLM_HARNESS_SMOKE_GROK_EFFORT` (`low|medium|high|xhigh`, plus Codex's supported higher tiers)
+
+Live skill prompts include the exact routed participant/reviewer model, provider, harness, effort where applicable, and `consent=confirmed`. That consent is valid only because the same exact scenario ID was explicitly listed in `ASK_LLM_HARNESS_SMOKE_AUTHORIZED`; it never authorizes another surface. Cursor reviewer provider family is validated independently with the shared `cursorModelFamily` contract before a call, then the exact model ID is checked against `agent --list-models`.
 
 Authoritative discovery is read-only: executable `--version`; `agent --list-models`; `pi --list-models`; `grok models`; Codex's CLI-maintained local `models_cache.json`; and Claude Code's local CLI/plugin contract. Claude Code does not expose a model-catalog command, so its exact model must always be supplied explicitly.
 
@@ -46,9 +53,9 @@ The runner does **not** login/logout, approve trust, install/update tools, chang
 
 ## Mutation and fallback policy
 
-Each scenario snapshots `git status --porcelain=v1 -z --untracked-files=all` before invocation and compares it afterward. Any delta fails the suite. Every live command uses the strongest documented read-only surface: Claude read tools only, Cursor `--mode ask`, Pi read-only tools with an ephemeral session, Codex `--sandbox read-only`, and Grok Build's read-only one-turn/no-subagent/no-memory/no-web flags.
+Each scenario runs from a disposable isolated workspace and hashes every existing file's path, mode, and content before/after, so overwriting an already-untracked fixture is detected. It also snapshots repository status, the binary tracked diff, and every non-ignored untracked file's contents. Any delta fails the suite; ignored host artifacts remain confined to and cleaned with the disposable workspace rather than being created in the repository. Every live command uses the strongest documented read-only surface: Claude read tools only, Cursor `--mode ask`, Pi read-only tools with an ephemeral session, Codex `--sandbox read-only`, and Grok Build's read-only one-turn/no-subagent/no-memory/no-web flags.
 
-A nonzero exit, timeout, lost model option, unexpected served model, fallback disclosure, writable/trust flag, or repository delta is `FAIL`. There is no retry and no cross-harness/model fallback: retries would hide the exact route that the gate exists to prove.
+A nonzero exit, timeout, lost model option, provider-family mismatch, unexpected served model, textual or structured (`fallback`/`fellBack`) fallback disclosure, writable/trust flag, or workspace/repository delta is `FAIL`. There is no retry and no cross-harness/model fallback: retries would hide the exact route that the gate exists to prove.
 
 ## Troubleshooting
 

@@ -3,7 +3,7 @@ import { RESULTS, runHarnessSuite } from "./harness-smoke-lib.mjs";
 
 function usage() {
   console.log(
-    `Usage: node scripts/harness-smoke.mjs [--dry-run | --live]\n\n--dry-run  Deterministic fake transports; no credentials, sessions, or model calls (default).\n--live     Opt-in calls to individually authorized, installed local harnesses.\n\nLive requires ASK_LLM_HARNESS_SMOKE_LIVE=1 and a comma-separated\nASK_LLM_HARNESS_SMOKE_AUTHORIZED list of exact scenario IDs (or "all").\nExact model IDs must also be supplied with ASK_LLM_HARNESS_SMOKE_<KEY>_MODEL.\nSee docs/HARNESS-SMOKE.md. The suite never logs prompts, credentials, or raw outputs.`,
+    `Usage: node scripts/harness-smoke.mjs [--dry-run | --live]\n\n--dry-run  Real adapters over deterministic fake transports; no credentials, sessions, or model calls (default).\n--live     Opt-in calls to individually authorized, installed local harnesses.\n\nLive requires ASK_LLM_HARNESS_SMOKE_LIVE=1 and a comma-separated\nASK_LLM_HARNESS_SMOKE_AUTHORIZED list of exact scenario IDs (or "all").\nExact model IDs must also be supplied with ASK_LLM_HARNESS_SMOKE_<KEY>_MODEL.\nSee docs/HARNESS-SMOKE.md. The suite never logs prompts, credentials, or raw outputs.`,
   );
 }
 
@@ -29,7 +29,7 @@ console.log(`=== Ask LLM local harness smoke (${mode}) ===`);
 console.log(
   mode === "live"
     ? "Live calls are local-only and explicitly authorized per surface."
-    : "Fake transports only; no live calls or credentials.",
+    : "Real adapters over fake transports; no live calls or credentials.",
 );
 const report = await runHarnessSuite({ mode });
 for (const result of report.results) console.log(`${result.status.padEnd(21)} ${result.id} — ${result.reason}`);
