@@ -1,5 +1,15 @@
 # Architectural Decisions
 
+## ADR-149: No arguments is the only implicit MCP server-start path for `ask-llm-mcp`
+
+**Status:** Accepted (2026-08-23)
+
+**Context:** Issue #280: the root dispatcher in `packages/llm-mcp/src/cli.ts` fell through to `startServer()` for every argument it did not recognize, so `ask-llm-mcp --help`, `--version`, and typos started provider detection and a stdio MCP server that waited on stdin instead of printing help or failing. ADR-145's AXI audit (`docs/TOON-PILOT.md` rows 6 and 10) had already recorded this as the one gap outside the TOON pilot. While validating, the canonical smoke runner (`scripts/smoke-test.sh`) was found to invoke Vitest via `yarn workspace <pkg> run test`, which resolved the repository-root Vitest project (scripts only) rather than the package's own suite, so the multi-harness smoke gate was not exercising the provider packages.
+
+**Decision:** The root CLI dispatcher is exhaustive: zero arguments starts the MCP server; exactly `--help`/`-h` or `--version`/`-V` prints and exits 0 without provider detection or server startup; `doctor` keeps its own argument parser; `repl`, `machine`, and `machine-schema` accept no extra arguments; anything else prints the usage block to stderr and exits 2 without starting the server. The usage block printed by `--help` is the authoritative command reference — user docs (`apps/docs/providers/unified.md`, README) point to it instead of re-listing commands. `readPackageJson` moved to `packages/llm-mcp/src/packageMetadata.ts` so `--version` does not import the server module. The smoke runner now runs Vitest from the repository root with explicit package paths (`yarn test packages/<name>`), keeping `SMOKE_TEST`, retries, quota skip, and labels; `scripts/smoke-test.test.mjs` asserts every smoke entry selects the intended package tests rather than the root scripts-only project.
+
+**Consequences:** Help and version are safe to call from installers, shells, and agents without spawning a server; misspelled commands fail fast with usage instead of hanging. CLI boundary tests (`packages/llm-mcp/src/__tests__/cli.test.ts`) pin output, exit status, and server-start reachability with Ollama and `PATH` isolated so results are host-independent. The smoke gate now genuinely runs the Ollama, Antigravity, Codex, and Claude package suites; the previous `yarn workspace … run test` form is no longer a supported way to invoke it. Patch release of `@ask-llm/mcp`; no MCP tool, machine, or doctor behavior changed.
+
 ## ADR-148: Brainstorm has an exact Grok + GPT-5.6 Sol panel with mechanical consensus eligibility
 
 **Status:** Accepted (2026-08-20)
