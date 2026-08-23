@@ -13,7 +13,7 @@ For the standard workflow, the current host model records an independent analysi
 
 ### Pi adapter
 
-The current Pi host model completes its independent evidence memo first. Standard provider lists use native `ask-multi`. A routed participant uses the matching native tool instead: `provider@cursor-agent:model` calls `ask-cursor-agent` with separate `provider` and exact `model`; direct Grok calls `ask-grok` with the explicit `harness` and exact model. For the exact Grok + Sol panel, issue only these two consultations (concurrently when the host supports it):
+The current Pi host model completes its independent evidence memo first. Standard provider lists use native `ask-multi`. A routed participant uses the matching native tool instead: `provider@cursor-agent:model` calls `ask-cursor-agent` with separate `provider` and exact `model`; direct Grok calls `ask-grok` with the explicit `harness` and exact model. A participant list mixing routed `provider@harness:exact-model-id` entries with bare provider names is refused before any tool call; nothing is dispatched or substituted. For the exact Grok + Sol panel, issue only these two consultations (concurrently when the host supports it):
 
 - `ask-cursor-agent({ provider: "grok", model: "cursor-grok-4.6-high", prompt })`
 - `ask-cursor-agent({ provider: "codex", model: "gpt-5.6-sol-high", prompt })`
