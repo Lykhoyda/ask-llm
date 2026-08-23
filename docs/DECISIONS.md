@@ -1,5 +1,15 @@
 # Architectural Decisions
 
+## ADR-149: Harness-facing changes have one explicit local-only pre-PR smoke gate
+
+**Status:** Accepted (2026-08-21)
+
+**Context:** Provider unit tests and the historical pre-push integration script did not exercise the host-facing Claude Code, Cursor Agent, Pi, Codex CLI, and Grok Build surfaces as one matrix. The old hook also made implicit live calls, collapsed quota skips into success, retried failures, and could not prove exact routing, attribution, option preservation, or repository immutability. Missing optional tools and calls that were not locally authorized need distinct outcomes rather than a green-looking skip.
+
+**Decision:** `yarn prepr:harness` is the canonical harness-facing contributor gate. It owns immutable prerequisites, build/lint/full tests, deterministic fake smoke, private temporary artifacts, cleanup, troubleshooting, and PR evidence. The matrix reports only `PASS`, `FAIL`, `SKIP_UNAVAILABLE`, or `SKIP_NOT_AUTHORIZED`; covers Claude `/brainstorm`/`/codex-pair`/`/grok-pair`, Cursor pair skills plus its exact brainstorm participant route, Pi brainstorm/codex-pair plus the deliberate grok-pair exclusion, and direct Codex/Grok brainstorm and pair routes; and fails closed on timeout, nonzero exit, model mismatch, fallback, option loss, writable/trust flags, mutation, or cleanup/redaction regressions. Live mode is additive, local-only, no-retry, and refused without both `ASK_LLM_HARNESS_SMOKE_LIVE=1` and per-surface authorization. Every live model is an explicit exact ID checked against the harness's local command/catalog where one exists. The runner never logs in, changes trust/billing/global config, or stores raw prompts/outputs in git. Husky runs only the fake layer; CI and all existing repository checks remain unchanged.
+
+**Consequences:** Harness-facing PRs have reproducible zero-spend evidence by default, while contributors can deliberately add truthful live evidence for only the tools and spend they authorize. Optional absences remain visible. Live responses are selected-unverified unless the harness itself reports a served ID; any conflicting ID or fallback is fatal rather than silently attributed to the requested route. The detailed operator contract lives in `docs/HARNESS-SMOKE.md`.
+
 ## ADR-148: Brainstorm has an exact Grok + GPT-5.6 Sol panel with mechanical consensus eligibility
 
 **Status:** Accepted (2026-08-20)

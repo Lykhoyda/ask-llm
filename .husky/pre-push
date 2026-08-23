@@ -1,4 +1,4 @@
-echo "Running smoke tests..."
+echo "Running deterministic local harness smoke tests..."
 echo ""
 
-bash scripts/smoke-test.sh
+node scripts/harness-smoke.mjs --dry-run
