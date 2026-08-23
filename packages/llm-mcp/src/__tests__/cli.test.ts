@@ -1,5 +1,7 @@
 import { spawnSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { mkdtempSync, readFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
@@ -27,6 +29,8 @@ const CLI_HELP = [
 ].join("\n");
 const UNSUPPORTED_ARGUMENT_OUTPUT = `Error: unsupported command or argument.\n\n${CLI_HELP}`;
 const SERVER_START_MARKER = `@ask-llm/mcp v${packageVersion} — 6 tools`;
+const EMPTY_PATH_DIR = mkdtempSync(join(tmpdir(), "ask-llm-cli-empty-path-"));
+const UNREACHABLE_OLLAMA_HOST = "http://127.0.0.1:9";
 
 interface CliResult {
   status: number | null;
@@ -38,6 +42,8 @@ function runCli(args: string[], input = "", isolateProviders = false): CliResult
   const env = { ...process.env, ASK_LLM_LOG_LEVEL: "debug" };
   if (isolateProviders) {
     env.PATH = "";
+    env.ASK_LLM_PATH = EMPTY_PATH_DIR;
+    env.OLLAMA_HOST = UNREACHABLE_OLLAMA_HOST;
     delete env.XAI_API_KEY;
     delete env.ASK_GROK_HARNESS;
   }
