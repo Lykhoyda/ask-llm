@@ -188,13 +188,6 @@ jobs:
           packages/antigravity-mcp/server.json
           packages/llm-mcp/server.json
 
-      # changesets/action creates package tags only in the runner when
-      # createGithubReleases is false. Preserve the intended remote tag contract
-      # explicitly, including on selective Registry/release recovery (ADR-149).
-      - name: Create or verify per-package Git tags
-        if: steps.changesets.outputs.published == 'true' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.retry_registry_publish)
-        run: node scripts/create-or-verify-package-tags.mjs --verify-npm-git-head
-
       # Unified GitHub Release tagged at gemini's version (legacy convention from when this
       # was a fork of gemini-mcp-tool). It remains the single human-facing GitHub Release,
       # alongside remote per-package source tags used for package-level audit/diff links.
@@ -225,6 +218,15 @@ jobs:
           else
             gh release create "$TAG" --generate-notes --title "$TAG"
           fi
+
+      # changesets/action creates package tags only in the runner when
+      # createGithubReleases is false. Preserve the intended remote tag contract
+      # explicitly, including on selective Registry/release recovery (ADR-149).
+      # Runs after the unified release so a tag failure cannot block unified
+      # release creation or verification; the helper is idempotent on rerun.
+      - name: Create or verify per-package Git tags
+        if: steps.changesets.outputs.published == 'true' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.retry_registry_publish)
+        run: node scripts/create-or-verify-package-tags.mjs --verify-npm-git-head
 
       # Loud-on-failure: open a tracking issue (or comment on an existing one)
       # when any main-branch release step fails. Lived-experience trigger: PR #112's release

@@ -154,12 +154,22 @@ export function createOrVerifyPackageTags(
 ) {
   const root = resolve(cwd);
   const packages = discoverPublicPackages(root);
-  const plans = packages.map((packageInfo) => {
+  const plans = [];
+  const inconsistent = [];
+  for (const packageInfo of packages) {
     const target = findVersionIntroducingCommit(packageInfo, { cwd: root, git });
-    if (verifyNpm) verifyNpmGitHead(packageInfo, target, { cwd: root, npm });
     const tag = `${packageInfo.name}@${packageInfo.version}`;
-    return { ...packageInfo, tag, tagRef: `refs/tags/${tag}`, target };
-  });
+    if (verifyNpm) {
+      try {
+        verifyNpmGitHead(packageInfo, target, { cwd: root, npm });
+      } catch (error) {
+        log.error(`INCONSISTENT ${tag}: ${error.message}`);
+        inconsistent.push({ ...packageInfo, tag, target, reason: error.message });
+        continue;
+      }
+    }
+    plans.push({ ...packageInfo, tag, tagRef: `refs/tags/${tag}`, target });
+  }
 
   // Verify every remote ref before creating any missing refs. A mismatch in one
   // package therefore cannot turn a recovery into a new partial completion.
@@ -185,7 +195,12 @@ export function createOrVerifyPackageTags(
   log.log(
     `${dryRun ? "Dry-run verified" : "Verified"} ${plans.length} public package tags (${missing.length} ${dryRun ? "missing" : "created or raced"}).`,
   );
-  return { plans, missing, dryRun };
+  if (inconsistent.length > 0) {
+    throw new Error(
+      `npm gitHead cross-check failed for ${inconsistent.map((entry) => entry.tag).join(", ")}; no tag was created for these packages. npm gitHead is immutable, so recover by publishing a new version of each affected package.`,
+    );
+  }
+  return { plans, missing, inconsistent, dryRun };
 }
 
 export function parseArguments(argv) {

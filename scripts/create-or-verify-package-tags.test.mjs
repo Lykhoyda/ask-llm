@@ -167,6 +167,24 @@ test("npm gitHead cross-check detects a wrong release commit", () => {
   assert.throws(() => verifyNpmGitHead(packageInfo, target, { npm }), /npm gitHead mismatch/);
 });
 
+test("an npm gitHead mismatch skips only the affected package, still tags consistent packages, and fails the run", () => {
+  const { root, remote, release } = fixture();
+  const { logger, lines } = silentLog();
+  const npm = (args) => ({
+    status: 0,
+    stdout: `"${args[1] === "@ask-llm/two@2.0.0" ? "b".repeat(40) : release}"\n`,
+    stderr: "",
+  });
+
+  assert.throws(
+    () => createOrVerifyPackageTags({ cwd: root, remote, verifyNpm: true }, { npm, log: logger }),
+    /npm gitHead cross-check failed for @ask-llm\/two@2\.0\.0.*publishing a new version/,
+  );
+  assert.equal(remoteTarget(root, remote, "@ask-llm/one@1.0.0"), release);
+  assert.equal(remoteTarget(root, remote, "@ask-llm/two@2.0.0"), null);
+  assert.match(lines.find((line) => line.startsWith("INCONSISTENT ")), /@ask-llm\/two@2\.0\.0.*npm gitHead mismatch/);
+});
+
 test("dry-run reports missing tags without mutating the remote", () => {
   const { root, remote } = fixture();
   const { logger, lines } = silentLog();
@@ -210,10 +228,15 @@ test("fails when a version was introduced more than once on first-parent history
 test("workflow runs the package-tag helper for normal publication and retry_registry_publish recovery", () => {
   const workflow = readFileSync(join(import.meta.dirname, "../.github/workflows/release.yml"), "utf8");
   const step = workflow.match(
-    /- name: Create or verify per-package Git tags\n(?<body>[\s\S]*?)\n\s+- name: Get gemini version for unified release tag/,
+    /- name: Create or verify per-package Git tags\n(?<body>[\s\S]*?)\n\s+- name: Open tracking issue on release failure/,
   )?.groups?.body;
 
-  assert.ok(step, "package-tag step must remain immediately beside the unified release steps");
+  assert.ok(step, "package-tag step must run last before failure tracking so it cannot gate the unified release");
+  assert.ok(
+    workflow.indexOf("- name: Create or verify unified GitHub Release") <
+      workflow.indexOf("- name: Create or verify per-package Git tags"),
+    "unified release step must run before the package-tag step",
+  );
   assert.match(step, /steps\.changesets\.outputs\.published == 'true'/);
   assert.match(step, /github\.ref == 'refs\/heads\/main'/);
   assert.match(step, /inputs\.retry_registry_publish/);
