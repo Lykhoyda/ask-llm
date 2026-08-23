@@ -41,8 +41,8 @@ const CANONICAL_PACKAGES = {
   "ollama-mcp": { name: "@ask-llm/ollama-mcp", bins: ["ask-ollama-mcp"] },
 };
 const MCP_REGISTRY_MANIFESTS = [
-  "server.json",
   "packages/antigravity-mcp/server.json",
+  "packages/gemini-mcp/server.json",
   "packages/claude-mcp/server.json",
   "packages/codex-mcp/server.json",
   "packages/grok-mcp/server.json",
@@ -116,6 +116,13 @@ if (publishable.length !== Object.keys(CANONICAL_PACKAGES).length) {
   failed = true;
   console.error(
     `[preflight] ERROR: expected ${Object.keys(CANONICAL_PACKAGES).length} canonical publishable packages, found ${publishable.length}`,
+  );
+}
+
+if (fs.existsSync(path.join(REPO_ROOT, "server.json"))) {
+  failed = true;
+  console.error(
+    "[preflight] ERROR: root server.json is retired; keep provider Registry manifests beside their package",
   );
 }
 
