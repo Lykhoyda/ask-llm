@@ -784,6 +784,7 @@ export async function runHarnessSuite(options = {}) {
       const privatePrompt = buildLivePrompt(scenario, selection);
       const promptPath = join(artifacts, `${scenario.id.replaceAll(/[^a-z0-9]+/gi, "-")}.prompt`);
       await writeFile(promptPath, privatePrompt, { mode: 0o600 });
+      const scenarioRepoBefore = await fingerprint();
       const workspaceBefore = await treeFingerprint(workspace);
       const invocation =
         mode === "dry-run"
@@ -819,7 +820,7 @@ export async function runHarnessSuite(options = {}) {
         output,
         exitCode: run.exitCode,
         timedOut: run.timedOut,
-        mutated: before !== after || workspaceBefore !== workspaceAfter,
+        mutated: scenarioRepoBefore !== after || workspaceBefore !== workspaceAfter,
         args: mode === "dry-run" ? ["--model", selectedHostModel] : invocation.args,
       });
       results.push({

@@ -245,6 +245,24 @@ describe("authorization and availability accounting", () => {
 });
 
 describe("mutation, timeout, privacy, and cleanup", () => {
+  it("attributes a repository mutation only to the scenario that introduced it", async () => {
+    invariant(directCodex, "direct Codex scenario missing");
+    const first = { ...directCodex, id: "fixture:first" };
+    const second = { ...directCodex, id: "fixture:second" };
+    const fingerprints = ["clean", "clean", "mutated", "mutated", "mutated", "mutated"];
+    const fingerprint = vi.fn(async () => fingerprints.shift() ?? "mutated");
+    const report = await runHarnessSuite({
+      mode: "dry-run",
+      scenarios: [first, second],
+      fingerprint,
+      deterministicAdapter: fakeAdapter,
+    });
+    expect(report.results).toEqual([
+      expect.objectContaining({ id: first.id, status: RESULTS.FAIL, reason: expect.stringContaining("changed") }),
+      expect.objectContaining({ id: second.id, status: RESULTS.PASS }),
+    ]);
+  });
+
   it("detects content mutation of an already-present untracked workspace file", async () => {
     invariant(directCodex, "direct Codex scenario missing");
     const report = await runIsolatedSuite({
