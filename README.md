@@ -277,7 +277,7 @@ use multi-llm to compare what codex and gemini think about this approach
 
 ## CLI Subcommands
 
-The orchestrator binary (`@ask-llm/mcp`) supports two CLI modes alongside the default MCP server:
+The orchestrator binary (`@ask-llm/mcp`, installed as `ask-llm-mcp`) starts the MCP server only when run with no arguments. `ask-llm-mcp --help` is the canonical command reference (`--version` prints the package version; unsupported commands or arguments print usage and exit nonzero). The two most common commands:
 
 ```bash
 # Interactive multi-provider REPL — switch providers, persist sessions, see usage live

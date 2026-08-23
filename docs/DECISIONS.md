@@ -1,5 +1,15 @@
 # Architectural Decisions
 
+## ADR-150: No arguments is the only implicit MCP server-start path for `ask-llm-mcp`
+
+**Status:** Accepted (2026-08-23)
+
+**Context:** Issue #280: the root dispatcher in `packages/llm-mcp/src/cli.ts` fell through to `startServer()` for every argument it did not recognize, so `ask-llm-mcp --help`, `--version`, and typos started provider detection and a stdio MCP server that waited on stdin instead of printing help or failing. ADR-145's AXI audit (`docs/TOON-PILOT.md` rows 6 and 10) had already recorded this as the one gap outside the TOON pilot. While validating, the historical provider-integration runner (`scripts/smoke-test.sh`) was found to invoke Vitest via `yarn workspace <pkg> run test`, which resolved the repository-root Vitest project (scripts only) rather than the package's own suite. PR review then found that the first root-scoped fix selected whole package directories, allowing successful quota-detection unit-fixture text to make a genuine authentication or integration failure look like quota exhaustion.
+
+**Decision:** The root CLI dispatcher is exhaustive: zero arguments starts the MCP server; exactly `--help`/`-h` or `--version`/`-V` prints and exits 0 without provider detection or server startup; `doctor` keeps its own argument parser; `repl` and `machine-schema` accept no extra arguments; `machine` validates its request from stdin and rejects trailing argv with command usage; anything else prints the root usage block to stderr and exits 2 without starting the server. The usage block printed by `--help` is the authoritative command reference. `readPackageJson` moved to `packages/llm-mcp/src/packageMetadata.ts` so the CLI and server share package metadata without exporting the server's private helper; `cli.ts` still imports the side-effect-free server module for `startServer`. The opt-in legacy runner now invokes Vitest from the repository root with one explicit integration-test file per provider, preserving its `SMOKE_TEST`, retry, quota, and label behavior while excluding unit fixtures from the log-wide quota classifier. This does not replace ADR-149: `yarn prepr:harness` remains the canonical deterministic harness-facing gate, and Husky never runs the legacy live provider calls.
+
+**Consequences:** Help and version are safe to call from installers, shells, and agents without spawning a server; misspelled commands fail fast with usage instead of hanging. Real CLI boundary tests pin output, exit status, and server-start reachability under deterministic provider isolation. Legacy live provider diagnostics now execute only the Ollama, Antigravity, Codex, and Claude integration files, so unit fixture text cannot suppress a non-quota failure; explicit opt-in remains required by ADR-149. Patch release of `@ask-llm/mcp`; no MCP tool, machine, or doctor behavior changed.
+
 ## ADR-149: Harness-facing changes have one explicit local-only pre-PR smoke gate
 
 **Status:** Accepted (2026-08-21)
