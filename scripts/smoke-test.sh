@@ -42,7 +42,7 @@ trap 'rm -f "$TMPFILE"' EXIT HUP INT TERM
 
 run_smoke() {
   label="$1"
-  package_path="$2"
+  integration_test="$2"
 
   attempt=1
   max_attempts=2
@@ -57,7 +57,9 @@ run_smoke() {
     : > "$TMPFILE"
 
     rc=0
-    (cd "$REPO_ROOT" && SMOKE_TEST=1 yarn test "$package_path" --reporter=verbose) 2>&1 | tee "$TMPFILE" || rc=$?
+    # Keep this target at the live integration boundary. The quota classifier
+    # below scans this log, so unit-test fixture text must never enter it.
+    (cd "$REPO_ROOT" && SMOKE_TEST=1 yarn test "$integration_test" --reporter=verbose) 2>&1 | tee "$TMPFILE" || rc=$?
 
     if [ "$rc" -eq 0 ]; then
       if [ "$attempt" -gt 1 ]; then
@@ -107,9 +109,9 @@ fi
 echo "=== Smoke Tests ==="
 echo ""
 
-run_smoke "Ollama"      "packages/ollama-mcp"
-run_smoke "Antigravity" "packages/antigravity-mcp"
-run_smoke "Codex"       "packages/codex-mcp"
-run_smoke "Claude"      "packages/claude-mcp"
+run_smoke "Ollama"      "packages/ollama-mcp/src/__tests__/integration.test.ts"
+run_smoke "Antigravity" "packages/antigravity-mcp/src/__tests__/integration.test.ts"
+run_smoke "Codex"       "packages/codex-mcp/src/__tests__/integration.test.ts"
+run_smoke "Claude"      "packages/claude-mcp/src/__tests__/integration.test.ts"
 
 echo "=== Smoke tests done (any quota-skipped providers were warned above) ==="

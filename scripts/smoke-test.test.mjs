@@ -9,10 +9,10 @@ import { vitestInvocation } from "./run-test-batch.mjs";
 const REPO_ROOT = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const SMOKE_SCRIPT = join(REPO_ROOT, "scripts/smoke-test.sh");
 const PACKAGES = [
-  ["Ollama", "packages/ollama-mcp", "@ask-llm/ollama-mcp"],
-  ["Antigravity", "packages/antigravity-mcp", "@ask-llm/antigravity-mcp"],
-  ["Codex", "packages/codex-mcp", "@ask-llm/codex-mcp"],
-  ["Claude", "packages/claude-mcp", "@ask-llm/claude-mcp"],
+  ["Ollama", "packages/ollama-mcp/src/__tests__/integration.test.ts", "@ask-llm/ollama-mcp"],
+  ["Antigravity", "packages/antigravity-mcp/src/__tests__/integration.test.ts", "@ask-llm/antigravity-mcp"],
+  ["Codex", "packages/codex-mcp/src/__tests__/integration.test.ts", "@ask-llm/codex-mcp"],
+  ["Claude", "packages/claude-mcp/src/__tests__/integration.test.ts", "@ask-llm/claude-mcp"],
 ];
 const temporaryDirectories = [];
 const isWindows = process.platform === "win32";
@@ -52,9 +52,9 @@ describe("canonical smoke runner", () => {
     );
   });
 
-  it("maps every package path to real Vitest package tests instead of the root scripts-only project", () => {
-    for (const [, packagePath, projectName] of PACKAGES) {
-      const { command, args } = vitestInvocation(["list", packagePath]);
+  it("maps every integration path to real Vitest package tests instead of the root scripts-only project", () => {
+    for (const [, integrationTest, projectName] of PACKAGES) {
+      const { command, args } = vitestInvocation(["list", integrationTest]);
       const { CLAUDECODE: _nestedClaudeHost, ...hostEnv } = process.env;
       const result = spawnSync(command, args, {
         cwd: REPO_ROOT,
@@ -69,6 +69,50 @@ describe("canonical smoke runner", () => {
       expect(result.stdout).toContain(`[${projectName}]`);
       expect(result.stdout).toContain("src/__tests__/integration.test.ts");
       expect(result.stdout).not.toContain("[scripts]");
+      expect(result.stdout).not.toContain("quota-detection.test.ts");
     }
   }, 30_000);
+
+  it.skipIf(isWindows)("does not mistake a non-quota Codex integration failure for unit-fixture quota text", () => {
+    const fakeBin = mkdtempSync(join(tmpdir(), "ask-llm-smoke-bin-"));
+    temporaryDirectories.push(fakeBin);
+    const fakeYarnPath = join(fakeBin, "yarn");
+    writeFileSync(
+      fakeYarnPath,
+      [
+        "#!/bin/sh",
+        'case "$*" in',
+        '  *"packages/codex-mcp/src/__tests__/integration.test.ts"*)',
+        '    echo "Error: authentication failed" >&2',
+        "    exit 1",
+        "    ;;",
+        '  *"packages/codex-mcp"*)',
+        '    echo "✓ quota detector fixture: usage limit"',
+        '    echo "Error: authentication failed" >&2',
+        "    exit 1",
+        "    ;;",
+        "esac",
+        "exit 0",
+        "",
+      ].join("\n"),
+    );
+    chmodSync(fakeYarnPath, 0o755);
+
+    const result = spawnSync("bash", [SMOKE_SCRIPT], {
+      cwd: tmpdir(),
+      encoding: "utf8",
+      env: {
+        ...process.env,
+        PATH: `${fakeBin}${delimiter}${process.env.PATH ?? ""}`,
+        NO_SMOKE_RETRY: "1",
+      },
+      timeout: 10_000,
+    });
+
+    expect(result.error).toBeUndefined();
+    expect(result.status).toBe(1);
+    expect(result.stdout).toContain("Error: authentication failed");
+    expect(result.stdout).toContain("Codex smoke test failed");
+    expect(result.stdout).not.toContain("Codex smoke test hit a quota/rate limit");
+  });
 });
