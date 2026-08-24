@@ -15,7 +15,7 @@ All workspace manifests were audited and the lockfile was re-resolved recursivel
 | Changesets CLI / GitHub changelog | 3.0.1 / 1.0.0 |
 | MCP TypeScript SDK | 1.30.0 |
 | Zod / AJV | 4.4.3 / 8.20.0 |
-| Pi SDK and test host | 0.84.2; documented minimum Pi host raised from 0.83.0 to 0.84.2 to match the compile-time SDK and the CI Pi package smoke |
+| Pi compile-time SDK / exact CI hosts | 0.84.2 / 0.83.0 and 0.84.2 |
 | Mermaid / VitePress | 11.17.0 / 1.6.4 |
 | MCP Registry publisher | 1.8.1, with the Linux amd64 archive SHA-256 pinned in `release.yml` |
 
@@ -33,6 +33,7 @@ Non-major release evidence was also reviewed before updating: [MCP SDK 1.30.0](h
 
 - **Published Node support remains `>=20.0.0`.** Build, test, docs, and release jobs run on Node 22/24 because tsdown and Changesets 3 require newer build hosts. The packed-package matrix still boots every public CLI on Node 20 and Node 26. This separates development-tool engines from the published runtime contract rather than raising the runtime floor.
 - **`@types/node` stays on the latest Node 22 line (22.20.1), not 26.2.0.** Compiling against Node 26 declarations would permit accidental use of APIs absent from supported Node 20 runtimes. The additional 26.2.0 lock entry is demanded transitively by protobufjs's broad `>=13.7.0` development type range and cannot be deduplicated with the repository compiler type line.
+- **Pi 0.83.0 remains the published host floor while development uses Pi 0.84.2.** The `pi-package-smoke` matrix installs and asserts exact Pi 0.83.0 and 0.84.2 hosts in isolated per-cell HOME/config trees. The documented support floor must equal the oldest exact CI-exercised Pi pin; raising or removing that matrix leg requires an explicit support-range decision and matching documentation change.
 - **The plugin compiles against TypeBox 1.3.7.** Pi 0.84.2 pins TypeBox 1.3.7 exactly in `pi-ai`, `pi-agent-core`, `pi-coding-agent`, and `pi-protocol`; matching the host-provided version prevents the plugin from compiling against APIs unavailable at runtime. TypeBox 1.3.18 was also inside Yarn 4's default 24-hour npm quarantine during this refresh. The host pin, not the quarantine alone, is the continuing blocker.
 - **Verdaccio is split by job.** The Node 20/26 runtime smoke matrix pins 6.8.0, the newest Verdaccio release supporting Node 20; Verdaccio 6.9+ requires Node 22. The Node 24 Pi package smoke uses current 6.10.0. `wait-on` is pinned to current 9.1.0 in both jobs.
 - **VitePress 1.6.4 is the latest stable release.** It still requires Vite `^5.4.14`, leaving three Vite advisories and the Vite 5 esbuild advisory in the development-only docs chain. VitePress 2 remains prerelease-only and is excluded by the no-prerelease requirement; forcing Vite 6/8 through VitePress 1's incompatible declared range would weaken peer and build guarantees. Track a VitePress 2 stable release before migrating. Sources: [VitePress releases](https://github.com/vuejs/vitepress/releases), [VitePress 1.6.4 package](https://github.com/vuejs/vitepress/blob/v1.6.4/package.json), and [VitePress issue 5073](https://github.com/vuejs/vitepress/issues/5073).

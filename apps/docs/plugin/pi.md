@@ -11,12 +11,14 @@ Pi is the **host harness**: it owns the conversation, host model, skills, tools,
 ## Prerequisites
 
 - Node.js 20+
-- Pi 0.84.2 or newer
+- Pi 0.83.0 or newer
 - one or more provider runtimes:
   - authenticated `codex` CLI for Codex reviews, images, verification, and codex-pair
   - authenticated enterprise `gemini` CLI for Gemini
   - local Ollama server with the requested model pulled
   - authenticated `agy` 1.1.5+ for Antigravity
+
+The published Pi support floor always matches the oldest exact host version exercised by the `pi-package-smoke` CI matrix; currently both the 0.83.0 floor and current 0.84.2 host are tested in isolated environments.
 
 The extension reads provider credentials only indirectly by invoking the provider package/CLI. It never copies keys or Pi credentials.
 

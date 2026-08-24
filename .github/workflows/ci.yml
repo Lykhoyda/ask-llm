@@ -376,11 +376,16 @@ jobs:
         yarn vitest run packages/shared/src/__tests__/commandExecutor.abort.test.ts --project @ask-llm/shared
 
   pi-package-smoke:
-    # Issue #262: exercise the real packed package and supported Pi release in
-    # an isolated HOME/config against Verdaccio. No paid provider is invoked.
+    name: pi package smoke (Pi ${{ matrix.pi-version }})
+    # Issue #262: exercise the real packed package against the oldest supported
+    # and current Pi releases in isolated HOME/config trees. No paid provider is invoked.
     needs: pack-tarballs
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        pi-version: ["0.83.0", "0.84.2"]
     steps:
     - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
     - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
@@ -399,17 +404,25 @@ jobs:
         for t in /tmp/tarballs/*.tgz; do npm publish --registry http://localhost:4873 "$t"; done
     - name: Clean Pi install, discovery, update, remove, and temporary evaluation
       env:
-        HOME: /tmp/ask-llm-pi-home
-        PI_CODING_AGENT_DIR: /tmp/ask-llm-pi-agent
+        HOME: /tmp/ask-llm-pi-home-${{ matrix.pi-version }}
+        PI_CODING_AGENT_DIR: /tmp/ask-llm-pi-agent-${{ matrix.pi-version }}
+        PI_PROJECT: /tmp/ask-llm-pi-project-${{ matrix.pi-version }}
+        PI_VERSION: ${{ matrix.pi-version }}
         PI_SKIP_VERSION_CHECK: "1"
         PI_TELEMETRY: "0"
         npm_config_registry: http://localhost:4873
       run: |
         set -euo pipefail
-        rm -rf "$HOME" "$PI_CODING_AGENT_DIR" /tmp/pi-project
-        mkdir -p "$HOME" "$PI_CODING_AGENT_DIR" /tmp/pi-project
-        npm install -g --ignore-scripts @earendil-works/pi-coding-agent@0.84.2
-        cd /tmp/pi-project
+        rm -rf "$HOME" "$PI_CODING_AGENT_DIR" "$PI_PROJECT"
+        mkdir -p "$HOME" "$PI_CODING_AGENT_DIR" "$PI_PROJECT"
+        npm install -g --ignore-scripts "@earendil-works/pi-coding-agent@$PI_VERSION"
+        installed_version=$(node -p "require('$(npm root -g)/@earendil-works/pi-coding-agent/package.json').version")
+        if [ "$installed_version" != "$PI_VERSION" ]; then
+          echo "FAIL: expected Pi $PI_VERSION, installed $installed_version"
+          exit 1
+        fi
+        echo "Verified exact Pi host $installed_version"
+        cd "$PI_PROJECT"
         pi install npm:@ask-llm/plugin
         pi list | grep -F 'npm:@ask-llm/plugin'
         printf '{"type":"get_commands"}\n' | pi --mode rpc --no-session --approve > /tmp/pi-commands.jsonl

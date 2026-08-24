@@ -1,9 +1,15 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
+import { parse } from "yaml";
 
 const workflow = readFileSync(resolve(import.meta.dirname, "../.github/workflows/ci.yml"), "utf8");
+const parsedWorkflow = parse(workflow);
+const pluginManifest = JSON.parse(
+  readFileSync(resolve(import.meta.dirname, "../packages/claude-plugin/package.json"), "utf8"),
+);
 const batch = "$" + "{{ matrix.batch }}";
+const piVersion = "$" + "{{ matrix.pi-version }}";
 
 function job(name) {
   const start = workflow.indexOf(`  ${name}:\n`);
@@ -12,6 +18,31 @@ function job(name) {
   const next = rest.search(/^ {2}[a-z][a-z0-9-]*:\n/m);
   return next === -1 ? rest : rest.slice(0, next);
 }
+
+describe("Pi host support workflow contract", () => {
+  const piJob = parsedWorkflow.jobs["pi-package-smoke"];
+  const lifecycleStep = piJob.steps.find(
+    (step) => step.name === "Clean Pi install, discovery, update, remove, and temporary evaluation",
+  );
+
+  it("keeps the published floor and current compile SDK as exact non-fail-fast smoke cells", () => {
+    expect(piJob.strategy).toEqual({
+      "fail-fast": false,
+      matrix: { "pi-version": ["0.83.0", "0.84.2"] },
+    });
+    expect(pluginManifest.devDependencies["@earendil-works/pi-ai"]).toBe("^0.84.2");
+    expect(pluginManifest.devDependencies["@earendil-works/pi-coding-agent"]).toBe("^0.84.2");
+  });
+
+  it("isolates every Pi cell and verifies the installed host version before exercising the package", () => {
+    expect(lifecycleStep.env.HOME).toContain(piVersion);
+    expect(lifecycleStep.env.PI_CODING_AGENT_DIR).toContain(piVersion);
+    expect(lifecycleStep.env.PI_PROJECT).toContain(piVersion);
+    expect(lifecycleStep.env.PI_VERSION).toBe(piVersion);
+    expect(lifecycleStep.run).toContain('"@earendil-works/pi-coding-agent@$PI_VERSION"');
+    expect(lifecycleStep.run).toContain('if [ "$installed_version" != "$PI_VERSION" ]');
+  });
+});
 
 describe("five-batch workflow contract", () => {
   const chains = [
