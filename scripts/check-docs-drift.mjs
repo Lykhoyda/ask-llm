@@ -88,6 +88,38 @@ for (const [field, checks] of [
   }
 }
 
+// Gemini's fallback is also quoted by current user/plugin surfaces. Keep this
+// list explicit so a model bump cannot leave a stale instruction outside the
+// provider-card parity check above; historical ADR/changelog evidence is
+// intentionally excluded.
+const geminiFallback = readFileSync(join(root, "packages/gemini-mcp/src/constants.ts"), "utf8").match(
+  /FLASH: process\.env\.ASK_GEMINI_FALLBACK_MODEL \|\| "([^"]+)"/,
+)?.[1];
+const geminiFallbackSurfaces = [
+  "README.md",
+  "apps/docs/concepts/models.md",
+  "apps/docs/providers/gemini.md",
+  "apps/docs/public/llms.txt",
+  "apps/docs/public/llms-full.txt",
+  "apps/docs/resources/troubleshooting.md",
+  "docs/PROVIDER-PARITY.md",
+  "packages/gemini-mcp/README.md",
+  "packages/claude-plugin/README.md",
+  "packages/claude-plugin/agents/gemini-reviewer.md",
+  "packages/claude-plugin/skills/gemini-review/SKILL.md",
+  "packages/claude-plugin/pi/extensions/provider-tools.ts",
+];
+if (!geminiFallback) {
+  errors.push("packages/gemini-mcp/src/constants.ts no longer exposes the Gemini fallback default");
+} else {
+  for (const relative of geminiFallbackSurfaces) {
+    const source = readFileSync(join(root, relative), "utf8");
+    if (!source.includes(geminiFallback)) {
+      errors.push(`${relative} is missing current Gemini fallback ${geminiFallback}`);
+    }
+  }
+}
+
 // The weekly scheduled model watch reads this spec verbatim from the default
 // branch; a missing or drifted file silently disables the routine (#272).
 const routineSpecPath = ".github/routines/model-version-watch.md";
@@ -104,6 +136,7 @@ if (routineSpec !== null) {
     "LLM default model versions - weekly tracker",
     "ADR-137",
     "ADR-138",
+    "ADR-154",
     ...new Set([...modelChecks, ...fallbackChecks].map(([, constantsPath]) => constantsPath)),
   ];
   for (const reference of requiredReferences) {

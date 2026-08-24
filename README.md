@@ -185,7 +185,7 @@ the complete package-to-executable mapping.
 | **Grok** | Grok 4.6 critique through xAI API or official Grok CLI | API `grok-4.6`, reasoning `high` (no fallback) | Harness selected separately; exact harness catalog ID sent unchanged |
 | **Antigravity** | A subscription-backed second opinion; larger-context reads | `gemini-3.1-pro` → `gemini-3.5-flash` (both at `--effort high`) | Google AI Pro/Ultra plan; one-shot, experimental |
 | **Ollama** | Private/local review, zero cost, offline | `qwen3.8:27b` (no auto-fallback) | Runs entirely on your machine |
-| **Gemini** | Whole-codebase reads (1M+ tokens) | `gemini-3.1-pro-preview` → `gemini-3.6-flash` | ⚠️ Enterprise-gated from 2026-06-18 |
+| **Gemini** | Whole-codebase reads (1M+ tokens) | `gemini-3.1-pro-preview` → `gemini-3.7-flash` | ⚠️ Enterprise-gated from 2026-06-18 |
 | **Unified (`ask-llm`)** | One install for all of the above; fan out in parallel | routes per call | **Recommended** |
 
 ## Host Package: Claude Code, Cursor Agent, and Pi
@@ -296,7 +296,7 @@ The REPL ships sessions per provider (`/provider gemini`, `/provider codex`, `/n
 
 | Provider | Default | Fallback |
 |----------|---------|----------|
-| Gemini | `gemini-3.1-pro-preview` | `gemini-3.6-flash` (on quota) |
+| Gemini | `gemini-3.1-pro-preview` | `gemini-3.7-flash` (on quota) |
 | Codex | `gpt-5.6-sol` | `gpt-5.6-terra` (on quota) |
 | Claude | `opus` | `sonnet` (on overload/unavailability) |
 | Grok | API: `grok-4.6`; CLI: exact `grok models` ID (effort `high`) | — (explicit harness/model selection; no fallback) |

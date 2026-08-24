@@ -139,6 +139,13 @@ describe("agents/", () => {
     }
   });
 
+  it("keeps Gemini agent, skill, and Pi surfaces on the canonical quota fallback", () => {
+    const expectedChain = "`gemini-3.1-pro-preview` → `gemini-3.7-flash`";
+    expect(readFile("agents/gemini-reviewer.md")).toContain(expectedChain);
+    expect(readFile("skills/gemini-review/SKILL.md")).toContain(expectedChain);
+    expect(readFile("pi/extensions/provider-tools.ts")).toContain(expectedChain);
+  });
+
   it("review agents are restricted from edit/write tools", () => {
     const reviewerAgents = [
       "gemini-reviewer.md",

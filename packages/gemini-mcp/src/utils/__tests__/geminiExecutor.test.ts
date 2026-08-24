@@ -248,13 +248,14 @@ describe("executeGeminiCLI quota fallback", () => {
     expect(mockExecuteCommand).toHaveBeenCalledTimes(2);
   });
 
-  // #244 — gemini-3.6-flash (GA 2026-07-21) supersedes 3.5 as the quota fallback.
-  it("defaults the Flash fallback to the GA gemini-3.6-flash model", () => {
-    expect(MODELS.FLASH).toBe("gemini-3.6-flash");
+  // #298 — gemini-3.7-flash (GA 2026-08-13) supersedes 3.6 as the quota fallback.
+  it("defaults the Flash fallback to the GA gemini-3.7-flash model", () => {
+    expect(MODELS.FLASH).toBe("gemini-3.7-flash");
   });
 
   it("references the current Flash model (not a superseded one) in the quota-exceeded message", () => {
-    expect(ERROR_MESSAGES.QUOTA_EXCEEDED_SHORT).toContain("gemini-3.6-flash");
+    expect(ERROR_MESSAGES.QUOTA_EXCEEDED_SHORT).toContain("gemini-3.7-flash");
+    expect(ERROR_MESSAGES.QUOTA_EXCEEDED_SHORT).not.toContain("gemini-3.6-flash");
     expect(ERROR_MESSAGES.QUOTA_EXCEEDED_SHORT).not.toContain("gemini-3.5-flash");
     expect(ERROR_MESSAGES.QUOTA_EXCEEDED_SHORT).not.toContain("gemini-3-flash-preview");
   });
@@ -263,8 +264,8 @@ describe("executeGeminiCLI quota fallback", () => {
     expect(ERROR_MESSAGES.QUOTA_EXCEEDED_SHORT).toContain(MODELS.FLASH);
   });
 
-  // #244 — 3.6 Flash is a quota fallback, not a Pro replacement.
-  it("does not change the Pro factory default when adopting the 3.6 Flash fallback", () => {
+  // #298 — 3.7 Flash is a quota fallback, not a Pro replacement.
+  it("does not change the Pro factory default when adopting the 3.7 Flash fallback", () => {
     expect(FACTORY_DEFAULT_MODEL).toBe("gemini-3.1-pro-preview");
     expect(MODELS.PRO).toBe(FACTORY_DEFAULT_MODEL);
   });
@@ -304,7 +305,7 @@ describe("executeGeminiCLI quota fallback", () => {
     mockExecuteCommand.mockRejectedValueOnce(new Error("RESOURCE_EXHAUSTED")).mockResolvedValueOnce(
       JSON.stringify({
         response: "Flash response",
-        stats: { models: { "gemini-3.6-flash": { tokens: { input: 10, candidates: 5, cached: 0, thoughts: 0 } } } },
+        stats: { models: { "gemini-3.7-flash": { tokens: { input: 10, candidates: 5, cached: 0, thoughts: 0 } } } },
       }),
     );
 

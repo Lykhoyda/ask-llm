@@ -203,7 +203,7 @@ export function registerProviderTools(pi: ExtensionAPI): void {
     name: "ask-gemini",
     label: "Ask Gemini",
     description:
-      "Consult Gemini through Ask LLM's canonical executor, including its quota fallback, validation, sessions, and structured response. Output is bounded to Pi's 50KB/2000-line limits.",
+      "Consult Gemini through Ask LLM's canonical executor (`gemini-3.1-pro-preview` → `gemini-3.7-flash` on quota), including validation, sessions, and structured response. Output is bounded to Pi's 50KB/2000-line limits.",
     parameters: geminiSchema,
     provider: "gemini",
   });

@@ -12,7 +12,7 @@ Hosted CLI providers (Gemini, Codex, Claude, Antigravity) auto-select a sensible
 
 | Provider | Default | Fallback | Trigger |
 |---|---|---|---|
-| Gemini | `gemini-3.1-pro-preview` | `gemini-3.6-flash` | `RESOURCE_EXHAUSTED` quota error or "exhausted your capacity" pattern |
+| Gemini | `gemini-3.1-pro-preview` | `gemini-3.7-flash` | `RESOURCE_EXHAUSTED` quota error or "exhausted your capacity" pattern |
 | Codex | `gpt-5.6-sol` | `gpt-5.6-terra` | Quota errors (`rate_limit_exceeded`, `429`, `insufficient_quota`) |
 | Claude | `opus` | `sonnet` | Claude Code native fallback when Opus is overloaded or unavailable |
 | Grok | `grok-4.6` (`reasoning.effort=high`) | none | Every error is terminal; requested ID is sent unchanged |
@@ -43,13 +43,13 @@ Different providers excel at different things. Pick by what you're doing, not by
 Pass `model` explicitly when you have a reason to:
 
 ```text
-Use ask-llm with provider gemini and model gemini-3.6-flash to quickly check this CSS file
+Use ask-llm with provider gemini and model gemini-3.7-flash to quickly check this CSS file
 ```
 
 Or programmatically:
 
 ```json
-{ "name": "ask-llm", "arguments": { "provider": "gemini", "model": "gemini-3.6-flash", "prompt": "..." } }
+{ "name": "ask-llm", "arguments": { "provider": "gemini", "model": "gemini-3.7-flash", "prompt": "..." } }
 ```
 
 For Grok, choose the harness first. Discover API IDs with authenticated `GET https://api.x.ai/v1/models`, or CLI IDs with `grok models`, then pass the desired ID unchanged. Reasoning depth is a separate `reasoningEffort` parameter (`low`, `medium`, `high`, `xhigh`), not a model suffix. There is no harness or model fallback. Cursor Agent is separate and model-neutral: `ask-cursor-agent` requires a canonical provider family (`claude`, `codex`, `gemini`, `grok`) plus an exact account ID from `agent --list-models` (for example a Cursor Grok ID may differ from xAI's API ID); the ID must belong to that family, and Cursor Auto or other noncanonical IDs are refused.
