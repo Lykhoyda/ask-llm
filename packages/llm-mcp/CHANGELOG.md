@@ -1,5 +1,18 @@
 # @ask-llm/mcp
 
+## 0.8.0
+
+### Minor Changes
+
+- [#291](https://github.com/Lykhoyda/ask-llm/pull/291) [`d989ec9`](https://github.com/Lykhoyda/ask-llm/commit/d989ec916f71eefe5fe0814d5c1eb75d29dfe89f) Thanks [@Lykhoyda](https://github.com/Lykhoyda)! - Add a first-class Claude Code `/grok-pair` workflow with explicit Cursor Agent, xAI API, or Grok CLI routes and no silent fallback. Add Cursor Plugin/Agent Skills support for `/codex-pair` with consent, bounded context, exact Codex model/effort/include options, persisted session reuse, cancellation, and actionable diagnostics. Unified Ask LLM now forwards supported reasoning/include options, rejects `includeDirs` on resumed Codex threads instead of dropping them (enforced once in the shared Codex executor so the split `ask-codex` and Pi tools fail closed too), and Cursor Agent consultations support validated include directories plus structured session resume. The Claude plugin keeps bundling only Codex; `@ask-llm/mcp` and `@ask-llm/grok-mcp` are user-scoped installs for the Grok routes. Unified startup now detects authenticated Grok CLI-only installations without requiring an API key or server-wide harness override (an explicit `ASK_GROK_HARNESS` keeps readiness on that harness), while execution remains pinned to the request's explicit harness with no fallback and a CLI-only default-route call reports the `harness: "grok-cli"` pin instead of a bare missing-key error. The Cursor plugin manifest exposes exactly `/codex-pair` and `/grok-pair` with explicit empty `agents`/`commands`/`hooks`, and its `mcp.json` bundles only the unified `ask-llm` server (split Codex/Grok servers are optional user installs).
+
+### Patch Changes
+
+- [#296](https://github.com/Lykhoyda/ask-llm/pull/296) [`fa272ee`](https://github.com/Lykhoyda/ask-llm/commit/fa272ee9c5ea1bd8ea85673fc0a757a0cd81a509) Thanks [@Lykhoyda](https://github.com/Lykhoyda)! - Make the root CLI treat no arguments as the only implicit MCP server-start path. Help and version now print without provider detection, while unsupported commands and arguments fail with clear usage instead of silently starting the server.
+
+- Updated dependencies [[`d989ec9`](https://github.com/Lykhoyda/ask-llm/commit/d989ec916f71eefe5fe0814d5c1eb75d29dfe89f), [`af77cd8`](https://github.com/Lykhoyda/ask-llm/commit/af77cd8b90cb836f87a39893d52e983a36fbea53)]:
+  - @ask-llm/grok-mcp@0.1.2
+
 ## 0.7.0
 
 ### Minor Changes
