@@ -31,7 +31,7 @@ agy --version
 
 ```bash [Ollama]
 # install from https://ollama.com, then:
-ollama pull qwen3.6:27b
+ollama pull qwen3.8:27b
 ```
 
 ```bash [Gemini]

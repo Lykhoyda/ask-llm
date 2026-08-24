@@ -17,7 +17,7 @@ Hosted CLI providers (Gemini, Codex, Claude, Antigravity) auto-select a sensible
 | Claude | `opus` | `sonnet` | Claude Code native fallback when Opus is overloaded or unavailable |
 | Grok | `grok-4.6` (`reasoning.effort=high`) | none | Every error is terminal; requested ID is sent unchanged |
 | Antigravity | `gemini-3.1-pro` (`--effort high`) | `gemini-3.5-flash`; one model-less retry when agy rejects a model whose value equals `gemini-3.1-pro` or `gemini-3.5-flash` (reported as `agy default`). Both retain the effective effort (`high`, or the `ASK_ANTIGRAVITY_EFFORT` override) | Subscription rate limit; model-unavailable (shipped slug values only — other rejected models fail actionably) |
-| Ollama | `qwen3.6:27b` | none | Local, no fallback; a missing model returns a clear `ollama pull` error |
+| Ollama | `qwen3.8:27b` | none | Local, no fallback; a missing model returns a clear `ollama pull` error |
 
 For Gemini, Codex, Claude, and Antigravity, fallback is automatic and structured output exposes the actual model plus `usage.fellBack`. Antigravity reports `gemini-3.5-flash` after a rate-limit fallback, or the literal `agy default` after a model-less recovery (agy does not reveal which model it picked). Grok and Ollama never fall back, so their `fellBack` values are always `false`.
 
@@ -85,7 +85,7 @@ For Antigravity, `ask-antigravity` requires `agy` ≥1.1.5 and has no per-call `
 | Grok 4.6 | 500k tokens on xAI API | API is metered with long-context rates at 200k; Grok CLI follows its authenticated plan |
 | Cursor Agent harness | Per selected catalog model | Included usage/on-demand spend follows the user's Cursor plan; Ask LLM never changes spend settings |
 | Codex GPT-5.6 Terra | Per OpenAI's published context window | Balanced fallback target |
-| Ollama | Per model (e.g., 256k for qwen3.6) | Free, runs locally |
+| Ollama | Per model (e.g., 256k for qwen3.8) | Free, runs locally |
 
 ## Track What You're Spending
 

@@ -231,7 +231,7 @@ node "${CLAUDE_PLUGIN_ROOT}/dist/grok-run.js" "$(cat "$workdir/prompt.md")" > "$
 pid_grok=$!
 
 # Only include this line if ollama was requested:
-ollama run "${ASK_OLLAMA_MODEL:-qwen3.6:27b}" < "$workdir/prompt.md" > "$workdir/ollama.out" 2> "$workdir/ollama.err" &
+ollama run "${ASK_OLLAMA_MODEL:-qwen3.8:27b}" < "$workdir/prompt.md" > "$workdir/ollama.out" 2> "$workdir/ollama.err" &
 pid_ollama=$!
 
 # Wait for each by PID so we capture per-provider exit codes independently.

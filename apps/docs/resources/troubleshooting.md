@@ -35,7 +35,7 @@ npm install -g @openai/codex
 # then follow the codex CLI's auth instructions
 
 # Ollama (https://ollama.com)
-ollama pull qwen3.6:27b
+ollama pull qwen3.8:27b
 ```
 
 Verify:

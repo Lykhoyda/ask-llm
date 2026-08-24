@@ -5,7 +5,7 @@
 # The published defaults (pinned by contract tests) and CI stay unchanged;
 # only an explicitly authorized legacy live run is affected.
 #
-# Example — the factory-default Ollama model (qwen3.6:27b) is too big for this
+# Example — the factory-default Ollama model (qwen3.8:27b) is too big for this
 # box, so point the smoke run at a small model you've already `ollama pull`ed:
 #
 #   export ASK_OLLAMA_MODEL="qwen2.5-coder:1.5b"

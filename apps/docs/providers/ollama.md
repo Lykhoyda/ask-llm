@@ -24,7 +24,7 @@ Or install globally: `npm install -g @ask-llm/ollama-mcp`
 3. **A model pulled:**
 
 ```bash
-ollama pull qwen3.6:27b
+ollama pull qwen3.8:27b
 ```
 
 ## Tools
@@ -39,7 +39,7 @@ ollama pull qwen3.6:27b
 
 ## Models
 
-- **Default:** `qwen3.6:27b`, Qwen's flagship-level local coding model (~17 GB; needs a capable GPU / plenty of RAM). Set `ASK_OLLAMA_MODEL` to pick a lighter model.
+- **Default:** `qwen3.8:27b`, Qwen's flagship-level local coding model (~18 GB; needs a capable GPU / plenty of RAM). Set `ASK_OLLAMA_MODEL` to pick a lighter model.
 - There is deliberately no model fallback: a missing model fails fast with an actionable ollama pull command. Ollama is local, so you pull the model you want and the server never silently substitutes another.
 
 ## Configuration

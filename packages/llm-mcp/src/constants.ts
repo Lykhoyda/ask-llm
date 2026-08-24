@@ -64,7 +64,7 @@ export const PROVIDERS: Record<string, ProviderConfig> = {
     command: "ollama",
     executorModule: "@ask-llm/ollama-mcp/executor",
     executorFn: "executeOllamaCLI",
-    defaultModel: "qwen3.6:27b",
+    defaultModel: "qwen3.8:27b",
     availabilityModule: "@ask-llm/ollama-mcp/executor",
     availabilityFn: "isProviderAvailable",
   },
@@ -87,7 +87,7 @@ export const INSTALL_HINTS: Record<string, string> = {
   codex: "npm install -g @openai/codex",
   claude: "npm install -g @anthropic-ai/claude-code, then run `claude` once to authenticate",
   grok: "Set XAI_API_KEY from https://console.x.ai/team/default/api-keys for xai-api, or install/authenticate Grok Build and verify `grok --help` advertises headless JSON flags for grok-cli; routes never fall back",
-  ollama: "https://ollama.com — then: ollama pull qwen3.6:27b",
+  ollama: "https://ollama.com — then: ollama pull qwen3.8:27b",
   antigravity:
     "Install Google Antigravity (agy) >=1.1.5 from https://antigravity.google, verify with `agy --version`, then run `agy` once to log in",
 };

@@ -184,7 +184,7 @@ the complete package-to-executable mapping.
 | **Claude** | Independent review from Codex or another non-Claude host | `opus` → `sonnet` | Claude Code CLI; native sessions; read-only tools |
 | **Grok** | Grok 4.6 critique through xAI API or official Grok CLI | API `grok-4.6`, reasoning `high` (no fallback) | Harness selected separately; exact harness catalog ID sent unchanged |
 | **Antigravity** | A subscription-backed second opinion; larger-context reads | `gemini-3.1-pro` → `gemini-3.5-flash` (both at `--effort high`) | Google AI Pro/Ultra plan; one-shot, experimental |
-| **Ollama** | Private/local review, zero cost, offline | `qwen3.6:27b` (no auto-fallback) | Runs entirely on your machine |
+| **Ollama** | Private/local review, zero cost, offline | `qwen3.8:27b` (no auto-fallback) | Runs entirely on your machine |
 | **Gemini** | Whole-codebase reads (1M+ tokens) | `gemini-3.1-pro-preview` → `gemini-3.6-flash` | ⚠️ Enterprise-gated from 2026-06-18 |
 | **Unified (`ask-llm`)** | One install for all of the above; fan out in parallel | routes per call | **Recommended** |
 
@@ -240,7 +240,7 @@ See the [plugin docs](https://lykhoyda.github.io/ask-llm/plugin/overview) for de
   - [xAI API](https://docs.x.ai/) — set `XAI_API_KEY` for the default metered Grok harness; or install/authenticate official Grok Build (pin `harness: "grok-cli"` per request, or set `ASK_GROK_HARNESS=grok-cli` as the default; no failover)
   - [Cursor CLI](https://cursor.com/docs/cli) — optional model-neutral harness; authenticate and choose an exact ID from `agent --list-models`
   - [Antigravity CLI](https://antigravity.google) (`agy`) >=1.1.5 — installed and logged in once (Google AI Pro/Ultra); verify with `agy --version`
-  - [Ollama](https://ollama.com) — running locally with a model pulled (`ollama pull qwen3.6:27b`)
+  - [Ollama](https://ollama.com) — running locally with a model pulled (`ollama pull qwen3.8:27b`)
   - [Gemini CLI](https://github.com/google-gemini/gemini-cli) — `npm install -g @google/gemini-cli && gemini login` (enterprise-gated from 2026-06-18)
 
 ## MCP Tools
@@ -301,7 +301,7 @@ The REPL ships sessions per provider (`/provider gemini`, `/provider codex`, `/n
 | Claude | `opus` | `sonnet` (on overload/unavailability) |
 | Grok | API: `grok-4.6`; CLI: exact `grok models` ID (effort `high`) | — (explicit harness/model selection; no fallback) |
 | Antigravity | `gemini-3.1-pro` (`--effort high`) | `gemini-3.5-flash` (on rate limit); model-less recovery if a shipped slug is rejected |
-| Ollama | `qwen3.6:27b` | — (local; errors if the model isn't pulled) |
+| Ollama | `qwen3.8:27b` | — (local; errors if the model isn't pulled) |
 
 Gemini, Codex, Claude, and Antigravity automatically fall back under their documented provider-specific conditions. Grok and Ollama never substitute a model: Grok preserves the explicit API/CLI harness catalog selection, while Ollama preserves the locally pulled model — if the requested model isn't pulled, it returns a clear `ollama pull` error.
 
