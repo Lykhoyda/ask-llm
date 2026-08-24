@@ -6,7 +6,7 @@ description: Get a second opinion from OpenAI Codex on your current code changes
 <!-- PORTABLE-CONTRACT:START -->
 ## Portable contract
 
-Gather the relevant staged, unstaged, and untracked code changes; build a bounded context brief; request a read-only Codex review at high reasoning effort; verify each reported finding against source; and return only prioritized, source-supported findings. Preserve the configured Sol-to-Terra fallback and disclose it.
+Gather the relevant staged, unstaged, and untracked code changes; build a bounded context brief; request a read-only Codex review at high reasoning effort; verify each reported finding against source; and return only prioritized, source-supported findings. Preserve the configured Sol-to-Luna fallback and disclose it.
 <!-- PORTABLE-CONTRACT:END -->
 
 ## Host adapters
@@ -47,6 +47,6 @@ For **recall-first** review on hot-path code (money handling, security paths, sp
 
 2. If the diff is empty, inform the user there are no changes to review.
 
-3. Launch the `codex-reviewer` agent with the diff content. The agent handles the Codex prompt structure and output formatting, using GPT-5.6 Sol at `high` reasoning effort with automatic Terra fallback.
+3. Launch the `codex-reviewer` agent with the diff content. The agent handles the Codex prompt structure and output formatting, using GPT-5.6 Sol at `high` reasoning effort with automatic Luna fallback.
 
 <!-- HOST-ADAPTER:CLAUDE-CODE:END -->

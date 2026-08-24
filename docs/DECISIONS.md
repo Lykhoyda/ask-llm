@@ -1,5 +1,15 @@
 # Architectural Decisions
 
+## ADR-153: Codex quota fallback moves to gpt-5.6-luna, the mini-tier successor
+
+**Status:** Accepted (2026-08-24)
+
+**Context:** Issue #301. `MODELS.FALLBACK` defaulted to `gpt-5.6-terra` after the GPT-5.6 family cutover, and the constants comment called Terra the role-preserving successor to `gpt-5.4-mini`. Codex's own bundled model-migration manifest maps `gpt-5.4` → Terra and `gpt-5.4-mini` → Luna. Terra remains listed (`visibility: "list"`), so this is not a 404; the factory fallback had silently moved one tier up in cost from the mini lineage. Captain approved adopting Luna as the role-preserving successor. Local Codex catalog evidence (`~/.codex/models_cache.json`, `fetched_at` 2026-08-24, `client_version` 0.148.0) lists `gpt-5.6-luna` with `visibility: "list"` and `supported_reasoning_levels` `low|medium|high|xhigh|max` — every effort ask-llm sends (`CODEX_REASONING_EFFORTS`). Sol/Terra additionally advertise `ultra`, which ask-llm never sends.
+
+**Decision:** Change the factory Codex quota fallback from `gpt-5.6-terra` to `gpt-5.6-luna`. Introduce `FACTORY_FALLBACK_MODEL` beside `FACTORY_DEFAULT_MODEL` so the env-invariant slug is the drift-guard source of truth; `MODELS.FALLBACK` remains `process.env.ASK_CODEX_FALLBACK_MODEL || FACTORY_FALLBACK_MODEL`. Correct the constants comment to match upstream's mapping. Mirror the slug through plugin defaults, docs, provider theme, generated llms surfaces, and `scripts/check-docs-drift.mjs` (Codex `fallbackModel` now participates in the same CI check as Gemini/Antigravity). Do not bump Gemini or Antigravity fallbacks in sympathy (ADR-137).
+
+**Consequences:** Unpinned installs retry quota on Luna instead of Terra. Operators who want Terra (or any other listed slug) keep `ASK_CODEX_FALLBACK_MODEL`. Terra remains a valid explicit pin; it is no longer the factory fallback.
+
 ## ADR-152: Changesets v3 and action v2 preserve one explicit package-tag authority
 
 **Status:** Accepted (2026-08-24)

@@ -407,10 +407,10 @@ describe("truthful model attribution", () => {
     expect(isSameProductResolution(requested, served)).toBe(expected);
   });
 
-  it("rejects a direct Codex fallback instead of attributing Terra as Sol", async () => {
+  it("rejects a direct Codex fallback instead of attributing Luna as Sol", async () => {
     calls.codex.mockResolvedValueOnce({
       response: "terra answered",
-      usage: { provider: "codex", model: "gpt-5.6-terra", fellBack: true },
+      usage: { provider: "codex", model: "gpt-5.6-luna", fellBack: true },
     });
     const report = await runBrainstormPanel({
       prompt: "architecture",
@@ -425,7 +425,7 @@ describe("truthful model attribution", () => {
       requestedModel: "gpt-5.6-sol",
       modelVerification: "fallback",
       status: "rejected",
-      error: expect.stringContaining('fallback to "gpt-5.6-terra" for requested "gpt-5.6-sol"'),
+      error: expect.stringContaining('fallback to "gpt-5.6-luna" for requested "gpt-5.6-sol"'),
     });
     expect(report.participants[1]).not.toHaveProperty("response");
     expect(report.consensusEligible).toBe(false);

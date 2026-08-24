@@ -1,5 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { CLI, CODEX_EDIT_SCHEMA, DEFAULT_REASONING_EFFORT, ERROR_MESSAGES, MODELS } from "../../constants.js";
+import {
+  CLI,
+  CODEX_EDIT_SCHEMA,
+  DEFAULT_REASONING_EFFORT,
+  ERROR_MESSAGES,
+  FACTORY_FALLBACK_MODEL,
+  MODELS,
+} from "../../constants.js";
 
 vi.mock("@ask-llm/shared", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@ask-llm/shared")>();
@@ -579,7 +586,7 @@ describe("fallback model structurally unavailable for the account (#196)", () =>
 
       const err = await executeCodexCLI({ prompt: "test" }).catch((e) => e as Error);
       expect(err.message).toMatch(/unset it to use the default/i);
-      expect(err.message).toMatch(/gpt-5\.6-terra/);
+      expect(err.message).toContain(FACTORY_FALLBACK_MODEL);
     });
   });
 });

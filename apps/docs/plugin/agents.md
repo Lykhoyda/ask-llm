@@ -16,7 +16,7 @@ Invoke it with `/fable-review`.
 
 ### `sol-reviewer`
 
-This reviewer uses an isolated Opus coordinator to request `gpt-5.6-sol` explicitly from `ask-codex` at high reasoning, then validates Sol's findings against the source. Invoke it with `/sol-review`. A quota fallback to Terra is disclosed instead of being presented as a Sol result.
+This reviewer uses an isolated Opus coordinator to request `gpt-5.6-sol` explicitly from `ask-codex` at high reasoning, then validates Sol's findings against the source. Invoke it with `/sol-review`. A quota fallback to Luna is disclosed instead of being presented as a Sol result.
 
 Provider-backed review agents use a 3-phase workflow with confidence-based filtering:
 
@@ -37,7 +37,7 @@ Provider-backed review agents use a 3-phase workflow with confidence-based filte
 
 ### `codex-reviewer`
 
-Sends code changes to OpenAI Codex (GPT-5.6 Sol) for review. Automatic fallback to GPT-5.6 Terra on quota limits.
+Sends code changes to OpenAI Codex (GPT-5.6 Sol) for review. Automatic fallback to GPT-5.6 Luna on quota limits.
 
 ### `antigravity-reviewer`
 

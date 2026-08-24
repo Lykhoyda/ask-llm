@@ -6,7 +6,7 @@ Ask LLM provides Model Context Protocol (MCP) servers that let any MCP-compatibl
 
 ## Packages
 
-- `@ask-llm/codex-mcp`: MCP server for OpenAI Codex CLI. Default model: gpt-5.6-sol → gpt-5.6-terra on quota.
+- `@ask-llm/codex-mcp`: MCP server for OpenAI Codex CLI. Default model: gpt-5.6-sol → gpt-5.6-luna on quota.
 - `@ask-llm/claude-mcp`: MCP server for Anthropic Claude Code CLI, intended for Codex and other non-Claude hosts. Default: opus → sonnet. Native sessions; Read/Glob/Grep-only tools.
 - `@ask-llm/grok-mcp`: MCP server for Grok through the metered xAI Responses API. Default API ID: `grok-4.6`; explicit `xai-api` or `grok-cli` harness; high effort; no harness/model/provider fallback.
 - `@ask-llm/antigravity-mcp`: MCP server for Google Antigravity CLI (`agy` ≥1.1.5). Subscription-backed second opinion. Default model: `gemini-3.1-pro` → `gemini-3.5-flash` on rate limit, both at high effort.
@@ -35,7 +35,7 @@ codex mcp add claude -- npx -y @ask-llm/claude-mcp
 
 | Tool | Package | Parameters | Description |
 |------|---------|------------|-------------|
-| ask-codex | @ask-llm/codex-mcp | prompt (required), model (optional), reasoningEffort (optional), sessionId (optional), includeDirs (optional), preferred (optional) | Send prompts to Codex CLI. Omit sessionId for an ephemeral call, pass sessionId: "" to create a fresh persisted thread, or pass a non-empty returned ID to resume. includeDirs applies only to fresh calls and is not forwarded on resume. Defaults to gpt-5.6-sol at medium effort with gpt-5.6-terra quota fallback; /codex-review and /brainstorm use high. |
+| ask-codex | @ask-llm/codex-mcp | prompt (required), model (optional), reasoningEffort (optional), sessionId (optional), includeDirs (optional), preferred (optional) | Send prompts to Codex CLI. Omit sessionId for an ephemeral call, pass sessionId: "" to create a fresh persisted thread, or pass a non-empty returned ID to resume. includeDirs applies only to fresh calls and is not forwarded on resume. Defaults to gpt-5.6-sol at medium effort with gpt-5.6-luna quota fallback; /codex-review and /brainstorm use high. |
 | ask-codex-edit | @ask-llm/codex-mcp | prompt (required), model (optional), sessionId (optional), includeDirs (optional) | Get read-only structured code edits from Codex (`--output-schema`). Omit sessionId for an ephemeral call, pass sessionId: "" to create a fresh persisted thread, or pass a non-empty returned ID to resume. includeDirs applies only to fresh calls and is not forwarded on resume. |
 | ask-claude | @ask-llm/claude-mcp | prompt (required), model (optional), sessionId (optional), includeDirs (optional) | Send a read-only second-opinion request to Claude Code CLI. Not available from a Claude Code host because nested sessions are unsupported. |
 | ask-grok | @ask-llm/grok-mcp | prompt (required), model (optional), harness (optional: xai-api or grok-cli), reasoningEffort (optional) | Metered Grok consultation through xAI. Exact model is sent unchanged; no fallback. Requires XAI_API_KEY. |

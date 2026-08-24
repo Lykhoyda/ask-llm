@@ -8,7 +8,7 @@ import { prepareCommandInvocation } from "./lib/process.mjs";
 export const ASK_CODEX_PACKAGE = "@ask-llm/codex-mcp";
 export const ASK_CODEX_TOOL = "ask-codex";
 export const SOL_MODEL = "gpt-5.6-sol";
-export const TERRA_MODEL = "gpt-5.6-terra";
+export const LUNA_MODEL = "gpt-5.6-luna";
 
 const scriptPath = fileURLToPath(import.meta.url);
 const quotaSignals = [
@@ -219,7 +219,7 @@ export function executeCodex({ command, model, prompt, spawnProcess = spawn, pla
 export async function runCliFallback({
   prompt,
   command = process.env.ASK_CODEX_BIN || "codex",
-  fallbackModel = process.env.ASK_CODEX_FALLBACK_MODEL || TERRA_MODEL,
+  fallbackModel = process.env.ASK_CODEX_FALLBACK_MODEL || LUNA_MODEL,
   execute = executeCodex,
 }) {
   const primary = await execute({ command, model: SOL_MODEL, prompt });

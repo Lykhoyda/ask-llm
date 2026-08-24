@@ -436,7 +436,7 @@ describe("runMachineRequest", () => {
       writerProvider: "claude" as const,
       envVar: "ASK_CODEX_MODEL",
       configuredModel: "gpt-custom-primary",
-      actualModel: "gpt-5.6-terra",
+      actualModel: "gpt-5.6-luna",
       fellBack: true,
     },
     {

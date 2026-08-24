@@ -26,7 +26,7 @@ Run the same independent review contract with an isolated coordinator that expli
 /sol-review
 ```
 
-`/fable-review` requires a Claude Code runtime/account that exposes Fable. `/sol-review` requires an installed, authenticated Codex CLI; its Codex MCP registration is included with the plugin. The skill reads Claude's active MCP inventory, correlates the tool prefix to the Ask LLM Codex registration, and rechecks inside the reviewer. Missing registration and disconnected-service states receive different remediation before the explicit CLI fallback. If Sol falls back to Terra on quota, the result says so explicitly.
+`/fable-review` requires a Claude Code runtime/account that exposes Fable. `/sol-review` requires an installed, authenticated Codex CLI; its Codex MCP registration is included with the plugin. The skill reads Claude's active MCP inventory, correlates the tool prefix to the Ask LLM Codex registration, and rechecks inside the reviewer. Missing registration and disconnected-service states receive different remediation before the explicit CLI fallback. If Sol falls back to Luna on quota, the result says so explicitly.
 
 ## Provider Review Skills
 
@@ -56,7 +56,7 @@ Get a second opinion from OpenAI Codex (GPT-5.6 Sol) on your current changes.
 /codex-review
 ```
 
-Falls back to GPT-5.6 Terra automatically if you hit quota limits.
+Falls back to GPT-5.6 Luna automatically if you hit quota limits.
 
 ### `/grok-review`
 

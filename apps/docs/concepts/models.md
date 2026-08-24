@@ -13,7 +13,7 @@ Hosted CLI providers (Gemini, Codex, Claude, Antigravity) auto-select a sensible
 | Provider | Default | Fallback | Trigger |
 |---|---|---|---|
 | Gemini | `gemini-3.1-pro-preview` | `gemini-3.6-flash` | `RESOURCE_EXHAUSTED` quota error or "exhausted your capacity" pattern |
-| Codex | `gpt-5.6-sol` | `gpt-5.6-terra` | Quota errors (`rate_limit_exceeded`, `429`, `insufficient_quota`) |
+| Codex | `gpt-5.6-sol` | `gpt-5.6-luna` | Quota errors (`rate_limit_exceeded`, `429`, `insufficient_quota`) |
 | Claude | `opus` | `sonnet` | Claude Code native fallback when Opus is overloaded or unavailable |
 | Grok | `grok-4.6` (`reasoning.effort=high`) | none | Every error is terminal; requested ID is sent unchanged |
 | Antigravity | `gemini-3.1-pro` (`--effort high`) | `gemini-3.5-flash`; one model-less retry when agy rejects a model whose value equals `gemini-3.1-pro` or `gemini-3.5-flash` (reported as `agy default`). Both retain the effective effort (`high`, or the `ASK_ANTIGRAVITY_EFFORT` override) | Subscription rate limit; model-unavailable (shipped slug values only — other rejected models fail actionably) |
@@ -29,7 +29,7 @@ Different providers excel at different things. Pick by what you're doing, not by
 
 | Task | Suggested provider | Why |
 |---|---|---|
-| Targeted code reasoning, refactor critique | **Codex** | GPT-5.6 Sol is the flagship agentic coding model; Terra keeps the fallback balanced |
+| Targeted code reasoning, refactor critique | **Codex** | GPT-5.6 Sol is the flagship agentic coding model; Luna keeps the fallback fast and affordable |
 | Claude second opinion while working in Codex | **Claude** | Opus review through Claude Code CLI, with native session continuation and read-only file access |
 | Grok 4.6 independent API critique | **Grok** | Exact model selection, configurable reasoning depth, structured JSON Schema output |
 | Private / air-gapped analysis | **Ollama** | Runs locally, nothing leaves your machine |
@@ -57,7 +57,7 @@ For Grok, choose the harness first. Discover API IDs with authenticated `GET htt
 For Codex, common overrides:
 
 ```text
-Use ask-codex with model gpt-5.6-terra to summarize this commit
+Use ask-codex with model gpt-5.6-luna to summarize this commit
 ```
 
 For Ollama, you can request any model you've pulled:
@@ -84,7 +84,7 @@ For Antigravity, `ask-antigravity` requires `agy` ≥1.1.5 and has no per-call `
 | Codex GPT-5.6 Sol | Per OpenAI's published context window | Per OpenAI billing |
 | Grok 4.6 | 500k tokens on xAI API | API is metered with long-context rates at 200k; Grok CLI follows its authenticated plan |
 | Cursor Agent harness | Per selected catalog model | Included usage/on-demand spend follows the user's Cursor plan; Ask LLM never changes spend settings |
-| Codex GPT-5.6 Terra | Per OpenAI's published context window | Balanced fallback target |
+| Codex GPT-5.6 Luna | Per OpenAI's published context window | Fast/affordable fallback target |
 | Ollama | Per model (e.g., 256k for qwen3.6) | Free, runs locally |
 
 ## Track What You're Spending
@@ -101,7 +101,7 @@ This is in-memory only; no persistence to disk, resets when the MCP server resta
 
 - **General code review** → defaults are correct; let the fallback chain handle quota
 - **Whole-codebase analysis** → `ask-gemini` (Pro) if you have an enterprise seat, otherwise `ask-antigravity` for large-context reads without per-token billing
-- **Quick fixes, fast iteration** → request Flash or `gpt-5.6-terra` explicitly to skip the flagship→fallback round-trip
+- **Quick fixes, fast iteration** → request Flash or `gpt-5.6-luna` explicitly to skip the flagship→fallback round-trip
 - **Grok consultation** → `ask-grok`; confirm xAI pricing and data transfer first, then use exact model IDs with no fallback
 - **Privacy-sensitive code** → `ask-ollama`, never leaves your machine
 - **Multi-perspective debate** → `multi-llm` or `/brainstorm` skill; Claude weighs verified vs inferred

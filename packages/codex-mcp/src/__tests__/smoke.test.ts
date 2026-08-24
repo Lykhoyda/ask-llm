@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_REASONING_EFFORT, isCodexReasoningEffort, MODELS } from "../constants.js";
+import { DEFAULT_REASONING_EFFORT, FACTORY_FALLBACK_MODEL, isCodexReasoningEffort, MODELS } from "../constants.js";
 import { toolRegistry } from "../tools/index.js";
 
 describe("MCP server smoke test", () => {
@@ -29,9 +29,10 @@ describe("Codex default model version", () => {
     expect(MODELS.DEFAULT).toBe("gpt-5.6-sol");
   });
 
-  it("falls back to gpt-5.6-terra when ASK_CODEX_FALLBACK_MODEL is not set", () => {
+  it("falls back to gpt-5.6-luna when ASK_CODEX_FALLBACK_MODEL is not set", () => {
     if (process.env.ASK_CODEX_FALLBACK_MODEL) return;
-    expect(MODELS.FALLBACK).toBe("gpt-5.6-terra");
+    expect(FACTORY_FALLBACK_MODEL).toBe("gpt-5.6-luna");
+    expect(MODELS.FALLBACK).toBe("gpt-5.6-luna");
   });
 
   it("uses the Sol default for the legacy preferred tier unless overridden", () => {

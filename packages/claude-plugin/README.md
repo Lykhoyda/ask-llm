@@ -158,7 +158,7 @@ To disable:
 | Just this session | `/plugin disable ask-llm` |
 | Just this command | `CODEX_PAIR_DISABLED=1 <command>` |
 
-**Usage characteristics**: GPT-5.6 Sol by default with Terra quota fallback; ~13–50s per file. Files >20KB skipped (override with `CODEX_PAIR_MAX_FILE_BYTES`). node_modules/dist/lockfiles/images skipped automatically.
+**Usage characteristics**: GPT-5.6 Sol by default with Luna quota fallback; ~13–50s per file. Files >20KB skipped (override with `CODEX_PAIR_MAX_FILE_BYTES`). node_modules/dist/lockfiles/images skipped automatically.
 
 **When to enable**: any project where missed correctness issues cost more than the per-edit review (~$0.04–0.07). The decision is about *code characteristics*, not domain — codex-pair catches bugs earlier wherever a project has implicit invariants the model can't infer from one file in isolation (which most projects do, somewhere). **When NOT to enable**: routine refactors, glue code, simple CRUD where `/codex-review` at PR time is sufficient (~1/4 the cost). The four-task benchmark in ADR-077 has the full task-agnostic evidence trail; ADR-095 is the lived-experience replication on this very repo.
 

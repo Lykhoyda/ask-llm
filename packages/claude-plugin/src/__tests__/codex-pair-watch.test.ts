@@ -56,7 +56,7 @@ describe("scripts/codex-pair-watch.mjs — structural invariants (ADR-077)", () 
     expect(script).toMatch(/stdin\.on\(["']error["']/);
   });
 
-  it("preserves quota fallback (gpt-5.6-sol → gpt-5.6-terra on rate_limit_exceeded)", () => {
+  it("preserves quota fallback (gpt-5.6-sol → gpt-5.6-luna on rate_limit_exceeded)", () => {
     expect(script).toMatch(/isQuotaError/);
     expect(script).toMatch(/rate_limit_exceeded/);
     expect(script).toMatch(/FALLBACK_MODEL/);
@@ -716,15 +716,17 @@ describe("scripts/codex-pair-watch.mjs — structural invariants (ADR-077)", () 
     const defaultWiring = constantsSource.match(
       /DEFAULT:\s*process\.env\.ASK_CODEX_MODEL\s*\|\|\s*FACTORY_DEFAULT_MODEL/,
     );
-    const fallbackMatch = constantsSource.match(
-      /FALLBACK:\s*process\.env\.ASK_CODEX_FALLBACK_MODEL\s*\|\|\s*"([^"]+)"/,
+    const factoryFallbackMatch = constantsSource.match(/export const FACTORY_FALLBACK_MODEL = "([^"]+)"/);
+    const fallbackWiring = constantsSource.match(
+      /FALLBACK:\s*process\.env\.ASK_CODEX_FALLBACK_MODEL\s*\|\|\s*FACTORY_FALLBACK_MODEL/,
     );
 
     expect(factoryMatch).toBeTruthy();
     expect(defaultWiring).toBeTruthy();
-    expect(fallbackMatch).toBeTruthy();
+    expect(factoryFallbackMatch).toBeTruthy();
+    expect(fallbackWiring).toBeTruthy();
     expect(defaults.model).toBe(factoryMatch?.[1]);
-    expect(defaults.fallbackModel).toBe(fallbackMatch?.[1]);
+    expect(defaults.fallbackModel).toBe(factoryFallbackMatch?.[1]);
   });
 
   it("skips node_modules, dist, .git, lockfiles, and common image assets", () => {

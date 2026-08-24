@@ -84,7 +84,7 @@ const DEFAULTS_PATH = join(SCRIPT_DIR, "..", "codex-pair-defaults.json");
 // without duplicating literals across files. A structural test links the
 // JSON values to constants.ts so drift fails CI. If the file is missing or
 // malformed, fall through to env vars and hardcoded literals.
-let CODEX_PAIR_DEFAULTS = { model: "gpt-5.6-sol", fallbackModel: "gpt-5.6-terra" };
+let CODEX_PAIR_DEFAULTS = { model: "gpt-5.6-sol", fallbackModel: "gpt-5.6-luna" };
 try {
   CODEX_PAIR_DEFAULTS = JSON.parse(readFileSync(DEFAULTS_PATH, "utf8"));
 } catch {
@@ -120,7 +120,7 @@ const QUOTA_SIGNALS = [
 // A configured fallback model can be structurally unavailable on some Codex
 // account types — e.g. gpt-5.5-mini is rejected with a 400 on ChatGPT-plan
 // accounts (where quota is account-wide, so a cheaper fallback never applied).
-// The built-in GPT-5.6 Terra fallback avoids that legacy pin, but a user can
+// The built-in GPT-5.6 Luna fallback avoids that legacy pin, but a user can
 // still configure an unavailable model via ASK_CODEX_FALLBACK_MODEL — this guard
 // keeps that case graceful. Matched only on
 // the FALLBACK leg after a primary quota error: it means the fallback ladder is

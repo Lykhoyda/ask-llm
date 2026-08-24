@@ -1,5 +1,5 @@
 ---
-description: Bridge Claude with OpenAI Codex CLI for GPT-5.6 Sol code review and analysis. Automatic fallback to GPT-5.6 Terra on quota limits.
+description: Bridge Claude with OpenAI Codex CLI for GPT-5.6 Sol code review and analysis. Automatic fallback to GPT-5.6 Luna on quota limits.
 ---
 
 # Codex
@@ -38,7 +38,7 @@ Or install globally: `npm install -g @ask-llm/codex-mcp`
 <FallbackChain provider="codex" />
 
 - **Default:** `gpt-5.6-sol` (GPT-5.6 Sol flagship)
-- **Quota fallback:** `gpt-5.6-terra`, the balanced GPT-5.6 tier
+- **Quota fallback:** `gpt-5.6-luna`, the fast/affordable GPT-5.6 tier
 - **Overrides:** `ASK_CODEX_MODEL`, `ASK_CODEX_FALLBACK_MODEL`, or the per-call `model` parameter
 
 ## Key Features
@@ -48,7 +48,7 @@ Or install globally: `npm install -g @ask-llm/codex-mcp`
 - **Native session continuity:** omit `sessionId` for an ephemeral one-off call; pass `sessionId: ""` on turn one to persist a thread, then pass its returned `thread_id` on later turns. Follow-ups use `codex exec resume <id>` with the stable `-c sandbox_mode="<mode>"` grammar (zero replay cost, Codex retains state).
 - **Read-only, non-interactive sandbox:** fresh calls use `codex exec --sandbox read-only`; resumed calls use the equivalent supported config override `-c sandbox_mode="read-only"`. Both keep second-opinion, review, and edit-proposal calls from modifying the workspace. Codex `exec` is non-interactive by definition, so no approval prompt can hang the MCP subprocess. The optional `sandbox: "workspace-write"` parameter is a deliberate opt-out for flows that need Codex to write files (e.g. `/codex-image`); review flows must not set it.
 - **JSONL output parsing** for structured responses + token usage
-- **Automatic quota fallback** from GPT-5.6 Sol to Terra
+- **Automatic quota fallback** from GPT-5.6 Sol to Luna
 - **Structured AskResponse** via outputSchema for programmatic clients
 - **Standard MCP transport** works with 40+ clients
 

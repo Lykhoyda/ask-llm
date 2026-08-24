@@ -191,7 +191,7 @@ Send prompts to OpenAI Codex CLI.
 - **Package:** @ask-llm/codex-mcp
 - **Parameters:**
   - `prompt` (string, required): The question, code review request, or analysis task.
-  - `model` (string, optional): Do not set unless user explicitly requests it. Default: gpt-5.6-sol. Falls back to gpt-5.6-terra on quota errors.
+  - `model` (string, optional): Do not set unless user explicitly requests it. Default: gpt-5.6-sol. Falls back to gpt-5.6-luna on quota errors.
   - `reasoningEffort` (string, optional): low, medium, high, xhigh, or max. Default: medium. /codex-review and /brainstorm use high.
   - `sessionId` (string, optional): Omit for an ephemeral call, pass `""` to create a fresh persisted thread, or pass a non-empty returned thread_id to resume.
   - `includeDirs` (string[], optional): Additional directories to expose to Codex (`--add-dir`) on fresh calls only; not forwarded when resuming. Paths must be relative: no `..`, absolute paths, or `~`.
@@ -341,7 +341,7 @@ Test MCP server connectivity. Available in all packages.
 | Model | Use Case |
 |-------|----------|
 | gpt-5.6-sol | Default: flagship capability |
-| gpt-5.6-terra | Automatic balanced fallback on quota errors |
+| gpt-5.6-luna | Automatic fast/affordable fallback on quota errors |
 
 ### Ollama
 | Model | Use Case |
@@ -410,7 +410,7 @@ Launches Antigravity and Codex reviews in parallel with a validation pipeline an
 |-------|-------------|
 | /multi-review | Parallel Antigravity + Codex code review with validation pipeline and consensus highlighting |
 | /fable-review | Native read-only review in an isolated context pinned to the Fable model; source-verified, confidence-filtered findings (no MCP server needed) |
-| /sol-review | Model-pinned review explicitly requesting GPT-5.6 Sol at high reasoning through Codex; quota fallback to Terra is disclosed |
+| /sol-review | Model-pinned review explicitly requesting GPT-5.6 Sol at high reasoning through Codex; quota fallback to Luna is disclosed |
 | /codex-review | Codex-only code review with confidence filtering |
 | /antigravity-review | Antigravity-only code review (subscription-backed) |
 | /ollama-review | Local Ollama code review: no data leaves machine |
@@ -453,7 +453,7 @@ Every hook the plugin registers is part of the **codex-pair** continuous-review 
 ## Error Handling
 
 All MCP servers handle errors gracefully:
-- **Quota / rate-limit errors:** Automatic fallback to a lighter model for hosted providers that define one (codex GPT-5.6 Sol→Terra, claude opus→sonnet, antigravity Pro→Flash, gemini pro→flash). Grok and Ollama never substitute: Grok preserves explicit harness/model selection; Ollama is local and a missing model returns a clear "ollama pull" error.
+- **Quota / rate-limit errors:** Automatic fallback to a lighter model for hosted providers that define one (codex GPT-5.6 Sol→Luna, claude opus→sonnet, antigravity Pro→Flash, gemini pro→flash). Grok and Ollama never substitute: Grok preserves explicit harness/model selection; Ollama is local and a missing model returns a clear "ollama pull" error.
 - **CLI not found:** Clear error message with installation instructions.
 - **Timeout:** Per-provider defaults (codex 800s, claude 600s, grok 600s, Cursor harness 600s, antigravity 300s, ollama 600s, gemini 210s). Resolution order: `ASK_{PROVIDER}_TIMEOUT_MS` > `GMCPT_TIMEOUT_MS` > the provider default.
 - **Large responses:** Automatic chunking with fetch-chunk retrieval (Gemini only).
@@ -474,7 +474,7 @@ All MCP servers handle errors gracefully:
 | ASK_GEMINI_FALLBACK_MODEL | gemini-3.6-flash | Override the Gemini quota fallback model |
 | ASK_CODEX_MODEL | gpt-5.6-sol | Override the Codex default model |
 | ASK_CODEX_PREFERRED_MODEL | gpt-5.6-sol | Legacy review-tier escape hatch; only attempted separately when it differs from ASK_CODEX_MODEL |
-| ASK_CODEX_FALLBACK_MODEL | gpt-5.6-terra | Override the Codex quota fallback model |
+| ASK_CODEX_FALLBACK_MODEL | gpt-5.6-luna | Override the Codex quota fallback model |
 | ASK_CODEX_REASONING_EFFORT | medium | Default Codex reasoning effort; per-call reasoningEffort wins |
 | ASK_CLAUDE_MODEL | opus | Override the Claude default model |
 | ASK_CLAUDE_FALLBACK_MODEL | sonnet | Override Claude Code's native fallback model |

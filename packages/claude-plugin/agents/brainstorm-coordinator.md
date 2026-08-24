@@ -206,12 +206,12 @@ pid_gemini=$!
 
 # Only include this block if codex was requested (in the default set).
 # GPT-5.6 Sol at high effort is the quality-first default for brainstorming;
-# Terra preserves the lower-cost fallback role. ASK_CODEX_PREFERRED_MODEL and
+# Luna preserves the lower-cost fallback role. ASK_CODEX_PREFERRED_MODEL and
 # ASK_CODEX_REASONING_EFFORT remain escape hatches. prompt.md is a FILE (not a
 # pipe), so both attempts can re-read it. The whole `{ ...; }` group is
 # backgrounded as one job so pid_codex/`wait` capture the final code.
 codex_model="${ASK_CODEX_PREFERRED_MODEL:-${ASK_CODEX_MODEL:-gpt-5.6-sol}}"
-codex_fallback="${ASK_CODEX_FALLBACK_MODEL:-gpt-5.6-terra}"
+codex_fallback="${ASK_CODEX_FALLBACK_MODEL:-gpt-5.6-luna}"
 codex_effort="${ASK_CODEX_REASONING_EFFORT:-high}"
 # Keep the raw env override aligned with ask-codex's public enum so malformed
 # config fragments never reach the Codex CLI.

@@ -32,7 +32,7 @@ For a single-provider call (`ask-llm` with `provider: "gemini"`), only one of th
 
 Each provider's executor wraps the underlying CLI with operational hardening that took multiple ADRs to get right:
 
-- **Quota fallback**: Gemini Pro → Flash on `RESOURCE_EXHAUSTED`; Codex `gpt-5.6-sol` → `gpt-5.6-terra` on quota errors
+- **Quota fallback**: Gemini Pro → Flash on `RESOURCE_EXHAUSTED`; Codex `gpt-5.6-sol` → `gpt-5.6-luna` on quota errors
 - **Stdin handling**: Codex needs an EOF-terminated pipe rather than `/dev/null`, otherwise it errors out
 - **PATH resolution**: macOS GUI clients (Claude Desktop) don't inherit your shell's PATH; the server resolves it from your login shell at startup
 - **Live progressive output**: Gemini's `--output-format stream-json` deltas are parsed and forwarded to MCP progress notifications, so users see Gemini's prose unfolding rather than a frozen wait

@@ -22,7 +22,7 @@
 
 </div>
 
-**Get a second opinion before you ship.** Ask LLM lets your AI assistant — Claude Code, Codex CLI, Cursor, Claude Desktop, or any of [40+ MCP clients](https://modelcontextprotocol.io/clients) — consult a _second_ model to review your code, debate a plan, or catch a bug it might have missed. Pick the reviewer that fits: OpenAI **Codex** (GPT-5.6 Sol → Terra), Anthropic **Claude** (Opus → Sonnet), xAI **Grok** 4.6 via API or Grok CLI (no fallback), Google **Antigravity** (`agy`), a local **Ollama** model, or **Gemini** (1M+ token context). Standard [MCP](https://modelcontextprotocol.io/), no prompt hacks.
+**Get a second opinion before you ship.** Ask LLM lets your AI assistant — Claude Code, Codex CLI, Cursor, Claude Desktop, or any of [40+ MCP clients](https://modelcontextprotocol.io/clients) — consult a _second_ model to review your code, debate a plan, or catch a bug it might have missed. Pick the reviewer that fits: OpenAI **Codex** (GPT-5.6 Sol → Luna), Anthropic **Claude** (Opus → Sonnet), xAI **Grok** 4.6 via API or Grok CLI (no fallback), Google **Antigravity** (`agy`), a local **Ollama** model, or **Gemini** (1M+ token context). Standard [MCP](https://modelcontextprotocol.io/), no prompt hacks.
 
 > **⚠️ Gemini CLI goes enterprise-only on 2026-06-18:** From that date Google restricts Gemini CLI to **Gemini Code Assist Standard/Enterprise** seats, and free, Google AI Pro, and Ultra accounts lose access. `@ask-llm/gemini-mcp` still installs, but a non-enterprise account then surfaces actionable guidance instead of output. Free/Pro users: switch to **`ask-antigravity`** (the Google-sanctioned successor, subscription-backed via Google AI Pro/Ultra), **`ask-codex`**, **`ask-claude`**, or **`ask-ollama`**. [Announcement](https://developers.googleblog.com/an-important-update-transitioning-gemini-cli-to-antigravity-cli/)
 
@@ -180,7 +180,7 @@ the complete package-to-executable mapping.
 
 | Provider | Best for | Model (default → fallback) | Notes |
 |----------|----------|----------------------------|-------|
-| **Codex** | Code reasoning, targeted reviews, architecture critique | `gpt-5.6-sol` → `gpt-5.6-terra` | Requires an OpenAI/Codex account |
+| **Codex** | Code reasoning, targeted reviews, architecture critique | `gpt-5.6-sol` → `gpt-5.6-luna` | Requires an OpenAI/Codex account |
 | **Claude** | Independent review from Codex or another non-Claude host | `opus` → `sonnet` | Claude Code CLI; native sessions; read-only tools |
 | **Grok** | Grok 4.6 critique through xAI API or official Grok CLI | API `grok-4.6`, reasoning `high` (no fallback) | Harness selected separately; exact harness catalog ID sent unchanged |
 | **Antigravity** | A subscription-backed second opinion; larger-context reads | `gemini-3.1-pro` → `gemini-3.5-flash` (both at `--effort high`) | Google AI Pro/Ultra plan; one-shot, experimental |
@@ -250,7 +250,7 @@ See the [plugin docs](https://lykhoyda.github.io/ask-llm/plugin/overview) for de
 | `ask-gemini` | @ask-llm/gemini-mcp | Send prompts to Gemini CLI with `@` file syntax. 1M+ token context. Live progressive output via `stream-json` |
 | `ask-gemini-edit` | @ask-llm/gemini-mcp | Get structured OLD/NEW code edit blocks from Gemini |
 | `fetch-chunk` | @ask-llm/gemini-mcp | Retrieve chunks from cached large responses |
-| `ask-codex` | @ask-llm/codex-mcp | Send prompts to Codex CLI. GPT-5.6 Sol with Terra fallback; omit `sessionId` for ephemeral use, or pass `sessionId: ""` first to persist and resume |
+| `ask-codex` | @ask-llm/codex-mcp | Send prompts to Codex CLI. GPT-5.6 Sol with Luna fallback; omit `sessionId` for ephemeral use, or pass `sessionId: ""` first to persist and resume |
 | `ask-claude` | @ask-llm/claude-mcp | Send prompts to Claude Code CLI. Opus with Sonnet fallback; native sessions; Read/Glob/Grep-only workspace access |
 | `ask-grok` | @ask-llm/grok-mcp | Send a one-shot Grok prompt through explicit `xai-api` (default) or `grok-cli`; exact harness model ID; no harness/model fallback |
 | `ask-cursor-agent` | @ask-llm/mcp | Model-neutral Cursor Agent harness: separate provider (`claude`, `codex`, `gemini`, `grok`) + exact Cursor catalog model verified against that family, read-only ask mode, no force/trust/spend changes/fallback |
@@ -297,7 +297,7 @@ The REPL ships sessions per provider (`/provider gemini`, `/provider codex`, `/n
 | Provider | Default | Fallback |
 |----------|---------|----------|
 | Gemini | `gemini-3.1-pro-preview` | `gemini-3.6-flash` (on quota) |
-| Codex | `gpt-5.6-sol` | `gpt-5.6-terra` (on quota) |
+| Codex | `gpt-5.6-sol` | `gpt-5.6-luna` (on quota) |
 | Claude | `opus` | `sonnet` (on overload/unavailability) |
 | Grok | API: `grok-4.6`; CLI: exact `grok models` ID (effort `high`) | — (explicit harness/model selection; no fallback) |
 | Antigravity | `gemini-3.1-pro` (`--effort high`) | `gemini-3.5-flash` (on rate limit); model-less recovery if a shipped slug is rejected |

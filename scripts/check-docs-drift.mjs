@@ -62,6 +62,7 @@ const modelChecks = [
   ["antigravity", "packages/antigravity-mcp/src/constants.ts", /DEFAULT: "([^"]+)"/],
 ];
 const fallbackChecks = [
+  ["codex", "packages/codex-mcp/src/constants.ts", /FACTORY_FALLBACK_MODEL = "([^"]+)"/],
   ["gemini", "packages/gemini-mcp/src/constants.ts", /FLASH: process\.env\.ASK_GEMINI_FALLBACK_MODEL \|\| "([^"]+)"/],
   ["antigravity", "packages/antigravity-mcp/src/constants.ts", /FALLBACK: "([^"]+)"/],
 ];

@@ -32,7 +32,7 @@ export const PROVIDER_DOCS: Record<ProviderId, ProviderDoc> = {
     serverName: "codex",
     cliInstall: "npm install -g @openai/codex",
     defaultModel: "gpt-5.6-sol",
-    fallbackModel: "gpt-5.6-terra",
+    fallbackModel: "gpt-5.6-luna",
     tier: "hero",
     tagline: "GPT-5.6 workhorse reviewer. Strongest code reasoning for targeted reviews and architecture critique.",
     tools: ["ask-codex", "ask-codex-edit", "get-usage-stats", "ping"],

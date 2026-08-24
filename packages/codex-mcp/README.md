@@ -55,7 +55,7 @@ Add to `claude_desktop_config.json`:
 
 | Tool | Purpose |
 |------|---------|
-| `ask-codex` | Send prompts to Codex CLI. Defaults to GPT-5.6 Sol at medium effort with automatic Terra fallback; optional `reasoningEffort` override |
+| `ask-codex` | Send prompts to Codex CLI. Defaults to GPT-5.6 Sol at medium effort with automatic Luna fallback; optional `reasoningEffort` override |
 | `ping` | Connection test — verify MCP setup without using tokens |
 
 Codex calls are ephemeral when `sessionId` is omitted. Pass `sessionId: ""` on the first call to persist a resumable thread, then pass its returned Thread ID on follow-up calls.
@@ -65,7 +65,7 @@ Codex calls are ephemeral when `sessionId` is omitted. Pass `sessionId: ""` on t
 | Model | Use Case |
 |-------|----------|
 | `gpt-5.6-sol` | Default — flagship capability |
-| `gpt-5.6-terra` | Automatic balanced fallback on quota errors |
+| `gpt-5.6-luna` | Automatic fast/affordable fallback on quota errors |
 
 ## Environment variables
 
@@ -73,7 +73,7 @@ Codex calls are ephemeral when `sessionId` is omitted. Pass `sessionId: ""` on t
 |----------|---------|---------|
 | `ASK_CODEX_MODEL` | `gpt-5.6-sol` | Override the default model |
 | `ASK_CODEX_PREFERRED_MODEL` | `gpt-5.6-sol` | Legacy review-tier escape hatch; only attempted separately when it differs from the default |
-| `ASK_CODEX_FALLBACK_MODEL` | `gpt-5.6-terra` | Override the quota-fallback model |
+| `ASK_CODEX_FALLBACK_MODEL` | `gpt-5.6-luna` | Override the quota-fallback model |
 | `ASK_CODEX_REASONING_EFFORT` | `medium` | Default reasoning effort (`low`, `medium`, `high`, `xhigh`, or `max`); per-call `reasoningEffort` wins |
 | `ASK_CODEX_LOAD_USER_CONFIG` | _(unset)_ | Set to `1` to opt back into loading `~/.codex/config.toml` (hooks, MCP servers, preferences) and execpolicy `.rules` files. By default the wrapper passes `--ignore-user-config --ignore-rules` so behavior stays deterministic across host machines. Auth credentials in `CODEX_HOME` always load regardless. See ADR-071. |
 | `ASK_CODEX_TIMEOUT_MS` | `800000` | Per-call timeout for the spawned codex process (13.3 min — reasoning models routinely take 5–10 min on substantive prompts; raised in ADR-074) |

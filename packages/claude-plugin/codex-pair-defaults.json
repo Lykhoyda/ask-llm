@@ -1,4 +1,4 @@
 {
   "model": "gpt-5.6-sol",
-  "fallbackModel": "gpt-5.6-terra"
+  "fallbackModel": "gpt-5.6-luna"
 }

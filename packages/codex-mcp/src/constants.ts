@@ -26,7 +26,7 @@ export const ERROR_MESSAGES = {
   // A pinned ASK_CODEX_FALLBACK_MODEL can be structurally unavailable on some
   // account types — e.g. gpt-5.5-mini is rejected with a 400 ("not supported when
   // using Codex with a ChatGPT account") on ChatGPT-plan accounts. The built-in
-  // GPT-5.6 Terra fallback avoids that legacy pin, while this guard keeps any
+  // GPT-5.6 Luna fallback avoids that legacy pin, while this guard keeps any
   // user-pinned-incompatible fallback graceful. Matched only on the FALLBACK leg
   // after a primary quota error → the ladder is broken (same "no usable model"
   // exhaustion). Ports MODEL_UNAVAILABLE_SIGNALS from codex-pair-watch.mjs
@@ -49,6 +49,7 @@ export const STATUS_MESSAGES = {
 // The out-of-box default, independent of any ASK_CODEX_MODEL override —
 // tool descriptions and drift-guard tests reference this, not the live value.
 export const FACTORY_DEFAULT_MODEL = "gpt-5.6-sol";
+export const FACTORY_FALLBACK_MODEL = "gpt-5.6-luna";
 
 export const CODEX_REASONING_EFFORTS = ["low", "medium", "high", "xhigh", "max"] as const;
 export type CodexReasoningEffort = (typeof CODEX_REASONING_EFFORTS)[number];
@@ -69,10 +70,11 @@ export const MODELS = {
   // the preferred escape hatch for existing integrations; by default it now
   // collapses to DEFAULT, and the executor avoids a duplicate attempt.
   PREFERRED: process.env.ASK_CODEX_PREFERRED_MODEL || FACTORY_DEFAULT_MODEL,
-  // Terra is the balanced/lower-cost GPT-5.6 tier and the role-preserving
-  // successor to the previous gpt-5.4-mini quota fallback. Users can still pin
-  // another supported model through ASK_CODEX_FALLBACK_MODEL.
-  FALLBACK: process.env.ASK_CODEX_FALLBACK_MODEL || "gpt-5.6-terra",
+  // Luna is the fast/affordable GPT-5.6 tier and Codex's role-preserving
+  // successor to the previous gpt-5.4-mini quota fallback (upstream maps
+  // gpt-5.4 → Terra and gpt-5.4-mini → Luna). Users can still pin another
+  // supported model through ASK_CODEX_FALLBACK_MODEL.
+  FALLBACK: process.env.ASK_CODEX_FALLBACK_MODEL || FACTORY_FALLBACK_MODEL,
 };
 
 export const CLI = {

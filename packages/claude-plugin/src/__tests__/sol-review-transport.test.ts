@@ -10,11 +10,11 @@ import {
   classifySolReviewTransport,
   codexFallbackArgs,
   executeCodex,
+  LUNA_MODEL,
   parseClaudeMcpList,
   readActiveMcpServers,
   runCliFallback,
   SOL_MODEL,
-  TERRA_MODEL,
 } from "../../scripts/sol-review-transport.mjs";
 import { PLUGIN_ROOT } from "./_helpers.js";
 
@@ -257,39 +257,39 @@ describe("sol-review CLI fallback", () => {
     expect(result).toEqual({ response: review, diagnostics: "", model: SOL_MODEL, fellBack: false });
   });
 
-  it("uses Terra only for a quota failure and still relays the fallback result", async () => {
+  it("uses Luna only for a quota failure and still relays the fallback result", async () => {
     const execute = vi
       .fn()
       .mockResolvedValueOnce({ code: 1, stdout: "", stderr: "rate_limit_exceeded" })
-      .mockResolvedValueOnce({ code: 0, stdout: "validated Terra finding\n", stderr: "" });
+      .mockResolvedValueOnce({ code: 0, stdout: "validated Luna finding\n", stderr: "" });
 
     const result = await runCliFallback({ prompt: "review", execute });
 
     expect(execute).toHaveBeenNthCalledWith(2, {
       command: "codex",
-      model: TERRA_MODEL,
+      model: LUNA_MODEL,
       prompt: "review",
     });
     expect(result).toEqual({
-      response: "validated Terra finding\n",
+      response: "validated Luna finding\n",
       diagnostics: "",
-      model: TERRA_MODEL,
+      model: LUNA_MODEL,
       fellBack: true,
     });
   });
 
   it.each(["workspace is out of credits", "workspace spend cap reached"])(
-    "uses Terra for Codex workspace quota signal: %s",
+    "uses Luna for Codex workspace quota signal: %s",
     async (quotaMessage) => {
       const execute = vi
         .fn()
         .mockResolvedValueOnce({ code: 1, stdout: "", stderr: quotaMessage })
-        .mockResolvedValueOnce({ code: 0, stdout: "validated Terra finding\n", stderr: "" });
+        .mockResolvedValueOnce({ code: 0, stdout: "validated Luna finding\n", stderr: "" });
 
       const result = await runCliFallback({ prompt: "review", execute });
 
       expect(execute).toHaveBeenCalledTimes(2);
-      expect(result).toMatchObject({ model: TERRA_MODEL, fellBack: true });
+      expect(result).toMatchObject({ model: LUNA_MODEL, fellBack: true });
     },
   );
 

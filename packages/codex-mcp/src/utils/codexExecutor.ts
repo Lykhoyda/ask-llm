@@ -21,6 +21,7 @@ import {
   type CodexReasoningEffort,
   DEFAULT_REASONING_EFFORT,
   ERROR_MESSAGES,
+  FACTORY_FALLBACK_MODEL,
   MODELS,
   STATUS_MESSAGES,
 } from "../constants.js";
@@ -570,7 +571,7 @@ export async function executeCodexCLI(options: CodexExecutorOptions): Promise<Co
             // self-contradictory (PR #198 review). The pin is the same env var
             // MODELS.FALLBACK resolves from, so its presence distinguishes them.
             const remediation = process.env.ASK_CODEX_FALLBACK_MODEL
-              ? "Set ASK_CODEX_FALLBACK_MODEL to a model your account supports, or unset it to use the default (gpt-5.6-terra)."
+              ? `Set ASK_CODEX_FALLBACK_MODEL to a model your account supports, or unset it to use the default (${FACTORY_FALLBACK_MODEL}).`
               : "Set ASK_CODEX_FALLBACK_MODEL to a model your account supports.";
             throw new Error(
               `${MODELS.DEFAULT} quota exceeded and the fallback model "${MODELS.FALLBACK}" is not available for this Codex account type (${fallbackMsg}). ${remediation}`,
