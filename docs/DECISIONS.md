@@ -1,15 +1,5 @@
 # Architectural Decisions
 
-## ADR-154: Canonical diagnose report schema lives beside its types in shared `doctor.ts`, with strict nested enrichment
-
-**Status:** Accepted (2026-08-24)
-
-**Context:** ADR-122 added optional per-provider `enrichment` to `DiagnosticReport` (types in `packages/shared/src/doctor.ts`), but the diagnose tool's MCP `outputSchema` was a separate hand-maintained Zod copy in `serverFactory.ts` that never learned about `enrichment`. MCP SDK 1.27.1 validates `structuredContent` against the advertised output schema on both server and client (client-side validation is primed by `tools/list`), so the unified server's perfectly valid enriched diagnose result was masked as MCP `-32602` and never reached clients (#282). The standalone provider servers and the `ask-llm-mcp doctor` CLI were unaffected because they don't advertise that schema — the drift was invisible everywhere except the real unified MCP boundary.
-
-**Decision:** Hoist the canonical Zod schemas into `doctor.ts` beside the report types, and derive the types from them via `z.infer` so type/schema drift is structurally impossible for the diagnose report. Add the complete strict nested `providerEnrichmentSchema` (`heading`, `overall`, `checks[]` with optional `remediation`) rather than stripping enrichment from the wire contract; validation stays strict, so genuinely invalid enrichment still fails clearly instead of being weakened away. Export the schemas from `@ask-llm/shared`; `createDiagnoseTool` in `serverFactory.ts` consumes `diagnosticReportSchema` instead of owning a copy. Extract `registerDiagnoseTool` in `llm-mcp` so a behavioral regression test can drive the real in-memory client/server pair — `tools/list` priming followed by `callTool` — proving enriched output validates and reaches clients, and that invalid enrichment surfaces as a clear output-validation error.
-
-**Consequences:** The diagnose report has exactly one schema owner; future report fields added to `doctor.ts` flow into the advertised MCP schema automatically. Unified MCP clients now receive the full ADR-122 enrichment (e.g. `codex doctor` health details). Standalone provider and CLI doctor output is byte-identical to before. The regression test pins the previously untested unified MCP boundary, which was the only surface where the drift manifested.
-
 ## ADR-153: Ollama factory default moves to qwen3.8:27b
 
 **Status:** Accepted (2026-08-24)
@@ -59,6 +49,7 @@
 **Decision:** `yarn prepr:harness` is the canonical harness-facing contributor gate. It owns immutable prerequisites, build/lint/full tests, deterministic fake smoke, private temporary artifacts, cleanup, troubleshooting, and PR evidence. The matrix reports only `PASS`, `FAIL`, `SKIP_UNAVAILABLE`, or `SKIP_NOT_AUTHORIZED`; covers Claude `/brainstorm`/`/codex-pair`/`/grok-pair`, Cursor pair skills plus its exact brainstorm participant route, Pi brainstorm/codex-pair plus the deliberate grok-pair exclusion, and direct Codex/Grok brainstorm and pair routes; and fails closed on timeout, nonzero exit, model/provider-family mismatch, textual or structured fallback, option loss, writable/trust flags, isolated-workspace/repository mutation, or cleanup/redaction regressions. Deterministic mode invokes the real package/skill/Pi adapters over hermetic fake CLI transports rather than manufacturing their success result. Live mode is additive, local-only, no-retry, and refused without both `ASK_LLM_HARNESS_SMOKE_LIVE=1` and per-surface authorization. Every live host and reviewer model is a separate explicit exact ID checked against the corresponding local command/catalog where one exists; skill prompts pin route, provider, model, effort, and authorization-derived consent. Pi codex-pair is unavailable in this runner's live one-shot mode because its supported lifecycle requires TUI/RPC/long-lived JSON plus trust, marker, and user allowlist. The runner never logs in, changes trust/billing/global config, or stores raw prompts/outputs in git. Husky runs only the fake layer; CI and all existing repository checks remain unchanged.
 
 **Consequences:** Harness-facing PRs have reproducible zero-spend evidence by default, while contributors can deliberately add truthful live evidence for only the tools and spend they authorize. Optional absences remain visible. Live responses are selected-unverified unless the harness itself reports a served ID; any conflicting ID or fallback is fatal rather than silently attributed to the requested route. The detailed operator contract lives in `docs/HARNESS-SMOKE.md`.
+
 ## ADR-148: Brainstorm has an exact Grok + GPT-5.6 Sol panel with mechanical consensus eligibility
 
 **Status:** Accepted (2026-08-20)
