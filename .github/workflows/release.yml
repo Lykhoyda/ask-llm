@@ -220,8 +220,8 @@ jobs:
             gh release create "$TAG" --generate-notes --title "$TAG"
           fi
 
-      # changesets/action creates package tags only in the runner when
-      # createGithubReleases is false. Preserve the intended remote tag contract
+      # changesets/action v2 has push-git-tags: false, so package tags stay
+      # runner-local (ADR-152). Preserve the intended remote tag contract
       # explicitly, including on selective Registry/release recovery (ADR-151).
       # Runs after the unified release so a tag failure cannot block unified
       # release creation or verification; the helper is idempotent on rerun.
