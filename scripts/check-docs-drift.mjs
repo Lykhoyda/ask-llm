@@ -96,6 +96,8 @@ const geminiFallback = readFileSync(join(root, "packages/gemini-mcp/src/constant
   /FLASH: process\.env\.ASK_GEMINI_FALLBACK_MODEL \|\| "([^"]+)"/,
 )?.[1];
 const geminiFallbackSurfaces = [
+  ".github/routines/model-version-watch.md",
+  "AGENTS.md",
   "README.md",
   "apps/docs/concepts/models.md",
   "apps/docs/providers/gemini.md",
