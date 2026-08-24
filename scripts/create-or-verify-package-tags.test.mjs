@@ -3,7 +3,7 @@ import { execFileSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, test } from "vitest";
+import { afterEach, test, vi } from "vitest";
 import { parse as parseYaml } from "yaml";
 import {
   createOrVerifyPackageTags,
@@ -12,6 +12,10 @@ import {
   pushMissingTag,
   verifyNpmGitHead,
 } from "./create-or-verify-package-tags.mjs";
+
+// Each test builds real git repositories via many subprocess calls; on Windows CI
+// runners the slowest tests approach or exceed vitest's 5s default timeout.
+vi.setConfig({ testTimeout: 60_000 });
 
 const scratchDirectories = [];
 
