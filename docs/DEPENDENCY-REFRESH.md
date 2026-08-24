@@ -15,7 +15,7 @@ All workspace manifests were audited and the lockfile was re-resolved recursivel
 | Changesets CLI / GitHub changelog | 3.0.1 / 1.0.0 |
 | MCP TypeScript SDK | 1.30.0 |
 | Zod / AJV | 4.4.3 / 8.20.0 |
-| Pi SDK and test host | 0.84.2 |
+| Pi SDK and test host | 0.84.2; documented minimum Pi host raised from 0.83.0 to 0.84.2 to match the compile-time SDK and the CI Pi package smoke |
 | Mermaid / VitePress | 11.17.0 / 1.6.4 |
 | MCP Registry publisher | 1.8.1, with the Linux amd64 archive SHA-256 pinned in `release.yml` |
 

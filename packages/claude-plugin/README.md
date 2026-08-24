@@ -164,7 +164,7 @@ To disable:
 
 ## Requirements
 
-- **Claude Code, Cursor Agent, or Pi 0.83.0+** installed
+- **Claude Code, Cursor Agent, or Pi 0.84.2+** installed
 - **Claude Code** installed for marketplace agents, hooks, independent Fable review, and the blocking Stop gate
 - **Gemini CLI** authenticated — required for hooks and Gemini features
 - **Codex CLI** — required for `/codex-review` and direct-Codex brainstorm routes

@@ -11,7 +11,7 @@ Pi is the **host harness**: it owns the conversation, host model, skills, tools,
 ## Prerequisites
 
 - Node.js 20+
-- Pi 0.83.0 or newer
+- Pi 0.84.2 or newer
 - one or more provider runtimes:
   - authenticated `codex` CLI for Codex reviews, images, verification, and codex-pair
   - authenticated enterprise `gemini` CLI for Gemini
