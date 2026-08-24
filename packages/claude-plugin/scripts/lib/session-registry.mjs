@@ -14,8 +14,8 @@
 // Zero workspace imports (marketplace git-subdir install has no node_modules).
 // Every export is best-effort and MUST NOT throw (ADR-077).
 
-import { mkdirSync, readFileSync, readdirSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { createHash } from "node:crypto";
+import { mkdirSync, readdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -49,8 +49,7 @@ function hash16(value) {
 
 export const sessionDir = (sessionId) => join(sessionRegistryRoot(), hash16(sessionId));
 
-const markerEntryPath = (sessionId, markerDir) =>
-  join(sessionDir(sessionId), `${hash16(markerDir)}.json`);
+const markerEntryPath = (sessionId, markerDir) => join(sessionDir(sessionId), `${hash16(markerDir)}.json`);
 
 // Record that `markerDir` saw activity in `sessionId`. Idempotent, best-effort.
 // No-op when either argument is falsy (e.g. payload lacked session_id).

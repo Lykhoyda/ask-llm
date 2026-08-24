@@ -46,7 +46,11 @@ export function invokeCodex({ prompt, model = "gpt-5.5", timeoutMs = 300_000, co
     };
 
     const timer = setTimeout(() => {
-      settleReject(new Error(`codex timed out after ${timeoutMs}ms (stdout=${stdout.length}B, stderr=${stderr.length}B captured before SIGKILL)`));
+      settleReject(
+        new Error(
+          `codex timed out after ${timeoutMs}ms (stdout=${stdout.length}B, stderr=${stderr.length}B captured before SIGKILL)`,
+        ),
+      );
     }, timeoutMs);
 
     child.stdout.on("data", (c) => {

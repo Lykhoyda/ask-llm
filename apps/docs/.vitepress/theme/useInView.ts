@@ -1,4 +1,4 @@
-import { onBeforeUnmount, onMounted, ref, type Ref } from "vue";
+import { onBeforeUnmount, onMounted, type Ref, ref } from "vue";
 
 /**
  * One-shot viewport visibility. Flips to true the first time `target`
@@ -6,17 +6,12 @@ import { onBeforeUnmount, onMounted, ref, type Ref } from "vue";
  * IntersectionObserver is unavailable, e.g. SSR) it is true immediately
  * so diagrams render their final frame.
  */
-export function useInView(
-  target: Ref<Element | null>,
-  threshold = 0.4,
-): Ref<boolean> {
+export function useInView(target: Ref<Element | null>, threshold = 0.4): Ref<boolean> {
   const inView = ref(false);
   let observer: IntersectionObserver | undefined;
 
   onMounted(() => {
-    const reduced = window.matchMedia(
-      "(prefers-reduced-motion: reduce)",
-    ).matches;
+    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     if (reduced || typeof IntersectionObserver === "undefined" || !target.value) {
       inView.value = true;
       return;

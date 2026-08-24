@@ -14,13 +14,13 @@
 // fixtures × two arms × ~$0.05 ≈ $0.40 per full run. Set ASK_CODEX_*
 // env vars to control quota / fallback model.
 
-import { readFileSync, readdirSync, writeFileSync, existsSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { renderPrompt } from "./lib/render-prompt.mjs";
 import { invokeCodex } from "./lib/invoke-codex.mjs";
-import { score } from "./lib/score.mjs";
+import { renderPrompt } from "./lib/render-prompt.mjs";
 import { renderReport } from "./lib/report.mjs";
+import { score } from "./lib/score.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const FIXTURES_DIR = join(HERE, "fixtures");
@@ -44,9 +44,7 @@ function parseArgs(argv) {
       args.timeoutMs = Number(v);
       i++;
     } else if (k === "--help" || k === "-h") {
-      console.log(
-        `Usage: node prompt-ab.mjs [--fixtures all|<name>] [--model gpt-5.5] [--out FILE] [--timeout-ms N]`,
-      );
+      console.log(`Usage: node prompt-ab.mjs [--fixtures all|<name>] [--model gpt-5.5] [--out FILE] [--timeout-ms N]`);
       process.exit(0);
     }
   }
@@ -59,22 +57,24 @@ function loadFixtures(filter) {
     .map((d) => d.name)
     .sort();
   const wanted = filter === "all" ? all : all.filter((n) => n === filter || n.includes(filter));
-  return wanted.map((name) => {
-    const dir = join(FIXTURES_DIR, name);
-    const codePath = join(dir, "code.ts");
-    const contextPath = join(dir, "context.md");
-    const probesPath = join(dir, "probes.json");
-    if (!existsSync(codePath) || !existsSync(contextPath) || !existsSync(probesPath)) {
-      return null;
-    }
-    return {
-      name,
-      filePath: codePath,
-      fileContent: readFileSync(codePath, "utf-8"),
-      projectContext: readFileSync(contextPath, "utf-8"),
-      probes: JSON.parse(readFileSync(probesPath, "utf-8")),
-    };
-  }).filter((x) => x !== null);
+  return wanted
+    .map((name) => {
+      const dir = join(FIXTURES_DIR, name);
+      const codePath = join(dir, "code.ts");
+      const contextPath = join(dir, "context.md");
+      const probesPath = join(dir, "probes.json");
+      if (!existsSync(codePath) || !existsSync(contextPath) || !existsSync(probesPath)) {
+        return null;
+      }
+      return {
+        name,
+        filePath: codePath,
+        fileContent: readFileSync(codePath, "utf-8"),
+        projectContext: readFileSync(contextPath, "utf-8"),
+        probes: JSON.parse(readFileSync(probesPath, "utf-8")),
+      };
+    })
+    .filter((x) => x !== null);
 }
 
 async function runArm({ armName, templatePath, fixtures, model, timeoutMs }) {

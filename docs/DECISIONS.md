@@ -1,5 +1,15 @@
 # Architectural Decisions
 
+## ADR-152: Changesets v3 and action v2 preserve one explicit package-tag authority
+
+**Status:** Accepted (2026-08-24)
+
+**Context:** The dependency refresh moves the release stack from Changesets CLI 2/action 1 to CLI 3/action 2. Action v2 renames its workflow inputs, no longer reads a custom token from `GITHUB_TOKEN`, and changes the tag default: disabling per-package GitHub Releases no longer disables package-tag creation. Without an explicit override, the action would push package tags through the GitHub API before ADR-151's history and npm `gitHead` verification helper runs, creating two authorities with different validation rules. Changesets 3 and its changelog package also raise their tool-only Node floor to `^22.11 || ^24 || >=26`.
+
+**Decision:** Use Changesets CLI 3 and changelog-github 1 with `changesets/action` 2.1.1. Migrate every action input to kebab case, pass `github-token` explicitly, and set both `create-github-releases: false` and `push-git-tags: false`. The ADR-151 helper remains the only process that creates remote package source tags; the unified release remains separate. Extend the workflow security guard and structural release test to reject either action-owned release pages or tags. Keep every published package engine at Node `>=20`; the newer Node floor applies only to build/release hosts, which already run Node 22/24 because of tsdown. The migration evidence is the authoritative [Changesets CLI 3 release](https://github.com/changesets/changesets/releases/tag/%40changesets%2Fcli%403.0.0) and [`changesets/action` 2 release](https://github.com/changesets/action/releases/tag/v2.0.0).
+
+**Consequences:** Release PR creation and npm publication retain their existing two-phase contract while action v2 cannot bypass exact remote-tag verification. Node 20 remains a tested consumer runtime but is not a supported repository build host. The complete version/security audit and remaining upstream blockers are recorded in `docs/DEPENDENCY-REFRESH.md`.
+
 ## ADR-151: Public packages keep immutable remote source tags beside one unified GitHub Release
 
 **Status:** Accepted (2026-08-23)

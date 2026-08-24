@@ -19,9 +19,12 @@ const base = process.env.GITHUB_BASE_REF ? `origin/${process.env.GITHUB_BASE_REF
 let changed;
 try {
   changed = execFileSync("git", ["diff", "--name-only", `${base}...HEAD`], { encoding: "utf8" })
-    .split("\n").filter(Boolean);
+    .split("\n")
+    .filter(Boolean);
 } catch {
-  console.error(`[shared-changeset] ERROR: cannot diff against ${base} — is the checkout shallow? (fetch-depth: 0 required)`);
+  console.error(
+    `[shared-changeset] ERROR: cannot diff against ${base} — is the checkout shallow? (fetch-depth: 0 required)`,
+  );
   process.exit(1);
 }
 if (!changed.some((f) => f.startsWith("packages/shared/src/"))) {
@@ -38,7 +41,9 @@ for (const f of changesets) {
 const missing = REQUIRED.filter((n) => !covered.has(n));
 if (missing.length > 0) {
   console.error(`[shared-changeset] packages/shared/src changed but changeset(s) miss: ${missing.join(", ")}`);
-  console.error("[shared-changeset] shared is INLINED into the MCPs (ADR-119) — without these bumps the fix never publishes.");
+  console.error(
+    "[shared-changeset] shared is INLINED into the MCPs (ADR-119) — without these bumps the fix never publishes.",
+  );
   process.exit(1);
 }
 console.log(`[shared-changeset] shared change covered by changesets for all ${REQUIRED.length} MCPs — OK`);

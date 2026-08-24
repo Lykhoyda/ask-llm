@@ -205,10 +205,7 @@ export function parseConcerns(message) {
 // "1.5 hours" yield null rather than a partial hint — an accepted limitation:
 // a missing hint degrades cleanly to a hint-less notice, and integer-unit
 // phrasings ("3 hours 25 minutes") are the common provider format.
-const RESET_HINT_PATTERNS = [
-  /try again (?:in|at|after)\s+([^.()\n]+)/i,
-  /\bresets?\s+(?:in|at|after)\s+([^.()\n]+)/i,
-];
+const RESET_HINT_PATTERNS = [/try again (?:in|at|after)\s+([^.()\n]+)/i, /\bresets?\s+(?:in|at|after)\s+([^.()\n]+)/i];
 const RESET_HINT_MAX_CHARS = 80;
 
 export function parseResetHint(text) {
@@ -216,7 +213,10 @@ export function parseResetHint(text) {
   for (const re of RESET_HINT_PATTERNS) {
     const m = text.match(re);
     if (m) {
-      const hint = m[1].trim().replace(/[,;].*$/, "").trim();
+      const hint = m[1]
+        .trim()
+        .replace(/[,;].*$/, "")
+        .trim();
       // Reject bare-numeric captures: "try again in 1.928s." (the standard
       // OpenAI rate-limit phrasing) truncates at the decimal point to "1",
       // a misleading false positive. Real reset hints always carry units

@@ -8,8 +8,8 @@
 // (return null / []). Every write is best-effort — debounce state failures must
 // never break the hook (ADR-077).
 
-import { mkdirSync, readFileSync, readdirSync, renameSync, statSync, unlinkSync, writeFileSync } from "node:fs";
 import { createHash } from "node:crypto";
+import { mkdirSync, readdirSync, readFileSync, renameSync, statSync, unlinkSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { stateRoot } from "./state.mjs";
 
@@ -28,8 +28,7 @@ export const reviewingRoot = (markerDir) => join(stateRoot(markerDir), REVIEWING
 function fileHash(file) {
   return createHash("sha256").update(String(file)).digest("hex").slice(0, 16);
 }
-export const debounceRecordPath = (markerDir, file) =>
-  join(debounceRoot(markerDir), `${fileHash(file)}.json`);
+export const debounceRecordPath = (markerDir, file) => join(debounceRoot(markerDir), `${fileHash(file)}.json`);
 export const pendingPath = (markerDir, file) => join(pendingRoot(markerDir), `${fileHash(file)}.json`);
 
 function writeAtomicSync(p, value) {
@@ -109,8 +108,7 @@ export function writePending(markerDir, file, message) {
 // this marker across the whole handoff (markReviewing → spawn → clearReviewing)
 // so the gate always has an observable signal. Best-effort like all debounce
 // state; a leaked marker ages out via the gate's freshness window + TTL sweep.
-export const reviewingPath = (markerDir, file) =>
-  join(reviewingRoot(markerDir), `${fileHash(file)}.json`);
+export const reviewingPath = (markerDir, file) => join(reviewingRoot(markerDir), `${fileHash(file)}.json`);
 
 export function markReviewing(markerDir, file) {
   writeAtomicSync(reviewingPath(markerDir, file), { file, at: Date.now() });

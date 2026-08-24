@@ -378,7 +378,7 @@ export function makeStreamingProgressForwarder(onProgress?: (text: string) => vo
       const line = buffer.slice(0, nl).trim();
       buffer = buffer.slice(nl + 1);
       nl = buffer.indexOf("\n");
-      if (!line || !line.startsWith("{")) continue;
+      if (!line?.startsWith("{")) continue;
       let event: GeminiStreamEvent;
       try {
         event = JSON.parse(line) as GeminiStreamEvent;

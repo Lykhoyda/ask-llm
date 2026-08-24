@@ -14,9 +14,9 @@
 // log rotation uses a PID-scoped tmp; inflight-lock recovery uses an
 // identity-snapshot recheck.
 
-import { appendFile, mkdir, readFile, readdir, rename, stat, unlink, writeFile } from "node:fs/promises";
-import { mkdirSync, readFileSync, readdirSync, renameSync, statSync, unlinkSync, writeFileSync } from "node:fs";
 import { createHash, randomUUID } from "node:crypto";
+import { mkdirSync, readdirSync, readFileSync, renameSync, statSync, unlinkSync, writeFileSync } from "node:fs";
+import { appendFile, mkdir, readdir, readFile, rename, stat, unlink, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -214,9 +214,7 @@ export function readPluginVersion() {
 }
 
 export const QUOTA_PAUSE_TTL_MS = Number(process.env.CODEX_PAIR_QUOTA_PAUSE_TTL_MS ?? 6 * 3_600_000);
-export const FAILURES_PAUSE_TTL_MS = Number(
-  process.env.CODEX_PAIR_FAILURES_PAUSE_TTL_MS ?? 24 * 3_600_000,
-);
+export const FAILURES_PAUSE_TTL_MS = Number(process.env.CODEX_PAIR_FAILURES_PAUSE_TTL_MS ?? 24 * 3_600_000);
 
 // Pure decision: should an existing pause self-heal now? Manual pauses never
 // do. Auto-pauses expire by TTL from their `at` stamp; failures-kind also
@@ -254,11 +252,7 @@ export function resolveAutoResume(pauseInfo, { now, currentVersion, quotaTtlMs, 
 export function clearAutoPause(markerDir, expected) {
   const current = readPauseInfo(markerDir);
   if (!current || current.manual) return false;
-  if (
-    expected &&
-    typeof expected === "object" &&
-    (current.kind !== expected.kind || current.at !== expected.at)
-  ) {
+  if (expected && typeof expected === "object" && (current.kind !== expected.kind || current.at !== expected.at)) {
     return false;
   }
   try {
@@ -360,7 +354,7 @@ export function tryAcquireInflightLock(markerDir, filePath, ttlMs) {
     writeFileSync(lockPath, String(process.pid), { flag: "wx" });
     return { acquired: true, lockPath };
   } catch (err) {
-    if (!err || err.code !== "EEXIST") {
+    if (err?.code !== "EEXIST") {
       return { acquired: false, lockPath, reason: "error" };
     }
   }
@@ -443,12 +437,7 @@ export async function getCachedConcerns(markerDir, cacheKey) {
     if (Date.now() - stats.mtimeMs > CACHE_TTL_MS) return null;
     const raw = await readFile(cachePath, "utf8");
     const parsed = JSON.parse(raw);
-    if (
-      !parsed ||
-      !Array.isArray(parsed.high) ||
-      !Array.isArray(parsed.med) ||
-      !Array.isArray(parsed.low)
-    ) {
+    if (!parsed || !Array.isArray(parsed.high) || !Array.isArray(parsed.med) || !Array.isArray(parsed.low)) {
       return null;
     }
     return parsed;
@@ -561,8 +550,6 @@ export async function appendLog(markerDir, entry) {
   }
   await rotateLogIfNeeded(target);
 }
-
-
 
 // ADR-096 (sharded per ADR-097 hotfix): Repetition detector.
 //

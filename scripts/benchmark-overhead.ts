@@ -7,8 +7,8 @@
  * bundledDependencies or after `npm pack`.
  */
 
-import { readFileSync, mkdirSync, writeFileSync } from "node:fs";
-import { resolve, dirname } from "node:path";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { getEncoding } from "js-tiktoken";
 
@@ -104,9 +104,7 @@ function formatTable(headers: string[], rows: (string | number)[][], title?: str
 function toMarkdownTable(headers: string[], rows: (string | number)[][]): string {
   const lines: string[] = [];
   lines.push(`| ${headers.join(" | ")} |`);
-  lines.push(
-    `| ${headers.map((_, i) => (i === 0 ? "---" : "---:")).join(" | ")} |`,
-  );
+  lines.push(`| ${headers.map((_, i) => (i === 0 ? "---" : "---:")).join(" | ")} |`);
   for (const row of rows) {
     lines.push(`| ${row.join(" | ")} |`);
   }

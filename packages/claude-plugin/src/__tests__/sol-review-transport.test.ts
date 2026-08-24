@@ -278,20 +278,20 @@ describe("sol-review CLI fallback", () => {
     });
   });
 
-  it.each([
-    "workspace is out of credits",
-    "workspace spend cap reached",
-  ])("uses Terra for Codex workspace quota signal: %s", async (quotaMessage) => {
-    const execute = vi
-      .fn()
-      .mockResolvedValueOnce({ code: 1, stdout: "", stderr: quotaMessage })
-      .mockResolvedValueOnce({ code: 0, stdout: "validated Terra finding\n", stderr: "" });
+  it.each(["workspace is out of credits", "workspace spend cap reached"])(
+    "uses Terra for Codex workspace quota signal: %s",
+    async (quotaMessage) => {
+      const execute = vi
+        .fn()
+        .mockResolvedValueOnce({ code: 1, stdout: "", stderr: quotaMessage })
+        .mockResolvedValueOnce({ code: 0, stdout: "validated Terra finding\n", stderr: "" });
 
-    const result = await runCliFallback({ prompt: "review", execute });
+      const result = await runCliFallback({ prompt: "review", execute });
 
-    expect(execute).toHaveBeenCalledTimes(2);
-    expect(result).toMatchObject({ model: TERRA_MODEL, fellBack: true });
-  });
+      expect(execute).toHaveBeenCalledTimes(2);
+      expect(result).toMatchObject({ model: TERRA_MODEL, fellBack: true });
+    },
+  );
 
   it("uses shell resolution and quoted arguments for a Windows Codex shim", async () => {
     const child = new EventEmitter();

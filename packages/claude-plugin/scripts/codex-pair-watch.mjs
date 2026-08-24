@@ -17,12 +17,11 @@
 // invocation is inlined; semantics mirror `codexExecutor.ts` deliberately.
 
 import { spawn } from "node:child_process";
-import { access, readFile } from "node:fs/promises";
 import { readFileSync } from "node:fs";
-import { dirname, join, resolve } from "node:path";
+import { access, readFile } from "node:fs/promises";
 import { homedir } from "node:os";
+import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { IS_WINDOWS, terminateProcessTree } from "./lib/process.mjs";
 // M4: broker integration. Importing initializeBroker + isBrokerEnabled +
 // submitReview from broker.mjs transitively pulls in broker-transport,
 // broker-rpc, broker-lifecycle. ESM-static cost is paid on every hook
@@ -30,15 +29,14 @@ import { IS_WINDOWS, terminateProcessTree } from "./lib/process.mjs";
 // isn't set, so the per-edit fast path is unaffected.
 import { initializeBroker, isBrokerEnabled, readBrokerState, submitReview } from "./lib/broker.mjs";
 import {
-  DEFAULT_DEBOUNCE_MS,
-  DEFAULT_DEBOUNCE_MAX_MS,
   bumpEditRecord,
+  DEFAULT_DEBOUNCE_MAX_MS,
+  DEFAULT_DEBOUNCE_MS,
   drainPending,
   joinPendingForSurface,
   markReviewed,
   sweepStaleDebounce,
 } from "./lib/debounce-state.mjs";
-import { buildReviewPrompt } from "./lib/prompt.mjs";
 import {
   buildVerdictMessage,
   DEFAULT_SURFACE_THRESHOLD,
@@ -48,20 +46,23 @@ import {
   VALID_THRESHOLDS,
   VERDICT_PREFIXES,
 } from "./lib/parser.mjs";
+import { IS_WINDOWS, terminateProcessTree } from "./lib/process.mjs";
+import { buildReviewPrompt } from "./lib/prompt.mjs";
+import { registerMarker } from "./lib/session-registry.mjs";
 import {
-  appendLog,
   AUTOPAUSE_FAILURE_THRESHOLD,
+  appendLog,
+  CONTEXT_FILENAME,
   clearAutoPause,
   clearReviewFailures,
   computeCacheKey,
-  CONTEXT_FILENAME,
   contextPath,
   getBlockingFromShard,
   getCachedConcerns,
   hashConcernBody,
+  INFLIGHT_TTL_MIN_MS,
   ignorePath,
   includePath,
-  INFLIGHT_TTL_MIN_MS,
   logPath,
   PAIR_ROOT_DIR,
   readPauseInfo,
@@ -74,7 +75,6 @@ import {
   updateRepetitions,
   writeAutoPause,
 } from "./lib/state.mjs";
-import { registerMarker } from "./lib/session-registry.mjs";
 
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
 const DEFAULTS_PATH = join(SCRIPT_DIR, "..", "codex-pair-defaults.json");
@@ -293,10 +293,7 @@ function parseFrontmatter(content) {
       valueRaw = valueRaw.slice(0, inlineComment.index);
     }
     let value = valueRaw.trim();
-    if (
-      (value.startsWith('"') && value.endsWith('"')) ||
-      (value.startsWith("'") && value.endsWith("'"))
-    ) {
+    if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
       value = value.slice(1, -1);
     }
     if (value === "true") frontmatter[key] = true;
@@ -505,23 +502,13 @@ function resolveConfig(frontmatter) {
   return {
     model: typeof fm.model === "string" && fm.model.length > 0 ? fm.model : DEFAULT_MODEL,
     fallbackModel:
-      typeof fm.fallbackModel === "string" && fm.fallbackModel.length > 0
-        ? fm.fallbackModel
-        : FALLBACK_MODEL,
-    timeoutMs:
-      typeof fm.timeoutMs === "number" && fm.timeoutMs > 0 ? fm.timeoutMs : DEFAULT_TIMEOUT_MS,
-    maxFileBytes:
-      typeof fm.maxFileBytes === "number" && fm.maxFileBytes > 0
-        ? fm.maxFileBytes
-        : MAX_FILE_BYTES,
+      typeof fm.fallbackModel === "string" && fm.fallbackModel.length > 0 ? fm.fallbackModel : FALLBACK_MODEL,
+    timeoutMs: typeof fm.timeoutMs === "number" && fm.timeoutMs > 0 ? fm.timeoutMs : DEFAULT_TIMEOUT_MS,
+    maxFileBytes: typeof fm.maxFileBytes === "number" && fm.maxFileBytes > 0 ? fm.maxFileBytes : MAX_FILE_BYTES,
     surfaceThreshold:
-      surfaceCandidate && VALID_THRESHOLDS.has(surfaceCandidate)
-        ? surfaceCandidate
-        : DEFAULT_SURFACE_THRESHOLD,
-    debounceMs:
-      typeof fm.debounceMs === "number" && fm.debounceMs >= 0 ? fm.debounceMs : DEBOUNCE_MS,
-    debounceMaxMs:
-      typeof fm.debounceMaxMs === "number" && fm.debounceMaxMs > 0 ? fm.debounceMaxMs : DEBOUNCE_MAX_MS,
+      surfaceCandidate && VALID_THRESHOLDS.has(surfaceCandidate) ? surfaceCandidate : DEFAULT_SURFACE_THRESHOLD,
+    debounceMs: typeof fm.debounceMs === "number" && fm.debounceMs >= 0 ? fm.debounceMs : DEBOUNCE_MS,
+    debounceMaxMs: typeof fm.debounceMaxMs === "number" && fm.debounceMaxMs > 0 ? fm.debounceMaxMs : DEBOUNCE_MAX_MS,
   };
 }
 
@@ -729,9 +716,7 @@ function spawnCodex({ prompt, model, timeoutMs }) {
       setTimeout(() => {
         terminateProcessTree(child, "SIGKILL");
       }, 5000);
-      rejectCall(
-        taggedError(`codex exec timed out after ${Math.round(timeoutMs / 1000)}s`, "timeout"),
-      );
+      rejectCall(taggedError(`codex exec timed out after ${Math.round(timeoutMs / 1000)}s`, "timeout"));
     }, timeoutMs);
 
     child.on("error", (err) => {
@@ -757,9 +742,7 @@ function spawnCodex({ prompt, model, timeoutMs }) {
         // tail (often just the stdin banner) — #176.
         const errorEvents = extractJsonlErrorEvents(stdout);
         const reason =
-          errorEvents.length > 0
-            ? errorEvents[errorEvents.length - 1]
-            : stderrTail(stderr) || `codex exit ${code}`;
+          errorEvents.length > 0 ? errorEvents[errorEvents.length - 1] : stderrTail(stderr) || `codex exit ${code}`;
         rejectCall(taggedError(reason, "error"));
       }
     });
@@ -1209,9 +1192,7 @@ async function main() {
       verdict: "skipped",
       reason: `unreadable: ${err.message}`,
     });
-    await emitSystemMessage(
-      `codex-pair ${VERDICT_PREFIXES.skipped}: ${filePath} — unreadable (${err.message})`,
-    );
+    await emitSystemMessage(`codex-pair ${VERDICT_PREFIXES.skipped}: ${filePath} — unreadable (${err.message})`);
     process.exit(0);
   }
 
