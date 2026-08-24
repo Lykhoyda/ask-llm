@@ -435,6 +435,10 @@ describe("brainstorm-coordinator agent", () => {
   it("warns against the (cmd &) subshell anti-pattern from ADR-050", () => {
     expect(body).toMatch(/blocking|foreground|wait/i);
   });
+
+  it("defaults the raw ollama run to qwen3.8:27b while honoring ASK_OLLAMA_MODEL", () => {
+    expect(body).toContain(`ollama run "\${ASK_OLLAMA_MODEL:-qwen3.8:27b}"`);
+  });
 });
 
 describe("codex-verifier agent — claim verification contract (ADR-073)", () => {

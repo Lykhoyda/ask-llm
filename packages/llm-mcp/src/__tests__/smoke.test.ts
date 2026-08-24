@@ -22,7 +22,7 @@ vi.mock("@ask-llm/grok-mcp/executor", () => ({
 }));
 
 vi.mock("@ask-llm/ollama-mcp/executor", () => ({
-  executeOllamaCLI: vi.fn().mockResolvedValue({ response: "ollama response", model: "qwen3.6:27b" }),
+  executeOllamaCLI: vi.fn().mockResolvedValue({ response: "ollama response", model: "qwen3.8:27b" }),
   isProviderAvailable: vi.fn().mockResolvedValue(false),
 }));
 
@@ -101,7 +101,7 @@ beforeEach(() => {
       fellBack: false,
     },
   });
-  vi.mocked(executeOllamaCLI).mockResolvedValue({ response: "ollama response", model: "qwen3.6:27b" });
+  vi.mocked(executeOllamaCLI).mockResolvedValue({ response: "ollama response", model: "qwen3.8:27b" });
   delete process.env.CLAUDECODE;
 });
 

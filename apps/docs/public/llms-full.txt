@@ -42,7 +42,7 @@ Pi is the host, not a consulted provider, and has no built-in MCP client. The pa
 - For Codex: Codex CLI installed and authenticated
 - For Claude: `npm install -g @anthropic-ai/claude-code`, then authenticate (provider is for Codex and other non-Claude hosts)
 - For Antigravity: `agy` 1.1.5 or newer installed and logged in once (`agy --version`, then run `agy` interactively to authenticate)
-- For Ollama: Ollama running locally (`https://ollama.com`) with a model pulled (`ollama pull qwen3.6:27b`)
+- For Ollama: Ollama running locally (`https://ollama.com`) with a model pulled (`ollama pull qwen3.8:27b`)
 - For Gemini: `npm install -g @google/gemini-cli && gemini login` (enterprise-gated since 2026-06-18)
 
 ## Installation
@@ -248,7 +248,7 @@ Send prompts to a local Ollama LLM via HTTP. No API keys or network calls needed
 - **Package:** @ask-llm/ollama-mcp
 - **Parameters:**
   - `prompt` (string, required): The question, code review request, or analysis task.
-  - `model` (string, optional): Do not set unless user explicitly requests it. Default: qwen3.6:27b. No fallback: returns a clear "ollama pull" error if the model isn't installed.
+  - `model` (string, optional): Do not set unless user explicitly requests it. Default: qwen3.8:27b. No fallback: returns a clear "ollama pull" error if the model isn't installed.
   - `sessionId` (string, optional): Resume a prior on-disk session for multi-turn context.
 - **Returns:** Ollama's text response plus a structured payload.
 - **Annotations:** readOnlyHint=false, destructiveHint=false, openWorldHint=false
@@ -346,7 +346,7 @@ Test MCP server connectivity. Available in all packages.
 ### Ollama
 | Model | Use Case |
 |-------|----------|
-| qwen3.6:27b | Default: Qwen's flagship-level local coding model (~17 GB) |
+| qwen3.8:27b | Default: Qwen's flagship-level local coding model (~18 GB) |
 
 Ollama is local: no automatic fallback. Override with `ASK_OLLAMA_MODEL`; a model that isn't pulled returns a clear `ollama pull` error.
 
@@ -478,7 +478,7 @@ All MCP servers handle errors gracefully:
 | ASK_CODEX_REASONING_EFFORT | medium | Default Codex reasoning effort; per-call reasoningEffort wins |
 | ASK_CLAUDE_MODEL | opus | Override the Claude default model |
 | ASK_CLAUDE_FALLBACK_MODEL | sonnet | Override Claude Code's native fallback model |
-| ASK_OLLAMA_MODEL | qwen3.6:27b | Override the Ollama model (no fallback) |
+| ASK_OLLAMA_MODEL | qwen3.8:27b | Override the Ollama model (no fallback) |
 | ASK_ANTIGRAVITY_MODEL | gemini-3.1-pro | Override the Antigravity base model slug |
 | ASK_ANTIGRAVITY_EFFORT | high | Override Antigravity reasoning effort (`low`, `medium`, or `high`) |
 | ASK_GEMINI_TIMEOUT_MS | 210000 (210s) | Gemini process timeout |

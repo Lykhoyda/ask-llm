@@ -1,5 +1,15 @@
 # Architectural Decisions
 
+## ADR-153: Ollama factory default moves to qwen3.8:27b
+
+**Status:** Accepted (2026-08-24)
+
+**Context:** Issue #299 reported that Alibaba open-weighted Qwen3.8 on 2026-08-14 and that Ollama listed `qwen3.8:27b`, but that filing could not fetch `ollama.com` and asked a human to confirm production suitability. Direct fetches of the official library pages on 2026-08-24 succeeded: [`qwen3.8:27b`](https://ollama.com/library/qwen3.8:27b) and [`qwen3.8` tags](https://ollama.com/library/qwen3.8/tags) show the `27b` tag as `latest` (digest `22130167c4c2`), 27.3B parameters, default Q4_K_M (17GB) plus a CLIP vision tower (931MB BF16) for ~18GB total, 256K context, Apache 2.0, and capability tags `vision`, `tools`, `thinking`. The previous pin `qwen3.6:27b` remains listed (17GB Q4_K_M, 27.8B, same capability tags, no deprecation). This is the same 27B dense size class; the extra ~1GB is the vision encoder. Thinking-on-by-default is not a new class: `qwen3.6:27b` already carried the `thinking` tag, and the HTTP executor already reads final `message.content`. `ASK_OLLAMA_MODEL` remains the override. No model was pulled and no live inference was run.
+
+**Decision:** Change `FACTORY_DEFAULT_MODEL` in `@ask-llm/ollama-mcp` from `qwen3.6:27b` to `qwen3.8:27b`, and mirror that exact tag through the unified registry, install hint, plugin brainstorm raw `ollama run` default, docs/`providers.ts`, and tests. Keep Ollama's no-fallback policy (#191): a missing local model still fails with an actionable `ollama pull <requested>` error. Do not change other providers, quantization tags (`27b-q8_0`, `27b-bf16`, MLX/nvfp4 variants), or executor HTTP behavior.
+
+**Consequences:** New installs that follow the documented `ollama pull` will get Qwen3.8 27B. Operators who already pulled `qwen3.6:27b` and rely on the factory default must pull `qwen3.8:27b` or set `ASK_OLLAMA_MODEL`. Disk footprint stays in the same ~18GB class. Docs drift CI continues to require `apps/docs/.vitepress/theme/providers.ts` `defaultModel` to match the package constant.
+
 ## ADR-152: Changesets v3 and action v2 preserve one explicit package-tag authority
 
 **Status:** Accepted (2026-08-24)

@@ -123,11 +123,11 @@ describe("response parsing", () => {
 describe("model-not-found handling (no fallback)", () => {
   it("throws an actionable 'ollama pull' error on 'not found', without retrying", async () => {
     mockFetch.mockImplementationOnce(() =>
-      Promise.resolve(errorResponse(404, "model 'qwen3.6:27b' not found, try pulling it first")),
+      Promise.resolve(errorResponse(404, "model 'qwen3.8:27b' not found, try pulling it first")),
     );
 
-    await expect(executeOllamaCLI({ prompt: "test", model: "qwen3.6:27b" })).rejects.toThrow(
-      /ollama pull qwen3\.6:27b/,
+    await expect(executeOllamaCLI({ prompt: "test", model: "qwen3.8:27b" })).rejects.toThrow(
+      /ollama pull qwen3\.8:27b/,
     );
     // Exactly one request — no substitution to a different model.
     expect(mockFetch).toHaveBeenCalledTimes(1);
