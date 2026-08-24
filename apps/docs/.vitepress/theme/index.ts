@@ -1,19 +1,19 @@
 import type { Theme } from "vitepress";
 import DefaultTheme from "vitepress/theme";
-import Layout from "./Layout.vue";
 import DiagramModal from "../components/DiagramModal.vue";
-import SetupTabs from "../components/SetupTabs.vue";
-import InstallSnippet from "../components/InstallSnippet.vue";
-import ProviderStatus from "../components/ProviderStatus.vue";
-import NoirHero from "../components/NoirHero.vue";
-import ReviewLoop from "../components/ReviewLoop.vue";
-import ProviderChips from "../components/ProviderChips.vue";
-import TroubleshootingModal from "../components/TroubleshootingModal.vue";
-import RequestFlow from "../components/diagrams/RequestFlow.vue";
-import PairLoop from "../components/diagrams/PairLoop.vue";
-import FanOut from "../components/diagrams/FanOut.vue";
 import FallbackChain from "../components/diagrams/FallbackChain.vue";
+import FanOut from "../components/diagrams/FanOut.vue";
+import PairLoop from "../components/diagrams/PairLoop.vue";
+import RequestFlow from "../components/diagrams/RequestFlow.vue";
 import SessionThread from "../components/diagrams/SessionThread.vue";
+import InstallSnippet from "../components/InstallSnippet.vue";
+import NoirHero from "../components/NoirHero.vue";
+import ProviderChips from "../components/ProviderChips.vue";
+import ProviderStatus from "../components/ProviderStatus.vue";
+import ReviewLoop from "../components/ReviewLoop.vue";
+import SetupTabs from "../components/SetupTabs.vue";
+import TroubleshootingModal from "../components/TroubleshootingModal.vue";
+import Layout from "./Layout.vue";
 import "./custom.css";
 
 export default {

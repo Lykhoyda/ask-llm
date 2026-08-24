@@ -100,7 +100,9 @@ function validateUpgradeResponse(headerText, sentKey) {
       break;
     }
   }
-  const expected = createHash("sha1").update(sentKey + WS_GUID).digest("base64");
+  const expected = createHash("sha1")
+    .update(sentKey + WS_GUID)
+    .digest("base64");
   if (accept !== expected) {
     throw new Error(
       `broker-transport: Sec-WebSocket-Accept mismatch (got ${accept ?? "(missing)"}, expected ${expected})`,
@@ -226,9 +228,7 @@ function createFrameParser(onFrame, onError) {
         // path is defensive against a buggy or hostile server.
         corrupted = true;
         buf = Buffer.alloc(0);
-        onError(
-          new Error(`broker-transport: fragmentation not supported (opcode=${opcode}) — connection terminating`),
-        );
+        onError(new Error(`broker-transport: fragmentation not supported (opcode=${opcode}) — connection terminating`));
         return;
       }
       const payload = buf.slice(offset, offset + len);

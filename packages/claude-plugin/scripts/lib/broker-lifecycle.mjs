@@ -15,7 +15,7 @@
 //
 // Pure Node built-ins + relative `./broker-*.mjs` imports per ADR-078.
 
-import { spawn, execFileSync } from "node:child_process";
+import { execFileSync, spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 import { mkdirSync, openSync, readFileSync, rmSync, statSync, unlinkSync } from "node:fs";
 import { rename, unlink, writeFile } from "node:fs/promises";
@@ -23,7 +23,7 @@ import { connect as netConnect } from "node:net";
 import { dirname, join, resolve as resolvePath } from "node:path";
 import { fileURLToPath } from "node:url";
 import { BROKER_PROTOCOL_VERSION, initializeBroker } from "./broker.mjs";
-import { terminateProcessTree, IS_WINDOWS } from "./process.mjs";
+import { IS_WINDOWS, terminateProcessTree } from "./process.mjs";
 import { stateRoot } from "./state.mjs";
 
 // Locks live alongside the broker descriptor. Per-marker-dir isolation is

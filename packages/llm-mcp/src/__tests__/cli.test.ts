@@ -72,28 +72,25 @@ describe("ask-llm-mcp root arguments", () => {
     expect(result.stderr).not.toContain(SERVER_START_MARKER);
   });
 
-  it.each([
-    "--version",
-    "-V",
-  ])("prints the package version for %s and exits without starting the server", (argument) => {
-    const result = runCli([argument]);
+  it.each(["--version", "-V"])(
+    "prints the package version for %s and exits without starting the server",
+    (argument) => {
+      const result = runCli([argument]);
 
-    expect(result).toEqual({ status: 0, stdout: `${packageVersion}\n`, stderr: "" });
-    expect(result.stderr).not.toContain(SERVER_START_MARKER);
-  });
+      expect(result).toEqual({ status: 0, stdout: `${packageVersion}\n`, stderr: "" });
+      expect(result.stderr).not.toContain(SERVER_START_MARKER);
+    },
+  );
 
-  it.each([
-    ["unknown"],
-    ["--unknown"],
-    ["--help", "extra"],
-    ["machine-schema", "extra"],
-    ["repl", "extra"],
-  ])("rejects unsupported argv %j with usage and without starting the server", (args) => {
-    const result = runCli(args);
+  it.each([["unknown"], ["--unknown"], ["--help", "extra"], ["machine-schema", "extra"], ["repl", "extra"]])(
+    "rejects unsupported argv %j with usage and without starting the server",
+    (args) => {
+      const result = runCli(args);
 
-    expect(result).toEqual({ status: 2, stdout: "", stderr: UNSUPPORTED_ARGUMENT_OUTPUT });
-    expect(result.stderr).not.toContain(SERVER_START_MARKER);
-  });
+      expect(result).toEqual({ status: 2, stdout: "", stderr: UNSUPPORTED_ARGUMENT_OUTPUT });
+      expect(result.stderr).not.toContain(SERVER_START_MARKER);
+    },
+  );
 
   it("preserves the intentional no-argument MCP server start", () => {
     const result = runCli([], "", true);

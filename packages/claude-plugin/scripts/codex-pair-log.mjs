@@ -19,7 +19,7 @@ import { readFileSync } from "node:fs";
 import { access } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
-import { CONTEXT_FILENAME, logPath as resolveLogPath, PAIR_ROOT_DIR } from "./lib/state.mjs";
+import { CONTEXT_FILENAME, PAIR_ROOT_DIR, logPath as resolveLogPath } from "./lib/state.mjs";
 
 const MARKER_FILE = join(PAIR_ROOT_DIR, CONTEXT_FILENAME);
 
@@ -171,17 +171,10 @@ function showSummary(entries) {
     }
     if (e.fellBack) fallbackCount++;
     if (e.verdict === "cached") cachedCount++;
-    if (
-      e.verdict === "none" ||
-      e.verdict === "concerns" ||
-      e.verdict === "cached"
-    ) {
+    if (e.verdict === "none" || e.verdict === "concerns" || e.verdict === "cached") {
       runCount++;
     }
-    if (
-      e.durationMs != null &&
-      (e.verdict === "none" || e.verdict === "concerns")
-    ) {
+    if (e.durationMs != null && (e.verdict === "none" || e.verdict === "concerns")) {
       durationSum += e.durationMs;
       durationCount++;
     }
@@ -240,9 +233,7 @@ async function main() {
   }
   const markerDir = await findMarkerUp(process.cwd());
   if (!markerDir) {
-    process.stderr.write(
-      `codex-pair-log: no .codex-pair/context.md marker found in cwd or parents\n`,
-    );
+    process.stderr.write(`codex-pair-log: no .codex-pair/context.md marker found in cwd or parents\n`);
     process.exit(1);
   }
   const logPath = resolveLogPath(markerDir);

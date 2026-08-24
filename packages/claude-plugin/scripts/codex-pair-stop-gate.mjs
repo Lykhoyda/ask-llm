@@ -7,17 +7,18 @@
 // findMarkerUp is duplicated by design (zero-workspace-imports; see prompt-drain).
 
 import { execFileSync } from "node:child_process";
-import { existsSync, readFileSync, readdirSync, realpathSync, statSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, realpathSync, statSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { debounceRoot, drainPending, joinPendingForSurface, reviewingRoot } from "./lib/debounce-state.mjs";
+import { collectSessionMarkers } from "./lib/session-registry.mjs";
 import {
   CONTEXT_FILENAME,
-  INFLIGHT_TTL_MIN_MS,
-  PAIR_ROOT_DIR,
   contextPath,
+  INFLIGHT_TTL_MIN_MS,
   inflightRoot,
   logPath,
+  PAIR_ROOT_DIR,
   readAcks,
 } from "./lib/state.mjs";
 import {
@@ -28,7 +29,6 @@ import {
   parseGitPorcelain,
   selectLatestEntries,
 } from "./lib/stop-gate.mjs";
-import { collectSessionMarkers } from "./lib/session-registry.mjs";
 
 const MARKER_FILE = join(PAIR_ROOT_DIR, CONTEXT_FILENAME);
 
@@ -131,9 +131,7 @@ function readInFlightInputs(markerDir) {
 function inflightFreshMs(markerDir) {
   const fmTimeout = Number(readMarkerScalar(markerDir, "timeoutMs"));
   const timeout =
-    Number.isFinite(fmTimeout) && fmTimeout > 0
-      ? fmTimeout
-      : Number(process.env.ASK_CODEX_TIMEOUT_MS ?? 800_000);
+    Number.isFinite(fmTimeout) && fmTimeout > 0 ? fmTimeout : Number(process.env.ASK_CODEX_TIMEOUT_MS ?? 800_000);
   return Math.max(timeout, INFLIGHT_TTL_MIN_MS) + 60_000;
 }
 
@@ -266,6 +264,8 @@ async function main() {
 }
 
 main().catch((err) => {
-  process.stderr.write(`[codex-pair] WARNING: stop-gate failed (${err?.message ?? err}). Allowing turn end — HIGH findings may remain.\n`);
+  process.stderr.write(
+    `[codex-pair] WARNING: stop-gate failed (${err?.message ?? err}). Allowing turn end — HIGH findings may remain.\n`,
+  );
   process.exit(0);
 });

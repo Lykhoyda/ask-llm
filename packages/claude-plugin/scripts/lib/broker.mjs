@@ -23,8 +23,8 @@
 //   - Health probe: `model/list` (cheap) or `initialize` with deadline
 
 import { join } from "node:path";
-import { connectWebSocket } from "./broker-transport.mjs";
 import { createRpcClient } from "./broker-rpc.mjs";
+import { connectWebSocket } from "./broker-transport.mjs";
 
 // State file under <markerDir>/.codex-pair/state/ (ADR-092).
 export const BROKER_STATE_FILE = "broker.json";
@@ -117,7 +117,8 @@ export function buildVerdictSchema() {
             },
             line_start: {
               type: "integer",
-              description: "Line number (optional). Multi-review M3 hotfix: parser.mjs reads `line_start`, not `line`. Rendered as ':<n>' suffix on file.",
+              description:
+                "Line number (optional). Multi-review M3 hotfix: parser.mjs reads `line_start`, not `line`. Rendered as ':<n>' suffix on file.",
             },
             recommendation: {
               type: "string",
@@ -206,7 +207,10 @@ export { clearStaleBrokerState } from "./broker-lifecycle.mjs";
 // BROKER_PROTOCOL_VERSION + initializeBroker from this file, but only
 // uses them inside function bodies (called after module init finishes),
 // so the static-evaluation order is acyclic at the value-of-import level.
-import { isPidAlive as lifecycleIsPidAlive, readBrokerDescriptorSync as lifecycleReadBrokerDescriptor } from "./broker-lifecycle.mjs";
+import {
+  isPidAlive as lifecycleIsPidAlive,
+  readBrokerDescriptorSync as lifecycleReadBrokerDescriptor,
+} from "./broker-lifecycle.mjs";
 
 // Open a transport connection to a running broker, perform the JSON-RPC
 // `initialize` handshake, and return `{ connection, rpc, initializeResult }`.
@@ -447,38 +451,33 @@ export async function submitReview(args) {
   // AFTER completion resolves but BEFORE finally cleans up) doesn't
   // send a spurious turn/interrupt for an already-done turn.
   let completed = false;
-  const abortPromise =
-    abortSignal
-      ? new Promise((_, reject) => {
-          abortHandler = () => {
-            // Early-return if we already got the completion. Closes the
-            // abort-after-completion race window flagged in multi-review.
-            if (completed) return;
-            interruptSent = true;
-            // Best-effort interrupt; don't await it on the abort path —
-            // we want to reject the user-facing promise immediately.
-            rpc
-              .request(JSONRPC_METHODS.TURN_INTERRUPT, { threadId, turnId }, { timeoutMs: 2000 })
-              .catch(() => {});
-            // Multi-review M3 hotfix: use `verdict` not `code` — the
-            // hook's verdictFromError reads err.verdict. "aborted" is
-            // not in VERDICT_PREFIXES so map to "error".
-            const err = new Error("submitReview: aborted");
-            err.verdict = "error";
-            err.aborted = true; // structured marker for callers who care
-            reject(err);
-          };
-          if (abortSignal.aborted) abortHandler();
-          else abortSignal.addEventListener("abort", abortHandler);
-        })
-      : null;
+  const abortPromise = abortSignal
+    ? new Promise((_, reject) => {
+        abortHandler = () => {
+          // Early-return if we already got the completion. Closes the
+          // abort-after-completion race window flagged in multi-review.
+          if (completed) return;
+          interruptSent = true;
+          // Best-effort interrupt; don't await it on the abort path —
+          // we want to reject the user-facing promise immediately.
+          rpc.request(JSONRPC_METHODS.TURN_INTERRUPT, { threadId, turnId }, { timeoutMs: 2000 }).catch(() => {});
+          // Multi-review M3 hotfix: use `verdict` not `code` — the
+          // hook's verdictFromError reads err.verdict. "aborted" is
+          // not in VERDICT_PREFIXES so map to "error".
+          const err = new Error("submitReview: aborted");
+          err.verdict = "error";
+          err.aborted = true; // structured marker for callers who care
+          reject(err);
+        };
+        if (abortSignal.aborted) abortHandler();
+        else abortSignal.addEventListener("abort", abortHandler);
+      })
+    : null;
 
   // 5. Race the completion against the abort.
   let completion;
   try {
-    completion = abortPromise
-      ? await Promise.race([completionPromise, abortPromise])
-      : await completionPromise;
+    completion = abortPromise ? await Promise.race([completionPromise, abortPromise]) : await completionPromise;
     completed = true;
   } catch (err) {
     // On timeout (waitFor rejects), send best-effort interrupt so we
@@ -516,9 +515,7 @@ export async function submitReview(args) {
     throw err;
   }
   if (turn.status === "failed" || turn.status === "interrupted") {
-    const err = new Error(
-      `submitReview: turn ${turn.status}${turn.error?.message ? ` — ${turn.error.message}` : ""}`,
-    );
+    const err = new Error(`submitReview: turn ${turn.status}${turn.error?.message ? ` — ${turn.error.message}` : ""}`);
     err.verdict = "error";
     throw err;
   }

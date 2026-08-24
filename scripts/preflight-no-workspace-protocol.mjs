@@ -70,7 +70,9 @@ if (publishable.length === 0) {
   console.error("[preflight] ERROR: no publishable packages found under packages/");
   process.exit(1);
 }
-console.log(`[preflight] scanning ${publishable.length} publishable package(s): ${publishable.map((p) => p.dir).join(", ")}`);
+console.log(
+  `[preflight] scanning ${publishable.length} publishable package(s): ${publishable.map((p) => p.dir).join(", ")}`,
+);
 
 for (const { dir, pkg } of publishable) {
   const findings = [];
@@ -98,7 +100,9 @@ for (const { dir, pkg } of publishable) {
     }
   }
   if (pkg.bundledDependencies !== undefined || pkg.bundleDependencies !== undefined) {
-    findings.push("bundledDependencies field present (forbidden since ADR-119 — triggers npm 11 global-install bug #115)");
+    findings.push(
+      "bundledDependencies field present (forbidden since ADR-119 — triggers npm 11 global-install bug #115)",
+    );
   }
   for (const hook of ["prepack", "postpack"]) {
     if (pkg.scripts?.[hook]) findings.push(`scripts.${hook} present (no manifest mutation allowed since ADR-119)`);

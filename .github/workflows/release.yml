@@ -34,12 +34,12 @@ jobs:
   release:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           # changesets/action needs full history to compute changed packages and write changelogs
           fetch-depth: 0
 
-      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: "24"
           registry-url: "https://registry.npmjs.org"
@@ -92,15 +92,16 @@ jobs:
         # selective Registry helper below verifies and repairs published versions.
         if: github.event_name != 'workflow_dispatch' || inputs.retry_registry_publish != true
         id: changesets
-        uses: changesets/action@a45c4d594aa4e2c509dc14a9f2b3b67ba3780d0d # v1.9.0
+        uses: changesets/action@8488615a623b1b9c987934bb89eae8af6a946ac1 # v2.1.1
         with:
-          version: yarn changeset:version
-          publish: yarn changeset:publish
-          commit: "chore: version packages"
-          title: "chore: version packages"
-          createGithubReleases: false   # we create one unified GitHub Release below, not per-package
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          version-script: yarn changeset:version
+          publish-script: yarn changeset:publish
+          commit-message: "chore: version packages"
+          pr-title: "chore: version packages"
+          create-github-releases: false   # we create one unified GitHub Release below, not per-package
+          push-git-tags: false            # ADR-151 helper exclusively manages remote package source tags
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NODE_AUTH_TOKEN: ${{ secrets.NODE_AUTH_TOKEN }}
 
       # Scoped packages default to restricted visibility. Keep this explicit even
@@ -143,8 +144,8 @@ jobs:
       - name: Install mcp-publisher
         if: steps.changesets.outputs.published == 'true' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.retry_registry_publish)
         env:
-          MCP_PUBLISHER_VERSION: v1.7.9
-          MCP_PUBLISHER_SHA256: ab128162b0616090b47cf245afe0a23f3ef08936fdce19074f5ba0a4469281ac
+          MCP_PUBLISHER_VERSION: v1.8.1
+          MCP_PUBLISHER_SHA256: a06c9096dcb9727c13555b6be26c7effa707b01f06a4c561ba7a3635443cf2cc
         run: |
           set -euo pipefail
           archive="mcp-publisher_linux_amd64.tar.gz"
@@ -219,8 +220,8 @@ jobs:
             gh release create "$TAG" --generate-notes --title "$TAG"
           fi
 
-      # changesets/action creates package tags only in the runner when
-      # createGithubReleases is false. Preserve the intended remote tag contract
+      # changesets/action v2 has push-git-tags: false, so package tags stay
+      # runner-local (ADR-152). Preserve the intended remote tag contract
       # explicitly, including on selective Registry/release recovery (ADR-151).
       # Runs after the unified release so a tag failure cannot block unified
       # release creation or verification; the helper is idempotent on rerun.
@@ -240,7 +241,7 @@ jobs:
       # an external PR body, commit message, or issue title is interpolated.
       - name: Open tracking issue on release failure
         if: failure() && github.ref == 'refs/heads/main'
-        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
           script: |
             const sha7 = context.sha.slice(0, 7);

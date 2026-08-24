@@ -20,14 +20,8 @@ export function renderReport({ fixtures, runs, meta }) {
       (a, f) => a + (r[f.name]?.score?.caught.length ?? 0) + (r[f.name]?.score?.missed.length ?? 0),
       0,
     );
-    const totalCaught = fixtures.reduce(
-      (a, f) => a + (r[f.name]?.score?.caught.length ?? 0),
-      0,
-    );
-    const totalExtra = fixtures.reduce(
-      (a, f) => a + (r[f.name]?.score?.extra.length ?? 0),
-      0,
-    );
+    const totalCaught = fixtures.reduce((a, f) => a + (r[f.name]?.score?.caught.length ?? 0), 0);
+    const totalExtra = fixtures.reduce((a, f) => a + (r[f.name]?.score?.extra.length ?? 0), 0);
     aggregate[arm] = {
       recall: totalShouldFlag > 0 ? totalCaught / totalShouldFlag : 1,
       caught: totalCaught,
@@ -42,19 +36,17 @@ export function renderReport({ fixtures, runs, meta }) {
   lines.push("|---|---|---|---|---|");
   for (const arm of meta.arms) {
     const a = aggregate[arm];
-    lines.push(
-      `| \`${arm}\` | ${(a.recall * 100).toFixed(1)}% | ${a.caught} | ${a.missed} | ${a.extra} |`,
-    );
+    lines.push(`| \`${arm}\` | ${(a.recall * 100).toFixed(1)}% | ${a.caught} | ${a.missed} | ${a.extra} |`);
   }
   lines.push("");
 
   // If every fixture errored on at least one arm, there's no signal to compute
   // a recall delta on. Surface the situation and skip the decision-rule line.
-  const anyArmAllErrored = meta.arms.some((arm) =>
-    fixtures.every((f) => runs[arm][f.name]?.error),
-  );
+  const anyArmAllErrored = meta.arms.some((arm) => fixtures.every((f) => runs[arm][f.name]?.error));
   if (anyArmAllErrored) {
-    lines.push("> **No comparable data — at least one arm errored on every fixture.** See per-fixture sections below for individual error messages.");
+    lines.push(
+      "> **No comparable data — at least one arm errored on every fixture.** See per-fixture sections below for individual error messages.",
+    );
     lines.push("");
   } else if (meta.arms.length === 2) {
     const [armA, armB] = meta.arms;
@@ -89,13 +81,17 @@ export function renderReport({ fixtures, runs, meta }) {
         continue;
       }
       const s = run.score;
-      lines.push(`### Arm \`${arm}\` — recall ${(s.recall * 100).toFixed(0)}%, ${run.usage?.input_tokens ?? "?"} in / ${run.usage?.output_tokens ?? "?"} out`);
+      lines.push(
+        `### Arm \`${arm}\` — recall ${(s.recall * 100).toFixed(0)}%, ${run.usage?.input_tokens ?? "?"} in / ${run.usage?.output_tokens ?? "?"} out`,
+      );
       lines.push("");
       if (s.caught.length > 0) {
         lines.push("**Caught (true positives):**");
         for (const c of s.caught) {
           lines.push(`- ✅ \`${c.probe.id}\` (${c.probe.severity_expected}) — ${c.probe.description}`);
-          lines.push(`  └─ Finding: ${c.finding.severity?.toUpperCase()} "${c.finding.title}" at ${c.finding.file}:${c.finding.line_start}`);
+          lines.push(
+            `  └─ Finding: ${c.finding.severity?.toUpperCase()} "${c.finding.title}" at ${c.finding.file}:${c.finding.line_start}`,
+          );
         }
         lines.push("");
       }

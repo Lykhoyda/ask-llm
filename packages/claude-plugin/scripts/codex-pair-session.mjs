@@ -13,16 +13,16 @@ import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { bootstrapBroker, clearStaleBrokerState, teardownBroker } from "./lib/broker-lifecycle.mjs";
 import { clearAllDebounceState } from "./lib/debounce-state.mjs";
+import { clearSession } from "./lib/session-registry.mjs";
 import {
   appendLog,
-  clearAutoPause,
   CONTEXT_FILENAME,
+  clearAutoPause,
   PAIR_ROOT_DIR,
   readPauseInfo,
   readPluginVersion,
   resolveAutoResume,
 } from "./lib/state.mjs";
-import { clearSession } from "./lib/session-registry.mjs";
 
 const MARKER_FILE = join(PAIR_ROOT_DIR, CONTEXT_FILENAME);
 

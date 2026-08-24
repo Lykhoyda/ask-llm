@@ -78,18 +78,18 @@
     "@ask-llm/gemini-mcp": "^1.7.2",
     "@ask-llm/grok-mcp": "^0.1.2",
     "@ask-llm/ollama-mcp": "^0.5.7",
-    "@modelcontextprotocol/sdk": "^1.27.1",
+    "@modelcontextprotocol/sdk": "^1.30.0",
     "@toon-format/toon": "^4.1.1",
-    "zod": "^4.3.6"
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@ask-llm/shared": "workspace:*",
-    "@biomejs/biome": "^2.4.4",
-    "@types/node": "^22.19.13",
-    "ajv": "8.18.0",
+    "@biomejs/biome": "^2.5.10",
+    "@types/node": "^22.20.1",
+    "ajv": "8.20.0",
     "tsdown": "^0.22.14",
     "typescript": "^7.0.2",
-    "vitest": "^4.1.10"
+    "vitest": "^4.1.11"
   },
   "publishConfig": {
     "access": "public"

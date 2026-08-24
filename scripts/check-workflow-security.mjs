@@ -52,8 +52,11 @@ if (
 if (!release.includes("Create or verify unified GitHub Release")) {
   errors.push("Registry recovery must create or verify the unified GitHub release");
 }
-if (!/^\s+createGithubReleases:\s*false\b/m.test(release) || /^\s+createGithubReleases:\s*true\b/m.test(release)) {
+if (!/^\s+create-github-releases:\s*false\b/m.test(release) || /^\s+create-github-releases:\s*true\b/m.test(release)) {
   errors.push("Release automation must keep per-package GitHub Release pages disabled");
+}
+if (!/^\s+push-git-tags:\s*false\b/m.test(release) || /^\s+push-git-tags:\s*true\b/m.test(release)) {
+  errors.push("changesets/action must leave per-package Git tags exclusively to the ADR-151 helper");
 }
 if (!release.includes("Create or verify per-package Git tags")) {
   errors.push("Normal publication and Registry recovery must create or verify per-package Git tags");

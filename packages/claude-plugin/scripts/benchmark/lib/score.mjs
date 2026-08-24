@@ -39,13 +39,7 @@ export function score({ verdict, probes }) {
 }
 
 function probeMatchesFinding(probe, finding) {
-  const haystack = [
-    finding.title ?? "",
-    finding.body ?? "",
-    finding.recommendation ?? "",
-  ]
-    .join(" ")
-    .toLowerCase();
+  const haystack = [finding.title ?? "", finding.body ?? "", finding.recommendation ?? ""].join(" ").toLowerCase();
   let hits = 0;
   for (const kw of probe.keywords ?? []) {
     if (haystack.includes(kw.toLowerCase())) hits++;

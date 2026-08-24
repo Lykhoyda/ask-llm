@@ -282,7 +282,8 @@ test("workflow structurally runs package tags after the unified release for publ
   assert.equal(tagSteps[0].run, "node scripts/create-or-verify-package-tags.mjs --verify-npm-git-head");
   assert.equal(tagSteps[0].if, expectedGate);
   assert.equal(unifiedSteps[0].if, expectedGate);
-  assert.equal(changesetsStep.with.createGithubReleases, false);
+  assert.equal(changesetsStep.with["create-github-releases"], false);
+  assert.equal(changesetsStep.with["push-git-tags"], false);
   assert.ok(steps.indexOf(unifiedSteps[0]) < steps.indexOf(tagSteps[0]));
   assert.ok(steps.indexOf(tagSteps[0]) < steps.indexOf(failureStep));
 });
