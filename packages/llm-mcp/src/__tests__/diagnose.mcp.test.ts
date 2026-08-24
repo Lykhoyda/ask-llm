@@ -32,7 +32,7 @@ function enrichedNodeSpec(enrich: ProviderSpec["enrich"]): ProviderSpec {
   return {
     key: "codex",
     name: "Codex",
-    command: process.execPath,
+    command: "node",
     enrich,
   };
 }
