@@ -3,48 +3,11 @@ import type { RequestHandlerExtra } from "@modelcontextprotocol/sdk/shared/proto
 import type { CallToolResult, ServerNotification, ServerRequest } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
 import type { BaseToolArguments } from "./constants.js";
-import { formatDiagnosticReport, type ProviderSpec, runDiagnostics } from "./doctor.js";
+import { diagnosticReportSchema, formatDiagnosticReport, type ProviderSpec, runDiagnostics } from "./doctor.js";
 import { Logger } from "./logger.js";
 import { createProgressTracker } from "./progressTracker.js";
 import type { ToolResult, UnifiedTool } from "./registry.js";
 import { formatSessionUsage, type SessionUsage, type UsageStats } from "./usage.js";
-
-const diagnosticCheckSchema = z.object({
-  name: z.string(),
-  status: z.enum(["pass", "warn", "fail", "skip"]),
-  message: z.string(),
-  fix: z.string().optional(),
-});
-
-const diagnosticProviderSchema = z.object({
-  name: z.string(),
-  command: z.string(),
-  available: z.boolean(),
-  cliPath: z.string().optional(),
-  cliVersion: z.string().optional(),
-  error: z.string().optional(),
-});
-
-const diagnosticReportSchema = z.object({
-  status: z.enum(["ok", "warning", "error"]),
-  generatedAt: z.string(),
-  environment: z.object({
-    nodeVersion: z.string(),
-    nodeOk: z.boolean(),
-    platform: z.string(),
-    arch: z.string(),
-    resolvedPath: z.string(),
-    askLlmPath: z.string().optional(),
-    timeoutMs: z.number(),
-    codexTimeoutMs: z.number(),
-    claudeTimeoutMs: z.number(),
-    geminiTimeoutMs: z.number(),
-    grokTimeoutMs: z.number(),
-    cursorHarnessTimeoutMs: z.number(),
-  }),
-  providers: z.array(diagnosticProviderSchema),
-  checks: z.array(diagnosticCheckSchema),
-});
 
 export function createDiagnoseTool(providers: ProviderSpec[]): UnifiedTool {
   return {
