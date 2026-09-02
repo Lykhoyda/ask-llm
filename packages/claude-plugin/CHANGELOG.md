@@ -1,5 +1,17 @@
 # @ask-llm/plugin
 
+## 0.16.1
+
+### Patch Changes
+
+- Updated dependencies [[`bfb24b2`](https://github.com/Lykhoyda/ask-llm/commit/bfb24b2327d910fc9e940de58b399ec7c54fda20)]:
+  - @ask-llm/gemini-mcp@1.8.1
+  - @ask-llm/grok-mcp@0.1.4
+  - @ask-llm/codex-mcp@0.7.7
+  - @ask-llm/ollama-mcp@0.6.1
+  - @ask-llm/antigravity-mcp@0.7.4
+  - @ask-llm/mcp@0.9.1
+
 ## 0.16.0
 
 ### Minor Changes

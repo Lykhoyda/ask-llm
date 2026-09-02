@@ -1,5 +1,11 @@
 # @ask-llm/grok-mcp
 
+## 0.1.4
+
+### Patch Changes
+
+- [#305](https://github.com/Lykhoyda/ask-llm/pull/305) [`bfb24b2`](https://github.com/Lykhoyda/ask-llm/commit/bfb24b2327d910fc9e940de58b399ec7c54fda20) Thanks [@Lykhoyda](https://github.com/Lykhoyda)! - Allow unified MCP clients to receive the full nested provider diagnostic enrichment without output-schema validation masking it as `-32602`. The diagnostic report schema now lives beside its canonical types and remains strict for genuinely invalid enrichment.
+
 ## 0.1.3
 
 ### Patch Changes
