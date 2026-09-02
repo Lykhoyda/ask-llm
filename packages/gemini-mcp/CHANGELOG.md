@@ -1,5 +1,15 @@
 # @ask-llm/gemini-mcp
 
+## 1.8.0
+
+### Minor Changes
+
+- [#306](https://github.com/Lykhoyda/ask-llm/pull/306) [`c132496`](https://github.com/Lykhoyda/ask-llm/commit/c13249605ae54557ff52b137b3c872edcedd2f07) Thanks [@Lykhoyda](https://github.com/Lykhoyda)! - Adopt Google's GA `gemini-3.7-flash` as the Gemini quota-fallback default and mirror it through the plugin's Gemini runner, agent, skill, and Pi surfaces. The `gemini-3.1-pro-preview` primary default, `ASK_GEMINI_FALLBACK_MODEL` override, and Antigravity's independent `gemini-3.5-flash` fallback remain unchanged ([#298](https://github.com/Lykhoyda/ask-llm/issues/298)).
+
+### Patch Changes
+
+- [#300](https://github.com/Lykhoyda/ask-llm/pull/300) [`a24889e`](https://github.com/Lykhoyda/ask-llm/commit/a24889e958af2962a0fc0e31cdd7d5ab042a5973) Thanks [@Lykhoyda](https://github.com/Lykhoyda)! - Refresh the MCP SDK, validation libraries, Pi host SDK, and transitive runtime dependencies, including security-fixed Hono, URI, archive, HTTP, and parser releases.
+
 ## 1.7.2
 
 ### Patch Changes

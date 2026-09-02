@@ -1,5 +1,11 @@
 # @ask-llm/antigravity-mcp
 
+## 0.7.3
+
+### Patch Changes
+
+- [#300](https://github.com/Lykhoyda/ask-llm/pull/300) [`a24889e`](https://github.com/Lykhoyda/ask-llm/commit/a24889e958af2962a0fc0e31cdd7d5ab042a5973) Thanks [@Lykhoyda](https://github.com/Lykhoyda)! - Refresh the MCP SDK, validation libraries, Pi host SDK, and transitive runtime dependencies, including security-fixed Hono, URI, archive, HTTP, and parser releases.
+
 ## 0.7.2
 
 ### Patch Changes

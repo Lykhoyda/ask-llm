@@ -1,5 +1,15 @@
 # @ask-llm/ollama-mcp
 
+## 0.6.0
+
+### Minor Changes
+
+- [#304](https://github.com/Lykhoyda/ask-llm/pull/304) [`f9f3e9d`](https://github.com/Lykhoyda/ask-llm/commit/f9f3e9d14be950cb142b7d0e9944b755106b28ea) Thanks [@Lykhoyda](https://github.com/Lykhoyda)! - Bump the factory-default Ollama model from `qwen3.6:27b` to same-size-class `qwen3.8:27b` (official library `latest` / 27b tag, ~18 GB Q4_K_M). `ASK_OLLAMA_MODEL` overrides are unchanged; a missing local model still fails with an actionable `ollama pull` error and no silent substitution.
+
+### Patch Changes
+
+- [#300](https://github.com/Lykhoyda/ask-llm/pull/300) [`a24889e`](https://github.com/Lykhoyda/ask-llm/commit/a24889e958af2962a0fc0e31cdd7d5ab042a5973) Thanks [@Lykhoyda](https://github.com/Lykhoyda)! - Refresh the MCP SDK, validation libraries, Pi host SDK, and transitive runtime dependencies, including security-fixed Hono, URI, archive, HTTP, and parser releases.
+
 ## 0.5.7
 
 ### Patch Changes
