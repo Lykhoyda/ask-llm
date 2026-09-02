@@ -14,7 +14,7 @@ tools:
 <!-- PORTABLE-CONTRACT:START -->
 ## Portable contract
 
-Review only the supplied changes and context. Ask Gemini for concrete correctness, security, and regression concerns; validate every candidate against source; require file/line evidence and reproduction for behavior claims; omit style-only or speculative findings; report provider failures explicitly.
+Review only the supplied changes and context. Ask Gemini for concrete correctness, security, and regression concerns; validate every candidate against source; require file/line evidence and reproduction for behavior claims; omit style-only or speculative findings; report provider failures explicitly. Preserve the canonical `gemini-3.1-pro-preview` → `gemini-3.7-flash` quota fallback and disclose when fallback occurs.
 <!-- PORTABLE-CONTRACT:END -->
 
 <!-- HOST-ADAPTER:CLAUDE-CODE:START -->

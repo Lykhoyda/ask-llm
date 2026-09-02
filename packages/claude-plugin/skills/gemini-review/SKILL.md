@@ -6,7 +6,7 @@ description: Get a second opinion from Gemini on your current code changes. Anal
 <!-- PORTABLE-CONTRACT:START -->
 ## Portable contract
 
-Gather the relevant staged, unstaged, and untracked code changes; build a bounded context brief; request a Gemini review; verify each reported finding against source; and return only prioritized, source-supported findings. Preserve provider fallback, timeout, and explicit failure disclosure.
+Gather the relevant staged, unstaged, and untracked code changes; build a bounded context brief; request a Gemini review; verify each reported finding against source; and return only prioritized, source-supported findings. Preserve the canonical `gemini-3.1-pro-preview` → `gemini-3.7-flash` quota fallback, timeout, and explicit failure disclosure.
 <!-- PORTABLE-CONTRACT:END -->
 
 ## Host adapters

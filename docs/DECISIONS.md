@@ -1,5 +1,15 @@
 # Architectural Decisions
 
+## ADR-154: Gemini quota fallback moves to GA gemini-3.7-flash
+
+**Status:** Accepted (2026-08-24)
+
+**Context:** Issue #298 reported Gemini 3.7 Flash from secondary sources because its filing environment could not reach Google's documentation, so the claimed identifier, release status, limits, pricing, and predecessor lifecycle were not sufficient to change a production fallback. Direct reads of Google's authoritative Gemini API documentation on 2026-08-24 confirmed the complete decision basis: the [model catalog](https://ai.google.dev/gemini-api/docs/models) lists Gemini 3.7 Flash under **Stable** and describes 3.6 as the previous-generation stable Flash; the [3.7 model page](https://ai.google.dev/gemini-api/docs/models/gemini-3.7-flash) gives the exact stable API code `gemini-3.7-flash`, a 1,048,576-token input limit, a 65,536-token output limit, and an August 2026 update; and the [release notes](https://ai.google.dev/gemini-api/docs/changelog) identify the August 13, 2026 release as generally available. Google's [pricing page](https://ai.google.dev/gemini-api/docs/pricing) lists free-tier availability and standard paid-tier introductory prices per 1M tokens of $0.75 input / $3.75 output (including thinking tokens) through December 31, 2026, rising to $1.50 / $7.50 on January 1, 2027. The [deprecations page](https://ai.google.dev/gemini-api/docs/deprecations) still lists `gemini-3.6-flash` with no announced shutdown date, so this is an improvement rather than a breaking-risk response. No live inference was required or authorized; acceptance through a particular Gemini CLI account tier remains operator-specific, while the API documentation directly establishes a stable production model.
+
+**Decision:** Change only `@ask-llm/gemini-mcp`'s quota fallback from `gemini-3.6-flash` to `gemini-3.7-flash`. Preserve `ASK_GEMINI_FALLBACK_MODEL`, the independent `gemini-3.1-pro-preview` primary default, and Antigravity's separately evidence-pinned `gemini-3.5-flash` fallback. Mirror the new fallback through the quota remediation message, plugin runner/agent/skill/Pi surfaces, tests and usage fixture, provider metadata, user and AI-readable documentation, parity table, and model-watch instructions. Extend documentation drift validation over every current-facing surface while excluding historical ADRs, roadmap entries, bugs, and changelogs that accurately record prior pins.
+
+**Consequences:** New unpinned Gemini quota retries select Google's latest stable Flash sibling and report `usage.fellBack` exactly as before. Operators can retain another fallback through `ASK_GEMINI_FALLBACK_MODEL`; explicitly pinned per-call models remain unchanged. The independent Pro and agy contracts do not move, and no inference, authentication, billing, or external configuration was changed while verifying this decision.
+
 ## ADR-153: Ollama factory default moves to qwen3.8:27b
 
 **Status:** Accepted (2026-08-24)

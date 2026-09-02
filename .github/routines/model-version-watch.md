@@ -81,12 +81,12 @@ pinned model still valid?" (`docs/ROUTINES.md` rule 5; the #244 lesson).
 | ollama | ollama.com library page for the pinned model family (availability only; there is no provider-side default) |
 | antigravity | `agy models` CLI output is the ONLY acceptable evidence (ADR-137). If `agy` is not runnable in this environment, mark antigravity UNVERIFIED — never infer agy slugs from Google's web catalog |
 
-ADR-137 / ADR-138 rules (binding):
+ADR-137 / ADR-138 / ADR-154 rules (binding):
 
 - agy slugs are evidence-pinned to agy's live catalog (ADR-137). The gemini and
   antigravity pins are independent even when their values look related: gemini's
-  quota fallback moved to `gemini-3.6-flash` while agy's fallback deliberately
-  stayed `gemini-3.5-flash` (ADR-138). Never recommend bumping both in sympathy;
+  quota fallback moved to `gemini-3.7-flash` while agy's fallback deliberately
+  stayed `gemini-3.5-flash` (ADR-154). Never recommend bumping both in sympathy;
   each needs its own provider-native evidence.
 - Catalog presence is not proof of CLI acceptance (ADR-138: a catalog-listed
   model returned 404 through the CLI path, and a later probe failed pre-model on

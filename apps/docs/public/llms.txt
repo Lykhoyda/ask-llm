@@ -11,7 +11,7 @@ Ask LLM provides Model Context Protocol (MCP) servers that let any MCP-compatibl
 - `@ask-llm/grok-mcp`: MCP server for Grok through the metered xAI Responses API. Default API ID: `grok-4.6`; explicit `xai-api` or `grok-cli` harness; high effort; no harness/model/provider fallback.
 - `@ask-llm/antigravity-mcp`: MCP server for Google Antigravity CLI (`agy` ≥1.1.5). Subscription-backed second opinion. Default model: `gemini-3.1-pro` → `gemini-3.5-flash` on rate limit, both at high effort.
 - `@ask-llm/ollama-mcp`: MCP server for local Ollama. No API keys, fully private. Default model: qwen3.8:27b (no fallback).
-- `@ask-llm/gemini-mcp`: MCP server for Google Gemini CLI. 1M+ token context. Default model: gemini-3.1-pro-preview → gemini-3.6-flash on quota. (Enterprise-gated since 2026-06-18.)
+- `@ask-llm/gemini-mcp`: MCP server for Google Gemini CLI. 1M+ token context. Default model: gemini-3.1-pro-preview → gemini-3.7-flash on quota. (Enterprise-gated since 2026-06-18.)
 - `@ask-llm/mcp`: Unified server: auto-detects installed providers and registers all available tools.
 - `@ask-llm/plugin`: Canonical Claude Code + Cursor Agent + Pi host package. One skill corpus; Claude marketplace agents/hooks; Cursor Plugin Agent Skills + `mcp.json`; Pi native provider tools and consent-gated lifecycle extension.
 

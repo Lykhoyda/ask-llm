@@ -61,6 +61,8 @@ pi list
 
 Pi discovers the portable skills as `/skill:<name>` commands and registers native `ask-codex`, `ask-gemini`, `ask-grok`, `ask-ollama`, `ask-antigravity`, model-neutral `ask-cursor-agent`, and bounded concurrent `ask-multi` tools. Pi intentionally has no built-in MCP client; do not configure these as MCP servers in Pi. `fable-review` and `grok-pair` are excluded from Pi discovery; Grok pairing currently has Claude/Cursor adapters, while Pi retains its dedicated Codex pairing lifecycle.
 
+The plugin's `ask-gemini-run`, Gemini reviewer agent/skill, and Pi `ask-gemini` tool all delegate to the canonical Gemini executor: `gemini-3.1-pro-preview` remains primary and quota errors fall back to `gemini-3.7-flash` unless `ASK_GEMINI_FALLBACK_MODEL` overrides it.
+
 For codex-pair, create `.codex-pair/context.md`, ensure Pi trusts the project, then run interactive `/codex-pair` to grant user-owned canonical-project consent. The marker alone never authorizes data transfer/cost. Revoke with `/codex-pair revoke`. Pi findings are non-blocking; blocking Stop-gate and one-shot print parity are not available.
 
 ```bash
