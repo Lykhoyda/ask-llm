@@ -1,6 +1,6 @@
 {
   "name": "@ask-llm/ollama-mcp",
-  "version": "0.5.7",
+  "version": "0.6.0",
   "mcpName": "io.github.Lykhoyda/ask-ollama",
   "description": "MCP server for local Ollama LLM integration - for Claude IDE and other IDEs",
   "type": "module",
