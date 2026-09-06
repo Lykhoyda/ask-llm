@@ -1,6 +1,6 @@
 {
   "name": "@ask-llm/grok-mcp",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "mcpName": "io.github.Lykhoyda/ask-grok",
   "description": "MCP server for metered Grok consultations through the supported xAI API",
   "type": "module",

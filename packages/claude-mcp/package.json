@@ -1,6 +1,6 @@
 {
   "name": "@ask-llm/claude-mcp",
-  "version": "0.1.8",
+  "version": "0.1.9",
   "mcpName": "io.github.Lykhoyda/ask-claude",
   "description": "MCP server for consulting Anthropic Claude Code CLI from Codex and other MCP clients",
   "type": "module",
