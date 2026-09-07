@@ -139,6 +139,7 @@ if (routineSpec !== null) {
     "ADR-137",
     "ADR-138",
     "ADR-154",
+    "ADR-155",
     ...new Set([...modelChecks, ...fallbackChecks].map(([, constantsPath]) => constantsPath)),
   ];
   for (const reference of requiredReferences) {
