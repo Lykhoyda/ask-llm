@@ -1,5 +1,12 @@
 # @ask-llm/mcp
 
+## 0.9.2
+
+### Patch Changes
+
+- Updated dependencies [[`bb13eb0`](https://github.com/Lykhoyda/ask-llm/commit/bb13eb0698317545fef776f716df461bb21b8936)]:
+  - @ask-llm/gemini-mcp@1.9.0
+
 ## 0.9.1
 
 ### Patch Changes

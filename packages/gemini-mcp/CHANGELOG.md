@@ -1,5 +1,11 @@
 # @ask-llm/gemini-mcp
 
+## 1.9.0
+
+### Minor Changes
+
+- [#314](https://github.com/Lykhoyda/ask-llm/pull/314) [`bb13eb0`](https://github.com/Lykhoyda/ask-llm/commit/bb13eb0698317545fef776f716df461bb21b8936) Thanks [@Lykhoyda](https://github.com/Lykhoyda)! - Adopt Google's GA `gemini-3.8-flash` as the Gemini quota-fallback default and mirror it through the plugin's Gemini runner, agent, skill, and Pi surfaces. The `gemini-3.1-pro-preview` primary default, `ASK_GEMINI_FALLBACK_MODEL` override, and Antigravity's independent `gemini-3.5-flash` fallback remain unchanged ([#312](https://github.com/Lykhoyda/ask-llm/issues/312)).
+
 ## 1.8.1
 
 ### Patch Changes
