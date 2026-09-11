@@ -1,5 +1,11 @@
 # @ask-llm/ollama-mcp
 
+## 0.6.2
+
+### Patch Changes
+
+- [#323](https://github.com/Lykhoyda/ask-llm/pull/323) [`2d335c8`](https://github.com/Lykhoyda/ask-llm/commit/2d335c84db3ff9507cda128e0fc40154ba19bb08) Thanks [@Lykhoyda](https://github.com/Lykhoyda)! - No functional change. Republish the eight public packages so each new tarball's npm gitHead matches the version-introducing commit and per-package source tags can be created. The versions currently on npm were published from a later SHA than the version bump, and gitHead is immutable.
+
 ## 0.6.1
 
 ### Patch Changes

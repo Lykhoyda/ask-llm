@@ -1,5 +1,18 @@
 # @ask-llm/plugin
 
+## 0.16.3
+
+### Patch Changes
+
+- [#323](https://github.com/Lykhoyda/ask-llm/pull/323) [`2d335c8`](https://github.com/Lykhoyda/ask-llm/commit/2d335c84db3ff9507cda128e0fc40154ba19bb08) Thanks [@Lykhoyda](https://github.com/Lykhoyda)! - No functional change. Republish the eight public packages so each new tarball's npm gitHead matches the version-introducing commit and per-package source tags can be created. The versions currently on npm were published from a later SHA than the version bump, and gitHead is immutable.
+- Updated dependencies [[`2d335c8`](https://github.com/Lykhoyda/ask-llm/commit/2d335c84db3ff9507cda128e0fc40154ba19bb08)]:
+  - @ask-llm/antigravity-mcp@0.7.5
+  - @ask-llm/codex-mcp@0.7.8
+  - @ask-llm/gemini-mcp@1.9.1
+  - @ask-llm/grok-mcp@0.1.5
+  - @ask-llm/ollama-mcp@0.6.2
+  - @ask-llm/mcp@0.9.3
+
 ## 0.16.2
 
 ### Patch Changes
