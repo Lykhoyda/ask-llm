@@ -58,6 +58,16 @@ if (!/^\s+create-github-releases:\s*false\b/m.test(release) || /^\s+create-githu
 if (!/^\s+push-git-tags:\s*false\b/m.test(release) || /^\s+push-git-tags:\s*true\b/m.test(release)) {
   errors.push("changesets/action must leave per-package Git tags exclusively to the ADR-151 helper");
 }
+const yarnAuthAssignments = [...release.matchAll(/^\s+YARN_NPM_AUTH_TOKEN:\s*(.+)\s*$/gm)].map((match) => match[1]);
+const expectedYarnAuth = "$" + "{{ secrets.NODE_AUTH_TOKEN }}";
+if (yarnAuthAssignments.length < 2 || yarnAuthAssignments.some((value) => value !== expectedYarnAuth)) {
+  errors.push(
+    "Yarn Berry publish must receive YARN_NPM_AUTH_TOKEN from secrets.NODE_AUTH_TOKEN on the npm verify and changeset publish steps",
+  );
+}
+if (!release.includes("yarn npm whoami")) {
+  errors.push("npm authorization preflight must also prove Yarn Berry can authenticate (`yarn npm whoami`)");
+}
 if (!release.includes("Create or verify per-package Git tags")) {
   errors.push("Normal publication and Registry recovery must create or verify per-package Git tags");
 }

@@ -287,3 +287,19 @@ test("workflow structurally runs package tags after the unified release for publ
   assert.ok(steps.indexOf(unifiedSteps[0]) < steps.indexOf(tagSteps[0]));
   assert.ok(steps.indexOf(tagSteps[0]) < steps.indexOf(failureStep));
 });
+
+test("publish authenticates Yarn Berry; npm whoami is not sufficient after Changesets 3", () => {
+  const workflow = parseYaml(readFileSync(join(import.meta.dirname, "../.github/workflows/release.yml"), "utf8"));
+  const steps = workflow.jobs.release.steps;
+  const verifyStep = steps.find(
+    (step) => step.name === "Verify npm authorization for @ask-llm/plugin without publishing",
+  );
+  const changesetsStep = steps.find((step) => step.name === "Create Release PR or Publish");
+  const token = "$" + "{{ secrets.NODE_AUTH_TOKEN }}";
+
+  assert.equal(verifyStep.env.NODE_AUTH_TOKEN, token);
+  assert.equal(verifyStep.env.YARN_NPM_AUTH_TOKEN, token);
+  assert.match(verifyStep.run, /yarn npm whoami/);
+  assert.equal(changesetsStep.env.NODE_AUTH_TOKEN, token);
+  assert.equal(changesetsStep.env.YARN_NPM_AUTH_TOKEN, token);
+});
