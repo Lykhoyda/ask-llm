@@ -68,6 +68,13 @@ if (yarnAuthAssignments.length < 2 || yarnAuthAssignments.some((value) => value 
 if (!release.includes("yarn npm whoami")) {
   errors.push("npm authorization preflight must also prove Yarn Berry can authenticate (`yarn npm whoami`)");
 }
+if (
+  !release.includes("YN0000") ||
+  !release.includes("Done in ") ||
+  /yarn_user=\$\(yarn npm whoami\)\s*\n\s*if \[ "\$user" != "\$yarn_user" \]/.test(release)
+) {
+  errors.push("npm authorization preflight must compare Yarn whoami usernames after stripping YN0000 log noise");
+}
 if (!release.includes("Create or verify per-package Git tags")) {
   errors.push("Normal publication and Registry recovery must create or verify per-package Git tags");
 }

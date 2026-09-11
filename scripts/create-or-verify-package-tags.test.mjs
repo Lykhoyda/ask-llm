@@ -300,6 +300,12 @@ test("publish authenticates Yarn Berry; npm whoami is not sufficient after Chang
   assert.equal(verifyStep.env.NODE_AUTH_TOKEN, token);
   assert.equal(verifyStep.env.YARN_NPM_AUTH_TOKEN, token);
   assert.match(verifyStep.run, /yarn npm whoami/);
+  // Yarn Berry wraps the username in YN0000 log lines plus a "Done in"
+  // footer (run 34592614321). Comparing raw stdout treats a successful
+  // whoami as a mismatch even when the user is the same.
+  assert.match(verifyStep.run, /YN0000/);
+  assert.match(verifyStep.run, /Done in /);
+  assert.doesNotMatch(verifyStep.run, /yarn_user=\$\(yarn npm whoami\)\s*\n\s*if \[ "\$user" != "\$yarn_user" \]/);
   assert.equal(changesetsStep.env.NODE_AUTH_TOKEN, token);
   assert.equal(changesetsStep.env.YARN_NPM_AUTH_TOKEN, token);
 });
