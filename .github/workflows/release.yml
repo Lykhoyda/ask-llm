@@ -63,9 +63,17 @@ jobs:
         if: github.event_name != 'workflow_dispatch' || inputs.retry_registry_publish != true
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NODE_AUTH_TOKEN }}
+          # Changesets 3 publishes through `yarn npm publish`, which ignores
+          # setup-node's .npmrc / NODE_AUTH_TOKEN (issue #307 / ADR-156).
+          YARN_NPM_AUTH_TOKEN: ${{ secrets.NODE_AUTH_TOKEN }}
         run: |
           set -euo pipefail
           user=$(npm whoami)
+          yarn_user=$(yarn npm whoami)
+          if [ "$user" != "$yarn_user" ]; then
+            echo "npm whoami ($user) and yarn npm whoami ($yarn_user) disagree; Yarn Berry publish would fail"
+            exit 1
+          fi
           role=$(npm org ls ask-llm --json | jq -r --arg user "$user" '.[$user] // empty')
           case "$role" in
             owner|admin|developer) ;;
@@ -80,7 +88,7 @@ jobs:
           elif ! grep -Eq 'E404|Not Found' /tmp/plugin-view.err; then
             cat /tmp/plugin-view.err; exit 1
           fi
-          echo "Verified npm authorization for @ask-llm/plugin as $user ($role); no version published."
+          echo "Verified npm and Yarn authorization for @ask-llm/plugin as $user ($role); no version published."
 
       # When pending changesets exist on main: opens/updates the Version Packages PR.
       # When this push IS the merged Version Packages PR: runs `yarn changeset:publish`
@@ -103,6 +111,7 @@ jobs:
           push-git-tags: false            # ADR-151 helper exclusively manages remote package source tags
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NODE_AUTH_TOKEN }}
+          YARN_NPM_AUTH_TOKEN: ${{ secrets.NODE_AUTH_TOKEN }}
 
       # Scoped packages default to restricted visibility. Keep this explicit even
       # though every manifest requests public access; a publish can otherwise be
