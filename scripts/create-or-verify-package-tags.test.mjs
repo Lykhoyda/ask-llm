@@ -275,7 +275,7 @@ test("workflow structurally runs package tags after the unified release for publ
   const failureStep = steps.find((step) => step.name === "Open tracking issue on release failure");
   const changesetsStep = steps.find((step) => step.name === "Create Release PR or Publish");
   const expectedGate =
-    "steps.changesets.outputs.published == 'true' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.retry_registry_publish)";
+    "steps.changesets.outputs.published == 'true' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')";
 
   assert.equal(tagSteps.length, 1);
   assert.equal(unifiedSteps.length, 1);
@@ -286,6 +286,49 @@ test("workflow structurally runs package tags after the unified release for publ
   assert.equal(changesetsStep.with["push-git-tags"], false);
   assert.ok(steps.indexOf(unifiedSteps[0]) < steps.indexOf(tagSteps[0]));
   assert.ok(steps.indexOf(tagSteps[0]) < steps.indexOf(failureStep));
+});
+
+test("manual dispatch has no inputs and on main is always registry/release/tag recovery without npm", () => {
+  const source = readFileSync(join(import.meta.dirname, "../.github/workflows/release.yml"), "utf8");
+  const workflow = parseYaml(source);
+  const steps = workflow.jobs.release.steps;
+  const dispatch = workflow.on.workflow_dispatch;
+  const skipNpm = "github.event_name != 'workflow_dispatch'";
+  const recoveryGate =
+    "steps.changesets.outputs.published == 'true' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')";
+  const verifyStep = steps.find(
+    (step) => step.name === "Verify npm authorization for @ask-llm/plugin without publishing",
+  );
+  const changesetsStep = steps.find((step) => step.name === "Create Release PR or Publish");
+  const publisherStep = steps.find((step) => step.name === "Install mcp-publisher");
+  const syncStep = steps.find(
+    (step) => step.name === "Sync versions from package.json to server.json and marketplace.json",
+  );
+  const registryStep = steps.find((step) => step.name === "Publish missing servers to MCP Registry");
+  const geminiVersionStep = steps.find((step) => step.name === "Get gemini version for unified release tag");
+  const unifiedStep = steps.find((step) => step.name === "Create or verify unified GitHub Release");
+  const tagStep = steps.find((step) => step.name === "Create or verify per-package Git tags");
+  const failureStep = steps.find((step) => step.name === "Open tracking issue on release failure");
+
+  assert.ok(Object.hasOwn(workflow.on, "workflow_dispatch"));
+  assert.equal(dispatch == null ? undefined : dispatch.inputs, undefined);
+  assert.doesNotMatch(source, /retry_registry_publish|deprecate_legacy_packages/);
+  assert.equal(
+    steps.some((step) => /deprecate/i.test(step.name ?? "")),
+    false,
+  );
+  assert.doesNotMatch(source, /npm deprecate/);
+  assert.equal(verifyStep.if, skipNpm);
+  assert.equal(changesetsStep.if, skipNpm);
+  assert.equal(publisherStep.if, recoveryGate);
+  assert.equal(syncStep.if, recoveryGate);
+  assert.equal(registryStep.if, recoveryGate);
+  assert.equal(geminiVersionStep.if, recoveryGate);
+  assert.equal(unifiedStep.if, recoveryGate);
+  assert.equal(tagStep.if, recoveryGate);
+  assert.match(failureStep.uses, /actions\/github-script@/);
+  assert.match(failureStep.with.script, /Run the Release workflow on main/);
+  assert.doesNotMatch(failureStep.with.script, /retry_registry_publish/);
 });
 
 test("publish authenticates Yarn Berry; npm whoami is not sufficient after Changesets 3", () => {

@@ -6,21 +6,9 @@ name: Release
 on:
   push:
     branches: ["main"]
-  # Manual dispatch for dry-runs against feature branches and for re-running
-  # publishes after a workflow-side hotfix. Manual main-branch runs expose only
-  # explicit, opt-in maintenance operations.
+  # Manual dispatch on main is Registry/release/tag recovery only: it never
+  # re-enters npm publication (ADR-139). Run workflow has no options.
   workflow_dispatch:
-    inputs:
-      retry_registry_publish:
-        description: Verify/repair MCP Registry, unified release, and package tags without npm publication
-        required: false
-        type: boolean
-        default: false
-      deprecate_legacy_packages:
-        description: Deprecate the six package names replaced by the @ask-llm scope
-        required: false
-        type: boolean
-        default: false
 
 concurrency: ${{ github.workflow }}-${{ github.ref }}
 
@@ -60,7 +48,7 @@ jobs:
         run: node scripts/preflight-no-workspace-protocol.mjs
 
       - name: Verify npm authorization for @ask-llm/plugin without publishing
-        if: github.event_name != 'workflow_dispatch' || inputs.retry_registry_publish != true
+        if: github.event_name != 'workflow_dispatch'
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NODE_AUTH_TOKEN }}
           # Changesets 3 publishes through `yarn npm publish`, which ignores
@@ -108,9 +96,9 @@ jobs:
       # Since ADR-119 there are NO pack-time lifecycle hooks — tsdown inlines
       # @ask-llm/shared at build time and manifests publish as-is.
       - name: Create Release PR or Publish
-        # A registry-recovery dispatch must not re-enter npm publication. The
-        # selective Registry helper below verifies and repairs published versions.
-        if: github.event_name != 'workflow_dispatch' || inputs.retry_registry_publish != true
+        # Manual dispatch never re-enters npm publication. The selective
+        # Registry helper below verifies and repairs published versions.
+        if: github.event_name != 'workflow_dispatch'
         id: changesets
         uses: changesets/action@8488615a623b1b9c987934bb89eae8af6a946ac1 # v2.1.1
         with:
@@ -168,24 +156,10 @@ jobs:
             exit 1
           done
 
-      - name: Deprecate legacy npm package names
-        if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.deprecate_legacy_packages
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NODE_AUTH_TOKEN }}
-        run: |
-          failed=0
-          npm deprecate "ask-gemini-mcp@*" "Moved to @ask-llm/gemini-mcp. The ask-gemini-mcp executable name is unchanged." || failed=1
-          npm deprecate "ask-codex-mcp@*" "Moved to @ask-llm/codex-mcp. The ask-codex-mcp executable name is unchanged." || failed=1
-          npm deprecate "@anton-lykhoyda/ask-claude-mcp@*" "Moved to @ask-llm/claude-mcp. The ask-claude-mcp executable name is unchanged." || failed=1
-          npm deprecate "ask-ollama-mcp@*" "Moved to @ask-llm/ollama-mcp. The ask-ollama-mcp executable name is unchanged." || failed=1
-          npm deprecate "ask-antigravity-mcp@*" "Moved to @ask-llm/antigravity-mcp. The ask-antigravity-mcp executable name is unchanged." || failed=1
-          npm deprecate "ask-llm-mcp@*" "Moved to @ask-llm/mcp. The ask-llm-mcp executable name is unchanged." || failed=1
-          exit "$failed"
-
-      # Registry steps run after a real npm publish or an explicit manual retry.
+      # Registry steps run after a real npm publish or a main-branch dispatch.
       # Ordinary main pushes with no published versions still skip them.
       - name: Install mcp-publisher
-        if: steps.changesets.outputs.published == 'true' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.retry_registry_publish)
+        if: steps.changesets.outputs.published == 'true' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')
         env:
           MCP_PUBLISHER_VERSION: v1.8.1
           MCP_PUBLISHER_SHA256: a06c9096dcb9727c13555b6be26c7effa707b01f06a4c561ba7a3635443cf2cc
@@ -204,7 +178,7 @@ jobs:
       # separate files for the MCP Registry's input schema. Sync them after changesets'
       # version bump so the Registry publish picks up the freshly-bumped numbers.
       - name: Sync versions from package.json to server.json and marketplace.json
-        if: steps.changesets.outputs.published == 'true' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.retry_registry_publish)
+        if: steps.changesets.outputs.published == 'true' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')
         run: |
           for entry in "gemini-mcp:packages/gemini-mcp/server.json" "codex-mcp:packages/codex-mcp/server.json" "claude-mcp:packages/claude-mcp/server.json" "grok-mcp:packages/grok-mcp/server.json" "ollama-mcp:packages/ollama-mcp/server.json" "antigravity-mcp:packages/antigravity-mcp/server.json" "llm-mcp:packages/llm-mcp/server.json"; do
             pkg="${entry%%:*}"
@@ -219,7 +193,7 @@ jobs:
       # publish only missing versions, and keep trying independent missing servers
       # so one real failure cannot hide another publication gap (ADR-139).
       - name: Publish missing servers to MCP Registry
-        if: steps.changesets.outputs.published == 'true' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.retry_registry_publish)
+        if: steps.changesets.outputs.published == 'true' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')
         env:
           MCP_PUBLISHER_PATH: ./mcp-publisher
         run: >-
@@ -236,12 +210,12 @@ jobs:
       # was a fork of gemini-mcp-tool). It remains the single human-facing GitHub Release,
       # alongside remote per-package source tags used for package-level audit/diff links.
       - name: Get gemini version for unified release tag
-        if: steps.changesets.outputs.published == 'true' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.retry_registry_publish)
+        if: steps.changesets.outputs.published == 'true' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')
         id: gemini_version
         run: echo "version=$(node -p "require('./packages/gemini-mcp/package.json').version")" >> "$GITHUB_OUTPUT"
 
       - name: Create or verify unified GitHub Release
-        if: steps.changesets.outputs.published == 'true' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.retry_registry_publish)
+        if: steps.changesets.outputs.published == 'true' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')
         env:
           GEMINI_VERSION: ${{ steps.gemini_version.outputs.version }}
           GH_TOKEN: ${{ github.token }}
@@ -265,11 +239,11 @@ jobs:
 
       # changesets/action v2 has push-git-tags: false, so package tags stay
       # runner-local (ADR-152). Preserve the intended remote tag contract
-      # explicitly, including on selective Registry/release recovery (ADR-151).
+      # explicitly, including on main-branch dispatch recovery (ADR-151).
       # Runs after the unified release so a tag failure cannot block unified
       # release creation or verification; the helper is idempotent on rerun.
       - name: Create or verify per-package Git tags
-        if: steps.changesets.outputs.published == 'true' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.retry_registry_publish)
+        if: steps.changesets.outputs.published == 'true' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')
         run: node scripts/create-or-verify-package-tags.mjs --verify-npm-git-head
 
       # Loud-on-failure: open a tracking issue (or comment on an existing one)
@@ -323,7 +297,7 @@ jobs:
               `1. Open the run above and identify the first failed step; do not infer NODE_AUTH_TOKEN failure from this issue template.`,
               `2. Check npm and MCP Registry state before retrying because npm publication may have succeeded before a later Registry failure.`,
               `3. Correct the reported auth, validation, mismatch, or service failure. Registry retries verify existing exact versions and publish only missing versions.`,
-              `4. Retry Registry/release recovery on main with retry_registry_publish=true; this path does not re-enter npm publication and also creates or verifies package tags.`,
+              `4. Run the Release workflow on main. Dispatch has no inputs; it does not re-enter npm publication and creates or verifies Registry records, the unified GitHub Release, and package tags.`,
               `5. Close this issue only after the recovery run is green and all expected npm, Registry, package-tag, and unified-release versions are externally verified.`,
             ].join("\n");
             await github.rest.issues.create({
