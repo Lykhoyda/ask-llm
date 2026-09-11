@@ -9,4 +9,4 @@
 "@ask-llm/plugin": patch
 ---
 
-Republish the eight public packages so each new tarball's npm gitHead matches the version-introducing commit. The versions currently on npm were published from a later SHA than the version bump, and gitHead is immutable, so per-package source tags cannot be created until these new versions ship.
+No functional change. Republish the eight public packages so each new tarball's npm gitHead matches the version-introducing commit and per-package source tags can be created. The versions currently on npm were published from a later SHA than the version bump, and gitHead is immutable.
