@@ -128,11 +128,16 @@ jobs:
       # Scoped packages default to restricted visibility. Keep this explicit even
       # though every manifest requests public access; a publish can otherwise be
       # accepted by npm but remain invisible to unauthenticated installs.
+      # Classic tokens that can publish may 403 on access mutations (run
+      # 34600240863 / 2FA-bypass token restriction). Verify first; do not block
+      # Registry/tag/release when the package is already public or the token
+      # cannot change access (ADR-157).
       - name: Ensure Ask LLM packages are public on npm
         if: steps.changesets.outputs.published == 'true'
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NODE_AUTH_TOKEN }}
         run: |
+          set -euo pipefail
           for pkg in \
             @ask-llm/gemini-mcp \
             @ask-llm/codex-mcp \
@@ -142,8 +147,25 @@ jobs:
             @ask-llm/antigravity-mcp \
             @ask-llm/mcp \
             @ask-llm/plugin; do
-            npm access set status=public "$pkg"
-            test "$(npm access get status "$pkg" --json | jq -r --arg pkg "$pkg" '.[$pkg]')" = "public"
+            status=""
+            if status_json=$(npm access get status "$pkg" --json 2>/tmp/access-get.err); then
+              status=$(printf '%s' "$status_json" | jq -r --arg pkg "$pkg" '.[$pkg] // empty')
+            fi
+            if [ "$status" = "public" ]; then
+              echo "$pkg is already public on npm"
+              continue
+            fi
+            if npm access set status=public "$pkg" > /tmp/access-set.log 2>&1; then
+              test "$(npm access get status "$pkg" --json | jq -r --arg pkg "$pkg" '.[$pkg]')" = "public"
+              echo "Set $pkg to public on npm"
+              continue
+            fi
+            cat /tmp/access-set.log
+            if grep -Eq 'E403|403 Forbidden|E401|401 Unauthorized' /tmp/access-set.log; then
+              echo "npm token cannot change access for $pkg (status=${status:-unknown}); not blocking publish"
+              continue
+            fi
+            exit 1
           done
 
       - name: Deprecate legacy npm package names

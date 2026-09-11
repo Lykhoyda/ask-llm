@@ -1,5 +1,15 @@
 # Architectural Decisions
 
+## ADR-157: npm public-access verification must not block on token-denied mutations
+
+**Status:** Accepted (2026-09-11)
+
+**Context:** After ADR-156, [run 34600240863](https://github.com/Lykhoyda/ask-llm/actions/runs/34600240863) authenticated Yarn, published eight packages, then failed at `Ensure Ask LLM packages are public on npm`: `npm access set status=public @ask-llm/gemini-mcp` returned `403 Forbidden` on `POST https://registry.npmjs.org/-/package/@ask-llm%2fgemini-mcp/access`. npm also warned that tokens that bypass 2FA are restricted for account changes and direct publishing. Unauthenticated registry reads showed the already-public packages (including `@ask-llm/gemini-mcp@1.9.0`) as visible; the mutation is an access-control API the classic token can no longer call. That 403 skipped MCP Registry publication, the unified GitHub Release, and per-package tags even though npm publication had succeeded.
+
+**Decision:** Keep the post-publish public-access step gated on `steps.changesets.outputs.published == 'true'`. Read `npm access get status` first and skip the mutation when the package is already public. If `npm access set status=public` fails with 401/403, log the error and continue rather than failing the job. Other set failures remain fatal. Do not use workflow `continue-on-error`. Do not treat this as the OIDC trusted-publishing migration still listed on the roadmap.
+
+**Consequences:** A token that can publish but cannot change package access no longer blocks Registry, unified-release, or package-tag steps. Issue #307 stays open until those post-publish artifacts are externally verified. Workflow contract tests and `scripts/check-workflow-security.mjs` reject a bare always-mutate `npm access set`.
+
 ## ADR-156: Yarn Berry publish auth is YARN_NPM_AUTH_TOKEN, not NODE_AUTH_TOKEN
 
 **Status:** Accepted (2026-09-11)
