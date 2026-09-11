@@ -49,6 +49,16 @@ if (
 ) {
   errors.push("Registry recovery dispatches must not require npm access mutations");
 }
+if (
+  !release.includes("already public") ||
+  !release.includes("cannot change access") ||
+  !/E403|403 Forbidden/.test(release) ||
+  /npm access set status=public "\$pkg"\n\s+test "\$\(npm access get status/.test(release)
+) {
+  errors.push(
+    "npm public-access step must not fail the release when packages are already public or the token cannot mutate access",
+  );
+}
 if (!release.includes("Create or verify unified GitHub Release")) {
   errors.push("Registry recovery must create or verify the unified GitHub release");
 }

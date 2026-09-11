@@ -309,3 +309,21 @@ test("publish authenticates Yarn Berry; npm whoami is not sufficient after Chang
   assert.equal(changesetsStep.env.NODE_AUTH_TOKEN, token);
   assert.equal(changesetsStep.env.YARN_NPM_AUTH_TOKEN, token);
 });
+
+test("public-access step does not fail the release when packages are already public or the token cannot mutate access", () => {
+  const workflow = parseYaml(readFileSync(join(import.meta.dirname, "../.github/workflows/release.yml"), "utf8"));
+  const publicStep = workflow.jobs.release.steps.find(
+    (step) => step.name === "Ensure Ask LLM packages are public on npm",
+  );
+
+  assert.equal(publicStep.if, "steps.changesets.outputs.published == 'true'");
+  assert.equal(publicStep.env.NODE_AUTH_TOKEN, "$" + "{{ secrets.NODE_AUTH_TOKEN }}");
+  assert.match(publicStep.run, /npm access get status/);
+  assert.match(publicStep.run, /npm access set status=public/);
+  assert.match(publicStep.run, /already public/);
+  assert.match(publicStep.run, /cannot change access/);
+  assert.match(publicStep.run, /E403|403 Forbidden/);
+  // A bare mutating set that always runs would 403 on already-public packages
+  // (run 34600240863) and skip Registry/tag/release.
+  assert.doesNotMatch(publicStep.run, /npm access set status=public "\$pkg"\n\s+test "\$\(npm access get status/);
+});
