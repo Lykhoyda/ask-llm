@@ -39,8 +39,21 @@ if (!release.includes("node scripts/publish-mcp-registry.mjs")) {
 if (/run:\s*\.\/mcp-publisher (?:login|publish)/.test(release)) {
   errors.push(".github/workflows/release.yml must not bypass the selective helper's OIDC login/publication plan");
 }
-if (!release.includes("inputs.retry_registry_publish != true")) {
+if (/retry_registry_publish|deprecate_legacy_packages|^\s+inputs:/m.test(release)) {
+  errors.push("Release workflow_dispatch must have no inputs; recovery is the only dispatch behavior");
+}
+if (!release.includes("github.event_name != 'workflow_dispatch'")) {
   errors.push("Registry recovery dispatches must skip changesets/npm publication");
+}
+if (
+  !release.includes(
+    "steps.changesets.outputs.published == 'true' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')",
+  )
+) {
+  errors.push("Manual dispatch on main must repair MCP Registry, unified release, and package tags");
+}
+if (/Deprecate legacy|npm deprecate/.test(release)) {
+  errors.push("Release workflow must not keep a deprecated/legacy-package path");
 }
 if (
   !/- name: Ensure Ask LLM packages are public on npm\n\s+if: steps\.changesets\.outputs\.published == 'true'/.test(
