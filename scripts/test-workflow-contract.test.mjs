@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { parse } from "yaml";
@@ -60,13 +60,6 @@ describe("five-batch workflow contract", () => {
       nodeVersion: "24.x",
       os: "ubuntu-latest",
     },
-    {
-      setupId: "test-setup-node22-windows",
-      batchesId: "test-batches-node22-windows",
-      gateId: "test-node22-windows",
-      nodeVersion: "22.x",
-      os: "windows-latest",
-    },
   ];
 
   it("runs install, build, lint, and changeset guard only in one setup per Node/OS leg", () => {
@@ -118,6 +111,17 @@ describe("five-batch workflow contract", () => {
         expect(gate).not.toContain(other.batchesId);
         expect(gate).not.toContain(`test-result-${other.nodeVersion}-${other.os}-*`);
       }
+    }
+  });
+});
+
+describe("supported CI platforms", () => {
+  it("does not run Windows jobs in any workflow", () => {
+    const workflowsDir = resolve(import.meta.dirname, "../.github/workflows");
+    for (const name of readdirSync(workflowsDir).filter((file) => /\.ya?ml$/.test(file))) {
+      const source = readFileSync(resolve(workflowsDir, name), "utf8");
+      expect(source, name).not.toMatch(/windows-latest/);
+      expect(source, name).not.toMatch(/test-setup-node22-windows|test-batches-node22-windows|test-node22-windows/);
     }
   });
 });

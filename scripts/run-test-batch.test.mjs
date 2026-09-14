@@ -27,7 +27,7 @@ describe("test batch assignment", () => {
     expect(assignTestFiles(["b", "a"], { index: 3, count: 5 })).toEqual([]);
   });
 
-  it("spawns Vitest through Node on Windows without changing argument boundaries", () => {
+  it("spawns Vitest through Node without changing argument boundaries for paths with spaces", () => {
     const nodePath = "C:\\Program Files\\nodejs\\node.exe";
     const vitestPath = "C:\\repo path\\node_modules\\vitest\\vitest.mjs";
     const testPath = "packages/a test/src/quoted ' name.test.ts";

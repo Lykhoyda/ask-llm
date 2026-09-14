@@ -238,7 +238,7 @@ Point at the local repo source via `$PWD` so the path resolves to whatever direc
 
 Caveats:
 - Requires launching Claude Code from the repo root (so `$PWD` resolves there). If you launch from a parent directory the hook silently fails; easy to spot via `node packages/claude-plugin/scripts/codex-pair-log.mjs --latest`.
-- Requires a POSIX shell (`sh`) in `PATH`. macOS, Linux, and WSL have this natively. **Windows users on cmd.exe or PowerShell without Git Bash** should install [Git for Windows](https://gitforwindows.org/) (which provides `sh` via the bundled MINGW64 environment) or use an absolute Windows path instead of `$PWD` in the `command` field.
+- Requires a POSIX shell (`sh`) in `PATH`, which macOS and Linux have natively.
 
 #### Form B: Plugin user (you installed via marketplace)
 

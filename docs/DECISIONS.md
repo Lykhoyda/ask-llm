@@ -1,5 +1,15 @@
 # Architectural Decisions
 
+## ADR-159: Drop Windows as a supported platform
+
+**Status:** Accepted (2026-09-14)
+
+**Context:** ADR-129 added a Windows CI leg so spawn/`.cmd`/path regressions would fail in GitHub Actions rather than on user machines. ADR-140 later five-batched that leg. On `main` at `0821a93`, `test (22.x, windows-latest)` and `test batch 4/5 (22.x, windows-latest)` still fail. The intended resolution is to stop supporting Windows, not to keep repairing those jobs. Current-facing docs still said Windows worked (FAQ, install paths, hook workarounds).
+
+**Decision:** Remove every `windows-latest` job and Windows matrix from GitHub Actions. Keep Ubuntu five-batch coverage (Node 22.x and 24.x) and the existing `pi-lifecycle-macos` job. Stop claiming Windows support in current-facing docs, README, CONTRIBUTING, AGENTS.md, package READMEs, and workflow comments. Historical ADRs, changelogs, roadmap delivery notes, and leftover `win32` runtime branches stay as-is: they record past work; they are not a support promise. Workflow contract tests reject `windows-latest` in `.github/workflows`.
+
+**Consequences:** Native Windows is unsupported. Linux and macOS remain. Branch protection that still requires `test (22.x, windows-latest)` must drop that check. Runtime `win32` helpers may still exist; they are not gated and must not be cited as Windows support.
+
 ## ADR-158: Manual Release dispatch has no inputs and is recovery-only
 
 **Status:** Accepted (2026-09-11)
@@ -565,7 +575,7 @@ changeset rule does not apply; the changeset covers `ask-codex-mcp` + `@ask-llm/
 ## ADR-129: Windows CI leg — the #1 upstream complaint class finally gets a gate
 
 - **Date:** 2026-07-02
-- **Status:** Accepted — implemented on `ci/windows-leg`; test execution superseded in part by ADR-139.
+- **Status:** Accepted — implemented on `ci/windows-leg`; test execution later five-batched by ADR-140; superseded as a support/CI policy by ADR-159.
 - **Context:** Windows spawn/`.cmd`/ENOENT breakage is the documented top upstream complaint class (upstream PRs #23/#27/#41/#43; issues #28/#30/#40) and the codebase carries dedicated Windows machinery (`quoteArgsForWindows`, `shell: IS_WINDOWS`) — yet `ci.yml` ran ubuntu-only on every job, so every Windows fix was manual and ungated and a Windows-only regression would ship to npm undetected. Flagged by the 2026-07-02 audit as the highest-leverage infra gap.
 - **Decision:** Add a single `windows-latest` leg (Node 22.x, the current LTS) to the `test` job via `matrix.include`, keeping the ubuntu legs unchanged — full build+lint+test on Windows per PR at the cost of one extra runner. Job timeout 10m → 15m (Windows runners are ~2-3x slower; the cap still fail-fasts hung runners per #155), `fail-fast: false` so one OS's failure doesn't cancel the others mid-diagnosis. The `pack-tarballs`/`global-install-smoke` jobs stay ubuntu-only — they guard npm packaging shape (#115), which is platform-independent. Also: `deploy-docs.yml` Node 20 → 22 for toolchain-floor consistency (VitePress-only build, no functional change).
 - **What the first runs surfaced (all fixed in this PR):** (1) no `.gitattributes` — Windows checkouts converted to CRLF and LF-configured biome failed lint on every file; fixed with `* text=auto eol=lf`. (2) The plugin's three codex-pair suites spawn sh-based fake-codex fixtures and assert executable bits — POSIX-only by nature (matching the documented "Hook command is POSIX-only" limitation), so they're excluded on win32 via `packages/claude-plugin/vitest.config.ts` (the plugin is private; the leg's job is gating the five published packages, whose suites run in full everywhere). (3) `stop-gate.test.ts` stays ON Windows — its logic is pure; three assertions hardcoded POSIX separators and now use `join()`. Platform-inapplicable *individual* tests (e.g. chunkCache permission tests) use `skipIf(process.platform === "win32")`.

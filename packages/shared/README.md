@@ -9,7 +9,7 @@ Internal shared library for the [Ask LLM](https://github.com/Lykhoyda/ask-llm) m
 | `registry.ts` | `UnifiedTool` interface, `toolRegistry`, `executeTool()`, `getPromptMessage()` |
 | `progressTracker.ts` | `ProgressHandle` interface, `createProgressTracker()` — shared by all 4 MCP servers |
 | `logger.ts` | Logger class with level filtering via `GMCPT_LOG_LEVEL` env var |
-| `commandExecutor.ts` | Child process wrapper with timeout, progress callbacks, Windows compat |
+| `commandExecutor.ts` | Child process wrapper with timeout and progress callbacks |
 | `constants.ts` | `PROTOCOL`, `EXECUTION`, `LOG_PREFIX`, `BaseToolArguments` interface |
 | `responseCache.ts` | In-memory LRU response cache (30min TTL, 10MB max) |
 | `changeMode/` | Parser, chunker, translator for Gemini's structured edit format |
