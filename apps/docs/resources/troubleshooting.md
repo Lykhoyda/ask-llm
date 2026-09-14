@@ -81,28 +81,6 @@ If it's still failing:
 </TroubleshootingModal>
 
 <TroubleshootingModal
-  title="Windows NPX flag issues"
-  preview='error: unknown option "-y" when using Claude Code on Windows'
->
-
-**Solutions** (try in order):
-
-```bash
-# Method 1: Install globally first (skips npx entirely)
-# The global install keeps the original `ask-llm-mcp` executable name.
-npm install -g @ask-llm/mcp
-claude mcp add --scope user ask-llm -- ask-llm-mcp
-
-# Method 2: --yes instead of -y
-claude mcp add --scope user ask-llm -- npx --yes @ask-llm/mcp
-
-# Method 3: Drop the flag entirely
-claude mcp add --scope user ask-llm -- npx @ask-llm/mcp
-```
-
-</TroubleshootingModal>
-
-<TroubleshootingModal
   title="MCP server not responding (Claude Desktop cannot connect)"
   preview="Server fails to start or connection drops"
 >
@@ -123,7 +101,7 @@ claude mcp add --scope user ask-llm -- npx @ask-llm/mcp
    - Just reloading the window is not enough.
 5. **Check logs** for the actual error:
    - macOS: `~/Library/Logs/Claude/mcp-server-*.log`
-   - Windows: `%APPDATA%\Claude\logs\`
+   - Linux: `~/.config/claude/logs/`
 
 </TroubleshootingModal>
 
@@ -339,7 +317,6 @@ Enable verbose logging:
 Logs go to stderr. Claude Desktop captures them in:
 
 - macOS: `~/Library/Logs/Claude/mcp-server-*.log`
-- Windows: `%APPDATA%\Claude\logs\`
 - Linux: `~/.config/claude/logs/`
 
 ## Getting Help

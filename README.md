@@ -40,7 +40,7 @@ Your primary AI is confident, but confidence isn't correctness. A second model w
 
 ## Quick Start
 
-**Prerequisites:** [Node.js](https://nodejs.org/) 20+ and at least one provider CLI installed and authenticated (see [Provider setup](#provider-setup)).
+**Prerequisites:** [Node.js](https://nodejs.org/) 20+ on Linux or macOS, and at least one provider CLI installed and authenticated (see [Provider setup](#provider-setup)).
 
 ### Claude Code
 

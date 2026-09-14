@@ -54,7 +54,6 @@ Add to your config file (`~/Library/Application Support/Claude/claude_desktop_co
 <details>
 <summary>Other config file locations</summary>
 
-- **Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
 - **Linux**: `~/.config/claude/claude_desktop_config.json`
 
 </details>

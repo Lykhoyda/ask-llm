@@ -26,6 +26,10 @@ Made Codex review/analysis paths read-only by default; applied the Antigravity p
 
 ## Delivery history
 
+### 2026-09-14 — Drop Windows as a supported platform (ADR-159)
+
+Removed the Windows CI legs and current-facing Windows support claims. Linux and macOS remain (Ubuntu five-batch Node 22/24 plus `pi-lifecycle-macos`). Historical ADRs, changelogs, and leftover `win32` runtime branches are unchanged.
+
 ### 2026-09-07 — Gemini 3.8 Flash quota fallback ([issue #312](https://github.com/Lykhoyda/ask-llm/issues/312), ADR-155)
 
 Moved only Gemini's quota fallback to Google's directly documented GA `gemini-3.8-flash`, preserving the `gemini-3.1-pro-preview` primary, `ASK_GEMINI_FALLBACK_MODEL`, and Antigravity's independent `gemini-3.5-flash` fallback. Google's model catalog, model detail, release notes, pricing, and deprecations pages confirm the exact stable ID, September 2 GA release, 1,048,576-token input / 65,536-token output limits, introductory $0.75/$3.75 per-million input/output pricing through 2026-12-31, and no announced 3.7 shutdown. 3.8 may use extra tokens at higher thinking/effort levels; this change does not redesign executor thinking or timeout. Gemini CLI acceptance of the new slug remains unverified. Current runtime, plugin/skill, test/fixture, provider metadata, remediation, and documentation surfaces moved together under the existing drift guard; historical records retain the pins they originally described. Verification made no live inference calls.

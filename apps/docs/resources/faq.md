@@ -36,7 +36,7 @@ From 2026-06-18, Google restricts Gemini CLI to Gemini Code Assist Standard/Ente
 
 ### Does it work on Windows?
 
-Yes for the per-provider packages. The orchestrator (`@ask-llm/mcp`) and plugin should work too but get less Windows testing. Open an issue if you hit a Windows-specific bug.
+No. Ask LLM is supported on Linux and macOS. Native Windows is not a supported platform and is not covered by CI.
 
 ---
 
