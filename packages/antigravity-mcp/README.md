@@ -20,7 +20,7 @@ subscription-backed second opinion / code review from Antigravity.
 - `agy` >=1.1.5 installed and on PATH (`agy --version`), and logged in once (run `agy` interactively). Older versions are not supported.
 
 ## Config
-- `ASK_ANTIGRAVITY_TIMEOUT_MS` — process timeout (default 300000 = 5m).
+- `ASK_ANTIGRAVITY_TIMEOUT_MS` — process timeout (default 300000 = 5m). On agy ≥1.1.28 a `--print-timeout` expiry is a truncated-answer error rather than a complete response.
 - `ASK_ANTIGRAVITY_SANDBOX` — set `0` to drop `--sandbox` if it blocks context reads.
 - `ASK_ANTIGRAVITY_MODEL` — agy model via `--model` (default `gemini-3.1-pro`, with `gemini-3.5-flash` as the rate-limit fallback; run `agy models` for options). Legacy effort-carrying display strings like `Gemini 3.1 Pro (High)` still resolve for backward compatibility, but they conflict with `--effort`, so the default effort is only sent when the model value equals one of the built-in base slugs.
 - `ASK_ANTIGRAVITY_EFFORT` — agy reasoning effort via `--effort` (`low` | `medium` | `high`; default `high`). The default effort is paired with the built-in base slugs and with model-less recovery attempts; an explicitly set value is always passed (you own the model/effort combination — note agy limits some tiers per model, e.g. `gemini-3.1-pro` has no `medium`). Invalid values log a warning and fall back to the default behavior.
