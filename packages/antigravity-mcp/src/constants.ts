@@ -6,6 +6,7 @@ export const ERROR_MESSAGES = {
   NO_OUTPUT: `Antigravity (agy) ran but produced no readable response. Most likely you are not logged in (run \`agy\` once interactively to authenticate), or agy's --output-format json stdout changed (this experimental provider may need an update). @ask-llm/antigravity-mcp requires agy >=${MINIMUM_AGY_VERSION} and reads the answer from agy's JSON stdout.`,
   RATE_LIMITED:
     "Antigravity (agy) hit a subscription rate limit. Google AI Pro/Ultra quotas refresh roughly every 5 hours — wait and retry, or use ask-codex / ask-gemini in the meantime.",
+  TRUNCATED: "Antigravity (agy) hit --print-timeout and returned a truncated answer instead of a complete response.",
   TOOL_NOT_FOUND: "not found in registry",
 } as const;
 
@@ -63,6 +64,11 @@ export const ANTIGRAVITY = {
   VALID_EFFORTS: ["low", "medium", "high"],
   // --disable-slash-commands is a hard "flags provided but not defined" error below 1.1.9.
   SLASH_COMMANDS_FLAG_MIN_VERSION: "1.1.9",
+  // agy 1.1.28 exits 0 on --print-timeout with a stderr truncation note.
+  PRINT_TIMEOUT_SUCCESS_TRUNCATION_MIN_VERSION: "1.1.28",
+  PARTIAL_OUTPUT_PREVIEW_CHARS: 500,
+  // Changelog-shaped substrings (agy 1.1.28). Keep disjoint from quota/model signals.
+  PRINT_TIMEOUT_TRUNCATION_SIGNALS: ["truncated", "truncation", "print-timeout", "timed out", "timeout expired"],
   // Lowercased substrings; isRateLimitError() lowercases the message first.
   RATE_LIMIT_SIGNALS: ["rate limit", "rate_limit", "resource_exhausted", "quota", "429", "too many requests"],
   // Keep model-selection signals disjoint from quota; "Available models:" is too generic.

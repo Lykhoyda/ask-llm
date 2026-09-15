@@ -62,12 +62,73 @@ interface AgyStdoutUsage {
 interface AgyStdoutJson {
   response?: unknown;
   usage?: AgyStdoutUsage;
+  truncated?: unknown;
+  denied_actions?: unknown;
+  status?: unknown;
 }
 
 type StdoutParse =
-  | { kind: "answer"; response: string; usage: AgyStdoutUsage | undefined }
-  | { kind: "envelope-without-answer" }
+  | {
+      kind: "answer";
+      response: string;
+      usage: AgyStdoutUsage | undefined;
+      truncated: boolean;
+      deniedNotice: string | undefined;
+    }
+  | { kind: "envelope-without-answer"; truncated: boolean; deniedNotice: string | undefined }
   | { kind: "not-json" };
+
+export function isPrintTimeoutTruncation(message: string): boolean {
+  const lower = message.toLowerCase();
+  return ANTIGRAVITY.PRINT_TIMEOUT_TRUNCATION_SIGNALS.some((s) => lower.includes(s));
+}
+
+function envelopeLooksTruncated(parsed: AgyStdoutJson): boolean {
+  if (parsed.truncated === true) return true;
+  if (typeof parsed.status !== "string") return false;
+  const status = parsed.status.toLowerCase();
+  if (status === "timeout" || status === "partial" || status === "truncated") return true;
+  return isPrintTimeoutTruncation(parsed.status);
+}
+
+function formatDeniedActions(value: unknown): string | undefined {
+  if (!Array.isArray(value) || value.length === 0) return undefined;
+  const names = value.map((item) => {
+    if (typeof item === "string") return item;
+    try {
+      return JSON.stringify(item);
+    } catch {
+      return String(item);
+    }
+  });
+  return `agy denied ${names.length} action(s): ${names.join(", ")}`;
+}
+
+function envelopeMeta(parsed: AgyStdoutJson): { truncated: boolean; deniedNotice: string | undefined } {
+  return { truncated: envelopeLooksTruncated(parsed), deniedNotice: formatDeniedActions(parsed.denied_actions) };
+}
+
+function previewPartial(partial: string | undefined): string | undefined {
+  const t = partial?.trim();
+  if (!t) return undefined;
+  if (t.length <= ANTIGRAVITY.PARTIAL_OUTPUT_PREVIEW_CHARS) return t;
+  return `${t.slice(0, ANTIGRAVITY.PARTIAL_OUTPUT_PREVIEW_CHARS)}... (truncated)`;
+}
+
+function truncatedAnswerMessage(timeoutMs: number, partial?: string, deniedNotice?: string): string {
+  const parts = [
+    ERROR_MESSAGES.TRUNCATED,
+    `Increase ${ANTIGRAVITY.TIMEOUT_ENV_VAR} (current: ${timeoutMs}ms) or shorten the prompt.`,
+  ];
+  if (deniedNotice) parts.push(deniedNotice);
+  const preview = previewPartial(partial);
+  if (preview) parts.push("Partial output follows:", preview);
+  return parts.join(" ");
+}
+
+function appendDeniedNotice(response: string, notice: string | undefined): string {
+  return notice ? `${response}\n\n[${notice}]` : response;
+}
 
 // Parsed JSON envelopes never fall through to raw stdout; see ADR-141.
 function parseStdoutJson(raw: string): StdoutParse {
@@ -78,14 +139,15 @@ function parseStdoutJson(raw: string): StdoutParse {
     parsed = JSON.parse(t) as AgyStdoutJson;
   } catch {
     // JSON-looking but unparsable output is a corrupt envelope, not legacy text.
-    return { kind: "envelope-without-answer" };
+    return { kind: "envelope-without-answer", truncated: false, deniedNotice: undefined };
   }
-  if (typeof parsed.response !== "string") return { kind: "envelope-without-answer" };
+  const meta = envelopeMeta(parsed);
+  if (typeof parsed.response !== "string") return { kind: "envelope-without-answer", ...meta };
   // Preserve the transcript-era response bytes by removing agy's envelope-only trailing newline.
   const response = parsed.response.trimEnd();
-  if (response.length === 0) return { kind: "envelope-without-answer" };
+  if (response.length === 0) return { kind: "envelope-without-answer", ...meta };
   const usage = parsed.usage && typeof parsed.usage === "object" ? parsed.usage : undefined;
-  return { kind: "answer", response, usage };
+  return { kind: "answer", response, usage, ...meta };
 }
 
 function fromStdoutPlain(raw: string): string | null {
@@ -163,11 +225,17 @@ export async function executeAntigravityCLI(options: AntigravityExecutorOptions)
   const disableSlashCommands = isVersionAtLeast(agyVersion, ANTIGRAVITY.SLASH_COMMANDS_FLAG_MIN_VERSION);
   const sandbox = process.env[ANTIGRAVITY.SANDBOX_ENV_VAR] !== "0";
   const timeoutMs = resolveTimeoutMs(ANTIGRAVITY.TIMEOUT_ENV_VAR, ANTIGRAVITY.DEFAULT_TIMEOUT_MS);
-  // Tell agy to wait slightly less than our hard process timeout so agy's own
-  // --print-timeout fires first with a cleaner message when the model is slow.
+  // Keep agy's --print-timeout 5s below our process timeout so agy expires first
+  // and we observe its envelope instead of SIGTERM. Through 1.1.27 that expiry
+  // is a non-zero error (ADR-141). From 1.1.28 it is exit 0 + partial answer +
+  // stderr warning; we fail closed on that success path (ADR-162).
   // For very small configured timeouts (<=6s), don't subtract — otherwise agy's
   // deadline could invert past the process timeout (or clamp to a near-instant 1s).
   const agyTimeoutSec = timeoutMs > 6000 ? Math.round(timeoutMs / 1000) - 5 : Math.max(1, Math.round(timeoutMs / 1000));
+  const detectPrintTimeoutTruncation = isVersionAtLeast(
+    agyVersion,
+    ANTIGRAVITY.PRINT_TIMEOUT_SUCCESS_TRUNCATION_MIN_VERSION,
+  );
 
   const fullPrompt = `${READ_ONLY_PREAMBLE}\n\n${options.prompt}`;
   const commandLogging = options.readOnly ? { sensitiveValues: [fullPrompt] } : undefined;
@@ -205,11 +273,14 @@ export async function executeAntigravityCLI(options: AntigravityExecutorOptions)
       disableSlashCommands,
     );
     const startedAt = Date.now();
+    const stderrChunks: string[] = [];
     const raw = await executeCommand(
       CLI.COMMANDS.AGY,
       args,
       undefined,
-      undefined,
+      (chunk) => {
+        stderrChunks.push(chunk);
+      },
       undefined,
       timeoutMs,
       commandLogging,
@@ -217,12 +288,27 @@ export async function executeAntigravityCLI(options: AntigravityExecutorOptions)
     );
     const durationMs = Date.now() - startedAt;
     const reportedModel = model ?? MODELS.AGY_DEFAULT_LABEL;
-
+    const stderr = stderrChunks.join("");
     const parsed = parseStdoutJson(raw);
+    const answerText =
+      parsed.kind === "answer" ? parsed.response : parsed.kind === "not-json" ? fromStdoutPlain(raw) : undefined;
+    const truncated =
+      detectPrintTimeoutTruncation &&
+      (isPrintTimeoutTruncation(stderr) || (parsed.kind !== "not-json" && parsed.truncated));
+    if (truncated) {
+      throw new Error(
+        truncatedAnswerMessage(
+          timeoutMs,
+          answerText ?? undefined,
+          parsed.kind === "not-json" ? undefined : parsed.deniedNotice,
+        ),
+      );
+    }
+
     if (parsed.kind === "answer") {
       Logger.debug("antigravity: response from stdout-json");
       return {
-        response: parsed.response,
+        response: appendDeniedNotice(parsed.response, parsed.deniedNotice),
         model: reportedModel,
         sessionId: undefined,
         usage: buildUsageStats(parsed.usage, reportedModel, durationMs, fellBack),

@@ -1,5 +1,15 @@
 # Architectural Decisions
 
+## ADR-162: Antigravity treats agy 1.1.28 `--print-timeout` success as truncation, not a complete answer
+
+**Status:** Accepted (2026-09-15)
+
+**Context:** Through agy 1.1.27, `--print-timeout` expiry was a non-zero exit and JSON `ERROR` envelope on stdout (ADR-141), which `executeCommand` already surfaces via the ADR-117 stderr∪stdout union. agy 1.1.28 changed that contract: a mid-turn expiry now writes the partial answer into the JSON envelope, prints a truncation warning on stderr, and **exits 0**. Ask LLM deliberately sets `--print-timeout` 5s below the process timeout so agy expires first; that path is the slow-model case, not a corner case. The success branch of `executeCommand` returns only stdout, so the stderr note was unreachable and `parseStdoutJson` served the partial `response` as a complete second opinion. A silently truncated answer is worse than a timeout error because callers act on it. The exact envelope key for truncation and the stderr wording are changelog-documented, not live-captured (agy is un-installable in the audit environment). The same 1.1.27 window added top-level `denied_actions` on the JSON envelope we already parse.
+
+**Decision:** Keep `MINIMUM_AGY_VERSION` at 1.1.5 and keep `--print-timeout` 5s below the process timeout so agy still expires first. On probed agy ≥ 1.1.28 (`PRINT_TIMEOUT_SUCCESS_TRUNCATION_MIN_VERSION`), fail closed when stderr matches changelog-shaped truncation substrings or the envelope sets `truncated: true` (or a timeout/partial/truncated `status`). The error names `ASK_ANTIGRAVITY_TIMEOUT_MS` and includes a bounded preview of any partial output; it is not a rate-limit or model-unavailable signal and does not retry. Capture stderr through the existing `executeCommand` `onStderr` hook rather than changing the shared success return type (that would cascade every provider via ADR-119). Below 1.1.28, ignore truncation-shaped stderr on exit 0 because timeout still fails non-zero. Parse `denied_actions` additively on complete answers and append a notice; do not fail the call for denials alone.
+
+**Consequences:** Slow models on agy ≥ 1.1.28 produce an actionable truncated-answer error instead of a complete-looking response. Older supported CLIs keep the ADR-141 timeout-as-error path. Shared `commandExecutor` behavior is unchanged. Live dogfood of the exact stderr sentence and envelope keys remains follow-up evidence; substring matching plus `truncated: true` is the fail-closed belt until that capture exists.
+
 ## ADR-161: Plugin Codex workflows use unified MCP without stripping provider options
 
 **Status:** Accepted (2026-09-15)

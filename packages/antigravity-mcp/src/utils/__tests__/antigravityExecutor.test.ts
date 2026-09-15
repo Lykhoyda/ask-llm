@@ -25,6 +25,7 @@ import {
   buildArgs,
   executeAntigravityCLI,
   isModelUnavailableError,
+  isPrintTimeoutTruncation,
   resolveExplicitEffort,
 } from "../antigravityExecutor.js";
 
@@ -32,7 +33,7 @@ const mockExec = vi.mocked(executeCommand);
 const mockAssertSupportedAgyVersion = vi.mocked(assertSupportedAgyVersion);
 
 // Live-captured agy --output-format json success envelope (2026-08-04 dogfood, #251).
-const jsonStdout = (response: string, usage?: Record<string, number>) =>
+const jsonStdout = (response: string, usage?: Record<string, number>, extra?: Record<string, unknown>) =>
   JSON.stringify({
     conversation_id: "conversation-1",
     status: "SUCCESS",
@@ -40,7 +41,19 @@ const jsonStdout = (response: string, usage?: Record<string, number>) =>
     duration_seconds: 5.037288,
     num_turns: 1,
     ...(usage ? { usage } : {}),
+    ...extra,
   });
+
+// agy 1.1.28 prints a truncation note on stderr and still exits 0. Wording is
+// changelog-shaped (not live-captured); matching is substring-based.
+const PRINT_TIMEOUT_TRUNCATION_STDERR = "warning: the response may be truncated because --print-timeout expired\n";
+
+function mockSuccessWithStderr(stdout: string, stderr: string): void {
+  mockExec.mockImplementation(async (_command, _args, _onProgress, onStderr) => {
+    if (stderr) onStderr?.(stderr);
+    return stdout;
+  });
+}
 const USAGE_1_1_9 = {
   input_tokens: 19832,
   output_tokens: 287,
@@ -253,6 +266,10 @@ describe("minimum version pin", () => {
   it("keeps MINIMUM_AGY_VERSION at the evidence-backed 1.1.5", () => {
     expect(ANTIGRAVITY.MINIMUM_AGY_VERSION).toBe("1.1.5");
   });
+
+  it("gates the exit-0 print-timeout truncation contract at agy 1.1.28", () => {
+    expect(ANTIGRAVITY.PRINT_TIMEOUT_SUCCESS_TRUNCATION_MIN_VERSION).toBe("1.1.28");
+  });
 });
 
 describe("executeAntigravityCLI argument wiring", () => {
@@ -261,6 +278,20 @@ describe("executeAntigravityCLI argument wiring", () => {
     mockExec.mockResolvedValue(jsonStdout("answer\n"));
     await executeAntigravityCLI({ prompt: "q", onProgress });
     expect(mockExec.mock.calls[0][2]).toBeUndefined();
+  });
+
+  it("captures stderr on the success path so agy 1.1.28 truncation notes are reachable", async () => {
+    mockExec.mockResolvedValue(jsonStdout("answer\n"));
+    await executeAntigravityCLI({ prompt: "q" });
+    expect(typeof mockExec.mock.calls[0][3]).toBe("function");
+  });
+
+  it("keeps agy --print-timeout 5s below the process timeout so agy expires first", async () => {
+    mockExec.mockResolvedValue(jsonStdout("answer\n"));
+    await executeAntigravityCLI({ prompt: "q" });
+    const [, args] = mockExec.mock.calls[0];
+    expect(args[args.indexOf(CLI.FLAGS.PRINT_TIMEOUT) + 1]).toBe("295s");
+    expect(mockExec.mock.calls[0][5]).toBe(ANTIGRAVITY.DEFAULT_TIMEOUT_MS);
   });
 
   it("forwards caller cancellation through version probing and execution", async () => {
@@ -666,5 +697,86 @@ describe("executeAntigravityCLI model-unavailable recovery (#243)", () => {
     // the retry is model-less — it never re-pins MODELS.FALLBACK
     const retryArgs = mockExec.mock.calls[1][1];
     expect(retryArgs).not.toContain(MODELS.FALLBACK);
+  });
+});
+
+describe("isPrintTimeoutTruncation", () => {
+  it("matches changelog-shaped truncation notes and status tokens", () => {
+    expect(isPrintTimeoutTruncation(PRINT_TIMEOUT_TRUNCATION_STDERR)).toBe(true);
+    expect(isPrintTimeoutTruncation("timeout expired")).toBe(true);
+    expect(isPrintTimeoutTruncation("partial output may be truncated")).toBe(true);
+  });
+
+  it("does not match quota or model-selection errors", () => {
+    expect(isPrintTimeoutTruncation("RESOURCE_EXHAUSTED: quota")).toBe(false);
+    expect(isPrintTimeoutTruncation(unknownModelError(MODELS.DEFAULT).message)).toBe(false);
+    expect(isPrintTimeoutTruncation(ERROR_MESSAGES.NO_OUTPUT)).toBe(false);
+  });
+});
+
+describe("executeAntigravityCLI print-timeout truncation (agy >= 1.1.28)", () => {
+  it("fails closed when stderr says the exit-0 JSON answer may be truncated", async () => {
+    mockAssertSupportedAgyVersion.mockResolvedValue(ANTIGRAVITY.PRINT_TIMEOUT_SUCCESS_TRUNCATION_MIN_VERSION);
+    mockSuccessWithStderr(jsonStdout("partial second opinion\n"), PRINT_TIMEOUT_TRUNCATION_STDERR);
+
+    await expect(executeAntigravityCLI({ prompt: "q" })).rejects.toThrow(ERROR_MESSAGES.TRUNCATED);
+    await expect(executeAntigravityCLI({ prompt: "q" })).rejects.toThrow(/partial second opinion/);
+    await expect(executeAntigravityCLI({ prompt: "q" })).rejects.toThrow(ANTIGRAVITY.TIMEOUT_ENV_VAR);
+  });
+
+  it("fails closed when the JSON envelope sets truncated:true even without stderr", async () => {
+    mockAssertSupportedAgyVersion.mockResolvedValue("1.2.2");
+    mockExec.mockResolvedValue(jsonStdout("cut off mid sentence", undefined, { truncated: true }));
+
+    await expect(executeAntigravityCLI({ prompt: "q" })).rejects.toThrow(ERROR_MESSAGES.TRUNCATED);
+    await expect(executeAntigravityCLI({ prompt: "q" })).rejects.toThrow(/cut off mid sentence/);
+  });
+
+  it("fails closed on truncated plain stdout, not as a complete answer", async () => {
+    mockAssertSupportedAgyVersion.mockResolvedValue(ANTIGRAVITY.PRINT_TIMEOUT_SUCCESS_TRUNCATION_MIN_VERSION);
+    mockSuccessWithStderr("plain partial", PRINT_TIMEOUT_TRUNCATION_STDERR);
+
+    await expect(executeAntigravityCLI({ prompt: "q" })).rejects.toThrow(ERROR_MESSAGES.TRUNCATED);
+    await expect(executeAntigravityCLI({ prompt: "q" })).rejects.toThrow(/plain partial/);
+  });
+
+  it("uses the truncated error rather than NO_OUTPUT when the envelope is empty", async () => {
+    mockAssertSupportedAgyVersion.mockResolvedValue(ANTIGRAVITY.PRINT_TIMEOUT_SUCCESS_TRUNCATION_MIN_VERSION);
+    mockSuccessWithStderr(jsonStdout(""), PRINT_TIMEOUT_TRUNCATION_STDERR);
+
+    await expect(executeAntigravityCLI({ prompt: "q" })).rejects.toThrow(ERROR_MESSAGES.TRUNCATED);
+  });
+
+  it("does not treat truncation as a rate-limit and does not retry Flash", async () => {
+    mockAssertSupportedAgyVersion.mockResolvedValue(ANTIGRAVITY.PRINT_TIMEOUT_SUCCESS_TRUNCATION_MIN_VERSION);
+    mockSuccessWithStderr(jsonStdout("partial\n"), PRINT_TIMEOUT_TRUNCATION_STDERR);
+
+    await expect(executeAntigravityCLI({ prompt: "q" })).rejects.toThrow(ERROR_MESSAGES.TRUNCATED);
+    expect(mockExec).toHaveBeenCalledOnce();
+  });
+
+  it("still serves a complete exit-0 answer when there is no truncation signal", async () => {
+    mockAssertSupportedAgyVersion.mockResolvedValue(ANTIGRAVITY.PRINT_TIMEOUT_SUCCESS_TRUNCATION_MIN_VERSION);
+    mockSuccessWithStderr(jsonStdout("complete answer\n"), "some unrelated warning\n");
+
+    const result = await executeAntigravityCLI({ prompt: "q" });
+    expect(result.response).toBe("complete answer");
+  });
+
+  it("ignores truncation-shaped stderr below 1.1.28, where timeout still exits non-zero", async () => {
+    mockAssertSupportedAgyVersion.mockResolvedValue("1.1.27");
+    mockSuccessWithStderr(jsonStdout("complete-looking\n"), PRINT_TIMEOUT_TRUNCATION_STDERR);
+
+    const result = await executeAntigravityCLI({ prompt: "q" });
+    expect(result.response).toBe("complete-looking");
+  });
+
+  it("appends denied_actions from a complete envelope so thin answers are explained", async () => {
+    mockAssertSupportedAgyVersion.mockResolvedValue("1.1.27");
+    mockExec.mockResolvedValue(jsonStdout("thin answer\n", undefined, { denied_actions: ["fetch_url"] }));
+
+    const result = await executeAntigravityCLI({ prompt: "q" });
+    expect(result.response).toContain("thin answer");
+    expect(result.response).toMatch(/denied 1 action\(s\): fetch_url/);
   });
 });
