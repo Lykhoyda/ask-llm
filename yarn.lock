@@ -313,7 +313,7 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@ask-llm/mcp@npm:^0.9.3, @ask-llm/mcp@workspace:packages/llm-mcp":
+"@ask-llm/mcp@npm:^0.10.0, @ask-llm/mcp@workspace:packages/llm-mcp":
   version: 0.0.0-use.local
   resolution: "@ask-llm/mcp@workspace:packages/llm-mcp"
   dependencies:
@@ -363,7 +363,7 @@ __metadata:
     "@ask-llm/codex-mcp": "npm:^0.7.8"
     "@ask-llm/gemini-mcp": "npm:^1.9.1"
     "@ask-llm/grok-mcp": "npm:^0.1.5"
-    "@ask-llm/mcp": "npm:^0.9.3"
+    "@ask-llm/mcp": "npm:^0.10.0"
     "@ask-llm/ollama-mcp": "npm:^0.6.2"
     "@biomejs/biome": "npm:^2.5.10"
     "@earendil-works/pi-ai": "npm:^0.84.2"
