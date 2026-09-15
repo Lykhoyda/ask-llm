@@ -175,14 +175,20 @@ function buildUsageStats(
 }
 
 function isRateLimitError(message: string): boolean {
+  if (isTruncatedAnswerError(message)) return false;
   const lower = message.toLowerCase();
   return ANTIGRAVITY.RATE_LIMIT_SIGNALS.some((s) => lower.includes(s));
 }
 
 // ADR-117 makes JSON error envelopes visible here without changing recovery matching.
 export function isModelUnavailableError(message: string): boolean {
+  if (isTruncatedAnswerError(message)) return false;
   const lower = message.toLowerCase();
   return ANTIGRAVITY.MODEL_UNAVAILABLE_SIGNALS.some((s) => lower.includes(s));
+}
+
+export function isTruncatedAnswerError(message: string): boolean {
+  return message.startsWith(ERROR_MESSAGES.TRUNCATED);
 }
 
 // Invalid explicit effort falls back to default behavior instead of reaching agy.
@@ -337,6 +343,7 @@ export async function executeAntigravityCLI(options: AntigravityExecutorOptions)
       return await runWithModel(undefined, true);
     } catch (retryError) {
       const retryMessage = retryError instanceof Error ? retryError.message : String(retryError);
+      if (isTruncatedAnswerError(retryMessage)) throw retryError;
       if (isModelUnavailableError(retryMessage)) {
         throw new Error(modelUnavailableMessage(rejectedModel, retryMessage, rejectedSource, explicitEffort));
       }
@@ -349,6 +356,8 @@ export async function executeAntigravityCLI(options: AntigravityExecutorOptions)
     return await runWithModel(primaryModel, false);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
+    // Truncation embeds a bounded preview; classify it before recovery tokens in that preview.
+    if (isTruncatedAnswerError(message)) throw error;
     if (isModelUnavailableError(message)) {
       // Never silently discard a custom model pin.
       if (!isOwnDefaultModel(primaryModel)) {
@@ -369,6 +378,7 @@ export async function executeAntigravityCLI(options: AntigravityExecutorOptions)
       return await runWithModel(MODELS.FALLBACK, true);
     } catch (fallbackError) {
       const fbMessage = fallbackError instanceof Error ? fallbackError.message : String(fallbackError);
+      if (isTruncatedAnswerError(fbMessage)) throw fallbackError;
       // Preserve non-quota fallback failures instead of masking them.
       if (isRateLimitError(fbMessage)) throw new Error(ERROR_MESSAGES.RATE_LIMITED);
       // The executor-selected fallback gets the same bounded recovery.

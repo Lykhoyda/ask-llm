@@ -26,6 +26,7 @@ import {
   executeAntigravityCLI,
   isModelUnavailableError,
   isPrintTimeoutTruncation,
+  isTruncatedAnswerError,
   resolveExplicitEffort,
 } from "../antigravityExecutor.js";
 
@@ -572,6 +573,14 @@ describe("isModelUnavailableError", () => {
     expect(isModelUnavailableError("agy CLI not found on PATH")).toBe(false);
     expect(isModelUnavailableError(ERROR_MESSAGES.NO_OUTPUT)).toBe(false);
   });
+
+  it("does not match a truncated answer whose preview quotes invalid model selection", () => {
+    expect(
+      isModelUnavailableError(
+        `${ERROR_MESSAGES.TRUNCATED} Partial output follows: invalid model selection --model "x"`,
+      ),
+    ).toBe(false);
+  });
 });
 
 describe("executeAntigravityCLI model-unavailable recovery (#243)", () => {
@@ -714,6 +723,21 @@ describe("isPrintTimeoutTruncation", () => {
   });
 });
 
+describe("isTruncatedAnswerError", () => {
+  it("matches the truncation prefix even when the partial names recovery tokens", () => {
+    expect(
+      isTruncatedAnswerError(
+        `${ERROR_MESSAGES.TRUNCATED} Increase ASK_ANTIGRAVITY_TIMEOUT_MS. Partial output follows: quota rate limit invalid model selection`,
+      ),
+    ).toBe(true);
+  });
+
+  it("does not match a raw quota or model-selection error", () => {
+    expect(isTruncatedAnswerError("RESOURCE_EXHAUSTED: quota")).toBe(false);
+    expect(isTruncatedAnswerError(unknownModelError(MODELS.DEFAULT).message)).toBe(false);
+  });
+});
+
 describe("executeAntigravityCLI print-timeout truncation (agy >= 1.1.28)", () => {
   it("fails closed when stderr says the exit-0 JSON answer may be truncated", async () => {
     mockAssertSupportedAgyVersion.mockResolvedValue(ANTIGRAVITY.PRINT_TIMEOUT_SUCCESS_TRUNCATION_MIN_VERSION);
@@ -752,6 +776,20 @@ describe("executeAntigravityCLI print-timeout truncation (agy >= 1.1.28)", () =>
     mockSuccessWithStderr(jsonStdout("partial\n"), PRINT_TIMEOUT_TRUNCATION_STDERR);
 
     await expect(executeAntigravityCLI({ prompt: "q" })).rejects.toThrow(ERROR_MESSAGES.TRUNCATED);
+    expect(mockExec).toHaveBeenCalledOnce();
+  });
+
+  it("does not retry Flash or drop the model when the truncated preview names recovery tokens", async () => {
+    mockAssertSupportedAgyVersion.mockResolvedValue(ANTIGRAVITY.PRINT_TIMEOUT_SUCCESS_TRUNCATION_MIN_VERSION);
+    mockSuccessWithStderr(
+      jsonStdout("code review: quota / rate limit / invalid model selection in the snippet\n"),
+      PRINT_TIMEOUT_TRUNCATION_STDERR,
+    );
+
+    const error = await executeAntigravityCLI({ prompt: "q" }).catch((err: unknown) => err);
+    expect(error).toBeInstanceOf(Error);
+    expect((error as Error).message).toContain(ERROR_MESSAGES.TRUNCATED);
+    expect((error as Error).message).toMatch(/quota \/ rate limit \/ invalid model selection/);
     expect(mockExec).toHaveBeenCalledOnce();
   });
 
