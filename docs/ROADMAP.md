@@ -4,7 +4,7 @@
 
 This section is the live roadmap. The dated material below remains owned by this file and is retained as delivery history and decision evidence. Priorities are reconciled to the open GitHub backlog; Kano and effort labels are summarized in [`docs/KANO-TRIAGE.md`](KANO-TRIAGE.md).
 
-1. **Close the remaining must-be quick win** — fix unified diagnostic enrichment schema validation ([issue #282](https://github.com/Lykhoyda/ask-llm/issues/282)). The CLI help/version/invalid-argument contract ([issue #280](https://github.com/Lykhoyda/ask-llm/issues/280)) is delivered below (ADR-150). The unified plugin transport path ([issue #266](https://github.com/Lykhoyda/ask-llm/issues/266)) is delivered below (ADR-160).
+1. **Close the remaining must-be quick win** — fix unified diagnostic enrichment schema validation ([issue #282](https://github.com/Lykhoyda/ask-llm/issues/282)). The CLI help/version/invalid-argument contract ([issue #280](https://github.com/Lykhoyda/ask-llm/issues/280)) is delivered below (ADR-150). The unified plugin transport path ([issue #266](https://github.com/Lykhoyda/ask-llm/issues/266)) is delivered below (ADR-161).
 2. **Decide and design hard Antigravity isolation** — the existing soft read-only controls remain delivered, while the open large-effort issue requires a concrete isolation design and proof that attempted writes cannot reach the caller's working copy ([issue #283](https://github.com/Lykhoyda/ask-llm/issues/283)).
 3. **Schedule the performance backlog** — prevent codex-pair false prompt-injection findings for legitimate glyph-heavy content ([issue #281](https://github.com/Lykhoyda/ask-llm/issues/281)) and live-probe agy 1.1.11 before adopting its read-only quota/model diagnostics ([issue #268](https://github.com/Lykhoyda/ask-llm/issues/268)).
 4. **Resolve operational trackers with external evidence** — after ADR-156, the next green main-branch publish is required before closing the current release-failure tracker ([issue #307](https://github.com/Lykhoyda/ask-llm/issues/307)); keep the weekly model-version tracker open for recurring runs even though its missing-spec blocker shipped in [PR #275](https://github.com/Lykhoyda/ask-llm/pull/275) ([issue #272](https://github.com/Lykhoyda/ask-llm/issues/272)).
@@ -25,9 +25,13 @@ Made Codex review/analysis paths read-only by default; applied the Antigravity p
 
 ## Delivery history
 
-### 2026-09-15 — Unified MCP transport in plugin Codex workflows ([issue #266](https://github.com/Lykhoyda/ask-llm/issues/266), ADR-160)
+### 2026-09-15 — Unified MCP transport in plugin Codex workflows ([issue #266](https://github.com/Lykhoyda/ask-llm/issues/266), ADR-161)
 
 Plugin Codex-facing agents and skills now prefer any exact `ask-codex` leaf, then a fully pinned unified `ask-llm` call (`provider: "codex"` plus model, `reasoningEffort`, `includeDirs`, `preferred`, and `sandbox`), then the disclosed `codex exec` fallback. Unified `ask-llm` accepts those Codex-only fields and rejects them on other providers instead of stripping them. An older unified schema that cannot honor the option set is classified `unsupported-schema` and fails closed. Docs keep `@ask-llm/mcp` as the hero install (`npx` primary, global npm first-class, split packages advanced) while the Claude plugin's bundled Codex server stays truthful. `@ask-llm/mcp` and `@ask-llm/plugin` releases stay coordinated through changesets. Pi remains native tools; `/brainstorm` keeps Bash dispatch.
+
+### 2026-09-15 — Claude GitHub Action on-demand only (ADR-160)
+
+Deleted the automatic `claude-code-review.yml` PR workflow. `@claude` via `claude.yml` remains. Claude no longer reviews every PR in CI.
 
 ### 2026-09-14 — Drop Windows as a supported platform (ADR-159)
 
