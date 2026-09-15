@@ -30,16 +30,20 @@ claude --plugin-dir ./packages/claude-plugin
 
 ### MCP Servers
 
-The plugin ships only the Codex MCP registration used by review and pairing commands. Fully restart Claude Code after installation or upgrade, then run `/mcp`; `plugin:ask-llm:codex` should be connected and expose the exact `ask-codex` capability.
+The recommended cross-provider server is `@ask-llm/mcp`. Keep `npx -y @ask-llm/mcp` as the primary registration; `npm install -g @ask-llm/mcp` is a first-class alternative when you want a pinned global binary. Split provider packages (`@ask-llm/codex-mcp`, `@ask-llm/grok-mcp`, and the others) remain an advanced optimization for a richer per-provider tool surface.
+
+The Claude Code plugin itself still ships only the Codex MCP registration used by review and pairing commands. Fully restart Claude Code after installation or upgrade, then run `/mcp`; `plugin:ask-llm:codex` should be connected and expose the exact `ask-codex` capability. Plugin agents and skills prefer that bundled `ask-codex` leaf, then a fully pinned unified `ask-llm` call (`provider: "codex"` plus model and Codex options), then the disclosed `codex exec` fallback.
 
 `/grok-pair` relies on user-scoped servers instead of plugin bundling. Install the unified Ask LLM server (recommended: it exposes model-neutral `ask-cursor-agent` and the unified `ask-llm` tool, which pair skills call only with provider, harness, exact model, and effort pinned) and, optionally, the split Grok server for the `ask-grok` leaf:
 
 ```bash
 claude mcp add --scope user ask-llm -- npx -y @ask-llm/mcp
+# first-class alternative after `npm install -g @ask-llm/mcp`:
+# claude mcp add --scope user ask-llm -- ask-llm-mcp
 claude mcp add --scope user grok -- npx -y @ask-llm/grok-mcp
 ```
 
-Existing user-scoped Codex registrations remain supported if you prefer the shorter `codex:ask-codex` name. Register the other provider servers at user scope:
+Existing user-scoped Codex registrations remain supported if you prefer the shorter `codex:ask-codex` name. Register the other provider servers at user scope only when you want their split leaves:
 
 ```bash
 claude mcp add --scope user antigravity -- npx -y @ask-llm/antigravity-mcp
@@ -47,7 +51,7 @@ claude mcp add --scope user ollama -- npx -y @ask-llm/ollama-mcp
 claude mcp add --scope user gemini -- npx -y @ask-llm/gemini-mcp
 ```
 
-If Codex registration is missing, provision it explicitly with `claude mcp add --scope user codex -- npx -y @ask-llm/codex-mcp`. If `/mcp` lists the server but it is disconnected, run `npx -y @ask-llm/mcp doctor` and fully restart Claude Code. `/sol-review` preserves source-plugin and session-local MCP/settings context when reading the active `claude mcp list` inventory, treats failed health or an MCP transport failure as unavailable, and discloses the explicit `codex exec` fallback.
+If Codex registration is missing, provision the unified server first (`claude mcp add --scope user ask-llm -- npx -y @ask-llm/mcp`) or the split Codex leaf with `claude mcp add --scope user codex -- npx -y @ask-llm/codex-mcp`. If `/mcp` lists the server but it is disconnected, run `npx -y @ask-llm/mcp doctor` and fully restart Claude Code. `/sol-review` preserves source-plugin and session-local MCP/settings context when reading the active `claude mcp list` inventory, treats failed health, an incomplete unified schema, or an MCP transport failure as unavailable, and discloses the explicit `codex exec` fallback.
 
 ## What's Included
 

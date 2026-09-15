@@ -26,7 +26,7 @@ Run the same independent review contract with an isolated coordinator that expli
 /sol-review
 ```
 
-`/fable-review` requires a Claude Code runtime/account that exposes Fable. `/sol-review` requires an installed, authenticated Codex CLI; its Codex MCP registration is included with the plugin. The skill reads Claude's active MCP inventory, correlates the tool prefix to the Ask LLM Codex registration, and rechecks inside the reviewer. Missing registration and disconnected-service states receive different remediation before the explicit CLI fallback. If Sol falls back to Terra on quota, the result says so explicitly.
+`/fable-review` requires a Claude Code runtime/account that exposes Fable. `/sol-review` requires an installed, authenticated Codex CLI; the plugin still bundles the Codex MCP registration used by `/sol-review` and `/codex-review`. The skill reads Claude's active MCP inventory and prefers any exact `ask-codex` leaf, then a fully pinned unified `ask-llm` call (`provider: "codex"` plus model, reasoning effort, include directories, preferred, and sandbox), then the disclosed `codex exec` fallback. Missing registration, disconnected service, and an older unified schema that cannot honor those Codex options receive different remediation; the skill never omits fields to make a stale schema succeed. If Sol falls back to Terra on quota, the result says so explicitly.
 
 ## Provider Review Skills
 

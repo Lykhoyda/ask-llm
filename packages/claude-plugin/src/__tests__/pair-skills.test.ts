@@ -148,16 +148,18 @@ describe("pair skill structure", () => {
     for (const call of calls ?? []) {
       expect(Object.keys(call.arguments).sort()).toEqual(
         [
-          ...(call.tool === "ask-llm" ? ["provider"] : ["sandbox"]),
+          ...(call.tool === "ask-llm" ? ["provider"] : []),
           "includeDirs",
           "model",
           "prompt",
           "reasoningEffort",
+          "sandbox",
           "sessionId",
         ].sort(),
       );
       expect(call.arguments.model).toBe("<required exact ID>");
       expect(call.arguments.reasoningEffort).toBe("<required effort>");
+      expect(call.arguments.sandbox).toBe("read-only");
       expect(call.arguments.sessionId).toBe("");
     }
   });

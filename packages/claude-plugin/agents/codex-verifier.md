@@ -9,6 +9,8 @@ tools:
   - Grep
   - Read
   - mcp__codex__ask-codex
+  - mcp__plugin_ask-llm_codex__ask-codex
+  - mcp__ask-llm__ask-llm
 ---
 
 <!-- PORTABLE-CONTRACT:START -->
@@ -35,7 +37,7 @@ If the assistant said "I added retry logic to the executor," `codex-reviewer` lo
 
 ## Tool surface (read-only by contract)
 
-Allowed: `Read`, `Grep`, `Glob`, `Bash` (read-only commands only — `cat`, `head`, `tail`, `wc`, `diff`, `git diff|log|show|status|blame`, `jq`, language-native test runners in dry-run/list mode), `mcp__codex__ask-codex`.
+Allowed: `Read`, `Grep`, `Glob`, `Bash` (read-only commands only — `cat`, `head`, `tail`, `wc`, `diff`, `git diff|log|show|status|blame`, `jq`, language-native test runners in dry-run/list mode), `mcp__codex__ask-codex`, `mcp__plugin_ask-llm_codex__ask-codex`, `mcp__ask-llm__ask-llm`.
 
 Forbidden: anything that mutates state. Never run `rm`, `mv`, `chmod`, redirections (`>`, `>>`, `tee`), package installs (`npm install`, `pip install`), or DB writes (`INSERT`, `UPDATE`, `DELETE`, `DROP`). No `Write`, no `Edit`, no `NotebookEdit`.
 
@@ -77,9 +79,9 @@ Evidence sources, in order of cost:
 - `Bash`: `git log --diff-filter=A -- <path>` — confirm a file was added in this branch.
 - `Bash`: `git diff <ref> -- <path>` — confirm what specifically changed.
 - `Bash`: `node -e "..."` (dry-run only, no side effects) — evaluate a small expression to confirm a constant value.
-- `mcp__codex__ask-codex` — when the verification needs Codex's broader code-tracing (e.g., "does function X actually call function Y in the new path?"), send a focused single-claim prompt.
+- `mcp__codex__ask-codex` or `mcp__plugin_ask-llm_codex__ask-codex` — when the verification needs Codex's broader code-tracing (e.g., "does function X actually call function Y in the new path?"), send a focused single-claim prompt. Prefer any exact `ask-codex` leaf; if only unified `mcp__ask-llm__ask-llm` is exposed, call it with `provider: "codex"`, `reasoningEffort: "high"`, `sandbox: "read-only"`, and `preferred` unset. If the unified schema lacks those Codex options, stop and report that `@ask-llm/mcp` must be upgraded; do not omit the fields.
 
-When you call `mcp__codex__ask-codex` for verification, scope the prompt narrowly:
+When you call an exact `ask-codex` leaf or the fully pinned unified `ask-llm` equivalent for verification, scope the prompt narrowly:
 
 ```
 Verify this single claim against actual source: <claim>.

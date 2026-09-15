@@ -7,6 +7,7 @@ import { PassThrough } from "node:stream";
 import { describe, expect, it, vi } from "vitest";
 import {
   ASK_CODEX_PACKAGE,
+  ASK_LLM_PACKAGE,
   classifySolReviewTransport,
   codexFallbackArgs,
   executeCodex,
@@ -15,6 +16,8 @@ import {
   runCliFallback,
   SOL_MODEL,
   TERRA_MODEL,
+  UNIFIED_CODEX_OPTION_KEYS,
+  unifiedSchemaHonorsCodexOptions,
 } from "../../scripts/sol-review-transport.mjs";
 import { PLUGIN_ROOT } from "./_helpers.js";
 
@@ -23,6 +26,15 @@ const userScopedServers = {
 };
 const pluginServers = {
   "plugin:ask-llm:codex": { commandLine: `npx -y ${ASK_CODEX_PACKAGE}`, status: "✔ Connected" },
+};
+const unifiedServers = {
+  "ask-llm": { command: "npx", args: ["-y", ASK_LLM_PACKAGE], status: "✔ Connected" },
+};
+const completeUnifiedSchema = {
+  properties: Object.fromEntries(UNIFIED_CODEX_OPTION_KEYS.map((key) => [key, {}])),
+};
+const staleUnifiedSchema = {
+  properties: { reasoningEffort: {}, includeDirs: {} },
 };
 const connectedPluginList = "plugin:ask-llm:codex: npx -y @ask-llm/codex-mcp - ✔ Connected\n";
 const disconnectedPluginList = "plugin:ask-llm:codex: npx -y @ask-llm/codex-mcp - ✘ Failed to connect - ECONNREFUSED\n";
@@ -48,6 +60,53 @@ describe("sol-review transport selection", () => {
       toolName: "mcp__plugin_ask-llm_codex__ask-codex",
       fallbackDisclosure: null,
     });
+  });
+
+  it("selects unified ask-llm when no ask-codex leaf is available", () => {
+    const decision = classifySolReviewTransport({
+      availableTools: ["mcp__ask-llm__ask-llm"],
+      mcpServers: unifiedServers,
+      cliPath: "/usr/local/bin/codex",
+      toolSchemas: { "mcp__ask-llm__ask-llm": completeUnifiedSchema },
+    });
+
+    expect(decision).toMatchObject({
+      state: "unified",
+      transport: "mcp",
+      toolName: "mcp__ask-llm__ask-llm",
+      fallbackDisclosure: null,
+    });
+  });
+
+  it("prefers a split ask-codex leaf over unified ask-llm when both are available", () => {
+    const decision = classifySolReviewTransport({
+      availableTools: ["mcp__plugin_ask-llm_codex__ask-codex", "mcp__ask-llm__ask-llm"],
+      mcpServers: { ...pluginServers, ...unifiedServers },
+      cliPath: "/usr/local/bin/codex",
+      toolSchemas: { "mcp__ask-llm__ask-llm": completeUnifiedSchema },
+    });
+
+    expect(decision).toMatchObject({
+      state: "preferred",
+      transport: "mcp",
+      toolName: "mcp__plugin_ask-llm_codex__ask-codex",
+    });
+  });
+
+  it("rejects an older unified schema that cannot honor Codex options instead of stripping them", () => {
+    const decision = classifySolReviewTransport({
+      availableTools: ["mcp__ask-llm__ask-llm"],
+      mcpServers: unifiedServers,
+      cliPath: "/usr/local/bin/codex",
+      toolSchemas: { "mcp__ask-llm__ask-llm": staleUnifiedSchema },
+    });
+
+    expect(decision).toMatchObject({ state: "unsupported-schema", transport: "cli", toolName: null });
+    expect(decision.diagnostic).toMatch(/cannot honor|too old|upgrade/i);
+    expect(decision.remediation).toContain("@ask-llm/mcp");
+    expect(decision.fallbackDisclosure).toContain("codex exec");
+    expect(unifiedSchemaHonorsCodexOptions(staleUnifiedSchema)).toBe(false);
+    expect(unifiedSchemaHonorsCodexOptions(completeUnifiedSchema)).toBe(true);
   });
 
   it("does not mistake sibling Codex tools for the review transport", () => {
@@ -79,7 +138,8 @@ describe("sol-review transport selection", () => {
 
     expect(decision.state).toBe("missing-registration");
     expect(decision.transport).toBe("cli");
-    expect(decision.remediation).toContain("claude mcp add --scope user codex -- npx -y @ask-llm/codex-mcp");
+    expect(decision.remediation).toContain("claude mcp add --scope user ask-llm -- npx -y @ask-llm/mcp");
+    expect(decision.remediation).toContain("@ask-llm/codex-mcp");
     expect(decision.fallbackDisclosure).toContain("registration is missing");
   });
 
@@ -359,6 +419,52 @@ describe("clean Claude installation reproduction", () => {
 
     expect(result.status).toBe(0);
     expect(JSON.parse(result.stdout)).toMatchObject({ state: "preferred", transport: "mcp" });
+  });
+
+  it("observes unified ask-llm as the second-rung transport", () => {
+    const result = spawnSync(
+      process.execPath,
+      [
+        script,
+        "--mcp-list",
+        "ask-llm: npx -y @ask-llm/mcp - ✔ Connected\n",
+        "--tool",
+        "mcp__ask-llm__ask-llm",
+        "--tool-schema",
+        JSON.stringify(completeUnifiedSchema),
+        "--cli-path",
+        "/fake/codex",
+      ],
+      { encoding: "utf8" },
+    );
+
+    expect(result.status).toBe(0);
+    expect(JSON.parse(result.stdout)).toMatchObject({ state: "unified", transport: "mcp" });
+  });
+
+  it("classifies an older unified schema as unsupported instead of calling it", () => {
+    const result = spawnSync(
+      process.execPath,
+      [
+        script,
+        "--mcp-list",
+        "ask-llm: npx -y @ask-llm/mcp - ✔ Connected\n",
+        "--tool",
+        "mcp__ask-llm__ask-llm",
+        "--tool-schema",
+        JSON.stringify(staleUnifiedSchema),
+        "--cli-path",
+        "/fake/codex",
+      ],
+      { encoding: "utf8" },
+    );
+
+    expect(result.status).toBe(0);
+    expect(JSON.parse(result.stdout)).toMatchObject({
+      state: "unsupported-schema",
+      transport: "cli",
+      remediation: expect.stringContaining("@ask-llm/mcp"),
+    });
   });
 
   it("classifies a stale tool on a disconnected active server as unavailable", () => {

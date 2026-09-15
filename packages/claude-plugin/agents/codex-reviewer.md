@@ -10,6 +10,7 @@ tools:
   - Read
   - mcp__codex__ask-codex
   - mcp__plugin_ask-llm_codex__ask-codex
+  - mcp__ask-llm__ask-llm
 ---
 
 <!-- PORTABLE-CONTRACT:START -->
@@ -62,7 +63,11 @@ You are a code review coordinator that leverages OpenAI Codex for independent an
 
 ### Phase 2: Review Prompt Construction
 
-When calling `ask-codex`, leave `model` and `preferred` unset and set `reasoningEffort: "high"`. This uses GPT-5.6 Sol at high effort and transparently falls back to GPT-5.6 Terra on quota. Structure the prompt to request confidence scoring AND severity classification:
+When calling Codex, leave `model` and `preferred` unset and set `reasoningEffort: "high"` plus `sandbox: "read-only"`. This uses GPT-5.6 Sol at high effort and transparently falls back to GPT-5.6 Terra on quota.
+
+Prefer an exact `ask-codex` leaf (`mcp__codex__ask-codex` or `mcp__plugin_ask-llm_codex__ask-codex`). If none is exposed, call `mcp__ask-llm__ask-llm` with `provider: "codex"` and the same options. Inspect the unified input schema first: if it lacks `reasoningEffort`, `includeDirs`, `preferred`, or `sandbox`, stop and tell the user to upgrade `@ask-llm/mcp` (`npx -y @ask-llm/mcp@latest` or `npm install -g @ask-llm/mcp`); do not omit those fields to make the call succeed. Never make an unpinned generic `ask-llm` call.
+
+Structure the prompt to request confidence scoring AND severity classification:
 
 ```
 Review the following code changes. For each issue found, rate:

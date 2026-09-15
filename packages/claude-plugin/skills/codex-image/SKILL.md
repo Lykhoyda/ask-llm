@@ -38,7 +38,7 @@ Codex's `image_generation` tool selects the image model server-side; as of 2026-
 
 - `codex-cli` >= 0.125.0 installed and authenticated
 - `image_generation` feature flag enabled (default: stable + true). Verify with `codex features list | grep image_generation`
-- The `ask-codex` MCP tool available (from `@ask-llm/codex-mcp` or the `@ask-llm/mcp` orchestrator)
+- The `ask-codex` MCP tool available (from `@ask-llm/codex-mcp`) or the unified `mcp__ask-llm__ask-llm` tool (from `@ask-llm/mcp`) whose schema includes `sandbox`
 
 ## Instructions
 
@@ -65,9 +65,9 @@ Example slug derivation:
 - "Generate an image of a dark terminal with two reviewers" → `dark-terminal-with-two-reviewers.png`
 - "Make me a cat picture" → `cat-picture.png`
 
-### Phase 3: Dispatch to ask-codex
+### Phase 3: Dispatch to Codex
 
-Call the `ask-codex` MCP tool (NOT raw `codex exec` — that bypasses ADR-044 quota fallback, ADR-042 stdin handling, and ADR-047 PATH resolution). Use this prompt template:
+Call an exact `ask-codex` leaf when exposed (NOT raw `codex exec` — that bypasses ADR-044 quota fallback, ADR-042 stdin handling, and ADR-047 PATH resolution). If only unified `mcp__ask-llm__ask-llm` is exposed, use that instead with `provider: "codex"`. If the unified schema lacks `sandbox`, stop and tell the user to upgrade `@ask-llm/mcp` (`npx -y @ask-llm/mcp@latest` or `npm install -g @ask-llm/mcp`); do not omit `sandbox` to make the call succeed. Use this prompt template:
 
 ```
 Use your image_generation tool to create the following image and save it as a PNG file.
@@ -80,7 +80,7 @@ Save the file to this absolute path: <path from Phase 2>
 After saving, confirm the absolute path of the created file and its byte size in your reply. If image_generation fails or the file cannot be written, explain what went wrong and do not invent a fake path.
 ```
 
-**Sandbox:** pass `sandbox: "workspace-write"` on this `ask-codex` call. `ask-codex` defaults to the read-only review sandbox (ADR-136), under which Codex cannot write the PNG to disk; image generation is the sanctioned exception that needs Codex to write the output file itself.
+**Sandbox:** pass `sandbox: "workspace-write"` on this `ask-codex` or fully pinned `ask-llm({ provider: "codex", ... })` call. Codex defaults to the read-only review sandbox (ADR-136), under which it cannot write the PNG to disk; image generation is the sanctioned exception that needs Codex to write the output file itself. The unified server will not silently strip `sandbox`; an older `@ask-llm/mcp` that cannot honor it must fail closed.
 
 **Default model:** let `ask-codex` use its default (`gpt-5.6-sol`). The image_generation tool is invoked by the model regardless of which Codex chat model is selected — model selection here is about the orchestrating agent, not the image model itself.
 
