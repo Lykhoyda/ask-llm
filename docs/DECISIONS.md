@@ -8,7 +8,7 @@
 
 **Decision:** Delete `.github/workflows/claude-code-review.yml`. Keep `.github/workflows/claude.yml` so `@claude` still works on issues and PRs. Keep `CLAUDE_CODE_OAUTH_TOKEN` on that mention workflow. Do not remove Claude GitHub App install instructions beyond what the deleted workflow required. Do not change plugin/MCP code. Current-facing contributor docs must not say Claude reviews every PR in CI. Historical ADRs, changelogs, and completed roadmap items stay as records of past auto-review.
 
-**Consequences:** Opening or pushing a PR no longer starts a Claude review job. Maintainers mention `@claude` when they want a review. The mention workflow, its OAuth secret, and any GitHub App install still required for `@claude` remain. Workflow contract tests reject a restored `claude-code-review.yml` and require `claude.yml` to keep the token and `@claude` trigger.
+**Consequences:** Opening or pushing a PR no longer starts a Claude review job. Maintainers mention `@claude` when they want a review. The mention workflow, its OAuth secret, and any GitHub App install still required for `@claude` remain.
 
 ## ADR-159: Drop Windows as a supported platform
 

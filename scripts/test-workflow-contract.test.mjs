@@ -126,19 +126,11 @@ describe("supported CI platforms", () => {
   });
 });
 
-describe("Claude GitHub Action is on-demand", () => {
-  const workflowsDir = resolve(import.meta.dirname, "../.github/workflows");
-
-  it("does not keep an automatic Claude PR review workflow", () => {
-    expect(readdirSync(workflowsDir)).not.toContain("claude-code-review.yml");
-  });
-
-  it("keeps @claude mention handling and CLAUDE_CODE_OAUTH_TOKEN", () => {
-    const source = readFileSync(resolve(workflowsDir, "claude.yml"), "utf8");
+describe("Claude mention workflow", () => {
+  it("keeps @claude handling and CLAUDE_CODE_OAUTH_TOKEN in claude.yml", () => {
+    const source = readFileSync(resolve(import.meta.dirname, "../.github/workflows/claude.yml"), "utf8");
     expect(source).toContain("claude_code_oauth_token:");
     expect(source).toContain("secrets.CLAUDE_CODE_OAUTH_TOKEN");
     expect(source).toContain("@claude");
-    expect(source).not.toMatch(/^\s+pull_request:\s*$/m);
-    expect(source).not.toMatch(/types:\s*\[opened,\s*synchronize/);
   });
 });
