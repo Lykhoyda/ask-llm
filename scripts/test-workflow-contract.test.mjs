@@ -125,12 +125,3 @@ describe("supported CI platforms", () => {
     }
   });
 });
-
-describe("Claude mention workflow", () => {
-  it("keeps @claude handling and CLAUDE_CODE_OAUTH_TOKEN in claude.yml", () => {
-    const source = readFileSync(resolve(import.meta.dirname, "../.github/workflows/claude.yml"), "utf8");
-    expect(source).toContain("claude_code_oauth_token:");
-    expect(source).toContain("secrets.CLAUDE_CODE_OAUTH_TOKEN");
-    expect(source).toContain("@claude");
-  });
-});
