@@ -197,11 +197,13 @@ export function classifySolReviewTransport({
   const askLlmToolName = availableTools.find((name) => isAskLlmToolName(name) && registeredUnifiedToolNames.has(name));
   if (askLlmToolName && !mcpFailed) {
     const schema = toolSchemas[askLlmToolName];
-    if (schema && !unifiedSchemaHonorsCodexOptions(schema)) {
+    if (!unifiedSchemaHonorsCodexOptions(schema)) {
+      const schemaMissing = !schema;
       return withCliFallback({
         state: "unsupported-schema",
-        reason:
-          "Ask LLM unified MCP is registered, but its `ask-llm` schema cannot honor Codex options (reasoningEffort, includeDirs, preferred, sandbox). Upgrade `@ask-llm/mcp`; never omit those fields to make the call succeed.",
+        reason: schemaMissing
+          ? "Ask LLM unified MCP is registered, but its `ask-llm` schema was not provided so Codex options (reasoningEffort, includeDirs, preferred, sandbox) cannot be verified. Pass `--tool-schema` with the advertised input JSON schema; never omit those fields to make the call succeed."
+          : "Ask LLM unified MCP is registered, but its `ask-llm` schema cannot honor Codex options (reasoningEffort, includeDirs, preferred, sandbox). Upgrade `@ask-llm/mcp`; never omit those fields to make the call succeed.",
         remediation: UPGRADE_UNIFIED_REMEDIATION,
         cliPath,
       });

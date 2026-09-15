@@ -109,6 +109,19 @@ describe("sol-review transport selection", () => {
     expect(unifiedSchemaHonorsCodexOptions(completeUnifiedSchema)).toBe(true);
   });
 
+  it("rejects unified MCP when no schema is supplied instead of treating it as usable", () => {
+    const decision = classifySolReviewTransport({
+      availableTools: ["mcp__ask-llm__ask-llm"],
+      mcpServers: unifiedServers,
+      cliPath: "/usr/local/bin/codex",
+    });
+
+    expect(decision).toMatchObject({ state: "unsupported-schema", transport: "cli", toolName: null });
+    expect(decision.diagnostic).toMatch(/not provided|cannot be verified|--tool-schema/i);
+    expect(decision.fallbackDisclosure).toContain("codex exec");
+    expect(unifiedSchemaHonorsCodexOptions(undefined)).toBe(false);
+  });
+
   it("does not mistake sibling Codex tools for the review transport", () => {
     const decision = classifySolReviewTransport({
       availableTools: ["mcp__codex__ask-codex-edit"],
@@ -465,6 +478,30 @@ describe("clean Claude installation reproduction", () => {
       transport: "cli",
       remediation: expect.stringContaining("@ask-llm/mcp"),
     });
+  });
+
+  it("classifies unified ask-llm without --tool-schema as unsupported instead of calling it", () => {
+    const result = spawnSync(
+      process.execPath,
+      [
+        script,
+        "--mcp-list",
+        "ask-llm: npx -y @ask-llm/mcp - ✔ Connected\n",
+        "--tool",
+        "mcp__ask-llm__ask-llm",
+        "--cli-path",
+        "/fake/codex",
+      ],
+      { encoding: "utf8" },
+    );
+
+    expect(result.status).toBe(0);
+    expect(JSON.parse(result.stdout)).toMatchObject({
+      state: "unsupported-schema",
+      transport: "cli",
+      toolName: null,
+    });
+    expect(JSON.parse(result.stdout).diagnostic).toMatch(/not provided|cannot be verified|--tool-schema/i);
   });
 
   it("classifies a stale tool on a disconnected active server as unavailable", () => {
