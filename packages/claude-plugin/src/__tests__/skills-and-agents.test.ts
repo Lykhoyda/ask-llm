@@ -175,17 +175,23 @@ describe("agents/", () => {
     expect(solContent).toContain('reasoningEffort: "high"');
   });
 
-  it("codex-reviewer grants both authoritative Claude MCP tool identities", () => {
+  it("codex-reviewer grants split, plugin-bundled, and unified MCP tool identities", () => {
     const content = readFile("agents/codex-reviewer.md");
     const tools = parseMarkdownFrontmatter(content).frontmatter.tools as string[];
     expect(tools).toContain("mcp__codex__ask-codex");
     expect(tools).toContain("mcp__plugin_ask-llm_codex__ask-codex");
+    expect(tools).toContain("mcp__ask-llm__ask-llm");
+    expect(content).toMatch(/provider:\s*"codex"/);
+    expect(content).toMatch(/will not silently strip|do not omit|upgrade/i);
   });
 
   it("sol-reviewer inherits deferred MCP tools while denying write tools", () => {
-    const frontmatter = parseMarkdownFrontmatter(readFile("agents/sol-reviewer.md")).frontmatter;
+    const solContent = readFile("agents/sol-reviewer.md");
+    const frontmatter = parseMarkdownFrontmatter(solContent).frontmatter;
     expect(frontmatter.tools).toBeUndefined();
     expect(frontmatter.disallowedTools).toEqual(expect.arrayContaining(["Edit", "Write", "NotebookEdit"]));
+    expect(solContent).toContain("mcp__ask-llm__ask-llm");
+    expect(solContent).toMatch(/provider:\s*"codex"/);
   });
 });
 
@@ -198,6 +204,23 @@ describe("native model review skills", () => {
     expect(content).toContain(reviewer);
     expect(content).toContain(modelPin);
     expect(content).toMatch(/distinguishes|Do not substitute|Do not route/i);
+  });
+
+  it("sol-review preflights split, unified, and CLI transports without stripping Codex options", () => {
+    const content = readFile("skills/sol-review/SKILL.md");
+    expect(content).toContain("mcp__ask-llm__ask-llm");
+    expect(content).toMatch(/provider:\s*"codex"/);
+    expect(content).toContain("reasoningEffort");
+    expect(content).toContain("sandbox");
+    expect(content).toMatch(/upgrade|too old|cannot honor/i);
+  });
+
+  it("codex-image keeps workspace-write sandbox on the unified transport", () => {
+    const content = readFile("skills/codex-image/SKILL.md");
+    expect(content).toContain("mcp__ask-llm__ask-llm");
+    expect(content).toMatch(/provider:\s*"codex"/);
+    expect(content).toContain('sandbox: "workspace-write"');
+    expect(content).toMatch(/will not silently strip|cannot honor|upgrade/i);
   });
 
   it("guards explicit Fable overrides without claiming inaccessible runtime verification", () => {
@@ -448,6 +471,8 @@ describe("codex-verifier agent — claim verification contract (ADR-073)", () =>
   it("declares mcp__codex__ask-codex in tools (so Codex can be dispatched for narrow per-claim checks)", () => {
     const tools = frontmatter.tools as string[];
     expect(tools).toContain("mcp__codex__ask-codex");
+    expect(tools).toContain("mcp__plugin_ask-llm_codex__ask-codex");
+    expect(tools).toContain("mcp__ask-llm__ask-llm");
   });
 
   it("is restricted from Write / Edit / NotebookEdit (read-only tool surface — Pi verifier pattern)", () => {

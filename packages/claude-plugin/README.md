@@ -23,22 +23,28 @@ Part of the [Ask LLM](https://github.com/Lykhoyda/ask-llm) monorepo.
 
 ### MCP Servers
 
-The plugin bundles only the Codex MCP registration under Claude Code's plugin namespace. After installation or upgrade, fully restart Claude Code and run `/mcp`; `plugin:ask-llm:codex` should be connected. `/sol-review` selects `ask-codex`.
+The recommended cross-provider server is `@ask-llm/mcp`. Keep `npx -y @ask-llm/mcp` as the primary registration; `npm install -g @ask-llm/mcp` is a first-class alternative when you want a pinned global binary. Split provider packages (`@ask-llm/codex-mcp`, `@ask-llm/grok-mcp`, and the others) remain an advanced optimization for a richer per-provider tool surface.
+
+The plugin bundles only the Codex MCP registration under Claude Code's plugin namespace. After installation or upgrade, fully restart Claude Code and run `/mcp`; `plugin:ask-llm:codex` should be connected. Codex-facing workflows prefer that bundled `ask-codex` leaf (or a user-scoped `ask-codex`), then a fully pinned unified `ask-llm` call (`provider: "codex"` plus model and Codex options), then the disclosed `codex exec` fallback. An older unified schema that cannot honor those options is reported rather than stripped.
 
 `/grok-pair` does not add servers to the plugin. Register the unified Ask LLM server at user scope (the recommended install: it exposes `ask-cursor-agent` for the Cursor Agent route plus the unified `ask-llm` tool, which pair skills call only fully pinned) and, optionally, the split Grok server for the `ask-grok` leaf:
 
 ```bash
 claude mcp add --scope user ask-llm -- npx -y @ask-llm/mcp
+# first-class alternative after `npm install -g @ask-llm/mcp`:
+# claude mcp add --scope user ask-llm -- ask-llm-mcp
 claude mcp add --scope user grok -- npx -y @ask-llm/grok-mcp
 ```
 
-Existing user-scoped Codex registrations remain compatible and keep their shorter names. Other providers are registered explicitly at user scope:
+Existing user-scoped Codex registrations remain compatible and keep their shorter names. Other providers are registered explicitly at user scope only when you want their split leaves:
 
 ```bash
 claude mcp add --scope user gemini -- npx -y @ask-llm/gemini-mcp
 claude mcp add --scope user ollama -- npx -y @ask-llm/ollama-mcp
 claude mcp add --scope user antigravity -- npx -y @ask-llm/antigravity-mcp
 ```
+
+If Codex is missing entirely, provision the unified server first (`claude mcp add --scope user ask-llm -- npx -y @ask-llm/mcp`) or the split Codex leaf with `claude mcp add --scope user codex -- npx -y @ask-llm/codex-mcp`. If `/mcp` shows the bundled registration but it is disconnected, run `npx -y @ask-llm/mcp doctor` and restart Claude Code. `/sol-review` preserves source-plugin and session-local MCP/settings context when reading the active `claude mcp list` inventory, reports missing, unavailable, and unsupported-schema states separately, and discloses the explicit `codex exec` fallback after failed health, an incomplete unified schema, or MCP transport failure.
 
 ### Cursor Agent
 
@@ -48,9 +54,7 @@ Cursor's supported Agent Skills surface exposes exactly `/codex-pair` and `/grok
 agent --plugin-dir ./packages/claude-plugin
 ```
 
-`/codex-pair` requires explicit `model=` and `effort=` values before consent, then uses a separately user-installed `ask-codex` leaf when exposed, otherwise the bundled unified `ask-llm` fully pinned (`provider: "codex"`, model, effort, include directories, session), with resumable Thread ID, cancellation, and result relay. It never guesses MCP-process environment defaults and does not pretend Claude-only hooks are active. `/grok-pair` gives Cursor-native `.cursor/mcp.json` and Tools & MCP reload guidance; it never sends Cursor users to `claude mcp add`. If installing only MCP configuration, the recommended minimal entry is `ask-llm` → `npx -y @ask-llm/mcp` in project `.cursor/mcp.json` or user `~/.cursor/mcp.json` (keep one registration per server — do not duplicate it when the plugin is loaded); add `codex` → `@ask-llm/codex-mcp` or `grok` → `@ask-llm/grok-mcp` only when you specifically want their `ask-codex`/`ask-grok` leaves, then reload MCP/restart Cursor Agent. When Cursor hosts `/grok-pair`, it never recursively invokes Cursor Agent.
-
-If Codex is missing entirely, register it explicitly with `claude mcp add --scope user codex -- npx -y @ask-llm/codex-mcp`. If `/mcp` shows the bundled registration but it is disconnected, run `npx -y @ask-llm/mcp doctor` and restart Claude Code. `/sol-review` preserves source-plugin and session-local MCP/settings context when reading the active `claude mcp list` inventory, reports missing and unavailable states separately, and discloses the explicit `codex exec` fallback after failed health or MCP transport failure.
+`/codex-pair` requires explicit `model=` and `effort=` values before consent, then uses a separately user-installed `ask-codex` leaf when exposed, otherwise the bundled unified `ask-llm` fully pinned (`provider: "codex"`, model, effort, include directories, sandbox, session), with resumable Thread ID, cancellation, and result relay. It never guesses MCP-process environment defaults and does not pretend Claude-only hooks are active. `/grok-pair` gives Cursor-native `.cursor/mcp.json` and Tools & MCP reload guidance; it never sends Cursor users to `claude mcp add`. If installing only MCP configuration, the recommended minimal entry is `ask-llm` → `npx -y @ask-llm/mcp` in project `.cursor/mcp.json` or user `~/.cursor/mcp.json` (keep one registration per server — do not duplicate it when the plugin is loaded); add `codex` → `@ask-llm/codex-mcp` or `grok` → `@ask-llm/grok-mcp` only when you specifically want their `ask-codex`/`ask-grok` leaves, then reload MCP/restart Cursor Agent. When Cursor hosts `/grok-pair`, it never recursively invokes Cursor Agent.
 
 ### Pi
 
@@ -80,7 +84,7 @@ See the [Pi host guide](https://lykhoyda.github.io/ask-llm/plugin/pi) for securi
 | `/gemini-review` | Gemini-only code review with confidence filtering |
 | `/codex-review` | Codex-only code review (precision-first, ≥80 confidence — default for routine PR review) |
 | `/fable-review` | Isolated, read-only review requesting native Fable, with runtime verification limits disclosed |
-| `/sol-review` | Model-pinned GPT-5.6 Sol review through the bundled `ask-codex` MCP tool; missing registration and service unavailability are diagnosed separately before the explicit CLI fallback |
+| `/sol-review` | Model-pinned GPT-5.6 Sol review: prefer bundled or user-scoped `ask-codex`, then fully pinned unified `ask-llm`, then the disclosed CLI fallback |
 | `/ollama-review` | Local review — no data leaves your machine |
 | `/brainstorm` | Explicit multi-model brainstorm (default external: Antigravity + Codex); supports an exact no-Gemini Grok + GPT-5.6 Sol panel through Cursor Agent |
 | `/grok-review` | Grok review through explicit xAI API or Grok CLI harness; no fallback |

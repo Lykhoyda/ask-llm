@@ -38,7 +38,13 @@ import { executeCodexCLI } from "@ask-llm/codex-mcp/executor";
 import { executeGeminiCLI } from "@ask-llm/gemini-mcp/executor";
 import { executeGrok, isGrokProviderAvailable as mockIsGrokAvailable } from "@ask-llm/grok-mcp/executor";
 import { executeOllamaCLI, isProviderAvailable as mockIsOllamaAvailable } from "@ask-llm/ollama-mcp/executor";
-import { buildAskLlmSchema, detectProviders, formatProviderPing, getLoadedExecutor } from "../index.js";
+import {
+  askLlmArgsToExecutorOptions,
+  buildAskLlmSchema,
+  detectProviders,
+  formatProviderPing,
+  getLoadedExecutor,
+} from "../index.js";
 import { isCommandAvailable } from "../utils/availability.js";
 
 const mockIsCommandAvailable = vi.mocked(isCommandAvailable);
@@ -319,6 +325,41 @@ describe("provider selection and ping", () => {
     expect(schema.safeParse({ provider: "gemini", prompt: "q", includeDirs: ["packages/core"] }).success).toBe(false);
     expect(schema.safeParse({ provider: "ollama", prompt: "q", reasoningEffort: "high" }).success).toBe(false);
     expect(schema.safeParse({ provider: "codex", prompt: "q", includeDirs: ["../outside"] }).success).toBe(false);
+    expect(
+      schema.safeParse({
+        provider: "codex",
+        prompt: "q",
+        preferred: true,
+        sandbox: "workspace-write",
+      }).success,
+    ).toBe(true);
+    expect(schema.safeParse({ provider: "gemini", prompt: "q", preferred: true }).success).toBe(false);
+    expect(schema.safeParse({ provider: "grok", prompt: "q", sandbox: "read-only" }).success).toBe(false);
+    expect(schema.shape.preferred).toBeDefined();
+    expect(schema.shape.sandbox).toBeDefined();
+  });
+
+  it("forwards Codex preferred and sandbox through the unified executor options", () => {
+    expect(
+      askLlmArgsToExecutorOptions({
+        provider: "codex",
+        prompt: "review",
+        model: "gpt-5.6-sol",
+        includeDirs: ["packages/core"],
+        reasoningEffort: "high",
+        preferred: true,
+        sandbox: "workspace-write",
+      }),
+    ).toEqual({
+      prompt: "review",
+      model: "gpt-5.6-sol",
+      sessionId: undefined,
+      includeDirs: ["packages/core"],
+      reasoningEffort: "high",
+      preferred: true,
+      sandbox: "workspace-write",
+      harness: undefined,
+    });
   });
 
   it("rejects includeDirs on resumed Codex sessions instead of dropping them at spawn", () => {

@@ -47,12 +47,14 @@ Your primary AI is confident, but confidence isn't correctness. A second model w
 ```bash
 # One install, every provider — auto-detects what you have
 claude mcp add --scope user ask-llm -- npx -y @ask-llm/mcp
+# first-class alternative after `npm install -g @ask-llm/mcp`:
+# claude mcp add --scope user ask-llm -- ask-llm-mcp
 ```
 
 Then try: `ask codex to review my last commit`. Run `npx @ask-llm/mcp doctor` if anything looks off.
 
 <details>
-<summary>Install providers individually instead</summary>
+<summary>Advanced: install split provider packages instead</summary>
 
 ```bash
 claude mcp add --scope user codex -- npx -y @ask-llm/codex-mcp

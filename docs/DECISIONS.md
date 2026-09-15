@@ -1,5 +1,15 @@
 # Architectural Decisions
 
+## ADR-161: Plugin Codex workflows use unified MCP without stripping provider options
+
+**Status:** Accepted (2026-09-15)
+
+**Context:** Issue #266. The product direction is that `@ask-llm/mcp` is the central full-provider experience, plugin workflows must use it without losing provider-specific behavior, and split provider packages remain an advanced optimization. ADR-144 made the Claude plugin own Codex discovery through bundled `@ask-llm/codex-mcp` plus a disclosed `codex exec` fallback, but Codex-facing agents and skills still treated a missing `ask-codex` leaf as CLI-only. Unified `ask-llm` already forwarded `includeDirs` and `reasoningEffort` and rejected unsupported combinations (ADR-147), but it did not accept Codex `preferred` or `sandbox`, so a pinned unified call could not honor the complete Codex option set. Cursor pair skills already used fully pinned unified transport and omitted `sandbox` because the unified schema lacked it. Missing-registration remediation still pointed only at `@ask-llm/codex-mcp`.
+
+**Decision:** Extend unified `ask-llm` with optional Codex-only `preferred` and `sandbox`, reject those fields on other providers instead of stripping them, and forward both into `executeCodexCLI`. Codex-facing plugin agents and skills use a three-rung ladder: any exact `ask-codex` leaf, including plugin-bundled `mcp__plugin_ask-llm_codex__ask-codex`; otherwise `mcp__ask-llm__ask-llm` with explicit `provider: "codex"`, exact model, and pass-through of `reasoningEffort`, `includeDirs`, `preferred`, and `sandbox`; otherwise the sanctioned `codex exec` fallback with truthful disclosure. Inspect the advertised unified schema first. If those Codex properties are missing, classify `unsupported-schema` and fail closed — never omit fields to make an older server succeed. Missing-registration remediation heroes `claude mcp add --scope user ask-llm -- npx -y @ask-llm/mcp`; split `@ask-llm/codex-mcp` remains the advanced alternative. Documentation keeps `npx -y @ask-llm/mcp` primary, `npm install -g @ask-llm/mcp` first-class, split packages advanced, and the plugin's bundled Codex transport truthful. Claude `.mcp.json` stays Codex-only; Cursor `mcp.json` stays unified-only. Pi stays on native provider tools. `/brainstorm` keeps ADR-050 Bash dispatch.
+
+**Consequences:** Plugin sessions without a split Codex leaf can still review through coordinated `@ask-llm/mcp` without losing Codex options. Older unified servers fail loudly instead of silently degrading. A present `ask-codex` leaf remains preferred and is never a fallback after a failed split call. `@ask-llm/mcp` and `@ask-llm/plugin` releases stay coordinated through changesets. ADR-144's historical missing-registration command remains the record of the earlier split-only discovery path.
+
 ## ADR-160: Claude GitHub Action is on-demand only
 
 **Status:** Accepted (2026-09-15)

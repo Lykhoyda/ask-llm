@@ -45,11 +45,11 @@ Not sure which? See each provider's page: [Codex](/providers/codex), [Claude](/p
 
 ## 2. Register the MCP server
 
-The recommended package is `@ask-llm/mcp`, the unified orchestrator: it auto-detects every provider CLI you installed and exposes one `ask-llm` tool plus `multi-llm`, `get-usage-stats`, `diagnose`, and `ping`.
+The recommended package is `@ask-llm/mcp`, the unified orchestrator: it auto-detects every provider CLI you installed and exposes one `ask-llm` tool plus `multi-llm`, `get-usage-stats`, `diagnose`, and `ping`. Keep `npx -y @ask-llm/mcp` as the primary registration; `npm install -g @ask-llm/mcp` is a first-class alternative when you want a pinned global binary.
 
 <SetupTabs provider="unified" />
 
-Prefer a single provider with its richer tool surface (`ask-codex-edit`, `fetch-chunk`, native session tools)? Install the per-provider package instead: swap `@ask-llm/mcp` for `@ask-llm/codex-mcp`, `@ask-llm/claude-mcp`, `@ask-llm/antigravity-mcp`, `@ask-llm/ollama-mcp`, or `@ask-llm/gemini-mcp` in any tab above.
+Split provider packages remain an advanced optimization when you want a richer per-provider tool surface (`ask-codex-edit`, `fetch-chunk`, native session tools): swap `@ask-llm/mcp` for `@ask-llm/codex-mcp`, `@ask-llm/claude-mcp`, `@ask-llm/antigravity-mcp`, `@ask-llm/ollama-mcp`, or `@ask-llm/gemini-mcp` in any tab above.
 
 ## 3. Verify
 

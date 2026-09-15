@@ -16,7 +16,7 @@ Invoke it with `/fable-review`.
 
 ### `sol-reviewer`
 
-This reviewer uses an isolated Opus coordinator to request `gpt-5.6-sol` explicitly from `ask-codex` at high reasoning, then validates Sol's findings against the source. Invoke it with `/sol-review`. A quota fallback to Terra is disclosed instead of being presented as a Sol result.
+This reviewer uses an isolated Opus coordinator to request `gpt-5.6-sol` explicitly at high reasoning, then validates Sol's findings against the source. Invoke it with `/sol-review`. It prefers any exact `ask-codex` leaf (including the plugin-bundled Codex server), otherwise a fully pinned unified `ask-llm` call (`provider: "codex"` plus model and Codex options), otherwise the disclosed `codex exec` fallback. An older unified schema that cannot honor those options is reported rather than stripped. A quota fallback to Terra is disclosed instead of being presented as a Sol result.
 
 Provider-backed review agents use a 3-phase workflow with confidence-based filtering:
 

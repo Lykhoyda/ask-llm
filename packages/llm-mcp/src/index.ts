@@ -61,6 +61,7 @@ export type ExecutorFn = (options: {
   sessionId?: string;
   includeDirs?: string[];
   sandbox?: "read-only" | "workspace-write";
+  preferred?: boolean;
   outputSchema?: Record<string, unknown>;
   readOnly?: boolean;
   harness?: "xai-api" | "grok-cli";
@@ -278,6 +279,18 @@ export function buildAskLlmSchema(availableProviders: string[], excludedProvider
         .describe(
           "Provider-native reasoning effort. Codex accepts low/medium/high/xhigh/max; Grok accepts low/medium/high/xhigh. Unsupported provider/effort combinations are rejected, never stripped.",
         ),
+      preferred: z
+        .boolean()
+        .optional()
+        .describe(
+          "Codex-only: opt into ASK_CODEX_PREFERRED_MODEL when it differs from the default. Unsupported on other providers; never silently stripped. Leave unset for normal review calls.",
+        ),
+      sandbox: z
+        .enum(["read-only", "workspace-write"])
+        .optional()
+        .describe(
+          "Codex-only sandbox. Defaults to the executor's read-only review contract when omitted. Set workspace-write only for explicit write flows such as image generation. Unsupported on other providers; never silently stripped.",
+        ),
     })
     .superRefine((value, ctx) => {
       if ((value.harness === "xai-api" || value.harness === "grok-cli") && value.provider !== "grok") {
@@ -316,7 +329,53 @@ export function buildAskLlmSchema(availableProviders: string[], excludedProvider
           message: "Grok reasoningEffort must be low, medium, high, or xhigh",
         });
       }
+      if (value.preferred !== undefined && value.provider !== "codex") {
+        ctx.addIssue({
+          code: "custom",
+          path: ["preferred"],
+          message: `preferred is not supported by provider=${value.provider}; Ask LLM will not silently strip it`,
+        });
+      }
+      if (value.sandbox && value.provider !== "codex") {
+        ctx.addIssue({
+          code: "custom",
+          path: ["sandbox"],
+          message: `sandbox is not supported by provider=${value.provider}; Ask LLM will not silently strip it`,
+        });
+      }
     });
+}
+
+export function askLlmArgsToExecutorOptions(args: {
+  provider?: string;
+  prompt: string;
+  model?: string;
+  sessionId?: string;
+  harness?: "provider-default" | "xai-api" | "grok-cli";
+  includeDirs?: string[];
+  reasoningEffort?: "low" | "medium" | "high" | "xhigh" | "max";
+  preferred?: boolean;
+  sandbox?: "read-only" | "workspace-write";
+}): {
+  prompt: string;
+  model?: string;
+  sessionId?: string;
+  includeDirs?: string[];
+  reasoningEffort?: "low" | "medium" | "high" | "xhigh" | "max";
+  preferred?: boolean;
+  sandbox?: "read-only" | "workspace-write";
+  harness?: "xai-api" | "grok-cli";
+} {
+  return {
+    prompt: args.prompt,
+    model: args.model,
+    sessionId: args.sessionId,
+    includeDirs: args.includeDirs,
+    reasoningEffort: args.reasoningEffort,
+    preferred: args.preferred,
+    sandbox: args.sandbox,
+    harness: args.harness === "xai-api" || args.harness === "grok-cli" ? args.harness : undefined,
+  };
 }
 
 export function formatProviderPing(status: ProviderStatus, message?: string): string {
@@ -391,7 +450,8 @@ export async function startServer() {
     async (args: Record<string, unknown>, extra: ToolExtra): Promise<CallToolResult> => {
       const progress = createProgressTracker("ask-llm", extra, PROGRESS_MESSAGES("ask-llm"));
       try {
-        const { provider, prompt, model, sessionId, harness, includeDirs, reasoningEffort } = askLlmSchema.parse(args);
+        const parsed = askLlmSchema.parse(args);
+        const { provider } = parsed;
         Logger.toolInvocation("ask-llm", args);
 
         const executor = loadedExecutors.get(provider);
@@ -403,12 +463,7 @@ export async function startServer() {
         }
 
         const result = await executor({
-          prompt,
-          model,
-          sessionId,
-          includeDirs,
-          reasoningEffort,
-          harness: harness === "xai-api" || harness === "grok-cli" ? harness : undefined,
+          ...askLlmArgsToExecutorOptions(parsed),
           onProgress: (output) => {
             progress.updateOutput(output);
           },
@@ -428,7 +483,7 @@ export async function startServer() {
         const structured: AskResponse = {
           provider: result.provider ?? parseProviderName(provider),
           response: result.response,
-          model: result.usage?.model ?? result.model ?? model ?? PROVIDERS[provider]?.defaultModel ?? "unknown",
+          model: result.usage?.model ?? result.model ?? parsed.model ?? PROVIDERS[provider]?.defaultModel ?? "unknown",
           sessionId: resolvedSessionId,
           usage: result.usage,
           harness: result.harness,
