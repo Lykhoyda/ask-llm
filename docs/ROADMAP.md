@@ -26,6 +26,10 @@ Made Codex review/analysis paths read-only by default; applied the Antigravity p
 
 ## Delivery history
 
+### 2026-09-15 — Claude GitHub Action on-demand only (ADR-160)
+
+Deleted the automatic `claude-code-review.yml` PR workflow. `@claude` via `claude.yml` remains. Claude no longer reviews every PR in CI.
+
 ### 2026-09-14 — Drop Windows as a supported platform (ADR-159)
 
 Removed the Windows CI legs and current-facing Windows support claims. Linux and macOS remain (Ubuntu five-batch Node 22/24 plus `pi-lifecycle-macos`). Historical ADRs, changelogs, and leftover `win32` runtime branches are unchanged.

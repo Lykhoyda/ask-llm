@@ -1,5 +1,15 @@
 # Architectural Decisions
 
+## ADR-160: Claude GitHub Action is on-demand only
+
+**Status:** Accepted (2026-09-15)
+
+**Context:** `.github/workflows/claude-code-review.yml` ran Anthropic's Claude Code Action on every pull request (`opened`, `synchronize`, `ready_for_review`, `reopened`). That spent Claude quota on every push, failed for bot-authored PRs whose actors were outside `allowed_bots`, and treated a mention-driven helper as mandatory CI. `@claude` already exists in `.github/workflows/claude.yml` for issues and PRs.
+
+**Decision:** Delete `.github/workflows/claude-code-review.yml`. Keep `.github/workflows/claude.yml` so `@claude` still works on issues and PRs. Keep `CLAUDE_CODE_OAUTH_TOKEN` on that mention workflow. Do not remove Claude GitHub App install instructions beyond what the deleted workflow required. Do not change plugin/MCP code. Current-facing contributor docs must not say Claude reviews every PR in CI. Historical ADRs, changelogs, and completed roadmap items stay as records of past auto-review.
+
+**Consequences:** Opening or pushing a PR no longer starts a Claude review job. Maintainers mention `@claude` when they want a review. The mention workflow, its OAuth secret, and any GitHub App install still required for `@claude` remain.
+
 ## ADR-159: Drop Windows as a supported platform
 
 **Status:** Accepted (2026-09-14)
@@ -1364,7 +1374,7 @@ Roadmap/tracker: [`docs/plans/2026-05-30-upstream-issue-consolidation.md`](plans
 
 ## ADR-025: GitHub Actions Workflow Hardening for Fork PRs
 - **Date:** 2026-03-03
-- **Status:** Accepted
+- **Status:** Accepted — CI lint/`continue-on-error` still apply; automatic Claude PR review superseded by ADR-160.
 - **Context:** Claude Code Action (`anthropics/claude-code-action@v1`) uses OIDC tokens for authentication, which are not available on `pull_request` events from fork repositories. Additionally, the action internally runs `git fetch origin <branch>` for PR branches, which fails for fork branches since they don't exist on origin. This is a known upstream bug with 16+ open issues (e.g., [#962](https://github.com/anthropics/claude-code-action/issues/962), [#46](https://github.com/anthropics/claude-code-action/issues/46)). A code fix ([PR #963](https://github.com/anthropics/claude-code-action/pull/963)) is awaiting review.
 - **Decision:** Split fork PR handling across two workflows: (1) `claude-code-review.yml` uses `pull_request_target` event with `github_token` (bypasses OIDC) and `allowed_non_write_users: "*"` (allows fork contributors). Safe because the review prompt is read-only (`gh pr diff`, never checks out fork code). Pattern validated against [pzmarzly/demo--claude-bot-reviews](https://github.com/pzmarzly/demo--claude-bot-reviews). (2) `claude.yml` detects fork PRs via GitHub API and gracefully skips with an explanatory comment instead of crashing. Also updated all workflows to actions/checkout@v6, setup-node@v6, upload-pages-artifact@v4; added lint step to CI; removed `continue-on-error: true` on test step.
 - **Consequences:** Auto-review works for all PRs including forks. `@claude` mentions gracefully degrade on fork PRs with a helpful message. CI now fails properly on test or lint failures instead of silently passing.
