@@ -82,6 +82,8 @@ The architecture is designed for new providers — see ADR-026, 028, 029, 032 fo
 
 ## Versioning your change
 
+A map of every version-update path (packages, models, CLI floors, deps) is in [Keeping versions updated](VERSIONS.md).
+
 We use [Changesets](https://changesets.dev/) (ADR-076). Before opening a PR that affects any published package, run:
 
 ```bash
