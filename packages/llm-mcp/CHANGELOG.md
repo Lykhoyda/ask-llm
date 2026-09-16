@@ -1,5 +1,16 @@
 # @ask-llm/mcp
 
+## 0.10.0
+
+### Minor Changes
+
+- [#327](https://github.com/Lykhoyda/ask-llm/pull/327) [`4e0e436`](https://github.com/Lykhoyda/ask-llm/commit/4e0e436b43f7a1bff897bd690c71765420ff32ae) Thanks [@Lykhoyda](https://github.com/Lykhoyda)! - Add Codex `preferred` and `sandbox` to unified `ask-llm` (fail closed on other providers) and let plugin Codex workflows use fully pinned unified MCP when no `ask-codex` leaf is present, without stripping provider options ([#266](https://github.com/Lykhoyda/ask-llm/issues/266)).
+
+### Patch Changes
+
+- Updated dependencies [[`124d93d`](https://github.com/Lykhoyda/ask-llm/commit/124d93dd6dae941ffac37d6583be7cbf0eb0c30f)]:
+  - @ask-llm/antigravity-mcp@0.7.6
+
 ## 0.9.3
 
 ### Patch Changes
