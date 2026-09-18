@@ -1,5 +1,17 @@
 # @ask-llm/plugin
 
+## 0.18.0
+
+### Minor Changes
+
+- [#334](https://github.com/Lykhoyda/ask-llm/pull/334) [`51d2c32`](https://github.com/Lykhoyda/ask-llm/commit/51d2c32b658cf356f61ed02986680525b95f810e) Thanks [@Lykhoyda](https://github.com/Lykhoyda)! - Accept Codex's catalog-backed `ultra` reasoning effort as explicit opt-in. Keep ordinary defaults at `medium` and `/codex-review`/`/brainstorm` at `high`. Unified Grok still rejects `max` and `ultra`.
+
+### Patch Changes
+
+- Updated dependencies [[`51d2c32`](https://github.com/Lykhoyda/ask-llm/commit/51d2c32b658cf356f61ed02986680525b95f810e)]:
+  - @ask-llm/codex-mcp@0.8.0
+  - @ask-llm/mcp@0.11.0
+
 ## 0.17.0
 
 ### Minor Changes
