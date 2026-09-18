@@ -26,6 +26,10 @@ import { readPackageJson } from "./packageMetadata.js";
 import { isCommandAvailable } from "./utils/availability.js";
 import { buildProviderSpecs } from "./utils/providerSpecs.js";
 
+const CODEX_REASONING_EFFORTS = ["low", "medium", "high", "xhigh", "max", "ultra"] as const;
+type CodexReasoningEffort = (typeof CODEX_REASONING_EFFORTS)[number];
+const GROK_REASONING_EFFORTS = ["low", "medium", "high", "xhigh"] as const;
+
 export interface ProviderStatus {
   available: string[];
   missing: string[];
@@ -65,7 +69,7 @@ export type ExecutorFn = (options: {
   outputSchema?: Record<string, unknown>;
   readOnly?: boolean;
   harness?: "xai-api" | "grok-cli";
-  reasoningEffort?: "low" | "medium" | "high" | "xhigh" | "max";
+  reasoningEffort?: CodexReasoningEffort;
   onProgress?: (output: string) => void;
   signal?: AbortSignal;
 }) => Promise<{
@@ -274,10 +278,10 @@ export function buildAskLlmSchema(availableProviders: string[], excludedProvider
           'Relative workspace directories exposed to providers that support additional read roots (Codex, Claude, and Antigravity). Unsupported providers are rejected instead of silently dropping this option; Codex only accepts it on a fresh call (sessionId omitted or ""), never on a resumed thread.',
         ),
       reasoningEffort: z
-        .enum(["low", "medium", "high", "xhigh", "max"])
+        .enum(CODEX_REASONING_EFFORTS)
         .optional()
         .describe(
-          "Provider-native reasoning effort. Codex accepts low/medium/high/xhigh/max; Grok accepts low/medium/high/xhigh. Unsupported provider/effort combinations are rejected, never stripped.",
+          "Provider-native reasoning effort. Codex accepts low/medium/high/xhigh/max/ultra; Grok accepts low/medium/high/xhigh. Unsupported provider/effort combinations are rejected, never stripped.",
         ),
       preferred: z
         .boolean()
@@ -322,7 +326,11 @@ export function buildAskLlmSchema(availableProviders: string[], excludedProvider
           message: `reasoningEffort is not supported by provider=${value.provider}; Ask LLM will not silently strip it`,
         });
       }
-      if (value.provider === "grok" && value.reasoningEffort === "max") {
+      if (
+        value.provider === "grok" &&
+        value.reasoningEffort &&
+        !(GROK_REASONING_EFFORTS as readonly string[]).includes(value.reasoningEffort)
+      ) {
         ctx.addIssue({
           code: "custom",
           path: ["reasoningEffort"],
@@ -353,7 +361,7 @@ export function askLlmArgsToExecutorOptions(args: {
   sessionId?: string;
   harness?: "provider-default" | "xai-api" | "grok-cli";
   includeDirs?: string[];
-  reasoningEffort?: "low" | "medium" | "high" | "xhigh" | "max";
+  reasoningEffort?: CodexReasoningEffort;
   preferred?: boolean;
   sandbox?: "read-only" | "workspace-write";
 }): {
@@ -361,7 +369,7 @@ export function askLlmArgsToExecutorOptions(args: {
   model?: string;
   sessionId?: string;
   includeDirs?: string[];
-  reasoningEffort?: "low" | "medium" | "high" | "xhigh" | "max";
+  reasoningEffort?: CodexReasoningEffort;
   preferred?: boolean;
   sandbox?: "read-only" | "workspace-write";
   harness?: "xai-api" | "grok-cli";

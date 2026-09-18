@@ -44,7 +44,7 @@ Or install globally: `npm install -g @ask-llm/codex-mcp`
 ## Key Features
 
 - **GPT-5.6 Sol access** via the official Codex CLI
-- **Reasoning control:** ordinary calls default to `medium`; `/codex-review` and `/brainstorm` use `high`; direct calls can request `low`, `medium`, `high`, `xhigh`, or `max`
+- **Reasoning control:** ordinary calls default to `medium`; `/codex-review` and `/brainstorm` use `high`; direct calls can request `low`, `medium`, `high`, `xhigh`, `max`, or `ultra`. `ultra` is opt-in only (maximum reasoning with automatic task delegation) and is not a review default
 - **Native session continuity:** omit `sessionId` for an ephemeral one-off call; pass `sessionId: ""` on turn one to persist a thread, then pass its returned `thread_id` on later turns. Follow-ups use `codex exec resume <id>` with the stable `-c sandbox_mode="<mode>"` grammar (zero replay cost, Codex retains state).
 - **Read-only, non-interactive sandbox:** fresh calls use `codex exec --sandbox read-only`; resumed calls use the equivalent supported config override `-c sandbox_mode="read-only"`. Both keep second-opinion, review, and edit-proposal calls from modifying the workspace. Codex `exec` is non-interactive by definition, so no approval prompt can hang the MCP subprocess. The optional `sandbox: "workspace-write"` parameter is a deliberate opt-out for flows that need Codex to write files (e.g. `/codex-image`); review flows must not set it.
 - **JSONL output parsing** for structured responses + token usage

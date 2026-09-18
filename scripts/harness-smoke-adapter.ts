@@ -159,7 +159,7 @@ async function runCodex() {
   return executeCodexCLI({
     prompt: `${config.livePrompt}\nprobe=${Date.now()}`,
     model: config.model,
-    reasoningEffort: (config.effort ?? "high") as "low" | "medium" | "high" | "xhigh" | "max",
+    reasoningEffort: (config.effort ?? "high") as "low" | "medium" | "high" | "xhigh" | "max" | "ultra",
     sessionId: "",
     sandbox: "read-only",
   });

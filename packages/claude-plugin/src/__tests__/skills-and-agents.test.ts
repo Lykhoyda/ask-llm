@@ -620,7 +620,11 @@ describe("agents/ — no removed codex CLI flags (#37/#38/#52)", () => {
   it("validates the brainstorm reasoning-effort override before invoking Codex", () => {
     const coordinator = readFile("agents/brainstorm-coordinator.md");
     expect(coordinator).toContain('case "$codex_effort" in');
-    expect(coordinator).toContain("low|medium|high|xhigh|max) ;;");
+    expect(coordinator).toContain("low|medium|high|xhigh|max|ultra) ;;");
     expect(coordinator).toContain('*) codex_effort="high" ;;');
+  });
+
+  it("accepts Codex ultra effort in /codex-pair without changing the required-pin contract", () => {
+    expect(readFile("skills/codex-pair/SKILL.md")).toContain("effort=low|medium|high|xhigh|max|ultra");
   });
 });

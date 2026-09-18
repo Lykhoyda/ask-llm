@@ -50,7 +50,10 @@ export const STATUS_MESSAGES = {
 // tool descriptions and drift-guard tests reference this, not the live value.
 export const FACTORY_DEFAULT_MODEL = "gpt-5.6-sol";
 
-export const CODEX_REASONING_EFFORTS = ["low", "medium", "high", "xhigh", "max"] as const;
+// `ultra` is Codex catalog-backed for Sol/Terra (and Astra): maximum reasoning
+// with automatic task delegation. Accept it as explicit opt-in only; the factory
+// default and /codex-review / /brainstorm stay medium/high. Luna does not list it.
+export const CODEX_REASONING_EFFORTS = ["low", "medium", "high", "xhigh", "max", "ultra"] as const;
 export type CodexReasoningEffort = (typeof CODEX_REASONING_EFFORTS)[number];
 export const FACTORY_DEFAULT_REASONING_EFFORT: CodexReasoningEffort = "medium";
 
