@@ -1,5 +1,11 @@
 # @ask-llm/antigravity-mcp
 
+## 0.7.6
+
+### Patch Changes
+
+- [#330](https://github.com/Lykhoyda/ask-llm/pull/330) [`124d93d`](https://github.com/Lykhoyda/ask-llm/commit/124d93dd6dae941ffac37d6583be7cbf0eb0c30f) Thanks [@Lykhoyda](https://github.com/Lykhoyda)! - Fail closed when agy ≥1.1.28 hits `--print-timeout` and returns a truncated exit-0 answer, instead of serving the partial as complete. Capture stderr via the existing success-path hook; keep older agy on the non-zero timeout contract.
+
 ## 0.7.5
 
 ### Patch Changes
