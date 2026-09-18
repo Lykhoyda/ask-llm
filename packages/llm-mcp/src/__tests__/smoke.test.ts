@@ -317,10 +317,12 @@ describe("provider selection and ping", () => {
         reasoningEffort: "max",
       }).success,
     ).toBe(true);
+    expect(schema.safeParse({ provider: "codex", prompt: "q", reasoningEffort: "ultra" }).success).toBe(true);
     expect(
       schema.safeParse({ provider: "grok", prompt: "q", harness: "xai-api", reasoningEffort: "xhigh" }).success,
     ).toBe(true);
     expect(schema.safeParse({ provider: "grok", prompt: "q", reasoningEffort: "max" }).success).toBe(false);
+    expect(schema.safeParse({ provider: "grok", prompt: "q", reasoningEffort: "ultra" }).success).toBe(false);
     expect(schema.safeParse({ provider: "grok", prompt: "q", includeDirs: ["packages/core"] }).success).toBe(false);
     expect(schema.safeParse({ provider: "gemini", prompt: "q", includeDirs: ["packages/core"] }).success).toBe(false);
     expect(schema.safeParse({ provider: "ollama", prompt: "q", reasoningEffort: "high" }).success).toBe(false);

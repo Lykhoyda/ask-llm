@@ -70,10 +70,9 @@ describe("tool contract (drift guards)", () => {
   });
 
   it("ask-codex accepts documented GPT-5.6 reasoning efforts", () => {
-    for (const reasoningEffort of ["low", "medium", "high", "xhigh", "max"]) {
+    for (const reasoningEffort of ["low", "medium", "high", "xhigh", "max", "ultra"]) {
       expect(askCodexTool.zodSchema.safeParse({ prompt: "p", reasoningEffort }).success).toBe(true);
     }
-    expect(askCodexTool.zodSchema.safeParse({ prompt: "p", reasoningEffort: "ultra" }).success).toBe(false);
     expect(askCodexTool.zodSchema.safeParse({ prompt: "p", reasoningEffort: "extreme" }).success).toBe(false);
   });
 });

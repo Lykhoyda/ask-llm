@@ -216,7 +216,7 @@ codex_effort="${ASK_CODEX_REASONING_EFFORT:-high}"
 # Keep the raw env override aligned with ask-codex's public enum so malformed
 # config fragments never reach the Codex CLI.
 case "$codex_effort" in
-  low|medium|high|xhigh|max) ;;
+  low|medium|high|xhigh|max|ultra) ;;
   *) codex_effort="high" ;;
 esac
 { codex exec --sandbox read-only -c "model_reasoning_effort=\"$codex_effort\"" -m "$codex_model" - < "$workdir/prompt.md" \

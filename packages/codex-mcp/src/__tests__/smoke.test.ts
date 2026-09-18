@@ -46,7 +46,9 @@ describe("Codex default model version", () => {
 
   it("accepts only supported Codex reasoning efforts", () => {
     expect(isCodexReasoningEffort("high")).toBe(true);
+    expect(isCodexReasoningEffort("ultra")).toBe(true);
     expect(isCodexReasoningEffort("maximum")).toBe(false);
+    expect(isCodexReasoningEffort("extreme")).toBe(false);
     expect(isCodexReasoningEffort(undefined)).toBe(false);
   });
 });

@@ -98,7 +98,7 @@ const MARKER_FILE = join(PAIR_ROOT_DIR, CONTEXT_FILENAME);
 const WATCHED_TOOLS = new Set(["Edit", "Write", "MultiEdit"]);
 const DEFAULT_MODEL = process.env.ASK_CODEX_MODEL ?? CODEX_PAIR_DEFAULTS.model;
 const FALLBACK_MODEL = process.env.ASK_CODEX_FALLBACK_MODEL ?? CODEX_PAIR_DEFAULTS.fallbackModel;
-const CODEX_REASONING_EFFORTS = new Set(["low", "medium", "high", "xhigh", "max"]);
+const CODEX_REASONING_EFFORTS = new Set(["low", "medium", "high", "xhigh", "max", "ultra"]);
 const configuredReasoningEffort = process.env.ASK_CODEX_REASONING_EFFORT;
 const DEFAULT_REASONING_EFFORT = CODEX_REASONING_EFFORTS.has(configuredReasoningEffort)
   ? configuredReasoningEffort

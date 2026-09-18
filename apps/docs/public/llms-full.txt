@@ -192,7 +192,7 @@ Send prompts to OpenAI Codex CLI.
 - **Parameters:**
   - `prompt` (string, required): The question, code review request, or analysis task.
   - `model` (string, optional): Do not set unless user explicitly requests it. Default: gpt-5.6-sol. Falls back to gpt-5.6-terra on quota errors.
-  - `reasoningEffort` (string, optional): low, medium, high, xhigh, or max. Default: medium. /codex-review and /brainstorm use high.
+  - `reasoningEffort` (string, optional): low, medium, high, xhigh, max, or ultra. Default: medium. /codex-review and /brainstorm use high. ultra is opt-in (maximum reasoning with automatic task delegation).
   - `sessionId` (string, optional): Omit for an ephemeral call, pass `""` to create a fresh persisted thread, or pass a non-empty returned thread_id to resume.
   - `includeDirs` (string[], optional): Additional directories to expose to Codex (`--add-dir`) on fresh calls only; not forwarded when resuming. Paths must be relative: no `..`, absolute paths, or `~`.
   - `preferred` (boolean, optional): Opt into ASK_CODEX_PREFERRED_MODEL only when configured to differ from the gpt-5.6-sol default. Review skills leave it unset.
@@ -279,7 +279,7 @@ Route a single prompt to any one installed provider (unified server).
   - `sessionId` (string, optional): For Codex, omit it for an ephemeral call, pass `""` to create a fresh persisted thread, or pass a non-empty returned Thread ID to resume. For other session-capable providers, pass a prior session ID to resume.
   - `harness` (string, optional): `xai-api` or `grok-cli`; valid only with `provider: "grok"`.
   - `includeDirs` (string[], optional): Relative workspace directories forwarded only to codex, claude, or antigravity; other providers reject it instead of silently dropping it. Codex accepts it only on a fresh call (`sessionId` omitted or `""`), never on a resumed thread.
-  - `reasoningEffort` (string, optional): `low` | `medium` | `high` | `xhigh` | `max`, forwarded only to codex (all five) or grok (no `max`); unsupported combinations are schema errors, never stripped.
+  - `reasoningEffort` (string, optional): `low` | `medium` | `high` | `xhigh` | `max` | `ultra`, forwarded only to codex (all six) or grok (no `max` or `ultra`); unsupported combinations are schema errors, never stripped.
 - **Returns:** The chosen provider's text response plus a structured payload (including the resolved provider and model, so quota fallbacks are visible).
 - **Annotations:** readOnlyHint=false, destructiveHint=false, openWorldHint=true
 

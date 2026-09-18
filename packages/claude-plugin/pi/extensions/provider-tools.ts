@@ -41,7 +41,7 @@ const prompt = Type.String({ minLength: 1, maxLength: 100000, description: "Prom
 const codexSchema = Type.Object({
   prompt,
   model: Type.Optional(Type.String({ minLength: 1 })),
-  reasoningEffort: Type.Optional(StringEnum(["low", "medium", "high", "xhigh", "max"] as const)),
+  reasoningEffort: Type.Optional(StringEnum(["low", "medium", "high", "xhigh", "max", "ultra"] as const)),
   sessionId: Type.Optional(Type.String()),
   includeDirs: Type.Optional(relativeDirs),
   preferred: Type.Optional(Type.Boolean()),

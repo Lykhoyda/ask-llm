@@ -682,7 +682,9 @@ describe("scripts/codex-pair-watch.mjs — structural invariants (ADR-077)", () 
     expect(script).toMatch(
       /FALLBACK_MODEL\s*=\s*process\.env\.ASK_CODEX_FALLBACK_MODEL\s*\?\?\s*CODEX_PAIR_DEFAULTS\.fallbackModel/,
     );
-    expect(script).toMatch(/CODEX_REASONING_EFFORTS\s*=\s*new Set\(\["low", "medium", "high", "xhigh", "max"\]\)/);
+    expect(script).toMatch(
+      /CODEX_REASONING_EFFORTS\s*=\s*new Set\(\["low", "medium", "high", "xhigh", "max", "ultra"\]\)/,
+    );
     expect(script).toMatch(/configuredReasoningEffort\s*=\s*process\.env\.ASK_CODEX_REASONING_EFFORT/);
     expect(script).toMatch(
       /DEFAULT_REASONING_EFFORT\s*=\s*CODEX_REASONING_EFFORTS\.has\(configuredReasoningEffort\)[\s\S]{0,100}\?\s*configuredReasoningEffort[\s\S]{0,100}:\s*"medium"/,
