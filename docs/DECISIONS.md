@@ -1,5 +1,15 @@
 # Architectural Decisions
 
+## ADR-163: Codex factory default moves to gpt-6-astra
+
+**Status:** Accepted (2026-09-20)
+
+**Context:** Issue #311 reported that Codex CLI 0.153.4 made `gpt-6-astra` the bundled default and listed it (`visibility: "list"`, `priority: 1`, `minimal_client_version: "0.153.0"`). Ask LLM still pinned `gpt-5.6-sol` / `gpt-5.6-terra` and always passes an explicit `-m`, so the CLI default change did not silently alter our behavior — it only left our pin behind Codex's own catalog. Binary extraction on 0.154.0–0.155.1 confirmed Sol/Terra remain selectable; `gpt-6-astra-aeon` and `gpt-6-astra-wm` are not `-m`-selectable. OpenAI's [GPT-6 Astra launch post](https://openai.com/index/gpt-6-astra/) and API identifier `gpt-6-astra` match the Codex catalog slug. `ultra` reasoning is already accepted as explicit opt-in (ADR from #310 / #334) and is not a review default.
+
+**Decision:** Change `@ask-llm/codex-mcp` `FACTORY_DEFAULT_MODEL` from `gpt-5.6-sol` to `gpt-6-astra`, and mirror that exact slug through the unified registry, plugin pair defaults, current-facing docs/`providers.ts`, and tests. Keep `MODELS.FALLBACK` at `gpt-5.6-terra` (no cheaper GPT-6 sibling is catalog-selectable). Enforce `ASTRA_MIN_CODEX_VERSION = "0.153.0"` only when the resolved model is `gpt-6-astra`: probe `codex --version` and fail closed with an upgrade-or-pin-Sol diagnostic. Do not add a global Codex CLI floor. Do not change `/sol-review`'s explicit `gpt-5.6-sol` pin or the ADR-148 `/brainstorm` Cursor route `codex@cursor-agent:gpt-5.6-sol-high`. `ASK_CODEX_MODEL` / `ASK_CODEX_FALLBACK_MODEL` remain overrides.
+
+**Consequences:** New unpinned `ask-codex` / `/codex-review` / `codex-pair` calls select Astra and still quota-fall back to Terra. Operators on Codex < 0.153.0 who hit the factory default get an actionable error instead of a catalog rejection; they can pin Sol or upgrade. Cursor brainstorm identity and Sol-review stay Sol. Docs drift CI continues to require `providers.ts` `defaultModel` to match the package constant.
+
 ## ADR-162: Antigravity treats agy 1.1.28 `--print-timeout` success as truncation, not a complete answer
 
 **Status:** Accepted (2026-09-15)

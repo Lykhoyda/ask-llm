@@ -15,10 +15,20 @@ vi.mock("@ask-llm/shared", async (importOriginal) => {
   };
 });
 
+vi.mock("../utils/codexVersion.js", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../utils/codexVersion.js")>();
+  return {
+    ...actual,
+    assertCodexSupportsModel: vi.fn(),
+  };
+});
+
 import { executeCommand, responseCache } from "@ask-llm/shared";
 import { executeCodexCLI } from "../utils/codexExecutor.js";
+import { assertCodexSupportsModel } from "../utils/codexVersion.js";
 
 const mockExecuteCommand = vi.mocked(executeCommand);
+const mockAssertCodexSupportsModel = vi.mocked(assertCodexSupportsModel);
 const outputSchema = {
   type: "object",
   additionalProperties: false,
@@ -37,6 +47,7 @@ function getOutputSchemaPath(args: string[]): string {
 beforeEach(() => {
   vi.clearAllMocks();
   responseCache.clear();
+  mockAssertCodexSupportsModel.mockResolvedValue("0.154.0");
   mockExecuteCommand.mockResolvedValue(agentMessage('{"verdict":"ok"}'));
 });
 

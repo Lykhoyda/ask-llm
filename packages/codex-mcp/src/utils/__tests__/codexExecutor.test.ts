@@ -14,6 +14,14 @@ vi.mock("@ask-llm/shared", async (importOriginal) => {
   };
 });
 
+vi.mock("../codexVersion.js", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../codexVersion.js")>();
+  return {
+    ...actual,
+    assertCodexSupportsModel: vi.fn(),
+  };
+});
+
 import { executeCommand, responseCache } from "@ask-llm/shared";
 import {
   executeCodexCLI,
@@ -22,13 +30,34 @@ import {
   processCodexEditOutput,
   resolveCodexTimeoutMs,
 } from "../codexExecutor.js";
+import { assertCodexSupportsModel } from "../codexVersion.js";
 
 const mockExecuteCommand = vi.mocked(executeCommand);
+const mockAssertCodexSupportsModel = vi.mocked(assertCodexSupportsModel);
 
 beforeEach(() => {
   vi.clearAllMocks();
   responseCache.clear();
+  mockAssertCodexSupportsModel.mockResolvedValue("0.154.0");
   mockExecuteCommand.mockResolvedValue("Codex response");
+});
+
+describe("executeCodexCLI Astra CLI floor", () => {
+  it("checks Codex version support for the resolved model before spawn", async () => {
+    await executeCodexCLI({ prompt: "hello" });
+
+    expect(mockAssertCodexSupportsModel).toHaveBeenCalledWith(MODELS.DEFAULT, undefined);
+    expect(mockExecuteCommand).toHaveBeenCalledOnce();
+  });
+
+  it("does not spawn Codex when the Astra CLI floor rejects the model", async () => {
+    mockAssertCodexSupportsModel.mockRejectedValue(new Error("codex >=0.153.0 is required for gpt-6-astra"));
+
+    await expect(executeCodexCLI({ prompt: "hello", model: "gpt-6-astra" })).rejects.toThrow(
+      /codex >=0\.153\.0 is required for gpt-6-astra/,
+    );
+    expect(mockExecuteCommand).not.toHaveBeenCalled();
+  });
 });
 
 describe("executeCodexCLI argument construction", () => {

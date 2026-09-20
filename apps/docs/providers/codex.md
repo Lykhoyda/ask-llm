@@ -1,5 +1,5 @@
 ---
-description: Bridge Claude with OpenAI Codex CLI for GPT-5.6 Sol code review and analysis. Automatic fallback to GPT-5.6 Terra on quota limits.
+description: Bridge Claude with OpenAI Codex CLI for GPT-6 Astra code review and analysis. Automatic fallback to GPT-5.6 Terra on quota limits.
 ---
 
 # Codex
@@ -20,7 +20,7 @@ Or install globally: `npm install -g @ask-llm/codex-mcp`
 ## Prerequisites
 
 1. **Node.js** v20.0.0 or higher
-2. **[Codex CLI](https://github.com/openai/codex)** installed and authenticated
+2. **[Codex CLI](https://github.com/openai/codex)** >= 0.153.0 installed and authenticated (`gpt-6-astra` is rejected on older CLIs; pin `ASK_CODEX_MODEL=gpt-5.6-sol` to stay on Sol)
 
 ## Tools
 
@@ -37,18 +37,18 @@ Or install globally: `npm install -g @ask-llm/codex-mcp`
 
 <FallbackChain provider="codex" />
 
-- **Default:** `gpt-5.6-sol` (GPT-5.6 Sol flagship)
+- **Default:** `gpt-6-astra` (GPT-6 Astra flagship; requires Codex CLI >= 0.153.0)
 - **Quota fallback:** `gpt-5.6-terra`, the balanced GPT-5.6 tier
 - **Overrides:** `ASK_CODEX_MODEL`, `ASK_CODEX_FALLBACK_MODEL`, or the per-call `model` parameter
 
 ## Key Features
 
-- **GPT-5.6 Sol access** via the official Codex CLI
+- **GPT-6 Astra access** via the official Codex CLI
 - **Reasoning control:** ordinary calls default to `medium`; `/codex-review` and `/brainstorm` use `high`; direct calls can request `low`, `medium`, `high`, `xhigh`, `max`, or `ultra`. `ultra` is opt-in only (maximum reasoning with automatic task delegation) and is not a review default
 - **Native session continuity:** omit `sessionId` for an ephemeral one-off call; pass `sessionId: ""` on turn one to persist a thread, then pass its returned `thread_id` on later turns. Follow-ups use `codex exec resume <id>` with the stable `-c sandbox_mode="<mode>"` grammar (zero replay cost, Codex retains state).
 - **Read-only, non-interactive sandbox:** fresh calls use `codex exec --sandbox read-only`; resumed calls use the equivalent supported config override `-c sandbox_mode="read-only"`. Both keep second-opinion, review, and edit-proposal calls from modifying the workspace. Codex `exec` is non-interactive by definition, so no approval prompt can hang the MCP subprocess. The optional `sandbox: "workspace-write"` parameter is a deliberate opt-out for flows that need Codex to write files (e.g. `/codex-image`); review flows must not set it.
 - **JSONL output parsing** for structured responses + token usage
-- **Automatic quota fallback** from GPT-5.6 Sol to Terra
+- **Automatic quota fallback** from GPT-6 Astra to Terra
 - **Structured AskResponse** via outputSchema for programmatic clients
 - **Standard MCP transport** works with 40+ clients
 

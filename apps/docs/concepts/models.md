@@ -13,7 +13,7 @@ Hosted CLI providers (Gemini, Codex, Claude, Antigravity) auto-select a sensible
 | Provider | Default | Fallback | Trigger |
 |---|---|---|---|
 | Gemini | `gemini-3.1-pro-preview` | `gemini-3.8-flash` | `RESOURCE_EXHAUSTED` quota error or "exhausted your capacity" pattern |
-| Codex | `gpt-5.6-sol` | `gpt-5.6-terra` | Quota errors (`rate_limit_exceeded`, `429`, `insufficient_quota`) |
+| Codex | `gpt-6-astra` | `gpt-5.6-terra` | Quota errors (`rate_limit_exceeded`, `429`, `insufficient_quota`) |
 | Claude | `opus` | `sonnet` | Claude Code native fallback when Opus is overloaded or unavailable |
 | Grok | `grok-4.6` (`reasoning.effort=high`) | none | Every error is terminal; requested ID is sent unchanged |
 | Antigravity | `gemini-3.1-pro` (`--effort high`) | `gemini-3.5-flash`; one model-less retry when agy rejects a model whose value equals `gemini-3.1-pro` or `gemini-3.5-flash` (reported as `agy default`). Both retain the effective effort (`high`, or the `ASK_ANTIGRAVITY_EFFORT` override) | Subscription rate limit; model-unavailable (shipped slug values only — other rejected models fail actionably) |
