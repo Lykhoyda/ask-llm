@@ -64,6 +64,7 @@ const modelChecks = [
 const fallbackChecks = [
   ["gemini", "packages/gemini-mcp/src/constants.ts", /FLASH: process\.env\.ASK_GEMINI_FALLBACK_MODEL \|\| "([^"]+)"/],
   ["antigravity", "packages/antigravity-mcp/src/constants.ts", /FALLBACK: "([^"]+)"/],
+  ["codex", "packages/codex-mcp/src/constants.ts", /FALLBACK: process\.env\.ASK_CODEX_FALLBACK_MODEL \|\| "([^"]+)"/],
 ];
 for (const [field, checks] of [
   ["defaultModel", modelChecks],
@@ -118,6 +119,39 @@ if (!geminiFallback) {
     const source = readFileSync(join(root, relative), "utf8");
     if (!source.includes(geminiFallback)) {
       errors.push(`${relative} is missing current Gemini fallback ${geminiFallback}`);
+    }
+  }
+}
+
+const llmMcpConstants = readFileSync(join(root, "packages/llm-mcp/src/constants.ts"), "utf8");
+const llmMcpCodexDefault = llmMcpConstants.match(/codex:\s*\{[\s\S]*?defaultModel:\s*"([^"]+)"/)?.[1];
+const codexFactoryDefault = readFileSync(join(root, "packages/codex-mcp/src/constants.ts"), "utf8").match(
+  /FACTORY_DEFAULT_MODEL = "([^"]+)"/,
+)?.[1];
+if (!codexFactoryDefault) {
+  errors.push("packages/codex-mcp/src/constants.ts no longer exposes FACTORY_DEFAULT_MODEL");
+} else if (llmMcpCodexDefault !== codexFactoryDefault) {
+  errors.push(
+    `packages/llm-mcp/src/constants.ts PROVIDERS.codex.defaultModel "${llmMcpCodexDefault}" does not match FACTORY_DEFAULT_MODEL "${codexFactoryDefault}"`,
+  );
+}
+
+const codexDefaultSurfaces = [
+  "README.md",
+  "apps/docs/concepts/how-it-works.md",
+  "apps/docs/concepts/models.md",
+  "apps/docs/providers/codex.md",
+  "apps/docs/public/llms.txt",
+  "apps/docs/public/llms-full.txt",
+  "apps/docs/resources/troubleshooting.md",
+  "docs/PROVIDER-PARITY.md",
+  "packages/codex-mcp/README.md",
+];
+if (codexFactoryDefault) {
+  for (const relative of codexDefaultSurfaces) {
+    const source = readFileSync(join(root, relative), "utf8");
+    if (!source.includes(codexFactoryDefault)) {
+      errors.push(`${relative} is missing current Codex default ${codexFactoryDefault}`);
     }
   }
 }

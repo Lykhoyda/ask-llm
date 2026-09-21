@@ -17,7 +17,8 @@ Pins live in each provider's `packages/<name>-mcp/src/constants.ts`. `packages/l
 - **agy:** `MINIMUM_AGY_VERSION` and the 1.1.9 / 1.1.28 gates live in `packages/antigravity-mcp/src/constants.ts`. Ground truth: ADR-137, ADR-141, ADR-162 in [DECISIONS.md](DECISIONS.md). Bump only with agy-native evidence; do not move Gemini and Antigravity pins together.
 - **Pi:** published host floor must equal the oldest exact `pi-package-smoke` matrix pin. [AGENTS.md](../AGENTS.md), [PI-COMPATIBILITY.md](PI-COMPATIBILITY.md).
 - **Grok Build:** large prompts require `--prompt-file` advertised in `grok --help` (1.0.5+).
-- Other CLIs have no hard `MINIMUM_*` here; the Friday routine in [ROUTINES.md](ROUTINES.md) watches their releases.
+- **Codex Astra:** `gpt-6-astra` requires Codex CLI >= 0.153.0 (`ASTRA_MIN_CODEX_VERSION` in `packages/codex-mcp/src/constants.ts`). The executor probes `codex --version` only for that slug; Sol/Terra stay ungated. Ground truth: ADR-163.
+- Other CLIs have no additional hard `MINIMUM_*` here; the Friday routine in [ROUTINES.md](ROUTINES.md) watches their releases.
 
 Harness-facing pin changes still use `yarn prepr:harness` — [HARNESS-SMOKE.md](HARNESS-SMOKE.md). That gate does not bump versions.
 

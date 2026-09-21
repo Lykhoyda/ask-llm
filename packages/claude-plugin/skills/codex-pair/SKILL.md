@@ -196,7 +196,7 @@ Render a status table:
 codex-pair status — <MARKER_DIR>
 
   State:           ACTIVE ✓
-  Marker model:    <model from frontmatter of context.md, or "default (gpt-5.6-sol)">
+  Marker model:    <model from frontmatter of context.md, or "default (gpt-6-astra)">
   Surface threshold: <surfaceThreshold from frontmatter, or "med">
   Cost/review:     varies by Codex plan and workload / ~13–50s wall-clock
 
@@ -303,7 +303,7 @@ Claude edits src/billing/charge.ts
 
 ## Cost characteristics
 
-- Usage varies by Codex plan and workload (`gpt-5.6-sol` with reasoning tokens)
+- Usage varies by Codex plan and workload (`gpt-6-astra` with reasoning tokens)
 - ~13–50s per file wall-clock
 - Files >20 KB skipped (override with `CODEX_PAIR_MAX_FILE_BYTES`)
 - node_modules, dist, lockfiles, images skipped automatically

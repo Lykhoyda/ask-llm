@@ -280,7 +280,7 @@ function parseNumberFrontmatter(content: string, key: string, fallback: number):
 async function readConfig(markerDir: string): Promise<{ config: PairConfig; context: string }> {
   const context = await readFile(join(markerDir, ".codex-pair", "context.md"), "utf8");
   const threshold = context.match(/^surfaceThreshold:\s*(high|med|low)\s*$/m)?.[1];
-  const model = context.match(/^model:\s*([^\n]+)$/m)?.[1]?.trim() || "gpt-5.6-sol";
+  const model = context.match(/^model:\s*([^\n]+)$/m)?.[1]?.trim() || "gpt-6-astra";
   return {
     context,
     config: {

@@ -31,7 +31,7 @@ export const PROVIDERS: Record<string, ProviderConfig> = {
     command: "codex",
     executorModule: "@ask-llm/codex-mcp/executor",
     executorFn: "executeCodexCLI",
-    defaultModel: "gpt-5.6-sol",
+    defaultModel: "gpt-6-astra",
     modelEnvVar: "ASK_CODEX_MODEL",
     enrichModule: "@ask-llm/codex-mcp/executor",
     enrichFn: "enrichCodexDoctor",

@@ -48,7 +48,10 @@ export const STATUS_MESSAGES = {
 
 // The out-of-box default, independent of any ASK_CODEX_MODEL override —
 // tool descriptions and drift-guard tests reference this, not the live value.
-export const FACTORY_DEFAULT_MODEL = "gpt-5.6-sol";
+// gpt-6-astra is Codex's own bundled default from 0.153.4 (#311 / ADR-163).
+export const FACTORY_DEFAULT_MODEL = "gpt-6-astra";
+export const ASTRA_MIN_CODEX_VERSION = "0.153.0";
+export const CODEX_VERSION_CHECK_TIMEOUT_MS = 5_000;
 
 // `ultra` is Codex catalog-backed for Sol/Terra (and Astra): maximum reasoning
 // with automatic task delegation. Accept it as explicit opt-in only; the factory
@@ -68,13 +71,12 @@ export const DEFAULT_REASONING_EFFORT = isCodexReasoningEffort(configuredReasoni
 
 export const MODELS = {
   DEFAULT: process.env.ASK_CODEX_MODEL || FACTORY_DEFAULT_MODEL,
-  // GPT-5.6 replaces the separate Pro slug with the Sol flagship model. Keep
-  // the preferred escape hatch for existing integrations; by default it now
-  // collapses to DEFAULT, and the executor avoids a duplicate attempt.
+  // Preferred collapses to DEFAULT unless ASK_CODEX_PREFERRED_MODEL differs.
+  // The executor then skips the extra preferred attempt.
   PREFERRED: process.env.ASK_CODEX_PREFERRED_MODEL || FACTORY_DEFAULT_MODEL,
-  // Terra is the balanced/lower-cost GPT-5.6 tier and the role-preserving
-  // successor to the previous gpt-5.4-mini quota fallback. Users can still pin
-  // another supported model through ASK_CODEX_FALLBACK_MODEL.
+  // Terra remains the balanced/lower-cost GPT-5.6 quota fallback. No GPT-6
+  // cheaper sibling is -m-selectable in the Codex catalog (#311). Users can
+  // still pin another supported model through ASK_CODEX_FALLBACK_MODEL.
   FALLBACK: process.env.ASK_CODEX_FALLBACK_MODEL || "gpt-5.6-terra",
 };
 
@@ -85,6 +87,7 @@ export const CLI = {
     RESUME: "resume",
   },
   FLAGS: {
+    VERSION: "--version",
     MODEL: "-m",
     CONFIG: "-c",
     SKIP_GIT: "--skip-git-repo-check",

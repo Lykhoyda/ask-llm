@@ -24,6 +24,7 @@ import {
   MODELS,
   STATUS_MESSAGES,
 } from "../constants.js";
+import { assertCodexSupportsModel } from "./codexVersion.js";
 
 // Re-exported on the `@ask-llm/codex-mcp/executor` surface so the llm-mcp orchestrator
 // can load the doctor enrichment by name (mirrors how executeCodexCLI is loaded).
@@ -86,7 +87,7 @@ export interface CodexExecutorOptions {
   model?: string;
   // Per-call Codex Responses reasoning override. Passed through `-c
   // model_reasoning_effort=...`; omitted callers use the behavior-preserving
-  // medium default rather than GPT-5.6 Sol's lighter CLI default.
+  // medium default rather than Astra's lighter CLI default.
   reasoningEffort?: CodexReasoningEffort;
   sessionId?: string;
   // Additional directories codex may access alongside the workspace (codex
@@ -446,6 +447,8 @@ export async function executeCodexCLI(options: CodexExecutorOptions): Promise<Co
     }
   }
 
+  await assertCodexSupportsModel(model, options.signal);
+
   let schemaPath: string | undefined;
   try {
     if (outputSchema) {
@@ -477,6 +480,7 @@ export async function executeCodexCLI(options: CodexExecutorOptions): Promise<Co
     // must still fall back. See ADR-132.
     let downgradedFromPreferred = false;
     if (preferredEligible) {
+      await assertCodexSupportsModel(MODELS.PREFERRED, options.signal);
       const preferredArgs = buildArgs(
         options.prompt,
         MODELS.PREFERRED,
@@ -540,6 +544,7 @@ export async function executeCodexCLI(options: CodexExecutorOptions): Promise<Co
           schemaPath,
           reasoningEffort,
         );
+        await assertCodexSupportsModel(MODELS.FALLBACK, options.signal);
         const fallbackStartedAt = Date.now();
         try {
           const raw = await executeCommand(

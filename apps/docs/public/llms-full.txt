@@ -191,11 +191,11 @@ Send prompts to OpenAI Codex CLI.
 - **Package:** @ask-llm/codex-mcp
 - **Parameters:**
   - `prompt` (string, required): The question, code review request, or analysis task.
-  - `model` (string, optional): Do not set unless user explicitly requests it. Default: gpt-5.6-sol. Falls back to gpt-5.6-terra on quota errors.
+  - `model` (string, optional): Do not set unless user explicitly requests it. Default: gpt-6-astra. Falls back to gpt-5.6-terra on quota errors.
   - `reasoningEffort` (string, optional): low, medium, high, xhigh, max, or ultra. Default: medium. /codex-review and /brainstorm use high. ultra is opt-in (maximum reasoning with automatic task delegation).
   - `sessionId` (string, optional): Omit for an ephemeral call, pass `""` to create a fresh persisted thread, or pass a non-empty returned thread_id to resume.
   - `includeDirs` (string[], optional): Additional directories to expose to Codex (`--add-dir`) on fresh calls only; not forwarded when resuming. Paths must be relative: no `..`, absolute paths, or `~`.
-  - `preferred` (boolean, optional): Opt into ASK_CODEX_PREFERRED_MODEL only when configured to differ from the gpt-5.6-sol default. Review skills leave it unset.
+  - `preferred` (boolean, optional): Opt into ASK_CODEX_PREFERRED_MODEL only when configured to differ from the gpt-6-astra default. Review skills leave it unset.
 - **Returns:** Codex's text response plus a structured payload (provider, model, sessionId, usage).
 - **Annotations:** readOnlyHint=false, destructiveHint=false, openWorldHint=true
 
@@ -206,7 +206,7 @@ Get structured, read-only code edits from Codex via `--output-schema`. Codex ana
 - **Package:** @ask-llm/codex-mcp
 - **Parameters:**
   - `prompt` (string, required): Describe the code changes you want.
-  - `model` (string, optional): Default: gpt-5.6-sol.
+  - `model` (string, optional): Default: gpt-6-astra.
   - `sessionId` (string, optional): Omit for an ephemeral call, pass `""` to create a fresh persisted thread, or pass a non-empty returned thread_id to resume.
   - `includeDirs` (string[], optional): Additional directories to expose to Codex (`--add-dir`) on fresh calls only; not forwarded when resuming. Paths must be relative: no `..`, absolute paths, or `~`.
 - **Returns:** Structured edit proposal (read-only: the caller applies the changes).
@@ -340,8 +340,9 @@ Test MCP server connectivity. Available in all packages.
 ### Codex
 | Model | Use Case |
 |-------|----------|
-| gpt-5.6-sol | Default: flagship capability |
+| gpt-6-astra | Default: flagship capability (Codex CLI >= 0.153.0) |
 | gpt-5.6-terra | Automatic balanced fallback on quota errors |
+| gpt-5.6-sol | Previous flagship; still selectable |
 
 ### Ollama
 | Model | Use Case |
@@ -472,8 +473,8 @@ All MCP servers handle errors gracefully:
 | ASK_CURSOR_TIMEOUT_MS | 600000 | Model-neutral Cursor Agent harness timeout |
 | ASK_GEMINI_MODEL | gemini-3.1-pro-preview | Override the Gemini default model |
 | ASK_GEMINI_FALLBACK_MODEL | gemini-3.8-flash | Override the Gemini quota fallback model |
-| ASK_CODEX_MODEL | gpt-5.6-sol | Override the Codex default model |
-| ASK_CODEX_PREFERRED_MODEL | gpt-5.6-sol | Legacy review-tier escape hatch; only attempted separately when it differs from ASK_CODEX_MODEL |
+| ASK_CODEX_MODEL | gpt-6-astra | Override the Codex default model |
+| ASK_CODEX_PREFERRED_MODEL | gpt-6-astra | Legacy review-tier escape hatch; only attempted separately when it differs from ASK_CODEX_MODEL |
 | ASK_CODEX_FALLBACK_MODEL | gpt-5.6-terra | Override the Codex quota fallback model |
 | ASK_CODEX_REASONING_EFFORT | medium | Default Codex reasoning effort; per-call reasoningEffort wins |
 | ASK_CLAUDE_MODEL | opus | Override the Claude default model |

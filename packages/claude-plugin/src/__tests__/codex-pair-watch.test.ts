@@ -56,7 +56,7 @@ describe("scripts/codex-pair-watch.mjs — structural invariants (ADR-077)", () 
     expect(script).toMatch(/stdin\.on\(["']error["']/);
   });
 
-  it("preserves quota fallback (gpt-5.6-sol → gpt-5.6-terra on rate_limit_exceeded)", () => {
+  it("preserves quota fallback (gpt-6-astra → gpt-5.6-terra on rate_limit_exceeded)", () => {
     expect(script).toMatch(/isQuotaError/);
     expect(script).toMatch(/rate_limit_exceeded/);
     expect(script).toMatch(/FALLBACK_MODEL/);

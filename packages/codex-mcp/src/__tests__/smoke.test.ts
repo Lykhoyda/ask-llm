@@ -24,9 +24,9 @@ describe("MCP server smoke test", () => {
 });
 
 describe("Codex default model version", () => {
-  it("defaults to gpt-5.6-sol when ASK_CODEX_MODEL is not set", () => {
+  it("defaults to gpt-6-astra when ASK_CODEX_MODEL is not set", () => {
     if (process.env.ASK_CODEX_MODEL) return;
-    expect(MODELS.DEFAULT).toBe("gpt-5.6-sol");
+    expect(MODELS.DEFAULT).toBe("gpt-6-astra");
   });
 
   it("falls back to gpt-5.6-terra when ASK_CODEX_FALLBACK_MODEL is not set", () => {
@@ -34,7 +34,7 @@ describe("Codex default model version", () => {
     expect(MODELS.FALLBACK).toBe("gpt-5.6-terra");
   });
 
-  it("uses the Sol default for the legacy preferred tier unless overridden", () => {
+  it("uses the Astra default for the legacy preferred tier unless overridden", () => {
     if (process.env.ASK_CODEX_MODEL || process.env.ASK_CODEX_PREFERRED_MODEL) return;
     expect(MODELS.PREFERRED).toBe(MODELS.DEFAULT);
   });

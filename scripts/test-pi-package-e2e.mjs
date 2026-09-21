@@ -169,8 +169,9 @@ await writeFile(
 
 const fakeCodex = `#!/usr/bin/env node
 const fs = require("node:fs");
-const stdin = fs.readFileSync(0, "utf8");
 const args = process.argv.slice(2);
+if (args.includes("--version")) { console.log("codex-cli 0.154.0"); process.exit(0); }
+const stdin = fs.readFileSync(0, "utf8");
 const input = args.join(" ") + "\\n" + stdin;
 fs.appendFileSync(process.env.ASK_LLM_PI_INVOCATION_LOG, JSON.stringify({ provider: "codex", args, inputBytes: Buffer.byteLength(input) }) + "\\n");
 let text = "FAKE_CODEX_RESPONSE";
