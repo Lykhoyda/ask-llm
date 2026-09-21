@@ -170,7 +170,7 @@ const EXACT_DRY_MODELS = Object.freeze({
   CURSOR_GROK: "cursor-grok-4.6-high",
   CURSOR_CODEX: "gpt-5.6-sol-high",
   PI: "openai-codex/gpt-5.6-sol",
-  CODEX: "gpt-5.6-sol",
+  CODEX: "gpt-6-astra",
   GROK: "grok-build",
 });
 

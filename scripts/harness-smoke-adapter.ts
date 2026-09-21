@@ -72,6 +72,7 @@ console.log(JSON.stringify({ type: "result", result: marker, usage: { input_toke
   await installFake(
     "codex",
     `${fakePreamble()}
+if (args.includes("--version")) { console.log("codex-cli 0.154.0"); process.exit(0); }
 const modelIndex = args.indexOf("--model") >= 0 ? args.indexOf("--model") : args.indexOf("-m");
 const model = args[modelIndex + 1];
 console.log(JSON.stringify({ type: "thread.started", thread_id: "fixture-thread" }));
