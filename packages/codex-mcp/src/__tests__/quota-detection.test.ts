@@ -105,7 +105,7 @@ describe("parseCodexJsonlOutput — exit-0 error-event quota path", () => {
   ])("normalizes an exit-zero error event as rate_limited: %s", (message) => {
     let thrown: unknown;
     try {
-      parseCodexJsonlOutput(JSON.stringify({ type: "error", message }), "gpt-5.6-sol", 100, false);
+      parseCodexJsonlOutput(JSON.stringify({ type: "error", message }), "gpt-6-sol", 100, false);
     } catch (error) {
       thrown = error;
     }

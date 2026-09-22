@@ -61,15 +61,15 @@ If Codex registration is missing, provision the unified server first (`claude mc
 |---------|----------|-------------|
 | `/multi-review` | Antigravity + Codex | Parallel review with 4-phase validation pipeline and consensus highlighting |
 | `/gemini-review` | Gemini | Get a second opinion on your current changes |
-| `/codex-review` | Codex | Get a second opinion from GPT-5.6 Sol |
+| `/codex-review` | Codex | Get a second opinion from GPT-6 Astra |
 | `/fable-review` | Fable | Native isolated review, pinned to Fable |
-| `/sol-review` | GPT-5.6 Sol | Model-pinned review through Codex |
+| `/sol-review` | GPT-6 Sol | Model-pinned review through Codex |
 | `/grok-review` | Grok | Explicit xAI API or Grok CLI review; metered/plan-aware, no harness or model fallback |
 | `/grok-pair` | Grok | Consent-gated iterative reviewer through exact Cursor Agent, xAI API, or Grok CLI route; no fallback |
 | `/codex-pair` | Codex | Continuous Claude hook dashboard; Cursor uses the separate on-demand persisted-session adapter |
 | `/ollama-review` | Ollama | Local review, no data leaves your machine |
 | `/antigravity-review` | Antigravity | Subscription-backed second opinion via Google `agy` (experimental) |
-| `/brainstorm` | Explicit panel + Claude Opus evidence | Supports exact provider/harness/model routes, including a no-Gemini Grok + GPT-5.6 Sol panel through Cursor Agent; partial failures never become consensus |
+| `/brainstorm` | Explicit panel + Claude Opus evidence | Supports exact provider/harness/model routes, including a no-Gemini Grok + GPT-6 Sol panel through Cursor Agent; partial failures never become consensus |
 | `/brainstorm-all` | All + Claude Opus | Brainstorm with all five external providers (Gemini, Codex, Grok, Ollama, Antigravity) plus Claude Opus research |
 | `/compare` | Multi (configurable) | Side-by-side raw responses from selected providers: no synthesis, no consensus extraction. Use when you want to see how each provider phrases the same answer |
 
@@ -84,7 +84,7 @@ If Codex registration is missing, provision the unified server first (`claude mc
 | `gemini-reviewer` | Isolated Gemini code review with confidence-based filtering |
 | `codex-reviewer` | Isolated Codex code review with confidence-based filtering |
 | `fable-reviewer` | Native read-only Fable review with source validation |
-| `sol-reviewer` | GPT-5.6 Sol review through Codex with source validation |
+| `sol-reviewer` | GPT-6 Sol review through Codex with source validation |
 | `grok-reviewer` | Grok review through the selected API/CLI harness with source validation and no fallback |
 | `ollama-reviewer` | Local Ollama code review, no data leaves your machine |
 | `antigravity-reviewer` | Subscription-backed Antigravity (`agy`) code review, experimental |
@@ -110,7 +110,7 @@ These commands are available after cloning and building the plugin locally. Mark
 | `ask-gemini-run` | Pipe code or prompts directly to Gemini CLI |
 | `ask-codex-run` | Pipe code or prompts directly to Codex CLI |
 | `ask-grok-run` | Pipe code or prompts to the explicitly configured Grok API/CLI harness |
-| `ask-brainstorm-run` | Run the exact Grok + GPT-5.6 Sol panel with repeated `provider@harness:exact-model-id` participant specs and structured partial-failure output |
+| `ask-brainstorm-run` | Run the exact Grok + GPT-6 Sol panel with repeated `provider@harness:exact-model-id` participant specs and structured partial-failure output |
 | `ask-ollama-run` | Pipe code or prompts directly to local Ollama |
 
 ## How It Works

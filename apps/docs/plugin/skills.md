@@ -20,7 +20,7 @@ Review the current diff directly with a read-only agent pinned to Fable. Finding
 
 ### `/sol-review`
 
-Run the same independent review contract with an isolated coordinator that explicitly requests `gpt-5.6-sol` at high reasoning from the Codex provider. `/codex-review` instead follows the configured Codex default.
+Run the same independent review contract with an isolated coordinator that explicitly requests `gpt-6-sol` at high reasoning from the Codex provider. `/codex-review` instead follows the configured Codex default.
 
 ```text
 /sol-review
@@ -50,7 +50,7 @@ Uses Gemini's 1M+ token context window, making it ideal for reviewing changes th
 
 ### `/codex-review`
 
-Get a second opinion from OpenAI Codex (GPT-5.6 Sol) on your current changes.
+Get a second opinion from OpenAI Codex (GPT-6 Astra) on your current changes.
 
 ```text
 /codex-review
@@ -110,16 +110,16 @@ Send a topic to an explicit multi-model panel, ground it with independent Claude
 # Custom external providers
 /brainstorm gemini,codex,ollama Review this authentication approach
 
-# Architect panel: exactly Grok + GPT-5.6 Sol via Cursor Agent; Gemini excluded
-/brainstorm grok@cursor-agent:cursor-grok-4.6-high,codex@cursor-agent:gpt-5.6-sol-high "review this architecture"
+# Architect panel: exactly Grok + GPT-6 Sol via Cursor Agent; Gemini excluded
+/brainstorm grok@cursor-agent:grok-4.7-high,codex@cursor-agent:gpt-6-sol-high "review this architecture"
 
 # Explicit direct-Grok alternative; never pivots away from Grok Build
-/brainstorm grok@grok-cli:grok-build,codex@cursor-agent:gpt-5.6-sol-high "review this architecture"
+/brainstorm grok@grok-cli:grok-4.7,codex@cursor-agent:gpt-6-sol-high "review this architecture"
 ```
 
-**Default external providers:** `antigravity,codex` (avoids unnecessary Ollama calls). Compatible bare provider lists remain supported. For predictable routing use `provider@harness:exact-model-id`; the preferred Grok path is Cursor Agent. A list is either all bare names or all routed specs—mixing them (for example `grok@cursor-agent:cursor-grok-4.6-high,antigravity`) is refused before any provider is called, with no rerouting or substitution; generalized mixed panels are deferred to a future ADR. Exact IDs come from the selected harness catalog (`agent --list-models`, `grok models`, or xAI `/v1/models`) and are never translated between catalogs.
+**Default external providers:** `antigravity,codex` (avoids unnecessary Ollama calls). Compatible bare provider lists remain supported. For predictable routing use `provider@harness:exact-model-id`; the preferred Grok path is Cursor Agent. A list is either all bare names or all routed specs—mixing them (for example `grok@cursor-agent:grok-4.7-high,antigravity`) is refused before any provider is called, with no rerouting or substitution; generalized mixed panels are deferred to a future ADR. Exact IDs come from the selected harness catalog (`agent --list-models`, `grok models`, or xAI `/v1/models`) and are never translated between catalogs.
 
-The architect panel invokes only the two listed Cursor participants: `provider: "grok"` with `model: "cursor-grok-4.6-high"`, and `provider: "codex"` with `model: "gpt-5.6-sol-high"`. It never calls Gemini or Cursor `Auto`. If registration, authentication, model availability, or route support fails for either participant, the result is **partial** and surviving insights are attributed only to the model that answered—never called two-model consensus. Claude's evidence can verify claims but cannot supply the missing vote.
+The architect panel invokes only the two listed Cursor participants: `provider: "grok"` with `model: "grok-4.7-high"`, and `provider: "codex"` with `model: "gpt-6-sol-high"`. It never calls Gemini or Cursor `Auto`. If registration, authentication, model availability, or route support fails for either participant, the result is **partial** and surviving insights are attributed only to the model that answered—never called two-model consensus. Claude's evidence can verify claims but cannot supply the missing vote.
 
 The `grok-cli` form is supported only when the installed official Grok Build exposes Ask LLM's required headless JSON/read-only contract. A direct-route failure is terminal for that participant; there is no silent pivot among Cursor Agent, Grok CLI, or xAI API.
 
@@ -177,8 +177,8 @@ If you're reviewing a code diff → use `/multi-review` instead.
 Claude Code's `/grok-pair` selects one immutable Grok route: `cursor-agent` (preferred when configured with an exact Grok-family ID from `agent --list-models`), `xai-api`, or `grok-cli`. Before provider work it shows provider, harness, exact model, reasoning semantics, bounded files/include directories, session support, and cost boundary for consent. Claude remains the editor; Grok feedback is relayed and verified at each checkpoint. Cancellation, partial failure, and final attribution are explicit; Auto, model rewriting, and provider/harness fallback are forbidden.
 
 ```text
-/grok-pair route=cursor-agent model=cursor-grok-4.6-high include=packages/api review this change
-/grok-pair route=xai-api model=grok-4.6 effort=xhigh review this change
+/grok-pair route=cursor-agent model=grok-4.7-high include=packages/api review this change
+/grok-pair route=xai-api model=grok-4.7 effort=xhigh review this change
 ```
 
 On Claude Code the Cursor and direct Grok tools come from user-scoped registrations (`claude mcp add --scope user ask-llm -- npx -y @ask-llm/mcp`, optionally `claude mcp add --scope user grok -- npx -y @ask-llm/grok-mcp`); the plugin itself bundles only Codex. The unified `ask-llm` tool is used only with provider, harness, exact model, and effort pinned. When Cursor itself hosts `/grok-pair`, it avoids recursive Cursor invocation and offers only explicit API/CLI routes through `ask-grok` or that fully pinned unified form; missing tools produce `.cursor/mcp.json` plus Cursor Tools & MCP reload guidance, never Claude-only setup commands.

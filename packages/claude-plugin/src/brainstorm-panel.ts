@@ -37,7 +37,7 @@ export interface BrainstormParticipantResult extends BrainstormParticipant {
 }
 
 export interface BrainstormPanelReport {
-  panel: "grok+gpt-5.6-sol";
+  panel: "grok+gpt-6-sol";
   status: "complete" | "partial" | "failed";
   consensusEligible: boolean;
   synthesisRule: string;
@@ -58,7 +58,7 @@ export function parseBrainstormParticipant(spec: string): BrainstormParticipant 
   const match = spec.match(/^(grok|codex)@(cursor-agent|grok-cli|xai-api|codex-cli):(.+)$/);
   if (!match) {
     throw new Error(
-      `Invalid brainstorm participant "${spec}". Use provider@harness:exact-model-id (for example grok@cursor-agent:cursor-grok-4.6-high).`,
+      `Invalid brainstorm participant "${spec}". Use provider@harness:exact-model-id (for example grok@cursor-agent:grok-4.7-high).`,
     );
   }
   const participant = {
@@ -88,7 +88,7 @@ export function parseBrainstormParticipantList(specs: string[]): BrainstormParti
   const routed = trimmed.filter((spec) => spec.includes("@"));
   if (bare.length > 0 && routed.length > 0) {
     throw new Error(
-      `Mixed brainstorm participant lists are not supported: routed ${routed.map((spec) => `"${spec}"`).join(", ")} cannot be combined with bare ${bare.map((spec) => `"${spec}"`).join(", ")}. Use either an all-bare provider list or the exact routed Grok + GPT-5.6 Sol panel. No participant was substituted, rerouted, or dispatched.`,
+      `Mixed brainstorm participant lists are not supported: routed ${routed.map((spec) => `"${spec}"`).join(", ")} cannot be combined with bare ${bare.map((spec) => `"${spec}"`).join(", ")}. Use either an all-bare provider list or the exact routed Grok + GPT-6 Sol panel. No participant was substituted, rerouted, or dispatched.`,
     );
   }
   if (routed.length > 0) {
@@ -105,15 +105,15 @@ export function parseBrainstormParticipantList(specs: string[]): BrainstormParti
 
 export function validateBrainstormPanel(participants: BrainstormParticipant[]): void {
   if (participants.length !== 2) {
-    throw new Error("The Grok + GPT-5.6 Sol panel requires exactly two participants.");
+    throw new Error("The Grok + GPT-6 Sol panel requires exactly two participants.");
   }
   const providers = participants.map(({ provider }) => provider);
   if (new Set(providers).size !== providers.length) {
-    throw new Error("The Grok + GPT-5.6 Sol panel requires one Grok participant and one Codex participant.");
+    throw new Error("The Grok + GPT-6 Sol panel requires one Grok participant and one Codex participant.");
   }
   for (const required of BRAINSTORM_PANEL_PROVIDERS) {
     if (!providers.includes(required)) {
-      throw new Error(`The Grok + GPT-5.6 Sol panel is missing provider "${required}".`);
+      throw new Error(`The Grok + GPT-6 Sol panel is missing provider "${required}".`);
     }
   }
   for (const participant of participants) {
@@ -125,9 +125,9 @@ export function validateBrainstormPanel(participants: BrainstormParticipant[]): 
         `Unsupported brainstorm route ${participant.provider}@${participant.harness}. No provider or harness fallback was attempted.`,
       );
     }
-    if (participant.provider === "codex" && !participant.model.toLowerCase().includes("gpt-5.6-sol")) {
+    if (participant.provider === "codex" && !participant.model.toLowerCase().includes("gpt-6-sol")) {
       throw new Error(
-        `The Codex participant must request an exact GPT-5.6 Sol model ID; received "${participant.model}". No model substitution was attempted.`,
+        `The Codex participant must request an exact GPT-6 Sol model ID; received "${participant.model}". No model substitution was attempted.`,
       );
     }
   }
@@ -343,7 +343,7 @@ export async function runBrainstormPanel(options: {
   );
   const successCount = participants.filter(({ status }) => status === "fulfilled").length;
   return {
-    panel: "grok+gpt-5.6-sol",
+    panel: "grok+gpt-6-sol",
     status: successCount === 2 ? "complete" : successCount === 1 ? "partial" : "failed",
     consensusEligible: successCount === 2,
     synthesisRule: SYNTHESIS_RULE,

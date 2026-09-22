@@ -84,29 +84,29 @@ See the [Pi host guide](https://lykhoyda.github.io/ask-llm/plugin/pi) for securi
 | `/gemini-review` | Gemini-only code review with confidence filtering |
 | `/codex-review` | Codex-only code review (precision-first, ≥80 confidence — default for routine PR review) |
 | `/fable-review` | Isolated, read-only review requesting native Fable, with runtime verification limits disclosed |
-| `/sol-review` | Model-pinned GPT-5.6 Sol review: prefer bundled or user-scoped `ask-codex`, then fully pinned unified `ask-llm`, then the disclosed CLI fallback |
+| `/sol-review` | Model-pinned GPT-6 Sol review: prefer bundled or user-scoped `ask-codex`, then fully pinned unified `ask-llm`, then the disclosed CLI fallback |
 | `/ollama-review` | Local review — no data leaves your machine |
-| `/brainstorm` | Explicit multi-model brainstorm (default external: Antigravity + Codex); supports an exact no-Gemini Grok + GPT-5.6 Sol panel through Cursor Agent |
+| `/brainstorm` | Explicit multi-model brainstorm (default external: Antigravity + Codex); supports an exact no-Gemini Grok + GPT-6 Sol panel through Cursor Agent |
 | `/grok-review` | Grok review through explicit xAI API or Grok CLI harness; no fallback |
 | `/grok-pair` | Consent-gated iterative Grok reviewer through exact Cursor Agent, xAI API, or Grok CLI route; no fallback |
 | `/codex-pair` | Claude/Pi per-edit pairing dashboard; Cursor on-demand session adapter with explicit Thread ID continuity |
 | `/brainstorm-all` | Brainstorm with all five external providers (Gemini, Codex, Grok, Ollama, Antigravity) + Claude Opus research |
 | `/compare` | Side-by-side raw responses from multiple providers (no synthesis, no consensus extraction) |
 
-### Exact Grok + GPT-5.6 Sol brainstorm
+### Exact Grok + GPT-6 Sol brainstorm
 
 The preferred architect panel routes both models through the model-neutral Cursor Agent harness with provider and exact account-catalog ID kept separate:
 
 ```text
-/brainstorm grok@cursor-agent:cursor-grok-4.6-high,codex@cursor-agent:gpt-5.6-sol-high "review this architecture"
+/brainstorm grok@cursor-agent:grok-4.7-high,codex@cursor-agent:gpt-6-sol-high "review this architecture"
 ```
 
-This panel calls exactly Grok and GPT-5.6 Sol—never Gemini. Cursor `Auto`, model rewriting, and harness/provider fallback are forbidden. If one participant fails, the result is partial and cannot be presented as two-model consensus. Catalogs are account-specific; confirm these exact IDs with `agent --list-models` and replace an unavailable ID explicitly.
+This panel calls exactly Grok and GPT-6 Sol—never Gemini. Cursor `Auto`, model rewriting, and harness/provider fallback are forbidden. If one participant fails, the result is partial and cannot be presented as two-model consensus. Catalogs are account-specific; confirm these exact IDs with `agent --list-models` and replace an unavailable ID explicitly.
 
 Official Grok Build remains an explicit alternative when its installed headless contract is supported:
 
 ```text
-/brainstorm grok@grok-cli:grok-build,codex@cursor-agent:gpt-5.6-sol-high "review this architecture"
+/brainstorm grok@grok-cli:grok-4.7,codex@cursor-agent:gpt-6-sol-high "review this architecture"
 ```
 
 A Grok CLI failure remains a Grok CLI failure; the workflow does not pivot to Cursor or xAI.
@@ -118,7 +118,7 @@ A Grok CLI failure remains a Grok CLI failure; the workflow does not pivot to Cu
 | gemini-reviewer | cyan | 4-phase: context, prompt, synthesis, validation |
 | codex-reviewer | green | 4-phase: context, prompt, synthesis, validation |
 | fable-reviewer | purple | Fable-requested review with source-verified findings |
-| sol-reviewer | blue | GPT-5.6 Sol review through Codex with source validation |
+| sol-reviewer | blue | GPT-6 Sol review through Codex with source validation |
 | ollama-reviewer | yellow | 4-phase: context, prompt, synthesis, validation (local) |
 | brainstorm-coordinator | magenta | Source-grounded research + parallel multi-model consultation; exact two-model mode keeps the host non-voting and partial failures out of consensus |
 
@@ -164,7 +164,7 @@ To disable:
 | Just this session | `/plugin disable ask-llm` |
 | Just this command | `CODEX_PAIR_DISABLED=1 <command>` |
 
-**Usage characteristics**: GPT-5.6 Sol by default with Terra quota fallback; ~13–50s per file. Files >20KB skipped (override with `CODEX_PAIR_MAX_FILE_BYTES`). node_modules/dist/lockfiles/images skipped automatically.
+**Usage characteristics**: GPT-6 Sol at medium effort by default, with Terra quota fallback; ~13–50s per file. Files >20KB skipped (override with `CODEX_PAIR_MAX_FILE_BYTES`). node_modules/dist/lockfiles/images skipped automatically.
 
 **When to enable**: any project where missed correctness issues cost more than the per-edit review (~$0.04–0.07). The decision is about *code characteristics*, not domain — codex-pair catches bugs earlier wherever a project has implicit invariants the model can't infer from one file in isolation (which most projects do, somewhere). **When NOT to enable**: routine refactors, glue code, simple CRUD where `/codex-review` at PR time is sufficient (~1/4 the cost). The four-task benchmark in ADR-077 has the full task-agnostic evidence trail; ADR-095 is the lived-experience replication on this very repo.
 

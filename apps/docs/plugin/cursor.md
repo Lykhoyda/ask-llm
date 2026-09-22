@@ -29,7 +29,7 @@ The first Codex call (`ask-codex` when user-installed, otherwise the fully pinne
 Example:
 
 ```text
-/codex-pair model=gpt-5.6-sol effort=high include=packages/api,packages/shared review this migration
+/codex-pair model=gpt-6-sol effort=medium include=packages/api,packages/shared review this migration
 ```
 
 With the plugin loaded, the unified `ask-llm` tool is the bundled transport: `/codex-pair` uses it with `provider: "codex"` and every option pinned; unsupported combinations (including `includeDirs` on a resumed thread) are rejected instead of stripped. A separately user-installed `ask-codex` leaf is preferred when exposed. If neither is present, install the recommended unified server instead of making a generic call:

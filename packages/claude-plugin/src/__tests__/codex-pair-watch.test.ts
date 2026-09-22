@@ -56,7 +56,7 @@ describe("scripts/codex-pair-watch.mjs — structural invariants (ADR-077)", () 
     expect(script).toMatch(/stdin\.on\(["']error["']/);
   });
 
-  it("preserves quota fallback (gpt-6-astra → gpt-5.6-terra on rate_limit_exceeded)", () => {
+  it("preserves quota fallback (gpt-6-sol → gpt-5.6-terra on rate_limit_exceeded)", () => {
     expect(script).toMatch(/isQuotaError/);
     expect(script).toMatch(/rate_limit_exceeded/);
     expect(script).toMatch(/FALLBACK_MODEL/);
@@ -712,8 +712,8 @@ describe("scripts/codex-pair-watch.mjs — structural invariants (ADR-077)", () 
     const constantsPath = path.join(PLUGIN_ROOT, "..", "codex-mcp", "src", "constants.ts");
     const constantsSource = fs.readFileSync(constantsPath, "utf-8");
 
-    // The default literal lives in FACTORY_DEFAULT_MODEL (env-invariant source
-    // of truth); DEFAULT derives from it via the ASK_CODEX_MODEL override.
+    // Pairing uses CODEX_PAIR_MODEL. ask-codex stays on FACTORY_DEFAULT_MODEL.
+    const pairMatch = constantsSource.match(/export const CODEX_PAIR_MODEL = "([^"]+)"/);
     const factoryMatch = constantsSource.match(/export const FACTORY_DEFAULT_MODEL = "([^"]+)"/);
     const defaultWiring = constantsSource.match(
       /DEFAULT:\s*process\.env\.ASK_CODEX_MODEL\s*\|\|\s*FACTORY_DEFAULT_MODEL/,
@@ -722,10 +722,13 @@ describe("scripts/codex-pair-watch.mjs — structural invariants (ADR-077)", () 
       /FALLBACK:\s*process\.env\.ASK_CODEX_FALLBACK_MODEL\s*\|\|\s*"([^"]+)"/,
     );
 
+    expect(pairMatch).toBeTruthy();
     expect(factoryMatch).toBeTruthy();
     expect(defaultWiring).toBeTruthy();
     expect(fallbackMatch).toBeTruthy();
-    expect(defaults.model).toBe(factoryMatch?.[1]);
+    expect(defaults.model).toBe(pairMatch?.[1]);
+    expect(defaults.model).toBe("gpt-6-sol");
+    expect(factoryMatch?.[1]).toBe("gpt-6-astra");
     expect(defaults.fallbackModel).toBe(fallbackMatch?.[1]);
   });
 
@@ -1160,7 +1163,7 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
       tempDir,
       [
         "---",
-        "model: gpt-5.6-sol",
+        "model: gpt-6-sol",
         "fallbackModel: gpt-5.6-terra",
         "timeoutMs: 800000",
         "maxFileBytes: 50",
@@ -3570,6 +3573,7 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
   it("ADR-093 M3 submitReview: thread/start params include ephemeral + approvalPolicy:'never' + sandbox:'read-only'", async () => {
     const { submitReview } = await import("../../scripts/lib/broker.mjs");
     let threadStartParams: unknown;
+    let turnStartParams: unknown;
     // biome-ignore lint/suspicious/noExplicitAny: test mock
     const mockRpc: any = {
       request: async (method: string, params: unknown) => {
@@ -3577,7 +3581,10 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
           threadStartParams = params;
           return { thread: { id: "T1" } };
         }
-        if (method === "turn/start") return { turn: { id: "U1" } };
+        if (method === "turn/start") {
+          turnStartParams = params;
+          return { turn: { id: "U1" } };
+        }
         return {};
       },
       waitFor: async () => ({
@@ -3604,6 +3611,7 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
     expect(p.baseInstructions).toBe("be strict");
     expect(p.approvalPolicy).toBe("never");
     expect(p.sandbox).toBe("read-only");
+    expect((turnStartParams as Record<string, unknown>).effort).toBe("medium");
   });
 
   // Multi-review M3 HOTFIX regression tests.

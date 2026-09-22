@@ -19,15 +19,15 @@ import {
 } from "../brainstorm-panel.js";
 
 const cursorPanel = [
-  parseBrainstormParticipant("grok@cursor-agent:cursor-grok-4.6-high"),
-  parseBrainstormParticipant("codex@cursor-agent:gpt-5.6-sol-high"),
+  parseBrainstormParticipant("grok@cursor-agent:grok-4.7-high"),
+  parseBrainstormParticipant("codex@cursor-agent:gpt-6-sol-high"),
 ];
 
 function cursorResult(provider: "grok" | "codex", model: string, response = `${provider} answer`) {
   return {
     provider,
     model,
-    reportedModel: provider === "grok" ? "Cursor Grok 4.6" : "GPT-5.6 Sol 1M High",
+    reportedModel: provider === "grok" ? "Grok 4.7" : "GPT-6 Sol 1M High",
     response,
     harness: "cursor-agent",
     usage: { provider, model, fellBack: false },
@@ -52,37 +52,37 @@ function grokResult(
 beforeEach(() => {
   vi.clearAllMocks();
   calls.cursor.mockImplementation(({ provider, model }) => Promise.resolve(cursorResult(provider, model)));
-  calls.grok.mockResolvedValue(grokResult("grok-build", "grok-cli"));
+  calls.grok.mockResolvedValue(grokResult("grok-4.7", "grok-cli"));
   calls.codex.mockResolvedValue({
     response: "direct sol answer",
-    usage: { provider: "codex", model: "gpt-5.6-sol", fellBack: false },
+    usage: { provider: "codex", model: "gpt-6-sol", fellBack: false },
   });
 });
 
-describe("Grok + GPT-5.6 Sol brainstorm participant contract", () => {
+describe("Grok + GPT-6 Sol brainstorm participant contract", () => {
   it("parses explicit provider, harness, and exact model identity without rewriting", () => {
-    expect(parseBrainstormParticipant("grok@cursor-agent:cursor-grok-4.6-high")).toEqual({
+    expect(parseBrainstormParticipant("grok@cursor-agent:grok-4.7-high")).toEqual({
       provider: "grok",
       harness: "cursor-agent",
-      model: "cursor-grok-4.6-high",
+      model: "grok-4.7-high",
     });
-    expect(parseBrainstormParticipant("codex@cursor-agent:gpt-5.6-sol-high")).toEqual({
+    expect(parseBrainstormParticipant("codex@cursor-agent:gpt-6-sol-high")).toEqual({
       provider: "codex",
       harness: "cursor-agent",
-      model: "gpt-5.6-sol-high",
+      model: "gpt-6-sol-high",
     });
   });
 
   it("explicitly excludes Gemini, Cursor Auto, cross-provider routes, and non-Sol Codex models", () => {
     expect(() => parseBrainstormParticipant("gemini@cursor-agent:gemini-3-pro")).toThrow(/Invalid brainstorm/);
     expect(() => parseBrainstormParticipant("grok@cursor-agent:auto")).toThrow(/exact non-Auto/);
-    expect(() => parseBrainstormParticipant("grok@codex-cli:gpt-5.6-sol")).toThrow(/Unsupported brainstorm route/);
+    expect(() => parseBrainstormParticipant("grok@codex-cli:gpt-6-sol")).toThrow(/Unsupported brainstorm route/);
     expect(() =>
       validateBrainstormPanel([
-        parseBrainstormParticipant("grok@cursor-agent:cursor-grok-4.6-high"),
+        parseBrainstormParticipant("grok@cursor-agent:grok-4.7-high"),
         parseBrainstormParticipant("codex@cursor-agent:gpt-5.6-terra-high"),
       ]),
-    ).toThrow(/exact GPT-5\.6 Sol/);
+    ).toThrow(/exact GPT-6 Sol/);
   });
 
   it("requires exactly one Grok and one Codex participant", () => {
@@ -105,15 +105,15 @@ describe("participant list classification", () => {
 
   it("returns the exact routed panel participants for an all-routed list", () => {
     expect(
-      parseBrainstormParticipantList(["grok@cursor-agent:cursor-grok-4.6-high", "codex@cursor-agent:gpt-5.6-sol-high"]),
+      parseBrainstormParticipantList(["grok@cursor-agent:grok-4.7-high", "codex@cursor-agent:gpt-6-sol-high"]),
     ).toEqual({ mode: "exact", participants: cursorPanel });
   });
 
   it.each([
-    [["grok@cursor-agent:cursor-grok-4.6-high", "antigravity"]],
-    [["antigravity", "grok@cursor-agent:cursor-grok-4.6-high"]],
-    [["codex@cursor-agent:gpt-5.6-sol-high", "grok"]],
-    [["gemini", "codex", "grok@grok-cli:grok-build"]],
+    [["grok@cursor-agent:grok-4.7-high", "antigravity"]],
+    [["antigravity", "grok@cursor-agent:grok-4.7-high"]],
+    [["codex@cursor-agent:gpt-6-sol-high", "grok"]],
+    [["gemini", "codex", "grok@grok-cli:grok-4.7"]],
   ])("refuses the mixed routed-and-bare list %j before any executor call", (specs) => {
     expect(() => parseBrainstormParticipantList(specs)).toThrow(
       /Mixed brainstorm participant lists are not supported.*No participant was substituted, rerouted, or dispatched/,
@@ -152,14 +152,14 @@ describe("exact panel routing", () => {
 
     expect(calls.cursor).toHaveBeenNthCalledWith(1, {
       provider: "grok",
-      model: "cursor-grok-4.6-high",
+      model: "grok-4.7-high",
       prompt: "same bytes",
       signal: undefined,
       onProgress: undefined,
     });
     expect(calls.cursor).toHaveBeenNthCalledWith(2, {
       provider: "codex",
-      model: "gpt-5.6-sol-high",
+      model: "gpt-6-sol-high",
       prompt: "same bytes",
       signal: undefined,
       onProgress: undefined,
@@ -169,24 +169,22 @@ describe("exact panel routing", () => {
     expect(report.participants.map(({ provider }) => provider)).toEqual(["grok", "codex"]);
   });
 
-  it("supports Grok Build only as an explicit direct alternative while Sol stays on its selected route", async () => {
+  it("supports the Grok CLI only as an explicit direct alternative while Sol stays on its selected route", async () => {
     const participants = [
-      parseBrainstormParticipant("grok@grok-cli:grok-build"),
-      parseBrainstormParticipant("codex@cursor-agent:gpt-5.6-sol-high"),
+      parseBrainstormParticipant("grok@grok-cli:grok-4.7"),
+      parseBrainstormParticipant("codex@cursor-agent:gpt-6-sol-high"),
     ];
     await runBrainstormPanel({ prompt: "architecture", participants });
 
     expect(calls.grok).toHaveBeenCalledWith({
       prompt: "architecture",
-      model: "grok-build",
+      model: "grok-4.7",
       harness: "grok-cli",
       reasoningEffort: "high",
       signal: undefined,
       onProgress: undefined,
     });
-    expect(calls.cursor).toHaveBeenCalledWith(
-      expect.objectContaining({ provider: "codex", model: "gpt-5.6-sol-high" }),
-    );
+    expect(calls.cursor).toHaveBeenCalledWith(expect.objectContaining({ provider: "codex", model: "gpt-6-sol-high" }));
   });
 
   it("does not pivot from a failed direct Grok route to Cursor, API, Codex, or Gemini", async () => {
@@ -194,8 +192,8 @@ describe("exact panel routing", () => {
     const report = await runBrainstormPanel({
       prompt: "architecture",
       participants: [
-        parseBrainstormParticipant("grok@grok-cli:grok-build"),
-        parseBrainstormParticipant("codex@cursor-agent:gpt-5.6-sol-high"),
+        parseBrainstormParticipant("grok@grok-cli:grok-4.7"),
+        parseBrainstormParticipant("codex@cursor-agent:gpt-6-sol-high"),
       ],
     });
 
@@ -226,10 +224,10 @@ describe("exact panel routing", () => {
     });
 
     expect(progress).toEqual([
-      "[grok via cursor-agent (cursor-grok-4.6-high)] still working",
-      "[codex via cursor-agent (gpt-5.6-sol-high)] still working",
+      "[grok via cursor-agent (grok-4.7-high)] still working",
+      "[codex via cursor-agent (gpt-6-sol-high)] still working",
     ]);
-    expect(progress.join(" ")).not.toContain("Cursor Grok 4.6");
+    expect(progress.join(" ")).not.toContain("Grok 4.7");
   });
 
   it.each([
@@ -244,7 +242,7 @@ describe("exact panel routing", () => {
     expect(report.participants[0]).toMatchObject({
       provider: "grok",
       harness: "cursor-agent",
-      requestedModel: "cursor-grok-4.6-high",
+      requestedModel: "grok-4.7-high",
       status: "rejected",
       error: message,
     });
@@ -263,16 +261,16 @@ describe("truthful model attribution", () => {
       expect.objectContaining({
         provider: "grok",
         harness: "cursor-agent",
-        requestedModel: "cursor-grok-4.6-high",
-        reportedModel: "Cursor Grok 4.6",
+        requestedModel: "grok-4.7-high",
+        reportedModel: "Grok 4.7",
         modelVerification: "selected-unverified",
         status: "fulfilled",
       }),
       expect.objectContaining({
         provider: "codex",
         harness: "cursor-agent",
-        requestedModel: "gpt-5.6-sol-high",
-        reportedModel: "GPT-5.6 Sol 1M High",
+        requestedModel: "gpt-6-sol-high",
+        reportedModel: "GPT-6 Sol 1M High",
         modelVerification: "selected-unverified",
         status: "fulfilled",
       }),
@@ -289,14 +287,14 @@ describe("truthful model attribution", () => {
     const report = await runBrainstormPanel({
       prompt: "architecture",
       participants: [
-        parseBrainstormParticipant("grok@grok-cli:grok-build"),
-        parseBrainstormParticipant("codex@cursor-agent:gpt-5.6-sol-high"),
+        parseBrainstormParticipant("grok@grok-cli:grok-4.7"),
+        parseBrainstormParticipant("codex@cursor-agent:gpt-6-sol-high"),
       ],
     });
 
     expect(report.participants[0]).toMatchObject({
-      requestedModel: "grok-build",
-      observedModel: "grok-build",
+      requestedModel: "grok-4.7",
+      observedModel: "grok-4.7",
       modelVerification: "observed-exact",
       status: "fulfilled",
     });
@@ -304,18 +302,18 @@ describe("truthful model attribution", () => {
   });
 
   it("keeps a direct Grok response selected-only when the harness reports no served model ID", async () => {
-    calls.grok.mockResolvedValueOnce(grokResult("grok-build", "grok-cli", { reportedModel: undefined }));
+    calls.grok.mockResolvedValueOnce(grokResult("grok-4.7", "grok-cli", { reportedModel: undefined }));
     const report = await runBrainstormPanel({
       prompt: "architecture",
       participants: [
-        parseBrainstormParticipant("grok@grok-cli:grok-build"),
-        parseBrainstormParticipant("codex@cursor-agent:gpt-5.6-sol-high"),
+        parseBrainstormParticipant("grok@grok-cli:grok-4.7"),
+        parseBrainstormParticipant("codex@cursor-agent:gpt-6-sol-high"),
       ],
     });
 
     expect(report.status).toBe("complete");
     expect(report.participants[0]).toMatchObject({
-      requestedModel: "grok-build",
+      requestedModel: "grok-4.7",
       modelVerification: "selected-unverified",
       status: "fulfilled",
       attributionNote: expect.stringContaining("reported no served model ID"),
@@ -330,7 +328,7 @@ describe("truthful model attribution", () => {
       prompt: "architecture",
       participants: [
         parseBrainstormParticipant("grok@xai-api:grok-4-latest"),
-        parseBrainstormParticipant("codex@cursor-agent:gpt-5.6-sol-high"),
+        parseBrainstormParticipant("codex@cursor-agent:gpt-6-sol-high"),
       ],
     });
 
@@ -350,7 +348,7 @@ describe("truthful model attribution", () => {
       prompt: "architecture",
       participants: [
         parseBrainstormParticipant("grok@xai-api:grok-4.6"),
-        parseBrainstormParticipant("codex@cursor-agent:gpt-5.6-sol-high"),
+        parseBrainstormParticipant("codex@cursor-agent:gpt-6-sol-high"),
       ],
     });
 
@@ -372,7 +370,7 @@ describe("truthful model attribution", () => {
       prompt: "architecture",
       participants: [
         parseBrainstormParticipant("grok@xai-api:grok-4.6"),
-        parseBrainstormParticipant("codex@cursor-agent:gpt-5.6-sol-high"),
+        parseBrainstormParticipant("codex@cursor-agent:gpt-6-sol-high"),
       ],
     });
 
@@ -415,17 +413,17 @@ describe("truthful model attribution", () => {
     const report = await runBrainstormPanel({
       prompt: "architecture",
       participants: [
-        parseBrainstormParticipant("grok@grok-cli:grok-build"),
-        parseBrainstormParticipant("codex@codex-cli:gpt-5.6-sol"),
+        parseBrainstormParticipant("grok@grok-cli:grok-4.7"),
+        parseBrainstormParticipant("codex@codex-cli:gpt-6-sol"),
       ],
     });
 
     expect(report.participants[1]).toMatchObject({
       provider: "codex",
-      requestedModel: "gpt-5.6-sol",
+      requestedModel: "gpt-6-sol",
       modelVerification: "fallback",
       status: "rejected",
-      error: expect.stringContaining('fallback to "gpt-5.6-terra" for requested "gpt-5.6-sol"'),
+      error: expect.stringContaining('fallback to "gpt-5.6-terra" for requested "gpt-6-sol"'),
     });
     expect(report.participants[1]).not.toHaveProperty("response");
     expect(report.consensusEligible).toBe(false);
@@ -436,8 +434,8 @@ describe("truthful model attribution", () => {
     const report = await runBrainstormPanel({
       prompt: "architecture",
       participants: [
-        parseBrainstormParticipant("grok@grok-cli:grok-build"),
-        parseBrainstormParticipant("codex@codex-cli:gpt-5.6-sol"),
+        parseBrainstormParticipant("grok@grok-cli:grok-4.7"),
+        parseBrainstormParticipant("codex@codex-cli:gpt-6-sol"),
       ],
     });
 
@@ -445,7 +443,7 @@ describe("truthful model attribution", () => {
     expect(report.participants[1]).toMatchObject({
       provider: "codex",
       harness: "codex-cli",
-      requestedModel: "gpt-5.6-sol",
+      requestedModel: "gpt-6-sol",
       modelVerification: "selected-unverified",
       response: "cached sol answer",
       status: "fulfilled",
@@ -462,15 +460,15 @@ describe("truthful model attribution", () => {
     const report = await runBrainstormPanel({
       prompt: "architecture",
       participants: [
-        parseBrainstormParticipant("grok@grok-cli:grok-build"),
-        parseBrainstormParticipant("codex@codex-cli:gpt-5.6-sol"),
+        parseBrainstormParticipant("grok@grok-cli:grok-4.7"),
+        parseBrainstormParticipant("codex@codex-cli:gpt-6-sol"),
       ],
     });
 
     expect(report.participants[1]).toMatchObject({
       modelVerification: "mismatch",
       status: "rejected",
-      error: expect.stringContaining('ran "gpt-5.6" instead of requested "gpt-5.6-sol"'),
+      error: expect.stringContaining('ran "gpt-5.6" instead of requested "gpt-6-sol"'),
     });
     expect(report.status).toBe("partial");
   });
@@ -480,7 +478,7 @@ describe("deterministic two-model synthesis eligibility", () => {
   it("allows two-model consensus only after both exact participants succeed", async () => {
     const report = await runBrainstormPanel({ prompt: "architecture", participants: cursorPanel });
     expect(report).toMatchObject({
-      panel: "grok+gpt-5.6-sol",
+      panel: "grok+gpt-6-sol",
       status: "complete",
       consensusEligible: true,
       synthesisRule: expect.stringContaining("only when both requested participants fulfilled"),
@@ -492,7 +490,7 @@ describe("deterministic two-model synthesis eligibility", () => {
       if (provider === "grok") {
         return Promise.reject(
           new Error(
-            'Cursor Agent model "cursor-grok-4.6-high" is unavailable. Run `agent --list-models`. No fallback was attempted.',
+            'Cursor Agent model "grok-4.7-high" is unavailable. Run `agent --list-models`. No fallback was attempted.',
           ),
         );
       }

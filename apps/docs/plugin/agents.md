@@ -1,5 +1,5 @@
 ---
-description: Isolated sub-agents for native Fable review, model-pinned GPT-5.6 Sol review, provider-backed code review, and multi-LLM brainstorming.
+description: Isolated sub-agents for native Fable review, model-pinned GPT-6 Sol review, provider-backed code review, and multi-LLM brainstorming.
 ---
 
 # Agents
@@ -16,7 +16,7 @@ Invoke it with `/fable-review`.
 
 ### `sol-reviewer`
 
-This reviewer uses an isolated Opus coordinator to request `gpt-5.6-sol` explicitly at high reasoning, then validates Sol's findings against the source. Invoke it with `/sol-review`. It prefers any exact `ask-codex` leaf (including the plugin-bundled Codex server), otherwise a fully pinned unified `ask-llm` call (`provider: "codex"` plus model and Codex options), otherwise the disclosed `codex exec` fallback. An older unified schema that cannot honor those options is reported rather than stripped. A quota fallback to Terra is disclosed instead of being presented as a Sol result.
+This reviewer uses an isolated Opus coordinator to request `gpt-6-sol` explicitly at high reasoning, then validates Sol's findings against the source. Invoke it with `/sol-review`. It prefers any exact `ask-codex` leaf (including the plugin-bundled Codex server), otherwise a fully pinned unified `ask-llm` call (`provider: "codex"` plus model and Codex options), otherwise the disclosed `codex exec` fallback. An older unified schema that cannot honor those options is reported rather than stripped. A quota fallback to Terra is disclosed instead of being presented as a Sol result.
 
 Provider-backed review agents use a 3-phase workflow with confidence-based filtering:
 
@@ -37,7 +37,7 @@ Provider-backed review agents use a 3-phase workflow with confidence-based filte
 
 ### `codex-reviewer`
 
-Sends code changes to OpenAI Codex (GPT-5.6 Sol) for review. Automatic fallback to GPT-5.6 Terra on quota limits.
+Sends code changes to OpenAI Codex (GPT-6 Astra) for review. Automatic fallback to GPT-5.6 Terra on quota limits.
 
 ### `antigravity-reviewer`
 
@@ -59,7 +59,7 @@ Sends code changes to Google Gemini for review. Leverages Gemini's massive conte
 
 ### `brainstorm-coordinator`
 
-Orchestrates multi-LLM brainstorming sessions with **Claude Opus as a first-class research participant** in standard mode. In the exact Grok + GPT-5.6 Sol mode (see [`/brainstorm`](/plugin/skills#brainstorm)) Claude's research is a non-voting evidence memo, the panel is exactly the two requested participants, and one participant failure makes the run partial rather than two-model consensus. The agent runs four phases sequentially within a single sub-agent turn:
+Orchestrates multi-LLM brainstorming sessions with **Claude Opus as a first-class research participant** in standard mode. In the exact Grok + GPT-6 Sol mode (see [`/brainstorm`](/plugin/skills#brainstorm)) Claude's research is a non-voting evidence memo, the panel is exactly the two requested participants, and one participant failure makes the run partial rather than two-model consensus. The agent runs four phases sequentially within a single sub-agent turn:
 
 **Phase 1: Context Gathering.** Identify the topic, gather diffs/files/conversation context referenced by it.
 

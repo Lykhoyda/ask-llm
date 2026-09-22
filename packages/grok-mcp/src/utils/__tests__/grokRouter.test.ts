@@ -25,8 +25,8 @@ beforeEach(() => {
   delete process.env.ASK_GROK_HARNESS;
   mocks.apiAvailable.mockResolvedValue(true);
   mocks.cliAvailable.mockResolvedValue(false);
-  mocks.api.mockResolvedValue({ response: "api", model: "grok-4.6", harness: "xai-api" });
-  mocks.cli.mockResolvedValue({ response: "cli", model: "grok-4.6", harness: "grok-cli" });
+  mocks.api.mockResolvedValue({ response: "api", model: "grok-4.7", harness: "xai-api" });
+  mocks.cli.mockResolvedValue({ response: "cli", model: "grok-4.7", harness: "grok-cli" });
 });
 
 describe("Grok harness routing", () => {

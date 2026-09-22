@@ -215,7 +215,12 @@ describe("Pi codex-pair lifecycle", () => {
 
     await eventually(() => expect(instance.messages).toHaveLength(1));
     expect(executeCodexCLI).toHaveBeenCalledTimes(1);
-    expect(executeCodexCLI.mock.calls[0][0]).toMatchObject({ sandbox: "read-only", signal: expect.any(AbortSignal) });
+    expect(executeCodexCLI.mock.calls[0][0]).toMatchObject({
+      model: "gpt-6-sol",
+      reasoningEffort: "medium",
+      sandbox: "read-only",
+      signal: expect.any(AbortSignal),
+    });
     expect(executeCodexCLI.mock.calls[0][0].prompt).toContain("export const value = -2");
     expect(instance.messages[0].options).toEqual({ deliverAs: "steer", triggerTurn: false });
     expect(instance.messages[0].message.content).toContain("advisory and non-blocking");

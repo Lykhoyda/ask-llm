@@ -35,9 +35,9 @@ Run an iterative pair-programming session in which Claude remains the sole edito
 Accept optional command text in this form (ask for any missing choice):
 
 ```text
-/grok-pair route=cursor-agent model=cursor-grok-4.6-high include=packages/api,packages/shared <task>
-/grok-pair route=xai-api model=grok-4.6 effort=xhigh <task>
-/grok-pair route=grok-cli model=grok-build effort=high <task>
+/grok-pair route=cursor-agent model=grok-4.7-high include=packages/api,packages/shared <task>
+/grok-pair route=xai-api model=grok-4.7 effort=xhigh <task>
+/grok-pair route=grok-cli model=grok-4.7 effort=high <task>
 ```
 
 Supported routes:

@@ -26,7 +26,7 @@ beforeEach(() => {
   delete process.env.ASK_GROK_TIMEOUT_MS;
   executeCommandMock.mockResolvedValue(
     JSON.stringify({
-      model: "grok-4.6",
+      model: "grok-4.7",
       response: "CLI review",
       usage: { input_tokens: 20, output_tokens: 8, reasoning_tokens: 3 },
     }),
@@ -35,7 +35,7 @@ beforeEach(() => {
 
 describe("Grok CLI harness", () => {
   it("uses headless JSON, exact model, read-only sandbox, bounded turns, and no auto-update", async () => {
-    await executeGrokCLI({ prompt: "review", model: "grok-4.6", reasoningEffort: "xhigh" });
+    await executeGrokCLI({ prompt: "review", model: "grok-4.7", reasoningEffort: "xhigh" });
 
     const [command, args, , , stdin, , logging] = executeCommandMock.mock.calls[0];
     expect(command).toBe("grok");
@@ -46,7 +46,7 @@ describe("Grok CLI harness", () => {
       "--output-format",
       "json",
       "--model",
-      "grok-4.6",
+      "grok-4.7",
       "--effort",
       "xhigh",
       "--sandbox",
@@ -70,8 +70,8 @@ describe("Grok CLI harness", () => {
   it("returns the CLI-reported model and normalized usage without fallback", async () => {
     const result = await executeGrokCLI({ prompt: "review" });
     expect(result).toMatchObject({
-      model: "grok-4.6",
-      reportedModel: "grok-4.6",
+      model: "grok-4.7",
+      reportedModel: "grok-4.7",
       harness: "grok-cli",
       usage: { provider: "grok", thinkingTokens: 3, fellBack: false },
     });
@@ -137,8 +137,8 @@ describe("Grok CLI harness", () => {
     executeCommandMock.mockResolvedValueOnce("--single --output-format --model --sandbox");
     await expect(probeGrokCli()).resolves.toBe(true);
 
-    executeCommandMock.mockResolvedValueOnce("grok-build  Grok Build\ngrok-4.6  Grok 4.6\n");
-    await expect(listGrokCliModels()).resolves.toEqual(["grok-build", "grok-4.6"]);
+    executeCommandMock.mockResolvedValueOnce("grok-4.7  Grok 4.7\n");
+    await expect(listGrokCliModels()).resolves.toEqual(["grok-4.7"]);
   });
 
   it("does not embed the schema constraint twice when the machine layer already appended it", async () => {

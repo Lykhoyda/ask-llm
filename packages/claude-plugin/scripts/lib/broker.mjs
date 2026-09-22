@@ -300,7 +300,7 @@ export async function probeBrokerHealth(state) {
 //      approvalPolicy: "never", sandbox: <readonly> }`
 //      → receives { thread: { id } }
 //   2. `turn/start { threadId, input: [{type:"text", text: prompt}],
-//      outputSchema: buildVerdictSchema(), effort: "high" }`
+//      outputSchema: buildVerdictSchema(), effort: "medium" }`
 //      → receives { turn: { id } }
 //   3. Listen on the JSON-RPC connection for `turn/completed`
 //      notification; extract the final agentMessage; parse its JSON
@@ -324,7 +324,7 @@ export async function probeBrokerHealth(state) {
 //      → receives `{ thread: Thread }`. Pin `thread.id`.
 //   2. Register `turn/completed` waiter BEFORE turn/start (race-safe).
 //   3. `turn/start { threadId, input: [{type:"text", text: prompt}],
-//      outputSchema: buildVerdictSchema(), effort: "high",
+//      outputSchema: buildVerdictSchema(), effort: "medium",
 //      sandboxPolicy: { type: "readOnly", networkAccess: false } }`
 //      → receives `{ turn: Turn }`. Pin `turn.id`.
 //   4. Await `turn/completed` notification matching our threadId. Extract
@@ -369,6 +369,7 @@ async function brokerRequest(rpc, method, params, timeoutMs, brokerPhase) {
 
 export async function submitReview(args) {
   const { rpc, connection, cwd, baseInstructions, prompt, model, timeoutMs = 60_000, abortSignal } = args;
+  const effort = args.effort ?? "medium";
   if (!rpc) throw new Error("submitReview: rpc client required");
   if (!connection) throw new Error("submitReview: connection required");
   if (typeof prompt !== "string" || prompt.length === 0) {
@@ -426,7 +427,7 @@ export async function submitReview(args) {
       threadId,
       input: [{ type: "text", text: prompt }],
       outputSchema: buildVerdictSchema(),
-      effort: "high",
+      effort,
       // Belt-and-suspenders: also pin turn-level sandbox + deny network.
       sandboxPolicy: { type: "readOnly", networkAccess: false },
     },

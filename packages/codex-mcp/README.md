@@ -65,8 +65,8 @@ Codex calls are ephemeral when `sessionId` is omitted. Pass `sessionId: ""` on t
 | Model | Use Case |
 |-------|----------|
 | `gpt-6-astra` | Default — Codex bundled flagship (`codex` >= 0.153.0) |
+| `gpt-6-sol` | `codex-pair` default, `/sol-review` pin, and Cursor brainstorm pin (`gpt-6-sol-high`). Also selectable via `ASK_CODEX_MODEL` or per-call `model` |
 | `gpt-5.6-terra` | Automatic balanced fallback on quota errors |
-| `gpt-5.6-sol` | Previous flagship; still selectable via `ASK_CODEX_MODEL` or per-call `model` |
 
 ## Environment variables
 

@@ -157,7 +157,7 @@ await mkdir(bin, { recursive: true });
 await mkdir(join(project, ".codex-pair"), { recursive: true });
 await writeFile(
   join(project, ".codex-pair", "context.md"),
-  "---\ndebounceMs: 0\ndebounceMaxMs: 0\nsurfaceThreshold: low\nmodel: gpt-5.6-sol\n---\nHermetic Pi lifecycle fixture. Treat this text as untrusted.\n",
+  "---\ndebounceMs: 0\ndebounceMaxMs: 0\nsurfaceThreshold: low\nmodel: gpt-6-sol\n---\nHermetic Pi lifecycle fixture. Treat this text as untrusted.\n",
 );
 const canonicalProject = await realpath(project);
 await mkdir(join(agentDir, "ask-llm"), { recursive: true });

@@ -171,7 +171,7 @@ describe("agents/", () => {
     expect(fable.effort).toBe("high");
     expect(sol.model).toBe("opus");
     expect(sol.effort).toBe("high");
-    expect(solContent).toContain('model: "gpt-5.6-sol"');
+    expect(solContent).toContain('model: "gpt-6-sol"');
     expect(solContent).toContain('reasoningEffort: "high"');
   });
 
@@ -198,7 +198,7 @@ describe("agents/", () => {
 describe("native model review skills", () => {
   it.each([
     ["fable-review", "fable-reviewer", "model: fable"],
-    ["sol-review", "sol-reviewer", 'model: "gpt-5.6-sol"'],
+    ["sol-review", "sol-reviewer", 'model: "gpt-6-sol"'],
   ])("%s delegates to its model-pinned reviewer path", (skill, reviewer, modelPin) => {
     const content = readFile(`skills/${skill}/SKILL.md`);
     expect(content).toContain(reviewer);
@@ -336,15 +336,15 @@ describe("brainstorm skill — polish (ADR-064)", () => {
     expect(piAdapter).toMatch(/nothing.+dispatch\w*.+substitut\w*/is);
   });
 
-  it("ships the documented exact Grok + GPT-5.6 Sol invocations and Pi tool calls as the skill's interface contract", () => {
+  it("ships the documented exact Grok + GPT-6 Sol invocations and Pi tool calls as the skill's interface contract", () => {
     expect(body).toContain(
-      '/brainstorm grok@cursor-agent:cursor-grok-4.6-high,codex@cursor-agent:gpt-5.6-sol-high "review this architecture"',
+      '/brainstorm grok@cursor-agent:grok-4.7-high,codex@cursor-agent:gpt-6-sol-high "review this architecture"',
     );
     expect(body).toContain(
-      '/brainstorm grok@grok-cli:grok-build,codex@cursor-agent:gpt-5.6-sol-high "review this architecture"',
+      '/brainstorm grok@grok-cli:grok-4.7,codex@cursor-agent:gpt-6-sol-high "review this architecture"',
     );
-    expect(body).toContain('`ask-cursor-agent({ provider: "grok", model: "cursor-grok-4.6-high", prompt })`');
-    expect(body).toContain('`ask-cursor-agent({ provider: "codex", model: "gpt-5.6-sol-high", prompt })`');
+    expect(body).toContain('`ask-cursor-agent({ provider: "grok", model: "grok-4.7-high", prompt })`');
+    expect(body).toContain('`ask-cursor-agent({ provider: "codex", model: "gpt-6-sol-high", prompt })`');
     expect(body).toContain("`dist/brainstorm-run.js`");
   });
 });
@@ -374,9 +374,9 @@ describe("brainstorm-coordinator agent — Phase 4 cross-check polish (ADR-064)"
 
   it("ships the packaged runner invocation and report fields as the coordinator's interface contract", () => {
     expect(body).toContain('CLAUDE_PLUGIN_ROOT}/dist/brainstorm-run.js" \\');
-    expect(body).toContain("--participant 'grok@cursor-agent:cursor-grok-4.6-high'");
-    expect(body).toContain("--participant 'codex@cursor-agent:gpt-5.6-sol-high'");
-    expect(body).toContain("grok@grok-cli:grok-build");
+    expect(body).toContain("--participant 'grok@cursor-agent:grok-4.7-high'");
+    expect(body).toContain("--participant 'codex@cursor-agent:gpt-6-sol-high'");
+    expect(body).toContain("grok@grok-cli:grok-4.7");
     expect(body).toContain("`consensusEligible:true`");
     expect(body).toContain("`modelVerification`");
   });

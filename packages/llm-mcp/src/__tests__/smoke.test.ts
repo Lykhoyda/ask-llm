@@ -17,7 +17,7 @@ vi.mock("@ask-llm/claude-mcp/executor", () => ({
 }));
 
 vi.mock("@ask-llm/grok-mcp/executor", () => ({
-  executeGrok: vi.fn().mockResolvedValue({ response: "grok response", model: "grok-4.6" }),
+  executeGrok: vi.fn().mockResolvedValue({ response: "grok response", model: "grok-4.7" }),
   isGrokProviderAvailable: vi.fn().mockResolvedValue(false),
 }));
 
@@ -79,11 +79,11 @@ beforeEach(() => {
   vi.mocked(executeCodexCLI).mockResolvedValue({ response: "codex response", threadId: undefined });
   vi.mocked(executeClaudeCLI).mockResolvedValue({
     response: "claude response",
-    model: "claude-opus-4-6",
+    model: "claude-opus-5-5",
     sessionId: undefined,
     usage: {
       provider: "claude",
-      model: "claude-opus-4-6",
+      model: "claude-opus-5-5",
       inputTokens: undefined,
       outputTokens: undefined,
       cachedTokens: undefined,
@@ -94,11 +94,11 @@ beforeEach(() => {
   });
   vi.mocked(executeGrok).mockResolvedValue({
     response: "grok response",
-    model: "grok-4.6",
+    model: "grok-4.7",
     sessionId: undefined,
     usage: {
       provider: "grok",
-      model: "grok-4.6",
+      model: "grok-4.7",
       inputTokens: 1,
       outputTokens: 1,
       cachedTokens: 0,
@@ -146,9 +146,9 @@ describe("detectProviders", () => {
     expect(mockIsGrokAvailable).toHaveBeenCalledWith();
     expect(status.available).toContain("grok");
     expect(executor).toBeDefined();
-    await executor?.({ prompt: "review", harness: "grok-cli", model: "grok-build", reasoningEffort: "high" });
+    await executor?.({ prompt: "review", harness: "grok-cli", model: "grok-4.7", reasoningEffort: "high" });
     expect(executeGrok).toHaveBeenCalledWith(
-      expect.objectContaining({ harness: "grok-cli", model: "grok-build", reasoningEffort: "high" }),
+      expect.objectContaining({ harness: "grok-cli", model: "grok-4.7", reasoningEffort: "high" }),
     );
   });
 
@@ -346,7 +346,7 @@ describe("provider selection and ping", () => {
       askLlmArgsToExecutorOptions({
         provider: "codex",
         prompt: "review",
-        model: "gpt-5.6-sol",
+        model: "gpt-6-sol",
         includeDirs: ["packages/core"],
         reasoningEffort: "high",
         preferred: true,
@@ -354,7 +354,7 @@ describe("provider selection and ping", () => {
       }),
     ).toEqual({
       prompt: "review",
-      model: "gpt-5.6-sol",
+      model: "gpt-6-sol",
       sessionId: undefined,
       includeDirs: ["packages/core"],
       reasoningEffort: "high",

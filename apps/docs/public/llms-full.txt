@@ -233,7 +233,7 @@ Send a one-shot prompt through either xAI's Responses API (`xai-api`, default) o
 - **Package:** @ask-llm/grok-mcp
 - **Parameters:**
   - `prompt` (string, required): The review, question, or analysis task.
-  - `model` (string, optional): Exact selected-harness model ID, sent unchanged. Default: `grok-4.6` (xAI API) or `grok-build` (Grok CLI). There is no fallback.
+  - `model` (string, optional): Exact selected-harness model ID, sent unchanged. Default: `grok-4.7` on both the xAI API and the Grok CLI. There is no fallback.
   - `harness` (string, optional): `xai-api` or `grok-cli`; default `xai-api` or `ASK_GROK_HARNESS`. No harness failover.
   - `reasoningEffort` (string, optional): `low`, `medium`, `high`, or `xhigh`; default `high`.
 - **Returns:** Grok text plus standard structured provider/model/usage metadata. Machine-mode callers get strict JSON Schema output.
@@ -341,8 +341,8 @@ Test MCP server connectivity. Available in all packages.
 | Model | Use Case |
 |-------|----------|
 | gpt-6-astra | Default: flagship capability (Codex CLI >= 0.153.0) |
+| gpt-6-sol | codex-pair default at medium effort; `/sol-review` pin; Cursor brainstorm pin is `gpt-6-sol-high` |
 | gpt-5.6-terra | Automatic balanced fallback on quota errors |
-| gpt-5.6-sol | Previous flagship; still selectable |
 
 ### Ollama
 | Model | Use Case |
@@ -411,12 +411,12 @@ Launches Antigravity and Codex reviews in parallel with a validation pipeline an
 |-------|-------------|
 | /multi-review | Parallel Antigravity + Codex code review with validation pipeline and consensus highlighting |
 | /fable-review | Native read-only review in an isolated context pinned to the Fable model; source-verified, confidence-filtered findings (no MCP server needed) |
-| /sol-review | Model-pinned review explicitly requesting GPT-5.6 Sol at high reasoning through Codex; quota fallback to Terra is disclosed |
+| /sol-review | Model-pinned review explicitly requesting GPT-6 Sol at high reasoning through Codex; quota fallback to Terra is disclosed |
 | /codex-review | Codex-only code review with confidence filtering |
 | /antigravity-review | Antigravity-only code review (subscription-backed) |
 | /ollama-review | Local Ollama code review: no data leaves machine |
 | /gemini-review | Gemini-only code review with confidence filtering |
-| /brainstorm [participants] topic | Multi-LLM brainstorm; Claude researches in parallel (default external providers: antigravity,codex). Participants are either all bare provider names or all routed provider@harness:exact-model-id specs; the exact no-Gemini panel is grok@cursor-agent:cursor-grok-4.6-high,codex@cursor-agent:gpt-5.6-sol-high (one failure = partial, never two-model consensus) |
+| /brainstorm [participants] topic | Multi-LLM brainstorm; Claude researches in parallel (default external providers: antigravity,codex). Participants are either all bare provider names or all routed provider@harness:exact-model-id specs; the exact no-Gemini panel is grok@cursor-agent:grok-4.7-high,codex@cursor-agent:gpt-6-sol-high (one failure = partial, never two-model consensus) |
 | /brainstorm-all topic | Brainstorm with all five providers (gemini, codex, grok, ollama, antigravity) |
 | /grok-review | Grok review through explicit xAI API or Grok CLI harness; no fallback |
 | /compare | Side-by-side raw responses from multiple providers (no synthesis) |
@@ -430,13 +430,13 @@ Launches Antigravity and Codex reviews in parallel with a validation pipeline an
 | Agent | Description |
 |-------|-------------|
 | fable-reviewer | Native read-only Fable review in an isolated context, source-verified high-confidence findings |
-| sol-reviewer | Isolated read-only review pinned to GPT-5.6 Sol via Codex, source-verified high-confidence findings |
+| sol-reviewer | Isolated read-only review pinned to GPT-6 Sol via Codex, source-verified high-confidence findings |
 | codex-reviewer | Isolated Codex review, confidence-filtered findings |
 | antigravity-reviewer | Isolated Antigravity review, confidence-filtered findings |
 | ollama-reviewer | Isolated local Ollama review, confidence-filtered findings |
 | gemini-reviewer | Isolated Gemini review, confidence-filtered findings |
 | codex-verifier | Verifies the assistant's claims against actual state (STATUS + CONFIDENCE) |
-| brainstorm-coordinator | Claude's own research + parallel external-provider consultation, synthesized; non-voting in the exact Grok + GPT-5.6 Sol mode |
+| brainstorm-coordinator | Claude's own research + parallel external-provider consultation, synthesized; non-voting in the exact Grok + GPT-6 Sol mode |
 
 ### Hooks
 
@@ -454,7 +454,7 @@ Every hook the plugin registers is part of the **codex-pair** continuous-review 
 ## Error Handling
 
 All MCP servers handle errors gracefully:
-- **Quota / rate-limit errors:** Automatic fallback to a lighter model for hosted providers that define one (codex GPT-5.6 Sol→Terra, claude opus→sonnet, antigravity Pro→Flash, gemini pro→flash). Grok and Ollama never substitute: Grok preserves explicit harness/model selection; Ollama is local and a missing model returns a clear "ollama pull" error.
+- **Quota / rate-limit errors:** Automatic fallback to a lighter model for hosted providers that define one (codex GPT-6 Astra→Terra, claude opus→sonnet, antigravity Pro→Flash, gemini pro→flash). Grok and Ollama never substitute: Grok preserves explicit harness/model selection; Ollama is local and a missing model returns a clear "ollama pull" error.
 - **CLI not found:** Clear error message with installation instructions.
 - **Timeout:** Per-provider defaults (codex 800s, claude 600s, grok 600s, Cursor harness 600s, antigravity 300s, ollama 600s, gemini 210s). Resolution order: `ASK_{PROVIDER}_TIMEOUT_MS` > `GMCPT_TIMEOUT_MS` > the provider default.
 - **Large responses:** Automatic chunking with fetch-chunk retrieval (Gemini only).
@@ -465,7 +465,7 @@ All MCP servers handle errors gracefully:
 |----------|---------|-------------|
 | XAI_API_KEY | required for xai-api | xAI credential; never logged/returned |
 | ASK_GROK_HARNESS | xai-api | Explicit xai-api or grok-cli selection; no failover |
-| ASK_GROK_MODEL | grok-4.6 (API) / grok-build (CLI) | Exact selected-harness Grok model ID |
+| ASK_GROK_MODEL | grok-4.7 | Exact selected-harness Grok model ID |
 | ASK_GROK_REASONING_EFFORT | high | low, medium, high, or xhigh |
 | ASK_GROK_MAX_OUTPUT_TOKENS | 16384 | xAI API output cap to bound accidental spend |
 | ASK_GROK_TIMEOUT_MS | 600000 | Grok API/CLI timeout |

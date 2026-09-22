@@ -188,9 +188,9 @@ describe("response contract", () => {
 
   it("keeps the requested model effective but leaves reportedModel empty when the payload omits model", async () => {
     fetchMock.mockResolvedValueOnce(successResponse({ model: undefined }));
-    const result = await executeGrokAPI({ prompt: "no model", model: "grok-4.6" });
-    expect(result).toMatchObject({ model: "grok-4.6", reportedModel: undefined });
-    expect(result.usage.model).toBe("grok-4.6");
+    const result = await executeGrokAPI({ prompt: "no model", model: "grok-4.7" });
+    expect(result).toMatchObject({ model: "grok-4.7", reportedModel: undefined });
+    expect(result.usage.model).toBe("grok-4.7");
   });
 
   it("discloses that xhigh is applied as high on models without xhigh support", async () => {
@@ -350,9 +350,9 @@ describe("model discovery and caching", () => {
 
   it("lists exact model IDs using the unbilled model endpoint", async () => {
     fetchMock.mockResolvedValueOnce(
-      new Response(JSON.stringify({ data: [{ id: "grok-4.6" }, { id: "fixture-exact-model" }] }), { status: 200 }),
+      new Response(JSON.stringify({ data: [{ id: "grok-4.7" }, { id: "fixture-exact-model" }] }), { status: 200 }),
     );
-    await expect(listModels()).resolves.toEqual(["grok-4.6", "fixture-exact-model"]);
+    await expect(listModels()).resolves.toEqual(["grok-4.7", "fixture-exact-model"]);
     expect(fetchMock).toHaveBeenCalledWith(
       `${XAI_API_BASE_URL}${API.MODELS}`,
       expect.objectContaining({ headers: { Authorization: `Bearer ${API_KEY}` }, signal: expect.any(AbortSignal) }),

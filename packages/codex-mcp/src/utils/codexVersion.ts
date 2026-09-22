@@ -48,7 +48,7 @@ function normalizeVersion(version: SemanticVersion): string {
 }
 
 function upgradeRemediation(): string {
-  return `Update Codex CLI to ${ASTRA_MIN_CODEX_VERSION} or later, or pin ASK_CODEX_MODEL=gpt-5.6-sol.`;
+  return `Update Codex CLI to ${ASTRA_MIN_CODEX_VERSION} or later, or pin ASK_CODEX_MODEL=gpt-6-sol.`;
 }
 
 // Unparseable input gates conservatively (false) so optional floors stay off.

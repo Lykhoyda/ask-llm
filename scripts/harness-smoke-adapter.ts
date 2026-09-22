@@ -60,12 +60,12 @@ async function installFakes(): Promise<void> {
     `${fakePreamble()}
 if (args.includes("--help")) { console.log("--output-format --mode --model"); process.exit(0); }
 if (args.includes("--list-models")) {
-  console.log("Available models\\n${config.model} - Fixture primary\\n${config.secondaryModel ?? "gpt-5.6-sol-high"} - Fixture secondary");
+  console.log("Available models\\n${config.model} - Fixture primary\\n${config.secondaryModel ?? "gpt-6-sol-high"} - Fixture secondary");
   process.exit(0);
 }
 const model = args[args.indexOf("--model") + 1];
 const family = /grok/i.test(model) ? "grok" : /(?:gpt|codex|o[134])/i.test(model) ? "codex" : "unknown";
-console.log(JSON.stringify({ type: "system", subtype: "init", model: family === "grok" ? "Cursor Grok 4.6" : "GPT-5.6 Sol High", session_id: "fixture-session" }));
+console.log(JSON.stringify({ type: "system", subtype: "init", model: family === "grok" ? "Grok 4.7" : "GPT-6 Sol High", session_id: "fixture-session" }));
 console.log(JSON.stringify({ type: "result", result: marker, usage: { input_tokens: 2, output_tokens: 1 } }));
 `,
   );

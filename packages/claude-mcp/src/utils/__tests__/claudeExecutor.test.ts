@@ -67,7 +67,7 @@ describe("parseClaudeJsonOutput", () => {
       result: "Independent review",
       session_id: "2b7f7c54-2f93-4d6e-a551-8f947ce73643",
       modelUsage: {
-        "claude-opus-4-6": {
+        "claude-opus-5-5": {
           inputTokens: 120,
           outputTokens: 45,
           cacheReadInputTokens: 80,
@@ -78,11 +78,11 @@ describe("parseClaudeJsonOutput", () => {
     const parsed = parseClaudeJsonOutput(raw, "opus", 9999);
     expect(parsed).toMatchObject({
       response: "Independent review",
-      model: "claude-opus-4-6",
+      model: "claude-opus-5-5",
       sessionId: "2b7f7c54-2f93-4d6e-a551-8f947ce73643",
       usage: {
         provider: "claude",
-        model: "claude-opus-4-6",
+        model: "claude-opus-5-5",
         inputTokens: 120,
         outputTokens: 45,
         cachedTokens: 80,
@@ -126,10 +126,10 @@ describe("parseClaudeJsonOutput", () => {
       result: "answer",
       modelUsage: {
         "claude-haiku-4-5": { inputTokens: 1, outputTokens: 1 },
-        "claude-opus-4-6": { inputTokens: 100, outputTokens: 40 },
+        "claude-opus-5-5": { inputTokens: 100, outputTokens: 40 },
       },
     });
-    expect(parseClaudeJsonOutput(raw, "opus", 1).model).toBe("claude-opus-4-6");
+    expect(parseClaudeJsonOutput(raw, "opus", 1).model).toBe("claude-opus-5-5");
   });
 
   it("surfaces exit-zero Claude error results", () => {
@@ -153,7 +153,7 @@ describe("executeClaudeCLI", () => {
         subtype: "success",
         result: "review",
         session_id: "session-2",
-        modelUsage: { "claude-opus-4-6": { inputTokens: 2, outputTokens: 3 } },
+        modelUsage: { "claude-opus-5-5": { inputTokens: 2, outputTokens: 3 } },
       }),
     );
     const onProgress = vi.fn();

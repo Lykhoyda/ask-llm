@@ -33,7 +33,7 @@ export const EXECUTION = {
   // ceiling below Codex's reasoning-model allowance while leaving enough room
   // for native tool-assisted reads and subscription-backed generation.
   DEFAULT_CLAUDE_TIMEOUT_MS: 600_000,
-  // Grok 4.6 reasoning can run for several minutes, especially at high/xhigh.
+  // Grok 4.7 reasoning can run for several minutes, especially at high/xhigh.
   // Match the other long-running API-backed reviewer ceiling.
   DEFAULT_GROK_TIMEOUT_MS: 600_000,
   // Cursor Agent can perform repository reads before its final model answer.

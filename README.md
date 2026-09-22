@@ -129,8 +129,8 @@ The unified `@ask-llm/mcp` server is the recommended install: one registration, 
 | Provider | Best for | Model (default → fallback) | Requires |
 |----------|----------|----------------------------|----------|
 | **Codex** | Code reasoning, targeted reviews, architecture critique | `gpt-6-astra` → `gpt-5.6-terra` | OpenAI/Codex account |
-| **Claude** | An independent Claude opinion from Codex or another non-Claude host | `opus` → `sonnet` | Claude Code CLI; read-only workspace tools |
-| **Grok** | Grok 4.6 critique via xAI API or the official Grok CLI | `grok-4.6`, reasoning `high` (no fallback) | `XAI_API_KEY` or Grok CLI; one explicit harness per call |
+| **Claude** | An independent Claude opinion from Codex or another non-Claude host | `opus` (Opus 5.5) → `sonnet` | Claude Code CLI; read-only workspace tools |
+| **Grok** | Grok 4.7 critique via xAI API or the official Grok CLI | `grok-4.7`, reasoning `high` (no fallback) | `XAI_API_KEY` or Grok CLI; one explicit harness per call |
 | **Antigravity** | Subscription-backed second opinion; large-context reads | `gemini-3.1-pro` → `gemini-3.5-flash` (`--effort high`) | Google AI Pro/Ultra; `agy` CLI. Experimental, one-shot |
 | **Ollama** | Private, offline, zero-cost review | `qwen3.8:27b` (no auto-fallback) | Ollama running locally |
 | **Gemini** | Whole-codebase reads (1M+ tokens) | `gemini-3.1-pro-preview` → `gemini-3.8-flash` | Enterprise Gemini seat (see note) |
@@ -152,12 +152,12 @@ MCP gives your assistant the *tools*. The plugin, [`@ask-llm/plugin`](https://ww
 |:---|:---|
 | <nobr>`/multi-review`</nobr> | Parallel Antigravity + Codex review with a 4-phase validation pipeline and consensus highlighting |
 | <nobr>`/codex-review`</nobr> · <nobr>`/gemini-review`</nobr> · <nobr>`/ollama-review`</nobr> · <nobr>`/antigravity-review`</nobr> | Single-provider reviews with confidence filtering |
-| <nobr>`/sol-review`</nobr> | Model-pinned GPT-5.6 Sol review through Codex |
+| <nobr>`/sol-review`</nobr> | Model-pinned GPT-6 Sol review through Codex |
 | <nobr>`/grok-review`</nobr> | Metered Grok review through xAI with exact model attribution and no fallback |
 | <nobr>`/fable-review`</nobr> | Isolated, read-only review that requests the native Fable model and discloses runtime verification limits |
-| <nobr>`/brainstorm`</nobr> | Claude Opus researches your real files in parallel with external providers, then synthesizes, weighting verified findings higher. Also supports an exact no-Gemini Grok + GPT-5.6 Sol panel routed through Cursor Agent |
+| <nobr>`/brainstorm`</nobr> | Claude Opus researches your real files in parallel with external providers, then synthesizes, weighting verified findings higher. Also supports an exact no-Gemini Grok + GPT-6 Sol panel routed through Cursor Agent |
 | <nobr>`/compare`</nobr> | Raw side-by-side answers from multiple providers, no synthesis |
-| <nobr>**`codex-pair`**</nobr> | Opt-in continuous review: Codex checks every Edit/Write/MultiEdit when a `.codex-pair/context.md` marker is present |
+| <nobr>**`codex-pair`**</nobr> | Opt-in continuous review on `gpt-6-sol` at medium effort: Codex checks every Edit/Write/MultiEdit when a `.codex-pair/context.md` marker is present |
 
 Review agents follow a 4-phase pipeline inspired by [Anthropic's code-review plugin](https://github.com/anthropics/claude-code/tree/main/plugins/code-review): context gathering, prompt construction with explicit false-positive exclusions, synthesis, and source-level validation of each finding.
 
@@ -189,7 +189,7 @@ See the [plugin docs](https://lykhoyda.github.io/ask-llm/plugin/overview) for ho
 | `ask-llm` | `@ask-llm/mcp` | Unified orchestrator: pick a provider per call, or fan out to every installed provider |
 | `multi-llm` | `@ask-llm/mcp` | Send one prompt to multiple providers in parallel; returns per-provider responses and usage in one call |
 | `ask-codex` | `@ask-llm/codex-mcp` | Codex CLI. GPT-6 Astra with Terra fallback. Omit `sessionId` for ephemeral use, or pass `sessionId: ""` first to persist and resume |
-| `ask-claude` | `@ask-llm/claude-mcp` | Claude Code CLI. Opus with Sonnet fallback; native sessions; Read/Glob/Grep-only workspace access |
+| `ask-claude` | `@ask-llm/claude-mcp` | Claude Code CLI. `opus` (Opus 5.5) with Sonnet fallback; native sessions; Read/Glob/Grep-only workspace access |
 | `ask-grok` | `@ask-llm/grok-mcp` | One-shot Grok prompt through explicit `xai-api` (default) or `grok-cli`; exact harness model ID; no harness/model fallback |
 | `ask-cursor-agent` | `@ask-llm/mcp` | Model-neutral Cursor Agent harness: separate provider (`claude`, `codex`, `gemini`, `grok`) + exact Cursor catalog model verified against that family; read-only ask mode; no force/trust/spend changes or fallback |
 | `ask-antigravity` | `@ask-llm/antigravity-mcp` | Google Antigravity (`agy`) for a subscription-backed second opinion. Experimental; one-shot |

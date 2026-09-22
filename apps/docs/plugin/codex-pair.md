@@ -97,6 +97,7 @@ By default HIGH and MED concerns are surfaced; LOW concerns and all timing/skip 
 | `CODEX_PAIR_DISABLED` | unset | Set to `1` to bypass the hook entirely; beats marker file |
 | `CODEX_PAIR_MAX_FILE_BYTES` | `20000` | Files larger than this many UTF-8 bytes get an adaptive **partial-view** review (header + git diff, or head+tail), not a full-content one. Still a Codex call; use `.codex-pair/ignore` to make big files free |
 | `ASK_CODEX_TIMEOUT_MS` | `800000` | Per-call Codex timeout (inherited from `@ask-llm/codex-mcp`) |
+| `ASK_CODEX_REASONING_EFFORT` | `medium` | Reasoning effort for `gpt-6-sol` pair reviews. `/codex-review` and `/brainstorm` stay at `high` |
 | `ASK_CODEX_DEBOUNCE_MS` | `15000` | Settle window: an edit burst to one file coalesces into a single review of the settled state. `0` = synchronous per-edit review. Also settable per-marker via `debounceMs` frontmatter |
 | `ASK_CODEX_DEBOUNCE_MAX_MS` | `60000` | Hard cap from a burst's first edit; forces a review even under a continuous edit stream. Frontmatter: `debounceMaxMs` |
 | `CODEX_PAIR_QUOTA_PAUSE_TTL_MS` | `21600000` (6h) | Quota auto-pauses self-heal after this long; the next edit (or session start) retries a live review |
@@ -113,7 +114,7 @@ When the hook pauses itself (provider quota exhausted, or 3 consecutive review f
 
 ### Cost characteristics
 
-- ~$0.04–0.07 per file reviewed (Codex GPT-5.6 Sol with reasoning tokens)
+- ~$0.04–0.07 per file reviewed (Codex GPT-6 Sol with reasoning tokens)
 - ~13–50s per file wall-clock
 - Files over the size cap fall back to an adaptive partial-view review (header + git diff against HEAD, OR head + tail)
 - `node_modules/`, `dist/`, lockfiles, fonts, archives, sourcemaps, snapshots, minified assets skipped automatically

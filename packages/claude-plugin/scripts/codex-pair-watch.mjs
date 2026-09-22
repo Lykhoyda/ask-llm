@@ -84,7 +84,7 @@ const DEFAULTS_PATH = join(SCRIPT_DIR, "..", "codex-pair-defaults.json");
 // without duplicating literals across files. A structural test links the
 // JSON values to constants.ts so drift fails CI. If the file is missing or
 // malformed, fall through to env vars and hardcoded literals.
-let CODEX_PAIR_DEFAULTS = { model: "gpt-6-astra", fallbackModel: "gpt-5.6-terra" };
+let CODEX_PAIR_DEFAULTS = { model: "gpt-6-sol", fallbackModel: "gpt-5.6-terra" };
 try {
   CODEX_PAIR_DEFAULTS = JSON.parse(readFileSync(DEFAULTS_PATH, "utf8"));
 } catch {
@@ -833,6 +833,7 @@ async function runWithBroker({ prompt, timeoutMs, model, markerDir }) {
       baseInstructions: "",
       prompt,
       model,
+      effort: DEFAULT_REASONING_EFFORT,
       timeoutMs,
     });
   } finally {

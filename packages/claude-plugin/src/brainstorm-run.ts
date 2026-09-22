@@ -30,7 +30,7 @@ async function main(): Promise<void> {
     const list = parseBrainstormParticipantList(specs);
     if (list.mode !== "exact") {
       throw new Error(
-        `ask-brainstorm-run executes only the exact routed Grok + GPT-5.6 Sol panel; bare providers (${list.providers.join(", ")}) use the standard coordinator dispatch. No participant was dispatched.`,
+        `ask-brainstorm-run executes only the exact routed Grok + GPT-6 Sol panel; bare providers (${list.providers.join(", ")}) use the standard coordinator dispatch. No participant was dispatched.`,
       );
     }
     const prompt = await readStdin();

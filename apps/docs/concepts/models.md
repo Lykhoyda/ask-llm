@@ -14,12 +14,14 @@ Hosted CLI providers (Gemini, Codex, Claude, Antigravity) auto-select a sensible
 |---|---|---|---|
 | Gemini | `gemini-3.1-pro-preview` | `gemini-3.8-flash` | `RESOURCE_EXHAUSTED` quota error or "exhausted your capacity" pattern |
 | Codex | `gpt-6-astra` | `gpt-5.6-terra` | Quota errors (`rate_limit_exceeded`, `429`, `insufficient_quota`) |
-| Claude | `opus` | `sonnet` | Claude Code native fallback when Opus is overloaded or unavailable |
-| Grok | `grok-4.6` (`reasoning.effort=high`) | none | Every error is terminal; requested ID is sent unchanged |
+| Claude | `opus` (Opus 5.5, `claude-opus-5-5`) | `sonnet` | Claude Code native fallback when Opus is overloaded or unavailable |
+| Grok | `grok-4.7` (`reasoning.effort=high`) | none | Every error is terminal; requested ID is sent unchanged |
 | Antigravity | `gemini-3.1-pro` (`--effort high`) | `gemini-3.5-flash`; one model-less retry when agy rejects a model whose value equals `gemini-3.1-pro` or `gemini-3.5-flash` (reported as `agy default`). Both retain the effective effort (`high`, or the `ASK_ANTIGRAVITY_EFFORT` override) | Subscription rate limit; model-unavailable (shipped slug values only — other rejected models fail actionably) |
 | Ollama | `qwen3.8:27b` | none | Local, no fallback; a missing model returns a clear `ollama pull` error |
 
 For Gemini, Codex, Claude, and Antigravity, fallback is automatic and structured output exposes the actual model plus `usage.fellBack`. Antigravity reports `gemini-3.5-flash` after a rate-limit fallback, or the literal `agy default` after a model-less recovery (agy does not reveal which model it picked). Grok and Ollama never fall back, so their `fellBack` values are always `false`.
+
+`codex-pair` defaults to `gpt-6-sol` at `medium` reasoning effort and still quota-falls back to `gpt-5.6-terra`. Unpinned `ask-codex` stays on `gpt-6-astra`.
 
 Codex uses `medium` reasoning effort for ordinary calls to preserve the previous default behavior. The quality-first `/codex-review` and `/brainstorm` skills use `high`. Direct `ask-codex` calls can override this with `reasoningEffort` (`low`, `medium`, `high`, `xhigh`, `max`, or `ultra`). `ultra` is opt-in only: Codex's catalog describes it as maximum reasoning with automatic task delegation, so review and brainstorm defaults stay at `high`.
 
@@ -29,9 +31,9 @@ Different providers excel at different things. Pick by what you're doing, not by
 
 | Task | Suggested provider | Why |
 |---|---|---|
-| Targeted code reasoning, refactor critique | **Codex** | GPT-5.6 Sol is the flagship agentic coding model; Terra keeps the fallback balanced |
-| Claude second opinion while working in Codex | **Claude** | Opus review through Claude Code CLI, with native session continuation and read-only file access |
-| Grok 4.6 independent API critique | **Grok** | Exact model selection, configurable reasoning depth, structured JSON Schema output |
+| Targeted code reasoning, refactor critique | **Codex** | GPT-6 Astra is the flagship; `codex-pair` uses GPT-6 Sol; Terra keeps the fallback balanced |
+| Claude second opinion while working in Codex | **Claude** | Opus 5.5 (`opus`) review through Claude Code CLI, with native session continuation and read-only file access |
+| Grok 4.7 independent critique | **Grok** | Exact model selection, configurable reasoning depth, structured JSON Schema output |
 | Private / air-gapped analysis | **Ollama** | Runs locally, nothing leaves your machine |
 | Subscription-backed second opinion, larger context | **Antigravity** | `agy` via your Google AI Pro/Ultra plan, the Gemini CLI successor |
 | Whole-codebase review (enterprise seats) | **Gemini** | 1M+ token context fits what others can't ([enterprise-gated from 2026-06-18](/providers/gemini)) |
@@ -81,8 +83,8 @@ For Antigravity, `ask-antigravity` requires `agy` ≥1.1.5 and has no per-call `
 |---|---|---|
 | Gemini Pro | ~1M tokens (~250k LOC) | Gemini Code Assist Standard/Enterprise seat (from 2026-06-18) |
 | Gemini Flash | ~1M tokens | Cheaper than Pro; fallback target for quota relief |
-| Codex GPT-5.6 Sol | Per OpenAI's published context window | Per OpenAI billing |
-| Grok 4.6 | 500k tokens on xAI API | API is metered with long-context rates at 200k; Grok CLI follows its authenticated plan |
+| Codex GPT-6 Astra / GPT-6 Sol | Per OpenAI's published context window | Per OpenAI billing |
+| Grok 4.7 | 500k tokens on xAI API | API is metered; Grok CLI follows its authenticated plan |
 | Cursor Agent harness | Per selected catalog model | Included usage/on-demand spend follows the user's Cursor plan; Ask LLM never changes spend settings |
 | Codex GPT-5.6 Terra | Per OpenAI's published context window | Balanced fallback target |
 | Ollama | Per model (e.g., 256k for qwen3.8) | Free, runs locally |
