@@ -1,5 +1,25 @@
 # @ask-llm/plugin
 
+## 0.18.0
+
+### Minor Changes
+
+- [#336](https://github.com/Lykhoyda/ask-llm/pull/336) [`8d7ff9f`](https://github.com/Lykhoyda/ask-llm/commit/8d7ff9fdbd7ee76aa40a45a500d67910662c2002) Thanks [@Lykhoyda](https://github.com/Lykhoyda)! - Adopt Codex's bundled `gpt-6-astra` as the factory default, keep Terra as the quota fallback, and fail closed when Astra is selected on Codex CLI older than 0.153.0. `/sol-review` and the Cursor brainstorm Sol catalog IDs stay explicit Sol pins.
+
+- [#334](https://github.com/Lykhoyda/ask-llm/pull/334) [`51d2c32`](https://github.com/Lykhoyda/ask-llm/commit/51d2c32b658cf356f61ed02986680525b95f810e) Thanks [@Lykhoyda](https://github.com/Lykhoyda)! - Accept Codex's catalog-backed `ultra` reasoning effort as explicit opt-in. Keep ordinary defaults at `medium` and `/codex-review`/`/brainstorm` at `high`. Unified Grok still rejects `max` and `ultra`.
+
+- [#337](https://github.com/Lykhoyda/ask-llm/pull/337) [`3a9a8e5`](https://github.com/Lykhoyda/ask-llm/commit/3a9a8e5f773d2d6aab8ea7c4c42d8e5b4c473e0a) Thanks [@Lykhoyda](https://github.com/Lykhoyda)! - Pin codex-pair, /sol-review, and the Cursor brainstorm participant to GPT-6 Sol (`gpt-6-sol`, Cursor `gpt-6-sol-high`). Pair effort is medium. Grok defaults are grok-4.7 on both harnesses, and current Opus pins are Claude Opus 5.5. Astra stays the ask-codex default.
+
+### Patch Changes
+
+- Updated dependencies [[`8d7ff9f`](https://github.com/Lykhoyda/ask-llm/commit/8d7ff9fdbd7ee76aa40a45a500d67910662c2002), [`51d2c32`](https://github.com/Lykhoyda/ask-llm/commit/51d2c32b658cf356f61ed02986680525b95f810e), [`3a9a8e5`](https://github.com/Lykhoyda/ask-llm/commit/3a9a8e5f773d2d6aab8ea7c4c42d8e5b4c473e0a)]:
+  - @ask-llm/codex-mcp@0.8.0
+  - @ask-llm/mcp@0.11.0
+  - @ask-llm/grok-mcp@0.2.0
+  - @ask-llm/gemini-mcp@1.9.2
+  - @ask-llm/ollama-mcp@0.6.3
+  - @ask-llm/antigravity-mcp@0.7.7
+
 ## 0.17.0
 
 ### Minor Changes

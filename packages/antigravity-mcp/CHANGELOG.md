@@ -1,5 +1,11 @@
 # @ask-llm/antigravity-mcp
 
+## 0.7.7
+
+### Patch Changes
+
+- [#337](https://github.com/Lykhoyda/ask-llm/pull/337) [`3a9a8e5`](https://github.com/Lykhoyda/ask-llm/commit/3a9a8e5f773d2d6aab8ea7c4c42d8e5b4c473e0a) Thanks [@Lykhoyda](https://github.com/Lykhoyda)! - Pin codex-pair, /sol-review, and the Cursor brainstorm participant to GPT-6 Sol (`gpt-6-sol`, Cursor `gpt-6-sol-high`). Pair effort is medium. Grok defaults are grok-4.7 on both harnesses, and current Opus pins are Claude Opus 5.5. Astra stays the ask-codex default.
+
 ## 0.7.6
 
 ### Patch Changes
