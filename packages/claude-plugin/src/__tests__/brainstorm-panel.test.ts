@@ -184,9 +184,7 @@ describe("exact panel routing", () => {
       signal: undefined,
       onProgress: undefined,
     });
-    expect(calls.cursor).toHaveBeenCalledWith(
-      expect.objectContaining({ provider: "codex", model: "gpt-6-sol-high" }),
-    );
+    expect(calls.cursor).toHaveBeenCalledWith(expect.objectContaining({ provider: "codex", model: "gpt-6-sol-high" }));
   });
 
   it("does not pivot from a failed direct Grok route to Cursor, API, Codex, or Gemini", async () => {
