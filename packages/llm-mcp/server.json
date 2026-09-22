@@ -33,7 +33,7 @@
         },
         {
           "name": "ASK_GROK_MODEL",
-          "description": "Exact selected-harness model override (API default grok-4.6; CLI default grok-build; no fallback)",
+          "description": "Exact selected-harness model override (API default grok-4.7; CLI default grok-4.7; no fallback)",
           "isRequired": false,
           "format": "string",
           "isSecret": false

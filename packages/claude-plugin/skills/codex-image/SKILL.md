@@ -113,7 +113,7 @@ Phase 3 — `ask-codex` is called with the prompt template above.
 
 Phase 4 — `ls -la /tmp/codex-images/2026-04-24/cat-reading-a-book.png` shows a 248KB file. Skill returns:
 
-> Generated **/tmp/codex-images/2026-04-24/cat-reading-a-book.png** (248 KB) via gpt-image-2. Used Codex (gpt-5.6-sol) as orchestrator. Refined prompt: *minimalist illustration of a cat reading a book, flat vector style, two-tone palette, no human figures, square framing, transparent background*. Reading inline below.
+> Generated **/tmp/codex-images/2026-04-24/cat-reading-a-book.png** (248 KB) via gpt-image-2. Used Codex (gpt-6-sol) as orchestrator. Refined prompt: *minimalist illustration of a cat reading a book, flat vector style, two-tone palette, no human figures, square framing, transparent background*. Reading inline below.
 
 [image renders]
 

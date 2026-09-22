@@ -22,7 +22,7 @@ describe("askResponseSchema", () => {
     const result = askResponseSchema.safeParse({
       provider: "grok",
       response: "ok",
-      model: "cursor-grok-4.6-high",
+      model: "grok-4.7-high",
       harness: "cursor-agent",
     });
     expect(result.success).toBe(true);

@@ -64,7 +64,7 @@ Representative commands:
 /skill:multi-review
 /skill:compare gemini,codex explain this API design
 /skill:brainstorm antigravity,codex review this architecture
-/skill:brainstorm grok@cursor-agent:cursor-grok-4.6-high,codex@cursor-agent:gpt-5.6-sol-high review this architecture
+/skill:brainstorm grok@cursor-agent:grok-4.7-high,codex@cursor-agent:gpt-6-sol-high review this architecture
 /skill:codex-image create a monochrome architecture diagram
 /skill:codex-verify
 /skill:codex-pair

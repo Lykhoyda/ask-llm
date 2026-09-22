@@ -190,10 +190,10 @@ describe("runMachineRequest", () => {
   it("passes Grok a strict role schema and reports no fallback or session", async () => {
     const executor: ExecutorFn = vi.fn().mockResolvedValue({
       response: JSON.stringify(reviewPayload),
-      model: "grok-4.6",
+      model: "grok-4.7",
       usage: {
         provider: "grok",
-        model: "grok-4.6",
+        model: "grok-4.7",
         inputTokens: 30,
         outputTokens: 12,
         cachedTokens: 0,
@@ -202,13 +202,13 @@ describe("runMachineRequest", () => {
         fellBack: false,
       },
     });
-    const input = request({ provider: "grok", model: "grok-4.6", writerProvider: "claude" });
+    const input = request({ provider: "grok", model: "grok-4.7", writerProvider: "claude" });
 
     const result = await runMachineRequest(input, deps(executor));
 
     expect(executor).toHaveBeenCalledWith({
       prompt: buildRolePrompt(machineRequestSchema.parse(input)),
-      model: "grok-4.6",
+      model: "grok-4.7",
       includeDirs: ["packages/core"],
       sandbox: "read-only",
       readOnly: true,
@@ -217,8 +217,8 @@ describe("runMachineRequest", () => {
     expect(result).toMatchObject({
       status: "success",
       provider: "grok",
-      actualModel: "grok-4.6",
-      fallback: { occurred: false, requestedModel: "grok-4.6", actualModel: "grok-4.6" },
+      actualModel: "grok-4.7",
+      fallback: { occurred: false, requestedModel: "grok-4.7", actualModel: "grok-4.7" },
       session: null,
       usage: { inputTokens: 30, outputTokens: 12, totalTokens: 42 },
     });
@@ -227,8 +227,8 @@ describe("runMachineRequest", () => {
   it("leaves an unpinned Grok model to the selected harness and reports the model it actually used", async () => {
     const executor: ExecutorFn = vi.fn().mockResolvedValue({
       response: JSON.stringify(reviewPayload),
-      model: "grok-build",
-      usage: { provider: "grok", model: "grok-build", inputTokens: 3, outputTokens: 2, durationMs: 5, fellBack: false },
+      model: "grok-4.7",
+      usage: { provider: "grok", model: "grok-4.7", inputTokens: 3, outputTokens: 2, durationMs: 5, fellBack: false },
     });
     const { model: _omitted, ...unpinned } = request({ provider: "grok", writerProvider: "claude" });
 
@@ -237,8 +237,8 @@ describe("runMachineRequest", () => {
     expect(executor).toHaveBeenCalledWith(expect.objectContaining({ model: undefined }));
     expect(result).toMatchObject({
       status: "success",
-      actualModel: "grok-build",
-      fallback: { occurred: false, requestedModel: "grok-build", actualModel: "grok-build" },
+      actualModel: "grok-4.7",
+      fallback: { occurred: false, requestedModel: "grok-4.7", actualModel: "grok-4.7" },
     });
   });
 
@@ -246,9 +246,9 @@ describe("runMachineRequest", () => {
     const rawResponse = 'Sure:\n```json\n{"summary":"x","findings":[],"extra":1}\n```';
     const executor: ExecutorFn = vi.fn().mockResolvedValue({
       response: rawResponse,
-      model: "grok-build",
+      model: "grok-4.7",
       harness: "grok-cli",
-      usage: { provider: "grok", model: "grok-build", inputTokens: 3, outputTokens: 2, durationMs: 5, fellBack: false },
+      usage: { provider: "grok", model: "grok-4.7", inputTokens: 3, outputTokens: 2, durationMs: 5, fellBack: false },
     });
     const { model: _omitted, ...unpinned } = request({ provider: "grok", writerProvider: "claude" });
 
@@ -256,16 +256,16 @@ describe("runMachineRequest", () => {
 
     expect(result).toMatchObject({
       status: "failed",
-      actualModel: "grok-build",
+      actualModel: "grok-4.7",
       rawResponseSha256: createHash("sha256").update(rawResponse).digest("hex"),
       failure: { kind: "schema_invalid", message: "Provider output did not contain a valid review payload" },
     });
 
     const conforming = `Here you go:\n\`\`\`json\n${JSON.stringify(reviewPayload)}\n\`\`\``;
-    const okExecutor: ExecutorFn = vi.fn().mockResolvedValue({ response: conforming, model: "grok-build" });
+    const okExecutor: ExecutorFn = vi.fn().mockResolvedValue({ response: conforming, model: "grok-4.7" });
     await expect(runMachineRequest(unpinned, deps(okExecutor))).resolves.toMatchObject({
       status: "success",
-      actualModel: "grok-build",
+      actualModel: "grok-4.7",
       payload: reviewPayload,
     });
   });
@@ -273,12 +273,12 @@ describe("runMachineRequest", () => {
   it("pins the Grok model from ASK_GROK_MODEL when the request leaves it unset", async () => {
     const executor: ExecutorFn = vi
       .fn()
-      .mockResolvedValue({ response: JSON.stringify(reviewPayload), model: "grok-4.6" });
+      .mockResolvedValue({ response: JSON.stringify(reviewPayload), model: "grok-4.7" });
     const { model: _omitted, ...unpinned } = request({ provider: "grok", writerProvider: "claude" });
 
-    await runMachineRequest(unpinned, deps(executor, { env: { ASK_GROK_MODEL: "grok-4.6" } }));
+    await runMachineRequest(unpinned, deps(executor, { env: { ASK_GROK_MODEL: "grok-4.7" } }));
 
-    expect(executor).toHaveBeenCalledWith(expect.objectContaining({ model: "grok-4.6" }));
+    expect(executor).toHaveBeenCalledWith(expect.objectContaining({ model: "grok-4.7" }));
   });
 
   it("gives Antigravity read-only mode and reports its actual fallback model and transcript", async () => {
@@ -315,11 +315,11 @@ describe("runMachineRequest", () => {
   it("does not report Claude alias canonicalization as a fallback", async () => {
     const executor: ExecutorFn = vi.fn().mockResolvedValue({
       response: JSON.stringify(reviewPayload),
-      model: "claude-opus-4-6",
+      model: "claude-opus-5-5",
       sessionId: "session-claude",
       usage: {
         provider: "claude",
-        model: "claude-opus-4-6",
+        model: "claude-opus-5-5",
         inputTokens: 20,
         outputTokens: 10,
         cachedTokens: 0,
@@ -335,11 +335,11 @@ describe("runMachineRequest", () => {
     );
 
     expect(result).toMatchObject({
-      actualModel: "claude-opus-4-6",
+      actualModel: "claude-opus-5-5",
       fallback: {
         occurred: false,
-        requestedModel: "claude-opus-4-6",
-        actualModel: "claude-opus-4-6",
+        requestedModel: "claude-opus-5-5",
+        actualModel: "claude-opus-5-5",
       },
     });
   });
@@ -427,7 +427,7 @@ describe("runMachineRequest", () => {
       writerProvider: "claude" as const,
       envVar: "ASK_CODEX_MODEL",
       configuredModel: "codex-stable-alias",
-      actualModel: "gpt-5.6-sol",
+      actualModel: "gpt-6-sol",
       fellBack: false,
     },
     {

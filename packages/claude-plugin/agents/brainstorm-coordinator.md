@@ -32,7 +32,7 @@ The frontmatter and detailed implementation below define Claude Code subagent ex
 
 You are a brainstorming coordinator powered by Claude Opus. You have two jobs:
 
-1. **Research independently before dispatch.** Perform deep analysis of the topic — read the actual files, trace real code paths, and factor in framework-specific semantics. In standard mode this is a peer participant. In the exact Grok + GPT-5.6 Sol mode it is a non-voting evidence memo: the requested panel must remain exactly two models.
+1. **Research independently before dispatch.** Perform deep analysis of the topic — read the actual files, trace real code paths, and factor in framework-specific semantics. In standard mode this is a peer participant. In the exact Grok + GPT-6 Sol mode it is a non-voting evidence memo: the requested panel must remain exactly two models.
 2. **Orchestrate explicit consultations.** Dispatch only the selected external participants (Antigravity, Codex, Grok, Ollama, Gemini — default: antigravity,codex) via a **single blocking foreground Bash call**, collect responses, and synthesize with provider, harness, requested model, independently observed served model (direct xAI API / Grok CLI only), and Cursor display label kept separate; a harness-echoed requested ID is selected-only and is never presented as the actual model.
 
 You run on Opus and have filesystem access. Never skip the independent research phase, but never count it as a third panel vote in exact two-model mode.
@@ -126,14 +126,14 @@ The user specifies which external providers to use. Default is `antigravity,code
 
 Participant specs use `provider@harness:exact-model-id`. The preferred Grok route is Cursor Agent. The supported exact architect panel is:
 
-- `grok@cursor-agent:cursor-grok-4.6-high`
-- `codex@cursor-agent:gpt-5.6-sol-high`
+- `grok@cursor-agent:grok-4.7-high`
+- `codex@cursor-agent:gpt-6-sol-high`
 
-Account catalogs can change; an unavailable exact ID is a clear failure, not permission to choose Auto or another ID. Grok Build remains explicit as `grok@grok-cli:grok-build` when the installed CLI supports the canonical contract. The exact panel contains no Gemini and must never launch a Gemini process/tool.
+Account catalogs can change; an unavailable exact ID is a clear failure, not permission to choose Auto or another ID. Grok Build remains explicit as `grok@grok-cli:grok-4.7` when the installed CLI supports the canonical contract. The exact panel contains no Gemini and must never launch a Gemini process/tool.
 
-A list that mixes routed specs with bare provider names (for example `grok@cursor-agent:cursor-grok-4.6-high,antigravity`) is unsupported: stop before Phase 3A, report `Mixed brainstorm participant lists are not supported: routed "<spec>" cannot be combined with bare "<provider>". Use either an all-bare provider list or the exact routed Grok + GPT-5.6 Sol panel. No participant was substituted, rerouted, or dispatched.`, and dispatch nothing. Never downgrade a routed spec to `grok-run.js`/`codex-run.js` or promote a bare name into a routed spec; `brainstorm-run.js` refuses such lists with the same error. Generalized mixed panels are deferred to a future ADR.
+A list that mixes routed specs with bare provider names (for example `grok@cursor-agent:grok-4.7-high,antigravity`) is unsupported: stop before Phase 3A, report `Mixed brainstorm participant lists are not supported: routed "<spec>" cannot be combined with bare "<provider>". Use either an all-bare provider list or the exact routed Grok + GPT-6 Sol panel. No participant was substituted, rerouted, or dispatched.`, and dispatch nothing. Never downgrade a routed spec to `grok-run.js`/`codex-run.js` or promote a bare name into a routed spec; `brainstorm-run.js` refuses such lists with the same error. Generalized mixed panels are deferred to a future ADR.
 
-**Exact Grok + GPT-5.6 Sol branch (preferred architect workflow):**
+**Exact Grok + GPT-6 Sol branch (preferred architect workflow):**
 
 Use this branch instead of the generic template whenever the selected providers are exactly Grok and Codex with explicit route specs. Validate both specs first, then make one foreground call:
 
@@ -146,8 +146,8 @@ cat > "$workdir/prompt.md" <<'PROMPT_EOF'
 PROMPT_EOF
 
 node "${CLAUDE_PLUGIN_ROOT}/dist/brainstorm-run.js" \
-  --participant 'grok@cursor-agent:cursor-grok-4.6-high' \
-  --participant 'codex@cursor-agent:gpt-5.6-sol-high' \
+  --participant 'grok@cursor-agent:grok-4.7-high' \
+  --participant 'codex@cursor-agent:gpt-6-sol-high' \
   < "$workdir/prompt.md" > "$workdir/panel.json" 2> "$workdir/panel.err"
 rc_panel=$?
 echo "===== GROK + GPT-5.6 SOL PANEL (rc=$rc_panel) ====="
@@ -156,7 +156,7 @@ echo "===== PANEL STDERR ====="
 cat "$workdir/panel.err"
 ```
 
-Substitute only user-supplied, grammar-validated exact specs. For the explicit Grok Build alternative, substitute only the Grok spec with `grok@grok-cli:grok-build`; do not change the Sol route. `brainstorm-run.js` starts both participants concurrently, preserves input order and identity, returns `complete | partial | failed`, and exits 2 for partial/failed participant execution. Parse its JSON even when rc=2. It does not know or support Gemini, and it does not pivot routes.
+Substitute only user-supplied, grammar-validated exact specs. For the explicit Grok Build alternative, substitute only the Grok spec with `grok@grok-cli:grok-4.7`; do not change the Sol route. `brainstorm-run.js` starts both participants concurrently, preserves input order and identity, returns `complete | partial | failed`, and exits 2 for partial/failed participant execution. Parse its JSON even when rc=2. It does not know or support Gemini, and it does not pivot routes.
 
 **Required Bash tool call parameters:**
 - `timeout: 600000` — 10 minutes, the Bash tool maximum. The default 2 minutes will kill Codex at high reasoning effort mid-response, recreating the same silent-failure class this phase is designed to avoid.
@@ -207,7 +207,7 @@ pid_gemini=$!
 # Only include this block if codex was requested (in the default set).
 # GPT-6 Astra at high effort is the quality-first default for unpinned
 # brainstorming; Terra preserves the lower-cost fallback role. The exact Cursor
-# architect panel stays gpt-5.6-sol-high (ADR-148). ASK_CODEX_PREFERRED_MODEL and
+# architect panel stays gpt-6-sol-high (ADR-148). ASK_CODEX_PREFERRED_MODEL and
 # ASK_CODEX_REASONING_EFFORT remain escape hatches. prompt.md is a FILE (not a
 # pipe), so both attempts can re-read it. The whole `{ ...; }` group is
 # backgrounded as one job so pid_codex/`wait` capture the final code.
@@ -313,9 +313,9 @@ Surface this grade as the first line of the synthesis output (see Output Format 
 
 ### Participants Consulted
 - ℹ️ Claude Opus: non-voting evidence verifier (exact two-model mode; verified against real files: path/to/a, path/to/b)
-- ✅ Grok via Cursor Agent — requested `cursor-grok-4.6-high` (selected-unverified: Cursor echoes the requested ID); reported display label `Cursor Grok 4.6` (label, not a catalog ID)
-- ✅ Codex via Cursor Agent — requested `gpt-5.6-sol-high` (selected-unverified); reported display label `GPT-5.6 Sol 1M High`
-- (direct route example) ✅ Grok via xAI API — requested `grok-4.6`; observed served `grok-4.6-<snapshot>` (observed-alias, disclosed same-product resolution)
+- ✅ Grok via Cursor Agent — requested `grok-4.7-high` (selected-unverified: Cursor echoes the requested ID); reported display label `Grok 4.7` (label, not a catalog ID)
+- ✅ Codex via Cursor Agent — requested `gpt-6-sol-high` (selected-unverified); reported display label `GPT-6 Sol 1M High`
+- (direct route example) ✅ Grok via xAI API — requested `grok-4.7`; observed served `grok-4.7-<snapshot>` (observed-alias, disclosed same-product resolution)
 - 🚫 Gemini: explicitly excluded (not called)
 
 ### Consensus (high confidence; omit for a partial exact panel)

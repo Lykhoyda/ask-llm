@@ -50,7 +50,7 @@ export const PROVIDERS: Record<string, ProviderConfig> = {
     command: "xai-api",
     executorModule: "@ask-llm/grok-mcp/executor",
     executorFn: "executeGrok",
-    defaultModel: "grok-4.6",
+    defaultModel: "grok-4.7",
     modelEnvVar: "ASK_GROK_MODEL",
     availabilityModule: "@ask-llm/grok-mcp/executor",
     availabilityFn: "isGrokProviderAvailable",

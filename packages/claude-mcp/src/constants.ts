@@ -12,6 +12,7 @@ export const STATUS_MESSAGES = {
 } as const;
 
 // Stable aliases intentionally track the latest model in each Claude family.
+// Claude Code currently resolves `opus` to Claude Opus 5.5 (`claude-opus-5-5`).
 // Users who need a pinned model version can set ASK_CLAUDE_MODEL or pass model.
 export const FACTORY_DEFAULT_MODEL = "opus";
 

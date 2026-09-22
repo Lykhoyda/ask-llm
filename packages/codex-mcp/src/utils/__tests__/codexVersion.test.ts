@@ -19,7 +19,7 @@ beforeEach(() => {
 describe("isAstraModel", () => {
   it("matches only the selectable gpt-6-astra slug", () => {
     expect(isAstraModel("gpt-6-astra")).toBe(true);
-    expect(isAstraModel("gpt-5.6-sol")).toBe(false);
+    expect(isAstraModel("gpt-6-sol")).toBe(false);
     expect(isAstraModel("gpt-5.6-terra")).toBe(false);
     expect(isAstraModel("gpt-6-astra-wm")).toBe(false);
     expect(isAstraModel("gpt-6-astra-aeon")).toBe(false);
@@ -65,7 +65,7 @@ describe("assessCodexVersion", () => {
 
 describe("assertCodexSupportsModel", () => {
   it("does not probe Codex version for non-Astra models", async () => {
-    await expect(assertCodexSupportsModel("gpt-5.6-sol")).resolves.toBeUndefined();
+    await expect(assertCodexSupportsModel("gpt-6-sol")).resolves.toBeUndefined();
     await expect(assertCodexSupportsModel("gpt-5.6-terra")).resolves.toBeUndefined();
     expect(mockExec).not.toHaveBeenCalled();
   });
@@ -91,7 +91,7 @@ describe("assertCodexSupportsModel", () => {
 
     await expect(assertCodexSupportsModel("gpt-6-astra")).rejects.toThrow(
       new RegExp(
-        `Codex CLI 0\\.152\\.1 was detected but is too old for gpt-6-astra.*codex >=${ASTRA_MIN_CODEX_VERSION} is required.*ASK_CODEX_MODEL=gpt-5\\.6-sol`,
+        `Codex CLI 0\\.152\\.1 was detected but is too old for gpt-6-astra.*codex >=${ASTRA_MIN_CODEX_VERSION} is required.*ASK_CODEX_MODEL=gpt-6-sol`,
         "s",
       ),
     );

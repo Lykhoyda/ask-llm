@@ -30,10 +30,10 @@ export const SCENARIOS = Object.freeze([
     surface: "/codex-pair",
     host: "claude",
     hostModelKey: "CLAUDE",
-    modelKey: "CODEX",
+    modelKey: "CODEX_PAIR",
     provider: "codex",
     harness: "codex-cli",
-    effort: "high",
+    effort: "medium",
   },
   {
     id: "claude:/grok-pair",
@@ -63,10 +63,10 @@ export const SCENARIOS = Object.freeze([
     surface: "/codex-pair",
     host: "cursor-agent",
     hostModelKey: "CURSOR_HOST",
-    modelKey: "CODEX",
+    modelKey: "CODEX_PAIR",
     provider: "codex",
     harness: "codex-cli",
-    effort: "high",
+    effort: "medium",
   },
   {
     id: "cursor-agent:/grok-pair",
@@ -96,10 +96,10 @@ export const SCENARIOS = Object.freeze([
     surface: "/skill:codex-pair",
     host: "pi",
     hostModelKey: "PI",
-    modelKey: "CODEX",
+    modelKey: "CODEX_PAIR",
     provider: "codex",
     harness: "codex-cli",
-    effort: "high",
+    effort: "medium",
     liveSupported: false,
     liveUnavailableReason: "Pi codex-pair requires TUI/RPC/long-lived JSON plus project trust and a user allowlist",
   },
@@ -137,10 +137,10 @@ export const SCENARIOS = Object.freeze([
     tool: "codex",
     surface: "/codex-pair reviewer route",
     host: "codex-cli",
-    modelKey: "CODEX",
+    modelKey: "CODEX_PAIR",
     provider: "codex",
     harness: "codex-cli",
-    effort: "high",
+    effort: "medium",
   },
   {
     id: "grok-cli:/brainstorm-route",
@@ -165,13 +165,14 @@ export const SCENARIOS = Object.freeze([
 ]);
 
 const EXACT_DRY_MODELS = Object.freeze({
-  CLAUDE: "claude-opus-4-7",
-  CURSOR_HOST: "gpt-5.6-sol-high",
-  CURSOR_GROK: "cursor-grok-4.6-high",
-  CURSOR_CODEX: "gpt-5.6-sol-high",
-  PI: "openai-codex/gpt-5.6-sol",
+  CLAUDE: "claude-opus-5-5",
+  CURSOR_HOST: "gpt-6-sol-high",
+  CURSOR_GROK: "grok-4.7-high",
+  CURSOR_CODEX: "gpt-6-sol-high",
+  PI: "openai-codex/gpt-6-sol",
   CODEX: "gpt-6-astra",
-  GROK: "grok-build",
+  CODEX_PAIR: "gpt-6-sol",
+  GROK: "grok-4.7",
 });
 
 const SENSITIVE_NAME = /(api.?key|token|secret|credential|authorization|session)/i;

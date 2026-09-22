@@ -1,5 +1,5 @@
 ---
-description: Consult Grok 4.6 through the supported xAI Responses API with exact model selection, structured output, cancellation, and no fallback.
+description: Consult Grok 4.7 through the supported xAI Responses API with exact model selection, structured output, cancellation, and no fallback.
 ---
 
 # Grok
@@ -8,7 +8,7 @@ description: Consult Grok 4.6 through the supported xAI Responses API with exact
 
 Consult Grok through one of two explicit harnesses: xAI's supported **Responses API** (`xai-api`, the default) or Grok Build's supported headless CLI (`grok-cli`). The unified package also exposes the model-neutral `ask-cursor-agent` harness, where provider and Cursor catalog model ID are separate inputs. Ask LLM never silently moves between harnesses.
 
-> **Best for:** an independent Grok 4.6 critique, long-context reasoning, and a metered API path that works from any MCP client.
+> **Best for:** an independent Grok 4.7 critique, long-context reasoning, and a metered API path that works from any MCP client.
 > **Not for:** free or subscription-included review. xAI API usage is billed separately; use Ollama when data must remain local or no per-token charge is acceptable.
 
 ## Setup
@@ -79,7 +79,7 @@ agent --list-models
 | Grok Build CLI | `harness: "grok-cli"` or `ASK_GROK_HARNESS=grok-cli` | `grok login` or `XAI_API_KEY` | `grok models` | `--sandbox read-only`, one turn, no subagents/memory/web search |
 | Cursor Agent | unified `ask-cursor-agent` tool | `agent login` or `CURSOR_API_KEY` | `agent --list-models` | `--mode ask`; Ask LLM never passes `--force` or `--trust` |
 
-The documented xAI API identifier is **`grok-4.6`**. Reasoning variants are not separate model IDs: use the `reasoning.effort` request parameter (`low`, `medium`, `high`, or `xhigh`), default `high`. Per the [xAI reasoning docs](https://docs.x.ai/developers/model-capabilities/text/reasoning), `xhigh` is available on `grok-4.6` and later; on models that do not support it (for example `grok-4.5`) xAI applies it as `high`, and the API does not report the effort actually used. Ask LLM sends the requested effort unchanged and discloses that possible coercion as a progress note whenever `xhigh` is sent. If the model rejects the effort with a 4xx, the error names the model and effort, lists the supported values, and links the docs; no fallback is attempted.
+The documented xAI API identifier is **`grok-4.7`**. Reasoning variants are not separate model IDs: use the `reasoning.effort` request parameter (`low`, `medium`, `high`, or `xhigh`), default `high`. Per the [xAI reasoning docs](https://docs.x.ai/developers/model-capabilities/text/reasoning), `xhigh` is available on `grok-4.6` and later; on models that do not support it (for example `grok-4.5`) xAI applies it as `high`, and the API does not report the effort actually used. Ask LLM sends the requested effort unchanged and discloses that possible coercion as a progress note whenever `xhigh` is sent. If the model rejects the effort with a 4xx, the error names the model and effort, lists the supported values, and links the docs; no fallback is attempted.
 
 Ask LLM sends the selected model string unchanged. It never rewrites aliases, substitutes a model, or retries on another model. If xAI rejects the ID, the error names the requested model and points to discovery:
 
@@ -88,7 +88,7 @@ curl --fail https://api.x.ai/v1/models \
   -H "Authorization: Bearer $XAI_API_KEY"
 ```
 
-Grok Build's documented default catalog alias is `grok-build` (the coding agent is powered by Grok 4.6). Grok CLI model IDs come from `grok models` and Cursor IDs come from `agent --list-models`; these are harness-specific catalogs and are not interchangeable. For example, Cursor may expose Grok as `cursor-grok-4.6-high` while xAI's API ID is `grok-4.6`. Pass the exact ID from the selected catalog. For consistency-sensitive API workflows, choose an exact dated ID returned for your xAI team. `grok-4.6` is xAI's stable alias and may resolve to a dated deployment; Ask LLM reports the actual `model` returned by the API and emits a progress note whenever the served ID differs from the requested one.
+Grok CLI 1.0.40 lists **`grok-4.7`** as its default catalog ID (`grok models`). Cursor's account catalog uses effort-specific IDs such as `grok-4.7-high`. These catalogs are not interchangeable with each other: pass the exact ID from the selected harness. For consistency-sensitive API workflows, choose an exact dated ID returned for your xAI team. `grok-4.7` may resolve to a dated deployment; Ask LLM reports the actual `model` returned by the API and emits a progress note whenever the served ID differs from the requested one.
 
 ### Large prompts
 
@@ -100,7 +100,7 @@ Prompts above 16 KB (`EXECUTION.STDIN_THRESHOLD_BYTES`, counted in UTF-8 bytes) 
 |---|---|---|
 | `XAI_API_KEY` | required for xai-api; optional for CLI if logged in | Provider-scoped xAI credential |
 | `ASK_GROK_HARNESS` | `xai-api` | `xai-api` or `grok-cli`; never auto-falls back |
-| `ASK_GROK_MODEL` | API: `grok-4.6`; CLI: `grok-build` | Exact selected-harness model ID override; no fallback |
+| `ASK_GROK_MODEL` | `grok-4.7` | Exact selected-harness model ID override; no fallback |
 | `ASK_GROK_REASONING_EFFORT` | `high` | `low`, `medium`, `high`, or `xhigh` |
 | `ASK_GROK_MAX_OUTPUT_TOKENS` | `16384` | API output ceiling (1–100000) to bound accidental spend |
 | `ASK_GROK_TIMEOUT_MS` | `600000` | API/CLI timeout; aborts HTTP or terminates the CLI process |
@@ -115,23 +115,16 @@ The unified server and Pi host expose `ask-cursor-agent` separately from `ask-gr
 ```json
 {
   "provider": "grok",
-  "model": "cursor-grok-4.6-high",
+  "model": "grok-4.7-high",
   "prompt": "Review this design for correctness"
 }
 ```
 
-The model list is account-specific and can change; always run `agent --list-models`. `/brainstorm` can pin an exact no-Gemini architect panel with `grok@cursor-agent:cursor-grok-4.6-high,codex@cursor-agent:gpt-5.6-sol-high`; these are separate Grok and Codex provider identities sharing only the Cursor Agent harness. Cursor may consume included usage or on-demand spend according to the user's Cursor plan. Ask LLM does not enable on-demand spend, alter limits, select Auto, trust a workspace, or retry another model. A `provider`/`model` mismatch (for example `provider: "claude"` with `cursor-grok-4.6-high`) or a noncanonical requested ID is rejected before the CLI runs. The response's `model` (and `usage.model`) always echoes the exact requested catalog ID; Cursor's `system/init` event reports a human display label (for example `Grok 4.6`), which Ask LLM returns separately as the optional `reportedModel` field and as a footer line. That label is used only for coarse corroboration: a label that clearly belongs to another provider family fails the call as a cross-provider substitution, while an unclassifiable label is surfaced, not guessed at.
+The model list is account-specific and can change; always run `agent --list-models`. `/brainstorm` can pin an exact no-Gemini architect panel with `grok@cursor-agent:grok-4.7-high,codex@cursor-agent:gpt-6-sol-high`; these are separate Grok and Codex provider identities sharing only the Cursor Agent harness. Cursor may consume included usage or on-demand spend according to the user's Cursor plan. Ask LLM does not enable on-demand spend, alter limits, select Auto, trust a workspace, or retry another model. A `provider`/`model` mismatch (for example `provider: "claude"` with `grok-4.7-high`) or a noncanonical requested ID is rejected before the CLI runs. The response's `model` (and `usage.model`) always echoes the exact requested catalog ID; Cursor's `system/init` event reports a human display label (for example `Grok 4.7`), which Ask LLM returns separately as the optional `reportedModel` field and as a footer line. That label is used only for coarse corroboration: a label that clearly belongs to another provider family fails the call as a cross-provider substitution, while an unclassifiable label is surfaced, not guessed at.
 
 ## Pricing and cost safety
 
-The xAI API and API-key-backed Grok CLI can incur xAI charges. Browser-authenticated Grok Build and Cursor Agent follow their own plan/usage terms. At the time this support was added, xAI documented these Grok 4.6 prices per 1M tokens:
-
-| Prompt size | Input | Cached input | Output |
-|---|---:|---:|---:|
-| below 200k tokens | $2.00 | $0.50 | $6.00 |
-| 200k tokens or more | $4.00 | $1.00 | $12.00 |
-
-Once a prompt reaches 200k tokens, xAI applies long-context rates to all tokens in the request. Prices and account availability can change; check the [official pricing page](https://docs.x.ai/developers/pricing) before use. Plain identical one-shot requests use Ask LLM's response cache and report no new usage when served from it; strict structured requests always make a fresh API call.
+The xAI API and API-key-backed Grok CLI can incur xAI charges. Browser-authenticated Grok Build and Cursor Agent follow their own plan/usage terms. Grok 4.7 rates, including any long-context tier, are published on the [official pricing page](https://docs.x.ai/developers/pricing). Confirm them before use. Plain identical one-shot requests use Ask LLM's response cache and report no new usage when served from it; strict structured requests always make a fresh API call.
 
 ## Errors and refusals
 
@@ -152,7 +145,7 @@ The API command sends one small low-effort inference after model discovery. Grok
 GROK_CLI_LIVE_TEST=1 GROK_CLI_LIVE_MODEL="$(grok models | head -1 | awk '{print $1}')" \
   yarn test --project @ask-llm/grok-mcp
 
-CURSOR_LIVE_TEST=1 CURSOR_LIVE_MODEL=cursor-grok-4.6-high \
+CURSOR_LIVE_TEST=1 CURSOR_LIVE_MODEL=grok-4.7-high \
   yarn test --project @ask-llm/mcp
 ```
 
@@ -160,7 +153,7 @@ All three may consume metered or plan usage. Their mandatory unit/contract suite
 
 ## References
 
-- [Grok 4.6 model](https://docs.x.ai/developers/models/grok-4.6)
+- [Grok 4.7 model](https://docs.x.ai/developers/models/grok-4.7)
 - [Responses API text generation](https://docs.x.ai/developers/model-capabilities/text/generate-text)
 - [Reasoning effort](https://docs.x.ai/developers/model-capabilities/text/reasoning)
 - [Structured outputs](https://docs.x.ai/developers/model-capabilities/text/structured-outputs)

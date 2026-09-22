@@ -50,6 +50,9 @@ export const STATUS_MESSAGES = {
 // tool descriptions and drift-guard tests reference this, not the live value.
 // gpt-6-astra is Codex's own bundled default from 0.153.4 (#311 / ADR-163).
 export const FACTORY_DEFAULT_MODEL = "gpt-6-astra";
+// Pairing, /sol-review, and the Cursor brainstorm participant use GPT-6 Sol.
+// Unpinned ask-codex and /codex-review stay on FACTORY_DEFAULT_MODEL (ADR-164).
+export const CODEX_PAIR_MODEL = "gpt-6-sol";
 export const ASTRA_MIN_CODEX_VERSION = "0.153.0";
 export const CODEX_VERSION_CHECK_TIMEOUT_MS = 5_000;
 

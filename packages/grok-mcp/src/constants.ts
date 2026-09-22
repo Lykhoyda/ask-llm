@@ -3,8 +3,8 @@ export const XAI_API_BASE_URL = "https://api.x.ai";
 
 // Exact public API identifier documented by xAI. Reasoning effort is a
 // request parameter, not a different model identifier.
-export const FACTORY_DEFAULT_MODEL = "grok-4.6";
-export const GROK_CLI_FACTORY_DEFAULT_MODEL = "grok-build";
+export const FACTORY_DEFAULT_MODEL = "grok-4.7";
+export const GROK_CLI_FACTORY_DEFAULT_MODEL = "grok-4.7";
 export const FACTORY_DEFAULT_REASONING_EFFORT = "high";
 export const FACTORY_MAX_OUTPUT_TOKENS = 16_384;
 export const GROK_HARNESSES = ["xai-api", "grok-cli"] as const;

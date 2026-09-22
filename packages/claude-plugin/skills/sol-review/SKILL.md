@@ -1,19 +1,19 @@
 ---
 name: sol-review
-description: Review the current code changes specifically with OpenAI GPT-5.6 Sol. Use when the user asks for a Sol review, says "review with Sol", wants a model-pinned Codex review, or invokes /sol-review.
+description: Review the current code changes specifically with OpenAI GPT-6 Sol. Use when the user asks for a Sol review, says "review with Sol", wants a model-pinned Codex review, or invokes /sol-review.
 ---
 
 <!-- PORTABLE-CONTRACT:START -->
 ## Portable contract
 
-Gather a bounded diff and context brief, request a read-only Codex review explicitly pinned to `gpt-5.6-sol` with `reasoningEffort: "high"`, verify findings against source, and disclose any model or transport fallback. Do not silently substitute another provider.
+Gather a bounded diff and context brief, request a read-only Codex review explicitly pinned to `gpt-6-sol` with `reasoningEffort: "high"`, verify findings against source, and disclose any model or transport fallback. Do not silently substitute another provider.
 <!-- PORTABLE-CONTRACT:END -->
 
 ## Host adapters
 
 ### Pi adapter
 
-Call `ask-codex` with `model: "gpt-5.6-sol"`, `reasoningEffort: "high"`, and `sandbox: "read-only"`; apply only the portable contract in `../../agents/sol-reviewer.md` and disclose fallback metadata.
+Call `ask-codex` with `model: "gpt-6-sol"`, `reasoningEffort: "high"`, and `sandbox: "read-only"`; apply only the portable contract in `../../agents/sol-reviewer.md` and disclose fallback metadata.
 
 <!-- HOST-ADAPTER:CLAUDE-CODE:START -->
 ### Claude Code adapter
@@ -24,7 +24,7 @@ The existing detailed workflow below is the Claude Code adapter. Its Agent, MCP,
 
 # Sol Code Review
 
-Run a read-only, precision-first review explicitly pinned to GPT-5.6 Sol at high reasoning effort.
+Run a read-only, precision-first review explicitly pinned to GPT-6 Sol at high reasoning effort.
 
 ## Workflow
 
@@ -40,6 +40,6 @@ Run a read-only, precision-first review explicitly pinned to GPT-5.6 Sol at high
 6. Launch the `sol-reviewer` agent with the diff and a compact context brief containing the changed files, applicable conventions, referenced ADRs, the user's requested review focus, and the complete preflight result.
 7. Return the agent's validated findings without adding unverified issues.
 
-The reviewer must call `ask-codex` with `model: "gpt-5.6-sol"`, `reasoningEffort: "high"`, and `sandbox: "read-only"`, or the unified `ask-llm` equivalent with `provider: "codex"` and those same fields, or use the shipped CLI fallback runner when no usable MCP tool is available, its schema cannot honor those options, or its invocation fails at the transport/service boundary. That runner executes the sanctioned `codex exec -m gpt-5.6-sol -c model_reasoning_effort="high" -s read-only --ignore-user-config --ignore-rules --skip-git-repo-check` contract and relays its result unchanged. This explicit pin distinguishes `/sol-review` from `/codex-review`, which follows the configured Codex default. Both fallback kinds must be disclosed in the report: a Terra quota fallback means the requested Sol review did not complete on Sol, and a CLI transport fallback must report missing registration, registered-service unavailability, an unsupported unified schema, or an unreadable inventory without claiming a state that could not be determined.
+The reviewer must call `ask-codex` with `model: "gpt-6-sol"`, `reasoningEffort: "high"`, and `sandbox: "read-only"`, or the unified `ask-llm` equivalent with `provider: "codex"` and those same fields, or use the shipped CLI fallback runner when no usable MCP tool is available, its schema cannot honor those options, or its invocation fails at the transport/service boundary. That runner executes the sanctioned `codex exec -m gpt-6-sol -c model_reasoning_effort="high" -s read-only --ignore-user-config --ignore-rules --skip-git-repo-check` contract and relays its result unchanged. This explicit pin distinguishes `/sol-review` from `/codex-review`, which follows the configured Codex default. Both fallback kinds must be disclosed in the report: a Terra quota fallback means the requested Sol review did not complete on Sol, and a CLI transport fallback must report missing registration, registered-service unavailability, an unsupported unified schema, or an unreadable inventory without claiming a state that could not be determined.
 
 <!-- HOST-ADAPTER:CLAUDE-CODE:END -->

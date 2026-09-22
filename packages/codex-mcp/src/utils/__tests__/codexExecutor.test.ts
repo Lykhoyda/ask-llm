@@ -1000,7 +1000,7 @@ describe("configured preferred model tier", () => {
   };
 
   beforeEach(() => {
-    // GPT-5.6 Sol is both DEFAULT and PREFERRED out of the box. Give the legacy
+    // Astra is both DEFAULT and PREFERRED out of the box. Give the legacy
     // escape hatch a distinct value so this suite continues to exercise its
     // opt-in downgrade and cache-isolation behavior.
     MODELS.PREFERRED = "test-preferred-model";

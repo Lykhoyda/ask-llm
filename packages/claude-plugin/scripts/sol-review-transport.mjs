@@ -10,7 +10,7 @@ export const ASK_CODEX_TOOL = "ask-codex";
 export const ASK_LLM_PACKAGE = "@ask-llm/mcp";
 export const ASK_LLM_TOOL = "ask-llm";
 export const UNIFIED_CODEX_OPTION_KEYS = ["reasoningEffort", "includeDirs", "preferred", "sandbox"];
-export const SOL_MODEL = "gpt-5.6-sol";
+export const SOL_MODEL = "gpt-6-sol";
 export const TERRA_MODEL = "gpt-5.6-terra";
 
 const MISSING_REGISTRATION_REMEDIATION =

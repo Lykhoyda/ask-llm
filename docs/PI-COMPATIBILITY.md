@@ -9,7 +9,7 @@ Classifications: **host-neutral**, **thin host adapter**, **lifecycle integratio
 | Skill | Classification | Pi disposition |
 |---|---|---|
 | `antigravity-review` | Thin host adapter | Portable review contract runs inline through native `ask-antigravity`. |
-| `brainstorm` | Thin host adapter | Standard mode commits the current Pi host's independent view before deterministic `ask-multi`. Exact Grok + GPT-5.6 Sol mode instead calls `ask-cursor-agent` for only the two explicit provider/model pairs, treats the host view as non-voting evidence, excludes Gemini, and never upgrades a partial failure to consensus. |
+| `brainstorm` | Thin host adapter | Standard mode commits the current Pi host's independent view before deterministic `ask-multi`. Exact Grok + GPT-6 Sol mode instead calls `ask-cursor-agent` for only the two explicit provider/model pairs, treats the host view as non-voting evidence, excludes Gemini, and never upgrades a partial failure to consensus. |
 | `brainstorm-all` | Thin host adapter | Same as `brainstorm`, with all five external providers. |
 | `codex-image` | Thin host adapter | Native `ask-codex` with explicit `sandbox: "workspace-write"`, followed by filesystem verification. |
 | `codex-pair` | Lifecycle integration + thin adapter | Pi command owns consent/status; extension observes successful `tool_result` edit/write events, debounces, reviews, and injects findings. |

@@ -98,21 +98,21 @@ describe("Pi provider tools", () => {
     calls.cursor.mockResolvedValue({
       response: "cursor result",
       provider: "grok",
-      model: "cursor-grok-4.6-high",
-      reportedModel: "Grok 4.6",
+      model: "grok-4.7-high",
+      reportedModel: "Grok 4.7",
       harness: "cursor-agent",
       sessionId: "cursor-session",
-      usage: { provider: "grok", model: "cursor-grok-4.6-high", fellBack: false },
+      usage: { provider: "grok", model: "grok-4.7-high", fellBack: false },
     });
     const controller = new AbortController();
     const result = await harness()
       .byName("ask-cursor-agent")
-      .execute("call", { prompt: "review", provider: "grok", model: "cursor-grok-4.6-high" }, controller.signal);
+      .execute("call", { prompt: "review", provider: "grok", model: "grok-4.7-high" }, controller.signal);
 
     expect(calls.cursor).toHaveBeenCalledWith({
       prompt: "review",
       provider: "grok",
-      model: "cursor-grok-4.6-high",
+      model: "grok-4.7-high",
       includeDirs: undefined,
       sessionId: undefined,
       signal: controller.signal,
@@ -121,8 +121,8 @@ describe("Pi provider tools", () => {
     expect(result.details).toMatchObject({
       provider: "grok",
       harness: "cursor-agent",
-      model: "cursor-grok-4.6-high",
-      reportedModel: "Grok 4.6",
+      model: "grok-4.7-high",
+      reportedModel: "Grok 4.7",
       sessionId: "cursor-session",
       askLlmUsage: { fellBack: false },
     });

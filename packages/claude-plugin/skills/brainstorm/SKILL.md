@@ -6,7 +6,7 @@ description: Send a topic to an explicit multi-model panel, then synthesize find
 <!-- PORTABLE-CONTRACT:START -->
 ## Portable contract
 
-For the standard workflow, the current host model records an independent analysis before seeing external answers, then sends the same bounded topic and Context Brief concurrently to the selected providers. For the exact Grok + GPT-5.6 Sol workflow, the host is a non-voting evidence verifier/synthesizer: the brainstorming panel has exactly those two requested participants. Cross-check source where possible and synthesize consensus, unique insights, contradictions, rejected false positives, failures, and confidence. Keep provider, harness, requested model ID, independently observed served model ID, and Cursor's reported display label separate. Only direct xAI API / Grok CLI routes can report a served ID, and only when the provider/CLI payload actually carries one; a disclosed same-product alias/snapshot resolution (for example `grok-4.6` or `grok-4-latest` served as a dated `grok-4-<snapshot>`) stays eligible, while a different model is a mismatch and ineligible. A direct route whose payload omits the model stays selected-only. Cursor Agent and Codex CLI echo the requested ID, so that attribution is selected-only and unverifiable—never call a requested or selected ID the actual model. Never select Cursor Auto, infer a requested ID from a display label, silently change a model, or pivot to another harness/provider.
+For the standard workflow, the current host model records an independent analysis before seeing external answers, then sends the same bounded topic and Context Brief concurrently to the selected providers. For the exact Grok + GPT-6 Sol workflow, the host is a non-voting evidence verifier/synthesizer: the brainstorming panel has exactly those two requested participants. Cross-check source where possible and synthesize consensus, unique insights, contradictions, rejected false positives, failures, and confidence. Keep provider, harness, requested model ID, independently observed served model ID, and Cursor's reported display label separate. Only direct xAI API / Grok CLI routes can report a served ID, and only when the provider/CLI payload actually carries one; a disclosed same-product alias/snapshot resolution (for example `grok-4.7` served as a dated `grok-4.7-<snapshot>`, or `grok-4-latest` served as `grok-4-<snapshot>`) stays eligible, while a different model is a mismatch and ineligible. A direct route whose payload omits the model stays selected-only. Cursor Agent and Codex CLI echo the requested ID, so that attribution is selected-only and unverifiable—never call a requested or selected ID the actual model. Never select Cursor Auto, infer a requested ID from a display label, silently change a model, or pivot to another harness/provider.
 <!-- PORTABLE-CONTRACT:END -->
 
 ## Host adapters
@@ -15,8 +15,8 @@ For the standard workflow, the current host model records an independent analysi
 
 The current Pi host model completes its independent evidence memo first. Standard provider lists use native `ask-multi`. A routed participant uses the matching native tool instead: `provider@cursor-agent:model` calls `ask-cursor-agent` with separate `provider` and exact `model`; direct Grok calls `ask-grok` with the explicit `harness` and exact model. A participant list mixing routed `provider@harness:exact-model-id` entries with bare provider names is refused before any tool call; nothing is dispatched or substituted. For the exact Grok + Sol panel, issue only these two consultations (concurrently when the host supports it):
 
-- `ask-cursor-agent({ provider: "grok", model: "cursor-grok-4.6-high", prompt })`
-- `ask-cursor-agent({ provider: "codex", model: "gpt-5.6-sol-high", prompt })`
+- `ask-cursor-agent({ provider: "grok", model: "grok-4.7-high", prompt })`
+- `ask-cursor-agent({ provider: "codex", model: "gpt-6-sol-high", prompt })`
 
 Do not call `ask-multi` for that panel because it cannot express Cursor harness identity, and do not call Gemini. Treat the host memo as non-voting verification evidence, not a third panel answer. If either participant fails, label the run partial and do not claim two-model consensus.
 
@@ -38,19 +38,19 @@ Consult an explicitly selected panel on a topic, then synthesize the responses a
 - Bare `grok` retains the existing direct canonical runner and its explicit `ASK_GROK_HARNESS` selection (`xai-api` default or `grok-cli`) for compatibility. That direct route never falls back.
 - Preferred explicit syntax is `provider@harness:exact-model-id`. Supported routed participants are:
   - `grok@cursor-agent:<exact ID from agent --list-models>` (preferred Grok route)
-  - `codex@cursor-agent:<exact GPT-5.6 Sol ID from agent --list-models>`
+  - `codex@cursor-agent:<exact GPT-6 Sol ID from agent --list-models>`
   - `grok@grok-cli:<exact ID from grok models>` (explicit Grok Build alternative)
   - `grok@xai-api:<exact ID from GET /v1/models>`
-  - `codex@codex-cli:gpt-5.6-sol` (explicit direct Codex alternative; any reported fallback makes the exact panel partial)
+  - `codex@codex-cli:gpt-6-sol` (explicit direct Codex alternative; any reported fallback makes the exact panel partial)
 - Never accept `Auto`, map a display label to an ID, or substitute a route. A missing registration/harness, unavailable model, auth failure, or unsupported provider/harness pair is a participant failure with its actionable error preserved.
-- A participant list must be either all bare provider names or all routed `provider@harness:exact-model-id` specs. A mixed list (for example `grok@cursor-agent:cursor-grok-4.6-high,antigravity`) is refused before any dispatch with the "Mixed brainstorm participant lists are not supported" error; no participant is rerouted to a bare runner, substituted, or dispatched. Generalized mixed panels are deferred to a future ADR.
+- A participant list must be either all bare provider names or all routed `provider@harness:exact-model-id` specs. A mixed list (for example `grok@cursor-agent:grok-4.7-high,antigravity`) is refused before any dispatch with the "Mixed brainstorm participant lists are not supported" error; no participant is rerouted to a bare runner, substituted, or dispatched. Generalized mixed panels are deferred to a future ADR.
 - Everything after the participant list is the topic.
 - In standard mode, Claude Opus remains a participant. In the exact Grok + Sol mode below, Claude is only the non-voting evidence verifier/synthesizer so the panel has exactly two participants.
 
-**Architect workflow — exactly Grok + GPT-5.6 Sol, no Gemini:**
+**Architect workflow — exactly Grok + GPT-6 Sol, no Gemini:**
 
 ```text
-/brainstorm grok@cursor-agent:cursor-grok-4.6-high,codex@cursor-agent:gpt-5.6-sol-high "review this architecture"
+/brainstorm grok@cursor-agent:grok-4.7-high,codex@cursor-agent:gpt-6-sol-high "review this architecture"
 ```
 
 These IDs are exact catalog examples verified for this workflow; account catalogs can change, so use `agent --list-models` and replace an unavailable ID explicitly. The coordinator must not call Gemini, the direct Grok runner, xAI API, Grok Build, or Codex CLI for this invocation.
@@ -58,7 +58,7 @@ These IDs are exact catalog examples verified for this workflow; account catalog
 **Explicit Grok Build alternative (still no Gemini):**
 
 ```text
-/brainstorm grok@grok-cli:grok-build,codex@cursor-agent:gpt-5.6-sol-high "review this architecture"
+/brainstorm grok@grok-cli:grok-4.7,codex@cursor-agent:gpt-6-sol-high "review this architecture"
 ```
 
 This route is valid only when the installed Grok Build contract supports Ask LLM's headless JSON/read-only flags. Failure is terminal for the Grok participant; do not pivot to Cursor or xAI.

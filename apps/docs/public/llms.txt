@@ -7,8 +7,8 @@ Ask LLM provides Model Context Protocol (MCP) servers that let any MCP-compatibl
 ## Packages
 
 - `@ask-llm/codex-mcp`: MCP server for OpenAI Codex CLI. Default model: gpt-6-astra → gpt-5.6-terra on quota.
-- `@ask-llm/claude-mcp`: MCP server for Anthropic Claude Code CLI, intended for Codex and other non-Claude hosts. Default: opus → sonnet. Native sessions; Read/Glob/Grep-only tools.
-- `@ask-llm/grok-mcp`: MCP server for Grok through the metered xAI Responses API. Default API ID: `grok-4.6`; explicit `xai-api` or `grok-cli` harness; high effort; no harness/model/provider fallback.
+- `@ask-llm/claude-mcp`: MCP server for Anthropic Claude Code CLI, intended for Codex and other non-Claude hosts. Default: opus (Opus 5.5, `claude-opus-5-5`) → sonnet. Native sessions; Read/Glob/Grep-only tools.
+- `@ask-llm/grok-mcp`: MCP server for Grok through the metered xAI Responses API. Default model: `grok-4.7` on both harnesses; explicit `xai-api` or `grok-cli`; high effort; no harness/model/provider fallback.
 - `@ask-llm/antigravity-mcp`: MCP server for Google Antigravity CLI (`agy` ≥1.1.5). Subscription-backed second opinion. Default model: `gemini-3.1-pro` → `gemini-3.5-flash` on rate limit, both at high effort.
 - `@ask-llm/ollama-mcp`: MCP server for local Ollama. No API keys, fully private. Default model: qwen3.8:27b (no fallback).
 - `@ask-llm/gemini-mcp`: MCP server for Google Gemini CLI. 1M+ token context. Default model: gemini-3.1-pro-preview → gemini-3.8-flash on quota. (Enterprise-gated since 2026-06-18.)
@@ -70,7 +70,7 @@ Install the plugin for review skills, brainstorm agents, and automated hooks:
 
 Skills: /multi-review, /fable-review, /sol-review, /codex-review, /grok-review, /antigravity-review, /ollama-review, /gemini-review, /brainstorm, /brainstorm-all, /compare, /codex-verify, /codex-image, /grok-pair, /codex-pair (+ -ack, -pause, -resume)
 
-codex-pair (flagship): opt-in continuous review. Codex reviews every file edit as Claude makes it, gated on a .codex-pair/context.md marker (zero cost without it). Debounced per-edit reviews, HIGH/MED verdicts surface on the next turn, opt-in Stop gate blocks turn-end on unaddressed HIGH findings. Full page: https://lykhoyda.github.io/ask-llm/plugin/codex-pair
+codex-pair (flagship): opt-in continuous review on `gpt-6-sol` at medium effort (quota fallback `gpt-5.6-terra`). Codex reviews every file edit as Claude makes it, gated on a .codex-pair/context.md marker (zero cost without it). Debounced per-edit reviews, HIGH/MED verdicts surface on the next turn, opt-in Stop gate blocks turn-end on unaddressed HIGH findings. Full page: https://lykhoyda.github.io/ask-llm/plugin/codex-pair
 Plugin pages: https://lykhoyda.github.io/ask-llm/plugin/overview, https://lykhoyda.github.io/ask-llm/plugin/cursor, https://lykhoyda.github.io/ask-llm/plugin/codex-pair, https://lykhoyda.github.io/ask-llm/plugin/skills, https://lykhoyda.github.io/ask-llm/plugin/hooks, https://lykhoyda.github.io/ask-llm/plugin/agents
 
 ## Links

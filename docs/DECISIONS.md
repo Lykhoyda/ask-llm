@@ -1,5 +1,15 @@
 # Architectural Decisions
 
+## ADR-164: Pair on GPT-6 Sol, and move Grok and Opus pins to 4.7 and 5.5
+
+**Status:** Accepted (2026-09-22)
+
+**Context:** Codex CLI 0.155.1 lists `gpt-6-sol` (`visibility: "list"`, priority 2, the same effort ladder as Astra including `ultra`). Astra remains priority 1 and the bundled flagship, so `FACTORY_DEFAULT_MODEL` stays `gpt-6-astra`. Claude Code's catalog identifies the floating `opus` alias with concrete id `claude-opus-5-5` (Opus 5.5, released 2026-09-22; API id `claude-opus-5-5`). xAI's API id is `grok-4.7`. Authenticated Grok CLI 1.0.40 `models` cache and `grok models` list `grok-4.7` as the default; `grok-build` is an agent profile name, not a catalog model id. Cursor Grok 4.7 is `grok-4.7-high`. Pi pair calls `executeCodexCLI`, so the Codex CLI slug is the one that matters.
+
+**Decision:** Set `CODEX_PAIR_MODEL` to `gpt-6-sol` and point `codex-pair` defaults, the watch-script literal, and the Pi pair fallback at that constant. Pair reviews use `medium` reasoning effort (the per-edit CLI flag, the broker `turn/start` effort, and the Pi `executeCodexCLI` call). `ASK_CODEX_REASONING_EFFORT` remains the Claude-hook override. Keep `MODELS.FALLBACK` at `gpt-5.6-terra`. The pair drift guard compares the JSON model to `CODEX_PAIR_MODEL`, not `FACTORY_DEFAULT_MODEL`. Move `/sol-review` and the direct Codex brainstorm route to `gpt-6-sol`. Move the `/brainstorm` Cursor Codex participant to `gpt-6-sol-high`. Move Grok `FACTORY_DEFAULT_MODEL` and `GROK_CLI_FACTORY_DEFAULT_MODEL` to `grok-4.7`. The preferred Cursor Grok route is `grok@cursor-agent:grok-4.7-high`; the explicit CLI route is `grok@grok-cli:grok-4.7`. Keep the Claude factory default as the `opus` alias. Exact pins that named an older Opus generation (`claude-opus-4-7` harness smoke and sample served ids) move to `claude-opus-5-5`.
+
+**Consequences:** Unpinned `ask-codex`, `/codex-review`, and `/multi-review` still select Astra and quota-fall back to Terra. Pairing reviews select Sol and use the same Terra fallback. Cursor `/codex-pair` passes a Codex CLI slug (`gpt-6-sol`), not a Cursor catalog id. Grok calls that omit a model request `grok-4.7` on both harnesses. `xhigh` remains documented for grok-4.6 and later. Historical ADRs stay the record of the previous pins.
+
 ## ADR-163: Codex factory default moves to gpt-6-astra
 
 **Status:** Accepted (2026-09-20)

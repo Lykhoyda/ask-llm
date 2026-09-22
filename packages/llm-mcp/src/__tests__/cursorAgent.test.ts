@@ -15,7 +15,7 @@ import {
   probeCursorAgent,
 } from "../cursorAgent.js";
 
-function stream(model = "Grok 4.6", result = "Cursor review"): string {
+function stream(model = "Grok 4.7", result = "Cursor review"): string {
   return [
     JSON.stringify({ type: "system", subtype: "init", model, session_id: "session-fixture" }),
     JSON.stringify({ type: "assistant", message: { content: [{ type: "text", text: result }] } }),
@@ -38,7 +38,7 @@ describe("model-neutral Cursor Agent harness", () => {
   it("keeps provider and exact model separate while enforcing read-only ask mode", async () => {
     const result = await executeCursorAgent({
       provider: "grok",
-      model: "cursor-grok-4.6-high",
+      model: "grok-4.7-high",
       prompt: "review",
     });
     const [command, args, , , stdin, , logging] = executeCommandMock.mock.calls[0];
@@ -52,7 +52,7 @@ describe("model-neutral Cursor Agent harness", () => {
       "--mode",
       "ask",
       "--model",
-      "cursor-grok-4.6-high",
+      "grok-4.7-high",
       "review",
     ]);
     expect(args).not.toContain("--force");
@@ -61,19 +61,19 @@ describe("model-neutral Cursor Agent harness", () => {
     expect(logging).toEqual({ sensitiveValues: ["review"] });
     expect(result).toMatchObject({
       provider: "grok",
-      model: "cursor-grok-4.6-high",
-      reportedModel: "Grok 4.6",
+      model: "grok-4.7-high",
+      reportedModel: "Grok 4.7",
       harness: "cursor-agent",
-      usage: { provider: "grok", model: "cursor-grok-4.6-high", fellBack: false },
+      usage: { provider: "grok", model: "grok-4.7-high", fellBack: false },
     });
-    expect(result.response).toContain("model: cursor-grok-4.6-high");
-    expect(result.response).toContain("[Cursor Agent reported model: Grok 4.6]");
+    expect(result.response).toContain("model: grok-4.7-high");
+    expect(result.response).toContain("[Cursor Agent reported model: Grok 4.7]");
   });
 
   it("passes validated include directories and resumes the returned Cursor session without changing attribution", async () => {
     const first = await executeCursorAgent({
       provider: "grok",
-      model: "cursor-grok-4.6-high",
+      model: "grok-4.7-high",
       prompt: "review",
       includeDirs: ["packages/api", "docs"],
     });
@@ -86,7 +86,7 @@ describe("model-neutral Cursor Agent harness", () => {
       "--mode",
       "ask",
       "--model",
-      "cursor-grok-4.6-high",
+      "grok-4.7-high",
       "--add-dir",
       "packages/api",
       "--add-dir",
@@ -96,7 +96,7 @@ describe("model-neutral Cursor Agent harness", () => {
 
     await executeCursorAgent({
       provider: "grok",
-      model: "cursor-grok-4.6-high",
+      model: "grok-4.7-high",
       prompt: "check the fix",
       sessionId: first.sessionId,
     });
@@ -108,7 +108,7 @@ describe("model-neutral Cursor Agent harness", () => {
     await expect(
       executeCursorAgent({
         provider: "grok",
-        model: "cursor-grok-4.6-high",
+        model: "grok-4.7-high",
         prompt: "review",
         includeDirs: ["../outside"],
       }),
@@ -118,7 +118,7 @@ describe("model-neutral Cursor Agent harness", () => {
 
   it("passes the Cursor-specific timeout to the cancellable command boundary", async () => {
     process.env.ASK_CURSOR_TIMEOUT_MS = "4321";
-    await executeCursorAgent({ provider: "grok", model: "cursor-grok-4.6-high", prompt: "review" });
+    await executeCursorAgent({ provider: "grok", model: "grok-4.7-high", prompt: "review" });
     expect(executeCommandMock.mock.calls[0][5]).toBe(4321);
   });
 
@@ -149,7 +149,7 @@ describe("model-neutral Cursor Agent harness", () => {
     await expect(
       executeCursorAgent({
         provider: "grok",
-        model: "cursor-grok-4.6-high",
+        model: "grok-4.7-high",
         prompt: "review",
         signal: controller.signal,
       }),
@@ -165,14 +165,14 @@ describe("model-neutral Cursor Agent harness", () => {
       ["workspace trust required", /requires this workspace to be trusted/],
     ] as const) {
       executeCommandMock.mockRejectedValueOnce(new Error(raw));
-      await expect(
-        executeCursorAgent({ provider: "grok", model: "cursor-grok-4.6-high", prompt: raw }),
-      ).rejects.toThrow(pattern);
+      await expect(executeCursorAgent({ provider: "grok", model: "grok-4.7-high", prompt: raw })).rejects.toThrow(
+        pattern,
+      );
     }
     executeCommandMock.mockResolvedValueOnce("not-json");
-    await expect(
-      executeCursorAgent({ provider: "grok", model: "cursor-grok-4.6-high", prompt: "bad" }),
-    ).rejects.toThrow(/malformed JSON/);
+    await expect(executeCursorAgent({ provider: "grok", model: "grok-4.7-high", prompt: "bad" })).rejects.toThrow(
+      /malformed JSON/,
+    );
     expect(executeCommandMock).toHaveBeenCalledTimes(5);
   });
 
@@ -181,14 +181,14 @@ describe("model-neutral Cursor Agent harness", () => {
     await expect(probeCursorAgent()).resolves.toBe(true);
 
     executeCommandMock.mockResolvedValueOnce(
-      "Available models\n\ncursor-grok-4.6-high - Cursor Grok 4.6\nclaude-opus-5-thinking-high - Claude Opus 5\n",
+      "Available models\n\ngrok-4.7-high - Cursor Grok 4.7\nclaude-opus-5-thinking-high - Claude Opus 5\n",
     );
-    await expect(listCursorModels()).resolves.toEqual(["cursor-grok-4.6-high", "claude-opus-5-thinking-high"]);
+    await expect(listCursorModels()).resolves.toEqual(["grok-4.7-high", "claude-opus-5-thinking-high"]);
   });
 
   it("routes prompts above the byte threshold over stdin instead of argv", async () => {
     const prompt = "x".repeat(CURSOR_STDIN_THRESHOLD_BYTES + 1);
-    await executeCursorAgent({ provider: "grok", model: "cursor-grok-4.6-high", prompt });
+    await executeCursorAgent({ provider: "grok", model: "grok-4.7-high", prompt });
     const [, args, , , stdin, , logging] = executeCommandMock.mock.calls[0];
     expect(args).toEqual([
       "--print",
@@ -198,7 +198,7 @@ describe("model-neutral Cursor Agent harness", () => {
       "--mode",
       "ask",
       "--model",
-      "cursor-grok-4.6-high",
+      "grok-4.7-high",
     ]);
     expect(stdin).toBe(prompt);
     expect(logging).toEqual({ sensitiveValues: [] });
@@ -206,12 +206,12 @@ describe("model-neutral Cursor Agent harness", () => {
 
   it("keeps a prompt at the byte threshold on argv and counts bytes, not characters", async () => {
     const atThreshold = "x".repeat(CURSOR_STDIN_THRESHOLD_BYTES);
-    await executeCursorAgent({ provider: "grok", model: "cursor-grok-4.6-high", prompt: atThreshold });
+    await executeCursorAgent({ provider: "grok", model: "grok-4.7-high", prompt: atThreshold });
     expect(executeCommandMock.mock.calls[0][1]).toContain(atThreshold);
     expect(executeCommandMock.mock.calls[0][4]).toBeUndefined();
 
     const multibyte = "é".repeat(CURSOR_STDIN_THRESHOLD_BYTES / 2 + 1);
-    await executeCursorAgent({ provider: "grok", model: "cursor-grok-4.6-high", prompt: multibyte });
+    await executeCursorAgent({ provider: "grok", model: "grok-4.7-high", prompt: multibyte });
     expect(executeCommandMock.mock.calls[1][4]).toBe(multibyte);
   });
 
@@ -220,7 +220,7 @@ describe("model-neutral Cursor Agent harness", () => {
     await expect(
       executeCursorAgent({
         provider: "grok",
-        model: "cursor-grok-4.6-high",
+        model: "grok-4.7-high",
         prompt: "y".repeat(CURSOR_STDIN_THRESHOLD_BYTES + 1),
       }),
     ).rejects.toThrow(/did not accept a prompt larger than .* over stdin.*Update Cursor CLI.*No fallback/);
@@ -234,7 +234,7 @@ describe("Cursor provider attribution is verified against the model family", () 
   });
 
   it.each([
-    ["cursor-grok-4.6-high", "grok"],
+    ["grok-4.7-high", "grok"],
     ["grok4", "grok"],
     ["claude-opus-5-thinking-high", "claude"],
     ["sonnet-4.5", "claude"],
@@ -251,9 +251,9 @@ describe("Cursor provider attribution is verified against the model family", () 
   });
 
   it("refuses a requested model from another provider family before spawning", async () => {
-    await expect(
-      executeCursorAgent({ provider: "claude", model: "cursor-grok-4.6-high", prompt: "review" }),
-    ).rejects.toThrow(/belongs to provider "grok", not the requested provider "claude".*No fallback/);
+    await expect(executeCursorAgent({ provider: "claude", model: "grok-4.7-high", prompt: "review" })).rejects.toThrow(
+      /belongs to provider "grok", not the requested provider "claude".*No fallback/,
+    );
     expect(executeCommandMock).not.toHaveBeenCalled();
   });
 
@@ -266,16 +266,14 @@ describe("Cursor provider attribution is verified against the model family", () 
 
   it("refuses a non-Cursor provider such as ollama", async () => {
     await expect(
-      executeCursorAgent({ provider: "ollama" as never, model: "cursor-grok-4.6-high", prompt: "review" }),
+      executeCursorAgent({ provider: "ollama" as never, model: "grok-4.7-high", prompt: "review" }),
     ).rejects.toThrow(/not a canonical Cursor catalog provider/);
     expect(executeCommandMock).not.toHaveBeenCalled();
   });
 
   it("fails terminally when the CLI display label reveals a cross-provider substitution", async () => {
     executeCommandMock.mockResolvedValueOnce(stream("Claude Opus 5 (Thinking, High)", "served by claude"));
-    await expect(
-      executeCursorAgent({ provider: "grok", model: "cursor-grok-4.6-high", prompt: "review" }),
-    ).rejects.toThrow(
+    await expect(executeCursorAgent({ provider: "grok", model: "grok-4.7-high", prompt: "review" })).rejects.toThrow(
       /reported model "Claude Opus 5 \(Thinking, High\)" \(provider "claude"\) for requested grok model/,
     );
     expect(executeCommandMock).toHaveBeenCalledTimes(1);
@@ -283,19 +281,19 @@ describe("Cursor provider attribution is verified against the model family", () 
 
   it("keeps the requested catalog ID and surfaces a label it cannot classify instead of guessing", async () => {
     executeCommandMock.mockResolvedValueOnce(stream("Auto", "served"));
-    const result = await executeCursorAgent({ provider: "grok", model: "cursor-grok-4.6-high", prompt: "review" });
-    expect(result.model).toBe("cursor-grok-4.6-high");
-    expect(result.usage.model).toBe("cursor-grok-4.6-high");
+    const result = await executeCursorAgent({ provider: "grok", model: "grok-4.7-high", prompt: "review" });
+    expect(result.model).toBe("grok-4.7-high");
+    expect(result.usage.model).toBe("grok-4.7-high");
     expect(result.reportedModel).toBe("Auto");
     expect(result.response).toContain("[Cursor Agent reported model: Auto]");
   });
 
   it("corroborates a same-family display label and still reports the exact requested ID", async () => {
-    executeCommandMock.mockResolvedValueOnce(stream("Grok 4.6 (High)", "served"));
-    const result = await executeCursorAgent({ provider: "grok", model: "cursor-grok-4.6-high", prompt: "review" });
-    expect(result.model).toBe("cursor-grok-4.6-high");
-    expect(result.usage.model).toBe("cursor-grok-4.6-high");
-    expect(result.reportedModel).toBe("Grok 4.6 (High)");
+    executeCommandMock.mockResolvedValueOnce(stream("Grok 4.7 (High)", "served"));
+    const result = await executeCursorAgent({ provider: "grok", model: "grok-4.7-high", prompt: "review" });
+    expect(result.model).toBe("grok-4.7-high");
+    expect(result.usage.model).toBe("grok-4.7-high");
+    expect(result.reportedModel).toBe("Grok 4.7 (High)");
   });
 
   it("omits reportedModel and the footer when the CLI emits no init event", async () => {
@@ -307,9 +305,9 @@ describe("Cursor provider attribution is verified against the model family", () 
         usage: { input_tokens: 1, output_tokens: 1 },
       }),
     );
-    const result = await executeCursorAgent({ provider: "grok", model: "cursor-grok-4.6-high", prompt: "review" });
+    const result = await executeCursorAgent({ provider: "grok", model: "grok-4.7-high", prompt: "review" });
     expect(result.reportedModel).toBeUndefined();
-    expect(result.model).toBe("cursor-grok-4.6-high");
+    expect(result.model).toBe("grok-4.7-high");
     expect(result.response).not.toContain("reported model");
   });
 });
