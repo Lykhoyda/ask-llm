@@ -1,5 +1,15 @@
 # Architectural Decisions
 
+## ADR-165: Review prompts insert file and context text literally, in one pass
+
+**Status:** Accepted (2026-09-24)
+
+**Context:** ADR-089 substituted the five template tokens with sequential `String.prototype.replace(token, value)` calls and claimed "no regex special-char hazards in the values". That was wrong: with a string replacement, `$` patterns in the value are still interpreted. A file containing `` $` `` got the whole prompt prefix pasted into its `<file_content>` payload, which is exactly the "review prompt was pasted into this file" HIGH reported in #281. `$&`, `$'` and `$$` also altered the text, and a `{{FILE_CONTENT}}` token inside `context.md` captured the file insertion because later replacements re-scanned earlier values.
+
+**Decision:** `buildReviewPrompt` (`scripts/lib/prompt.mjs`) and the benchmark mirror (`scripts/benchmark/lib/render-prompt.mjs`) render with a single `/\{\{(\w+)\}\}/g` pass and a function replacer that looks up known token names. A function replacer's return value is inserted literally, and one pass means inserted text is never scanned for tokens. Unknown `{{NAME}}` sequences in the template stay as written.
+
+**Consequences:** Ordinary inputs render byte-identically, so the ADR-089 golden fixture and existing cache keys are unchanged. Files or contexts that contain `$` patterns or template tokens now render differently, so their cache entries, which were computed from corrupted prompts, miss once. Pi reuses `buildReviewPrompt` and gets the fix. `src/__tests__/review-prompt.test.ts` pins literal rendering for both renderers.
+
 ## ADR-164: Pair on GPT-6 Sol, and move Grok and Opus pins to 4.7 and 5.5
 
 **Status:** Accepted (2026-09-22)
