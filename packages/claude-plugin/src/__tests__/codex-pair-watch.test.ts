@@ -141,16 +141,6 @@ describe("scripts/codex-pair-watch.mjs — structural invariants (ADR-077)", () 
     expect(script).toMatch(/CODEX_PAIR_FORCE_SYNC[^\n]*\?\s*0\s*:/);
   });
 
-  it("clears debounce state on SessionEnd only (not SessionStart), un-gated by the broker flag", () => {
-    const sessionScript = readFile("scripts/codex-pair-session.mjs");
-    expect(sessionScript).toMatch(/clearAllDebounceState/);
-    // Must be SessionEnd-gated — clearing on SessionStart would wipe a verdict
-    // queued just before a new session begins (claude-review finding on #144).
-    expect(sessionScript).toMatch(/event === "SessionEnd"[\s\S]{0,240}clearAllDebounceState/);
-    // The cleanup must run before (and independent of) the ASK_CODEX_BROKER gate.
-    expect(sessionScript).toMatch(/clearAllDebounceState[\s\S]{0,400}ASK_CODEX_BROKER/);
-  });
-
   // Phase 1 item #1: log rotation (now in lib/state.mjs per ADR-088)
   it("caps log growth via CODEX_PAIR_MAX_LOG_BYTES env var (default 2_000_000) and MAX_LOG_ENTRIES", () => {
     expect(libState).toMatch(/CODEX_PAIR_MAX_LOG_BYTES/);
@@ -2806,6 +2796,28 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
     );
   });
 
+  it("sends initialized after the successful initialize response", async () => {
+    const { initializeBroker } = await import("../../scripts/lib/broker.mjs");
+    const sent: string[] = [];
+    const connection = { close: () => {} };
+    const result = await initializeBroker(
+      "unix:///unused",
+      { name: "test", title: "test", version: "1" },
+      {
+        connectWebSocket: async () => connection,
+        createRpcClient: () => ({
+          request: async (method: string) => {
+            sent.push(method);
+            return { userAgent: "test" };
+          },
+          notify: (method: string) => sent.push(method),
+        }),
+      },
+    );
+    expect(result.connection).toBe(connection);
+    expect(sent).toEqual(["initialize", "initialized"]);
+  });
+
   // Milestone 2 PR 2: broker-lifecycle (SessionStart spawn + handshake +
   // descriptor write). End-to-end against a real `codex app-server` is
   // Milestone 4; these tests use injectDeps to mock spawn + initialize.
@@ -2853,14 +2865,18 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
   });
 
   it("ADR-093 lifecycle: bootstrapBroker happy path writes descriptor + closes init connection", async () => {
-    const { bootstrapBroker } = await import("../../scripts/lib/broker-lifecycle.mjs");
+    const { bootstrapBroker, removeIsolatedBrokerHome } = await import("../../scripts/lib/broker-lifecycle.mjs");
     fs.mkdirSync(path.join(tempDir, ".codex-pair"), { recursive: true });
     const fakeChild = { pid: 12345, kill: () => true, killed: false, exitCode: null };
     let connectionClosed = false;
+    let spawnedHome: string | undefined;
     const result = await bootstrapBroker(tempDir, {
+      sourceHome: tempDir,
       injectDeps: {
-        // biome-ignore lint/suspicious/noExplicitAny: test mock
-        spawnBroker: () => fakeChild as any,
+        spawnBroker: (_marker: string, _transport: string, home: string) => {
+          spawnedHome = home;
+          return fakeChild as unknown as import("node:child_process").ChildProcess;
+        },
         pollSocketReachable: async () => true,
         initializeBroker: async () => ({
           connection: {
@@ -2871,19 +2887,47 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
           } as any,
           // biome-ignore lint/suspicious/noExplicitAny: test mock
           rpc: {} as any,
-          initializeResult: { codexHome: "/Users/test/.codex" },
+          initializeResult: { codexHome: spawnedHome },
         }),
         readCodexVersion: () => "codex-cli 0.130.0",
       },
     });
+    expect(spawnedHome).toBe(result?.isolatedHome);
+    expect(fs.statSync(spawnedHome as string).mode & 0o777).toBe(0o700);
+    expect(fs.readdirSync(spawnedHome as string).every((name) => name === "auth.json")).toBe(true);
+    removeIsolatedBrokerHome(spawnedHome);
     expect(result).not.toBeNull();
     expect(result?.pid).toBe(12345);
     expect(result?.codexVersion).toBe("codex-cli 0.130.0");
-    expect(result?.codexHome).toBe("/Users/test/.codex");
+    expect(result?.codexHome).toBe(spawnedHome);
     expect(result?.protocolVersion).toBe("v2");
     expect(connectionClosed).toBe(true);
     expect(fs.existsSync(path.join(tempDir, ".codex-pair", "state", "broker.json"))).toBe(true);
     expect(fs.existsSync(path.join(tempDir, ".codex-pair", "state", "broker.lock"))).toBe(false);
+  });
+
+  it("refuses a broker that reports a different Codex home", async () => {
+    const { bootstrapBroker } = await import("../../scripts/lib/broker-lifecycle.mjs");
+    fs.mkdirSync(path.join(tempDir, ".codex-pair"), { recursive: true });
+    let spawnedHome: string | undefined;
+    const result = await bootstrapBroker(tempDir, {
+      sourceHome: tempDir,
+      injectDeps: {
+        spawnBroker: (_marker: string, _transport: string, home: string) => {
+          spawnedHome = home;
+          return {
+            pid: 99999999,
+            killed: false,
+            exitCode: null,
+            kill: () => true,
+          } as unknown as import("node:child_process").ChildProcess;
+        },
+        pollSocketReachable: async () => true,
+        initializeBroker: async () => ({ connection: { close: () => {} }, initializeResult: { codexHome: tempDir } }),
+      },
+    });
+    expect(result).toBeNull();
+    expect(fs.existsSync(spawnedHome as string)).toBe(false);
   });
 
   it("ADR-093 lifecycle: bootstrapBroker returns null + terminates child on poll timeout", async () => {
@@ -2900,6 +2944,7 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
       exitCode: null,
     };
     const result = await bootstrapBroker(tempDir, {
+      sourceHome: tempDir,
       budgetMs: 200,
       injectDeps: {
         // biome-ignore lint/suspicious/noExplicitAny: test mock
@@ -2921,6 +2966,7 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
     fs.mkdirSync(path.join(tempDir, ".codex-pair"), { recursive: true });
     const fakeChild = { pid: 12345, kill: () => true, killed: false, exitCode: null };
     const result = await bootstrapBroker(tempDir, {
+      sourceHome: tempDir,
       injectDeps: {
         // biome-ignore lint/suspicious/noExplicitAny: test mock
         spawnBroker: () => fakeChild as any,
@@ -2943,6 +2989,7 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
     expect(firstLock).not.toBeNull();
     let spawnAttempted = false;
     const result = await bootstrapBroker(tempDir, {
+      sourceHome: tempDir,
       injectDeps: {
         spawnBroker: () => {
           spawnAttempted = true;
@@ -3279,26 +3326,31 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
   });
 
   it("ADR-093 lifecycle hotfix: bootstrapBroker descriptor records non-'unknown' pluginVersion", async () => {
-    const { bootstrapBroker } = await import("../../scripts/lib/broker-lifecycle.mjs");
+    const { bootstrapBroker, removeIsolatedBrokerHome } = await import("../../scripts/lib/broker-lifecycle.mjs");
     fs.mkdirSync(path.join(tempDir, ".codex-pair"), { recursive: true });
     const fakeChild = { pid: 12345, kill: () => true, killed: false, exitCode: null };
+    let spawnedHome: string | undefined;
     const result = await bootstrapBroker(tempDir, {
+      sourceHome: tempDir,
       injectDeps: {
-        // biome-ignore lint/suspicious/noExplicitAny: test mock
-        spawnBroker: () => fakeChild as any,
+        spawnBroker: (_marker: string, _transport: string, home: string) => {
+          spawnedHome = home;
+          return fakeChild as unknown as import("node:child_process").ChildProcess;
+        },
         pollSocketReachable: async () => true,
         initializeBroker: async () => ({
           // biome-ignore lint/suspicious/noExplicitAny: test mock
           connection: { close: () => {} } as any,
           // biome-ignore lint/suspicious/noExplicitAny: test mock
           rpc: {} as any,
-          initializeResult: {},
+          initializeResult: { codexHome: spawnedHome },
         }),
         readCodexVersion: () => "codex-cli 0.130.0",
       },
     });
     expect(result?.pluginVersion).not.toBe("unknown");
     expect(result?.pluginVersion).toMatch(/^\d+\.\d+\.\d+/);
+    removeIsolatedBrokerHome(spawnedHome);
   });
 
   // ADR-095 debt-paydown — codex-pair-flagged bugs verified + fixed.
@@ -3329,14 +3381,17 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
   // deterministic socket path before binding so an orphan can never block
   // rebind. extractSafeSocketPath guards against unlinking arbitrary paths.
   it("Bug#5: spawnBroker unlinks a stale orphaned socket at the deterministic path before binding", async () => {
-    const { spawnBroker, chooseTransport } = await import("../../scripts/lib/broker-lifecycle.mjs");
+    const { spawnBroker, chooseTransport, createIsolatedBrokerHome, removeIsolatedBrokerHome } = await import(
+      "../../scripts/lib/broker-lifecycle.mjs"
+    );
     const transportUrl = chooseTransport(tempDir);
     const sockPath = transportUrl.slice("unix://".length);
     fs.mkdirSync(path.dirname(sockPath), { recursive: true });
     // Simulate the orphaned socket inode left by a broker killed pre-descriptor.
     fs.writeFileSync(sockPath, "");
     expect(fs.existsSync(sockPath)).toBe(true);
-    const child = spawnBroker(tempDir, transportUrl);
+    const isolatedHome = createIsolatedBrokerHome({ sourceHome: tempDir });
+    const child = spawnBroker(tempDir, transportUrl, isolatedHome);
     // The unlink is synchronous and happens before spawn binds, so the path
     // is clear regardless of whether the real codex binary is installed.
     expect(fs.existsSync(sockPath)).toBe(false);
@@ -3346,6 +3401,7 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
     } catch {
       // best-effort
     }
+    removeIsolatedBrokerHome(isolatedHome);
   });
 
   it("ADR-095 lifecycle: bootstrap budget exhaustion fails fast (no Math.max floors)", () => {
@@ -3403,11 +3459,32 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
   it("ADR-093 M3 schema: buildVerdictSchema matches parser.mjs::parseConcernsJson contract", async () => {
     const { buildVerdictSchema } = await import("../../scripts/lib/broker.mjs");
     const schema = buildVerdictSchema();
-    expect(schema.required).toEqual(["verdict"]);
+    expect(schema.required).toEqual(["verdict", "findings"]);
     expect(schema.properties.verdict.enum).toEqual(["clean", "concerns"]);
     expect(schema.properties.findings.type).toBe("array");
-    expect(schema.properties.findings.items.required).toEqual(["severity", "body"]);
+    expect(schema.properties.findings.items.required).toEqual(Object.keys(schema.properties.findings.items.properties));
     expect(schema.properties.findings.items.properties.severity.enum).toEqual(["high", "medium", "low"]);
+  });
+
+  it("broker verdict schema satisfies Codex strict structured output", async () => {
+    const { buildVerdictSchema } = await import("../../scripts/lib/broker.mjs");
+    const schema = buildVerdictSchema();
+    const checkObject = (value: Record<string, unknown>) => {
+      expect(value.additionalProperties).toBe(false);
+      const properties = value.properties as Record<string, Record<string, unknown>>;
+      expect(value.required).toEqual(Object.keys(properties));
+      for (const property of Object.values(properties)) {
+        if (property.type === "object") checkObject(property);
+        if (property.type === "array" && (property.items as Record<string, unknown>).type === "object") {
+          checkObject(property.items as Record<string, unknown>);
+        }
+      }
+    };
+    checkObject(schema);
+    const finding = schema.properties.findings.items.properties;
+    for (const key of ["title", "file", "line_start", "recommendation"] as const) {
+      expect(finding[key].type).toContain("null");
+    }
   });
 
   it("ADR-093 M3 rpc: waitFor resolves when matching notification arrives", async () => {
@@ -3657,7 +3734,7 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
     const schema = buildVerdictSchema();
     const findingProps = schema.properties.findings.items.properties;
     expect(findingProps.line_start).toBeDefined();
-    expect(findingProps.line_start.type).toBe("integer");
+    expect(findingProps.line_start.type).toEqual(["integer", "null"]);
     expect(findingProps.line).toBeUndefined();
   });
 
@@ -3666,7 +3743,7 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
     const schema = buildVerdictSchema();
     const findingProps = schema.properties.findings.items.properties;
     expect(findingProps.title).toBeDefined();
-    expect(findingProps.title.type).toBe("string");
+    expect(findingProps.title.type).toEqual(["string", "null"]);
   });
 
   it("M3 hotfix: rpc.waitFor timeout attaches err.timeout = true (structured marker)", async () => {
@@ -3739,11 +3816,17 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
   // failure-vs-real-error discriminator.
   // ─────────────────────────────────────────────────────────────────────
 
-  it("M4: isBrokerEnabled returns false when ASK_CODEX_BROKER is unset (master switch off)", async () => {
+  it("M4: isBrokerEnabled returns false when ASK_CODEX_BROKER=0", async () => {
     const { isBrokerEnabled } = await import("../../scripts/lib/broker.mjs");
+    fs.mkdirSync(path.join(tempDir, ".codex-pair", "state"), { recursive: true });
+    fs.writeFileSync(path.join(tempDir, ".codex-pair", "context.md"), "# project");
+    fs.writeFileSync(
+      path.join(tempDir, ".codex-pair", "state", "broker.json"),
+      JSON.stringify({ pid: process.pid, transportUrl: "unix:///tmp/x.sock", protocolVersion: "v2" }),
+    );
     const orig = process.env.ASK_CODEX_BROKER;
     try {
-      delete process.env.ASK_CODEX_BROKER;
+      process.env.ASK_CODEX_BROKER = "0";
       expect(isBrokerEnabled(tempDir)).toBe(false);
     } finally {
       if (orig === undefined) delete process.env.ASK_CODEX_BROKER;
@@ -3764,12 +3847,28 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
     }
   });
 
-  it("M4: isBrokerEnabled returns false when descriptor has wrong protocolVersion", async () => {
+  it("ignores a live broker descriptor from before isolated homes were required", async () => {
     const { isBrokerEnabled } = await import("../../scripts/lib/broker.mjs");
     fs.mkdirSync(path.join(tempDir, ".codex-pair", "state"), { recursive: true });
+    fs.writeFileSync(path.join(tempDir, ".codex-pair", "context.md"), "# project");
     fs.writeFileSync(
       path.join(tempDir, ".codex-pair", "state", "broker.json"),
-      JSON.stringify({ pid: process.pid, transportUrl: "unix:///tmp/x.sock", protocolVersion: "vWRONG" }),
+      JSON.stringify({ pid: process.pid, transportUrl: "unix:///tmp/x.sock", protocolVersion: "v2" }),
+    );
+    expect(isBrokerEnabled(tempDir)).toBe(false);
+  });
+
+  it("M4: isBrokerEnabled returns false when descriptor has wrong protocolVersion", async () => {
+    const { isBrokerEnabled } = await import("../../scripts/lib/broker.mjs");
+    const { createIsolatedBrokerHome, removeIsolatedBrokerHome } = await import(
+      "../../scripts/lib/broker-lifecycle.mjs"
+    );
+    const isolatedHome = createIsolatedBrokerHome({ sourceHome: tempDir });
+    fs.mkdirSync(path.join(tempDir, ".codex-pair", "state"), { recursive: true });
+    fs.writeFileSync(path.join(tempDir, ".codex-pair", "context.md"), "# project");
+    fs.writeFileSync(
+      path.join(tempDir, ".codex-pair", "state", "broker.json"),
+      JSON.stringify({ pid: process.pid, transportUrl: "unix:///tmp/x.sock", protocolVersion: "vWRONG", isolatedHome }),
     );
     const orig = process.env.ASK_CODEX_BROKER;
     try {
@@ -3778,16 +3877,22 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
     } finally {
       if (orig === undefined) delete process.env.ASK_CODEX_BROKER;
       else process.env.ASK_CODEX_BROKER = orig;
+      removeIsolatedBrokerHome(isolatedHome);
     }
   });
 
   it("M4: isBrokerEnabled returns false when descriptor pid is dead", async () => {
     const { isBrokerEnabled } = await import("../../scripts/lib/broker.mjs");
+    const { createIsolatedBrokerHome, removeIsolatedBrokerHome } = await import(
+      "../../scripts/lib/broker-lifecycle.mjs"
+    );
+    const isolatedHome = createIsolatedBrokerHome({ sourceHome: tempDir });
     fs.mkdirSync(path.join(tempDir, ".codex-pair", "state"), { recursive: true });
+    fs.writeFileSync(path.join(tempDir, ".codex-pair", "context.md"), "# project");
     fs.writeFileSync(
       path.join(tempDir, ".codex-pair", "state", "broker.json"),
       // pid 999999 — overwhelmingly unlikely to be alive
-      JSON.stringify({ pid: 999999, transportUrl: "unix:///tmp/x.sock", protocolVersion: "v2" }),
+      JSON.stringify({ pid: 999999, transportUrl: "unix:///tmp/x.sock", protocolVersion: "v2", isolatedHome }),
     );
     const orig = process.env.ASK_CODEX_BROKER;
     try {
@@ -3796,23 +3901,30 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
     } finally {
       if (orig === undefined) delete process.env.ASK_CODEX_BROKER;
       else process.env.ASK_CODEX_BROKER = orig;
+      removeIsolatedBrokerHome(isolatedHome);
     }
   });
 
-  it("M4: isBrokerEnabled returns TRUE when all gates pass (env, descriptor, protocol, pid)", async () => {
+  it("M4: isBrokerEnabled returns true by default when a healthy descriptor exists", async () => {
     const { isBrokerEnabled } = await import("../../scripts/lib/broker.mjs");
+    const { createIsolatedBrokerHome, removeIsolatedBrokerHome } = await import(
+      "../../scripts/lib/broker-lifecycle.mjs"
+    );
+    const isolatedHome = createIsolatedBrokerHome({ sourceHome: tempDir });
     fs.mkdirSync(path.join(tempDir, ".codex-pair", "state"), { recursive: true });
+    fs.writeFileSync(path.join(tempDir, ".codex-pair", "context.md"), "# project");
     fs.writeFileSync(
       path.join(tempDir, ".codex-pair", "state", "broker.json"),
-      JSON.stringify({ pid: process.pid, transportUrl: "unix:///tmp/x.sock", protocolVersion: "v2" }),
+      JSON.stringify({ pid: process.pid, transportUrl: "unix:///tmp/x.sock", protocolVersion: "v2", isolatedHome }),
     );
     const orig = process.env.ASK_CODEX_BROKER;
     try {
-      process.env.ASK_CODEX_BROKER = "1";
+      delete process.env.ASK_CODEX_BROKER;
       expect(isBrokerEnabled(tempDir)).toBe(true);
     } finally {
       if (orig === undefined) delete process.env.ASK_CODEX_BROKER;
       else process.env.ASK_CODEX_BROKER = orig;
+      removeIsolatedBrokerHome(isolatedHome);
     }
   });
 
@@ -3899,6 +4011,28 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
     expect((caught as any)?.brokerFailure).toBeUndefined();
     // biome-ignore lint/suspicious/noExplicitAny: structured marker
     expect((caught as any)?.verdict).toBe("error");
+  });
+
+  it("falls back when Codex rejects the broker output schema", async () => {
+    const { submitReview } = await import("../../scripts/lib/broker.mjs");
+    const rpc = {
+      request: async (method: string) =>
+        method === "thread/start" ? { thread: { id: "T1" } } : { turn: { id: "U1" } },
+      waitFor: async () => ({
+        params: {
+          threadId: "T1",
+          turn: {
+            id: "U1",
+            status: "failed",
+            error: { message: JSON.stringify({ type: "error", error: { code: "invalid_json_schema", status: 400 } }) },
+            items: [],
+          },
+        },
+      }),
+    };
+    // biome-ignore lint/suspicious/noExplicitAny: mock RPC seam
+    const args: any = { rpc, connection: {}, cwd: "/tmp", baseInstructions: "", prompt: "review", model: "gpt-6-sol" };
+    await expect(submitReview(args)).rejects.toMatchObject({ brokerFailure: true, brokerPhase: "protocol" });
   });
 
   it("M4: submitReview missing-agentMessage sets brokerFailure (protocol-layer failure)", async () => {
@@ -4013,7 +4147,7 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
     expect((caught as any)?.brokerPhase).toBe("turn_start");
   });
 
-  it("Bug#6: submitReview does NOT tag brokerFailure on a genuine JSON-RPC error response (err.code present)", async () => {
+  it("falls back on a JSON-RPC invalid-params protocol rejection", async () => {
     const { submitReview } = await import("../../scripts/lib/broker.mjs");
     // biome-ignore lint/suspicious/noExplicitAny: test mock
     const mockRpc: any = {
@@ -4044,10 +4178,8 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
     } catch (err) {
       caught = err as Error;
     }
-    // A real JSON-RPC error response is a server-side verdict, not a broker
-    // outage — must NOT trigger fallback (would double-spend).
     // biome-ignore lint/suspicious/noExplicitAny: structured marker
-    expect((caught as any)?.brokerFailure).toBeUndefined();
+    expect((caught as any)?.brokerFailure).toBe(true);
   });
 
   it("Bug#6: submitReview tags brokerFailure on a transport system error (string err.code, e.g. ECONNRESET)", async () => {

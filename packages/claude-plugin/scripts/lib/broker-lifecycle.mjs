@@ -17,10 +17,23 @@
 
 import { execFileSync, spawn } from "node:child_process";
 import { createHash } from "node:crypto";
-import { mkdirSync, openSync, readFileSync, rmSync, statSync, unlinkSync } from "node:fs";
+import {
+  chmodSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  openSync,
+  readFileSync,
+  realpathSync,
+  rmSync,
+  statSync,
+  symlinkSync,
+  unlinkSync,
+} from "node:fs";
 import { rename, unlink, writeFile } from "node:fs/promises";
 import { connect as netConnect } from "node:net";
-import { dirname, join, resolve as resolvePath } from "node:path";
+import { homedir, tmpdir } from "node:os";
+import { basename, dirname, join, resolve as resolvePath, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { BROKER_PROTOCOL_VERSION, initializeBroker } from "./broker.mjs";
 import { IS_WINDOWS, terminateProcessTree } from "./process.mjs";
@@ -33,6 +46,36 @@ const BROKER_LOG_FILE = "broker.log";
 const BROKER_SOCKET_PREFIX = "codex-pair-broker";
 const BOOTSTRAP_BUDGET_MS_DEFAULT = 5000;
 const SOCKET_POLL_INTERVAL_MS = 100;
+const ISOLATED_HOME_PREFIX = "codex-pair-broker-";
+
+export function createIsolatedBrokerHome(options = {}) {
+  const sourceHome = options.sourceHome ?? process.env.CODEX_HOME ?? join(homedir(), ".codex");
+  const home = mkdtempSync(join(options.tempRoot ?? tmpdir(), ISOLATED_HOME_PREFIX));
+  chmodSync(home, 0o700);
+  const auth = join(sourceHome, "auth.json");
+  if (existsSync(auth)) symlinkSync(realpathSync(auth), join(home, "auth.json"));
+  return home;
+}
+
+export function isIsolatedBrokerHome(home) {
+  if (typeof home !== "string") return false;
+  try {
+    const actual = realpathSync(home);
+    const tempRoot = realpathSync(tmpdir());
+    return (
+      basename(actual).startsWith(ISOLATED_HOME_PREFIX) &&
+      actual.startsWith(`${tempRoot}${sep}`) &&
+      (statSync(actual).mode & 0o777) === 0o700
+    );
+  } catch {
+    return false;
+  }
+}
+
+export function removeIsolatedBrokerHome(home) {
+  if (!isIsolatedBrokerHome(home)) return;
+  rmSync(home, { recursive: true, force: true });
+}
 
 // Choose the transport URL for this marker directory. POSIX: unix socket
 // under `<markerDir>/.codex-pair/state/`, with sha256-of-markerDir suffix
@@ -159,15 +202,9 @@ function sleep(ms) {
 // O_APPEND so multiple writers — unlikely but defensive — don't tear).
 // Returns the spawned ChildProcess; caller is responsible for tracking
 // the pid and writing it to the descriptor only after handshake succeeds.
-export function spawnBroker(markerDir, transportUrl) {
-  // Bug #5: the socket path is deterministic (sha256 of markerDir), so an
-  // orphaned socket inode — left when a prior broker was killed AFTER
-  // binding but BEFORE writing its descriptor — makes the next bind fail
-  // with EADDRINUSE permanently (clearStaleBrokerState early-returns
-  // "absent" with no descriptor to drive cleanup). Unlink any stale socket
-  // at the deterministic path before binding. extractSafeSocketPath gates
-  // the unlink to paths strictly under <markerDir>/.codex-pair/state/ so a
-  // malformed transportUrl can never delete an arbitrary path.
+export function spawnBroker(markerDir, transportUrl, isolatedHome) {
+  if (!isIsolatedBrokerHome(isolatedHome)) throw new Error("broker requires an isolated Codex home");
+  // A prior crash can leave the deterministic socket bound without a descriptor.
   const stalePath = extractSafeSocketPath(transportUrl, markerDir);
   if (stalePath !== null) {
     try {
@@ -179,6 +216,7 @@ export function spawnBroker(markerDir, transportUrl) {
   const logFd = openSync(brokerLogPath(markerDir), "a");
   const child = spawn("codex", ["app-server", "--listen", transportUrl], {
     detached: true,
+    env: { ...process.env, CODEX_HOME: isolatedHome },
     stdio: ["ignore", logFd, logFd],
   });
   // spawn() emits "error" asynchronously for ENOENT (codex not on PATH)
@@ -279,10 +317,12 @@ export async function bootstrapBroker(markerDir, options = {}) {
 
   const deadline = Date.now() + budgetMs;
   let child = null;
+  let isolatedHome = null;
   let connection = null; // hoisted so the catch block can close on descriptor-write failure
   try {
     const transportUrl = chooseTransport(markerDir);
-    child = spawnFn(markerDir, transportUrl);
+    isolatedHome = createIsolatedBrokerHome({ sourceHome: options.sourceHome });
+    child = spawnFn(markerDir, transportUrl, isolatedHome);
 
     // Strict deadline enforcement. Previously used Math.max(100, ...) and
     // Math.max(500, ...) as floors — codex-pair repeatedly flagged that
@@ -307,12 +347,20 @@ export async function bootstrapBroker(markerDir, options = {}) {
     });
     connection = initResult.connection;
     const initializeResult = initResult.initializeResult;
+    if (
+      typeof initializeResult?.codexHome !== "string" ||
+      realpathSync(initializeResult.codexHome) !== realpathSync(isolatedHome)
+    ) {
+      throw new Error("broker reported an unexpected Codex home");
+    }
 
     const descriptor = {
       pid: child.pid,
       transportUrl,
       codexVersion: versionFn(),
       codexHome: initializeResult?.codexHome ?? null,
+      isolatedHome,
+      sessionId: options.sessionId ?? null,
       // Use the constant rather than a hardcoded "v2" — codex-pair flagged
       // the drift risk: if BROKER_PROTOCOL_VERSION changes in broker.mjs
       // but this string isn't updated, stale-recovery would always treat
@@ -352,6 +400,7 @@ export async function bootstrapBroker(markerDir, options = {}) {
         terminateProcessTree(child, "SIGTERM");
       } catch {}
     }
+    if (isolatedHome) removeIsolatedBrokerHome(isolatedHome);
     return null;
   } finally {
     releaseBrokerLock(lockPath);
@@ -503,6 +552,7 @@ export function clearStaleBrokerState(markerDir) {
       unlinkSync(sockPath);
     } catch {}
   }
+  if (!alive) removeIsolatedBrokerHome(descriptor.isolatedHome);
   return "stale";
 }
 
@@ -560,7 +610,22 @@ export async function teardownBroker(markerDir, options = {}) {
   }
   await unlinkBrokerDescriptor(markerDir);
   releaseBrokerLock(brokerLockPath(markerDir));
+  removeIsolatedBrokerHome(descriptor.isolatedHome);
   return descriptor;
+}
+
+export async function cleanupPreviousSessionBroker(markerDir, sessionId) {
+  const previous = readBrokerDescriptorSync(markerDir);
+  if (
+    !previous ||
+    (sessionId &&
+      previous.sessionId === sessionId &&
+      previous.protocolVersion === BROKER_PROTOCOL_VERSION &&
+      isIsolatedBrokerHome(previous.isolatedHome))
+  )
+    return false;
+  await teardownBroker(markerDir);
+  return true;
 }
 
 // Test-only exports

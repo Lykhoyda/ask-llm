@@ -1,27 +1,7 @@
-// App-server broker interface (ADR-090, refined per ADR-093).
-//
-// Future home of the long-lived codex sidecar that replaces per-edit cold
-// spawns with persistent JSON-RPC requests. Today this module defines the
-// API surface and stable state-file layout — the implementation lands
-// across Tier 3 follow-on milestones 2–4 tracked in docs/ROADMAP.md.
-//
-// **Status:** interface defined; implementation deferred. The `isBrokerEnabled`
-// check returns false until ASK_CODEX_BROKER=1 ships alongside a real
-// implementation. The hook MUST treat broker absence as a no-op and fall
-// back to the existing per-edit codex spawn (ADR-077). This keeps the
-// happy path byte-identical to v0.6.6 until the broker stabilizes.
-//
-// See ADR-090 for original design rationale (transport, lifecycle,
-// failure modes, stale-daemon recovery). See ADR-093 for the protocol
-// discovery findings that refined this interface against the real
-// `codex app-server` JSON-RPC surface (codex-cli 0.130.0+):
-//   - Transport: unix:// (POSIX) / ws:// (Windows), via `--listen` flag
-//   - Handshake: JSON-RPC `initialize` with clientInfo
-//   - Per-review: `thread/start` (ephemeral) + `turn/start` (with
-//     outputSchema constraint) + listen for `turn/completed` notification
-//   - Cancellation: `turn/interrupt` on the in-flight turn id
-//   - Health probe: `model/list` (cheap) or `initialize` with deadline
+// Codex app-server broker for codex-pair (ADR-090, ADR-093, ADR-166).
+// Unavailable or incompatible brokers fall back to per-edit codex exec.
 
+import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { createRpcClient } from "./broker-rpc.mjs";
 import { connectWebSocket } from "./broker-transport.mjs";
@@ -60,29 +40,11 @@ export const JSONRPC_NOTIFICATIONS = Object.freeze({
   THREAD_TOKEN_USAGE_UPDATED: "thread/tokenUsage/updated", // cost tracking
 });
 
-// Build the JSON Schema we send as `outputSchema` on `turn/start`. Codex
-// constrains the agent's final message to this shape per ADR-093, which
-// means we get a structured verdict back without prose-parsing (per
-// ADR-083's verdict contract). Centralized here so test fixtures and
-// production code build the same schema.
-// JSON Schema for `turn/start.outputSchema`. Harmonized in M3 to match
-// the `parseConcernsJson` contract in `lib/parser.mjs` so the broker's
-// structured output drops in to the existing per-edit hook flow without
-// translation. Brainstorm-coordinator and codex-pair both flagged the
-// prior mismatch (the original schema used `concerns: { high, med, low }`
-// while the parser expects `findings: [{ severity, ... }]`).
-//
-// Shape matches `parser.mjs::parseConcernsJson`:
-//   { verdict: "clean" } → no concerns
-//   { verdict: "concerns", findings: [{ severity, body, file?, line?, recommendation? }] }
-//
-// Severity enum mirrors `lib/parser.mjs::SEVERITY_TO_BUCKET`:
-//   "high" | "medium" | "low" (parser also accepts "med" but the codex
-//   model emits the canonical "medium" — `med` is a legacy alias).
+// Strict structured output requires every property; nullable fields remain optional in meaning.
 export function buildVerdictSchema() {
   return {
     type: "object",
-    required: ["verdict"],
+    required: ["verdict", "findings"],
     additionalProperties: false,
     properties: {
       verdict: {
@@ -92,10 +54,10 @@ export function buildVerdictSchema() {
       },
       findings: {
         type: "array",
-        description: "Required when verdict == 'concerns'. Empty array also accepted.",
+        description: "Use an empty array when verdict is clean.",
         items: {
           type: "object",
-          required: ["severity", "body"],
+          required: ["severity", "body", "title", "file", "line_start", "recommendation"],
           additionalProperties: false,
           properties: {
             severity: {
@@ -108,20 +70,20 @@ export function buildVerdictSchema() {
               description: "The concern itself — what's wrong + why it matters + how to fix.",
             },
             title: {
-              type: "string",
+              type: ["string", "null"],
               description: "Optional short title rendered ahead of the file:line line.",
             },
             file: {
-              type: "string",
+              type: ["string", "null"],
               description: "File path (optional). Prepended to the rendered concern.",
             },
             line_start: {
-              type: "integer",
+              type: ["integer", "null"],
               description:
                 "Line number (optional). Multi-review M3 hotfix: parser.mjs reads `line_start`, not `line`. Rendered as ':<n>' suffix on file.",
             },
             recommendation: {
-              type: "string",
+              type: ["string", "null"],
               description: "Optional fix suggestion. Appended on a new line after body.",
             },
           },
@@ -131,47 +93,32 @@ export function buildVerdictSchema() {
   };
 }
 
-// Single source of truth for "is the broker active for this project right
-// now". Reads .codex-pair/state/broker.json and returns the broker descriptor
-// (transport URL, pid, started_at, codex version, protocol version) or null
-// if no broker is running. The hook's main flow checks this BEFORE the
-// cache + inflight lock; a live broker bypasses both because the broker
-// itself coordinates concurrent requests.
-//
-// The implementation is intentionally stubbed for v0.7.x Milestone 1.
-// Returning null here causes every hook invocation to fall through to the
-// existing per-edit spawn path — byte-identical behavior to pre-broker.
-// M4: delegate to the lifecycle module's descriptor reader. The function
-// signature is preserved for the stable contract; the body now returns
-// a real descriptor when one exists (vs the M2 stub returning null
-// unconditionally). isBrokerEnabled uses lifecycleReadBrokerDescriptor
-// directly for the same purpose; this exported form is the public API
-// per ADR-090.
+// Read the session broker descriptor; callers validate it before use.
 export function readBrokerState(markerDir) {
   return lifecycleReadBrokerDescriptor(markerDir);
 }
 
-// Stable predicate the hook can call without knowing the broker mechanics.
-// Returns true iff (a) ASK_CODEX_BROKER=1 in env, (b) readBrokerState
-// returns a non-null descriptor, (c) the broker process is alive AND
-// answered a health probe within BROKER_HEALTH_TIMEOUT_MS. Today (b) is
-// stubbed to null, so this is always false.
-// Tier 3 Milestone 4: implementation flipped from "always false" to a
-// real check. Returns true iff:
-//   1. ASK_CODEX_BROKER=1 in env (master switch — default off)
-//   2. A valid descriptor exists at <markerDir>/.codex-pair/state/broker.json
-//   3. The descriptor's protocolVersion matches BROKER_PROTOCOL_VERSION
-//   4. The recorded pid is still alive (cheap process.kill(pid, 0))
-//
-// Per ADR-077 silent-on-error: any check that fails returns false; caller
-// falls through to the existing per-edit spawn path. clearStaleBrokerState
-// (called by SessionStart per ADR-090) keeps the descriptor honest between
-// sessions; this check is the per-edit-hook's defense for the case where
-// the broker died MID-SESSION.
+// Environment and project opt-outs both take precedence over the default.
+export function resolveBrokerPreference(markerDir, env = process.env) {
+  if (env.ASK_CODEX_BROKER === "0") return false;
+  let projectSetting;
+  try {
+    const marker = readFileSync(join(markerDir, ".codex-pair", "context.md"), "utf8");
+    const match = marker.match(/^---\r?\n([\s\S]*?)^---\s*$/m);
+    const line = match?.[1].match(/^broker:\s*(true|false)\s*(?:#.*)?$/m);
+    if (line) projectSetting = line[1] === "true";
+  } catch {
+    return false;
+  }
+  if (projectSetting === false) return false;
+  return true;
+}
+
 export function isBrokerEnabled(markerDir) {
-  if (process.env.ASK_CODEX_BROKER !== "1") return false;
+  if (!resolveBrokerPreference(markerDir)) return false;
   const state = lifecycleReadBrokerDescriptor(markerDir);
   if (!state) return false;
+  if (!isIsolatedBrokerHome(state.isolatedHome)) return false;
   if (state.protocolVersion !== BROKER_PROTOCOL_VERSION) return false;
   if (!lifecycleIsPidAlive(state.pid)) return false;
   return true;
@@ -208,6 +155,7 @@ export { clearStaleBrokerState } from "./broker-lifecycle.mjs";
 // uses them inside function bodies (called after module init finishes),
 // so the static-evaluation order is acyclic at the value-of-import level.
 import {
+  isIsolatedBrokerHome,
   isPidAlive as lifecycleIsPidAlive,
   readBrokerDescriptorSync as lifecycleReadBrokerDescriptor,
 } from "./broker-lifecycle.mjs";
@@ -224,14 +172,15 @@ import {
 // ADR-093 protocol note). Callers should pass real plugin identity.
 export async function initializeBroker(transportUrl, clientInfo, options = {}) {
   const { handshakeTimeoutMs = 5000, initializeTimeoutMs = 5000 } = options;
-  const connection = await connectWebSocket(transportUrl, { handshakeTimeoutMs });
-  const rpc = createRpcClient(connection, { defaultTimeoutMs: initializeTimeoutMs });
+  const connection = await (options.connectWebSocket ?? connectWebSocket)(transportUrl, { handshakeTimeoutMs });
+  const rpc = (options.createRpcClient ?? createRpcClient)(connection, { defaultTimeoutMs: initializeTimeoutMs });
   try {
     const initializeResult = await rpc.request(
       JSONRPC_METHODS.INITIALIZE,
       { clientInfo },
       { timeoutMs: initializeTimeoutMs },
     );
+    rpc.notify("initialized", {});
     return { connection, rpc, initializeResult };
   } catch (err) {
     try {
@@ -276,6 +225,7 @@ export async function probeBrokerHealth(state) {
       { clientInfo: { name: "codex-pair-health-probe", title: "codex-pair health probe", version: "0.0.0" } },
       { timeoutMs: BROKER_HEALTH_TIMEOUT_MS },
     );
+    rpc.notify("initialized", {});
     await rpc.request(JSONRPC_METHODS.MODEL_LIST, undefined, {
       timeoutMs: BROKER_HEALTH_TIMEOUT_MS,
     });
@@ -358,10 +308,11 @@ async function brokerRequest(rpc, method, params, timeoutMs, brokerPhase) {
   try {
     return await rpc.request(method, params, { timeoutMs });
   } catch (err) {
-    if (err && typeof err === "object" && typeof err.code !== "number" && !err.brokerFailure) {
+    const protocolRejection = [-32600, -32601, -32602].includes(err?.code);
+    if (err && typeof err === "object" && (typeof err.code !== "number" || protocolRejection) && !err.brokerFailure) {
       err.verdict = "error";
       err.brokerFailure = true;
-      err.brokerPhase = brokerPhase;
+      err.brokerPhase = protocolRejection ? "protocol" : brokerPhase;
     }
     throw err;
   }
@@ -518,6 +469,13 @@ export async function submitReview(args) {
   if (turn.status === "failed" || turn.status === "interrupted") {
     const err = new Error(`submitReview: turn ${turn.status}${turn.error?.message ? ` — ${turn.error.message}` : ""}`);
     err.verdict = "error";
+    if (
+      turn.status === "failed" &&
+      /invalid_json_schema|unsupported method|method not found|invalid params/i.test(turn.error?.message ?? "")
+    ) {
+      err.brokerFailure = true;
+      err.brokerPhase = "protocol";
+    }
     throw err;
   }
   const finalMessage = turn.items.findLast?.((i) => i?.type === "agentMessage");
