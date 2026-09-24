@@ -1,13 +1,4 @@
-// Externalized prompt template + renderer (ADR-089).
-//
-// The template at packages/claude-plugin/prompts/review.txt is loaded once
-// at module init (sync read — runs at hook startup, before the hot path).
-// `buildReviewPrompt` substitutes the placeholder tokens; the rendered
-// output is byte-identical to ADR-083's inline template so the cache key
-// (sha256 of the rendered prompt) is preserved across this refactor.
-//
-// Tokens: {{CONTEXT_BLOCK}}, {{PARTIAL_VIEW_BLOCK}}, {{TOOL_NAME}},
-// {{FILE_PATH}}, {{FILE_CONTENT}}.
+// Review prompt template loaded once; ADR-165 owns substitution semantics.
 
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -36,7 +27,6 @@ export function buildReviewPrompt({ filePath, fileContent, toolName, projectCont
     FILE_PATH: filePath,
     FILE_CONTENT: fileContent,
   };
-  // One pass with a function replacer: values are inserted literally ($` $& $' $$
-  // stay text) and are never re-scanned for tokens (#281).
+  // A function replacer inserts values literally without re-scanning them (#281).
   return TEMPLATE.replace(/\{\{(\w+)\}\}/g, (token, name) => (Object.hasOwn(values, name) ? values[name] : token));
 }

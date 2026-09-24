@@ -1,8 +1,4 @@
-// Renders a review prompt from a vendored template + fixture inputs.
-// Mirrors packages/claude-plugin/scripts/lib/prompt.mjs::buildReviewPrompt
-// but loads from an arbitrary template path so the benchmark can A/B
-// compare two prompts. Uses the same single-pass literal substitution as
-// the production renderer so render-equivalence holds.
+// Renders benchmark templates with the production substitution contract (ADR-165).
 
 import { readFileSync } from "node:fs";
 
