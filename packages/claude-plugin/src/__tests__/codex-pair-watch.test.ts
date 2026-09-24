@@ -142,8 +142,6 @@ describe("scripts/codex-pair-watch.mjs — structural invariants (ADR-077)", () 
     expect(script).toMatch(/CODEX_PAIR_FORCE_SYNC[^\n]*\?\s*0\s*:/);
   });
 
-
-
   // Phase 1 item #1: log rotation (now in lib/state.mjs per ADR-088)
   it("caps log growth via CODEX_PAIR_MAX_LOG_BYTES env var (default 2_000_000) and MAX_LOG_ENTRIES", () => {
     expect(libState).toMatch(/CODEX_PAIR_MAX_LOG_BYTES/);
@@ -287,8 +285,6 @@ describe("scripts/codex-pair-watch.mjs — structural invariants (ADR-077)", () 
     expect(body).toMatch(/typeof fm\.maxFileBytes\s*===\s*["']number["']/);
     expect(body).toMatch(/VALID_THRESHOLDS\.has/);
   });
-
-
 
   it("malformed frontmatter triggers a warning log entry (silent fallback to defaults)", () => {
     expect(script).toMatch(/frontmatterMalformed/);
@@ -2453,8 +2449,6 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
     expect(broker.BROKER_SOCKET_PREFIX).toBe("codex-pair-broker");
   });
 
-
-
   it("ADR-090: brokerStatePath composes <markerDir>/<stateDir>/broker.json", async () => {
     const { brokerStatePath, BROKER_STATE_FILE } = await import("../../scripts/lib/broker.mjs");
     const p = brokerStatePath("/project", ".codex-pair/state");
@@ -2518,10 +2512,6 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
   // PR 1 was REPLACED in M3 by the parser-harmonized shape. See the M3
   // schema test below ("ADR-093 M3 schema: buildVerdictSchema matches
   // parser.mjs::parseConcernsJson contract") for the current contract.
-
-
-
-
 
   // Milestone 2 PR 1: broker-transport + broker-rpc unit tests. Validates
   // the hand-rolled RFC 6455 frame codec, the upgrade-handshake validator,
@@ -2820,7 +2810,11 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
           } as any,
           // biome-ignore lint/suspicious/noExplicitAny: test mock
           rpc: {} as any,
-          initializeResult: { get codexHome() { return spawnedHome; } },
+          initializeResult: {
+            get codexHome() {
+              return spawnedHome;
+            },
+          },
         }),
         readCodexVersion: () => "codex-cli 0.130.0",
       },
@@ -2927,8 +2921,6 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
       fs.rmSync(noMarkerDir, { recursive: true, force: true });
     }
   });
-
-
 
   // Milestone 2 PR 3: SessionEnd teardown + clearStaleBrokerState.
 
@@ -3074,8 +3066,6 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
     expect(fs.existsSync(sockPath)).toBe(false);
     expect(fs.existsSync(lockPath)).toBe(false);
   });
-
-
 
   it("ADR-093 transport hotfix: connectWebSocket performs a real RFC 6455 upgrade end-to-end", async () => {
     const { createServer } = await import("node:net");
@@ -3234,7 +3224,11 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
           connection: { close: () => {} } as any,
           // biome-ignore lint/suspicious/noExplicitAny: test mock
           rpc: {} as any,
-          initializeResult: { get codexHome() { return spawnedHome; } },
+          initializeResult: {
+            get codexHome() {
+              return spawnedHome;
+            },
+          },
         }),
         readCodexVersion: () => "codex-cli 0.130.0",
       },
@@ -3245,10 +3239,6 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
   });
 
   // ADR-095 debt-paydown — codex-pair-flagged bugs verified + fixed.
-
-
-
-
 
   // Bug #5: the socket path is deterministic (sha256 of markerDir). If a
   // broker is killed AFTER binding the unix socket but BEFORE its descriptor
@@ -3281,12 +3271,6 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
     }
     removeIsolatedBrokerHome(isolatedHome);
   });
-
-
-
-
-
-
 
   it("ADR-095 lifecycle: clearStaleBrokerState treats unknown-scheme transport URLs as stale", async () => {
     const { clearStaleBrokerState } = await import("../../scripts/lib/broker-lifecycle.mjs");
@@ -3443,6 +3427,7 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
     }
     // biome-ignore lint/suspicious/noExplicitAny: test mock
     expect((caught as any)?.verdict).toBe("timeout");
+    expect((caught as any)?.brokerFailure).toBe(true);
     expect(interruptCalls).toHaveLength(1);
     expect((interruptCalls[0].params as { threadId: string; turnId: string }).threadId).toBe("T1");
     expect((interruptCalls[0].params as { threadId: string; turnId: string }).turnId).toBe("U1");
@@ -3630,8 +3615,6 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
 
   // Tier 3 Milestone 4 (M4) Integration Tests
 
-
-
   // ─────────────────────────────────────────────────────────────────────
   // Milestone 4: hook integration + isBrokerEnabled real check + broker-
   // failure-vs-real-error discriminator.
@@ -3699,13 +3682,20 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
 
   it("M4: isBrokerEnabled returns TRUE when all gates pass (env, descriptor, protocol, pid)", async () => {
     const { isBrokerEnabled } = await import("../../scripts/lib/broker.mjs");
-    const { createIsolatedBrokerHome, removeIsolatedBrokerHome } = await import("../../scripts/lib/broker-lifecycle.mjs");
+    const { createIsolatedBrokerHome, removeIsolatedBrokerHome } = await import(
+      "../../scripts/lib/broker-lifecycle.mjs"
+    );
     fs.mkdirSync(path.join(tempDir, ".codex-pair", "state"), { recursive: true });
     fs.writeFileSync(path.join(tempDir, ".codex-pair", "context.md"), "# project");
     const home = createIsolatedBrokerHome({ sourceHome: tempDir });
     fs.writeFileSync(
       path.join(tempDir, ".codex-pair", "state", "broker.json"),
-      JSON.stringify({ pid: process.pid, transportUrl: "unix:///tmp/x.sock", protocolVersion: "v2", isolatedHome: home }),
+      JSON.stringify({
+        pid: process.pid,
+        transportUrl: "unix:///tmp/x.sock",
+        protocolVersion: "v2",
+        isolatedHome: home,
+      }),
     );
     const orig = process.env.ASK_CODEX_BROKER;
     try {
@@ -3990,8 +3980,6 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
     // biome-ignore lint/suspicious/noExplicitAny: structured marker
     expect((caught as any)?.brokerPhase).toBe("thread_start");
   });
-
-
 
   // ADR-096: codex-pair UX improvements — inclusion-list scoping +
   // repetition detector + loud-formatting for repeated-ignored findings.

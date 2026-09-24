@@ -363,88 +363,98 @@ export async function submitReview(args) {
     (n) => n.params?.threadId === threadId,
     remaining(),
   );
-
-  // 3. turn/start. outputSchema constrains the agent's final message to
-  // the parser-compatible shape (parser.mjs::parseConcernsJson).
-  const turnResp = await brokerRequest(
-    rpc,
-    JSONRPC_METHODS.TURN_START,
-    {
-      threadId,
-      input: [{ type: "text", text: prompt }],
-      outputSchema: buildVerdictSchema(),
-      effort,
-      // Belt-and-suspenders: also pin turn-level sandbox + deny network.
-      sandboxPolicy: { type: "readOnly", networkAccess: false },
-    },
-    remaining(),
-    "turn_start",
-  );
-  const turnId = turnResp?.turn?.id;
-  if (typeof turnId !== "string") {
-    // M4 brokerFailure discriminator: turn_start failures = broker protocol
-    // is broken. Hook falls back to spawnCodex.
-    const err = new Error("submitReview: turn/start returned no turn.id");
-    err.verdict = "error";
-    err.brokerFailure = true;
-    err.brokerPhase = "turn_start";
-    throw err;
-  }
-
-  // 4. Wire cancellation. abortSignal abort → turn/interrupt + reject.
-  let abortHandler = null;
-  let interruptSent = false;
-  // Multi-review M3 hotfix: track completion so a late abort (firing
-  // AFTER completion resolves but BEFORE finally cleans up) doesn't
-  // send a spurious turn/interrupt for an already-done turn.
-  let completed = false;
-  const abortPromise = abortSignal
-    ? new Promise((_, reject) => {
-        abortHandler = () => {
-          // Early-return if we already got the completion. Closes the
-          // abort-after-completion race window flagged in multi-review.
-          if (completed) return;
-          interruptSent = true;
-          // Best-effort interrupt; don't await it on the abort path —
-          // we want to reject the user-facing promise immediately.
-          rpc.request(JSONRPC_METHODS.TURN_INTERRUPT, { threadId, turnId }, { timeoutMs: 2000 }).catch(() => {});
-          // Multi-review M3 hotfix: use `verdict` not `code` — the
-          // hook's verdictFromError reads err.verdict. "aborted" is
-          // not in VERDICT_PREFIXES so map to "error".
-          const err = new Error("submitReview: aborted");
-          err.verdict = "error";
-          err.aborted = true; // structured marker for callers who care
-          reject(err);
-        };
-        if (abortSignal.aborted) abortHandler();
-        else abortSignal.addEventListener("abort", abortHandler);
-      })
-    : null;
-
-  // 5. Race the completion against the abort.
+  completionPromise.catch(() => {});
   let completion;
   try {
-    completion = abortPromise ? await Promise.race([completionPromise, abortPromise]) : await completionPromise;
-    completed = true;
-  } catch (err) {
-    // On timeout (waitFor rejects), send best-effort interrupt so we
-    // don't leak a server-side turn. Multi-review M3 hotfix: use the
-    // structured err.timeout marker from broker-rpc, not regex on message.
-    if (!interruptSent && err && err.timeout === true) {
-      rpc.request(JSONRPC_METHODS.TURN_INTERRUPT, { threadId, turnId }, { timeoutMs: 2000 }).catch(() => {});
-      const wrapped = new Error("submitReview: turn timed out");
-      wrapped.verdict = "timeout";
-      wrapped.timeout = true;
-      throw wrapped;
+    // 3. turn/start. outputSchema constrains the agent's final message to
+    // the parser-compatible shape (parser.mjs::parseConcernsJson).
+    const turnResp = await brokerRequest(
+      rpc,
+      JSONRPC_METHODS.TURN_START,
+      {
+        threadId,
+        input: [{ type: "text", text: prompt }],
+        outputSchema: buildVerdictSchema(),
+        effort,
+        // Belt-and-suspenders: also pin turn-level sandbox + deny network.
+        sandboxPolicy: { type: "readOnly", networkAccess: false },
+      },
+      remaining(),
+      "turn_start",
+    );
+    const turnId = turnResp?.turn?.id;
+    if (typeof turnId !== "string") {
+      // M4 brokerFailure discriminator: turn_start failures = broker protocol
+      // is broken. Hook falls back to spawnCodex.
+      const err = new Error("submitReview: turn/start returned no turn.id");
+      err.verdict = "error";
+      err.brokerFailure = true;
+      err.brokerPhase = "turn_start";
+      throw err;
     }
-    throw err;
+
+    // 4. Wire cancellation. abortSignal abort → turn/interrupt + reject.
+    let abortHandler = null;
+    let interruptSent = false;
+    // Multi-review M3 hotfix: track completion so a late abort (firing
+    // AFTER completion resolves but BEFORE finally cleans up) doesn't
+    // send a spurious turn/interrupt for an already-done turn.
+    let completed = false;
+    const abortPromise = abortSignal
+      ? new Promise((_, reject) => {
+          abortHandler = () => {
+            // Early-return if we already got the completion. Closes the
+            // abort-after-completion race window flagged in multi-review.
+            if (completed) return;
+            interruptSent = true;
+            // Best-effort interrupt; don't await it on the abort path —
+            // we want to reject the user-facing promise immediately.
+            rpc.request(JSONRPC_METHODS.TURN_INTERRUPT, { threadId, turnId }, { timeoutMs: 2000 }).catch(() => {});
+            // Multi-review M3 hotfix: use `verdict` not `code` — the
+            // hook's verdictFromError reads err.verdict. "aborted" is
+            // not in VERDICT_PREFIXES so map to "error".
+            const err = new Error("submitReview: aborted");
+            err.verdict = "error";
+            err.aborted = true; // structured marker for callers who care
+            reject(err);
+          };
+          if (abortSignal.aborted) abortHandler();
+          else abortSignal.addEventListener("abort", abortHandler);
+        })
+      : null;
+
+    // 5. Race the completion against the abort.
+    try {
+      completion = abortPromise ? await Promise.race([completionPromise, abortPromise]) : await completionPromise;
+      completed = true;
+    } catch (err) {
+      // On timeout (waitFor rejects), send best-effort interrupt so we
+      // don't leak a server-side turn. Multi-review M3 hotfix: use the
+      // structured err.timeout marker from broker-rpc, not regex on message.
+      if (!interruptSent && err && err.timeout === true) {
+        rpc.request(JSONRPC_METHODS.TURN_INTERRUPT, { threadId, turnId }, { timeoutMs: 2000 }).catch(() => {});
+        const wrapped = new Error("submitReview: turn timed out");
+        wrapped.verdict = "timeout";
+        wrapped.timeout = true;
+        wrapped.brokerFailure = true;
+        wrapped.brokerPhase = "turn_completion";
+        throw wrapped;
+      }
+      if (err && typeof err === "object" && !err.aborted) {
+        err.brokerFailure = true;
+        err.brokerPhase = "turn_completion";
+      }
+      throw err;
+    } finally {
+      if (abortHandler && abortSignal) {
+        abortSignal.removeEventListener("abort", abortHandler);
+      }
+      // If the abort handler already fired but we'd completed, it sent a
+      // spurious interrupt and rejected an unawaited promise. The flag
+      // above prevents that — abortHandler now early-returns if completed.
+    }
   } finally {
-    if (abortHandler && abortSignal) {
-      abortSignal.removeEventListener("abort", abortHandler);
-    }
-    // If the abort handler already fired but we'd completed, it sent a
-    // spurious interrupt and rejected an unawaited promise. The flag
-    // above prevents that — abortHandler now early-returns if completed.
+    completionPromise.cancel?.();
   }
 
   // 6. Extract the final agentMessage from `turn.items`. Brainstorm
