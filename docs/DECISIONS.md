@@ -1,14 +1,14 @@
 # Architectural Decisions
 
-## ADR-166: Keep the codex-pair broker opt-in
+## ADR-166: Enable the isolated codex-pair broker by default
 
 **Status:** Accepted (2026-09-24)
 
-**Context:** Default-on requires proving that an isolated Codex home starts no hooks or MCP servers while authentication works. A real app-server probe with Codex 0.156.1 listed the built-in `codex_apps` MCP server in the isolated home, so the required zero-server proof failed before an authenticated turn could be verified.
+**Context:** Default-on requires proving that an isolated Codex home starts no user hooks, rules, or MCP servers while authentication works. Codex 0.156.1 enables the built-in apps connector by default, so an otherwise empty home still lists `codex_apps`.
 
-**Decision:** Keep `ASK_CODEX_BROKER=1` as the explicit opt-in, permit `broker: false` in the project marker to override it, and retain direct per-edit review when the broker is unavailable or rejects the protocol. Send `initialized` after the handshake and use a strict output schema compatible with current Codex.
+**Decision:** Start the broker by default in a private Codex home with linked authentication and a minimal config that disables apps. `ASK_CODEX_BROKER=0` and project `broker: false` opt out. Preserve direct per-edit review for unavailable, unhealthy, or protocol-incompatible brokers. Only replace a recorded broker after its process dies or its 24-hour owner lease expires; SessionEnd removes only its own broker. Send `initialized` after the handshake and use a strict output schema compatible with current Codex.
 
-**Consequences:** Default pair reviews continue to use per-edit `codex exec`. The broker remains experimental until isolation and authentication can be proven together against the real app-server.
+**Consequences:** A default pair session starts a background app-server with private temporary state. Failed SessionEnd cleanup is recovered on a later SessionStart after the broker dies or its lease expires. The app-server protocol remains experimental, so reviews fall back to `codex exec` on broker failures.
 
 ## ADR-165: Review prompts insert file and context text literally, in one pass
 

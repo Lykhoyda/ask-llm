@@ -85,8 +85,8 @@ codex-pair is implemented as five hooks working together, all dependency-free wi
 | `codex-pair-watch` (PostToolUse) | After every `Edit` / `Write` / `MultiEdit` | If a `.codex-pair/context.md` marker exists from the edited file's directory up to the project root, the edit is queued for review with the marker's content as context. Edits are **debounced**: a burst within the 15s settle window coalesces into one review of the settled state, run by a detached worker. No marker means the hook exits silently after one `fs.access()` call: **zero Codex calls, zero cost** |
 | `codex-pair-prompt-drain` (UserPromptSubmit) | On every user prompt | Drains queued codex-pair verdicts that finished mid-turn so they reach Claude without waiting for the next edit |
 | `codex-pair-stop-gate` (Stop) | At turn end | Drains remaining queued verdicts (no opt-in needed). With `blockOn: HIGH` in the marker frontmatter (opt-in, default OFF), blocks turn-end while unaddressed HIGH findings or in-flight reviews remain. See [Stop gate](#stop-gate-opt-in) below |
-| `codex-pair-session` (SessionStart) | At Claude session start | Announces a paused project (a reminder if still fresh, or an automatic resume of an expired auto-pause). Env-gated broker lifecycle (`ASK_CODEX_BROKER=1` only) additionally starts the experimental long-lived `codex app-server` broker |
-| `codex-pair-session` (SessionEnd) | At Claude session end | Clears debounce state so orphaned workers self-cancel. Tears down the broker when `ASK_CODEX_BROKER=1` |
+| `codex-pair-session` (SessionStart) | At Claude session start | Announces a paused project and starts the broker unless disabled |
+| `codex-pair-session` (SessionEnd) | At Claude session end | Clears debounce state and tears down this session's broker |
 
 By default HIGH and MED concerns are surfaced; LOW concerns and all timing/skip telemetry are logged to `.codex-pair/log.jsonl` alongside the marker file. Set `debounceMs: 0` in the marker frontmatter for synchronous per-edit review.
 
@@ -98,13 +98,13 @@ By default HIGH and MED concerns are surfaced; LOW concerns and all timing/skip 
 | `CODEX_PAIR_MAX_FILE_BYTES` | `20000` | Files larger than this many UTF-8 bytes get an adaptive **partial-view** review (header + git diff, or head+tail), not a full-content one. Still a Codex call; use `.codex-pair/ignore` to make big files free |
 | `ASK_CODEX_TIMEOUT_MS` | `800000` | Per-call Codex timeout (inherited from `@ask-llm/codex-mcp`) |
 | `ASK_CODEX_REASONING_EFFORT` | `medium` | Reasoning effort for `gpt-6-sol` pair reviews. `/codex-review` and `/brainstorm` stay at `high` |
-| `ASK_CODEX_BROKER` | disabled | Set to `1` to opt in to the experimental broker; `0` or unset uses per-edit `codex exec` |
+| `ASK_CODEX_BROKER` | enabled | Set to `0` to use per-edit `codex exec`; `1` explicitly enables the broker unless the project sets `broker: false` |
 | `ASK_CODEX_DEBOUNCE_MS` | `15000` | Settle window: an edit burst to one file coalesces into a single review of the settled state. `0` = synchronous per-edit review. Also settable per-marker via `debounceMs` frontmatter |
 | `ASK_CODEX_DEBOUNCE_MAX_MS` | `60000` | Hard cap from a burst's first edit; forces a review even under a continuous edit stream. Frontmatter: `debounceMaxMs` |
 | `CODEX_PAIR_QUOTA_PAUSE_TTL_MS` | `21600000` (6h) | Quota auto-pauses self-heal after this long; the next edit (or session start) retries a live review |
 | `CODEX_PAIR_FAILURES_PAUSE_TTL_MS` | `86400000` (24h) | Failure auto-pauses self-heal after this long, or immediately when the plugin version changed since the pause |
 
-When `ASK_CODEX_BROKER=1`, the project can still disable the broker with `broker: false` in `.codex-pair/context.md` frontmatter. Broker transport, health, or protocol failures use the per-edit `codex exec` path. The broker remains opt-in because the real app-server lists a built-in MCP server even with an otherwise empty Codex home, so isolation of all MCP servers has not been proven.
+The broker runs `codex app-server` in a private temporary Codex home that carries authentication and disables the built-in apps connector, without user hooks, rules, or MCP configuration. To disable it for one project, put `broker: false` in `.codex-pair/context.md` frontmatter. `ASK_CODEX_BROKER=0` always disables it, including when the project has no broker setting. Startup, transport, health, and protocol failures use the per-edit `codex exec` path. A recorded broker from a dead process or an expired 24-hour owner lease is replaced on the next SessionStart; a live broker with a fresh owner lease is left alone. Cold start measured under one second and warm reviews were no faster, so default-on is not a latency promise.
 
 ### Auto-pause is self-healing
 
