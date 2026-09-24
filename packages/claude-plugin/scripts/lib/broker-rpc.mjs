@@ -172,8 +172,9 @@ export function createRpcClient(connection, options = {}) {
     //   const completion = await waiter;
     waitFor(method, predicate, timeoutMs) {
       if (closed) return Promise.reject(new Error("broker-rpc: client is closed"));
-      return new Promise((resolve, reject) => {
-        const sub = { method, predicate, resolve, reject, timer: null };
+      let sub;
+      const promise = new Promise((resolve, reject) => {
+        sub = { method, predicate, resolve, reject, timer: null };
         sub.timer = setTimeout(() => {
           notificationSubscribers.delete(sub);
           // Multi-review M3 hotfix: attach a structured `.timeout = true`
@@ -185,6 +186,12 @@ export function createRpcClient(connection, options = {}) {
         sub.timer.unref?.();
         notificationSubscribers.add(sub);
       });
+      promise.cancel = () => {
+        if (!notificationSubscribers.delete(sub)) return;
+        clearTimeout(sub.timer);
+        sub.resolve(null);
+      };
+      return promise;
     },
     get pendingCount() {
       return pending.size;
