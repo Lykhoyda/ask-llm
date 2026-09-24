@@ -1,17 +1,18 @@
 #!/usr/bin/env node
-// SessionStart and SessionEnd manage the codex-pair broker (ADR-166).
-// Broker failures leave per-edit codex exec available.
+// SessionStart / SessionEnd hook for the codex-pair app-server broker
+// (ADR-090, milestones implemented per ADR-093). SessionStart spawns
+// the broker + handshake + descriptor write (Milestone 2 PR 2);
+// SessionEnd teardown remains TODO (Milestone 2 PR 3).
+//
+// The hook MUST exit 0 on every path. A broker spawn failure is logged
+// silently to broker.log but doesn't break the session — the per-edit
+// path keeps working via per-edit codex spawns (ADR-077).
 
 import { access } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { resolveBrokerPreference } from "./lib/broker.mjs";
-import {
-  bootstrapBroker,
-  cleanupPreviousSessionBroker,
-  clearStaleBrokerState,
-  teardownBroker,
-} from "./lib/broker-lifecycle.mjs";
+import { bootstrapBroker, cleanupPreviousSessionBroker, clearStaleBrokerState, teardownBroker } from "./lib/broker-lifecycle.mjs";
 import { clearAllDebounceState } from "./lib/debounce-state.mjs";
 import { clearSession } from "./lib/session-registry.mjs";
 import {
@@ -65,14 +66,19 @@ async function handleSessionStart(sessionId) {
   const cwd = process.cwd();
   const markerDir = await findMarkerUp(cwd);
   if (!markerDir) return; // no opt-in marker, nothing to do
-  // A fresh session replaces a broker left by a missed SessionEnd.
+  if (!sessionId) return;
   await cleanupPreviousSessionBroker(markerDir, sessionId);
+  // Recover from a prior-session crash before launching fresh.
+  // clearStaleBrokerState returns "live" if a still-usable broker
+  // exists — in that case we skip spawning a new one. "absent" or
+  // "stale" both result in a clean slate; bootstrapBroker handles
+  // the spawn + handshake from there.
   const state = clearStaleBrokerState(markerDir);
   if (state === "live") return;
   await bootstrapBroker(markerDir, { sessionId });
 }
 
-async function handleSessionEnd() {
+async function handleSessionEnd(sessionId) {
   const cwd = process.cwd();
   const markerDir = await findMarkerUp(cwd);
   if (!markerDir) return;
@@ -81,7 +87,7 @@ async function handleSessionEnd() {
   // unlinks the descriptor + socket + lock. Returns the descriptor
   // that was torn down (or null if none existed) — we ignore it; the
   // hook just needs to exit 0 either way per ADR-077.
-  await teardownBroker(markerDir);
+  await teardownBroker(markerDir, { sessionId });
 }
 
 async function main() {
@@ -172,13 +178,11 @@ async function main() {
   }
 
   const brokerMarkerDir = await findMarkerUp(process.cwd());
-  if (!brokerMarkerDir || (event === "SessionStart" && !resolveBrokerPreference(brokerMarkerDir))) {
-    process.exit(0);
-  }
+  if (!brokerMarkerDir || (event === "SessionStart" && !resolveBrokerPreference(brokerMarkerDir))) process.exit(0);
 
   try {
     if (event === "SessionStart") await handleSessionStart(payload.session_id);
-    else if (event === "SessionEnd") await handleSessionEnd();
+    else if (event === "SessionEnd") await handleSessionEnd(payload.session_id);
   } catch {
     // ADR-077 silent-on-error: a failed bootstrap MUST NOT break the
     // session. bootstrapBroker already catches internally, but defense

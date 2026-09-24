@@ -1,5 +1,5 @@
 ---
-"@ask-llm/plugin": minor
+"@ask-llm/plugin": patch
 ---
 
-Enable the isolated codex-pair broker by default with project and environment opt-outs, orphan cleanup, strict-schema compatibility, and direct-review fallback on broker protocol failures.
+Keep the codex-pair broker opt-in while adding a project opt-out and compatibility fixes for app-server handshakes, strict schemas, and protocol fallback.

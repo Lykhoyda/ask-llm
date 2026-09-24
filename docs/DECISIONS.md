@@ -1,14 +1,14 @@
 # Architectural Decisions
 
-## ADR-166: Enable the codex-pair broker with an isolated Codex home
+## ADR-166: Keep the codex-pair broker opt-in
 
 **Status:** Accepted (2026-09-24)
 
-**Context:** The broker introduced in v0.7.0 stayed opt-in while its experimental app-server protocol and lifecycle matured. A direct pair review uses `codex exec --ignore-user-config --ignore-rules --sandbox read-only`, but an app-server started in the normal Codex home loads user hooks and MCP servers. Local research found cold startup under one second and no warm review speedup, so latency alone does not justify changing that review environment. Codex 0.156.1 also rejected the broker's old output schema because strict structured output requires every object property in `required`.
+**Context:** Default-on requires proving that an isolated Codex home starts no hooks or MCP servers while authentication works. A real app-server probe with Codex 0.156.1 listed the built-in `codex_apps` MCP server in the isolated home, so the required zero-server proof failed before an authenticated turn could be verified.
 
-**Decision:** Start the broker by default at SessionStart only with a private 0700 Codex home that links authentication and contains no user hooks, rules, or MCP config; reject bootstrap if app-server reports a different canonical home. `ASK_CODEX_BROKER=0` and project frontmatter `broker: false` each disable it; the environment off switch takes precedence, and project off beats `ASK_CODEX_BROKER=1`. SessionEnd removes the broker and private home, while a later SessionStart replaces a broker recorded for a different session. Send `initialized` after the JSON-RPC handshake. Use a Codex-compatible strict verdict schema, and treat schema and protocol rejections as broker failures that fall back to the direct review path; genuine model failures still surface without a second spend.
+**Decision:** Keep `ASK_CODEX_BROKER=1` as the explicit opt-in, permit `broker: false` in the project marker to override it, and retain direct per-edit review when the broker is unavailable or rejects the protocol. Send `initialized` after the handshake and use a strict output schema compatible with current Codex.
 
-**Consequences:** A default pair session now starts a background `codex app-server` process and keeps temporary private state until teardown. A missed SessionStart, unavailable broker, unhealthy connection, or protocol mismatch uses per-edit `codex exec`; a missed SessionEnd is cleaned on the next SessionStart. A temporary-home probe with Codex 0.156.1 listed one trusted hook and one user MCP server in a configured control home versus zero of each in the auth-only home, and a real GPT-6 Sol low-effort turn authenticated there. Project `.codex/` config was visible as a layer but its hook and MCP settings were absent from the effective config; a direct review also started neither. The remaining risk is Codex app-server's experimental protocol or credential-storage behavior changing; fallback preserves reviews for detectable broker failures, and the two opt-outs provide immediate control.
+**Consequences:** Default pair reviews continue to use per-edit `codex exec`. The broker remains experimental until isolation and authentication can be proven together against the real app-server.
 
 ## ADR-165: Review prompts insert file and context text literally, in one pass
 

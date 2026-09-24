@@ -5,6 +5,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { createRpcClient } from "./broker-rpc.mjs";
 import { connectWebSocket } from "./broker-transport.mjs";
+import { parseFrontmatter } from "./frontmatter.mjs";
 
 // State file under <markerDir>/.codex-pair/state/ (ADR-092).
 export const BROKER_STATE_FILE = "broker.json";
@@ -98,27 +99,21 @@ export function readBrokerState(markerDir) {
   return lifecycleReadBrokerDescriptor(markerDir);
 }
 
-// Environment and project opt-outs both take precedence over the default.
+// The environment opts in; the project can opt out.
 export function resolveBrokerPreference(markerDir, env = process.env) {
-  if (env.ASK_CODEX_BROKER === "0") return false;
-  let projectSetting;
+  if (env.ASK_CODEX_BROKER !== "1") return false;
   try {
     const marker = readFileSync(join(markerDir, ".codex-pair", "context.md"), "utf8");
-    const match = marker.match(/^---\r?\n([\s\S]*?)^---\s*$/m);
-    const line = match?.[1].match(/^broker:\s*(true|false)\s*(?:#.*)?$/m);
-    if (line) projectSetting = line[1] === "true";
+    return parseFrontmatter(marker).frontmatter.broker !== false;
   } catch {
     return false;
   }
-  if (projectSetting === false) return false;
-  return true;
 }
 
 export function isBrokerEnabled(markerDir) {
   if (!resolveBrokerPreference(markerDir)) return false;
   const state = lifecycleReadBrokerDescriptor(markerDir);
   if (!state) return false;
-  if (!isIsolatedBrokerHome(state.isolatedHome)) return false;
   if (state.protocolVersion !== BROKER_PROTOCOL_VERSION) return false;
   if (!lifecycleIsPidAlive(state.pid)) return false;
   return true;
@@ -155,7 +150,6 @@ export { clearStaleBrokerState } from "./broker-lifecycle.mjs";
 // uses them inside function bodies (called after module init finishes),
 // so the static-evaluation order is acyclic at the value-of-import level.
 import {
-  isIsolatedBrokerHome,
   isPidAlive as lifecycleIsPidAlive,
   readBrokerDescriptorSync as lifecycleReadBrokerDescriptor,
 } from "./broker-lifecycle.mjs";
