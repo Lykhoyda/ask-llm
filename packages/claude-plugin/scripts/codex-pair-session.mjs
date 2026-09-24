@@ -12,7 +12,7 @@ import { access } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { resolveBrokerPreference } from "./lib/broker.mjs";
-import { bootstrapBroker, cleanupPreviousSessionBroker, clearStaleBrokerState, teardownBroker } from "./lib/broker-lifecycle.mjs";
+import { bootstrapBroker, teardownBroker } from "./lib/broker-lifecycle.mjs";
 import { clearAllDebounceState } from "./lib/debounce-state.mjs";
 import { clearSession } from "./lib/session-registry.mjs";
 import {
@@ -67,14 +67,6 @@ async function handleSessionStart(sessionId) {
   const markerDir = await findMarkerUp(cwd);
   if (!markerDir) return; // no opt-in marker, nothing to do
   if (!sessionId) return;
-  await cleanupPreviousSessionBroker(markerDir, sessionId);
-  // Recover from a prior-session crash before launching fresh.
-  // clearStaleBrokerState returns "live" if a still-usable broker
-  // exists — in that case we skip spawning a new one. "absent" or
-  // "stale" both result in a clean slate; bootstrapBroker handles
-  // the spawn + handshake from there.
-  const state = clearStaleBrokerState(markerDir);
-  if (state === "live") return;
   await bootstrapBroker(markerDir, { sessionId });
 }
 

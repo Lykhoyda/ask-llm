@@ -99,9 +99,8 @@ export function readBrokerState(markerDir) {
   return lifecycleReadBrokerDescriptor(markerDir);
 }
 
-// The environment opts in; the project can opt out.
 export function resolveBrokerPreference(markerDir, env = process.env) {
-  if (env.ASK_CODEX_BROKER !== "1") return false;
+  if (env.ASK_CODEX_BROKER === "0") return false;
   try {
     const marker = readFileSync(join(markerDir, ".codex-pair", "context.md"), "utf8");
     return parseFrontmatter(marker).frontmatter.broker !== false;
@@ -114,6 +113,7 @@ export function isBrokerEnabled(markerDir) {
   if (!resolveBrokerPreference(markerDir)) return false;
   const state = lifecycleReadBrokerDescriptor(markerDir);
   if (!state) return false;
+  if (!isIsolatedBrokerHome(state.isolatedHome)) return false;
   if (state.protocolVersion !== BROKER_PROTOCOL_VERSION) return false;
   if (!lifecycleIsPidAlive(state.pid)) return false;
   return true;
@@ -150,6 +150,7 @@ export { clearStaleBrokerState } from "./broker-lifecycle.mjs";
 // uses them inside function bodies (called after module init finishes),
 // so the static-evaluation order is acyclic at the value-of-import level.
 import {
+  isIsolatedBrokerHome,
   isPidAlive as lifecycleIsPidAlive,
   readBrokerDescriptorSync as lifecycleReadBrokerDescriptor,
 } from "./broker-lifecycle.mjs";

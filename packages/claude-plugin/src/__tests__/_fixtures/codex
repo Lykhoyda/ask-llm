@@ -46,6 +46,21 @@ function emitAgentMessage(text) {
 }
 
 async function run() {
+  if (SCENARIO === "broker-home-probe" && process.argv[2] === "app-server") {
+    const { existsSync, readFileSync, writeFileSync } = require("node:fs");
+    const { join } = require("node:path");
+    const home = process.env.CODEX_HOME;
+    writeFileSync(
+      process.env.FAKE_CODEX_PROBE_FILE,
+      JSON.stringify({
+        authenticated: readFileSync(join(home, "auth.json"), "utf8") === "test credential",
+        hooksLoaded: existsSync(join(home, "hooks.json")),
+        rulesLoaded: existsSync(join(home, "rules")),
+        minimalConfig: readFileSync(join(home, "config.toml"), "utf8") === "[features]\napps = false\n",
+      }),
+    );
+    return;
+  }
   if (SCENARIO === "sol-context-inventory") {
     const expectedContext = JSON.parse(process.env.FAKE_CLAUDE_CONTEXT_ARGS || "[]");
     const receivedArgs = process.argv.slice(2);
