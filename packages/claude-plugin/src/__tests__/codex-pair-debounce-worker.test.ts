@@ -10,7 +10,7 @@ const WORKER_PATH = path.join(PLUGIN_ROOT, "scripts", "codex-pair-debounce-worke
 const FIXTURE_DIR = path.join(PLUGIN_ROOT, "src", "__tests__", "_fixtures");
 
 describe("scripts/codex-pair-debounce-worker.mjs — structural invariants", () => {
-  const script = readFile("scripts/codex-pair-debounce-worker.mjs");
+  const script = readFile("scripts/codex-pair-debounce-worker.mts");
 
   it("has a node shebang and is executable", () => {
     expect(script.startsWith("#!/usr/bin/env node")).toBe(true);

@@ -1,5 +1,45 @@
 # Architectural Decisions
 
+## ADR-170: Codex-pair hooks are TypeScript sources shipped as committed generated JavaScript
+
+**Status:** Accepted (2026-09-25). Supersedes ADR-169.
+
+**Context:** The captain chose that authored hook and broker source must be TypeScript v7, that JavaScript may exist only as generated distribution output, and that the hand-written `strip-types.mjs` loader must go; support stays at the latest Node LTS (24). Claude marketplace `git-subdir` installs run the checked-in files with no install or build step, and npm installs place the package under `node_modules`, where Node refuses to strip TypeScript.
+
+**Decision:** The hook entry points (`scripts/codex-pair-{stop-gate,watch,session,prompt-drain,debounce-worker}.mts`), the broker (`scripts/lib/broker{,-lifecycle,-rpc,-transport}.mts`), and `scripts/lib/frontmatter.mts` are the source of truth. `yarn workspace @ask-llm/plugin build:hooks` runs `tsc -p scripts/tsconfig.json` with TypeScript 7 and `rewriteRelativeImportExtensions`, emitting each sibling `.mjs` in place; those generated `.mjs` files are committed because git-subdir installs cannot build them. `hooks/hooks.json` runs the generated `scripts/<hook>.mjs` exactly as before this work, with no loader or Node flags, so both install layouts execute plain JavaScript. `build:hooks` is deliberately not part of `build`, so CI never rewrites the committed output before `generated-hooks.test.ts` regenerates into a temporary directory and fails if any checked-out `.mjs` differs; generated output is never hand-edited, and Biome skips the generated files. The shared helpers the hooks import (`state`, `parser`, `prompt`, `process`, `debounce-state`, `session-registry`, `stop-gate`) remain hand-written JavaScript typed by `.d.mts` declarations; converting them is a follow-up outside the broker and hook scope. `engines.node` stays `>=24.0.0`.
+
+**Consequences:** Marketplace and npm installs behave identically and need no type stripping, experimental Node API, or install hook. Every change to a hook or broker `.mts` must be followed by `build:hooks` and committed together with its generated `.mjs`; CI enforces this through the drift test.
+
+## ADR-169: Codex-pair hooks run from TypeScript on Node 24
+
+**Status:** Superseded by ADR-170 (2026-09-25). Superseded ADR-167's `.mjs` entry points and Node 22.18 broker threshold.
+
+**Context:** The captain asked for TypeScript (v7) and for supporting only the latest Node LTS, which is Node 24. Hooks must run as checked in, with no install or build step, from both the marketplace `git-subdir` cache and an npm install. Node strips erasable TypeScript natively except under `node_modules`, where it refuses with `ERR_UNSUPPORTED_NODE_MODULES_TYPE_STRIPPING`.
+
+**Decision:** The five hook entry points (`codex-pair-stop-gate.ts`, `-watch.ts`, `-session.ts`, `-prompt-drain.ts`, `-debounce-worker.ts`), `lib/frontmatter.ts`, and the broker modules are TypeScript typechecked by `tsc -p scripts/tsconfig.json` (TypeScript 7). `hooks/hooks.json` runs `node --disable-warning=ExperimentalWarning --import ${CLAUDE_PLUGIN_ROOT}/scripts/strip-types.mjs <hook>.ts`; `strip-types.mjs` is a small JavaScript loader that registers `module.registerHooks` and strips `.ts` files under `node_modules` with `module.stripTypeScriptTypes`, leaving every other `.ts` to Node's native stripping. Spawned hooks inherit the flags through `process.execArgv`. The plugin requires Node 24 (`engines.node >=24.0.0`). Shared `scripts/lib/*.mjs` helpers, the log CLI, and non-hook scripts stay JavaScript.
+
+**Consequences:** The same hook command works in both install layouts on Node 24 and newer. On older Node the hooks fail at startup instead of degrading. npm installs depend on `stripTypeScriptTypes`, which Node 24 still marks experimental (its warning is suppressed); marketplace installs never call it. The loader itself is JavaScript: the hooks are TypeScript sources, but not a TypeScript-only package.
+
+## ADR-168: Default-on broker lifecycle and review parity
+
+**Status:** Accepted (2026-09-25)
+
+**Context:** An independent review of the default-on broker (ADR-166) found four merge blockers. SessionStart could SIGTERM an unrelated process group when an expired descriptor recorded a reused pid. Broker quota errors auto-paused reviews without trying the fallback model, and transient provider errors skipped the direct path's retry. A SessionStart killed mid-bootstrap left a permanent `broker.lock` and an untracked `codex app-server`. On macOS, marker directories over 54 bytes produced socket paths Node cannot connect to, so every start spent its poll budget for nothing. The auth.json link also raised whether a token refresh inside the broker could strand the user's credentials.
+
+**Decision:** Signal or reuse a recorded broker only while `ps` shows a codex executable running exactly `app-server --listen <recorded transport>`. Route broker quota errors into the fallback-model ladder and count a transient broker error as the first of the direct path's two attempts; other model errors still propagate. Record the lock owner and, before spawning, the isolated home and transport inside the lock; a lock whose owner died or that outlives any bootstrap is claimed by rename, its orphaned broker is found by transport and stopped, and its home removed. Bind the socket inside the isolated home and reject paths over 103 bytes. Keep linking auth.json. In Codex 0.156.1 the default credential store is the file, and both login and ChatGPT token refresh persist through `FileAuthStorage::save`, which truncates and rewrites `CODEX_HOME/auth.json` in place (source at `rust-v0.156.1`; login confirmed against a scratch home), so a broker refresh follows the link into the user's own credentials instead of diverging from them. Skip the broker when there is no auth.json to share (keyring or environment-key setups keep direct reviews).
+
+**Consequences:** Broker and direct reviews reach the same outcome for broker faults, quota, and transient errors. Credential state is shared with the user's Codex, not isolated: the broker is one more process that may refresh and rewrite the user's auth.json, non-atomically, exactly as concurrent Codex CLI sessions do, and a future Codex that saves by rename would break the link (the gated real-Codex test pins today's behavior). Residual risks accepted: three or more starts reclaiming one abandoned lock within milliseconds can overlap, a start killed between creating its home and recording it leaves an empty private temp directory, and a `ps` failure skips signaling a genuine broker. Overlapping sessions still lose the broker when its owner ends and fall back to direct reviews.
+
+## ADR-167: Codex-pair broker modules are TypeScript run by Node type stripping
+
+**Status:** Superseded by ADR-169 (2026-09-25)
+
+**Context:** The plugin ships through a `git-subdir` checkout with no install or build step, and `dist/` is not committed, so hook code must run as checked in. Node 22.18+ and 23.6+ execute erasable TypeScript directly with no warning; Node 20 and early 22.x reject `.ts` with a catchable `ERR_UNKNOWN_FILE_EXTENSION`. The plugin still declares Node >=20.
+
+**Decision:** `scripts/lib/broker.ts`, `broker-lifecycle.ts`, `broker-rpc.ts`, and `broker-transport.ts` are TypeScript restricted to erasable syntax and typechecked by `tsc -p scripts/tsconfig.json` (TypeScript 7). The `.mjs` hook entry points stay JavaScript and load the broker with a dynamic `import()` inside `try`; a failed load means the broker is unavailable and reviews use direct `codex exec`. The rest of `scripts/` stays JavaScript.
+
+**Consequences:** Default-on broker reviews need Node 22.18+ or 23.6+; older supported Node keeps today's direct review path without hook errors, so the plugin floor does not change.
+
 ## ADR-166: Enable the isolated codex-pair broker by default
 
 **Status:** Accepted (2026-09-24)
