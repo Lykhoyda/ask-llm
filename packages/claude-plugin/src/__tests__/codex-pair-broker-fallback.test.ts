@@ -1,8 +1,8 @@
 import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 import * as fs from "node:fs";
-import * as path from "node:path";
 import { createServer, type Socket } from "node:net";
+import * as path from "node:path";
 import { expect, it } from "vitest";
 import {
   chooseTransport,

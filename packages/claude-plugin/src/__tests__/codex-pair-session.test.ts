@@ -109,7 +109,9 @@ describe("codex-pair session hooks", () => {
       expect(spawned).toBe(1);
       expect(await teardownBroker(repo, { sessionId: "A" })).toBeNull();
       expect(fs.existsSync(descriptor)).toBe(true);
-      expect((await teardownBroker(repo, { sessionId: "B", injectDeps: { killPid: async () => true } }))?.sessionId).toBe("B");
+      expect(
+        (await teardownBroker(repo, { sessionId: "B", injectDeps: { killPid: async () => true } }))?.sessionId,
+      ).toBe("B");
       expect(fs.existsSync(descriptor)).toBe(false);
       expect(fs.existsSync(spawnedHome)).toBe(false);
     } finally {
@@ -135,7 +137,10 @@ describe("codex-pair session hooks", () => {
         sessionId: "new",
         sourceHome: repo,
         injectDeps: {
-          killPid: async () => { stopped = true; return true; },
+          killPid: async () => {
+            stopped = true;
+            return true;
+          },
           spawnBroker: (_marker: string, _url: string, home: string) => {
             spawnedHome = home;
             return { pid: process.pid, kill: () => true };
@@ -143,7 +148,11 @@ describe("codex-pair session hooks", () => {
           pollSocketReachable: async () => true,
           initializeBroker: async () => ({
             connection: { close: () => {} },
-            initializeResult: { get codexHome() { return spawnedHome; } },
+            initializeResult: {
+              get codexHome() {
+                return spawnedHome;
+              },
+            },
           }),
         },
       });

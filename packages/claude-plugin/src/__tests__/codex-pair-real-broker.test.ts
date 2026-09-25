@@ -1,4 +1,4 @@
-import { spawn, spawnSync, type ChildProcess } from "node:child_process";
+import { type ChildProcess, spawn, spawnSync } from "node:child_process";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
@@ -90,7 +90,9 @@ it.skipIf(!enabled)(
         });
         const turn = (await completed).params.turn;
         expect(turn.status).toBe("completed");
-        expect(turn.items.some((item: { type: string; text?: string }) => item.type === "agentMessage" && item.text)).toBe(true);
+        expect(
+          turn.items.some((item: { type: string; text?: string }) => item.type === "agentMessage" && item.text),
+        ).toBe(true);
       } finally {
         controlRpc.connection.close();
         isolatedRpc.connection.close();
