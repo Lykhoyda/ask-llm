@@ -2795,10 +2795,9 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
     let spawnedHome = "";
     const result = await bootstrapBroker(tempDir, {
       injectDeps: {
-        // biome-ignore lint/suspicious/noExplicitAny: test mock
         spawnBroker: (_marker: string, _url: string, home: string) => {
           spawnedHome = home;
-          return fakeChild as any;
+          return fakeChild as ReturnType<typeof spawn>;
         },
         pollSocketReachable: async () => true,
         initializeBroker: async () => ({
@@ -3213,10 +3212,9 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
     let spawnedHome = "";
     const result = await bootstrapBroker(tempDir, {
       injectDeps: {
-        // biome-ignore lint/suspicious/noExplicitAny: test mock
         spawnBroker: (_marker: string, _url: string, home: string) => {
           spawnedHome = home;
-          return fakeChild as any;
+          return fakeChild as ReturnType<typeof spawn>;
         },
         pollSocketReachable: async () => true,
         initializeBroker: async () => ({
@@ -3427,7 +3425,7 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
     }
     // biome-ignore lint/suspicious/noExplicitAny: test mock
     expect((caught as any)?.verdict).toBe("timeout");
-    expect((caught as any)?.brokerFailure).toBe(true);
+    expect((caught as Error & { brokerFailure?: boolean })?.brokerFailure).toBe(true);
     expect(interruptCalls).toHaveLength(1);
     expect((interruptCalls[0].params as { threadId: string; turnId: string }).threadId).toBe("T1");
     expect((interruptCalls[0].params as { threadId: string; turnId: string }).turnId).toBe("U1");
