@@ -23,11 +23,7 @@ import {
 
 const MARKER_FILE = join(PAIR_ROOT_DIR, CONTEXT_FILENAME);
 
-// Walk up from startDir looking for `.codex-pair/context.md`. Returns
-// the marker directory (the directory CONTAINING `.codex-pair/`) or
-// null. Mirrors codex-pair-watch.mjs and codex-pair-log.mjs — duplicated
-// because zero-workspace-imports + the helper is too small to extract
-// (15 LOC × 3 callers).
+// Keep marker discovery local so marketplace installs need no workspace dependencies.
 async function findMarkerUp(startDir: string): Promise<string | null> {
   const home = homedir();
   let current = resolve(startDir);
@@ -70,11 +66,7 @@ async function handleSessionEnd(sessionId: unknown) {
   const cwd = process.cwd();
   const markerDir = await findMarkerUp(cwd);
   if (!markerDir) return;
-  // teardownBroker reads the descriptor, SIGTERMs the pid with a grace
-  // window, escalates to SIGKILL via terminateProcessTree if needed,
-  // unlinks the descriptor + socket + lock. Returns the descriptor
-  // that was torn down (or null if none existed) — we ignore it; the
-  // hook just needs to exit 0 either way per ADR-077.
+  // SessionEnd teardown is best-effort; broker failure must not block the session.
   await teardownBroker(markerDir, { sessionId: typeof sessionId === "string" ? sessionId : undefined });
 }
 
@@ -92,12 +84,7 @@ async function main() {
     process.exit(0);
   }
 
-  // SessionStart pause visibility (2026-07-02 seamless-pairing design; un-gated
-  // by the broker flag). An auto-pause used to be notify-ONCE and manual-resume-
-  // only — miss that single message and pairing is silently dead forever (the
-  // dogfood repo spent 18 days that way). Now: an expired auto-pause self-heals
-  // right here; a still-active pause gets a reminder the model actually sees
-  // (SessionStart supports additionalContext; it does NOT support systemMessage).
+  // SessionStart reminds the model of active pauses via additionalContext and resumes expired ones.
   if (event === "SessionStart") {
     try {
       const markerDir = await findMarkerUp(process.cwd());
@@ -108,10 +95,7 @@ async function main() {
           currentVersion: readPluginVersion(),
         });
         let context = null;
-        // clearAutoPause aborts (false) when the sentinel changed since we
-        // read it — either a concurrent SessionStart already resumed (sentinel
-        // gone → say nothing; reviews are live) or a new pause raced in
-        // (render the reminder from CURRENT state, not the stale pauseInfo).
+        // A changed pause sentinel requires rereading current state before notifying.
         if (decision.resume && clearAutoPause(markerDir, pauseInfo)) {
           await appendLog(markerDir, {
             timestamp: new Date().toISOString(),
@@ -142,11 +126,7 @@ async function main() {
     }
   }
 
-  // Edit-debounce cleanup runs on SessionEnd only (un-gated by the broker flag,
-  // since debounce is not broker-gated): a sleeping worker wakes to a missing
-  // record and self-cancels. NOT on SessionStart — that would wipe a verdict
-  // queued just before a new session begins; crash-orphaned state is reclaimed
-  // by the TTL sweep (sweepStaleDebounce) instead.
+  // Clear debounce state only on SessionEnd; SessionStart could erase a queued verdict.
   if (event === "SessionEnd") {
     const dbMarkerDir = await findMarkerUp(process.cwd());
     if (dbMarkerDir) {
@@ -156,8 +136,7 @@ async function main() {
         // best-effort (ADR-077)
       }
     }
-    // ADR-131 (#209): drop this session's cross-repo marker registry. Keyed by
-    // session_id, not cwd — so it cleans up regardless of which repo cwd is.
+    // Clear the registry by session ID so cwd does not affect cleanup.
     try {
       clearSession(payload?.session_id);
     } catch {
@@ -172,9 +151,7 @@ async function main() {
     if (event === "SessionStart") await handleSessionStart(payload?.session_id);
     else if (event === "SessionEnd") await handleSessionEnd(payload?.session_id);
   } catch {
-    // ADR-077 silent-on-error: a failed bootstrap MUST NOT break the
-    // session. bootstrapBroker already catches internally, but defense
-    // in depth.
+    // Bootstrap failure must not break the session.
   }
   process.exit(0);
 }

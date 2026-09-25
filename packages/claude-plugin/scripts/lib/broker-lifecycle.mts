@@ -69,8 +69,6 @@ export interface TeardownOptions {
   sessionId?: string;
 }
 
-// Locks live alongside the broker descriptor. Per-marker-dir isolation is
-// inherent because the parent path is `<markerDir>/.codex-pair/state/`.
 const BROKER_LOCK_DIR = "broker.lock";
 const LOCK_OWNER_FILE = "owner.json";
 const LOCK_SPAWN_FILE = "spawn.json";
@@ -99,8 +97,7 @@ export function hasCurrentBrokerAuth(isolatedHome: string | undefined, sourceHom
   }
 }
 
-// auth.json is shared by link, not copied: Codex rewrites it in place (verified on 0.156.1), so a
-// token refresh by the broker lands in the user's own credentials instead of a diverging copy.
+// Link auth.json so token refreshes update the source credentials.
 export function createIsolatedBrokerHome(options: { sourceHome?: string; tempRoot?: string } = {}): string {
   const sourceHome = sourceCodexHome(options.sourceHome);
   const home = mkdtempSync(join(options.tempRoot ?? tmpdir(), ISOLATED_HOME_PREFIX));
@@ -156,8 +153,7 @@ export function brokerLogPath(markerDir: string): string {
   return join(stateRoot(markerDir), BROKER_LOG_FILE);
 }
 
-// Atomic lock via mkdir(2). A live holder makes this return null; a holder that died (for
-// example a SessionStart killed mid-bootstrap) is reclaimed along with anything it spawned.
+// Atomic lock creation lets the next start reclaim a dead holder.
 export function acquireBrokerLock(markerDir: string): string | null {
   const lockPath = brokerLockPath(markerDir);
   mkdirSync(stateRoot(markerDir), { recursive: true });
@@ -182,8 +178,7 @@ function readLockFile(lockPath: string, file: string): string | null {
   }
 }
 
-// The rename hands the abandoned lock to exactly one reclaimer; if what it moved is not the lock it
-// judged abandoned (someone reclaimed and re-acquired first), it hands that lock straight back.
+// Return a lock if another reclaimer replaced it after our stale check.
 function reclaimAbandonedLock(lockPath: string): boolean {
   const owner = readLockFile(lockPath, LOCK_OWNER_FILE);
   if (!isAbandonedLock(lockPath, owner)) return false;
@@ -251,12 +246,7 @@ export function releaseBrokerLock(lockPath: string | null): void {
   }
 }
 
-// Poll the transport for reachability. Different probes per scheme:
-//   - unix:// — check the socket file exists + try net.connect once
-//   - ws://   — try net.connect to host:port
-// Returns true on first reachable response, false after the budget. The
-// caller still has to perform `initialize` separately — reachability is
-// necessary but not sufficient for "broker is healthy" per ADR-093.
+// Socket reachability is only a precondition; initialize still proves broker health.
 export async function pollSocketReachable(transportUrl: string, budgetMs: number): Promise<boolean> {
   const deadline = Date.now() + budgetMs;
   while (Date.now() < deadline) {
@@ -311,11 +301,7 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-// Spawn `codex app-server --listen <transport>` detached so it outlives
-// SessionStart's process. stdio is redirected to broker.log (open via
-// O_APPEND so multiple writers — unlikely but defensive — don't tear).
-// Returns the spawned ChildProcess; caller is responsible for tracking
-// the pid and writing it to the descriptor only after handshake succeeds.
+// Detach app-server across SessionStart exit; persist its descriptor only after handshake.
 export function spawnBroker(markerDir: string, transportUrl: string, isolatedHome: string): ChildProcess {
   if (!isIsolatedBrokerHome(isolatedHome)) throw new Error("broker requires an isolated Codex home");
   const logFd = openSync(brokerLogPath(markerDir), "a");
@@ -324,26 +310,14 @@ export function spawnBroker(markerDir: string, transportUrl: string, isolatedHom
     env: { ...process.env, CODEX_HOME: isolatedHome },
     stdio: ["ignore", logFd, logFd],
   });
-  // spawn() emits "error" asynchronously for ENOENT (codex not on PATH)
-  // and similar dispatch failures. Without a listener, Node treats this
-  // as an unhandled error and crashes the hook process — violating
-  // ADR-077's silent-on-error contract. Codex-pair flagged this finding
-  // repeatedly during M2; attaching a no-op listener catches the error
-  // (bootstrapBroker's poll/initialize step will fail subsequently and
-  // route through the silent-fallback path).
+  // Handle asynchronous spawn errors so a missing Codex binary cannot crash the hook.
   child.on("error", () => {
-    // best-effort; bootstrap's outer catch handles the resulting
-    // poll/initialize failure
   });
-  // detached + unref so SessionStart can exit cleanly without waiting
-  // for the broker. The broker stays alive as a session-scoped daemon.
+  // Detach so the broker outlives SessionStart.
   child.unref();
   return child;
 }
 
-// Codex version detection. Best-effort: returns the version string or
-// "unknown" if codex isn't on PATH or fails. Used in the descriptor for
-// version-skew detection (stale-broker recovery, Milestone 4).
 export function readCodexVersion(): string {
   try {
     const out = execFileSync("codex", ["--version"], { timeout: 2000, encoding: "utf-8" });
@@ -353,8 +327,7 @@ export function readCodexVersion(): string {
   }
 }
 
-// Atomic descriptor write via tmp+rename (ADR-086). Caller ensures
-// stateRoot(markerDir) exists (acquireBrokerLock creates it).
+// Rename atomically after the lock creates the state root.
 export async function writeBrokerDescriptor(markerDir: string, descriptor: BrokerDescriptor): Promise<string> {
   const finalPath = join(stateRoot(markerDir), "broker.json");
   const tmpPath = `${finalPath}.tmp.${process.pid}`;
@@ -372,10 +345,6 @@ export async function unlinkBrokerDescriptor(markerDir: string): Promise<void> {
   }
 }
 
-// Resolve the plugin version from package.json. Used in clientInfo.title
-// and the descriptor. Falls back to "unknown" if the manifest can't be
-// read (the bundled marketplace install ships package.json adjacent to
-// scripts/).
 let cachedPluginVersion: string | null = null;
 export function readPluginVersion(): string {
   if (cachedPluginVersion) return cachedPluginVersion;
@@ -383,12 +352,7 @@ export function readPluginVersion(): string {
     const here = dirname(fileURLToPath(import.meta.url));
     // scripts/lib/*.mjs → packages/claude-plugin/package.json
     const manifest = join(here, "..", "..", "package.json");
-    // Use the static ESM import — the original M2 PR 2 code used
-    // `require("node:fs")` which is undefined in ESM (.mjs files), so
-    // every call to this function threw ReferenceError silently and
-    // permanently returned "unknown". Multi-review caught it; the
-    // bootstrap-descriptor test now asserts pluginVersion is not
-    // "unknown" so this regression can't sneak in again.
+    // Use the static ESM import; require is unavailable in generated .mjs.
     const text = readFileSync(manifest, "utf-8");
     cachedPluginVersion = (JSON.parse(text)?.version || "unknown").trim();
   } catch {
@@ -439,11 +403,7 @@ export async function bootstrapBroker(
     recordBootstrapSpawn(lockPath, { isolatedHome, transportUrl });
     child = spawnFn(markerDir, transportUrl, isolatedHome);
 
-    // Strict deadline enforcement. Previously used Math.max(100, ...) and
-    // Math.max(500, ...) as floors — codex-pair repeatedly flagged that
-    // these floors let bootstrap continue AFTER the wall-clock budget had
-    // been exhausted (defeating the silent-fallback contract). The deadline
-    // is authoritative; if it's already past, fail fast.
+    // Never extend the bootstrap deadline with a minimum timeout floor.
     const pollBudget = deadline - Date.now() - 1000;
     if (pollBudget <= 0) throw new Error("broker bootstrap budget exhausted before poll");
     const reachable = await pollFn(transportUrl, pollBudget);
@@ -476,11 +436,7 @@ export async function bootstrapBroker(
       codexHome: initializeResult?.codexHome ?? null,
       isolatedHome,
       sessionId: options.sessionId ?? null,
-      // Use the constant rather than a hardcoded "v2" — codex-pair flagged
-      // the drift risk: if BROKER_PROTOCOL_VERSION changes in broker.mjs
-      // but this string isn't updated, stale-recovery would always treat
-      // the descriptor as live (matching the literal "v2" string instead
-      // of the new constant).
+      // Record the shared protocol constant so stale detection cannot drift.
       protocolVersion: BROKER_PROTOCOL_VERSION,
       pluginVersion: readPluginVersion(),
       startedAt: new Date().toISOString(),
@@ -488,8 +444,7 @@ export async function bootstrapBroker(
     };
     await writeBrokerDescriptor(markerDir, descriptor);
 
-    // Close the bootstrap connection — the per-edit hook opens its own
-    // long-lived RPC connection (Milestone 4).
+    // Per-edit hooks open their own RPC connections.
     try {
       connection.close(1000, "bootstrap done");
     } catch {
@@ -498,13 +453,7 @@ export async function bootstrapBroker(
 
     return descriptor;
   } catch {
-    // ADR-077 silent-on-error. Tear down the child (best-effort) and
-    // signal failure to the caller via null return.
-    // Close the bootstrap connection if it was opened — codex-pair
-    // flagged that a descriptor-write failure would leak the connection
-    // because the close-on-success path is BELOW writeBrokerDescriptor
-    // but the catch never closed it. Hoisting + close-in-catch fixes the
-    // leak.
+    // Close a partially initialized connection and remove the child on any bootstrap failure.
     if (connection) {
       try {
         connection.close(1011, "bootstrap failed");
@@ -524,9 +473,6 @@ export async function bootstrapBroker(
 
 // ──── SessionEnd teardown (M2 PR 3) ────────────────────────────────────
 
-// Read the broker descriptor synchronously. Returns the parsed object
-// or null on any error (missing, malformed, unreadable). Used by
-// teardownBroker AND by the per-edit hook's readBrokerState lookup.
 export function readBrokerDescriptorSync(markerDir: string): BrokerDescriptor | null {
   const descPath = join(stateRoot(markerDir), "broker.json");
   try {
@@ -540,12 +486,7 @@ export function readBrokerDescriptorSync(markerDir: string): BrokerDescriptor | 
   }
 }
 
-// Best-effort liveness check on a recorded pid. POSIX uses `process.kill(pid, 0)`
-// which sends a no-op signal — succeeds if the pid exists AND we have
-// permission; fails (throws ESRCH) if the process is gone. Windows lacks
-// this — the brainstorm flagged this as a follow-on; for M2 we treat
-// Windows pids as "always live" so we send SIGTERM unconditionally on
-// the Windows path (terminateProcessTree handles the cross-platform kill).
+// PID liveness is only a hint; Windows relies on process-tree termination.
 export function isPidAlive(pid: unknown): pid is number {
   if (typeof pid !== "number" || pid <= 0) return false;
   if (IS_WINDOWS) return true; // best-effort; rely on terminateProcessTree
@@ -553,9 +494,7 @@ export function isPidAlive(pid: unknown): pid is number {
     process.kill(pid, 0);
     return true;
   } catch (err) {
-    // ESRCH = no such process. EPERM = process exists but we don't own
-    // it (rare for our own-spawned broker but possible across user
-    // switches); treat as "live" since we can't safely conclude dead.
+    // EPERM still means the process may be alive; only ESRCH proves absence.
     if ((err as NodeJS.ErrnoException)?.code === "EPERM") return true;
     return false;
   }
@@ -602,21 +541,15 @@ async function killRecordedBroker(descriptor: BrokerDescriptor, graceMs: number)
   return isRecordedBroker(descriptor) ? killPidGracefully(descriptor.pid, graceMs) : false;
 }
 
-// Send SIGTERM, poll for exit, escalate to terminateProcessTree if the
-// process is still alive after the grace period. Returns boolean (was
-// the pid actually live before we killed it).
 async function killPidGracefully(pid: number, graceMs: number): Promise<boolean> {
   if (!isPidAlive(pid)) return false;
   try {
     if (IS_WINDOWS) {
-      // Windows: no graceful SIGTERM equivalent — go straight to taskkill.
-      // Pass a minimal ChildProcess-shaped object that terminateProcessTree
-      // recognizes.
+      // Windows has no graceful SIGTERM path.
       terminateProcessTree({ pid, killed: false, exitCode: null }, "SIGTERM");
       return true;
     }
-    // POSIX: SIGTERM the process group (`-pid` requires the spawn was
-    // detached, which bootstrapBroker enforces).
+    // The detached POSIX process group receives SIGTERM.
     try {
       process.kill(-pid, "SIGTERM");
     } catch {
@@ -641,11 +574,7 @@ async function killPidGracefully(pid: number, graceMs: number): Promise<boolean>
   }
 }
 
-// Unlink the unix socket file alongside descriptor + lock. Only meaningful
-// on POSIX; on Windows the WS transport doesn't leave a file. Caller
-// must supply markerDir so we can validate the socket path is rooted
-// under the marker's state directory (defense against a tampered
-// descriptor.json pointing the unlink at an arbitrary path).
+// Validate socket ancestry before unlinking a descriptor-provided path.
 async function unlinkTransportArtifact(transportUrl: unknown, markerDir: string): Promise<void> {
   const safePath = extractSafeSocketPath(transportUrl, markerDir);
   if (safePath === null) return;
@@ -656,28 +585,14 @@ async function unlinkTransportArtifact(transportUrl: unknown, markerDir: string)
   }
 }
 
-// Stale-state cleanup. Reads broker.json; if any "stale" condition holds
-// (pid dead, recorded protocol-version mismatch, unix socket missing),
-// unlinks the descriptor + socket. Returns "absent" | "live" | "stale".
-// SessionStart calls this BEFORE bootstrapBroker to recover from prior
-// crashes; per-edit hook MAY call it as belt-and-suspenders defense.
-// Re-exported from broker.mjs so consumers import one contract surface.
+// Reclaim stale descriptors after dead PIDs, protocol changes, or missing sockets.
 export function clearStaleBrokerState(markerDir: string): "absent" | "live" | "stale" {
   const descriptor = readBrokerDescriptorSync(markerDir);
   if (!descriptor) return "absent";
   const alive = isPidAlive(descriptor.pid);
   const protoOk = descriptor.protocolVersion === BROKER_PROTOCOL_VERSION;
-  // Transport-scheme dispatch — codex-pair flagged that the original code
-  // treated UNKNOWN schemes (http://, junk, missing) as live because
-  // extractSafeSocketPath returned null which left socketOk = true
-  // (initialized). The correct logic distinguishes:
-  //   - unix:// inside markerDir/state  → check socket file exists
-  //   - unix:// outside markerDir/state → STALE (tampered descriptor)
-  //   - ws://anything                   → assume live; per-edit probe validates
-  //   - unknown / non-string            → STALE (junk descriptor)
+  // Reject unknown transports and Unix sockets outside the recorded state boundary.
   let socketOk: boolean;
-  // Hoist sockPath so the cleanup block can reference it; only the unix
-  // branch sets it to a real path, other branches leave it null.
   let sockPath: string | null = null;
   if (typeof descriptor.transportUrl !== "string") {
     socketOk = false;
@@ -711,8 +626,7 @@ export function clearStaleBrokerState(markerDir: string): "absent" | "live" | "s
   return "stale";
 }
 
-// Path-safety: a descriptor may only point at a socket inside its own isolated home or, for
-// descriptors written before ADR-168, under the marker's state root.
+// Only unlink sockets under the isolated home or legacy marker state root.
 function extractSafeSocketPath(transportUrl: unknown, markerDir: string, isolatedHome?: unknown): string | null {
   if (typeof transportUrl !== "string" || !transportUrl.startsWith("unix://")) {
     return null;
@@ -725,14 +639,7 @@ function extractSafeSocketPath(transportUrl: unknown, markerDir: string, isolate
   return roots.some((root) => resolvedSock.startsWith(`${root}/`)) ? resolvedSock : null;
 }
 
-// SessionEnd orchestrator. Reads the descriptor, signals the broker pid
-// to exit gracefully, terminateProcessTree if it doesn't, and cleans up
-// the descriptor + socket + lock. Always exits successfully — ADR-077.
-//
-// Options:
-//   - graceMs (default 1500) — how long to wait for SIGTERM to land
-//     before escalating to SIGKILL.
-//   - injectDeps — { killPid, unlinkSock } for testing.
+// SessionEnd teardown is best-effort and must not fail the hook.
 export async function teardownBroker(
   markerDir: string,
   options: TeardownOptions = {},

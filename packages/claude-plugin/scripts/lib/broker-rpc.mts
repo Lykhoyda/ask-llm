@@ -53,24 +53,11 @@ function takeNextId(): number {
   return id;
 }
 
-// Create a JSON-RPC client over a connected `broker-transport.mts`
-// WebSocketConnection. The caller is responsible for `connection.close()`.
-// This client manages the protocol layer on top, not the socket lifetime.
-//
-// Options:
-//   - defaultTimeoutMs (number, default 30000): per-request budget.
-//   - onNotification (function, default no-op): called with
-//     `{ method, params }` for server-pushed notifications (envelopes
-//     lacking an `id`).
-//   - onProtocolError (function, default no-op): called when an inbound
-//     text frame can't be parsed as JSON or has neither id nor method.
+// The caller owns the WebSocket lifetime; this client owns request and notification state.
 export function createRpcClient(connection: WebSocketConnection, options: RpcClientOptions = {}): RpcClient {
   const { defaultTimeoutMs = 30000, onNotification = () => {}, onProtocolError = () => {} } = options;
   const pending = new Map<unknown, PendingRequest>();
-  // Subscriber list for waitFor — each entry { method, predicate, resolve, reject, timer }.
-  // M3 needs to attach a notification listener BEFORE dispatching `turn/start`
-  // (race-safe per brainstorm Risk #1: server can emit `turn/completed` between
-  // request-send and listener-install if registered after the send).
+  // Subscribe before turn/start so a fast completion cannot be missed.
   const notificationSubscribers = new Set<NotificationSubscriber>();
   let closed = false;
 
@@ -91,8 +78,7 @@ export function createRpcClient(connection: WebSocketConnection, options: RpcCli
     if (env && typeof env === "object" && "id" in env && env.id != null) {
       const entry = pending.get(env.id);
       if (!entry) {
-        // Late response after timeout, or an id we didn't send. Ignore;
-        // surface as a soft protocol error for diagnostics.
+        // Late or unknown responses are soft protocol errors.
         onProtocolError(new Error(`broker-rpc: response for unknown id ${env.id}`));
         return;
       }
@@ -109,12 +95,9 @@ export function createRpcClient(connection: WebSocketConnection, options: RpcCli
       return;
     }
     if (env && typeof env === "object" && typeof env.method === "string") {
-      // Server-pushed notification (or a server-initiated request, which
-      // codex-pair refuses since approvalPolicy:"never" — but pass it up
-      // either way and let the caller decide).
+      // Pass server-pushed messages to callers even when they resemble server requests.
       const notification: RpcNotification = { method: env.method, params: env.params, id: env.id };
-      // Dispatch to waitFor subscribers first — they capture by method+predicate.
-      // Iterate a snapshot since resolved subscribers self-remove during dispatch.
+      // Snapshot subscribers because dispatch removes resolved waiters.
       for (const sub of [...notificationSubscribers]) {
         if (sub.method === env.method) {
           try {
@@ -152,18 +135,13 @@ export function createRpcClient(connection: WebSocketConnection, options: RpcCli
   });
 
   connection.on("error", (err) => {
-    // Pending requests still time out via their own timers, but surface
-    // transport errors immediately too.
+    // Surface transport errors before pending request timers expire.
     for (const [id, entry] of pending.entries()) {
       clearTimeout(entry.timer);
       entry.reject(err);
       pending.delete(id);
     }
-    // Multi-review M3 hotfix: also reject notification waiters — some
-    // Node transports emit "error" without a following "close", so the
-    // close-handler cleanup wouldn't run otherwise and waitFor() would
-    // hang until its own timeout. Surface the real transport error
-    // immediately for diagnostics instead of a generic timeout.
+    // Reject waiters on transport error even if no close event follows.
     for (const sub of notificationSubscribers) {
       if (sub.timer) clearTimeout(sub.timer);
       sub.reject(err);
@@ -198,16 +176,7 @@ export function createRpcClient(connection: WebSocketConnection, options: RpcCli
       if (closed) throw new Error("broker-rpc: client is closed");
       connection.sendText(JSON.stringify({ jsonrpc: "2.0", method, params }));
     },
-    // Register a notification listener with a predicate. Returns a Promise
-    // resolving to the matched notification, OR rejecting on timeout / close.
-    // CRITICAL: call this BEFORE the request that triggers the notification
-    // (per brainstorm Risk #1 — server can emit `turn/completed` between
-    // request-send and listener-install if registered after the send).
-    //
-    // Usage in M3 submitReview:
-    //   const waiter = rpc.waitFor("turn/completed", n => n.params?.threadId === ourThreadId, timeoutMs);
-    //   await rpc.request("turn/start", { ... });
-    //   const completion = await waiter;
+    // Register waitFor before the request that triggers its notification.
     waitFor(method, predicate, timeoutMs) {
       if (closed) return Promise.reject(new Error("broker-rpc: client is closed"));
       let sub: NotificationSubscriber;
@@ -217,8 +186,7 @@ export function createRpcClient(connection: WebSocketConnection, options: RpcCli
           const subscriber = sub;
           sub.timer = setTimeout(() => {
             notificationSubscribers.delete(subscriber);
-            // Multi-review M3 hotfix: attach a structured `.timeout = true`
-            // marker so callers don't have to regex-match the message.
+            // Preserve a structured timeout marker for callers.
             const err: RpcError = new Error(`broker-rpc: waitFor(${method}) timed out after ${timeoutMs}ms`);
             err.timeout = true;
             reject(err);
