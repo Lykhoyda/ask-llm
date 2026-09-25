@@ -297,7 +297,7 @@ describe("dual-host package manifest", () => {
       "LICENSE",
       "pi/",
       "prompts/",
-      "scripts/lib/",
+      "scripts/lib/*.mjs",
       "skills/",
     ]) {
       expect(pkg.files).toContain(resource);

@@ -2787,10 +2787,12 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
   it("ADR-093 lifecycle: bootstrapBroker happy path writes descriptor + closes init connection", async () => {
     const { bootstrapBroker, removeIsolatedBrokerHome } = await import("../../scripts/lib/broker-lifecycle.mts");
     fs.mkdirSync(path.join(tempDir, ".codex-pair"), { recursive: true });
+    fs.writeFileSync(path.join(tempDir, "auth.json"), "{}");
     const fakeChild = { pid: 12345, kill: () => true, killed: false, exitCode: null };
     let connectionClosed = false;
     let spawnedHome = "";
     const result = await bootstrapBroker(tempDir, {
+      sourceHome: tempDir,
       injectDeps: {
         spawnBroker: (_marker: string, _url: string, home: string) => {
           spawnedHome = home;
@@ -2829,6 +2831,7 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
   it("ADR-093 lifecycle: bootstrapBroker returns null + terminates child on poll timeout", async () => {
     const { bootstrapBroker } = await import("../../scripts/lib/broker-lifecycle.mts");
     fs.mkdirSync(path.join(tempDir, ".codex-pair"), { recursive: true });
+    fs.writeFileSync(path.join(tempDir, "auth.json"), "{}");
     let terminated = false;
     const fakeChild = {
       pid: 12345,
@@ -2841,6 +2844,7 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
     };
     const result = await bootstrapBroker(tempDir, {
       budgetMs: 200,
+      sourceHome: tempDir,
       injectDeps: {
         // biome-ignore lint/suspicious/noExplicitAny: test mock
         spawnBroker: () => fakeChild as any,
@@ -2859,8 +2863,10 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
   it("ADR-093 lifecycle: bootstrapBroker returns null + cleans up on initialize rejection", async () => {
     const { bootstrapBroker } = await import("../../scripts/lib/broker-lifecycle.mts");
     fs.mkdirSync(path.join(tempDir, ".codex-pair"), { recursive: true });
+    fs.writeFileSync(path.join(tempDir, "auth.json"), "{}");
     const fakeChild = { pid: 12345, kill: () => true, killed: false, exitCode: null };
     const result = await bootstrapBroker(tempDir, {
+      sourceHome: tempDir,
       injectDeps: {
         // biome-ignore lint/suspicious/noExplicitAny: test mock
         spawnBroker: () => fakeChild as any,
@@ -2879,10 +2885,12 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
   it("ADR-093 lifecycle: bootstrapBroker returns null when lock acquisition fails (concurrent SessionStart)", async () => {
     const { acquireBrokerLock, bootstrapBroker } = await import("../../scripts/lib/broker-lifecycle.mts");
     fs.mkdirSync(path.join(tempDir, ".codex-pair", "state"), { recursive: true });
+    fs.writeFileSync(path.join(tempDir, "auth.json"), "{}");
     const firstLock = acquireBrokerLock(tempDir);
     expect(firstLock).not.toBeNull();
     let spawnAttempted = false;
     const result = await bootstrapBroker(tempDir, {
+      sourceHome: tempDir,
       injectDeps: {
         spawnBroker: () => {
           spawnAttempted = true;
@@ -3205,9 +3213,11 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
   it("ADR-093 lifecycle hotfix: bootstrapBroker descriptor records non-'unknown' pluginVersion", async () => {
     const { bootstrapBroker, removeIsolatedBrokerHome } = await import("../../scripts/lib/broker-lifecycle.mts");
     fs.mkdirSync(path.join(tempDir, ".codex-pair"), { recursive: true });
+    fs.writeFileSync(path.join(tempDir, "auth.json"), "{}");
     const fakeChild = { pid: 12345, kill: () => true, killed: false, exitCode: null };
     let spawnedHome = "";
     const result = await bootstrapBroker(tempDir, {
+      sourceHome: tempDir,
       injectDeps: {
         spawnBroker: (_marker: string, _url: string, home: string) => {
           spawnedHome = home;
@@ -3241,9 +3251,11 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
     );
     const deep = path.join(tempDir, "d".repeat(120));
     fs.mkdirSync(path.join(deep, ".codex-pair"), { recursive: true });
+    fs.writeFileSync(path.join(tempDir, "auth.json"), "{}");
     let spawnedHome = "";
     let spawnedUrl = "";
     const result = await bootstrapBroker(deep, {
+      sourceHome: tempDir,
       injectDeps: {
         spawnBroker: (_marker: string, url: string, home: string) => {
           spawnedHome = home;
