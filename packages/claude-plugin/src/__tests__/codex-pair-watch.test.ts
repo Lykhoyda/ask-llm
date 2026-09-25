@@ -3698,6 +3698,7 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
     );
     fs.mkdirSync(path.join(tempDir, ".codex-pair", "state"), { recursive: true });
     fs.writeFileSync(path.join(tempDir, ".codex-pair", "context.md"), "# project");
+    fs.writeFileSync(path.join(tempDir, "auth.json"), "{}");
     const home = createIsolatedBrokerHome({ sourceHome: tempDir });
     fs.writeFileSync(
       path.join(tempDir, ".codex-pair", "state", "broker.json"),
@@ -3712,6 +3713,8 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
     try {
       process.env.ASK_CODEX_BROKER = "1";
       expect(isBrokerEnabled(tempDir)).toBe(true);
+      fs.rmSync(path.join(tempDir, "auth.json"));
+      expect(isBrokerEnabled(tempDir)).toBe(false);
     } finally {
       if (orig === undefined) delete process.env.ASK_CODEX_BROKER;
       else process.env.ASK_CODEX_BROKER = orig;

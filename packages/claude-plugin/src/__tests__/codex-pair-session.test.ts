@@ -3,7 +3,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { resolveBrokerPreference } from "../../scripts/lib/broker.mts";
+import { isBrokerEnabled, resolveBrokerPreference } from "../../scripts/lib/broker.mts";
 import {
   bootstrapBroker,
   chooseTransport,
@@ -351,6 +351,48 @@ describe("codex-pair session hooks", () => {
     expect(result).toBeNull();
     expect(spawned).toBe(false);
     expect(fs.existsSync(path.join(repo, ".codex-pair", "state", "broker.lock"))).toBe(false);
+  });
+
+  it("retires a recorded broker once its source credentials are removed", async () => {
+    fs.mkdirSync(path.join(repo, ".codex-pair", "state"), { recursive: true });
+    const home = createIsolatedBrokerHome({ sourceHome: repo });
+    await writeBrokerDescriptor(repo, {
+      pid: process.pid,
+      transportUrl: chooseTransport(home),
+      sessionId: "missed-end",
+      isolatedHome: home,
+      protocolVersion: "v2",
+      startedAt: new Date().toISOString(),
+    });
+    try {
+      expect(isBrokerEnabled(repo)).toBe(true);
+      fs.rmSync(path.join(repo, "auth.json"));
+      expect(isBrokerEnabled(repo)).toBe(false);
+      let stopped = false;
+      let spawned = false;
+      const result = await bootstrapBroker(repo, {
+        sessionId: "next",
+        sourceHome: repo,
+        injectDeps: {
+          isRecordedBroker: () => true,
+          killPid: async () => {
+            stopped = true;
+            return true;
+          },
+          spawnBroker: () => {
+            spawned = true;
+            return { pid: 2 ** 22 + 4, kill: () => true };
+          },
+        },
+      });
+      expect(result).toBeNull();
+      expect(stopped).toBe(true);
+      expect(spawned).toBe(false);
+      expect(fs.existsSync(path.join(repo, ".codex-pair", "state", "broker.json"))).toBe(false);
+      expect(fs.existsSync(home)).toBe(false);
+    } finally {
+      removeIsolatedBrokerHome(home);
+    }
   });
 
   it("creates a private broker home with only auth and disabled apps", () => {

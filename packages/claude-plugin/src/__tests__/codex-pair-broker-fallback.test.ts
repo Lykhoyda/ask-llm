@@ -32,6 +32,7 @@ function frame(body: Buffer): Buffer {
 
 async function runBrokerEdit(scenario: Scenario, fakeCodexScenario: string, seedAttempts = 0): Promise<EditOutcome> {
   const repo = fs.mkdtempSync(path.join("/tmp", "cpb-"));
+  fs.writeFileSync(path.join(repo, "auth.json"), "{}");
   const home = createIsolatedBrokerHome({ sourceHome: repo });
   fs.mkdirSync(path.join(repo, ".codex-pair", "state"), { recursive: true });
   fs.writeFileSync(path.join(repo, ".codex-pair", "context.md"), "---\ndebounceMs: 0\ntimeoutMs: 750\n---\n# test");
