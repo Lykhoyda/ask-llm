@@ -22,7 +22,7 @@ import { access, readFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { initializeBroker, isBrokerEnabled, readBrokerState, submitReview } from "./lib/broker.mjs";
+import { initializeBroker, isBrokerDescriptorEligible, isBrokerEnabled, readBrokerState, submitReview, } from "./lib/broker.mjs";
 import { bumpEditRecord, DEFAULT_DEBOUNCE_MAX_MS, DEFAULT_DEBOUNCE_MS, drainPending, joinPendingForSurface, markReviewed, sweepStaleDebounce, } from "./lib/debounce-state.mjs";
 import { parseFrontmatter } from "./lib/frontmatter.mjs";
 import { buildVerdictMessage, DEFAULT_SURFACE_THRESHOLD, formatDuration, parseConcerns, parseResetHint, VALID_THRESHOLDS, VERDICT_PREFIXES, } from "./lib/parser.mjs";
@@ -674,8 +674,8 @@ function brokerClientInfo() {
 // Wall-clock budget is the same as spawnCodex's `timeoutMs`.
 async function runWithBroker({ prompt, timeoutMs, model, markerDir, }) {
     const state = readBrokerState(markerDir);
-    if (!state) {
-        const err = new Error("runWithBroker: no broker descriptor");
+    if (!state || !isBrokerDescriptorEligible(state)) {
+        const err = new Error("runWithBroker: broker descriptor unavailable");
         err.brokerFailure = true;
         err.brokerPhase = "connect";
         throw err;

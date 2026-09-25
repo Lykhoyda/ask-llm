@@ -3,7 +3,12 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { isBrokerEnabled, resolveBrokerPreference } from "../../scripts/lib/broker.mts";
+import {
+  isBrokerDescriptorEligible,
+  isBrokerEnabled,
+  readBrokerState,
+  resolveBrokerPreference,
+} from "../../scripts/lib/broker.mts";
 import {
   bootstrapBroker,
   chooseTransport,
@@ -436,7 +441,7 @@ describe("codex-pair session hooks", () => {
     }
   });
 
-  it("rejects per-edit broker use from a different credential home", async () => {
+  it("rejects broker use when dispatch reads another credential home", async () => {
     const priorBrokerPreference = process.env.ASK_CODEX_BROKER;
     const priorCodexHome = process.env.CODEX_HOME;
     const sourceA = path.join(repo, "source-a");
@@ -449,6 +454,7 @@ describe("codex-pair session hooks", () => {
     process.env.ASK_CODEX_BROKER = "1";
     process.env.CODEX_HOME = sourceA;
     const home = createIsolatedBrokerHome({ sourceHome: sourceA });
+    const otherHome = createIsolatedBrokerHome({ sourceHome: sourceB });
     try {
       await writeBrokerDescriptor(repo, {
         pid: process.pid,
@@ -461,12 +467,26 @@ describe("codex-pair session hooks", () => {
       expect(isBrokerEnabled(repo)).toBe(true);
       process.env.CODEX_HOME = sourceB;
       expect(isBrokerEnabled(repo)).toBe(false);
+      process.env.CODEX_HOME = sourceA;
+      expect(isBrokerEnabled(repo)).toBe(true);
+      await writeBrokerDescriptor(repo, {
+        pid: process.pid,
+        transportUrl: chooseTransport(otherHome),
+        sessionId: "second-account",
+        isolatedHome: otherHome,
+        protocolVersion: "v2",
+        startedAt: new Date().toISOString(),
+      });
+      const dispatchState = readBrokerState(repo);
+      if (!dispatchState) throw new Error("missing broker descriptor");
+      expect(isBrokerDescriptorEligible(dispatchState)).toBe(false);
     } finally {
       if (priorBrokerPreference === undefined) delete process.env.ASK_CODEX_BROKER;
       else process.env.ASK_CODEX_BROKER = priorBrokerPreference;
       if (priorCodexHome === undefined) delete process.env.CODEX_HOME;
       else process.env.CODEX_HOME = priorCodexHome;
       removeIsolatedBrokerHome(home);
+      removeIsolatedBrokerHome(otherHome);
     }
   });
 

@@ -159,15 +159,18 @@ export function resolveBrokerPreference(markerDir: string, env: NodeJS.ProcessEn
   }
 }
 
-export function isBrokerEnabled(markerDir: string): boolean {
-  if (!resolveBrokerPreference(markerDir)) return false;
-  const state = lifecycleReadBrokerDescriptor(markerDir);
-  if (!state) return false;
+export function isBrokerDescriptorEligible(state: BrokerDescriptor): boolean {
   if (!isIsolatedBrokerHome(state.isolatedHome)) return false;
   if (!hasCurrentBrokerAuth(state.isolatedHome)) return false;
   if (state.protocolVersion !== BROKER_PROTOCOL_VERSION) return false;
   if (!lifecycleIsPidAlive(state.pid)) return false;
   return true;
+}
+
+export function isBrokerEnabled(markerDir: string): boolean {
+  if (!resolveBrokerPreference(markerDir)) return false;
+  const state = lifecycleReadBrokerDescriptor(markerDir);
+  return state !== null && isBrokerDescriptorEligible(state);
 }
 
 // Path resolver for the per-marker-dir broker state file. Used by the

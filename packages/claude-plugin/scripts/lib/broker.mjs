@@ -102,12 +102,7 @@ export function resolveBrokerPreference(markerDir, env = process.env) {
         return false;
     }
 }
-export function isBrokerEnabled(markerDir) {
-    if (!resolveBrokerPreference(markerDir))
-        return false;
-    const state = lifecycleReadBrokerDescriptor(markerDir);
-    if (!state)
-        return false;
+export function isBrokerDescriptorEligible(state) {
     if (!isIsolatedBrokerHome(state.isolatedHome))
         return false;
     if (!hasCurrentBrokerAuth(state.isolatedHome))
@@ -117,6 +112,12 @@ export function isBrokerEnabled(markerDir) {
     if (!lifecycleIsPidAlive(state.pid))
         return false;
     return true;
+}
+export function isBrokerEnabled(markerDir) {
+    if (!resolveBrokerPreference(markerDir))
+        return false;
+    const state = lifecycleReadBrokerDescriptor(markerDir);
+    return state !== null && isBrokerDescriptorEligible(state);
 }
 // Path resolver for the per-marker-dir broker state file. Used by the
 // SessionStart hook (writer) and the per-edit hook (reader).

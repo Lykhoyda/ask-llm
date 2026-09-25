@@ -24,7 +24,14 @@ import { access, readFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { type BrokerError, initializeBroker, isBrokerEnabled, readBrokerState, submitReview } from "./lib/broker.mts";
+import {
+  type BrokerError,
+  initializeBroker,
+  isBrokerDescriptorEligible,
+  isBrokerEnabled,
+  readBrokerState,
+  submitReview,
+} from "./lib/broker.mts";
 import {
   bumpEditRecord,
   DEFAULT_DEBOUNCE_MAX_MS,
@@ -801,8 +808,8 @@ async function runWithBroker({
   markerDir,
 }: CodexCall & { markerDir: string }): Promise<string> {
   const state = readBrokerState(markerDir);
-  if (!state) {
-    const err: ReviewError = new Error("runWithBroker: no broker descriptor");
+  if (!state || !isBrokerDescriptorEligible(state)) {
+    const err: ReviewError = new Error("runWithBroker: broker descriptor unavailable");
     err.brokerFailure = true;
     err.brokerPhase = "connect";
     throw err;
