@@ -78,7 +78,7 @@ The `/codex-pair` suite is the human-facing dashboard and controls for the hook.
 
 ## The hook pipeline
 
-codex-pair is implemented as five hooks working together, all dependency-free with zero workspace imports so they run from marketplace `git-subdir` installs that don't run `npm install`. Only `codex-pair-watch` shells out to `codex exec --json` to run a review; the others surface persisted verdicts or manage state.
+codex-pair is implemented as five hooks working together, all dependency-free with zero workspace imports so they run from marketplace `git-subdir` installs that don't run `npm install`. The watch hook sends reviews through the broker when available and uses `codex exec --json` for direct reviews; the others surface persisted verdicts or manage state.
 
 | Hook | Trigger | Action |
 |---|---|---|

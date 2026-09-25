@@ -57,7 +57,7 @@
     "prompts/",
     "README.md",
     "scripts/*.mjs",
-    "scripts/lib/",
+    "scripts/lib/*.mjs",
     "skills/"
   ],
   "pi": {

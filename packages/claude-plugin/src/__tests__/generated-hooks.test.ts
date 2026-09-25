@@ -48,3 +48,33 @@ it("commits exactly the JavaScript that tsc generates from the TypeScript hook a
     fs.rmSync(outDir, { recursive: true, force: true });
   }
 });
+
+it("runs the SessionStart hook from the packed npm package", () => {
+  const temp = fs.mkdtempSync(path.join(os.tmpdir(), "cp-packed-"));
+  try {
+    const archive = path.join(temp, "plugin.tgz");
+    const pack = spawnSync("yarn", ["workspace", "@ask-llm/plugin", "pack", "--out", archive], {
+      cwd: REPO_ROOT,
+      encoding: "utf8",
+    });
+    expect(pack.status, pack.stdout + pack.stderr).toBe(0);
+    const installRoot = path.join(temp, "node_modules", "@ask-llm");
+    fs.mkdirSync(installRoot, { recursive: true });
+    const extract = spawnSync("tar", ["-xzf", archive, "-C", installRoot]);
+    expect(extract.status).toBe(0);
+    fs.renameSync(path.join(installRoot, "package"), path.join(installRoot, "plugin"));
+    const plugin = path.join(installRoot, "plugin");
+    const project = path.join(temp, "project");
+    fs.mkdirSync(path.join(project, ".codex-pair"), { recursive: true });
+    fs.writeFileSync(path.join(project, ".codex-pair", "context.md"), "# test\n");
+    const hook = spawnSync(process.execPath, [path.join(plugin, "scripts", "codex-pair-session.mjs")], {
+      cwd: project,
+      env: { ...process.env, ASK_CODEX_BROKER: "0" },
+      input: JSON.stringify({ hook_event_name: "SessionStart", session_id: "packed-test" }),
+      encoding: "utf8",
+    });
+    expect(hook.status, hook.stderr).toBe(0);
+  } finally {
+    fs.rmSync(temp, { recursive: true, force: true });
+  }
+});
