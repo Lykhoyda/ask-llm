@@ -1,5 +1,15 @@
 # Architectural Decisions
 
+## ADR-169: Codex-pair hooks run from TypeScript on Node 24
+
+**Status:** Accepted (2026-09-25). Supersedes ADR-167's `.mjs` entry points and Node 22.18 broker threshold.
+
+**Context:** The captain asked for TypeScript (v7) and for supporting only the latest Node LTS, which is Node 24. Hooks must run as checked in, with no install or build step, from both the marketplace `git-subdir` cache and an npm install. Node strips erasable TypeScript natively except under `node_modules`, where it refuses with `ERR_UNSUPPORTED_NODE_MODULES_TYPE_STRIPPING`.
+
+**Decision:** The five hook entry points (`codex-pair-stop-gate.ts`, `-watch.ts`, `-session.ts`, `-prompt-drain.ts`, `-debounce-worker.ts`), `lib/frontmatter.ts`, and the broker modules are TypeScript typechecked by `tsc -p scripts/tsconfig.json` (TypeScript 7). `hooks/hooks.json` runs `node --disable-warning=ExperimentalWarning --import ${CLAUDE_PLUGIN_ROOT}/scripts/strip-types.mjs <hook>.ts`; `strip-types.mjs` is a small JavaScript loader that registers `module.registerHooks` and strips `.ts` files under `node_modules` with `module.stripTypeScriptTypes`, leaving every other `.ts` to Node's native stripping. Spawned hooks inherit the flags through `process.execArgv`. The plugin requires Node 24 (`engines.node >=24.0.0`). Shared `scripts/lib/*.mjs` helpers, the log CLI, and non-hook scripts stay JavaScript.
+
+**Consequences:** The same hook command works in both install layouts on Node 24 and newer. On older Node the hooks fail at startup instead of degrading. npm installs depend on `stripTypeScriptTypes`, which Node 24 still marks experimental (its warning is suppressed); marketplace installs never call it. The loader itself is JavaScript: the hooks are TypeScript sources, but not a TypeScript-only package.
+
 ## ADR-168: Default-on broker lifecycle and review parity
 
 **Status:** Accepted (2026-09-25)
@@ -12,7 +22,7 @@
 
 ## ADR-167: Codex-pair broker modules are TypeScript run by Node type stripping
 
-**Status:** Accepted (2026-09-25)
+**Status:** Superseded by ADR-169 (2026-09-25)
 
 **Context:** The plugin ships through a `git-subdir` checkout with no install or build step, and `dist/` is not committed, so hook code must run as checked in. Node 22.18+ and 23.6+ execute erasable TypeScript directly with no warning; Node 20 and early 22.x reject `.ts` with a catchable `ERR_UNKNOWN_FILE_EXTENSION`. The plugin still declares Node >=20.
 

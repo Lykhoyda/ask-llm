@@ -142,7 +142,7 @@ async function runBrokerEdit(scenario: Scenario, fakeCodexScenario: string, seed
       ASK_CODEX_DEBOUNCE_MS: "0",
     };
     delete env.ASK_CODEX_BROKER;
-    const child = spawn(process.execPath, [path.join(PLUGIN_ROOT, "scripts", "codex-pair-watch.mjs")], {
+    const child = spawn(process.execPath, [path.join(PLUGIN_ROOT, "scripts", "codex-pair-watch.ts")], {
       cwd: repo,
       env,
       stdio: ["pipe", "pipe", "pipe"],

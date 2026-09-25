@@ -1,10 +1,14 @@
 #!/usr/bin/env node
+
 // Session lifecycle hook. Broker failures must not break per-edit reviews.
 
 import { access } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
+import { resolveBrokerPreference } from "./lib/broker.ts";
+import { bootstrapBroker, teardownBroker } from "./lib/broker-lifecycle.ts";
 import { clearAllDebounceState } from "./lib/debounce-state.mjs";
+import type { HookInput } from "./lib/hook-input.ts";
 import { clearSession } from "./lib/session-registry.mjs";
 import {
   appendLog,
@@ -23,7 +27,7 @@ const MARKER_FILE = join(PAIR_ROOT_DIR, CONTEXT_FILENAME);
 // null. Mirrors codex-pair-watch.mjs and codex-pair-log.mjs — duplicated
 // because zero-workspace-imports + the helper is too small to extract
 // (15 LOC × 3 callers).
-async function findMarkerUp(startDir) {
+async function findMarkerUp(startDir: string): Promise<string | null> {
   const home = homedir();
   let current = resolve(startDir);
   for (let depth = 0; depth < 20; depth++) {
@@ -42,7 +46,7 @@ async function findMarkerUp(startDir) {
   return null;
 }
 
-async function readStdin() {
+async function readStdin(): Promise<string> {
   return new Promise((resolve) => {
     let data = "";
     process.stdin.on("data", (c) => {
@@ -53,25 +57,15 @@ async function readStdin() {
   });
 }
 
-// Broker modules are TypeScript run by Node type stripping; without it the broker is unavailable.
-async function loadBroker() {
-  try {
-    const [broker, lifecycle] = await Promise.all([import("./lib/broker.ts"), import("./lib/broker-lifecycle.ts")]);
-    return { ...broker, ...lifecycle };
-  } catch {
-    return null;
-  }
-}
-
-async function handleSessionStart(broker, sessionId) {
+async function handleSessionStart(sessionId: unknown) {
   const cwd = process.cwd();
   const markerDir = await findMarkerUp(cwd);
   if (!markerDir) return; // no opt-in marker, nothing to do
-  if (!sessionId) return;
-  await broker.bootstrapBroker(markerDir, { sessionId });
+  if (typeof sessionId !== "string" || !sessionId) return;
+  await bootstrapBroker(markerDir, { sessionId });
 }
 
-async function handleSessionEnd(broker, sessionId) {
+async function handleSessionEnd(sessionId: unknown) {
   const cwd = process.cwd();
   const markerDir = await findMarkerUp(cwd);
   if (!markerDir) return;
@@ -80,12 +74,12 @@ async function handleSessionEnd(broker, sessionId) {
   // unlinks the descriptor + socket + lock. Returns the descriptor
   // that was torn down (or null if none existed) — we ignore it; the
   // hook just needs to exit 0 either way per ADR-077.
-  await broker.teardownBroker(markerDir, { sessionId });
+  await teardownBroker(markerDir, { sessionId: typeof sessionId === "string" ? sessionId : undefined });
 }
 
 async function main() {
   const raw = await readStdin();
-  let payload;
+  let payload: HookInput | undefined;
   try {
     payload = JSON.parse(raw);
   } catch {
@@ -107,7 +101,7 @@ async function main() {
     try {
       const markerDir = await findMarkerUp(process.cwd());
       const pauseInfo = markerDir ? readPauseInfo(markerDir) : null;
-      if (pauseInfo) {
+      if (markerDir && pauseInfo) {
         const decision = resolveAutoResume(pauseInfo, {
           now: Date.now(),
           currentVersion: readPluginVersion(),
@@ -134,7 +128,7 @@ async function main() {
           }
         }
         if (context) {
-          await new Promise((resolveWrite) => {
+          await new Promise<void>((resolveWrite) => {
             const out = JSON.stringify({
               hookSpecificOutput: { hookEventName: "SessionStart", additionalContext: context },
             });
@@ -171,13 +165,11 @@ async function main() {
   }
 
   const brokerMarkerDir = await findMarkerUp(process.cwd());
-  if (!brokerMarkerDir) process.exit(0);
-  const broker = await loadBroker();
-  if (!broker || (event === "SessionStart" && !broker.resolveBrokerPreference(brokerMarkerDir))) process.exit(0);
+  if (!brokerMarkerDir || (event === "SessionStart" && !resolveBrokerPreference(brokerMarkerDir))) process.exit(0);
 
   try {
-    if (event === "SessionStart") await handleSessionStart(broker, payload.session_id);
-    else if (event === "SessionEnd") await handleSessionEnd(broker, payload.session_id);
+    if (event === "SessionStart") await handleSessionStart(payload?.session_id);
+    else if (event === "SessionEnd") await handleSessionEnd(payload?.session_id);
   } catch {
     // ADR-077 silent-on-error: a failed bootstrap MUST NOT break the
     // session. bootstrapBroker already catches internally, but defense

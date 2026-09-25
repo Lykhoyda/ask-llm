@@ -56,6 +56,7 @@
     "prompts/",
     "README.md",
     "scripts/*.mjs",
+    "scripts/*.ts",
     "scripts/lib/",
     "skills/"
   ],
@@ -96,7 +97,7 @@
     "typebox": "*"
   },
   "engines": {
-    "node": ">=20.0.0"
+    "node": ">=24.0.0"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.10",

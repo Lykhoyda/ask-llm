@@ -1,4 +1,6 @@
-export function parseFrontmatter(content) {
+export type Frontmatter = Record<string, string | number | boolean>;
+
+export function parseFrontmatter(content: unknown): { frontmatter: Frontmatter; body: string; malformed: boolean } {
   if (typeof content !== "string" || content.length === 0) {
     return { frontmatter: {}, body: "", malformed: false };
   }
@@ -18,7 +20,7 @@ export function parseFrontmatter(content) {
   if (body.startsWith("\r")) body = body.slice(1);
   if (body.startsWith("\n")) body = body.slice(1);
 
-  const frontmatter = {};
+  const frontmatter: Frontmatter = {};
   for (const rawLine of fmText.split("\n")) {
     const line = rawLine.replace(/\r$/, "");
     const trimmed = line.trim();

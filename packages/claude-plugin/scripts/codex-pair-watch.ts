@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+
 // codex-pair-watch — production version of the POC hook.
 //
 // PostToolUse hook on Edit|Write|MultiEdit. The hook is always loaded but
@@ -22,6 +23,7 @@ import { access, readFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { type BrokerError, initializeBroker, isBrokerEnabled, readBrokerState, submitReview } from "./lib/broker.ts";
 import {
   bumpEditRecord,
   DEFAULT_DEBOUNCE_MAX_MS,
@@ -31,7 +33,8 @@ import {
   markReviewed,
   sweepStaleDebounce,
 } from "./lib/debounce-state.mjs";
-import { parseFrontmatter } from "./lib/frontmatter.mjs";
+import { type Frontmatter, parseFrontmatter } from "./lib/frontmatter.ts";
+import type { HookInput } from "./lib/hook-input.ts";
 import {
   buildVerdictMessage,
   DEFAULT_SURFACE_THRESHOLD,
@@ -95,9 +98,10 @@ const DEFAULT_MODEL = process.env.ASK_CODEX_MODEL ?? CODEX_PAIR_DEFAULTS.model;
 const FALLBACK_MODEL = process.env.ASK_CODEX_FALLBACK_MODEL ?? CODEX_PAIR_DEFAULTS.fallbackModel;
 const CODEX_REASONING_EFFORTS = new Set(["low", "medium", "high", "xhigh", "max", "ultra"]);
 const configuredReasoningEffort = process.env.ASK_CODEX_REASONING_EFFORT;
-const DEFAULT_REASONING_EFFORT = CODEX_REASONING_EFFORTS.has(configuredReasoningEffort)
-  ? configuredReasoningEffort
-  : "medium";
+const DEFAULT_REASONING_EFFORT =
+  configuredReasoningEffort && CODEX_REASONING_EFFORTS.has(configuredReasoningEffort)
+    ? configuredReasoningEffort
+    : "medium";
 const DEFAULT_TIMEOUT_MS = Number(process.env.ASK_CODEX_TIMEOUT_MS ?? 800_000);
 const MAX_FILE_BYTES = Number(process.env.CODEX_PAIR_MAX_FILE_BYTES ?? 20_000);
 const DEBOUNCE_MS = Number(process.env.ASK_CODEX_DEBOUNCE_MS ?? DEFAULT_DEBOUNCE_MS);
@@ -150,7 +154,15 @@ const TRANSIENT_SIGNALS = [
 // before payload parsing, this stays null and the catch falls back to cwd.
 // See multi-review feedback on PR #76 — both Gemini and Codex flagged the
 // previous cwd-only catch path as a residual cross-repo gap.
-let markerAnchor = null;
+let markerAnchor: string | null = null;
+
+type ReviewError = BrokerError & { quotaExhausted?: boolean };
+
+interface GlobRule {
+  negate: boolean;
+  pattern: string;
+  raw: string;
+}
 
 // Closed verdict set + presentation prefixes live in ./lib/parser.mjs
 // (VERDICT_PREFIXES). The hook imports them at the top.
@@ -196,7 +208,7 @@ const SKIP_PATTERNS = [
   ".lock",
 ];
 
-async function readStdin() {
+async function readStdin(): Promise<string> {
   return new Promise((resolveRead) => {
     let data = "";
     process.stdin.on("data", (chunk) => {
@@ -211,7 +223,7 @@ async function readStdin() {
 // ONE JSON object on stdout (two objects make the whole output unparseable to
 // Claude Code), so the mid-session auto-resume notice rides on whichever
 // single emission the run produces instead of being its own line.
-let noticePrefix = null;
+let noticePrefix: string | null = null;
 
 // Surface a one-line (or multi-line) notice on BOTH hook channels by emitting
 // hook JSON to stdout. `systemMessage` renders in the user's transcript only —
@@ -221,13 +233,13 @@ let noticePrefix = null;
 // verdict was invisible to the pairing partner (the whole point of the hook).
 // We await the write-callback so the bytes are flushed to the parent before
 // process.exit terminates us.
-function emitSystemMessage(text) {
+function emitSystemMessage(text: string): Promise<void> {
   let full = text;
   if (noticePrefix) {
     full = text ? `${noticePrefix}\n\n${text}` : noticePrefix;
     noticePrefix = null;
   }
-  return new Promise((resolveWrite) => {
+  return new Promise<void>((resolveWrite) => {
     const payload = JSON.stringify({
       continue: true,
       systemMessage: full,
@@ -251,7 +263,17 @@ function flushNoticeOnly() {
 // diff output as a string, or null on any failure (not a repo, untracked file,
 // git binary missing, timeout, non-zero exit). Never throws. Process-tree
 // termination is provided by ./lib/process.mjs (ADR-084 / ADR-088).
-function runGitDiff({ filePath, contextLines, cwd, timeoutMs }) {
+function runGitDiff({
+  filePath,
+  contextLines,
+  cwd,
+  timeoutMs,
+}: {
+  filePath: string;
+  contextLines: number;
+  cwd: string;
+  timeoutMs: number;
+}): Promise<string | null> {
   return new Promise((resolveDiff) => {
     let stdout = "";
     let settled = false;
@@ -301,7 +323,17 @@ function runGitDiff({ filePath, contextLines, cwd, timeoutMs }) {
 //   - "truncated": file has few lines but is still over the byte cap (e.g.,
 //     one massive minified line). Sends a hard-truncated slice.
 // Caller is responsible for the `partialView: true` flag on `buildPrompt`.
-async function buildAdaptiveContext({ filePath, fileContent, markerDir, maxFileBytes }) {
+async function buildAdaptiveContext({
+  filePath,
+  fileContent,
+  markerDir,
+  maxFileBytes,
+}: {
+  filePath: string;
+  fileContent: string;
+  markerDir: string;
+  maxFileBytes: number;
+}) {
   const diff = await runGitDiff({
     filePath,
     contextLines: 20,
@@ -343,8 +375,8 @@ async function buildAdaptiveContext({ filePath, fileContent, markerDir, maxFileB
 // nested ignore-file traversal in subdirs (the marker is the project anchor).
 // Generic gitignore-style rule parser used for BOTH .codex-pair/ignore
 // (ADR-081 exclusion-list) AND .codex-pair/include (ADR-096 inclusion-list).
-function readGlobRulesFile(absolutePath) {
-  let content;
+function readGlobRulesFile(absolutePath: string): GlobRule[] {
+  let content: string;
   try {
     content = readFileSync(absolutePath, "utf8");
   } catch {
@@ -362,14 +394,14 @@ function readGlobRulesFile(absolutePath) {
   return rules;
 }
 
-function readIgnoreFile(markerDir) {
+function readIgnoreFile(markerDir: string): GlobRule[] {
   return readGlobRulesFile(ignorePath(markerDir));
 }
 
 // ADR-096: inclusion-list mirror of ignore-list. When `.codex-pair/include`
 // exists AND has at least one non-comment rule, ONLY files matching at
 // least one rule are reviewed. Empty/missing = no scoping (review everything).
-function readIncludeFile(markerDir) {
+function readIncludeFile(markerDir: string): GlobRule[] {
   return readGlobRulesFile(includePath(markerDir));
 }
 
@@ -378,7 +410,7 @@ function readIncludeFile(markerDir) {
 // `[abc]` character class, leading `/` anchors to marker dir, trailing `/`
 // matches directory contents. Does NOT support the full gitignore spec —
 // the common cases work; weird precedence edge cases are out of scope.
-function globToRegex(pattern) {
+function globToRegex(pattern: string): RegExp {
   const anchored = pattern.startsWith("/");
   const trailingSlash = pattern.endsWith("/");
   let p = anchored ? pattern.slice(1) : pattern;
@@ -419,14 +451,14 @@ function globToRegex(pattern) {
 // matching rule is a negation (!pattern), the file is NOT ignored. Returns
 // the matching rule object or null if no rule matches (or final match is a
 // negation). `filePath` is normalized to a marker-relative path.
-function matchesIgnoreRule(filePath, markerDir, rules) {
+function matchesIgnoreRule(filePath: string, markerDir: string, rules: GlobRule[]): GlobRule | null {
   if (rules.length === 0) return null;
   let rel = filePath;
   const prefix = `${markerDir}/`;
   if (filePath.startsWith(prefix)) {
     rel = filePath.slice(prefix.length);
   }
-  let lastMatch = null;
+  let lastMatch: GlobRule | null = null;
   for (const rule of rules) {
     if (globToRegex(rule.pattern).test(rel)) {
       lastMatch = rule;
@@ -438,7 +470,7 @@ function matchesIgnoreRule(filePath, markerDir, rules) {
 
 // Resolve runtime config per-marker. Precedence: frontmatter > env > default.
 // Invalid types in frontmatter are silently ignored (fall through to env/default).
-function resolveConfig(frontmatter) {
+function resolveConfig(frontmatter: Frontmatter | null | undefined) {
   const fm = frontmatter ?? {};
   const surfaceCandidate = typeof fm.surfaceThreshold === "string" ? fm.surfaceThreshold : null;
   return {
@@ -457,7 +489,7 @@ function resolveConfig(frontmatter) {
 // Walks up from `startDir` looking for `<dir>/.codex-pair/context.md`.
 // Returns the PROJECT ROOT (the directory that holds `.codex-pair/`) or
 // null when nothing is found within 20 levels or once we hit $HOME.
-async function findMarkerUp(startDir) {
+async function findMarkerUp(startDir: string): Promise<string | null> {
   const home = homedir();
   let current = resolve(startDir);
   for (let depth = 0; depth < 20; depth++) {
@@ -480,7 +512,7 @@ async function findMarkerUp(startDir) {
 // rendered by ./lib/prompt.mjs. The hook keeps `buildPrompt` as a thin
 // pass-through so callers don't change — and so structural tests that pin
 // the call site stay readable.
-function buildPrompt(args) {
+function buildPrompt(args: Parameters<typeof buildReviewPrompt>[0]): string {
   return buildReviewPrompt(args);
 }
 
@@ -495,7 +527,7 @@ function buildPrompt(args) {
 // Build codex CLI args. Mirrors packages/codex-mcp/src/utils/codexExecutor.ts
 // `buildArgs` for the no-session, stdin-prompt case (hook always passes prompt
 // via stdin to avoid ARG_MAX limits on file-content-heavy prompts).
-function buildCodexArgs(model) {
+function buildCodexArgs(model: string): string[] {
   const args = ["exec", "--skip-git-repo-check", "--ephemeral"];
   if (process.env.ASK_CODEX_LOAD_USER_CONFIG !== "1") {
     args.push("--ignore-user-config", "--ignore-rules");
@@ -517,12 +549,18 @@ function buildCodexArgs(model) {
 // Parse codex `--json` JSONL stdout. Pulled from `codexExecutor.ts`
 // `parseCodexJsonlOutput`: the agent's final answer is the last
 // `item.completed` event whose `item.type === "agent_message"`.
-function parseCodexJsonl(stdout) {
+interface CodexJsonlEvent {
+  type?: string;
+  item?: { type?: string; text?: unknown };
+  message?: unknown;
+}
+
+function parseCodexJsonl(stdout: string): string {
   const lines = stdout.split("\n").filter((l) => l.trim().length > 0);
-  let lastAgentMessage;
-  let lastError;
+  let lastAgentMessage: string | undefined;
+  let lastError: string | undefined;
   for (const line of lines) {
-    let parsed;
+    let parsed: CodexJsonlEvent;
     try {
       parsed = JSON.parse(line);
     } catch {
@@ -544,12 +582,12 @@ function parseCodexJsonl(stdout) {
   return lastAgentMessage ?? stdout;
 }
 
-function isQuotaError(err) {
+function isQuotaError(err: unknown): boolean {
   const msg = (err instanceof Error ? err.message : String(err)).toLowerCase();
   return QUOTA_SIGNALS.some((sig) => msg.includes(sig));
 }
 
-function isModelUnavailableError(err) {
+function isModelUnavailableError(err: unknown): boolean {
   const msg = (err instanceof Error ? err.message : String(err)).toLowerCase();
   return MODEL_UNAVAILABLE_SIGNALS.some((sig) => msg.includes(sig));
 }
@@ -557,8 +595,8 @@ function isModelUnavailableError(err) {
 // Transient = retryable. Excludes hook-side timeout and parse_failed by
 // verdict tag (those are deterministic and retry can't help). Quota errors
 // take the model-fallback path instead — they're not transient either.
-function isTransientError(err) {
-  if (err && typeof err === "object") {
+function isTransientError(err: unknown): boolean {
+  if (err && typeof err === "object" && "verdict" in err) {
     if (err.verdict === "timeout" || err.verdict === "parse_failed") return false;
   }
   if (isQuotaError(err)) return false;
@@ -566,7 +604,7 @@ function isTransientError(err) {
   return TRANSIENT_SIGNALS.some((sig) => sig.test(msg));
 }
 
-function sleepMs(ms) {
+function sleepMs(ms: number): Promise<void> {
   return new Promise((r) => {
     setTimeout(r, ms);
   });
@@ -574,14 +612,20 @@ function sleepMs(ms) {
 
 // Attach a verdict tag to an Error so the main() catch can classify the
 // failure into the closed VERDICT_PREFIXES set without re-parsing the message.
-function taggedError(message, verdict) {
-  const err = new Error(message);
+function taggedError(message: string, verdict: string): ReviewError {
+  const err: ReviewError = new Error(message);
   err.verdict = verdict;
   return err;
 }
 
-function verdictFromError(err) {
-  if (err && typeof err === "object" && typeof err.verdict === "string" && err.verdict in VERDICT_PREFIXES) {
+function verdictFromError(err: unknown): string {
+  if (
+    err &&
+    typeof err === "object" &&
+    "verdict" in err &&
+    typeof err.verdict === "string" &&
+    err.verdict in VERDICT_PREFIXES
+  ) {
     return err.verdict;
   }
   return "error";
@@ -590,11 +634,11 @@ function verdictFromError(err) {
 // Pull `{"type":"error"}` event messages out of codex --json stdout. On a
 // non-zero exit the real failure reason is usually HERE, while stderr holds
 // only the "Reading prompt from stdin..." banner (#176).
-function extractJsonlErrorEvents(stdout) {
-  const messages = [];
+function extractJsonlErrorEvents(stdout: string): string[] {
+  const messages: string[] = [];
   for (const line of stdout.split("\n")) {
     if (line.trim().length === 0) continue;
-    let parsed;
+    let parsed: CodexJsonlEvent;
     try {
       parsed = JSON.parse(line);
     } catch {
@@ -610,7 +654,7 @@ function extractJsonlErrorEvents(stdout) {
 // Last non-empty stderr lines (≤3), capped at 500 chars. The informative
 // part of codex stderr is the TAIL. Capped at 500 chars here; clampReason
 // applies the UTF-8 byte clamp downstream before the reason is logged.
-function stderrTail(stderr) {
+function stderrTail(stderr: string): string {
   const lines = stderr
     .split("\n")
     .map((l) => l.trim())
@@ -626,7 +670,13 @@ function stderrTail(stderr) {
 // (not "ignore") and must be ended explicitly, otherwise codex hangs on its
 // stdin probe (issue #19 / first-hand observation: stdout stalls at
 // "Reading additional input from stdin..." indefinitely).
-function spawnCodex({ prompt, model, timeoutMs }) {
+interface CodexCall {
+  prompt: string;
+  model: string;
+  timeoutMs: number;
+}
+
+function spawnCodex({ prompt, model, timeoutMs }: CodexCall): Promise<string> {
   return new Promise((resolveCall, rejectCall) => {
     const args = buildCodexArgs(model);
     const child = spawn("codex", args, {
@@ -696,7 +746,12 @@ function spawnCodex({ prompt, model, timeoutMs }) {
 // multiple concurrent hook invocations. Quota errors fall through unretried
 // (handled by the outer fallback layer); hook-side timeouts and parse_failed
 // errors are explicitly excluded by verdictFromError tag.
-async function spawnCodexWithRetry({ prompt, model, timeoutMs, markerDir }) {
+async function spawnCodexWithRetry({
+  prompt,
+  model,
+  timeoutMs,
+  markerDir,
+}: CodexCall & { markerDir: string }): Promise<string> {
   try {
     return await spawnCodex({ prompt, model, timeoutMs });
   } catch (err) {
@@ -718,8 +773,8 @@ async function spawnCodexWithRetry({ prompt, model, timeoutMs, markerDir }) {
 // M4: cached plugin clientInfo for broker handshake. Built once per
 // process (per ADR-095, plugin version detection used to silently always
 // return "unknown" before the ESM fix).
-let _cachedBrokerClientInfo = null;
-function brokerClientInfo() {
+let _cachedBrokerClientInfo: { name: string; title: string; version: string } | null = null;
+function brokerClientInfo(): { name: string; title: string; version: string } {
   if (_cachedBrokerClientInfo) return _cachedBrokerClientInfo;
   let v = "unknown";
   try {
@@ -733,45 +788,38 @@ function brokerClientInfo() {
   return _cachedBrokerClientInfo;
 }
 
-// Broker modules are TypeScript run by Node type stripping; without it the broker is unavailable.
-let brokerModule;
-async function loadBroker() {
-  if (brokerModule === undefined) {
-    try {
-      brokerModule = await import("./lib/broker.ts");
-    } catch {
-      brokerModule = null;
-    }
-  }
-  return brokerModule;
-}
-
 // M4: broker-path wrapper. Opens an RPC connection to the running
 // `codex app-server`, calls submitReview, closes the connection.
 // Connect/initialize failures get tagged with `err.brokerFailure = true`
 // so runCodexWithFallback falls back to spawnCodex silently (ADR-077).
 // Wall-clock budget is the same as spawnCodex's `timeoutMs`.
-async function runWithBroker({ broker, prompt, timeoutMs, model, markerDir }) {
-  const state = broker.readBrokerState(markerDir);
+async function runWithBroker({
+  prompt,
+  timeoutMs,
+  model,
+  markerDir,
+}: CodexCall & { markerDir: string }): Promise<string> {
+  const state = readBrokerState(markerDir);
   if (!state) {
-    const err = new Error("runWithBroker: no broker descriptor");
+    const err: ReviewError = new Error("runWithBroker: no broker descriptor");
     err.brokerFailure = true;
     err.brokerPhase = "connect";
     throw err;
   }
-  let connection = null;
-  let rpc = null;
+  let connection: Awaited<ReturnType<typeof initializeBroker>>["connection"] | null = null;
+  let rpc: Awaited<ReturnType<typeof initializeBroker>>["rpc"];
   try {
     // Tight handshake budget — broker should be already running; if it
     // takes more than 2s to handshake, treat as broken and fall back
     // rather than blocking the hook (M4 brainstorm Risk #3).
-    const init = await broker.initializeBroker(state.transportUrl, brokerClientInfo(), {
+    const init = await initializeBroker(state.transportUrl, brokerClientInfo(), {
       handshakeTimeoutMs: 2000,
       initializeTimeoutMs: 2000,
     });
     connection = init.connection;
     rpc = init.rpc;
-  } catch (err) {
+  } catch (caught) {
+    const err = caught as ReviewError;
     if (err && typeof err === "object") {
       err.brokerFailure = true;
       err.brokerPhase = err.brokerPhase || "connect";
@@ -779,7 +827,7 @@ async function runWithBroker({ broker, prompt, timeoutMs, model, markerDir }) {
     throw err;
   }
   try {
-    return await broker.submitReview({
+    return await submitReview({
       connection,
       rpc,
       cwd: markerDir,
@@ -802,20 +850,31 @@ async function runWithBroker({ broker, prompt, timeoutMs, model, markerDir }) {
   }
 }
 
-async function runCodexWithFallback({ prompt, timeoutMs, model, fallbackModel, markerDir }) {
+interface ReviewCall extends CodexCall {
+  fallbackModel: string;
+  markerDir: string;
+}
+
+async function runCodexWithFallback({
+  prompt,
+  timeoutMs,
+  model,
+  fallbackModel,
+  markerDir,
+}: ReviewCall): Promise<{ response: string; fellBack: boolean; viaBroker?: boolean }> {
   // A broker attempt counts like a direct one: broker failures continue on the direct path, a quota
   // error goes straight to the fallback-model ladder, a transient error uses up the single retry,
   // and any other model error propagates as-is.
   let retryPrimary = true;
-  const broker = await loadBroker();
-  if (broker?.isBrokerEnabled(markerDir)) {
+  if (isBrokerEnabled(markerDir)) {
     try {
       return {
-        response: await runWithBroker({ broker, prompt, model, timeoutMs, markerDir }),
+        response: await runWithBroker({ prompt, model, timeoutMs, markerDir }),
         fellBack: false,
         viaBroker: true,
       };
-    } catch (err) {
+    } catch (caught) {
+      const err = caught as ReviewError;
       const quota = isQuotaError(err);
       if (!quota && !err?.brokerFailure && !isTransientError(err)) throw err;
       try {
@@ -839,11 +898,14 @@ async function runCodexWithFallback({ prompt, timeoutMs, model, fallbackModel, m
     };
   } catch (err) {
     if (!isQuotaError(err)) throw err;
-    return runFallbackModel(err, { prompt, timeoutMs, model, fallbackModel, markerDir });
+    return runFallbackModel(err as ReviewError, { prompt, timeoutMs, model, fallbackModel, markerDir });
   }
 }
 
-async function runFallbackModel(err, { prompt, timeoutMs, model, fallbackModel, markerDir }) {
+async function runFallbackModel(
+  err: ReviewError,
+  { prompt, timeoutMs, model, fallbackModel, markerDir }: ReviewCall,
+): Promise<{ response: string; fellBack: boolean }> {
   if (model !== fallbackModel) {
     try {
       const response = await spawnCodexWithRetry({
@@ -853,7 +915,8 @@ async function runFallbackModel(err, { prompt, timeoutMs, model, fallbackModel, 
         markerDir,
       });
       return { response, fellBack: true };
-    } catch (fallbackErr) {
+    } catch (caught) {
+      const fallbackErr = caught as ReviewError;
       // BOTH models are now unusable, which is exhaustion either way:
       //  (a) the fallback also hit quota → provider exhausted, or
       //  (b) the fallback is structurally unavailable on this account
@@ -885,9 +948,26 @@ async function runFallbackModel(err, { prompt, timeoutMs, model, fallbackModel, 
 // Spawn the detached edit-debounce worker (design 2026-06-03). Mirrors the
 // detached+unref pattern from spawnBroker. Returns true on success; the caller
 // falls back to a synchronous review when this returns false.
-function spawnDebounceWorker({ markerDir, filePath, toolName, generation, settleMs, maxMs, sessionId }) {
+function spawnDebounceWorker({
+  markerDir,
+  filePath,
+  toolName,
+  generation,
+  settleMs,
+  maxMs,
+  sessionId,
+}: {
+  markerDir: string;
+  filePath: string;
+  toolName: string;
+  generation: number;
+  settleMs: number;
+  maxMs: number;
+  sessionId: string | undefined;
+}): boolean {
   try {
-    const worker = spawn(process.execPath, [join(SCRIPT_DIR, "codex-pair-debounce-worker.mjs")], {
+    // execArgv carries the hook command's Node flags, including the type-stripping loader.
+    const worker = spawn(process.execPath, [...process.execArgv, join(SCRIPT_DIR, "codex-pair-debounce-worker.ts")], {
       detached: true,
       stdio: "ignore",
       env: {
@@ -913,7 +993,7 @@ async function main() {
   if (process.env.CODEX_PAIR_DISABLED === "1") process.exit(0);
 
   const raw = await readStdin();
-  let payload;
+  let payload: HookInput | undefined;
   try {
     payload = JSON.parse(raw);
   } catch {
@@ -921,7 +1001,7 @@ async function main() {
   }
 
   const toolName = payload?.tool_name;
-  if (!WATCHED_TOOLS.has(toolName)) process.exit(0);
+  if (!toolName || !WATCHED_TOOLS.has(toolName)) process.exit(0);
 
   const filePath = payload?.tool_input?.file_path;
   if (!filePath || typeof filePath !== "string") process.exit(0);
@@ -1131,10 +1211,11 @@ async function main() {
     markReviewed(markerDir, filePath, record.generation);
   }
 
-  let fileContent;
+  let fileContent: string;
   try {
     fileContent = await readFile(filePath, "utf8");
-  } catch (err) {
+  } catch (caught) {
+    const err = caught as Error;
     await appendLog(markerDir, {
       timestamp: new Date().toISOString(),
       tool: toolName,
@@ -1267,7 +1348,7 @@ async function main() {
   const acquiredLockPath = lockResult.lockPath;
   process.on("exit", () => releaseInflightLock(acquiredLockPath));
 
-  let response;
+  let response: string;
   let fellBack = false;
   try {
     // M4 multi-review hotfix: dispatch unified through runCodexWithFallback
@@ -1295,7 +1376,7 @@ async function main() {
     // ourselves ONCE instead of erroring on every subsequent edit. The
     // sentinel write is wx-exclusive; false means another hook (or the
     // user) already paused — log, but stay silent.
-    if (err && typeof err === "object" && err.quotaExhausted) {
+    if (err && typeof err === "object" && "quotaExhausted" in err && err.quotaExhausted) {
       const resetHint = parseResetHint(reason);
       const paused = writeAutoPause(markerDir, { kind: "quota", reason, resetHint });
       await appendLog(markerDir, {

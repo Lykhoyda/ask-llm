@@ -18,7 +18,7 @@ import { bumpEditRecord, readEditRecord } from "../../scripts/lib/debounce-state
 import { clearSession, readRegisteredMarkers, registerMarker } from "../../scripts/lib/session-registry.mjs";
 import { PLUGIN_ROOT } from "./_helpers.js";
 
-const SESSION_PATH = path.join(PLUGIN_ROOT, "scripts", "codex-pair-session.mjs");
+const SESSION_PATH = path.join(PLUGIN_ROOT, "scripts", "codex-pair-session.ts");
 
 async function until(check: () => boolean, timeoutMs = 5000): Promise<boolean> {
   const deadline = Date.now() + timeoutMs;
@@ -428,7 +428,7 @@ describe("codex-pair session hooks", () => {
         ASK_CODEX_DEBOUNCE_MS: "0",
       };
       delete env.ASK_CODEX_BROKER;
-      const res = spawnSync("node", [path.join(PLUGIN_ROOT, "scripts", "codex-pair-watch.mjs")], {
+      const res = spawnSync("node", [path.join(PLUGIN_ROOT, "scripts", "codex-pair-watch.ts")], {
         input: JSON.stringify({ tool_name: "Edit", tool_input: { file_path: file }, session_id: session }),
         cwd: repo,
         env,
@@ -443,55 +443,45 @@ describe("codex-pair session hooks", () => {
     }
   });
 
-  it("skips the broker and keeps direct reviews when Node cannot run TypeScript", async () => {
+  it("runs the registered hook commands from TypeScript when installed under node_modules", () => {
+    const root = path.join(repo, "node_modules", "@ask-llm", "plugin");
+    fs.mkdirSync(root, { recursive: true });
+    for (const entry of ["hooks", "scripts", "prompts", "package.json", "codex-pair-defaults.json"]) {
+      fs.cpSync(path.join(PLUGIN_ROOT, entry), path.join(root, entry), { recursive: true });
+    }
     fs.writeFileSync(path.join(repo, ".codex-pair", "context.md"), "---\ndebounceMs: 0\n---\n# ctx");
     const file = path.join(repo, "edited.ts");
     fs.writeFileSync(file, "export const ready = true;\n");
+    const hooks = JSON.parse(fs.readFileSync(path.join(root, "hooks", "hooks.json"), "utf8")).hooks;
+    const command = (event: string) =>
+      (hooks[event][0].hooks[0].command as string).replaceAll("${CLAUDE_PLUGIN_ROOT}", root).split(" ");
     const env = {
       ...process.env,
       PATH: `${path.join(PLUGIN_ROOT, "src", "__tests__", "_fixtures")}:${process.env.PATH}`,
       FAKE_CODEX_SCENARIO: "none",
-      ASK_CODEX_DEBOUNCE_MS: "0",
+      ASK_CODEX_BROKER: "0",
     };
-    delete env.ASK_CODEX_BROKER;
-    const start = spawnSync("node", ["--no-experimental-strip-types", SESSION_PATH], {
-      input: JSON.stringify({ hook_event_name: "SessionStart", session_id: session }),
-      cwd: repo,
-      env,
-      encoding: "utf-8",
-      timeout: 10_000,
-    });
-    expect(start.status).toBe(0);
-    expect(fs.existsSync(path.join(repo, ".codex-pair", "state", "broker.json"))).toBe(false);
-
-    fs.mkdirSync(path.join(repo, ".codex-pair", "state"), { recursive: true });
-    const home = createIsolatedBrokerHome({ sourceHome: repo });
-    try {
-      await writeBrokerDescriptor(repo, {
-        pid: process.pid,
-        transportUrl: chooseTransport(repo),
-        protocolVersion: "v2",
-        isolatedHome: home,
-        sessionId: session,
-        startedAt: new Date().toISOString(),
+    const run = (event: string, payload: object) => {
+      const [bin, ...args] = command(event);
+      return spawnSync(bin, args, {
+        input: JSON.stringify(payload),
+        cwd: repo,
+        env,
+        encoding: "utf8",
+        timeout: 20_000,
       });
-      const edit = spawnSync(
-        "node",
-        ["--no-experimental-strip-types", path.join(PLUGIN_ROOT, "scripts", "codex-pair-watch.mjs")],
-        {
-          input: JSON.stringify({ tool_name: "Edit", tool_input: { file_path: file }, session_id: session }),
-          cwd: repo,
-          env,
-          encoding: "utf8",
-          timeout: 10_000,
-        },
-      );
-      expect(edit.status).toBe(0);
-      const log = fs.readFileSync(path.join(repo, ".codex-pair", "log.jsonl"), "utf8");
-      expect(log).toContain('"verdict":"none"');
-      expect(log).not.toContain("broker_fallback");
-    } finally {
-      removeIsolatedBrokerHome(home);
+    };
+    for (const [event, payload] of [
+      ["SessionStart", { hook_event_name: "SessionStart", session_id: session }],
+      ["PostToolUse", { tool_name: "Edit", tool_input: { file_path: file }, session_id: session }],
+      ["UserPromptSubmit", { hook_event_name: "UserPromptSubmit", session_id: session }],
+      ["Stop", { hook_event_name: "Stop", session_id: session }],
+      ["SessionEnd", { hook_event_name: "SessionEnd", session_id: session }],
+    ] as const) {
+      const res = run(event, payload);
+      expect(res.status, `${event}: ${res.stderr}`).toBe(0);
+      expect(res.stderr).toBe("");
     }
+    expect(fs.readFileSync(path.join(repo, ".codex-pair", "log.jsonl"), "utf8")).toContain('"verdict":"none"');
   });
 });

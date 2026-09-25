@@ -6,10 +6,10 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { clearSession, registerMarker } from "../../scripts/lib/session-registry.mjs";
 import { PLUGIN_ROOT, readFile } from "./_helpers.js";
 
-const DRAIN_PATH = path.join(PLUGIN_ROOT, "scripts", "codex-pair-prompt-drain.mjs");
+const DRAIN_PATH = path.join(PLUGIN_ROOT, "scripts", "codex-pair-prompt-drain.ts");
 
-describe("scripts/codex-pair-prompt-drain.mjs — structural invariants", () => {
-  const script = readFile("scripts/codex-pair-prompt-drain.mjs");
+describe("scripts/codex-pair-prompt-drain.ts — structural invariants", () => {
+  const script = readFile("scripts/codex-pair-prompt-drain.ts");
   const hooks = readFile("hooks/hooks.json");
 
   it("has a node shebang and is executable", () => {
@@ -27,11 +27,11 @@ describe("scripts/codex-pair-prompt-drain.mjs — structural invariants", () => 
     const parsed = JSON.parse(hooks);
     const ups = parsed.hooks.UserPromptSubmit;
     expect(Array.isArray(ups)).toBe(true);
-    expect(JSON.stringify(ups)).toMatch(/codex-pair-prompt-drain\.mjs/);
+    expect(JSON.stringify(ups)).toMatch(/codex-pair-prompt-drain\.ts/);
   });
 });
 
-describe("scripts/codex-pair-prompt-drain.mjs — runtime behavior", () => {
+describe("scripts/codex-pair-prompt-drain.ts — runtime behavior", () => {
   let cwd: string;
   beforeEach(() => {
     cwd = fs.mkdtempSync(path.join(os.tmpdir(), "cp-prompt-drain-"));
@@ -68,7 +68,7 @@ describe("scripts/codex-pair-prompt-drain.mjs — runtime behavior", () => {
   });
 });
 
-describe("codex-pair-prompt-drain.mjs — cross-repo (#209)", () => {
+describe("codex-pair-prompt-drain.ts — cross-repo (#209)", () => {
   let cwdRepo: string;
   let otherRepo: string;
   const SESSION = `cp-drain-xrepo-${process.pid}`;

@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+
 // UserPromptSubmit drain hook (design 2026-06-03 + plan red-team 2026-06-04).
 //
 // Surfaces any verdict a debounce worker queued, at the START of the next user
@@ -14,12 +15,13 @@ import { access } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { drainPending, joinPendingForSurface } from "./lib/debounce-state.mjs";
+import type { HookInput } from "./lib/hook-input.ts";
 import { collectSessionMarkers } from "./lib/session-registry.mjs";
 import { CONTEXT_FILENAME, PAIR_ROOT_DIR } from "./lib/state.mjs";
 
 const MARKER_FILE = join(PAIR_ROOT_DIR, CONTEXT_FILENAME);
 
-async function findMarkerUp(startDir) {
+async function findMarkerUp(startDir: string): Promise<string | null> {
   const home = homedir();
   let current = resolve(startDir);
   for (let depth = 0; depth < 20; depth++) {
@@ -36,8 +38,8 @@ async function findMarkerUp(startDir) {
   return null;
 }
 
-async function readStdin() {
-  return new Promise((r) => {
+async function readStdin(): Promise<string> {
+  return new Promise<string>((r) => {
     let data = "";
     process.stdin.on("data", (c) => {
       data += c.toString();
@@ -49,7 +51,7 @@ async function readStdin() {
 
 async function main() {
   const raw = await readStdin();
-  let payload;
+  let payload: HookInput | undefined;
   try {
     payload = JSON.parse(raw);
   } catch {

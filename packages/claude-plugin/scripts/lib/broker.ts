@@ -6,7 +6,7 @@ import { join } from "node:path";
 import type { BrokerDescriptor } from "./broker-lifecycle.ts";
 import { createRpcClient, type RpcClient, type RpcClientOptions, type RpcError } from "./broker-rpc.ts";
 import { connectWebSocket, type WebSocketConnection } from "./broker-transport.ts";
-import { parseFrontmatter } from "./frontmatter.mjs";
+import { parseFrontmatter } from "./frontmatter.ts";
 
 export interface ClientInfo {
   name: string;

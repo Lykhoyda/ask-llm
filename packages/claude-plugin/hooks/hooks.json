@@ -5,7 +5,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node ${CLAUDE_PLUGIN_ROOT}/scripts/codex-pair-stop-gate.mjs"
+            "command": "node --disable-warning=ExperimentalWarning --import ${CLAUDE_PLUGIN_ROOT}/scripts/strip-types.mjs ${CLAUDE_PLUGIN_ROOT}/scripts/codex-pair-stop-gate.ts"
           }
         ]
       }
@@ -16,7 +16,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node ${CLAUDE_PLUGIN_ROOT}/scripts/codex-pair-watch.mjs"
+            "command": "node --disable-warning=ExperimentalWarning --import ${CLAUDE_PLUGIN_ROOT}/scripts/strip-types.mjs ${CLAUDE_PLUGIN_ROOT}/scripts/codex-pair-watch.ts"
           }
         ]
       }
@@ -26,7 +26,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node ${CLAUDE_PLUGIN_ROOT}/scripts/codex-pair-session.mjs"
+            "command": "node --disable-warning=ExperimentalWarning --import ${CLAUDE_PLUGIN_ROOT}/scripts/strip-types.mjs ${CLAUDE_PLUGIN_ROOT}/scripts/codex-pair-session.ts"
           }
         ]
       }
@@ -36,7 +36,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node ${CLAUDE_PLUGIN_ROOT}/scripts/codex-pair-session.mjs"
+            "command": "node --disable-warning=ExperimentalWarning --import ${CLAUDE_PLUGIN_ROOT}/scripts/strip-types.mjs ${CLAUDE_PLUGIN_ROOT}/scripts/codex-pair-session.ts"
           }
         ]
       }
@@ -46,7 +46,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node ${CLAUDE_PLUGIN_ROOT}/scripts/codex-pair-prompt-drain.mjs"
+            "command": "node --disable-warning=ExperimentalWarning --import ${CLAUDE_PLUGIN_ROOT}/scripts/strip-types.mjs ${CLAUDE_PLUGIN_ROOT}/scripts/codex-pair-prompt-drain.ts"
           }
         ]
       }

@@ -1,3 +1,16 @@
+export const PAIR_ROOT_DIR: string;
+export const CONTEXT_FILENAME: string;
+export const contextPath: (markerDir: string) => string;
+export const ignorePath: (markerDir: string) => string;
+export const includePath: (markerDir: string) => string;
+export const inflightRoot: (markerDir: string) => string;
+export interface RepetitionBlock {
+  file: string;
+  hash: string;
+  count: number;
+}
+export function getBlockingFromShard(markerDir: string, file: string, newHashes: string[]): RepetitionBlock[];
+export function updateRepetitions(markerDir: string, file: string, newHashes: string[]): Promise<RepetitionBlock[]>;
 export const AUTOPAUSE_FAILURE_THRESHOLD: number;
 export const INFLIGHT_TTL_MIN_MS: number;
 export const pausePath: (markerDir: string) => string;
@@ -19,15 +32,14 @@ export function getCachedConcerns(
 ): Promise<{ high: string[]; med: string[]; low: string[]; durationMs?: number } | null>;
 export function hashConcernBody(body: string): string;
 export function isPaused(markerDir: string): boolean;
-export type PauseInfo =
-  | { manual: true }
-  | {
-      kind: "quota" | "failures";
-      reason: string;
-      at?: string;
-      pluginVersion?: string;
-      resetHint?: string;
-    };
+export type PauseInfo = {
+  manual?: true;
+  kind?: "quota" | "failures";
+  reason?: string;
+  at?: string;
+  pluginVersion?: string;
+  resetHint?: string;
+};
 export function readAcks(markerDir: string): Record<string, unknown>;
 export function readPauseInfo(markerDir: string): PauseInfo | null;
 export function readPluginVersion(): string | null;
@@ -54,5 +66,5 @@ export function tryAcquireInflightLock(
 ): { acquired: boolean; lockPath: string; reason?: string };
 export function writeAutoPause(
   markerDir: string,
-  value: { kind: "quota" | "failures"; reason: string; resetHint?: string },
+  value: { kind: "quota" | "failures"; reason: string; resetHint?: string | null },
 ): boolean;

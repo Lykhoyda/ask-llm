@@ -1,5 +1,5 @@
 ---
-"@ask-llm/plugin": patch
+"@ask-llm/plugin": minor
 ---
 
-Run the codex-pair broker from TypeScript sources on Node 22.18+ and keep direct reviews on older Node.
+Run the codex-pair hooks and broker from TypeScript sources on Node 24 or newer, including npm installs under node_modules.

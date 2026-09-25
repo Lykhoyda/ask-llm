@@ -199,8 +199,8 @@ describe("formatInFlightMessage", () => {
   });
 });
 
-describe("codex-pair-stop-gate.mjs — runtime (pending drain + in-flight block)", () => {
-  const GATE_PATH = path.join(PLUGIN_ROOT, "scripts", "codex-pair-stop-gate.mjs");
+describe("codex-pair-stop-gate.ts — runtime (pending drain + in-flight block)", () => {
+  const GATE_PATH = path.join(PLUGIN_ROOT, "scripts", "codex-pair-stop-gate.ts");
   let dir: string;
 
   beforeEach(() => {
@@ -343,8 +343,8 @@ describe("codex-pair-stop-gate.mjs — runtime (pending drain + in-flight block)
   });
 });
 
-describe("codex-pair-stop-gate.mjs — cross-repo (#209)", () => {
-  const GATE_PATH = path.join(PLUGIN_ROOT, "scripts", "codex-pair-stop-gate.mjs");
+describe("codex-pair-stop-gate.ts — cross-repo (#209)", () => {
+  const GATE_PATH = path.join(PLUGIN_ROOT, "scripts", "codex-pair-stop-gate.ts");
   let cwdRepo: string;
   let otherRepo: string;
   const SESSION = `cp-gate-xrepo-${process.pid}`;

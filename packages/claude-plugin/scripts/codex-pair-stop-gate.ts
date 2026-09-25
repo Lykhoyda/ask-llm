@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+
 // codex-pair Stop-gate (#142, ADR-118). Blocks turn-end while unaddressed HIGH
 // findings remain — opt-in via `blockOn: HIGH` in .codex-pair/context.md.
 // MUST exit 0 on every path: a throw/non-zero here would wedge every turn-end.
@@ -11,6 +12,7 @@ import { existsSync, readdirSync, readFileSync, realpathSync, statSync } from "n
 import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { debounceRoot, drainPending, joinPendingForSurface, reviewingRoot } from "./lib/debounce-state.mjs";
+import type { HookInput } from "./lib/hook-input.ts";
 import { collectSessionMarkers } from "./lib/session-registry.mjs";
 import {
   CONTEXT_FILENAME,
@@ -32,7 +34,7 @@ import {
 
 const MARKER_FILE = join(PAIR_ROOT_DIR, CONTEXT_FILENAME);
 
-function findMarkerUp(startDir) {
+function findMarkerUp(startDir: string): string | null {
   const home = homedir();
   let current = resolve(startDir);
   for (let depth = 0; depth < 20; depth++) {
@@ -45,7 +47,7 @@ function findMarkerUp(startDir) {
 }
 
 function readStdin() {
-  return new Promise((r) => {
+  return new Promise<string>((r) => {
     let data = "";
     process.stdin.on("data", (c) => (data += c.toString()));
     process.stdin.on("end", () => r(data));
@@ -56,8 +58,8 @@ function readStdin() {
 // Minimal frontmatter scalar read — the gate needs `blockOn` and `timeoutMs`
 // only, so a full parser stays unnecessary. Looks for `<key>: X` inside the
 // leading `---` block.
-function readMarkerScalar(markerDir, key) {
-  let text;
+function readMarkerScalar(markerDir: string, key: string): string | null {
+  let text: string;
   try {
     text = readFileSync(contextPath(markerDir), "utf8");
   } catch {
@@ -69,13 +71,17 @@ function readMarkerScalar(markerDir, key) {
   return m ? m[1].trim() : null;
 }
 
-function readBlockOn(markerDir) {
+function readBlockOn(markerDir: string): string | null {
   return readMarkerScalar(markerDir, "blockOn");
 }
 
-function gitDirtySet(markerDir) {
+function gitDirtySet(markerDir: string) {
   // timeout guards against a hung git (locked index, slow FS) wedging turn-end.
-  const opts = { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"], timeout: 5000 };
+  const opts = {
+    encoding: "utf8" as const,
+    stdio: ["ignore", "pipe", "ignore"] as ("ignore" | "pipe")[],
+    timeout: 5000,
+  };
   try {
     const repoRoot = execFileSync("git", ["-C", markerDir, "rev-parse", "--show-toplevel"], opts).trim();
     const porcelain = execFileSync("git", ["-C", markerDir, "status", "--porcelain=v1", "-z"], opts);
@@ -88,7 +94,7 @@ function gitDirtySet(markerDir) {
 // Read the raw inputs for collectInFlight: parsed debounce records + inflight
 // lock mtimes. Uses the RAW (pre-realpath) markerDir — the watch hook writes
 // this state under the same un-canonicalized root that findMarkerUp returns.
-function readInFlightInputs(markerDir) {
+function readInFlightInputs(markerDir: string) {
   const records = [];
   try {
     const root = debounceRoot(markerDir);
@@ -128,14 +134,14 @@ function readInFlightInputs(markerDir) {
 // the 10-min floor plus buffer) so the gate and the lock lifecycle agree on
 // what "still reviewing" means even for projects that pin a longer per-review
 // timeout (PR #208 review).
-function inflightFreshMs(markerDir) {
+function inflightFreshMs(markerDir: string): number {
   const fmTimeout = Number(readMarkerScalar(markerDir, "timeoutMs"));
   const timeout =
     Number.isFinite(fmTimeout) && fmTimeout > 0 ? fmTimeout : Number(process.env.ASK_CODEX_TIMEOUT_MS ?? 800_000);
   return Math.max(timeout, INFLIGHT_TTL_MIN_MS) + 60_000;
 }
 
-function writeAndExit(obj) {
+function writeAndExit(obj: unknown): void {
   process.stdout.write(`${JSON.stringify(obj)}\n`, () => process.exit(0));
 }
 
@@ -143,8 +149,8 @@ function writeAndExit(obj) {
 // macOS `/var` resolves to `/private/var`, which would otherwise make the [B]
 // git-status filter and the [E] relPath ack hash mismatch (ADR-118). Missing
 // files are left as-is; [A]'s existsFn drops them.
-function canonicalizeEntries(entries) {
-  const out = new Map();
+function canonicalizeEntries<T extends object>(entries: Iterable<[string, T]>): Map<string, T & { file: string }> {
+  const out = new Map<string, T & { file: string }>();
   for (const [file, entry] of entries) {
     let real = file;
     try {
@@ -164,7 +170,7 @@ function canonicalizeEntries(entries) {
 // writes it); canonicalizes only for git/log path alignment (macOS /var).
 // Only blocking I/O is gitDirtySet (two git calls, each hard-capped at 5s), so
 // the sequential per-marker cost is bounded even for several registered repos.
-function evaluateMarker(markerDir) {
+function evaluateMarker(markerDir: string) {
   // Return the RAW drained verdicts — main() accumulates across markers and caps
   // the surfaced blob ONCE via joinPendingForSurface, so the MAX_SURFACE_VERDICTS
   // bound is global (not 8-per-marker). Matches codex-pair-prompt-drain.mjs.
@@ -214,7 +220,7 @@ function evaluateMarker(markerDir) {
 
 async function main() {
   const raw = await readStdin();
-  let payload;
+  let payload: HookInput | undefined;
   try {
     payload = JSON.parse(raw);
   } catch {

@@ -14,5 +14,5 @@
     "types": ["node"],
     "lib": ["ES2023"]
   },
-  "include": ["lib/**/*.ts"]
+  "include": ["*.ts", "lib/**/*.ts"]
 }

@@ -4,11 +4,11 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { parseFrontmatter } from "../../scripts/lib/frontmatter.mjs";
+import { parseFrontmatter } from "../../scripts/lib/frontmatter.ts";
 import { clearSession, readRegisteredMarkers } from "../../scripts/lib/session-registry.mjs";
 import { PLUGIN_ROOT, readFile } from "./_helpers.js";
 
-const HOOK_PATH = path.join(PLUGIN_ROOT, "scripts", "codex-pair-watch.mjs");
+const HOOK_PATH = path.join(PLUGIN_ROOT, "scripts", "codex-pair-watch.ts");
 
 // Debounce ships ON by default (debounceMs=15000). These behavioral tests were
 // written for the synchronous review path, so pin debounce OFF process-wide;
@@ -16,8 +16,8 @@ const HOOK_PATH = path.join(PLUGIN_ROOT, "scripts", "codex-pair-watch.mjs");
 // marker frontmatter (frontmatter > env > default), which overrides this.
 process.env.ASK_CODEX_DEBOUNCE_MS = "0";
 
-describe("scripts/codex-pair-watch.mjs — structural invariants (ADR-077)", () => {
-  const script = readFile("scripts/codex-pair-watch.mjs");
+describe("scripts/codex-pair-watch.ts — structural invariants (ADR-077)", () => {
+  const script = readFile("scripts/codex-pair-watch.ts");
   // ADR-088: state helpers now live in lib/state.mjs. Tests that previously
   // grepped the hook source for state symbols now read this instead.
   const libState = readFile("scripts/lib/state.mjs");
@@ -97,7 +97,7 @@ describe("scripts/codex-pair-watch.mjs — structural invariants (ADR-077)", () 
   // payload parsing.
   it("catch handler uses hoisted markerAnchor (with cwd fallback) for cross-repo error logging", () => {
     // Module-level let so the catch handler can read after main() sets it
-    expect(script).toMatch(/let\s+markerAnchor\s*=\s*null/);
+    expect(script).toMatch(/let\s+markerAnchor(:[^=]+)?\s*=\s*null/);
     // Catch handler reads markerAnchor with cwd as fallback (nullish coalesce)
     const catchBlock = script.match(/main\(\)\.catch\([\s\S]*?\}\);\s*$/m);
     expect(catchBlock).toBeTruthy();
@@ -131,7 +131,7 @@ describe("scripts/codex-pair-watch.mjs — structural invariants (ADR-077)", () 
   });
 
   it("dispatches to a detached debounce worker when debounceMs > 0", () => {
-    expect(script).toMatch(/codex-pair-debounce-worker\.mjs/);
+    expect(script).toMatch(/codex-pair-debounce-worker\.ts/);
     expect(script).toMatch(/detached:\s*true/);
     expect(script).toMatch(/\.unref\(\)/);
   });
@@ -307,7 +307,7 @@ describe("scripts/codex-pair-watch.mjs — structural invariants (ADR-077)", () 
   });
 
   it("buildAdaptiveContext has three strategies (diff / head-tail / truncated)", () => {
-    const block = script.match(/async function buildAdaptiveContext[\s\S]*?^}/m);
+    const block = script.match(/async function buildAdaptiveContext[\s\S]*?^}$/m);
     expect(block).toBeTruthy();
     const body = block?.[0] ?? "";
     expect(body).toMatch(/strategy:\s*["']diff["']/);
@@ -354,7 +354,7 @@ describe("scripts/codex-pair-watch.mjs — structural invariants (ADR-077)", () 
   });
 
   it("runGitDiff never throws — returns null on any failure path", () => {
-    const block = script.match(/function runGitDiff[\s\S]*?^}/m);
+    const block = script.match(/function runGitDiff[\s\S]*?^}$/m);
     expect(block).toBeTruthy();
     const body = block?.[0] ?? "";
     // Each rejection path resolves to null, not throws
@@ -664,7 +664,7 @@ describe("scripts/codex-pair-watch.mjs — structural invariants (ADR-077)", () 
     );
     expect(script).toMatch(/configuredReasoningEffort\s*=\s*process\.env\.ASK_CODEX_REASONING_EFFORT/);
     expect(script).toMatch(
-      /DEFAULT_REASONING_EFFORT\s*=\s*CODEX_REASONING_EFFORTS\.has\(configuredReasoningEffort\)[\s\S]{0,100}\?\s*configuredReasoningEffort[\s\S]{0,100}:\s*"medium"/,
+      /DEFAULT_REASONING_EFFORT\s*=[\s\S]{0,100}CODEX_REASONING_EFFORTS\.has\(configuredReasoningEffort\)[\s\S]{0,100}\?\s*configuredReasoningEffort[\s\S]{0,100}:\s*"medium"/,
     );
     expect(script).toMatch(/model_reasoning_effort="\$\{DEFAULT_REASONING_EFFORT\}"/);
   });
@@ -819,7 +819,7 @@ describe("scripts/codex-pair-watch.mjs — structural invariants (ADR-077)", () 
   });
 });
 
-describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", () => {
+describe("scripts/codex-pair-watch.ts — runtime behavior (no codex calls)", () => {
   // These tests invoke the script as a subprocess with synthesized stdin
   // payloads. They verify the gate logic and skip paths WITHOUT triggering
   // a real codex call (so the suite stays fast and free).
@@ -2103,13 +2103,13 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
     expect(libText).toMatch(/['"]\/t['"]/i);
     expect(libText).toMatch(/['"]\/f['"]/i);
     // The spawn-with-detached call sites still live in the hook script.
-    const scriptText = fs.readFileSync(path.join(PLUGIN_ROOT, "scripts", "codex-pair-watch.mjs"), "utf-8");
+    const scriptText = fs.readFileSync(path.join(PLUGIN_ROOT, "scripts", "codex-pair-watch.ts"), "utf-8");
     expect(scriptText).toMatch(/detached:\s*!IS_WINDOWS/);
     expect(scriptText).toMatch(/from "\.\/lib\/process\.mjs"/);
   });
 
   it("ADR-084: spawnCodex timeout path triggers process-tree termination (uses terminateProcessTree)", () => {
-    const scriptText = fs.readFileSync(path.join(PLUGIN_ROOT, "scripts", "codex-pair-watch.mjs"), "utf-8");
+    const scriptText = fs.readFileSync(path.join(PLUGIN_ROOT, "scripts", "codex-pair-watch.ts"), "utf-8");
     const spawnCodexBlock = scriptText.match(/function spawnCodex[\s\S]*?\n\}/);
     expect(spawnCodexBlock).toBeTruthy();
     expect(spawnCodexBlock?.[0]).toMatch(/terminateProcessTree\(child,\s*"SIGTERM"\)/);
@@ -2294,7 +2294,7 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
     // Exclusive create
     expect(libStateText).toMatch(/writeFileSync\(lockPath,\s*String\(process\.pid\),\s*\{\s*flag:\s*"wx"\s*\}\)/);
     // main() integration + cleanup hook still live in the hook script.
-    const scriptText = fs.readFileSync(path.join(PLUGIN_ROOT, "scripts", "codex-pair-watch.mjs"), "utf-8");
+    const scriptText = fs.readFileSync(path.join(PLUGIN_ROOT, "scripts", "codex-pair-watch.ts"), "utf-8");
     expect(scriptText).toMatch(/tryAcquireInflightLock\(markerDir,\s*filePath,\s*inflightTtlMs\)/);
     expect(scriptText).toMatch(/process\.on\("exit",\s*\(\)\s*=>\s*releaseInflightLock\(acquiredLockPath\)\)/);
   });
@@ -2468,8 +2468,8 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
     const hooksJson = JSON.parse(fs.readFileSync(path.join(PLUGIN_ROOT, "hooks", "hooks.json"), "utf-8"));
     expect(hooksJson.hooks.SessionStart).toBeDefined();
     expect(hooksJson.hooks.SessionEnd).toBeDefined();
-    expect(hooksJson.hooks.SessionStart[0].hooks[0].command).toMatch(/codex-pair-session\.mjs/);
-    expect(hooksJson.hooks.SessionEnd[0].hooks[0].command).toMatch(/codex-pair-session\.mjs/);
+    expect(hooksJson.hooks.SessionStart[0].hooks[0].command).toMatch(/codex-pair-session\.ts/);
+    expect(hooksJson.hooks.SessionEnd[0].hooks[0].command).toMatch(/codex-pair-session\.ts/);
   });
 
   // ADR-093: protocol-surface pins. The codex `app-server` JSON-RPC contract
@@ -2901,7 +2901,7 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
   });
 
   it("ADR-093 lifecycle: SessionStart hook with ASK_CODEX_BROKER=1 but no marker is a silent no-op", () => {
-    const sessionScript = path.join(PLUGIN_ROOT, "scripts", "codex-pair-session.mjs");
+    const sessionScript = path.join(PLUGIN_ROOT, "scripts", "codex-pair-session.ts");
     const noMarkerDir = fs.mkdtempSync(path.join(os.tmpdir(), "codex-pair-no-marker-"));
     try {
       const result = spawnSync("node", [sessionScript], {
@@ -4189,7 +4189,7 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
     // fix transforms negation-only rules into ignore-list entries with
     // a one-time info-level log explaining the semantic mapping.
     // (Structural test lives inside runtime-behavior block; load script locally.)
-    const watchScript = fs.readFileSync(path.join(PLUGIN_ROOT, "scripts", "codex-pair-watch.mjs"), "utf-8");
+    const watchScript = fs.readFileSync(path.join(PLUGIN_ROOT, "scripts", "codex-pair-watch.ts"), "utf-8");
     expect(watchScript).toMatch(/positiveInclude\s*=\s*includeRules\.filter/);
     expect(watchScript).toMatch(/positiveInclude\.length\s*>\s*0/);
     expect(watchScript).toMatch(/includeNegationsAsIgnore/);
@@ -4249,8 +4249,8 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
     expect(msg1).not.toContain("🛑");
   });
 
-  it("ADR-096 structural: codex-pair-watch.mjs imports the new state helpers", () => {
-    const watch = fs.readFileSync(path.join(PLUGIN_ROOT, "scripts", "codex-pair-watch.mjs"), "utf-8");
+  it("ADR-096 structural: codex-pair-watch.ts imports the new state helpers", () => {
+    const watch = fs.readFileSync(path.join(PLUGIN_ROOT, "scripts", "codex-pair-watch.ts"), "utf-8");
     expect(watch).toMatch(/hashConcernBody/);
     expect(watch).toMatch(/updateRepetitions/);
     expect(watch).toMatch(/includePath/);
@@ -4273,7 +4273,7 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
 //   - Cross-file concurrent fires → independent shards / caches / log entries
 //   - Same-file concurrent fires → ADR-087 inflight-lock coalescing (silent skip)
 //   - MultiEdit + ignore gate (no tool_name-specific bypass of the ignore list)
-describe("scripts/codex-pair-watch.mjs — MultiEdit + parallel-fire fixtures", () => {
+describe("scripts/codex-pair-watch.ts — MultiEdit + parallel-fire fixtures", () => {
   let tempDir: string;
   const FIXTURE_DIR = path.join(PLUGIN_ROOT, "src", "__tests__", "_fixtures");
 
@@ -4501,7 +4501,7 @@ describe("scripts/codex-pair-watch.mjs — MultiEdit + parallel-fire fixtures", 
     // Guards against a regression class: someone adds a tool_name-specific
     // branch BEFORE the ignore-list check (e.g. "always review MultiEdits
     // because they touch multiple things") and accidentally bypasses opt-out.
-    // The ignore check at codex-pair-watch.mjs:888 must fire regardless of
+    // The ignore check at codex-pair-watch.ts:888 must fire regardless of
     // tool_name.
     setupMarker(tempDir, "# ctx");
     fs.writeFileSync(path.join(tempDir, ".codex-pair/ignore"), "src/skip-me.ts\n");
@@ -4554,7 +4554,7 @@ describe("scripts/codex-pair-watch.mjs — MultiEdit + parallel-fire fixtures", 
   });
 });
 
-describe("codex-pair-watch.mjs — session registry (#209)", () => {
+describe("codex-pair-watch.ts — session registry (#209)", () => {
   let repo: string;
   const SESSION = `cp-watch-reg-${process.pid}`;
 

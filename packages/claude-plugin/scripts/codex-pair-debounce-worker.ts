@@ -13,7 +13,7 @@
 // systemMessage and queues it in the per-file pending store; the next edit hook
 // (or the UserPromptSubmit drain) surfaces it. MUST exit 0 on every path (ADR-077).
 
-import { spawnSync } from "node:child_process";
+import { type SpawnSyncReturns, spawnSync } from "node:child_process";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
@@ -26,17 +26,17 @@ import {
 } from "./lib/debounce-state.mjs";
 
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
-const HOOK_PATH = join(SCRIPT_DIR, "codex-pair-watch.mjs");
+const HOOK_PATH = join(SCRIPT_DIR, "codex-pair-watch.ts");
 
-function sleep(ms) {
+function sleep(ms: number): Promise<void> {
   return new Promise((r) => setTimeout(r, ms));
 }
 
 // The forced-sync hook writes one `{ "continue": true, "systemMessage": "..." }`
 // JSON line to stdout. Pull systemMessage from the last parseable line.
-function extractSystemMessage(stdout) {
+function extractSystemMessage(stdout: string | null | undefined): string | null {
   if (!stdout) return null;
-  const lines = stdout.split("\n").filter((l) => l.trim().length > 0);
+  const lines = stdout.split("\n").filter((l: string) => l.trim().length > 0);
   for (let i = lines.length - 1; i >= 0; i--) {
     try {
       const obj = JSON.parse(lines[i]);
@@ -83,9 +83,10 @@ async function main() {
     session_id: process.env.CP_SESSION_ID || "",
   });
   const codexTimeout = Number(process.env.ASK_CODEX_TIMEOUT_MS ?? 800_000);
-  let res;
+  let res: SpawnSyncReturns<string> | undefined;
   try {
-    res = spawnSync(process.execPath, [HOOK_PATH], {
+    // execArgv carries the hook command's Node flags, including the type-stripping loader.
+    res = spawnSync(process.execPath, [...process.execArgv, HOOK_PATH], {
       input: payload,
       cwd: markerDir,
       encoding: "utf-8",
@@ -95,7 +96,7 @@ async function main() {
   } finally {
     clearReviewing(markerDir, file);
   }
-  const message = extractSystemMessage(res.stdout);
+  const message = extractSystemMessage(res?.stdout);
   if (message) writePending(markerDir, file, message);
   process.exit(0);
 }
