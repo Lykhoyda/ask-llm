@@ -1,5 +1,15 @@
 # Architectural Decisions
 
+## ADR-168: Default-on broker lifecycle and review parity
+
+**Status:** Accepted (2026-09-25)
+
+**Context:** An independent review of the default-on broker (ADR-166) found four merge blockers. SessionStart could SIGTERM an unrelated process group when an expired descriptor recorded a reused pid. Broker quota errors auto-paused reviews without trying the fallback model, and transient provider errors skipped the direct path's retry. A SessionStart killed mid-bootstrap left a permanent `broker.lock` and an untracked `codex app-server`. On macOS, marker directories over 54 bytes produced socket paths Node cannot connect to, so every start spent its poll budget for nothing. The auth.json link also raised whether a token refresh inside the broker could strand the user's credentials.
+
+**Decision:** Signal or reuse a recorded broker only while `ps` shows a codex executable running exactly `app-server --listen <recorded transport>`. Route broker quota errors into the fallback-model ladder and count a transient broker error as the first of the direct path's two attempts; other model errors still propagate. Record the lock owner and, before spawning, the isolated home and transport inside the lock; a lock whose owner died or that outlives any bootstrap is claimed by rename, its orphaned broker is found by transport and stopped, and its home removed. Bind the socket inside the isolated home and reject paths over 103 bytes. Keep linking auth.json. In Codex 0.156.1 the default credential store is the file, and both login and ChatGPT token refresh persist through `FileAuthStorage::save`, which truncates and rewrites `CODEX_HOME/auth.json` in place (source at `rust-v0.156.1`; login confirmed against a scratch home), so a broker refresh follows the link into the user's own credentials instead of diverging from them. Skip the broker when there is no auth.json to share (keyring or environment-key setups keep direct reviews).
+
+**Consequences:** Broker and direct reviews reach the same outcome for broker faults, quota, and transient errors. Credential state is shared with the user's Codex, not isolated: the broker is one more process that may refresh and rewrite the user's auth.json, non-atomically, exactly as concurrent Codex CLI sessions do, and a future Codex that saves by rename would break the link (the gated real-Codex test pins today's behavior). Residual risks accepted: three or more starts reclaiming one abandoned lock within milliseconds can overlap, a start killed between creating its home and recording it leaves an empty private temp directory, and a `ps` failure skips signaling a genuine broker. Overlapping sessions still lose the broker when its owner ends and fall back to direct reviews.
+
 ## ADR-167: Codex-pair broker modules are TypeScript run by Node type stripping
 
 **Status:** Accepted (2026-09-25)
