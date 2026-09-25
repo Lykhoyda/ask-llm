@@ -3710,14 +3710,18 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
       }),
     );
     const orig = process.env.ASK_CODEX_BROKER;
+    const priorCodexHome = process.env.CODEX_HOME;
     try {
       process.env.ASK_CODEX_BROKER = "1";
+      process.env.CODEX_HOME = tempDir;
       expect(isBrokerEnabled(tempDir)).toBe(true);
       fs.rmSync(path.join(tempDir, "auth.json"));
       expect(isBrokerEnabled(tempDir)).toBe(false);
     } finally {
       if (orig === undefined) delete process.env.ASK_CODEX_BROKER;
       else process.env.ASK_CODEX_BROKER = orig;
+      if (priorCodexHome === undefined) delete process.env.CODEX_HOME;
+      else process.env.CODEX_HOME = priorCodexHome;
       removeIsolatedBrokerHome(home);
     }
   });

@@ -137,6 +137,7 @@ async function runBrokerEdit(scenario: Scenario, fakeCodexScenario: string, seed
     });
     const env: NodeJS.ProcessEnv = {
       ...process.env,
+      CODEX_HOME: repo,
       PATH: `${path.join(PLUGIN_ROOT, "src", "__tests__", "_fixtures")}:${process.env.PATH}`,
       FAKE_CODEX_SCENARIO: fakeCodexScenario,
       FAKE_CODEX_ATTEMPT_FILE: attempts,

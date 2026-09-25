@@ -355,7 +355,9 @@ describe("codex-pair session hooks", () => {
 
   it("retires a recorded broker once its source credentials are removed", async () => {
     const priorBrokerPreference = process.env.ASK_CODEX_BROKER;
+    const priorCodexHome = process.env.CODEX_HOME;
     process.env.ASK_CODEX_BROKER = "1";
+    process.env.CODEX_HOME = repo;
     fs.mkdirSync(path.join(repo, ".codex-pair", "state"), { recursive: true });
     const home = createIsolatedBrokerHome({ sourceHome: repo });
     await writeBrokerDescriptor(repo, {
@@ -395,13 +397,17 @@ describe("codex-pair session hooks", () => {
     } finally {
       if (priorBrokerPreference === undefined) delete process.env.ASK_CODEX_BROKER;
       else process.env.ASK_CODEX_BROKER = priorBrokerPreference;
+      if (priorCodexHome === undefined) delete process.env.CODEX_HOME;
+      else process.env.CODEX_HOME = priorCodexHome;
       removeIsolatedBrokerHome(home);
     }
   });
 
   it("stops using a broker when symlinked source credentials are removed", async () => {
     const priorBrokerPreference = process.env.ASK_CODEX_BROKER;
+    const priorCodexHome = process.env.CODEX_HOME;
     process.env.ASK_CODEX_BROKER = "1";
+    process.env.CODEX_HOME = repo;
     fs.mkdirSync(path.join(repo, ".codex-pair", "state"), { recursive: true });
     const auth = path.join(repo, "auth.json");
     const credential = path.join(repo, "scratch-credential.json");
@@ -424,7 +430,99 @@ describe("codex-pair session hooks", () => {
     } finally {
       if (priorBrokerPreference === undefined) delete process.env.ASK_CODEX_BROKER;
       else process.env.ASK_CODEX_BROKER = priorBrokerPreference;
+      if (priorCodexHome === undefined) delete process.env.CODEX_HOME;
+      else process.env.CODEX_HOME = priorCodexHome;
       removeIsolatedBrokerHome(home);
+    }
+  });
+
+  it("rejects per-edit broker use from a different credential home", async () => {
+    const priorBrokerPreference = process.env.ASK_CODEX_BROKER;
+    const priorCodexHome = process.env.CODEX_HOME;
+    const sourceA = path.join(repo, "source-a");
+    const sourceB = path.join(repo, "source-b");
+    for (const source of [sourceA, sourceB]) {
+      fs.mkdirSync(source);
+      fs.writeFileSync(path.join(source, "auth.json"), "{}");
+    }
+    fs.mkdirSync(path.join(repo, ".codex-pair", "state"), { recursive: true });
+    process.env.ASK_CODEX_BROKER = "1";
+    process.env.CODEX_HOME = sourceA;
+    const home = createIsolatedBrokerHome({ sourceHome: sourceA });
+    try {
+      await writeBrokerDescriptor(repo, {
+        pid: process.pid,
+        transportUrl: chooseTransport(home),
+        sessionId: "first-account",
+        isolatedHome: home,
+        protocolVersion: "v2",
+        startedAt: new Date().toISOString(),
+      });
+      expect(isBrokerEnabled(repo)).toBe(true);
+      process.env.CODEX_HOME = sourceB;
+      expect(isBrokerEnabled(repo)).toBe(false);
+    } finally {
+      if (priorBrokerPreference === undefined) delete process.env.ASK_CODEX_BROKER;
+      else process.env.ASK_CODEX_BROKER = priorBrokerPreference;
+      if (priorCodexHome === undefined) delete process.env.CODEX_HOME;
+      else process.env.CODEX_HOME = priorCodexHome;
+      removeIsolatedBrokerHome(home);
+    }
+  });
+
+  it("replaces a live broker from a different credential home", async () => {
+    const sourceA = path.join(repo, "source-a");
+    const sourceB = path.join(repo, "source-b");
+    for (const source of [sourceA, sourceB]) {
+      fs.mkdirSync(source);
+      fs.writeFileSync(path.join(source, "auth.json"), "{}");
+    }
+    fs.mkdirSync(path.join(repo, ".codex-pair", "state"), { recursive: true });
+    const oldHome = createIsolatedBrokerHome({ sourceHome: sourceA });
+    let spawnedHome = "";
+    let stopped = false;
+    try {
+      await writeBrokerDescriptor(repo, {
+        pid: process.pid,
+        transportUrl: chooseTransport(oldHome),
+        sessionId: "first-account",
+        isolatedHome: oldHome,
+        protocolVersion: "v2",
+        startedAt: new Date().toISOString(),
+      });
+      const replacement = await bootstrapBroker(repo, {
+        sessionId: "second-account",
+        sourceHome: sourceB,
+        injectDeps: {
+          isRecordedBroker: () => true,
+          killPid: async () => {
+            stopped = true;
+            return true;
+          },
+          spawnBroker: (_marker: string, _url: string, home: string) => {
+            spawnedHome = home;
+            return { pid: process.pid, kill: () => true };
+          },
+          pollSocketReachable: async () => true,
+          initializeBroker: async () => ({
+            connection: { close: () => {} },
+            initializeResult: {
+              get codexHome() {
+                return spawnedHome;
+              },
+            },
+          }),
+          readCodexVersion: () => "test",
+        },
+      });
+      expect(replacement?.sessionId).toBe("second-account");
+      expect(stopped).toBe(true);
+      expect(fs.existsSync(oldHome)).toBe(false);
+      expect(fs.readlinkSync(path.join(spawnedHome, "auth.json"))).toBe(path.join(sourceB, "auth.json"));
+    } finally {
+      await teardownBroker(repo, { sessionId: "second-account", injectDeps: { killPid: async () => true } });
+      removeIsolatedBrokerHome(oldHome);
+      removeIsolatedBrokerHome(spawnedHome);
     }
   });
 
@@ -498,6 +596,7 @@ describe("codex-pair session hooks", () => {
       });
       const env = {
         ...process.env,
+        CODEX_HOME: repo,
         PATH: `${path.join(PLUGIN_ROOT, "src", "__tests__", "_fixtures")}:${process.env.PATH}`,
         FAKE_CODEX_SCENARIO: "none",
         ASK_CODEX_DEBOUNCE_MS: "0",

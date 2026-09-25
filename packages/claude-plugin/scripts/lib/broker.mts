@@ -3,7 +3,7 @@
 // Codex app-server broker for codex-pair (ADR-090, ADR-093, ADR-166).
 // Unavailable or incompatible brokers fall back to per-edit codex exec.
 
-import { existsSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { BrokerDescriptor } from "./broker-lifecycle.mts";
 import { createRpcClient, type RpcClient, type RpcClientOptions, type RpcError } from "./broker-rpc.mts";
@@ -164,8 +164,7 @@ export function isBrokerEnabled(markerDir: string): boolean {
   const state = lifecycleReadBrokerDescriptor(markerDir);
   if (!state) return false;
   if (!isIsolatedBrokerHome(state.isolatedHome)) return false;
-  // A dangling auth link means the user's credentials were removed after the broker started.
-  if (!existsSync(join(state.isolatedHome, "auth.json"))) return false;
+  if (!hasCurrentBrokerAuth(state.isolatedHome)) return false;
   if (state.protocolVersion !== BROKER_PROTOCOL_VERSION) return false;
   if (!lifecycleIsPidAlive(state.pid)) return false;
   return true;
@@ -181,6 +180,7 @@ export function brokerStatePath(markerDir: string, stateDir: string): string {
 export { clearStaleBrokerState } from "./broker-lifecycle.mts";
 
 import {
+  hasCurrentBrokerAuth,
   isIsolatedBrokerHome,
   isPidAlive as lifecycleIsPidAlive,
   readBrokerDescriptorSync as lifecycleReadBrokerDescriptor,

@@ -10,6 +10,7 @@ import {
   mkdtempSync,
   openSync,
   readFileSync,
+  readlinkSync,
   realpathSync,
   renameSync,
   rmSync,
@@ -86,6 +87,16 @@ const BROKER_OWNER_TTL_MS = 24 * 60 * 60 * 1000;
 
 function sourceCodexHome(sourceHome?: string): string {
   return sourceHome ?? process.env.CODEX_HOME ?? join(homedir(), ".codex");
+}
+
+export function hasCurrentBrokerAuth(isolatedHome: string | undefined, sourceHome?: string): boolean {
+  if (!isolatedHome) return false;
+  const auth = join(sourceCodexHome(sourceHome), "auth.json");
+  try {
+    return existsSync(auth) && readlinkSync(join(isolatedHome, "auth.json")) === auth;
+  } catch {
+    return false;
+  }
 }
 
 // auth.json is shared by link, not copied: Codex rewrites it in place (verified on 0.156.1), so a
@@ -412,7 +423,12 @@ export async function bootstrapBroker(
       const startedAt = Date.parse(previous.startedAt ?? "");
       const ageMs = Date.now() - startedAt;
       const expired = !Number.isFinite(ageMs) || ageMs >= BROKER_OWNER_TTL_MS || ageMs < -5 * 60 * 1000;
-      if (hasCredentials && !expired && (injectDeps?.isRecordedBroker ?? isRecordedBroker)(previous)) {
+      if (
+        hasCredentials &&
+        !expired &&
+        hasCurrentBrokerAuth(previous.isolatedHome, options.sourceHome) &&
+        (injectDeps?.isRecordedBroker ?? isRecordedBroker)(previous)
+      ) {
         return previous;
       }
       await teardownBroker(markerDir, { lockHeld: true, injectDeps });
