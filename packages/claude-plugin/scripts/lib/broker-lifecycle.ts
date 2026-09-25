@@ -16,7 +16,6 @@
 // Pure Node built-ins + relative `./broker-*.mjs` imports per ADR-078.
 
 import { type ChildProcess, execFileSync, spawn } from "node:child_process";
-import { createHash } from "node:crypto";
 import {
   chmodSync,
   existsSync,
@@ -84,7 +83,9 @@ export interface TeardownOptions {
 // inherent because the parent path is `<markerDir>/.codex-pair/state/`.
 const BROKER_LOCK_DIR = "broker.lock";
 const BROKER_LOG_FILE = "broker.log";
-const BROKER_SOCKET_PREFIX = "codex-pair-broker";
+const BROKER_SOCKET_FILE = "broker.sock";
+// macOS sun_path is 104 bytes including the terminator; Linux allows 108.
+const MAX_UNIX_SOCKET_PATH_BYTES = 103;
 const BOOTSTRAP_BUDGET_MS_DEFAULT = 5000;
 const SOCKET_POLL_INTERVAL_MS = 100;
 const ISOLATED_HOME_PREFIX = "codex-pair-broker-";
@@ -124,19 +125,15 @@ export function removeIsolatedBrokerHome(home: unknown): void {
   if (isIsolatedBrokerHome(home)) rmSync(home, { recursive: true, force: true });
 }
 
-// Choose the transport URL for this marker directory. POSIX: unix socket
-// under `<markerDir>/.codex-pair/state/`, with sha256-of-markerDir suffix
-// to prevent name collisions across symlinked project trees. Windows:
-// TODO — codex CLI supports `ws://IP:PORT` but cross-platform port
-// reservation has a known race (Brainstorm Risk #3). Punted to a follow-on
-// PR; for Milestone 2 we throw on Windows and the hook treats it as a
-// bootstrap failure (silent exit per ADR-077).
-export function chooseTransport(markerDir: string): string {
+// The socket lives in the private broker home so its path stays short however deep the project is.
+export function chooseTransport(isolatedHome: string): string {
   if (IS_WINDOWS) {
     throw new Error("broker-lifecycle: Windows transport not implemented yet (see ADR-090)");
   }
-  const hash = createHash("sha256").update(markerDir).digest("hex").slice(0, 8);
-  const socketPath = join(stateRoot(markerDir), `${BROKER_SOCKET_PREFIX}.${hash}.sock`);
+  const socketPath = join(isolatedHome, BROKER_SOCKET_FILE);
+  if (Buffer.byteLength(socketPath) > MAX_UNIX_SOCKET_PATH_BYTES) {
+    throw new Error(`broker-lifecycle: socket path exceeds ${MAX_UNIX_SOCKET_PATH_BYTES} bytes`);
+  }
   return `unix://${socketPath}`;
 }
 
@@ -251,22 +248,6 @@ function sleep(ms: number): Promise<void> {
 // the pid and writing it to the descriptor only after handshake succeeds.
 export function spawnBroker(markerDir: string, transportUrl: string, isolatedHome: string): ChildProcess {
   if (!isIsolatedBrokerHome(isolatedHome)) throw new Error("broker requires an isolated Codex home");
-  // Bug #5: the socket path is deterministic (sha256 of markerDir), so an
-  // orphaned socket inode — left when a prior broker was killed AFTER
-  // binding but BEFORE writing its descriptor — makes the next bind fail
-  // with EADDRINUSE permanently (clearStaleBrokerState early-returns
-  // "absent" with no descriptor to drive cleanup). Unlink any stale socket
-  // at the deterministic path before binding. extractSafeSocketPath gates
-  // the unlink to paths strictly under <markerDir>/.codex-pair/state/ so a
-  // malformed transportUrl can never delete an arbitrary path.
-  const stalePath = extractSafeSocketPath(transportUrl, markerDir);
-  if (stalePath !== null) {
-    try {
-      unlinkSync(stalePath);
-    } catch {
-      // already gone (the common case) — fine
-    }
-  }
   const logFd = openSync(brokerLogPath(markerDir), "a");
   const child = spawn("codex", ["app-server", "--listen", transportUrl], {
     detached: true,
@@ -385,8 +366,8 @@ export async function bootstrapBroker(
       if (isPidAlive(previous.pid) && !expired) return previous;
       await teardownBroker(markerDir, { lockHeld: true, injectDeps });
     }
-    const transportUrl = chooseTransport(markerDir);
     isolatedHome = createIsolatedBrokerHome({ sourceHome: options.sourceHome });
+    const transportUrl = chooseTransport(isolatedHome);
     child = spawnFn(markerDir, transportUrl, isolatedHome);
 
     // Strict deadline enforcement. Previously used Math.max(100, ...) and
@@ -591,7 +572,7 @@ export function clearStaleBrokerState(markerDir: string): "absent" | "live" | "s
   if (typeof descriptor.transportUrl !== "string") {
     socketOk = false;
   } else if (descriptor.transportUrl.startsWith("unix://")) {
-    sockPath = extractSafeSocketPath(descriptor.transportUrl, markerDir);
+    sockPath = extractSafeSocketPath(descriptor.transportUrl, markerDir, descriptor.isolatedHome);
     if (sockPath === null) {
       socketOk = false; // unix:// outside bounds — descriptor was tampered
     } else {
@@ -620,26 +601,18 @@ export function clearStaleBrokerState(markerDir: string): "absent" | "live" | "s
   return "stale";
 }
 
-// Path-safety: validate that a unix:// socket path resolves under the
-// markerDir's state root before we agree to stat or unlink it. Per the
-// multi-review (Gemini Finding #4), a hostile or stale broker.json could
-// otherwise direct us to unlink arbitrary paths the user has write
-// permission to. Returns the safe socket path or null if invalid /
-// non-unix / outside-bounds.
-function extractSafeSocketPath(transportUrl: unknown, markerDir: string): string | null {
+// Path-safety: a descriptor may only point at a socket inside its own isolated home or, for
+// descriptors written before ADR-168, under the marker's state root.
+function extractSafeSocketPath(transportUrl: unknown, markerDir: string, isolatedHome?: unknown): string | null {
   if (typeof transportUrl !== "string" || !transportUrl.startsWith("unix://")) {
     return null;
   }
   const sockPath = transportUrl.slice("unix://".length);
   if (!sockPath) return null;
   const resolvedSock = resolvePath(sockPath);
-  const resolvedRoot = resolvePath(stateRoot(markerDir));
-  // Path must be exactly the state root or strictly nested under it.
-  // The boundary check guards against `/foo/bar/state-evil/x` matching
-  // `/foo/bar/state` via a substring prefix.
-  if (resolvedSock === resolvedRoot) return null; // can't unlink the root itself
-  if (resolvedSock.startsWith(`${resolvedRoot}/`)) return resolvedSock;
-  return null;
+  const roots = [resolvePath(stateRoot(markerDir))];
+  if (isIsolatedBrokerHome(isolatedHome)) roots.push(resolvePath(isolatedHome));
+  return roots.some((root) => resolvedSock.startsWith(`${root}/`)) ? resolvedSock : null;
 }
 
 // SessionEnd orchestrator. Reads the descriptor, signals the broker pid
@@ -686,7 +659,8 @@ export async function teardownBroker(
 export const __testing__ = {
   BROKER_LOCK_DIR,
   BROKER_LOG_FILE,
-  BROKER_SOCKET_PREFIX,
+  BROKER_SOCKET_FILE,
+  MAX_UNIX_SOCKET_PATH_BYTES,
   BOOTSTRAP_BUDGET_MS_DEFAULT,
   isPidAlive,
   killPidGracefully,

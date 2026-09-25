@@ -2745,12 +2745,10 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
   // descriptor write). End-to-end against a real `codex app-server` is
   // Milestone 4; these tests use injectDeps to mock spawn + initialize.
 
-  it("ADR-093 lifecycle: chooseTransport returns unix:// URL with sha256-of-markerDir suffix", async () => {
+  it("ADR-168 lifecycle: chooseTransport puts the socket in the isolated home and rejects overlong paths", async () => {
     const { chooseTransport } = await import("../../scripts/lib/broker-lifecycle.ts");
-    const url = chooseTransport("/project");
-    expect(url).toMatch(/^unix:\/\/.+\/\.codex-pair\/state\/codex-pair-broker\.[0-9a-f]{8}\.sock$/);
-    expect(chooseTransport("/project")).toBe(url);
-    expect(chooseTransport("/project2")).not.toBe(url);
+    expect(chooseTransport("/tmp/codex-pair-broker-abc123")).toBe("unix:///tmp/codex-pair-broker-abc123/broker.sock");
+    expect(() => chooseTransport(`/tmp/${"d".repeat(100)}`)).toThrow(/exceeds 103 bytes/);
   });
 
   it("ADR-093 lifecycle: acquireBrokerLock is atomic (first wins, second returns null)", async () => {
@@ -3238,36 +3236,40 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
 
   // ADR-095 debt-paydown — codex-pair-flagged bugs verified + fixed.
 
-  // Bug #5: the socket path is deterministic (sha256 of markerDir). If a
-  // broker is killed AFTER binding the unix socket but BEFORE its descriptor
-  // (broker.json) is written, the socket inode is orphaned. The next
-  // session's clearStaleBrokerState early-returns "absent" (no descriptor)
-  // and never cleans it, so the next bind hits EADDRINUSE and the broker is
-  // permanently unstartable for that project. spawnBroker must unlink the
-  // deterministic socket path before binding so an orphan can never block
-  // rebind. extractSafeSocketPath guards against unlinking arbitrary paths.
-  it("Bug#5: spawnBroker unlinks a stale orphaned socket at the deterministic path before binding", async () => {
-    const { spawnBroker, chooseTransport, createIsolatedBrokerHome, removeIsolatedBrokerHome } = await import(
+  it("ADR-168 lifecycle: a deep project path still gets a short socket inside the isolated home", async () => {
+    const { bootstrapBroker, clearStaleBrokerState, removeIsolatedBrokerHome } = await import(
       "../../scripts/lib/broker-lifecycle.ts"
     );
-    const transportUrl = chooseTransport(tempDir);
-    const sockPath = transportUrl.slice("unix://".length);
-    fs.mkdirSync(path.dirname(sockPath), { recursive: true });
-    // Simulate the orphaned socket inode left by a broker killed pre-descriptor.
-    fs.writeFileSync(sockPath, "");
-    expect(fs.existsSync(sockPath)).toBe(true);
-    const isolatedHome = createIsolatedBrokerHome({ sourceHome: tempDir });
-    const child = spawnBroker(tempDir, transportUrl, isolatedHome);
-    // The unlink is synchronous and happens before spawn binds, so the path
-    // is clear regardless of whether the real codex binary is installed.
-    expect(fs.existsSync(sockPath)).toBe(false);
-    // Don't leak the detached child (codex may or may not be on PATH).
+    const deep = path.join(tempDir, "d".repeat(120));
+    fs.mkdirSync(path.join(deep, ".codex-pair"), { recursive: true });
+    let spawnedHome = "";
+    let spawnedUrl = "";
+    const result = await bootstrapBroker(deep, {
+      injectDeps: {
+        spawnBroker: (_marker: string, url: string, home: string) => {
+          spawnedHome = home;
+          spawnedUrl = url;
+          fs.writeFileSync(url.slice("unix://".length), "");
+          return { pid: process.pid, kill: () => true, killed: false, exitCode: null } as ReturnType<typeof spawn>;
+        },
+        pollSocketReachable: async () => true,
+        initializeBroker: async () => ({
+          // biome-ignore lint/suspicious/noExplicitAny: test mock
+          connection: { close: () => {} } as any,
+          // biome-ignore lint/suspicious/noExplicitAny: test mock
+          rpc: {} as any,
+          initializeResult: { codexHome: spawnedHome },
+        }),
+        readCodexVersion: () => "codex-cli test",
+      },
+    });
     try {
-      child.kill("SIGKILL");
-    } catch {
-      // best-effort
+      expect(result?.transportUrl).toBe(`unix://${path.join(spawnedHome, "broker.sock")}`);
+      expect(Buffer.byteLength(spawnedUrl.slice("unix://".length))).toBeLessThanOrEqual(103);
+      expect(clearStaleBrokerState(deep)).toBe("live");
+    } finally {
+      removeIsolatedBrokerHome(spawnedHome);
     }
-    removeIsolatedBrokerHome(isolatedHome);
   });
 
   it("ADR-095 lifecycle: clearStaleBrokerState treats unknown-scheme transport URLs as stale", async () => {
