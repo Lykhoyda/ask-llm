@@ -532,16 +532,13 @@ describe("scripts/codex-pair-watch.mjs — structural invariants (ADR-077)", () 
   });
 
   it("runCodexWithFallback wraps spawnCodexWithRetry (not raw spawnCodex)", () => {
-    const block = script.match(/async function runCodexWithFallback[\s\S]*?^\}\s*$/m);
-    const ladder = script.match(/async function runFallbackModel[\s\S]*?^\}\s*$/m);
-    expect(block).toBeTruthy();
-    expect(ladder).toBeTruthy();
-    const body = `${block?.[0] ?? ""}${ladder?.[0] ?? ""}`;
-    // Use the retry-wrapping spawner, not the raw one
-    expect(body).toMatch(/spawnCodexWithRetry/);
-    // Quota fallback path also goes through retry wrapper
-    const retryCallCount = (body.match(/spawnCodexWithRetry/g) ?? []).length;
-    expect(retryCallCount).toBeGreaterThanOrEqual(2);
+    const primary = script.match(/async function runCodexWithFallback[\s\S]*?^\}\s*$/m)?.[0] ?? "";
+    const ladder = script.match(/async function runFallbackModel[\s\S]*?^\}\s*$/m)?.[0] ?? "";
+    // The primary model retries unless a transient broker failure already used that retry.
+    expect(primary).toMatch(/retryPrimary \? await spawnCodexWithRetry\(call\) : await spawnCodex\(call\)/);
+    // The quota fallback model always goes through the retry wrapper.
+    expect(ladder).toMatch(/spawnCodexWithRetry/);
+    expect(ladder).not.toMatch(/[^.\w]spawnCodex\(/);
   });
 
   it("codex-pair-log CLI declares all four subcommands plus --since filter", () => {
