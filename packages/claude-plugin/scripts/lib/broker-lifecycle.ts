@@ -24,6 +24,7 @@ import {
   openSync,
   readFileSync,
   realpathSync,
+  renameSync,
   rmSync,
   statSync,
   symlinkSync,
@@ -163,51 +164,77 @@ export function acquireBrokerLock(markerDir: string): string | null {
       return lockPath;
     } catch (err) {
       if ((err as NodeJS.ErrnoException)?.code !== "EEXIST") throw err;
-      if (attempt > 0 || !isAbandonedLock(lockPath)) return null;
-      // ponytail: two starts reclaiming the same dead lock at once can both win; the loser's broker
-      // is then untracked. A rename-based handoff would close it if that ever shows up.
-      recoverAbandonedBootstrap(lockPath);
-      rmSync(lockPath, { recursive: true, force: true });
+      if (attempt > 0 || !reclaimAbandonedLock(lockPath)) return null;
     }
   }
   return null;
 }
 
-function isAbandonedLock(lockPath: string): boolean {
+function readLockFile(lockPath: string, file: string): string | null {
   try {
-    const ageMs = Date.now() - statSync(lockPath).mtimeMs;
-    if (ageMs > LOCK_STALE_MS) return true;
-    const owner = JSON.parse(readFileSync(join(lockPath, LOCK_OWNER_FILE), "utf-8"));
-    return !isPidAlive(owner?.pid);
+    return readFileSync(join(lockPath, file), "utf-8");
+  } catch {
+    return null;
+  }
+}
+
+// The rename hands the abandoned lock to exactly one reclaimer; if what it moved is not the lock it
+// judged abandoned (someone reclaimed and re-acquired first), it hands that lock straight back.
+function reclaimAbandonedLock(lockPath: string): boolean {
+  const owner = readLockFile(lockPath, LOCK_OWNER_FILE);
+  if (!isAbandonedLock(lockPath, owner)) return false;
+  const claimed = `${lockPath}.abandoned.${process.pid}.${Date.now()}`;
+  try {
+    renameSync(lockPath, claimed);
+  } catch {
+    return false;
+  }
+  if (readLockFile(claimed, LOCK_OWNER_FILE) !== owner) {
+    try {
+      renameSync(claimed, lockPath);
+    } catch {}
+    return false;
+  }
+  recoverAbandonedBootstrap(claimed);
+  rmSync(claimed, { recursive: true, force: true });
+  return true;
+}
+
+function isAbandonedLock(lockPath: string, owner: string | null): boolean {
+  try {
+    if (Date.now() - statSync(lockPath).mtimeMs > LOCK_STALE_MS) return true;
+    return owner !== null && !isPidAlive(JSON.parse(owner)?.pid);
   } catch {
     return false;
   }
 }
 
+// The transport is recorded before spawning, so a broker orphaned at any point is found by it.
 function recoverAbandonedBootstrap(lockPath: string): void {
-  let spawned: Partial<BrokerDescriptor>;
+  let spawned: { isolatedHome?: unknown; transportUrl?: unknown };
   try {
-    spawned = JSON.parse(readFileSync(join(lockPath, LOCK_SPAWN_FILE), "utf-8"));
+    spawned = JSON.parse(readLockFile(lockPath, LOCK_SPAWN_FILE) ?? "");
+    if (!isIsolatedBrokerHome(spawned.isolatedHome)) return;
+    if (spawned.transportUrl !== chooseTransport(spawned.isolatedHome)) return;
   } catch {
     return;
   }
-  if (typeof spawned.pid === "number" && typeof spawned.transportUrl === "string") {
-    const orphan = { pid: spawned.pid, transportUrl: spawned.transportUrl };
-    if (isRecordedBroker(orphan)) {
+  for (const pid of findBrokerPids(spawned.transportUrl)) {
+    try {
+      process.kill(-pid, "SIGKILL");
+    } catch {
       try {
-        process.kill(-orphan.pid, "SIGKILL");
-      } catch {
-        try {
-          process.kill(orphan.pid, "SIGKILL");
-        } catch {}
-      }
+        process.kill(pid, "SIGKILL");
+      } catch {}
     }
   }
   removeIsolatedBrokerHome(spawned.isolatedHome);
 }
 
-function recordBootstrapSpawn(lockPath: string, spawned: Partial<BrokerDescriptor>): void {
-  writeFileSync(join(lockPath, LOCK_SPAWN_FILE), JSON.stringify(spawned));
+function recordBootstrapSpawn(lockPath: string, spawned: { isolatedHome: string; transportUrl: string }): void {
+  const file = join(lockPath, LOCK_SPAWN_FILE);
+  writeFileSync(`${file}.tmp`, JSON.stringify(spawned));
+  renameSync(`${file}.tmp`, file);
 }
 
 export function releaseBrokerLock(lockPath: string | null): void {
@@ -413,7 +440,6 @@ export async function bootstrapBroker(
     const transportUrl = chooseTransport(isolatedHome);
     recordBootstrapSpawn(lockPath, { isolatedHome, transportUrl });
     child = spawnFn(markerDir, transportUrl, isolatedHome);
-    recordBootstrapSpawn(lockPath, { isolatedHome, transportUrl, pid: child.pid });
 
     // Strict deadline enforcement. Previously used Math.max(100, ...) and
     // Math.max(500, ...) as floors — codex-pair repeatedly flagged that
@@ -545,15 +571,32 @@ export function isRecordedBroker(descriptor: Pick<BrokerDescriptor, "pid" | "tra
       encoding: "utf-8",
       timeout: 2000,
     });
-    const argv = args.trim().split(/\s+/);
-    const at = argv.indexOf("app-server");
-    return (
-      at > 0 &&
-      /^codex(\.\w+)?$/.test(basename(argv[at - 1])) &&
-      argv.slice(at + 1).join(" ") === `--listen ${descriptor.transportUrl}`
-    );
+    return isBrokerCommand(args, descriptor.transportUrl);
   } catch {
     return false;
+  }
+}
+
+function isBrokerCommand(args: string, transportUrl: string): boolean {
+  const argv = args.trim().split(/\s+/);
+  const at = argv.indexOf("app-server");
+  return (
+    at > 0 &&
+    /^codex(\.\w+)?$/.test(basename(argv[at - 1])) &&
+    argv.slice(at + 1).join(" ") === `--listen ${transportUrl}`
+  );
+}
+
+function findBrokerPids(transportUrl: string): number[] {
+  if (IS_WINDOWS) return [];
+  try {
+    const table = execFileSync("ps", ["-ax", "-ww", "-o", "pid=,args="], { encoding: "utf-8", timeout: 2000 });
+    return table.split("\n").flatMap((line) => {
+      const row = line.match(/^\s*(\d+)\s+(.*)$/);
+      return row && isBrokerCommand(row[2], transportUrl) ? [Number(row[1])] : [];
+    });
+  } catch {
+    return [];
   }
 }
 

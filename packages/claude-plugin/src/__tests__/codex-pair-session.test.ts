@@ -20,6 +20,15 @@ import { PLUGIN_ROOT } from "./_helpers.js";
 
 const SESSION_PATH = path.join(PLUGIN_ROOT, "scripts", "codex-pair-session.mjs");
 
+async function until(check: () => boolean, timeoutMs = 5000): Promise<boolean> {
+  const deadline = Date.now() + timeoutMs;
+  while (!check()) {
+    if (Date.now() > deadline) return false;
+    await new Promise((resolve) => setTimeout(resolve, 25));
+  }
+  return true;
+}
+
 describe("codex-pair session hooks", () => {
   let repo: string;
   const session = `cp-session-clear-${process.pid}`;
@@ -241,7 +250,7 @@ describe("codex-pair session hooks", () => {
       },
     );
     try {
-      await new Promise((resolve) => setTimeout(resolve, 300));
+      expect(await until(() => isRecordedBroker({ pid: broker.pid as number, transportUrl }))).toBe(true);
       expect(isRecordedBroker({ pid: lookalike.pid as number, transportUrl })).toBe(false);
       expect(isRecordedBroker({ pid: broker.pid as number, transportUrl: `${transportUrl}x` })).toBe(false);
       expect(isRecordedBroker({ pid: broker.pid as number, transportUrl })).toBe(true);
@@ -254,8 +263,7 @@ describe("codex-pair session hooks", () => {
         startedAt: new Date().toISOString(),
       });
       await teardownBroker(repo, { sessionId: "E", graceMs: 1000 });
-      await new Promise((resolve) => setTimeout(resolve, 200));
-      expect(broker.exitCode !== null || broker.signalCode !== null).toBe(true);
+      expect(await until(() => broker.exitCode !== null || broker.signalCode !== null)).toBe(true);
       expect(lookalike.exitCode === null && lookalike.signalCode === null).toBe(true);
     } finally {
       broker.kill("SIGKILL");
@@ -279,11 +287,11 @@ describe("codex-pair session hooks", () => {
     fs.writeFileSync(path.join(lock, "owner.json"), JSON.stringify({ pid: Number(deadOwner.stdout), at: Date.now() }));
     fs.writeFileSync(
       path.join(lock, "spawn.json"),
-      JSON.stringify({ pid: orphan.pid, transportUrl: orphanUrl, isolatedHome: orphanHome }),
+      JSON.stringify({ transportUrl: orphanUrl, isolatedHome: orphanHome }),
     );
     let spawnedHome = "";
     try {
-      await new Promise((resolve) => setTimeout(resolve, 300));
+      expect(await until(() => isRecordedBroker({ pid: orphan.pid as number, transportUrl: orphanUrl }))).toBe(true);
       const result = await bootstrapBroker(repo, {
         sessionId: "F",
         sourceHome: repo,
@@ -304,9 +312,8 @@ describe("codex-pair session hooks", () => {
           readCodexVersion: () => "test",
         },
       });
-      await new Promise((resolve) => setTimeout(resolve, 200));
       expect(result?.sessionId).toBe("F");
-      expect(orphan.exitCode !== null || orphan.signalCode !== null).toBe(true);
+      expect(await until(() => orphan.exitCode !== null || orphan.signalCode !== null)).toBe(true);
       expect(fs.existsSync(orphanHome)).toBe(false);
       expect(fs.existsSync(lock)).toBe(false);
     } finally {
