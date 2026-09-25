@@ -97,8 +97,14 @@ const SOCKET_POLL_INTERVAL_MS = 100;
 const ISOLATED_HOME_PREFIX = "codex-pair-broker-";
 const BROKER_OWNER_TTL_MS = 24 * 60 * 60 * 1000;
 
+function sourceCodexHome(sourceHome?: string): string {
+  return sourceHome ?? process.env.CODEX_HOME ?? join(homedir(), ".codex");
+}
+
+// auth.json is shared by link, not copied: Codex rewrites it in place (verified on 0.156.1), so a
+// token refresh by the broker lands in the user's own credentials instead of a diverging copy.
 export function createIsolatedBrokerHome(options: { sourceHome?: string; tempRoot?: string } = {}): string {
-  const sourceHome = options.sourceHome ?? process.env.CODEX_HOME ?? join(homedir(), ".codex");
+  const sourceHome = sourceCodexHome(options.sourceHome);
   const home = mkdtempSync(join(options.tempRoot ?? tmpdir(), ISOLATED_HOME_PREFIX));
   try {
     chmodSync(home, 0o700);
@@ -420,6 +426,8 @@ export async function bootstrapBroker(
   const initFn = injectDeps?.initializeBroker ?? initializeBroker;
   const pollFn = injectDeps?.pollSocketReachable ?? pollSocketReachable;
   const versionFn = injectDeps?.readCodexVersion ?? readCodexVersion;
+  // Without shared file credentials (keyring or environment keys) a broker could only fail its turns.
+  if (!existsSync(join(sourceCodexHome(options.sourceHome), "auth.json"))) return null;
 
   const lockPath = acquireBrokerLock(markerDir);
   if (!lockPath) return null; // another SessionStart holds the lock

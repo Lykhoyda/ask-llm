@@ -37,6 +37,7 @@ describe("codex-pair session hooks", () => {
     repo = fs.mkdtempSync(path.join(os.tmpdir(), "cp-session-"));
     fs.mkdirSync(path.join(repo, ".codex-pair"), { recursive: true });
     fs.writeFileSync(path.join(repo, ".codex-pair", "context.md"), "# ctx");
+    fs.writeFileSync(path.join(repo, "auth.json"), "{}");
   });
   afterEach(() => {
     clearSession(session);
@@ -332,6 +333,24 @@ describe("codex-pair session hooks", () => {
     fs.writeFileSync(path.join(lock, "owner.json"), JSON.stringify({ pid: process.pid, at: Date.now() }));
     expect(await bootstrapBroker(repo, { sessionId: "G", sourceHome: repo })).toBeNull();
     expect(fs.existsSync(lock)).toBe(true);
+  });
+
+  it("does not start a broker without file credentials to share", async () => {
+    fs.rmSync(path.join(repo, "auth.json"));
+    let spawned = false;
+    const result = await bootstrapBroker(repo, {
+      sessionId: "H",
+      sourceHome: repo,
+      injectDeps: {
+        spawnBroker: () => {
+          spawned = true;
+          return { pid: 2 ** 22 + 3, kill: () => true };
+        },
+      },
+    });
+    expect(result).toBeNull();
+    expect(spawned).toBe(false);
+    expect(fs.existsSync(path.join(repo, ".codex-pair", "state", "broker.lock"))).toBe(false);
   });
 
   it("creates a private broker home with only auth and disabled apps", () => {

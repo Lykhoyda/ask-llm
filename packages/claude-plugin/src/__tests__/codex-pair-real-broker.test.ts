@@ -121,3 +121,29 @@ it.skipIf(!enabled)(
   },
   120_000,
 );
+
+it.skipIf(!enabled)("lets real Codex rewrite shared credentials in place through the isolated home's link", () => {
+  const root = fs.mkdtempSync(path.join("/tmp", "cp-real-auth-"));
+  let isolatedHome: string | undefined;
+  try {
+    const sourceHome = path.join(root, "source-home");
+    fs.mkdirSync(sourceHome);
+    const credentials = path.join(sourceHome, "auth.json");
+    fs.writeFileSync(credentials, JSON.stringify({ OPENAI_API_KEY: "sk-before-dummy" }), { mode: 0o600 });
+    const inode = fs.statSync(credentials).ino;
+    isolatedHome = createIsolatedBrokerHome({ sourceHome });
+    const login = spawnSync("codex", ["login", "--with-api-key"], {
+      input: "sk-after-dummy\n",
+      env: { ...process.env, CODEX_HOME: isolatedHome },
+      encoding: "utf-8",
+      timeout: 30_000,
+    });
+    expect(login.status).toBe(0);
+    expect(fs.lstatSync(path.join(isolatedHome, "auth.json")).isSymbolicLink()).toBe(true);
+    expect(fs.statSync(credentials).ino).toBe(inode);
+    expect(fs.readFileSync(credentials, "utf-8")).toContain("sk-after-dummy");
+  } finally {
+    if (isolatedHome) removeIsolatedBrokerHome(isolatedHome);
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
