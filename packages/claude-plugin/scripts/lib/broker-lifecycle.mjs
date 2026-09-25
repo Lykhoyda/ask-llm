@@ -37,7 +37,7 @@ export function createIsolatedBrokerHome(options = {}) {
         chmodSync(home, 0o700);
         const auth = join(sourceHome, "auth.json");
         if (existsSync(auth))
-            symlinkSync(realpathSync(auth), join(home, "auth.json"));
+            symlinkSync(auth, join(home, "auth.json"));
         writeFileSync(join(home, "config.toml"), "[features]\napps = false\n", { mode: 0o600 });
         return home;
     }

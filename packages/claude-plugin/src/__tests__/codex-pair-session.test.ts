@@ -354,6 +354,8 @@ describe("codex-pair session hooks", () => {
   });
 
   it("retires a recorded broker once its source credentials are removed", async () => {
+    const priorBrokerPreference = process.env.ASK_CODEX_BROKER;
+    process.env.ASK_CODEX_BROKER = "1";
     fs.mkdirSync(path.join(repo, ".codex-pair", "state"), { recursive: true });
     const home = createIsolatedBrokerHome({ sourceHome: repo });
     await writeBrokerDescriptor(repo, {
@@ -391,6 +393,37 @@ describe("codex-pair session hooks", () => {
       expect(fs.existsSync(path.join(repo, ".codex-pair", "state", "broker.json"))).toBe(false);
       expect(fs.existsSync(home)).toBe(false);
     } finally {
+      if (priorBrokerPreference === undefined) delete process.env.ASK_CODEX_BROKER;
+      else process.env.ASK_CODEX_BROKER = priorBrokerPreference;
+      removeIsolatedBrokerHome(home);
+    }
+  });
+
+  it("stops using a broker when symlinked source credentials are removed", async () => {
+    const priorBrokerPreference = process.env.ASK_CODEX_BROKER;
+    process.env.ASK_CODEX_BROKER = "1";
+    fs.mkdirSync(path.join(repo, ".codex-pair", "state"), { recursive: true });
+    const auth = path.join(repo, "auth.json");
+    const credential = path.join(repo, "scratch-credential.json");
+    fs.rmSync(auth);
+    fs.writeFileSync(credential, "{}");
+    fs.symlinkSync(credential, auth);
+    const home = createIsolatedBrokerHome({ sourceHome: repo });
+    try {
+      await writeBrokerDescriptor(repo, {
+        pid: process.pid,
+        transportUrl: chooseTransport(home),
+        sessionId: "symlinked-source",
+        isolatedHome: home,
+        protocolVersion: "v2",
+        startedAt: new Date().toISOString(),
+      });
+      expect(isBrokerEnabled(repo)).toBe(true);
+      fs.rmSync(auth);
+      expect(isBrokerEnabled(repo)).toBe(false);
+    } finally {
+      if (priorBrokerPreference === undefined) delete process.env.ASK_CODEX_BROKER;
+      else process.env.ASK_CODEX_BROKER = priorBrokerPreference;
       removeIsolatedBrokerHome(home);
     }
   });
