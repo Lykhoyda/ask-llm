@@ -9,7 +9,7 @@ import {
   createIsolatedBrokerHome,
   removeIsolatedBrokerHome,
   writeBrokerDescriptor,
-} from "../../scripts/lib/broker-lifecycle.ts";
+} from "../../scripts/lib/broker-lifecycle.mts";
 import { PLUGIN_ROOT } from "./_helpers.js";
 
 type Scenario = "timeout" | "rejection" | "missing_id" | "start_close" | "completion_close" | { failedTurn: string };
@@ -142,7 +142,7 @@ async function runBrokerEdit(scenario: Scenario, fakeCodexScenario: string, seed
       ASK_CODEX_DEBOUNCE_MS: "0",
     };
     delete env.ASK_CODEX_BROKER;
-    const child = spawn(process.execPath, [path.join(PLUGIN_ROOT, "scripts", "codex-pair-watch.ts")], {
+    const child = spawn(process.execPath, [path.join(PLUGIN_ROOT, "scripts", "codex-pair-watch.mjs")], {
       cwd: repo,
       env,
       stdio: ["pipe", "pipe", "pipe"],

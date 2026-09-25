@@ -3,14 +3,14 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { expect, it } from "vitest";
-import { initializeBroker } from "../../scripts/lib/broker.ts";
+import { initializeBroker } from "../../scripts/lib/broker.mts";
 import {
   chooseTransport,
   createIsolatedBrokerHome,
   pollSocketReachable,
   removeIsolatedBrokerHome,
   spawnBroker,
-} from "../../scripts/lib/broker-lifecycle.ts";
+} from "../../scripts/lib/broker-lifecycle.mts";
 
 const enabled =
   process.env.CODEX_PAIR_REAL_BROKER_TEST === "1" &&

@@ -108,7 +108,7 @@ The broker runs `codex app-server` in a private temporary Codex home without use
 
 Startup, transport, health, and protocol failures use the per-edit `codex exec` path. A quota error from the broker goes straight to the fallback model, and a transient provider error (502/503/504, connection resets) gets one direct retry, so a review ends the same way with or without the broker. The broker socket lives inside its private home, so deep project paths do not matter. A recorded broker is only signaled or reused while its process is still `codex app-server` on the recorded socket; a dead process or an expired 24-hour owner lease is replaced on the next SessionStart. A SessionStart killed mid-start is recovered by the next one, which stops the broker it spawned. Overlapping Claude sessions in one project share one broker: when the session that started it ends, the others review through `codex exec` until a new session starts one.
 
-Cold start measured under one second and warm reviews were no faster, so default-on is not a latency promise. The hooks and the broker are TypeScript run directly by Node and need Node 24 (the current LTS) or newer; installs under `node_modules` load them through the bundled `strip-types.mjs` loader because Node does not strip types there.
+Cold start measured under one second and warm reviews were no faster, so default-on is not a latency promise. The hooks and the broker are written in TypeScript and ship as generated JavaScript, so they run from a marketplace checkout or an npm install without a build step; they support Node 24 (the current LTS) or newer.
 
 ### Auto-pause is self-healing
 
@@ -235,7 +235,7 @@ Point at the local repo source via `$PWD` so the path resolves to whatever direc
         "hooks": [
           {
             "type": "command",
-            "command": "sh -c 'node \"$PWD/packages/claude-plugin/scripts/codex-pair-watch.ts\"'"
+            "command": "sh -c 'node \"$PWD/packages/claude-plugin/scripts/codex-pair-watch.mjs\"'"
           }
         ]
       }
@@ -261,7 +261,7 @@ Resolve the highest semver-sorted version from the cache at invocation time with
         "hooks": [
           {
             "type": "command",
-            "command": "node -e \"try { const fs=require('fs'),cp=require('child_process'),p=process.env.HOME+'/.claude/plugins/cache/ask-llm-plugins/ask-llm'; const v=fs.readdirSync(p).sort((a,b)=>a.localeCompare(b,undefined,{numeric:true})).at(-1); if(v) process.exitCode=cp.spawnSync(process.execPath,[p+'/'+v+'/scripts/codex-pair-watch.ts'],{stdio:'inherit'}).status??0; } catch {}\""
+            "command": "node -e \"try { const fs=require('fs'),cp=require('child_process'),p=process.env.HOME+'/.claude/plugins/cache/ask-llm-plugins/ask-llm'; const v=fs.readdirSync(p).sort((a,b)=>a.localeCompare(b,undefined,{numeric:true})).at(-1); if(v) process.exitCode=cp.spawnSync(process.execPath,[p+'/'+v+'/scripts/codex-pair-watch.mjs'],{stdio:'inherit'}).status??0; } catch {}\""
           }
         ]
       }

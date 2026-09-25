@@ -1,8 +1,18 @@
 # Architectural Decisions
 
+## ADR-170: Codex-pair hooks are TypeScript sources shipped as committed generated JavaScript
+
+**Status:** Accepted (2026-09-25). Supersedes ADR-169.
+
+**Context:** The captain chose that authored hook and broker source must be TypeScript v7, that JavaScript may exist only as generated distribution output, and that the hand-written `strip-types.mjs` loader must go; support stays at the latest Node LTS (24). Claude marketplace `git-subdir` installs run the checked-in files with no install or build step, and npm installs place the package under `node_modules`, where Node refuses to strip TypeScript.
+
+**Decision:** The hook entry points (`scripts/codex-pair-{stop-gate,watch,session,prompt-drain,debounce-worker}.mts`), the broker (`scripts/lib/broker{,-lifecycle,-rpc,-transport}.mts`), and `scripts/lib/frontmatter.mts` are the source of truth. `yarn workspace @ask-llm/plugin build:hooks` (also part of `build`) runs `tsc -p scripts/tsconfig.json` with TypeScript 7 and `rewriteRelativeImportExtensions`, emitting each sibling `.mjs` in place; those generated `.mjs` files are committed because git-subdir installs cannot build them. `hooks/hooks.json` runs the generated `scripts/<hook>.mjs` exactly as before this work, with no loader or Node flags, so both install layouts execute plain JavaScript. `generated-hooks.test.ts` regenerates into a temporary directory and fails if any committed `.mjs` differs, so generated output is never hand-edited; Biome skips the generated files. The shared helpers the hooks import (`state`, `parser`, `prompt`, `process`, `debounce-state`, `session-registry`, `stop-gate`) remain hand-written JavaScript typed by `.d.mts` declarations; converting them is a follow-up outside the broker and hook scope. `engines.node` stays `>=24.0.0`.
+
+**Consequences:** Marketplace and npm installs behave identically and need no type stripping, experimental Node API, or install hook. Every change to a hook or broker `.mts` must be followed by `build:hooks` and committed together with its generated `.mjs`; CI enforces this through the drift test.
+
 ## ADR-169: Codex-pair hooks run from TypeScript on Node 24
 
-**Status:** Accepted (2026-09-25). Supersedes ADR-167's `.mjs` entry points and Node 22.18 broker threshold.
+**Status:** Superseded by ADR-170 (2026-09-25). Superseded ADR-167's `.mjs` entry points and Node 22.18 broker threshold.
 
 **Context:** The captain asked for TypeScript (v7) and for supporting only the latest Node LTS, which is Node 24. Hooks must run as checked in, with no install or build step, from both the marketplace `git-subdir` cache and an npm install. Node strips erasable TypeScript natively except under `node_modules`, where it refuses with `ERR_UNSUPPORTED_NODE_MODULES_TYPE_STRIPPING`.
 

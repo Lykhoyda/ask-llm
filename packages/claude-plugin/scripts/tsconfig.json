@@ -2,17 +2,18 @@
   "extends": "../../../tsconfig.base.json",
   "compilerOptions": {
     "composite": false,
-    "noEmit": true,
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
     "rootDir": ".",
-    "allowJs": true,
-    "checkJs": false,
-    "allowImportingTsExtensions": true,
+    "allowJs": false,
+    "rewriteRelativeImportExtensions": true,
     "erasableSyntaxOnly": true,
     "verbatimModuleSyntax": true,
+    "declaration": false,
+    "declarationMap": false,
+    "sourceMap": false,
     "types": ["node"],
     "lib": ["ES2023"]
   },
-  "include": ["*.ts", "lib/**/*.ts"]
+  "include": ["*.mts", "lib/**/*.mts"]
 }

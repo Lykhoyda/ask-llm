@@ -275,8 +275,8 @@ describe("lib/state.mjs — self-healing auto-pause (2026-07-02 seamless-pairing
   });
 });
 
-describe("codex-pair-session.ts — SessionStart pause notice / auto-resume (runtime)", () => {
-  const SESSION_PATH = path.join(PLUGIN_ROOT, "scripts", "codex-pair-session.ts");
+describe("codex-pair-session.mjs — SessionStart pause notice / auto-resume (runtime)", () => {
+  const SESSION_PATH = path.join(PLUGIN_ROOT, "scripts", "codex-pair-session.mjs");
   let dir: string;
   beforeEach(() => {
     dir = fs.mkdtempSync(path.join(os.tmpdir(), "session-pause-"));

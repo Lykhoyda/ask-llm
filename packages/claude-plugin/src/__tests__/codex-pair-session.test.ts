@@ -3,7 +3,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { resolveBrokerPreference } from "../../scripts/lib/broker.ts";
+import { resolveBrokerPreference } from "../../scripts/lib/broker.mts";
 import {
   bootstrapBroker,
   chooseTransport,
@@ -13,12 +13,12 @@ import {
   spawnBroker,
   teardownBroker,
   writeBrokerDescriptor,
-} from "../../scripts/lib/broker-lifecycle.ts";
+} from "../../scripts/lib/broker-lifecycle.mts";
 import { bumpEditRecord, readEditRecord } from "../../scripts/lib/debounce-state.mjs";
 import { clearSession, readRegisteredMarkers, registerMarker } from "../../scripts/lib/session-registry.mjs";
 import { PLUGIN_ROOT } from "./_helpers.js";
 
-const SESSION_PATH = path.join(PLUGIN_ROOT, "scripts", "codex-pair-session.ts");
+const SESSION_PATH = path.join(PLUGIN_ROOT, "scripts", "codex-pair-session.mjs");
 
 async function until(check: () => boolean, timeoutMs = 5000): Promise<boolean> {
   const deadline = Date.now() + timeoutMs;
@@ -428,7 +428,7 @@ describe("codex-pair session hooks", () => {
         ASK_CODEX_DEBOUNCE_MS: "0",
       };
       delete env.ASK_CODEX_BROKER;
-      const res = spawnSync("node", [path.join(PLUGIN_ROOT, "scripts", "codex-pair-watch.ts")], {
+      const res = spawnSync("node", [path.join(PLUGIN_ROOT, "scripts", "codex-pair-watch.mjs")], {
         input: JSON.stringify({ tool_name: "Edit", tool_input: { file_path: file }, session_id: session }),
         cwd: repo,
         env,
@@ -443,7 +443,7 @@ describe("codex-pair session hooks", () => {
     }
   });
 
-  it("runs the registered hook commands from TypeScript when installed under node_modules", () => {
+  it("runs the registered hook commands from an npm install under node_modules", () => {
     const root = path.join(repo, "node_modules", "@ask-llm", "plugin");
     fs.mkdirSync(root, { recursive: true });
     for (const entry of ["hooks", "scripts", "prompts", "package.json", "codex-pair-defaults.json"]) {
@@ -454,7 +454,7 @@ describe("codex-pair session hooks", () => {
     fs.writeFileSync(file, "export const ready = true;\n");
     const hooks = JSON.parse(fs.readFileSync(path.join(root, "hooks", "hooks.json"), "utf8")).hooks;
     const command = (event: string) =>
-      (hooks[event][0].hooks[0].command as string).replaceAll("${CLAUDE_PLUGIN_ROOT}", root).split(" ");
+      (hooks[event][0].hooks[0].command as string).replaceAll(["$", "{CLAUDE_PLUGIN_ROOT}"].join(""), root).split(" ");
     const env = {
       ...process.env,
       PATH: `${path.join(PLUGIN_ROOT, "src", "__tests__", "_fixtures")}:${process.env.PATH}`,

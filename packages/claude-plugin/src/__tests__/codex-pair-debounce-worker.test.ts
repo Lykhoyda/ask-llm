@@ -6,11 +6,11 @@ import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { PLUGIN_ROOT, readFile } from "./_helpers.js";
 
-const WORKER_PATH = path.join(PLUGIN_ROOT, "scripts", "codex-pair-debounce-worker.ts");
+const WORKER_PATH = path.join(PLUGIN_ROOT, "scripts", "codex-pair-debounce-worker.mjs");
 const FIXTURE_DIR = path.join(PLUGIN_ROOT, "src", "__tests__", "_fixtures");
 
-describe("scripts/codex-pair-debounce-worker.ts — structural invariants", () => {
-  const script = readFile("scripts/codex-pair-debounce-worker.ts");
+describe("scripts/codex-pair-debounce-worker.mjs — structural invariants", () => {
+  const script = readFile("scripts/codex-pair-debounce-worker.mts");
 
   it("has a node shebang and is executable", () => {
     expect(script.startsWith("#!/usr/bin/env node")).toBe(true);
@@ -30,7 +30,7 @@ describe("scripts/codex-pair-debounce-worker.ts — structural invariants", () =
   });
 });
 
-describe("scripts/codex-pair-debounce-worker.ts — runtime behavior", () => {
+describe("scripts/codex-pair-debounce-worker.mjs — runtime behavior", () => {
   let dir: string;
   beforeEach(() => {
     dir = fs.mkdtempSync(path.join(os.tmpdir(), "debounce-worker-"));
