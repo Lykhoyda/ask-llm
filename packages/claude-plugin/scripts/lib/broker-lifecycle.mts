@@ -295,12 +295,7 @@ function probeOnce(transportUrl: string): Promise<boolean> {
   });
 }
 
-// Sleep helper. Previously unref'd the timer, which codex-pair flagged
-// repeatedly in M2: a unref'd timer lets Node exit before the awaited
-// promise resolves if no other ref holds the event loop open. Result:
-// SessionStart could exit mid-bootstrap, orphaning the partially-spawned
-// codex process. The bootstrap's wall-clock budget is enforced at the
-// deadline-check call sites, NOT by relying on idle-exit semantics.
+// Keep this timer referenced so SessionStart cannot exit mid-bootstrap and orphan the broker.
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
