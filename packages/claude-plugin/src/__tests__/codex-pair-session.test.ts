@@ -272,56 +272,59 @@ describe("codex-pair session hooks", () => {
     }
   });
 
-  it("reclaims a lock abandoned by a killed bootstrap and stops the broker it spawned", async () => {
-    const stateDir = path.join(repo, ".codex-pair", "state");
-    const lock = path.join(stateDir, "broker.lock");
-    fs.mkdirSync(lock, { recursive: true });
-    const orphanHome = createIsolatedBrokerHome({ sourceHome: repo });
-    const orphanUrl = chooseTransport(orphanHome);
-    const fakeCodex = path.join(repo, "codex");
-    fs.writeFileSync(fakeCodex, "#!/usr/bin/env node\nsetTimeout(() => {}, 30000);\n", { mode: 0o755 });
-    const orphan = spawn(fakeCodex, ["app-server", "--listen", orphanUrl], { detached: true, stdio: "ignore" });
-    const deadOwner = spawnSync(process.execPath, ["-e", "process.stdout.write(String(process.pid))"], {
-      encoding: "utf-8",
-    });
-    fs.writeFileSync(path.join(lock, "owner.json"), JSON.stringify({ pid: Number(deadOwner.stdout), at: Date.now() }));
-    fs.writeFileSync(
-      path.join(lock, "spawn.json"),
-      JSON.stringify({ transportUrl: orphanUrl, isolatedHome: orphanHome }),
-    );
-    let spawnedHome = "";
-    try {
-      expect(await until(() => isRecordedBroker({ pid: orphan.pid as number, transportUrl: orphanUrl }))).toBe(true);
-      const result = await bootstrapBroker(repo, {
-        sessionId: "F",
-        sourceHome: repo,
-        injectDeps: {
-          spawnBroker: (_marker: string, _url: string, home: string) => {
-            spawnedHome = home;
-            return { pid: 2 ** 22 + 2, kill: () => true };
-          },
-          pollSocketReachable: async () => true,
-          initializeBroker: async () => ({
-            connection: { close: () => {} },
-            initializeResult: {
-              get codexHome() {
-                return spawnedHome;
-              },
-            },
-          }),
-          readCodexVersion: () => "test",
-        },
+  it.each(["spawn.json", "spawn.json.tmp"])(
+    "reclaims a lock abandoned by a killed bootstrap (%s) and stops its broker",
+    async (record) => {
+      const stateDir = path.join(repo, ".codex-pair", "state");
+      const lock = path.join(stateDir, "broker.lock");
+      fs.mkdirSync(lock, { recursive: true });
+      const orphanHome = createIsolatedBrokerHome({ sourceHome: repo });
+      const orphanUrl = chooseTransport(orphanHome);
+      const fakeCodex = path.join(repo, "codex");
+      fs.writeFileSync(fakeCodex, "#!/usr/bin/env node\nsetTimeout(() => {}, 30000);\n", { mode: 0o755 });
+      const orphan = spawn(fakeCodex, ["app-server", "--listen", orphanUrl], { detached: true, stdio: "ignore" });
+      const deadOwner = spawnSync(process.execPath, ["-e", "process.stdout.write(String(process.pid))"], {
+        encoding: "utf-8",
       });
-      expect(result?.sessionId).toBe("F");
-      expect(await until(() => orphan.exitCode !== null || orphan.signalCode !== null)).toBe(true);
-      expect(fs.existsSync(orphanHome)).toBe(false);
-      expect(fs.existsSync(lock)).toBe(false);
-    } finally {
-      orphan.kill("SIGKILL");
-      removeIsolatedBrokerHome(orphanHome);
-      removeIsolatedBrokerHome(spawnedHome);
-    }
-  });
+      fs.writeFileSync(
+        path.join(lock, "owner.json"),
+        JSON.stringify({ pid: Number(deadOwner.stdout), at: Date.now() }),
+      );
+      fs.writeFileSync(path.join(lock, record), JSON.stringify({ transportUrl: orphanUrl, isolatedHome: orphanHome }));
+      let spawnedHome = "";
+      try {
+        expect(await until(() => isRecordedBroker({ pid: orphan.pid as number, transportUrl: orphanUrl }))).toBe(true);
+        const result = await bootstrapBroker(repo, {
+          sessionId: "F",
+          sourceHome: repo,
+          injectDeps: {
+            spawnBroker: (_marker: string, _url: string, home: string) => {
+              spawnedHome = home;
+              return { pid: 2 ** 22 + 2, kill: () => true };
+            },
+            pollSocketReachable: async () => true,
+            initializeBroker: async () => ({
+              connection: { close: () => {} },
+              initializeResult: {
+                get codexHome() {
+                  return spawnedHome;
+                },
+              },
+            }),
+            readCodexVersion: () => "test",
+          },
+        });
+        expect(result?.sessionId).toBe("F");
+        expect(await until(() => orphan.exitCode !== null || orphan.signalCode !== null)).toBe(true);
+        expect(fs.existsSync(orphanHome)).toBe(false);
+        expect(fs.existsSync(lock)).toBe(false);
+      } finally {
+        orphan.kill("SIGKILL");
+        removeIsolatedBrokerHome(orphanHome);
+        removeIsolatedBrokerHome(spawnedHome);
+      }
+    },
+  );
 
   it("leaves a lock held by a live bootstrap alone", async () => {
     const lock = path.join(repo, ".codex-pair", "state", "broker.lock");

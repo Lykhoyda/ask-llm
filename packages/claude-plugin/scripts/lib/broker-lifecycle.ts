@@ -213,7 +213,8 @@ function isAbandonedLock(lockPath: string, owner: string | null): boolean {
 function recoverAbandonedBootstrap(lockPath: string): void {
   let spawned: { isolatedHome?: unknown; transportUrl?: unknown };
   try {
-    spawned = JSON.parse(readLockFile(lockPath, LOCK_SPAWN_FILE) ?? "");
+    const record = readLockFile(lockPath, LOCK_SPAWN_FILE) ?? readLockFile(lockPath, `${LOCK_SPAWN_FILE}.tmp`);
+    spawned = JSON.parse(record ?? "");
     if (!isIsolatedBrokerHome(spawned.isolatedHome)) return;
     if (spawned.transportUrl !== chooseTransport(spawned.isolatedHome)) return;
   } catch {
