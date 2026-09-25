@@ -45,4 +45,3 @@ export function parseFrontmatter(content) {
   }
   return { frontmatter, body, malformed: false };
 }
-

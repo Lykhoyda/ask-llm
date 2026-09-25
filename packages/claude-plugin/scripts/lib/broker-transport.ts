@@ -17,12 +17,12 @@
 // **Tolerance.** codex app-server's JSON-RPC responses observed in the
 // wild lack the `"jsonrpc":"2.0"` discriminator (verified by brainstorm
 // probing — see ADR-093 protocol notes). The JSON parsing here passes
-// raw text up; the RPC layer in `broker-rpc.mjs` does the tolerant
+// raw text up; the RPC layer in `broker-rpc.ts` does the tolerant
 // matching by id.
 
 import { Buffer } from "node:buffer";
 import { createHash, randomBytes } from "node:crypto";
-import { connect } from "node:net";
+import { connect, type NetConnectOpts, type Socket } from "node:net";
 
 // RFC 6455 frame opcodes we recognize.
 const OPCODE_CONTINUATION = 0x0;
@@ -35,12 +35,37 @@ const OPCODE_PONG = 0xa;
 // RFC 6455 magic GUID for the Sec-WebSocket-Accept derivation (§4.2.2).
 const WS_GUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
 
+export interface ParsedTransportUrl {
+  connectOptions: NetConnectOpts;
+  host: string;
+  isUnix: boolean;
+}
+
+export interface Frame {
+  opcode: number;
+  payload: Buffer;
+}
+
+interface Listeners {
+  message: Array<(text: string) => void>;
+  close: Array<() => void>;
+  error: Array<(err: Error) => void>;
+}
+
+export interface WebSocketConnection {
+  sendText(text: string): void;
+  close(code?: number, reason?: string): void;
+  on<E extends keyof Listeners>(event: E, cb: Listeners[E][number]): void;
+  readonly destroyed: boolean;
+  _underlyingSocket(): Socket;
+}
+
 // Parse a transport URL into `net.connect` options. Supports:
 //   unix:///absolute/path/to/socket
 //   unix://relative/from/cwd
 //   ws://host:port           — also accepts host without port (defaults 80)
 // Returns `{ connectOptions, host, isUnix }`.
-export function parseTransportUrl(url) {
+export function parseTransportUrl(url: unknown): ParsedTransportUrl {
   if (typeof url !== "string") {
     throw new TypeError(`broker-transport: transport URL must be string, got ${typeof url}`);
   }
@@ -69,7 +94,7 @@ export function parseTransportUrl(url) {
 // transport is a unix socket (it's not used for routing but the codex
 // server's upgrade parser requires it). We send a fixed "localhost" for
 // unix sockets and the authority for TCP.
-function buildUpgradeRequest(host, secKey) {
+function buildUpgradeRequest(host: string, secKey: string): string {
   return [
     `GET / HTTP/1.1`,
     `Host: ${host}`,
@@ -85,12 +110,12 @@ function buildUpgradeRequest(host, secKey) {
 // Validate the server's upgrade response (RFC 6455 §4.1 step 4). The
 // 101 status + Sec-WebSocket-Accept header derived from our Sec-WebSocket-Key
 // are the mandatory checks. We ignore optional fields.
-function validateUpgradeResponse(headerText, sentKey) {
+function validateUpgradeResponse(headerText: string, sentKey: string): void {
   const lines = headerText.split("\r\n");
   if (!lines[0] || !/^HTTP\/1\.[01]\s+101\b/.test(lines[0])) {
     throw new Error(`broker-transport: upgrade rejected, status line: ${lines[0] ?? "(empty)"}`);
   }
-  let accept = null;
+  let accept: string | null = null;
   for (let i = 1; i < lines.length; i++) {
     const colon = lines[i].indexOf(":");
     if (colon === -1) continue;
@@ -112,13 +137,13 @@ function validateUpgradeResponse(headerText, sentKey) {
 
 // Encode a TEXT frame. Client frames MUST be masked per RFC 6455 §5.3.
 // Returns a Buffer ready to write to the socket.
-function encodeTextFrame(text) {
+function encodeTextFrame(text: string): Buffer {
   const payload = Buffer.from(text, "utf-8");
   const mask = randomBytes(4);
   const masked = Buffer.allocUnsafe(payload.length);
   for (let i = 0; i < payload.length; i++) masked[i] = payload[i] ^ mask[i % 4];
 
-  let lenBytes;
+  let lenBytes: Buffer;
   if (payload.length < 126) {
     lenBytes = Buffer.from([0x80 | payload.length]); // MASK bit + 7-bit length
   } else if (payload.length < 0x10000) {
@@ -152,7 +177,7 @@ const MAX_CONTROL_FRAME_PAYLOAD = 125;
 // Reason is truncated as needed to keep total payload ≤ 125 bytes per
 // RFC 6455 §5.5 (multi-review Finding #3 — previously silently corrupted
 // frames if reason was ≥ 124 bytes).
-function encodeCloseFrame(code = 1000, reason = "") {
+function encodeCloseFrame(code = 1000, reason = ""): Buffer {
   let reasonBuf = Buffer.from(reason, "utf-8");
   // 2 bytes for the status code + reason. Truncate reason if combined
   // would exceed the control-frame cap.
@@ -172,7 +197,7 @@ function encodeCloseFrame(code = 1000, reason = "") {
 // PING payload is truncated to 125 bytes (RFC 6455 §5.5) — a hostile or
 // buggy server sending a > 125-byte PING would otherwise scramble our
 // outgoing frame.
-function encodePongFrame(payload) {
+function encodePongFrame(payload: Buffer): Buffer {
   const capped = payload.length > MAX_CONTROL_FRAME_PAYLOAD ? payload.slice(0, MAX_CONTROL_FRAME_PAYLOAD) : payload;
   const mask = randomBytes(4);
   const masked = Buffer.allocUnsafe(capped.length);
@@ -190,10 +215,10 @@ function encodePongFrame(payload) {
 // requests reject via the close handler. This was a multi-review finding
 // — the previous code did `continue` after fragmentation and the buffer
 // state corrupted forever.
-function createFrameParser(onFrame, onError) {
+function createFrameParser(onFrame: (frame: Frame) => void, onError: (err: Error) => void): (chunk: Buffer) => void {
   let buf = Buffer.alloc(0);
   let corrupted = false;
-  return (chunk) => {
+  return (chunk: Buffer) => {
     if (corrupted) return; // already reported fatal — discard further bytes
     buf = Buffer.concat([buf, chunk]);
     while (buf.length >= 2) {
@@ -247,16 +272,19 @@ function createFrameParser(onFrame, onError) {
 // `handshakeTimeoutMs` (default 5000). On timeout, the underlying socket
 // is destroyed and the promise rejects. After upgrade success, the caller
 // owns the connection's lifetime.
-export async function connectWebSocket(transportUrl, options = {}) {
+export async function connectWebSocket(
+  transportUrl: string,
+  options: { handshakeTimeoutMs?: number } = {},
+): Promise<WebSocketConnection> {
   const { handshakeTimeoutMs = 5000 } = options;
   const { connectOptions, host } = parseTransportUrl(transportUrl);
 
-  return new Promise((resolve, reject) => {
+  return new Promise<WebSocketConnection>((resolve, reject) => {
     const socket = connect(connectOptions);
-    const listeners = { message: [], close: [], error: [] };
+    const listeners: Listeners = { message: [], close: [], error: [] };
     let upgraded = false;
     let headerBuf = Buffer.alloc(0);
-    let parser = null;
+    let parser: ((chunk: Buffer) => void) | null = null;
 
     const timer = setTimeout(() => {
       if (!upgraded) {
@@ -306,9 +334,9 @@ export async function connectWebSocket(transportUrl, options = {}) {
       else for (const cb of listeners.close) cb();
     });
 
-    socket.on("data", (chunk) => {
+    socket.on("data", (chunk: Buffer) => {
       if (upgraded) {
-        parser(chunk);
+        parser?.(chunk);
         return;
       }
       headerBuf = Buffer.concat([headerBuf, chunk]);
@@ -362,7 +390,7 @@ export async function connectWebSocket(transportUrl, options = {}) {
         },
       );
 
-      const conn = {
+      const conn: WebSocketConnection = {
         sendText(text) {
           socket.write(encodeTextFrame(text));
         },
@@ -376,7 +404,7 @@ export async function connectWebSocket(transportUrl, options = {}) {
         },
         on(event, cb) {
           if (!listeners[event]) throw new Error(`broker-transport: unknown event ${event}`);
-          listeners[event].push(cb);
+          (listeners[event] as Array<typeof cb>).push(cb);
         },
         get destroyed() {
           return socket.destroyed;

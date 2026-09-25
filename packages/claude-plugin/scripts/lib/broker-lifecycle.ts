@@ -1,7 +1,7 @@
 // Broker lifecycle: spawn `codex app-server`, poll readiness, handshake,
 // atomic descriptor write. SessionStart calls `bootstrapBroker`; SessionEnd
 // calls `teardownBroker`. Stale-broker recovery (`clearStaleBrokerState`)
-// lives in `broker.mjs` so the per-edit hook can also use it as a
+// lives in `broker.ts` so the per-edit hook can also use it as a
 // belt-and-suspenders check.
 //
 // Per ADR-090 + ADR-093 + the brainstorm-coordinator's verified findings:
@@ -15,7 +15,7 @@
 //
 // Pure Node built-ins + relative `./broker-*.mjs` imports per ADR-078.
 
-import { execFileSync, spawn } from "node:child_process";
+import { type ChildProcess, execFileSync, spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 import {
   chmodSync,
@@ -32,13 +32,53 @@ import {
   writeFileSync,
 } from "node:fs";
 import { rename, unlink, writeFile } from "node:fs/promises";
-import { connect as netConnect } from "node:net";
+import { type NetConnectOpts, connect as netConnect } from "node:net";
 import { homedir, tmpdir } from "node:os";
 import { basename, dirname, join, resolve as resolvePath, sep } from "node:path";
 import { fileURLToPath } from "node:url";
-import { BROKER_PROTOCOL_VERSION, initializeBroker } from "./broker.mjs";
+import { BROKER_PROTOCOL_VERSION, type BrokerSession, type ClientInfo, initializeBroker } from "./broker.ts";
 import { IS_WINDOWS, terminateProcessTree } from "./process.mjs";
 import { stateRoot } from "./state.mjs";
+
+export interface BrokerDescriptor {
+  pid: number;
+  transportUrl: string;
+  codexVersion?: string;
+  codexHome?: string | null;
+  isolatedHome?: string;
+  sessionId?: string | null;
+  protocolVersion?: string;
+  pluginVersion?: string;
+  startedAt?: string;
+  logPath?: string;
+}
+
+interface BootstrapDeps {
+  spawnBroker?: (markerDir: string, transportUrl: string, isolatedHome: string) => ChildProcess;
+  initializeBroker?: (
+    transportUrl: string,
+    clientInfo: ClientInfo,
+    options: { handshakeTimeoutMs?: number; initializeTimeoutMs?: number },
+  ) => Promise<BrokerSession>;
+  pollSocketReachable?: (transportUrl: string, budgetMs: number) => Promise<boolean>;
+  readCodexVersion?: () => string;
+  killPid?: (pid: number, graceMs: number) => Promise<boolean>;
+  unlinkSock?: (transportUrl: string, markerDir: string) => Promise<void>;
+}
+
+export interface BootstrapOptions {
+  budgetMs?: number;
+  injectDeps?: BootstrapDeps;
+  sessionId?: string;
+  sourceHome?: string;
+}
+
+export interface TeardownOptions {
+  graceMs?: number;
+  injectDeps?: BootstrapDeps;
+  lockHeld?: boolean;
+  sessionId?: string;
+}
 
 // Locks live alongside the broker descriptor. Per-marker-dir isolation is
 // inherent because the parent path is `<markerDir>/.codex-pair/state/`.
@@ -50,7 +90,7 @@ const SOCKET_POLL_INTERVAL_MS = 100;
 const ISOLATED_HOME_PREFIX = "codex-pair-broker-";
 const BROKER_OWNER_TTL_MS = 24 * 60 * 60 * 1000;
 
-export function createIsolatedBrokerHome(options = {}) {
+export function createIsolatedBrokerHome(options: { sourceHome?: string; tempRoot?: string } = {}): string {
   const sourceHome = options.sourceHome ?? process.env.CODEX_HOME ?? join(homedir(), ".codex");
   const home = mkdtempSync(join(options.tempRoot ?? tmpdir(), ISOLATED_HOME_PREFIX));
   try {
@@ -65,7 +105,7 @@ export function createIsolatedBrokerHome(options = {}) {
   }
 }
 
-export function isIsolatedBrokerHome(home) {
+export function isIsolatedBrokerHome(home: unknown): home is string {
   if (typeof home !== "string") return false;
   try {
     const actual = realpathSync(home);
@@ -80,7 +120,7 @@ export function isIsolatedBrokerHome(home) {
   }
 }
 
-export function removeIsolatedBrokerHome(home) {
+export function removeIsolatedBrokerHome(home: unknown): void {
   if (isIsolatedBrokerHome(home)) rmSync(home, { recursive: true, force: true });
 }
 
@@ -91,7 +131,7 @@ export function removeIsolatedBrokerHome(home) {
 // reservation has a known race (Brainstorm Risk #3). Punted to a follow-on
 // PR; for Milestone 2 we throw on Windows and the hook treats it as a
 // bootstrap failure (silent exit per ADR-077).
-export function chooseTransport(markerDir) {
+export function chooseTransport(markerDir: string): string {
   if (IS_WINDOWS) {
     throw new Error("broker-lifecycle: Windows transport not implemented yet (see ADR-090)");
   }
@@ -101,11 +141,11 @@ export function chooseTransport(markerDir) {
 }
 
 // Path resolvers for the lifecycle's filesystem state.
-export function brokerLockPath(markerDir) {
+export function brokerLockPath(markerDir: string): string {
   return join(stateRoot(markerDir), BROKER_LOCK_DIR);
 }
 
-export function brokerLogPath(markerDir) {
+export function brokerLogPath(markerDir: string): string {
   return join(stateRoot(markerDir), BROKER_LOG_FILE);
 }
 
@@ -113,19 +153,19 @@ export function brokerLogPath(markerDir) {
 // filesystems we care about (and on Windows). On success, returns the
 // lock path; on EEXIST, returns null (another SessionStart already
 // holding the lock — caller should exit quietly).
-export function acquireBrokerLock(markerDir) {
+export function acquireBrokerLock(markerDir: string): string | null {
   const lockPath = brokerLockPath(markerDir);
   try {
     mkdirSync(stateRoot(markerDir), { recursive: true });
     mkdirSync(lockPath);
     return lockPath;
   } catch (err) {
-    if (err && err.code === "EEXIST") return null;
+    if ((err as NodeJS.ErrnoException)?.code === "EEXIST") return null;
     throw err;
   }
 }
 
-export function releaseBrokerLock(lockPath) {
+export function releaseBrokerLock(lockPath: string | null): void {
   if (!lockPath) return;
   try {
     // Lock is a directory created by mkdirSync (so mkdir(2) acted as our
@@ -145,7 +185,7 @@ export function releaseBrokerLock(lockPath) {
 // Returns true on first reachable response, false after the budget. The
 // caller still has to perform `initialize` separately — reachability is
 // necessary but not sufficient for "broker is healthy" per ADR-093.
-export async function pollSocketReachable(transportUrl, budgetMs) {
+export async function pollSocketReachable(transportUrl: string, budgetMs: number): Promise<boolean> {
   const deadline = Date.now() + budgetMs;
   while (Date.now() < deadline) {
     const reachable = await probeOnce(transportUrl);
@@ -155,9 +195,9 @@ export async function pollSocketReachable(transportUrl, budgetMs) {
   return false;
 }
 
-function probeOnce(transportUrl) {
+function probeOnce(transportUrl: string): Promise<boolean> {
   return new Promise((resolve) => {
-    let connectOptions;
+    let connectOptions: NetConnectOpts;
     if (transportUrl.startsWith("unix://")) {
       const path = transportUrl.slice("unix://".length);
       try {
@@ -180,7 +220,7 @@ function probeOnce(transportUrl) {
       return;
     }
     const sock = netConnect(connectOptions);
-    const settle = (ok) => {
+    const settle = (ok: boolean) => {
       sock.removeAllListeners();
       try {
         sock.destroy();
@@ -200,7 +240,7 @@ function probeOnce(transportUrl) {
 // SessionStart could exit mid-bootstrap, orphaning the partially-spawned
 // codex process. The bootstrap's wall-clock budget is enforced at the
 // deadline-check call sites, NOT by relying on idle-exit semantics.
-function sleep(ms) {
+function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
@@ -209,7 +249,7 @@ function sleep(ms) {
 // O_APPEND so multiple writers — unlikely but defensive — don't tear).
 // Returns the spawned ChildProcess; caller is responsible for tracking
 // the pid and writing it to the descriptor only after handshake succeeds.
-export function spawnBroker(markerDir, transportUrl, isolatedHome) {
+export function spawnBroker(markerDir: string, transportUrl: string, isolatedHome: string): ChildProcess {
   if (!isIsolatedBrokerHome(isolatedHome)) throw new Error("broker requires an isolated Codex home");
   // Bug #5: the socket path is deterministic (sha256 of markerDir), so an
   // orphaned socket inode — left when a prior broker was killed AFTER
@@ -253,7 +293,7 @@ export function spawnBroker(markerDir, transportUrl, isolatedHome) {
 // Codex version detection. Best-effort: returns the version string or
 // "unknown" if codex isn't on PATH or fails. Used in the descriptor for
 // version-skew detection (stale-broker recovery, Milestone 4).
-export function readCodexVersion() {
+export function readCodexVersion(): string {
   try {
     const out = execFileSync("codex", ["--version"], { timeout: 2000, encoding: "utf-8" });
     return (out || "").trim() || "unknown";
@@ -264,7 +304,7 @@ export function readCodexVersion() {
 
 // Atomic descriptor write via tmp+rename (ADR-086). Caller ensures
 // stateRoot(markerDir) exists (acquireBrokerLock creates it).
-export async function writeBrokerDescriptor(markerDir, descriptor) {
+export async function writeBrokerDescriptor(markerDir: string, descriptor: BrokerDescriptor): Promise<string> {
   const finalPath = join(stateRoot(markerDir), "broker.json");
   const tmpPath = `${finalPath}.tmp.${process.pid}`;
   await writeFile(tmpPath, JSON.stringify(descriptor, null, 2));
@@ -272,7 +312,7 @@ export async function writeBrokerDescriptor(markerDir, descriptor) {
   return finalPath;
 }
 
-export async function unlinkBrokerDescriptor(markerDir) {
+export async function unlinkBrokerDescriptor(markerDir: string): Promise<void> {
   const finalPath = join(stateRoot(markerDir), "broker.json");
   try {
     await unlink(finalPath);
@@ -285,8 +325,8 @@ export async function unlinkBrokerDescriptor(markerDir) {
 // and the descriptor. Falls back to "unknown" if the manifest can't be
 // read (the bundled marketplace install ships package.json adjacent to
 // scripts/).
-let cachedPluginVersion = null;
-export function readPluginVersion() {
+let cachedPluginVersion: string | null = null;
+export function readPluginVersion(): string {
   if (cachedPluginVersion) return cachedPluginVersion;
   try {
     const here = dirname(fileURLToPath(import.meta.url));
@@ -303,7 +343,7 @@ export function readPluginVersion() {
   } catch {
     cachedPluginVersion = "unknown";
   }
-  return cachedPluginVersion;
+  return cachedPluginVersion as string;
 }
 
 // Full bootstrap orchestrator. Acquires lock, spawns broker, polls for
@@ -319,7 +359,10 @@ export function readPluginVersion() {
 //     initialize. Exhaustion = treated as failure.
 //   - injectDeps — testing hook to inject mocked spawn / initializeBroker
 //     for unit tests. Real production calls leave this undefined.
-export async function bootstrapBroker(markerDir, options = {}) {
+export async function bootstrapBroker(
+  markerDir: string,
+  options: BootstrapOptions = {},
+): Promise<BrokerDescriptor | null> {
   const { budgetMs = BOOTSTRAP_BUDGET_MS_DEFAULT, injectDeps } = options;
   const spawnFn = injectDeps?.spawnBroker ?? spawnBroker;
   const initFn = injectDeps?.initializeBroker ?? initializeBroker;
@@ -330,13 +373,13 @@ export async function bootstrapBroker(markerDir, options = {}) {
   if (!lockPath) return null; // another SessionStart holds the lock
 
   const deadline = Date.now() + budgetMs;
-  let child = null;
-  let isolatedHome = null;
-  let connection = null; // hoisted so the catch block can close on descriptor-write failure
+  let child: ChildProcess | null = null;
+  let isolatedHome: string | null = null;
+  let connection: BrokerSession["connection"] | null = null; // hoisted so the catch block can close on descriptor-write failure
   try {
     const previous = readBrokerDescriptorSync(markerDir);
     if (previous) {
-      const startedAt = Date.parse(previous.startedAt);
+      const startedAt = Date.parse(previous.startedAt ?? "");
       const ageMs = Date.now() - startedAt;
       const expired = !Number.isFinite(ageMs) || ageMs >= BROKER_OWNER_TTL_MS || ageMs < -5 * 60 * 1000;
       if (isPidAlive(previous.pid) && !expired) return previous;
@@ -376,8 +419,8 @@ export async function bootstrapBroker(markerDir, options = {}) {
       throw new Error("broker reported an unexpected Codex home");
     }
 
-    const descriptor = {
-      pid: child.pid,
+    const descriptor: BrokerDescriptor = {
+      pid: child.pid as number,
       transportUrl,
       codexVersion: versionFn(),
       codexHome: initializeResult?.codexHome ?? null,
@@ -434,7 +477,7 @@ export async function bootstrapBroker(markerDir, options = {}) {
 // Read the broker descriptor synchronously. Returns the parsed object
 // or null on any error (missing, malformed, unreadable). Used by
 // teardownBroker AND by the per-edit hook's readBrokerState lookup.
-export function readBrokerDescriptorSync(markerDir) {
+export function readBrokerDescriptorSync(markerDir: string): BrokerDescriptor | null {
   const descPath = join(stateRoot(markerDir), "broker.json");
   try {
     const text = readFileSync(descPath, "utf-8");
@@ -453,7 +496,7 @@ export function readBrokerDescriptorSync(markerDir) {
 // this — the brainstorm flagged this as a follow-on; for M2 we treat
 // Windows pids as "always live" so we send SIGTERM unconditionally on
 // the Windows path (terminateProcessTree handles the cross-platform kill).
-export function isPidAlive(pid) {
+export function isPidAlive(pid: unknown): pid is number {
   if (typeof pid !== "number" || pid <= 0) return false;
   if (IS_WINDOWS) return true; // best-effort; rely on terminateProcessTree
   try {
@@ -463,7 +506,7 @@ export function isPidAlive(pid) {
     // ESRCH = no such process. EPERM = process exists but we don't own
     // it (rare for our own-spawned broker but possible across user
     // switches); treat as "live" since we can't safely conclude dead.
-    if (err && err.code === "EPERM") return true;
+    if ((err as NodeJS.ErrnoException)?.code === "EPERM") return true;
     return false;
   }
 }
@@ -471,7 +514,7 @@ export function isPidAlive(pid) {
 // Send SIGTERM, poll for exit, escalate to terminateProcessTree if the
 // process is still alive after the grace period. Returns boolean (was
 // the pid actually live before we killed it).
-async function killPidGracefully(pid, graceMs) {
+async function killPidGracefully(pid: number, graceMs: number): Promise<boolean> {
   if (!isPidAlive(pid)) return false;
   try {
     if (IS_WINDOWS) {
@@ -512,7 +555,7 @@ async function killPidGracefully(pid, graceMs) {
 // must supply markerDir so we can validate the socket path is rooted
 // under the marker's state directory (defense against a tampered
 // descriptor.json pointing the unlink at an arbitrary path).
-async function unlinkTransportArtifact(transportUrl, markerDir) {
+async function unlinkTransportArtifact(transportUrl: unknown, markerDir: string): Promise<void> {
   const safePath = extractSafeSocketPath(transportUrl, markerDir);
   if (safePath === null) return;
   try {
@@ -528,7 +571,7 @@ async function unlinkTransportArtifact(transportUrl, markerDir) {
 // SessionStart calls this BEFORE bootstrapBroker to recover from prior
 // crashes; per-edit hook MAY call it as belt-and-suspenders defense.
 // Re-exported from broker.mjs so consumers import one contract surface.
-export function clearStaleBrokerState(markerDir) {
+export function clearStaleBrokerState(markerDir: string): "absent" | "live" | "stale" {
   const descriptor = readBrokerDescriptorSync(markerDir);
   if (!descriptor) return "absent";
   const alive = isPidAlive(descriptor.pid);
@@ -541,10 +584,10 @@ export function clearStaleBrokerState(markerDir) {
   //   - unix:// outside markerDir/state → STALE (tampered descriptor)
   //   - ws://anything                   → assume live; per-edit probe validates
   //   - unknown / non-string            → STALE (junk descriptor)
-  let socketOk;
+  let socketOk: boolean;
   // Hoist sockPath so the cleanup block can reference it; only the unix
   // branch sets it to a real path, other branches leave it null.
-  let sockPath = null;
+  let sockPath: string | null = null;
   if (typeof descriptor.transportUrl !== "string") {
     socketOk = false;
   } else if (descriptor.transportUrl.startsWith("unix://")) {
@@ -583,7 +626,7 @@ export function clearStaleBrokerState(markerDir) {
 // otherwise direct us to unlink arbitrary paths the user has write
 // permission to. Returns the safe socket path or null if invalid /
 // non-unix / outside-bounds.
-function extractSafeSocketPath(transportUrl, markerDir) {
+function extractSafeSocketPath(transportUrl: unknown, markerDir: string): string | null {
   if (typeof transportUrl !== "string" || !transportUrl.startsWith("unix://")) {
     return null;
   }
@@ -607,7 +650,10 @@ function extractSafeSocketPath(transportUrl, markerDir) {
 //   - graceMs (default 1500) — how long to wait for SIGTERM to land
 //     before escalating to SIGKILL.
 //   - injectDeps — { killPid, unlinkSock } for testing.
-export async function teardownBroker(markerDir, options = {}) {
+export async function teardownBroker(
+  markerDir: string,
+  options: TeardownOptions = {},
+): Promise<BrokerDescriptor | null> {
   const { graceMs = 1500, injectDeps } = options;
   const killFn = injectDeps?.killPid ?? killPidGracefully;
   const unlinkSockFn = injectDeps?.unlinkSock ?? unlinkTransportArtifact;

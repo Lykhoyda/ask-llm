@@ -15,7 +15,7 @@
   "scripts": {
     "build": "tsc",
     "test": "vitest run",
-    "lint": "biome check src/ pi/ && biome lint scripts/ && tsc --noEmit && tsc --noEmit -p pi/tsconfig.json"
+    "lint": "biome check src/ pi/ && biome lint scripts/ && tsc --noEmit && tsc --noEmit -p pi/tsconfig.json && tsc -p scripts/tsconfig.json"
   },
   "keywords": [
     "pi-package",

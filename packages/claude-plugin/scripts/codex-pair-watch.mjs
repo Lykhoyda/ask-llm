@@ -22,7 +22,6 @@ import { access, readFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { initializeBroker, isBrokerEnabled, readBrokerState, submitReview } from "./lib/broker.mjs";
 import {
   bumpEditRecord,
   DEFAULT_DEBOUNCE_MAX_MS,
@@ -32,6 +31,7 @@ import {
   markReviewed,
   sweepStaleDebounce,
 } from "./lib/debounce-state.mjs";
+import { parseFrontmatter } from "./lib/frontmatter.mjs";
 import {
   buildVerdictMessage,
   DEFAULT_SURFACE_THRESHOLD,
@@ -42,7 +42,6 @@ import {
   VERDICT_PREFIXES,
 } from "./lib/parser.mjs";
 import { IS_WINDOWS, terminateProcessTree } from "./lib/process.mjs";
-import { parseFrontmatter } from "./lib/frontmatter.mjs";
 import { buildReviewPrompt } from "./lib/prompt.mjs";
 import { registerMarker } from "./lib/session-registry.mjs";
 import {
@@ -734,13 +733,26 @@ function brokerClientInfo() {
   return _cachedBrokerClientInfo;
 }
 
+// Broker modules are TypeScript run by Node type stripping; without it the broker is unavailable.
+let brokerModule;
+async function loadBroker() {
+  if (brokerModule === undefined) {
+    try {
+      brokerModule = await import("./lib/broker.ts");
+    } catch {
+      brokerModule = null;
+    }
+  }
+  return brokerModule;
+}
+
 // M4: broker-path wrapper. Opens an RPC connection to the running
 // `codex app-server`, calls submitReview, closes the connection.
 // Connect/initialize failures get tagged with `err.brokerFailure = true`
 // so runCodexWithFallback falls back to spawnCodex silently (ADR-077).
 // Wall-clock budget is the same as spawnCodex's `timeoutMs`.
-async function runWithBroker({ prompt, timeoutMs, model, markerDir }) {
-  const state = readBrokerState(markerDir);
+async function runWithBroker({ broker, prompt, timeoutMs, model, markerDir }) {
+  const state = broker.readBrokerState(markerDir);
   if (!state) {
     const err = new Error("runWithBroker: no broker descriptor");
     err.brokerFailure = true;
@@ -753,7 +765,7 @@ async function runWithBroker({ prompt, timeoutMs, model, markerDir }) {
     // Tight handshake budget — broker should be already running; if it
     // takes more than 2s to handshake, treat as broken and fall back
     // rather than blocking the hook (M4 brainstorm Risk #3).
-    const init = await initializeBroker(state.transportUrl, brokerClientInfo(), {
+    const init = await broker.initializeBroker(state.transportUrl, brokerClientInfo(), {
       handshakeTimeoutMs: 2000,
       initializeTimeoutMs: 2000,
     });
@@ -767,7 +779,7 @@ async function runWithBroker({ prompt, timeoutMs, model, markerDir }) {
     throw err;
   }
   try {
-    return await submitReview({
+    return await broker.submitReview({
       connection,
       rpc,
       cwd: markerDir,
@@ -797,10 +809,11 @@ async function runCodexWithFallback({ prompt, timeoutMs, model, fallbackModel, m
   // codex result, verdict:"timeout") propagate as-is — retrying via
   // spawnCodex would double the spend on cases where the model
   // legitimately couldn't produce a verdict.
-  if (isBrokerEnabled(markerDir)) {
+  const broker = await loadBroker();
+  if (broker?.isBrokerEnabled(markerDir)) {
     try {
       return {
-        response: await runWithBroker({ prompt, model, timeoutMs, markerDir }),
+        response: await runWithBroker({ broker, prompt, model, timeoutMs, markerDir }),
         fellBack: false,
         viaBroker: true,
       };

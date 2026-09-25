@@ -9,7 +9,7 @@ import {
   createIsolatedBrokerHome,
   removeIsolatedBrokerHome,
   writeBrokerDescriptor,
-} from "../../scripts/lib/broker-lifecycle.mjs";
+} from "../../scripts/lib/broker-lifecycle.ts";
 import { PLUGIN_ROOT } from "./_helpers.js";
 
 type Scenario = "timeout" | "rejection" | "missing_id" | "start_close" | "completion_close";

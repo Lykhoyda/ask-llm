@@ -1,5 +1,15 @@
 # Architectural Decisions
 
+## ADR-167: Codex-pair broker modules are TypeScript run by Node type stripping
+
+**Status:** Accepted (2026-09-25)
+
+**Context:** The plugin ships through a `git-subdir` checkout with no install or build step, and `dist/` is not committed, so hook code must run as checked in. Node 22.18+ and 23.6+ execute erasable TypeScript directly with no warning; Node 20 and early 22.x reject `.ts` with a catchable `ERR_UNKNOWN_FILE_EXTENSION`. The plugin still declares Node >=20.
+
+**Decision:** `scripts/lib/broker.ts`, `broker-lifecycle.ts`, `broker-rpc.ts`, and `broker-transport.ts` are TypeScript restricted to erasable syntax and typechecked by `tsc -p scripts/tsconfig.json` (TypeScript 7). The `.mjs` hook entry points stay JavaScript and load the broker with a dynamic `import()` inside `try`; a failed load means the broker is unavailable and reviews use direct `codex exec`. The rest of `scripts/` stays JavaScript.
+
+**Consequences:** Default-on broker reviews need Node 22.18+ or 23.6+; older supported Node keeps today's direct review path without hook errors, so the plugin floor does not change.
+
 ## ADR-166: Enable the isolated codex-pair broker by default
 
 **Status:** Accepted (2026-09-24)

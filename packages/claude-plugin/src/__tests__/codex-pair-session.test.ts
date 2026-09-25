@@ -3,7 +3,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { resolveBrokerPreference } from "../../scripts/lib/broker.mjs";
+import { resolveBrokerPreference } from "../../scripts/lib/broker.ts";
 import {
   bootstrapBroker,
   chooseTransport,
@@ -12,7 +12,7 @@ import {
   spawnBroker,
   teardownBroker,
   writeBrokerDescriptor,
-} from "../../scripts/lib/broker-lifecycle.mjs";
+} from "../../scripts/lib/broker-lifecycle.ts";
 import { bumpEditRecord, readEditRecord } from "../../scripts/lib/debounce-state.mjs";
 import { clearSession, readRegisteredMarkers, registerMarker } from "../../scripts/lib/session-registry.mjs";
 import { PLUGIN_ROOT } from "./_helpers.js";
@@ -252,6 +252,58 @@ describe("codex-pair session hooks", () => {
       expect(res.status).toBe(0);
       const log = fs.readFileSync(path.join(repo, ".codex-pair", "log.jsonl"), "utf8");
       expect(log).toContain('"verdict":"broker_fallback"');
+    } finally {
+      removeIsolatedBrokerHome(home);
+    }
+  });
+
+  it("skips the broker and keeps direct reviews when Node cannot run TypeScript", async () => {
+    fs.writeFileSync(path.join(repo, ".codex-pair", "context.md"), "---\ndebounceMs: 0\n---\n# ctx");
+    const file = path.join(repo, "edited.ts");
+    fs.writeFileSync(file, "export const ready = true;\n");
+    const env = {
+      ...process.env,
+      PATH: `${path.join(PLUGIN_ROOT, "src", "__tests__", "_fixtures")}:${process.env.PATH}`,
+      FAKE_CODEX_SCENARIO: "none",
+      ASK_CODEX_DEBOUNCE_MS: "0",
+    };
+    delete env.ASK_CODEX_BROKER;
+    const start = spawnSync("node", ["--no-experimental-strip-types", SESSION_PATH], {
+      input: JSON.stringify({ hook_event_name: "SessionStart", session_id: session }),
+      cwd: repo,
+      env,
+      encoding: "utf-8",
+      timeout: 10_000,
+    });
+    expect(start.status).toBe(0);
+    expect(fs.existsSync(path.join(repo, ".codex-pair", "state", "broker.json"))).toBe(false);
+
+    fs.mkdirSync(path.join(repo, ".codex-pair", "state"), { recursive: true });
+    const home = createIsolatedBrokerHome({ sourceHome: repo });
+    try {
+      await writeBrokerDescriptor(repo, {
+        pid: process.pid,
+        transportUrl: chooseTransport(repo),
+        protocolVersion: "v2",
+        isolatedHome: home,
+        sessionId: session,
+        startedAt: new Date().toISOString(),
+      });
+      const edit = spawnSync(
+        "node",
+        ["--no-experimental-strip-types", path.join(PLUGIN_ROOT, "scripts", "codex-pair-watch.mjs")],
+        {
+          input: JSON.stringify({ tool_name: "Edit", tool_input: { file_path: file }, session_id: session }),
+          cwd: repo,
+          env,
+          encoding: "utf8",
+          timeout: 10_000,
+        },
+      );
+      expect(edit.status).toBe(0);
+      const log = fs.readFileSync(path.join(repo, ".codex-pair", "log.jsonl"), "utf8");
+      expect(log).toContain('"verdict":"none"');
+      expect(log).not.toContain("broker_fallback");
     } finally {
       removeIsolatedBrokerHome(home);
     }

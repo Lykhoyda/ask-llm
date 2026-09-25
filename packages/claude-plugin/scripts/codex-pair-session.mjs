@@ -4,8 +4,6 @@
 import { access } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
-import { resolveBrokerPreference } from "./lib/broker.mjs";
-import { bootstrapBroker, teardownBroker } from "./lib/broker-lifecycle.mjs";
 import { clearAllDebounceState } from "./lib/debounce-state.mjs";
 import { clearSession } from "./lib/session-registry.mjs";
 import {
@@ -55,15 +53,25 @@ async function readStdin() {
   });
 }
 
-async function handleSessionStart(sessionId) {
+// Broker modules are TypeScript run by Node type stripping; without it the broker is unavailable.
+async function loadBroker() {
+  try {
+    const [broker, lifecycle] = await Promise.all([import("./lib/broker.ts"), import("./lib/broker-lifecycle.ts")]);
+    return { ...broker, ...lifecycle };
+  } catch {
+    return null;
+  }
+}
+
+async function handleSessionStart(broker, sessionId) {
   const cwd = process.cwd();
   const markerDir = await findMarkerUp(cwd);
   if (!markerDir) return; // no opt-in marker, nothing to do
   if (!sessionId) return;
-  await bootstrapBroker(markerDir, { sessionId });
+  await broker.bootstrapBroker(markerDir, { sessionId });
 }
 
-async function handleSessionEnd(sessionId) {
+async function handleSessionEnd(broker, sessionId) {
   const cwd = process.cwd();
   const markerDir = await findMarkerUp(cwd);
   if (!markerDir) return;
@@ -72,7 +80,7 @@ async function handleSessionEnd(sessionId) {
   // unlinks the descriptor + socket + lock. Returns the descriptor
   // that was torn down (or null if none existed) — we ignore it; the
   // hook just needs to exit 0 either way per ADR-077.
-  await teardownBroker(markerDir, { sessionId });
+  await broker.teardownBroker(markerDir, { sessionId });
 }
 
 async function main() {
@@ -163,11 +171,13 @@ async function main() {
   }
 
   const brokerMarkerDir = await findMarkerUp(process.cwd());
-  if (!brokerMarkerDir || (event === "SessionStart" && !resolveBrokerPreference(brokerMarkerDir))) process.exit(0);
+  if (!brokerMarkerDir) process.exit(0);
+  const broker = await loadBroker();
+  if (!broker || (event === "SessionStart" && !broker.resolveBrokerPreference(brokerMarkerDir))) process.exit(0);
 
   try {
-    if (event === "SessionStart") await handleSessionStart(payload.session_id);
-    else if (event === "SessionEnd") await handleSessionEnd(payload.session_id);
+    if (event === "SessionStart") await handleSessionStart(broker, payload.session_id);
+    else if (event === "SessionEnd") await handleSessionEnd(broker, payload.session_id);
   } catch {
     // ADR-077 silent-on-error: a failed bootstrap MUST NOT break the
     // session. bootstrapBroker already catches internally, but defense

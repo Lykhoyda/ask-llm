@@ -1,4 +1,4 @@
-// JSON-RPC 2.0 client layered on a `broker-transport.mjs` connection
+// JSON-RPC 2.0 client layered on a `broker-transport.ts` connection
 // (ADR-090 + ADR-093 Milestone 2 PR 1). The transport emits WebSocket
 // TEXT frames whose payloads are JSON-RPC envelopes; this module handles
 // request/response correlation by `id`, per-request timeouts, server-
@@ -13,15 +13,59 @@
 // Auto-incrementing request id source. JSON-RPC permits any unique
 // non-null id; integers are simplest. Not cryptographic — exposing the
 // counter doesn't leak anything.
+import type { WebSocketConnection } from "./broker-transport.ts";
+
+export interface RpcNotification {
+  method: string;
+  params?: Record<string, unknown>;
+  id?: unknown;
+}
+
+export type RpcError = Error & { code?: unknown; data?: unknown; timeout?: boolean };
+
+export type CancelablePromise<T> = Promise<T> & { cancel?: () => void };
+
+export interface RpcClient {
+  request<T = unknown>(method: string, params?: unknown, opts?: { timeoutMs?: number }): Promise<T>;
+  notify(method: string, params?: unknown): void;
+  waitFor(
+    method: string,
+    predicate: ((notification: RpcNotification) => boolean) | null | undefined,
+    timeoutMs: number,
+  ): CancelablePromise<RpcNotification | null>;
+  readonly pendingCount: number;
+  readonly closed: boolean;
+}
+
+export interface RpcClientOptions {
+  defaultTimeoutMs?: number;
+  onNotification?: (notification: RpcNotification) => void;
+  onProtocolError?: (err: Error) => void;
+}
+
+interface PendingRequest {
+  resolve: (value: unknown) => void;
+  reject: (err: unknown) => void;
+  timer: ReturnType<typeof setTimeout>;
+}
+
+interface NotificationSubscriber {
+  method: string;
+  predicate: ((notification: RpcNotification) => boolean) | null | undefined;
+  resolve: (value: RpcNotification | null) => void;
+  reject: (err: unknown) => void;
+  timer: ReturnType<typeof setTimeout> | null;
+}
+
 let nextId = 1;
-function takeNextId() {
+function takeNextId(): number {
   const id = nextId;
   nextId = (nextId + 1) | 0; // wrap at 2^31 (effectively never)
   if (nextId <= 0) nextId = 1;
   return id;
 }
 
-// Create a JSON-RPC client over a connected `broker-transport.mjs`
+// Create a JSON-RPC client over a connected `broker-transport.ts`
 // WebSocketConnection. The caller is responsible for `connection.close()`.
 // This client manages the protocol layer on top, not the socket lifetime.
 //
@@ -32,22 +76,28 @@ function takeNextId() {
 //     lacking an `id`).
 //   - onProtocolError (function, default no-op): called when an inbound
 //     text frame can't be parsed as JSON or has neither id nor method.
-export function createRpcClient(connection, options = {}) {
+export function createRpcClient(connection: WebSocketConnection, options: RpcClientOptions = {}): RpcClient {
   const { defaultTimeoutMs = 30000, onNotification = () => {}, onProtocolError = () => {} } = options;
-  const pending = new Map(); // id -> { resolve, reject, timer }
+  const pending = new Map<unknown, PendingRequest>();
   // Subscriber list for waitFor — each entry { method, predicate, resolve, reject, timer }.
   // M3 needs to attach a notification listener BEFORE dispatching `turn/start`
   // (race-safe per brainstorm Risk #1: server can emit `turn/completed` between
   // request-send and listener-install if registered after the send).
-  const notificationSubscribers = new Set();
+  const notificationSubscribers = new Set<NotificationSubscriber>();
   let closed = false;
 
   connection.on("message", (text) => {
-    let env;
+    let env: {
+      id?: unknown;
+      method?: unknown;
+      params?: Record<string, unknown>;
+      result?: unknown;
+      error?: { message?: string; code?: unknown; data?: unknown };
+    };
     try {
       env = JSON.parse(text);
     } catch (err) {
-      onProtocolError(new Error(`broker-rpc: malformed JSON from server: ${err?.message ?? String(err)}`));
+      onProtocolError(new Error(`broker-rpc: malformed JSON from server: ${(err as Error)?.message ?? String(err)}`));
       return;
     }
     if (env && typeof env === "object" && "id" in env && env.id != null) {
@@ -61,7 +111,7 @@ export function createRpcClient(connection, options = {}) {
       pending.delete(env.id);
       clearTimeout(entry.timer);
       if (env.error) {
-        const err = new Error(env.error.message ?? `JSON-RPC error ${env.error.code ?? "?"}`);
+        const err: RpcError = new Error(env.error.message ?? `JSON-RPC error ${env.error.code ?? "?"}`);
         err.code = env.error.code;
         err.data = env.error.data;
         entry.reject(err);
@@ -74,7 +124,7 @@ export function createRpcClient(connection, options = {}) {
       // Server-pushed notification (or a server-initiated request, which
       // codex-pair refuses since approvalPolicy:"never" — but pass it up
       // either way and let the caller decide).
-      const notification = { method: env.method, params: env.params, id: env.id };
+      const notification: RpcNotification = { method: env.method, params: env.params, id: env.id };
       // Dispatch to waitFor subscribers first — they capture by method+predicate.
       // Iterate a snapshot since resolved subscribers self-remove during dispatch.
       for (const sub of [...notificationSubscribers]) {
@@ -82,12 +132,12 @@ export function createRpcClient(connection, options = {}) {
           try {
             if (!sub.predicate || sub.predicate(notification)) {
               notificationSubscribers.delete(sub);
-              clearTimeout(sub.timer);
+              if (sub.timer) clearTimeout(sub.timer);
               sub.resolve(notification);
             }
           } catch (err) {
             notificationSubscribers.delete(sub);
-            clearTimeout(sub.timer);
+            if (sub.timer) clearTimeout(sub.timer);
             sub.reject(err);
           }
         }
@@ -107,7 +157,7 @@ export function createRpcClient(connection, options = {}) {
     }
     // Also reject any notification waiters — they'll never fire post-close.
     for (const sub of notificationSubscribers) {
-      clearTimeout(sub.timer);
+      if (sub.timer) clearTimeout(sub.timer);
       sub.reject(new Error("broker-rpc: connection closed before notification"));
     }
     notificationSubscribers.clear();
@@ -127,25 +177,25 @@ export function createRpcClient(connection, options = {}) {
     // hang until its own timeout. Surface the real transport error
     // immediately for diagnostics instead of a generic timeout.
     for (const sub of notificationSubscribers) {
-      clearTimeout(sub.timer);
+      if (sub.timer) clearTimeout(sub.timer);
       sub.reject(err);
     }
     notificationSubscribers.clear();
   });
 
   return {
-    request(method, params, opts = {}) {
+    request<T = unknown>(method: string, params?: unknown, opts: { timeoutMs?: number } = {}): Promise<T> {
       if (closed) return Promise.reject(new Error("broker-rpc: client is closed"));
       const id = takeNextId();
       const timeoutMs = opts.timeoutMs ?? defaultTimeoutMs;
       const envelope = JSON.stringify({ jsonrpc: "2.0", id, method, params });
-      return new Promise((resolve, reject) => {
+      return new Promise<T>((resolve, reject) => {
         const timer = setTimeout(() => {
           pending.delete(id);
           reject(new Error(`broker-rpc: timeout after ${timeoutMs}ms (method=${method}, id=${id})`));
         }, timeoutMs);
         timer.unref?.();
-        pending.set(id, { resolve, reject, timer });
+        pending.set(id, { resolve: resolve as (value: unknown) => void, reject, timer });
         try {
           connection.sendText(envelope);
         } catch (err) {
@@ -155,7 +205,7 @@ export function createRpcClient(connection, options = {}) {
         }
       });
     },
-    notify(method, params) {
+    notify(method: string, params?: unknown) {
       // Notifications have no id and expect no response.
       if (closed) throw new Error("broker-rpc: client is closed");
       connection.sendText(JSON.stringify({ jsonrpc: "2.0", method, params }));
@@ -172,23 +222,26 @@ export function createRpcClient(connection, options = {}) {
     //   const completion = await waiter;
     waitFor(method, predicate, timeoutMs) {
       if (closed) return Promise.reject(new Error("broker-rpc: client is closed"));
-      let sub;
-      const promise = new Promise((resolve, reject) => {
-        sub = { method, predicate, resolve, reject, timer: null };
-        sub.timer = setTimeout(() => {
-          notificationSubscribers.delete(sub);
-          // Multi-review M3 hotfix: attach a structured `.timeout = true`
-          // marker so callers don't have to regex-match the message.
-          const err = new Error(`broker-rpc: waitFor(${method}) timed out after ${timeoutMs}ms`);
-          err.timeout = true;
-          reject(err);
-        }, timeoutMs);
-        sub.timer.unref?.();
-        notificationSubscribers.add(sub);
-      });
+      let sub: NotificationSubscriber;
+      const promise: CancelablePromise<RpcNotification | null> = new Promise<RpcNotification | null>(
+        (resolve, reject) => {
+          sub = { method, predicate, resolve, reject, timer: null };
+          const subscriber = sub;
+          sub.timer = setTimeout(() => {
+            notificationSubscribers.delete(subscriber);
+            // Multi-review M3 hotfix: attach a structured `.timeout = true`
+            // marker so callers don't have to regex-match the message.
+            const err: RpcError = new Error(`broker-rpc: waitFor(${method}) timed out after ${timeoutMs}ms`);
+            err.timeout = true;
+            reject(err);
+          }, timeoutMs);
+          sub.timer.unref?.();
+          notificationSubscribers.add(sub);
+        },
+      );
       promise.cancel = () => {
         if (!notificationSubscribers.delete(sub)) return;
-        clearTimeout(sub.timer);
+        if (sub.timer) clearTimeout(sub.timer);
         sub.resolve(null);
       };
       return promise;
