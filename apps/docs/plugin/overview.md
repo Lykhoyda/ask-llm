@@ -97,9 +97,9 @@ If Codex registration is missing, provision the unified server first (`claude mc
 | `codex-pair` PostToolUse | After every Edit/Write/MultiEdit | **Opt-in.** Self-gates on `.codex-pair/context.md` marker file. Zero cost without the marker. With marker: edits are debounced into a settle window, a detached worker reviews the settled file state, and HIGH/MED verdicts surface to Claude on a later edit, the next user prompt, or at turn end. See [Codex Pair](/plugin/codex-pair) for opt-in steps and cost characteristics |
 | `codex-pair-prompt-drain` UserPromptSubmit | On every user prompt | Drains queued codex-pair verdicts that finished mid-turn so they reach Claude without waiting for the next edit |
 | `codex-pair-stop-gate` Stop | At turn end | Drains remaining queued verdicts (no opt-in needed). With `blockOn: HIGH` in the marker frontmatter (opt-in, default OFF), blocks turn-end while unaddressed HIGH findings or in-flight reviews remain |
-| `codex-pair-session` SessionStart / SessionEnd | At Claude session boundary | SessionStart announces a paused project or auto-resumes an expired auto-pause; SessionEnd clears debounce state so orphaned workers self-cancel. Lifecycle for the experimental `codex app-server` broker additionally runs only with `ASK_CODEX_BROKER=1` |
+| `codex-pair-session` SessionStart / SessionEnd | At Claude session boundary | Manages pause, debounce, and broker state; see [Codex Pair](/plugin/codex-pair) |
 
-The hook shells out directly to `codex exec --json` with zero workspace imports, required so it runs from marketplace `git-subdir` installs that don't run `npm install`. A previous `PreToolUse` Gemini-review pre-commit hook was removed because continuous codex-pair review covers the same need with higher recall; use `/gemini-review` or `/codex-review` on demand for explicit pre-commit review instead.
+The hook has zero workspace imports, required so it runs from marketplace `git-subdir` installs that don't run `npm install`. A previous `PreToolUse` Gemini-review pre-commit hook was removed because continuous codex-pair review covers the same need with higher recall; use `/gemini-review` or `/codex-review` on demand for explicit pre-commit review instead.
 
 ### CLI Binaries (source builds only)
 

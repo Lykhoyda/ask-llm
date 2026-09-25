@@ -296,9 +296,7 @@ export async function probeBrokerHealth(state) {
 // rethrow them as a hard verdict. broker-rpc rejects a transport failure with
 // either a PLAIN Error (timeout / connection-closed → no `.code`) or the RAW
 // socket error (transport "error" event → a STRING `.code` like ECONNRESET).
-// Only a genuine JSON-RPC error RESPONSE carries a NUMERIC `.code` (broker-rpc
-// sets it from env.error.code) — that's a real server-side verdict, not a
-// broker outage. So we tag everything EXCEPT numeric-coded errors.
+// Numeric JSON-RPC errors are server verdicts unless they reject the protocol.
 async function brokerRequest(rpc, method, params, timeoutMs, brokerPhase) {
   try {
     return await rpc.request(method, params, { timeoutMs });

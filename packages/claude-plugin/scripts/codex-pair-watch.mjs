@@ -22,11 +22,6 @@ import { access, readFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-// M4: broker integration. Importing initializeBroker + isBrokerEnabled +
-// submitReview from broker.mjs transitively pulls in broker-transport,
-// broker-rpc, broker-lifecycle. ESM-static cost is paid on every hook
-// fire, but isBrokerEnabled returns false fast when ASK_CODEX_BROKER
-// isn't set, so the per-edit fast path is unaffected.
 import { initializeBroker, isBrokerEnabled, readBrokerState, submitReview } from "./lib/broker.mjs";
 import {
   bumpEditRecord,
