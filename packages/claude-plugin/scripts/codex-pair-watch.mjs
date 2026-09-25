@@ -803,12 +803,10 @@ async function runWithBroker({ broker, prompt, timeoutMs, model, markerDir }) {
 }
 
 async function runCodexWithFallback({ prompt, timeoutMs, model, fallbackModel, markerDir }) {
-  // M4: try the broker first if enabled. On err.brokerFailure (transport,
-  // handshake, parse-layer failure) fall through to per-edit spawnCodex
-  // silently per ADR-077. On other errors (verdict:"error" from a real
-  // codex result, verdict:"timeout") propagate as-is — retrying via
-  // spawnCodex would double the spend on cases where the model
-  // legitimately couldn't produce a verdict.
+  // A broker attempt counts like a direct one: broker failures continue on the direct path, a quota
+  // error goes straight to the fallback-model ladder, a transient error uses up the single retry,
+  // and any other model error propagates as-is.
+  let retryPrimary = true;
   const broker = await loadBroker();
   if (broker?.isBrokerEnabled(markerDir)) {
     try {
@@ -818,75 +816,70 @@ async function runCodexWithFallback({ prompt, timeoutMs, model, fallbackModel, m
         viaBroker: true,
       };
     } catch (err) {
-      if (!err?.brokerFailure) {
-        // The broker path has no fallback ladder — a real (non-transport)
-        // quota error here IS exhaustion, the same as the no-ladder spawn
-        // case (model === fallbackModel). Tag it so main()'s catch surfaces
-        // the clean quota auto-pause notice instead of routing through the
-        // 3-failure backstop (#176 PR-review follow-up). Strictly additive:
-        // only sets a flag on an error already propagating. Broker mode is
-        // env-gated, so this path is not exercised by the fake-codex fixture.
-        if (isQuotaError(err) && err && typeof err === "object") {
-          err.quotaExhausted = true;
-        }
-        throw err;
-      }
-      // brokerFailure → silent fall-through to spawnCodex path below.
-      // Append a log entry so dogfooders can audit broker-mode regressions.
+      const quota = isQuotaError(err);
+      if (!quota && !err?.brokerFailure && !isTransientError(err)) throw err;
       try {
         await appendLog(markerDir, {
           timestamp: new Date().toISOString(),
           verdict: "broker_fallback",
-          reason: `${err.brokerPhase || "unknown"}: ${err.message ?? String(err)}`,
+          reason: `${err.brokerPhase || "model"}: ${err.message ?? String(err)}`,
         });
       } catch {
         // best-effort; logging failure must never break the hook
       }
+      if (quota) return runFallbackModel(err, { prompt, timeoutMs, model, fallbackModel, markerDir });
+      retryPrimary = Boolean(err?.brokerFailure);
     }
   }
   try {
+    const call = { prompt, model, timeoutMs, markerDir };
     return {
-      response: await spawnCodexWithRetry({ prompt, model, timeoutMs, markerDir }),
+      response: retryPrimary ? await spawnCodexWithRetry(call) : await spawnCodex(call),
       fellBack: false,
     };
   } catch (err) {
-    if (isQuotaError(err) && model !== fallbackModel) {
-      try {
-        const response = await spawnCodexWithRetry({
-          prompt,
-          model: fallbackModel,
-          timeoutMs,
-          markerDir,
-        });
-        return { response, fellBack: true };
-      } catch (fallbackErr) {
-        // BOTH models are now unusable, which is exhaustion either way:
-        //  (a) the fallback also hit quota → provider exhausted, or
-        //  (b) the fallback is structurally unavailable on this account
-        //      (e.g. gpt-5.5-mini on a ChatGPT plan returns a 400, not a
-        //      quota) → the ladder is broken, the same "no usable model"
-        //      case as model === fallbackModel below.
-        // Tag quotaExhausted so main()'s catch does the clean #176 quota
-        // auto-pause instead of the 3-failure backstop. For (b) re-throw the
-        // PRIMARY quota error so its reason + reset hint reach the pause
-        // notice — the fallback 400 carries neither.
-        if (isQuotaError(fallbackErr) && fallbackErr && typeof fallbackErr === "object") {
-          fallbackErr.quotaExhausted = true;
-          throw fallbackErr;
-        }
-        if (isModelUnavailableError(fallbackErr) && err && typeof err === "object") {
-          err.quotaExhausted = true;
-          throw err;
-        }
+    if (!isQuotaError(err)) throw err;
+    return runFallbackModel(err, { prompt, timeoutMs, model, fallbackModel, markerDir });
+  }
+}
+
+async function runFallbackModel(err, { prompt, timeoutMs, model, fallbackModel, markerDir }) {
+  if (model !== fallbackModel) {
+    try {
+      const response = await spawnCodexWithRetry({
+        prompt,
+        model: fallbackModel,
+        timeoutMs,
+        markerDir,
+      });
+      return { response, fellBack: true };
+    } catch (fallbackErr) {
+      // BOTH models are now unusable, which is exhaustion either way:
+      //  (a) the fallback also hit quota → provider exhausted, or
+      //  (b) the fallback is structurally unavailable on this account
+      //      (e.g. gpt-5.5-mini on a ChatGPT plan returns a 400, not a
+      //      quota) → the ladder is broken, the same "no usable model"
+      //      case as model === fallbackModel below.
+      // Tag quotaExhausted so main()'s catch does the clean #176 quota
+      // auto-pause instead of the 3-failure backstop. For (b) re-throw the
+      // PRIMARY quota error so its reason + reset hint reach the pause
+      // notice — the fallback 400 carries neither.
+      if (isQuotaError(fallbackErr) && fallbackErr && typeof fallbackErr === "object") {
+        fallbackErr.quotaExhausted = true;
         throw fallbackErr;
       }
+      if (isModelUnavailableError(fallbackErr) && err && typeof err === "object") {
+        err.quotaExhausted = true;
+        throw err;
+      }
+      throw fallbackErr;
     }
-    // model === fallbackModel: there is no ladder left — quota here IS exhaustion.
-    if (isQuotaError(err) && err && typeof err === "object") {
-      err.quotaExhausted = true;
-    }
-    throw err;
   }
+  // model === fallbackModel: there is no ladder left — quota here IS exhaustion.
+  if (err && typeof err === "object") {
+    err.quotaExhausted = true;
+  }
+  throw err;
 }
 
 // Spawn the detached edit-debounce worker (design 2026-06-03). Mirrors the

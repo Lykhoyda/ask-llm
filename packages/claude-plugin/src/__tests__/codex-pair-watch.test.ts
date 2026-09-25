@@ -533,8 +533,10 @@ describe("scripts/codex-pair-watch.mjs — structural invariants (ADR-077)", () 
 
   it("runCodexWithFallback wraps spawnCodexWithRetry (not raw spawnCodex)", () => {
     const block = script.match(/async function runCodexWithFallback[\s\S]*?^\}\s*$/m);
+    const ladder = script.match(/async function runFallbackModel[\s\S]*?^\}\s*$/m);
     expect(block).toBeTruthy();
-    const body = block?.[0] ?? "";
+    expect(ladder).toBeTruthy();
+    const body = `${block?.[0] ?? ""}${ladder?.[0] ?? ""}`;
     // Use the retry-wrapping spawner, not the raw one
     expect(body).toMatch(/spawnCodexWithRetry/);
     // Quota fallback path also goes through retry wrapper
