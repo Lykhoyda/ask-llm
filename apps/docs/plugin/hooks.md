@@ -12,15 +12,15 @@ Hooks are automated actions that trigger on specific Claude Code events. Every h
 
 ## Hooks the plugin registers
 
-All five hooks are dependency-free with zero workspace imports, required so they run from marketplace `git-subdir` installs that don't run `npm install`. Only `codex-pair-watch` shells out to `codex exec --json` to run a review; the prompt-drain and Stop hooks only surface already-persisted verdicts (zero new LLM calls), and the session hook manages pause/debounce state (plus the optional broker). Each self-gates on the `.codex-pair/context.md` marker file and stays silent (zero cost, zero Codex calls) unless a project opts in.
+All five hooks are dependency-free with zero workspace imports, required so they run from marketplace `git-subdir` installs that don't run `npm install`. The prompt-drain and Stop hooks only surface already-persisted verdicts (zero new LLM calls); the session hook manages pause, debounce, and broker state. Each self-gates on the `.codex-pair/context.md` marker file and stays silent (zero cost, zero Codex calls) unless a project opts in. Review transport and broker configuration are documented in [Codex Pair](/plugin/codex-pair).
 
 | Hook | Event | Action |
 |------|-------|--------|
 | `codex-pair-watch` | `PostToolUse` (Edit / Write / MultiEdit) | Debounced per-edit Codex review of the settled file state. See [Codex Pair → the hook pipeline](/plugin/codex-pair#the-hook-pipeline) |
 | `codex-pair-prompt-drain` | `UserPromptSubmit` | Drains queued codex-pair verdicts that finished mid-turn so they reach Claude without waiting for the next edit |
 | `codex-pair-stop-gate` | `Stop` | Drains remaining verdicts at turn-end; with `blockOn: HIGH` (opt-in, default OFF) blocks turn-end on unaddressed HIGH findings or in-flight reviews |
-| `codex-pair-session` | `SessionStart` | Announces a paused project or auto-resumes an expired auto-pause; starts the experimental `codex app-server` broker only with `ASK_CODEX_BROKER=1` |
-| `codex-pair-session` | `SessionEnd` | Clears debounce state so orphaned workers self-cancel; tears down the broker when `ASK_CODEX_BROKER=1` |
+| `codex-pair-session` | `SessionStart` | Announces or resumes an auto-paused project and manages the broker; see [Codex Pair](/plugin/codex-pair) |
+| `codex-pair-session` | `SessionEnd` | Clears debounce state and manages broker teardown; see [Codex Pair](/plugin/codex-pair) |
 
 ## How hook registration works
 

@@ -1,12 +1,5 @@
 #!/usr/bin/env node
-// SessionStart / SessionEnd hook for the codex-pair app-server broker
-// (ADR-090, milestones implemented per ADR-093). SessionStart spawns
-// the broker + handshake + descriptor write (Milestone 2 PR 2);
-// SessionEnd teardown remains TODO (Milestone 2 PR 3).
-//
-// The hook MUST exit 0 on every path. A broker spawn failure is logged
-// silently to broker.log but doesn't break the session — the per-edit
-// path keeps working via per-edit codex spawns (ADR-077).
+// Session lifecycle hook. Broker failures must not break per-edit reviews.
 
 import { access } from "node:fs/promises";
 import { homedir } from "node:os";
