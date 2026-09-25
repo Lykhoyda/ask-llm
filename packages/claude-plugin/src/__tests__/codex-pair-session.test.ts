@@ -225,11 +225,14 @@ describe("codex-pair session hooks", () => {
     }
   });
 
-  it("terminates the recorded broker when its command line still matches", async () => {
+  it("terminates only a codex process listening on the recorded transport", async () => {
     fs.mkdirSync(path.join(repo, ".codex-pair", "state"), { recursive: true });
     const home = createIsolatedBrokerHome({ sourceHome: repo });
     const transportUrl = chooseTransport(home);
-    const broker = spawn(
+    const fakeCodex = path.join(repo, "codex");
+    fs.writeFileSync(fakeCodex, "#!/usr/bin/env node\nsetTimeout(() => {}, 30000);\n", { mode: 0o755 });
+    const broker = spawn(fakeCodex, ["app-server", "--listen", transportUrl], { detached: true, stdio: "ignore" });
+    const lookalike = spawn(
       process.execPath,
       ["-e", "setTimeout(() => {}, 30000)", "app-server", "--listen", transportUrl],
       {
@@ -238,7 +241,10 @@ describe("codex-pair session hooks", () => {
       },
     );
     try {
-      await new Promise((resolve) => setTimeout(resolve, 200));
+      await new Promise((resolve) => setTimeout(resolve, 300));
+      expect(isRecordedBroker({ pid: lookalike.pid as number, transportUrl })).toBe(false);
+      expect(isRecordedBroker({ pid: broker.pid as number, transportUrl: `${transportUrl}x` })).toBe(false);
+      expect(isRecordedBroker({ pid: broker.pid as number, transportUrl })).toBe(true);
       await writeBrokerDescriptor(repo, {
         pid: broker.pid as number,
         transportUrl,
@@ -247,14 +253,75 @@ describe("codex-pair session hooks", () => {
         protocolVersion: "v2",
         startedAt: new Date().toISOString(),
       });
-      expect(isRecordedBroker({ pid: broker.pid as number, transportUrl })).toBe(true);
       await teardownBroker(repo, { sessionId: "E", graceMs: 1000 });
       await new Promise((resolve) => setTimeout(resolve, 200));
       expect(broker.exitCode !== null || broker.signalCode !== null).toBe(true);
+      expect(lookalike.exitCode === null && lookalike.signalCode === null).toBe(true);
     } finally {
       broker.kill("SIGKILL");
+      lookalike.kill("SIGKILL");
       removeIsolatedBrokerHome(home);
     }
+  });
+
+  it("reclaims a lock abandoned by a killed bootstrap and stops the broker it spawned", async () => {
+    const stateDir = path.join(repo, ".codex-pair", "state");
+    const lock = path.join(stateDir, "broker.lock");
+    fs.mkdirSync(lock, { recursive: true });
+    const orphanHome = createIsolatedBrokerHome({ sourceHome: repo });
+    const orphanUrl = chooseTransport(orphanHome);
+    const fakeCodex = path.join(repo, "codex");
+    fs.writeFileSync(fakeCodex, "#!/usr/bin/env node\nsetTimeout(() => {}, 30000);\n", { mode: 0o755 });
+    const orphan = spawn(fakeCodex, ["app-server", "--listen", orphanUrl], { detached: true, stdio: "ignore" });
+    const deadOwner = spawnSync(process.execPath, ["-e", "process.stdout.write(String(process.pid))"], {
+      encoding: "utf-8",
+    });
+    fs.writeFileSync(path.join(lock, "owner.json"), JSON.stringify({ pid: Number(deadOwner.stdout), at: Date.now() }));
+    fs.writeFileSync(
+      path.join(lock, "spawn.json"),
+      JSON.stringify({ pid: orphan.pid, transportUrl: orphanUrl, isolatedHome: orphanHome }),
+    );
+    let spawnedHome = "";
+    try {
+      await new Promise((resolve) => setTimeout(resolve, 300));
+      const result = await bootstrapBroker(repo, {
+        sessionId: "F",
+        sourceHome: repo,
+        injectDeps: {
+          spawnBroker: (_marker: string, _url: string, home: string) => {
+            spawnedHome = home;
+            return { pid: 2 ** 22 + 2, kill: () => true };
+          },
+          pollSocketReachable: async () => true,
+          initializeBroker: async () => ({
+            connection: { close: () => {} },
+            initializeResult: {
+              get codexHome() {
+                return spawnedHome;
+              },
+            },
+          }),
+          readCodexVersion: () => "test",
+        },
+      });
+      await new Promise((resolve) => setTimeout(resolve, 200));
+      expect(result?.sessionId).toBe("F");
+      expect(orphan.exitCode !== null || orphan.signalCode !== null).toBe(true);
+      expect(fs.existsSync(orphanHome)).toBe(false);
+      expect(fs.existsSync(lock)).toBe(false);
+    } finally {
+      orphan.kill("SIGKILL");
+      removeIsolatedBrokerHome(orphanHome);
+      removeIsolatedBrokerHome(spawnedHome);
+    }
+  });
+
+  it("leaves a lock held by a live bootstrap alone", async () => {
+    const lock = path.join(repo, ".codex-pair", "state", "broker.lock");
+    fs.mkdirSync(lock, { recursive: true });
+    fs.writeFileSync(path.join(lock, "owner.json"), JSON.stringify({ pid: process.pid, at: Date.now() }));
+    expect(await bootstrapBroker(repo, { sessionId: "G", sourceHome: repo })).toBeNull();
+    expect(fs.existsSync(lock)).toBe(true);
   });
 
   it("creates a private broker home with only auth and disabled apps", () => {

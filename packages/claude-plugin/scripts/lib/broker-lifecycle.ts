@@ -83,6 +83,10 @@ export interface TeardownOptions {
 // Locks live alongside the broker descriptor. Per-marker-dir isolation is
 // inherent because the parent path is `<markerDir>/.codex-pair/state/`.
 const BROKER_LOCK_DIR = "broker.lock";
+const LOCK_OWNER_FILE = "owner.json";
+const LOCK_SPAWN_FILE = "spawn.json";
+// Far longer than a bootstrap (5s budget) or teardown (1.5s grace) can hold the lock.
+const LOCK_STALE_MS = 30_000;
 const BROKER_LOG_FILE = "broker.log";
 const BROKER_SOCKET_FILE = "broker.sock";
 // macOS sun_path is 104 bytes including the terminator; Linux allows 108.
@@ -147,33 +151,71 @@ export function brokerLogPath(markerDir: string): string {
   return join(stateRoot(markerDir), BROKER_LOG_FILE);
 }
 
-// Atomic lock via mkdir(2). The mkdir syscall is atomic across all POSIX
-// filesystems we care about (and on Windows). On success, returns the
-// lock path; on EEXIST, returns null (another SessionStart already
-// holding the lock — caller should exit quietly).
+// Atomic lock via mkdir(2). A live holder makes this return null; a holder that died (for
+// example a SessionStart killed mid-bootstrap) is reclaimed along with anything it spawned.
 export function acquireBrokerLock(markerDir: string): string | null {
   const lockPath = brokerLockPath(markerDir);
-  try {
-    mkdirSync(stateRoot(markerDir), { recursive: true });
-    mkdirSync(lockPath);
-    return lockPath;
-  } catch (err) {
-    if ((err as NodeJS.ErrnoException)?.code === "EEXIST") return null;
-    throw err;
+  mkdirSync(stateRoot(markerDir), { recursive: true });
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      mkdirSync(lockPath);
+      writeFileSync(join(lockPath, LOCK_OWNER_FILE), JSON.stringify({ pid: process.pid, at: Date.now() }));
+      return lockPath;
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException)?.code !== "EEXIST") throw err;
+      if (attempt > 0 || !isAbandonedLock(lockPath)) return null;
+      // ponytail: two starts reclaiming the same dead lock at once can both win; the loser's broker
+      // is then untracked. A rename-based handoff would close it if that ever shows up.
+      recoverAbandonedBootstrap(lockPath);
+      rmSync(lockPath, { recursive: true, force: true });
+    }
   }
+  return null;
+}
+
+function isAbandonedLock(lockPath: string): boolean {
+  try {
+    const ageMs = Date.now() - statSync(lockPath).mtimeMs;
+    if (ageMs > LOCK_STALE_MS) return true;
+    const owner = JSON.parse(readFileSync(join(lockPath, LOCK_OWNER_FILE), "utf-8"));
+    return !isPidAlive(owner?.pid);
+  } catch {
+    return false;
+  }
+}
+
+function recoverAbandonedBootstrap(lockPath: string): void {
+  let spawned: Partial<BrokerDescriptor>;
+  try {
+    spawned = JSON.parse(readFileSync(join(lockPath, LOCK_SPAWN_FILE), "utf-8"));
+  } catch {
+    return;
+  }
+  if (typeof spawned.pid === "number" && typeof spawned.transportUrl === "string") {
+    const orphan = { pid: spawned.pid, transportUrl: spawned.transportUrl };
+    if (isRecordedBroker(orphan)) {
+      try {
+        process.kill(-orphan.pid, "SIGKILL");
+      } catch {
+        try {
+          process.kill(orphan.pid, "SIGKILL");
+        } catch {}
+      }
+    }
+  }
+  removeIsolatedBrokerHome(spawned.isolatedHome);
+}
+
+function recordBootstrapSpawn(lockPath: string, spawned: Partial<BrokerDescriptor>): void {
+  writeFileSync(join(lockPath, LOCK_SPAWN_FILE), JSON.stringify(spawned));
 }
 
 export function releaseBrokerLock(lockPath: string | null): void {
   if (!lockPath) return;
   try {
-    // Lock is a directory created by mkdirSync (so mkdir(2) acted as our
-    // atomic primitive). To remove a directory we need recursive:true on
-    // rmSync — recursive:false throws even with force:true (force only
-    // suppresses ENOENT, not EISDIR).
     rmSync(lockPath, { recursive: true, force: true });
   } catch {
-    // Best-effort. A stuck lock will be cleared by stale-recovery at
-    // next SessionStart (Milestone 2 PR 3 / Milestone 4).
+    // Best-effort; an abandoned lock is reclaimed by the next acquireBrokerLock.
   }
 }
 
@@ -369,7 +411,9 @@ export async function bootstrapBroker(
     }
     isolatedHome = createIsolatedBrokerHome({ sourceHome: options.sourceHome });
     const transportUrl = chooseTransport(isolatedHome);
+    recordBootstrapSpawn(lockPath, { isolatedHome, transportUrl });
     child = spawnFn(markerDir, transportUrl, isolatedHome);
+    recordBootstrapSpawn(lockPath, { isolatedHome, transportUrl, pid: child.pid });
 
     // Strict deadline enforcement. Previously used Math.max(100, ...) and
     // Math.max(500, ...) as floors — codex-pair repeatedly flagged that
@@ -501,7 +545,13 @@ export function isRecordedBroker(descriptor: Pick<BrokerDescriptor, "pid" | "tra
       encoding: "utf-8",
       timeout: 2000,
     });
-    return args.includes("app-server") && args.includes(`--listen ${descriptor.transportUrl}`);
+    const argv = args.trim().split(/\s+/);
+    const at = argv.indexOf("app-server");
+    return (
+      at > 0 &&
+      /^codex(\.\w+)?$/.test(basename(argv[at - 1])) &&
+      argv.slice(at + 1).join(" ") === `--listen ${descriptor.transportUrl}`
+    );
   } catch {
     return false;
   }
