@@ -61,6 +61,7 @@ interface BootstrapDeps {
   ) => Promise<BrokerSession>;
   pollSocketReachable?: (transportUrl: string, budgetMs: number) => Promise<boolean>;
   readCodexVersion?: () => string;
+  isRecordedBroker?: (descriptor: BrokerDescriptor) => boolean;
   killPid?: (pid: number, graceMs: number) => Promise<boolean>;
   unlinkSock?: (transportUrl: string, markerDir: string) => Promise<void>;
 }
@@ -363,7 +364,7 @@ export async function bootstrapBroker(
       const startedAt = Date.parse(previous.startedAt ?? "");
       const ageMs = Date.now() - startedAt;
       const expired = !Number.isFinite(ageMs) || ageMs >= BROKER_OWNER_TTL_MS || ageMs < -5 * 60 * 1000;
-      if (isPidAlive(previous.pid) && !expired) return previous;
+      if (!expired && (injectDeps?.isRecordedBroker ?? isRecordedBroker)(previous)) return previous;
       await teardownBroker(markerDir, { lockHeld: true, injectDeps });
     }
     isolatedHome = createIsolatedBrokerHome({ sourceHome: options.sourceHome });
@@ -490,6 +491,24 @@ export function isPidAlive(pid: unknown): pid is number {
     if ((err as NodeJS.ErrnoException)?.code === "EPERM") return true;
     return false;
   }
+}
+
+// Descriptors outlive crashes and reboots, so a recorded pid may since belong to an unrelated process.
+export function isRecordedBroker(descriptor: Pick<BrokerDescriptor, "pid" | "transportUrl">): boolean {
+  if (IS_WINDOWS || !isPidAlive(descriptor.pid) || typeof descriptor.transportUrl !== "string") return false;
+  try {
+    const args = execFileSync("ps", ["-ww", "-o", "args=", "-p", String(descriptor.pid)], {
+      encoding: "utf-8",
+      timeout: 2000,
+    });
+    return args.includes("app-server") && args.includes(`--listen ${descriptor.transportUrl}`);
+  } catch {
+    return false;
+  }
+}
+
+async function killRecordedBroker(descriptor: BrokerDescriptor, graceMs: number): Promise<boolean> {
+  return isRecordedBroker(descriptor) ? killPidGracefully(descriptor.pid, graceMs) : false;
 }
 
 // Send SIGTERM, poll for exit, escalate to terminateProcessTree if the
@@ -628,7 +647,6 @@ export async function teardownBroker(
   options: TeardownOptions = {},
 ): Promise<BrokerDescriptor | null> {
   const { graceMs = 1500, injectDeps } = options;
-  const killFn = injectDeps?.killPid ?? killPidGracefully;
   const unlinkSockFn = injectDeps?.unlinkSock ?? unlinkTransportArtifact;
   const lockPath = options.lockHeld ? brokerLockPath(markerDir) : acquireBrokerLock(markerDir);
   if (!lockPath) return null;
@@ -638,7 +656,8 @@ export async function teardownBroker(
       return null;
     }
     try {
-      await killFn(descriptor.pid, graceMs);
+      if (injectDeps?.killPid) await injectDeps.killPid(descriptor.pid, graceMs);
+      else await killRecordedBroker(descriptor, graceMs);
     } catch {
       // best-effort
     }

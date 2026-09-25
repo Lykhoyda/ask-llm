@@ -1,4 +1,4 @@
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
@@ -8,6 +8,7 @@ import {
   bootstrapBroker,
   chooseTransport,
   createIsolatedBrokerHome,
+  isRecordedBroker,
   removeIsolatedBrokerHome,
   spawnBroker,
   teardownBroker,
@@ -98,6 +99,7 @@ describe("codex-pair session hooks", () => {
         initializeResult: { codexHome: spawnedHome },
       }),
       readCodexVersion: () => "test",
+      isRecordedBroker: (d: { pid: number }) => d.pid === process.pid,
     };
     try {
       const current = await bootstrapBroker(repo, { sessionId: "B", sourceHome: repo, injectDeps });
@@ -164,6 +166,94 @@ describe("codex-pair session hooks", () => {
     } finally {
       removeIsolatedBrokerHome(oldHome);
       removeIsolatedBrokerHome(spawnedHome);
+    }
+  });
+
+  it("never signals a recorded pid that is no longer this project's broker", async () => {
+    fs.mkdirSync(path.join(repo, ".codex-pair", "state"), { recursive: true });
+    const standIn = spawn("sleep", ["30"], { detached: true, stdio: "ignore" });
+    const homes: string[] = [];
+    const injectDeps = {
+      spawnBroker: (_marker: string, _url: string, home: string) => {
+        homes.push(home);
+        return { pid: 2 ** 22 + 1, kill: () => true };
+      },
+      pollSocketReachable: async () => true,
+      initializeBroker: async () => ({
+        connection: { close: () => {} },
+        initializeResult: { codexHome: homes.at(-1) },
+      }),
+      readCodexVersion: () => "test",
+    };
+    const recordStandIn = async (ageMs: number, sessionId: string) => {
+      const home = createIsolatedBrokerHome({ sourceHome: repo });
+      homes.push(home);
+      await writeBrokerDescriptor(repo, {
+        pid: standIn.pid as number,
+        transportUrl: chooseTransport(home),
+        sessionId,
+        isolatedHome: home,
+        protocolVersion: "v2",
+        startedAt: new Date(Date.now() - ageMs).toISOString(),
+      });
+      return home;
+    };
+    const alive = () => {
+      try {
+        process.kill(standIn.pid as number, 0);
+        return true;
+      } catch {
+        return false;
+      }
+    };
+    try {
+      const expiredHome = await recordStandIn(25 * 60 * 60 * 1000, "old");
+      expect((await bootstrapBroker(repo, { sessionId: "B", sourceHome: repo, injectDeps }))?.sessionId).toBe("B");
+      expect(alive()).toBe(true);
+      expect(fs.existsSync(expiredHome)).toBe(false);
+
+      await recordStandIn(60_000, "fresh");
+      expect((await bootstrapBroker(repo, { sessionId: "C", sourceHome: repo, injectDeps }))?.sessionId).toBe("C");
+      expect(alive()).toBe(true);
+
+      await recordStandIn(60_000, "D");
+      expect((await teardownBroker(repo, { sessionId: "D" }))?.sessionId).toBe("D");
+      expect(alive()).toBe(true);
+    } finally {
+      standIn.kill("SIGKILL");
+      for (const home of homes) removeIsolatedBrokerHome(home);
+    }
+  });
+
+  it("terminates the recorded broker when its command line still matches", async () => {
+    fs.mkdirSync(path.join(repo, ".codex-pair", "state"), { recursive: true });
+    const home = createIsolatedBrokerHome({ sourceHome: repo });
+    const transportUrl = chooseTransport(home);
+    const broker = spawn(
+      process.execPath,
+      ["-e", "setTimeout(() => {}, 30000)", "app-server", "--listen", transportUrl],
+      {
+        detached: true,
+        stdio: "ignore",
+      },
+    );
+    try {
+      await new Promise((resolve) => setTimeout(resolve, 200));
+      await writeBrokerDescriptor(repo, {
+        pid: broker.pid as number,
+        transportUrl,
+        sessionId: "E",
+        isolatedHome: home,
+        protocolVersion: "v2",
+        startedAt: new Date().toISOString(),
+      });
+      expect(isRecordedBroker({ pid: broker.pid as number, transportUrl })).toBe(true);
+      await teardownBroker(repo, { sessionId: "E", graceMs: 1000 });
+      await new Promise((resolve) => setTimeout(resolve, 200));
+      expect(broker.exitCode !== null || broker.signalCode !== null).toBe(true);
+    } finally {
+      broker.kill("SIGKILL");
+      removeIsolatedBrokerHome(home);
     }
   });
 
