@@ -387,15 +387,11 @@ export async function bootstrapBroker(
       const startedAt = Date.parse(previous.startedAt ?? "");
       const ageMs = Date.now() - startedAt;
       const expired = !Number.isFinite(ageMs) || ageMs >= BROKER_OWNER_TTL_MS || ageMs < -5 * 60 * 1000;
-      if (
-        hasCredentials &&
-        !expired &&
-        hasCurrentBrokerAuth(previous.isolatedHome, options.sourceHome) &&
-        (injectDeps?.isRecordedBroker ?? isRecordedBroker)(previous)
-      ) {
+      const live = !expired && (injectDeps?.isRecordedBroker ?? isRecordedBroker)(previous);
+      if (hasCredentials && live && hasCurrentBrokerAuth(previous.isolatedHome, options.sourceHome)) {
         return previous;
       }
-      await teardownBroker(markerDir, { lockHeld: true, injectDeps, onlyIfCredentialMissing: !hasCredentials });
+      await teardownBroker(markerDir, { lockHeld: true, injectDeps, onlyIfCredentialMissing: !hasCredentials && live });
     }
     if (!hasCredentials) return null;
     isolatedHome = createIsolatedBrokerHome({ sourceHome: options.sourceHome });

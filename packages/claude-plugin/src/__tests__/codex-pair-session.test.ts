@@ -530,49 +530,60 @@ describe("codex-pair session hooks", () => {
     }
   });
 
-  it("keeps another session's live broker when this session has no file credentials", async () => {
-    const sourceA = path.join(repo, "source-a");
-    const noCredentials = path.join(repo, "no-credentials");
-    fs.mkdirSync(sourceA);
-    fs.mkdirSync(noCredentials);
-    fs.writeFileSync(path.join(sourceA, "auth.json"), "{}");
-    fs.mkdirSync(path.join(repo, ".codex-pair", "state"), { recursive: true });
-    const liveHome = createIsolatedBrokerHome({ sourceHome: sourceA });
-    let stopped = false;
-    let spawned = false;
-    try {
-      await writeBrokerDescriptor(repo, {
-        pid: process.pid,
-        transportUrl: chooseTransport(liveHome),
-        sessionId: "healthy",
-        isolatedHome: liveHome,
-        protocolVersion: "v2",
-        startedAt: new Date().toISOString(),
-      });
-      const result = await bootstrapBroker(repo, {
-        sessionId: "keyring-user",
-        sourceHome: noCredentials,
-        injectDeps: {
-          isRecordedBroker: () => true,
-          killPid: async () => {
-            stopped = true;
-            return true;
+  it.each([
+    { alive: true, kept: true },
+    { alive: false, kept: false },
+  ])(
+    "without file credentials keeps another session's broker only while it is live (alive=$alive)",
+    async ({ alive, kept }) => {
+      const sourceA = path.join(repo, "source-a");
+      const noCredentials = path.join(repo, "no-credentials");
+      fs.mkdirSync(sourceA);
+      fs.mkdirSync(noCredentials);
+      fs.writeFileSync(path.join(sourceA, "auth.json"), "{}");
+      fs.mkdirSync(path.join(repo, ".codex-pair", "state"), { recursive: true });
+      const liveHome = createIsolatedBrokerHome({ sourceHome: sourceA });
+      let stopped = false;
+      let spawned = false;
+      let checked = false;
+      try {
+        await writeBrokerDescriptor(repo, {
+          pid: process.pid,
+          transportUrl: chooseTransport(liveHome),
+          sessionId: "healthy",
+          isolatedHome: liveHome,
+          protocolVersion: "v2",
+          startedAt: new Date().toISOString(),
+        });
+        const result = await bootstrapBroker(repo, {
+          sessionId: "keyring-user",
+          sourceHome: noCredentials,
+          injectDeps: {
+            isRecordedBroker: () => {
+              checked = true;
+              return alive;
+            },
+            killPid: async () => {
+              stopped = true;
+              return true;
+            },
+            spawnBroker: () => {
+              spawned = true;
+              return { pid: 2 ** 22 + 5, kill: () => true };
+            },
           },
-          spawnBroker: () => {
-            spawned = true;
-            return { pid: 2 ** 22 + 5, kill: () => true };
-          },
-        },
-      });
-      expect(result).toBeNull();
-      expect(stopped).toBe(false);
-      expect(spawned).toBe(false);
-      expect(readBrokerState(repo)?.sessionId).toBe("healthy");
-      expect(fs.existsSync(liveHome)).toBe(true);
-    } finally {
-      removeIsolatedBrokerHome(liveHome);
-    }
-  });
+        });
+        expect(result).toBeNull();
+        expect(checked).toBe(true);
+        expect(stopped).toBe(!kept);
+        expect(spawned).toBe(false);
+        expect(readBrokerState(repo)?.sessionId).toBe(kept ? "healthy" : undefined);
+        expect(fs.existsSync(liveHome)).toBe(kept);
+      } finally {
+        removeIsolatedBrokerHome(liveHome);
+      }
+    },
+  );
 
   it("replaces a live broker from a different credential home", async () => {
     const sourceA = path.join(repo, "source-a");
