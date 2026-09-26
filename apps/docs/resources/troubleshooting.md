@@ -87,7 +87,7 @@ If it's still failing:
 
 **Step-by-step:**
 
-1. **Check Node.js version**: must be ≥ v20:
+1. **Check Node.js version**: must be ≥ v24:
    ```bash
    node --version
    ```
