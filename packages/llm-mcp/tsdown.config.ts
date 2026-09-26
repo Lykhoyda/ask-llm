@@ -3,7 +3,7 @@ import { defineConfig } from "tsdown";
 export default defineConfig({
   entry: { index: "src/index.ts", cli: "src/cli.ts", machine: "src/machine.ts", cursor: "src/cursorAgent.ts" },
   format: ["esm"],
-  target: "node20",
+  target: "node24",
   sourcemap: true,
   clean: true,
   dts: true,

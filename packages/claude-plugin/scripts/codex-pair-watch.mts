@@ -25,7 +25,7 @@ import {
   joinPendingForSurface,
   markReviewed,
   sweepStaleDebounce,
-} from "./lib/debounce-state.mjs";
+} from "./lib/debounce-state.mts";
 import { type Frontmatter, parseFrontmatter } from "./lib/frontmatter.mts";
 import type { HookInput } from "./lib/hook-input.mjs";
 import {
@@ -36,10 +36,10 @@ import {
   parseResetHint,
   VALID_THRESHOLDS,
   VERDICT_PREFIXES,
-} from "./lib/parser.mjs";
-import { IS_WINDOWS, terminateProcessTree } from "./lib/process.mjs";
-import { buildReviewPrompt } from "./lib/prompt.mjs";
-import { registerMarker } from "./lib/session-registry.mjs";
+} from "./lib/parser.mts";
+import { IS_WINDOWS, terminateProcessTree } from "./lib/process.mts";
+import { buildReviewPrompt } from "./lib/prompt.mts";
+import { registerMarker } from "./lib/session-registry.mts";
 import {
   AUTOPAUSE_FAILURE_THRESHOLD,
   appendLog,
@@ -65,7 +65,7 @@ import {
   tryAcquireInflightLock,
   updateRepetitions,
   writeAutoPause,
-} from "./lib/state.mjs";
+} from "./lib/state.mts";
 
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
 const DEFAULTS_PATH = join(SCRIPT_DIR, "..", "codex-pair-defaults.json");

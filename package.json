@@ -28,7 +28,7 @@
     "@biomejs/biome": "^2.5.10",
     "@changesets/changelog-github": "^1.0.0",
     "@changesets/cli": "^3.0.1",
-    "@types/node": "^22.20.1",
+    "@types/node": "^24.13.6",
     "husky": "^9.1.7",
     "js-tiktoken": "^1.0.21",
     "tsx": "^4.23.12",
@@ -37,7 +37,7 @@
     "yaml": "^2.9.0"
   },
   "engines": {
-    "node": ">=20.0.0"
+    "node": ">=24.0.0"
   },
   "packageManager": "yarn@4.18.0"
 }

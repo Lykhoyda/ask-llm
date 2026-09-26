@@ -63,7 +63,7 @@ function makeReport(overrides: Partial<DiagnosticReport> = {}): DiagnosticReport
       },
     ],
     checks: [
-      { name: "Node.js version", status: "pass", message: "v24.13.0 (>= v20 required)" },
+      { name: "Node.js version", status: "pass", message: "v24.13.0 (>= v24 required)" },
       {
         name: "Provider: Ollama",
         status: "warn",
@@ -240,13 +240,13 @@ describe("bounded doctor TOON schema", () => {
   it("preserves actionable failure status, message, and fix", () => {
     const report = makeReport({
       status: "error",
-      checks: [{ name: "Node.js version", status: "fail", message: "Node is too old", fix: "Install Node 22." }],
+      checks: [{ name: "Node.js version", status: "fail", message: "Node is too old", fix: "Install Node 24." }],
     });
     const document = doctorToonDocument(report);
 
     expect(document.status).toBe("error");
     expect(document.checks).toEqual([
-      { name: "Node.js version", status: "fail", message: "Node is too old", fix: "Install Node 22." },
+      { name: "Node.js version", status: "fail", message: "Node is too old", fix: "Install Node 24." },
     ]);
   });
 

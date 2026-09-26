@@ -37,7 +37,7 @@ function findNvmNodePath(): string | null {
     const versions = readdirSync(nvmDir)
       .filter((v) => {
         const major = parseInt(v.replace("v", "").split(".")[0], 10);
-        return major >= 20;
+        return major >= 24;
       })
       .sort((a, b) => b.localeCompare(a, undefined, { numeric: true }));
 

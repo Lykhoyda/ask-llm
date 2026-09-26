@@ -40,7 +40,7 @@ export function sanitizeErrorForLLM(
 ): string {
   if (stderr.includes("Invalid regular expression flags") && stderr.includes("Node.js v")) {
     const nodeVersion = stderr.match(/Node\.js (v[\d.]+)/)?.[1] ?? "unknown";
-    return `${command} CLI requires Node.js v20+ but is running on ${nodeVersion}. The user should update their Node version or set ASK_LLM_PATH in their MCP config to point to a Node v20+ installation.`;
+    return `${command} CLI requires Node.js v24+ but is running on ${nodeVersion}. The user should update their Node version or set ASK_LLM_PATH in their MCP config to point to a Node v24+ installation.`;
   }
 
   if (isCommandNotFoundError(stderr, command)) {

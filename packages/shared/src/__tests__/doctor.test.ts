@@ -6,7 +6,7 @@ function makeReport(overrides: Partial<DiagnosticReport> = {}): DiagnosticReport
     status: "ok",
     generatedAt: "2026-04-16T00:00:00.000Z",
     environment: {
-      nodeVersion: "v22.10.0",
+      nodeVersion: "v24.10.0",
       nodeOk: true,
       platform: "darwin",
       arch: "arm64",
@@ -21,7 +21,7 @@ function makeReport(overrides: Partial<DiagnosticReport> = {}): DiagnosticReport
     },
     providers: [],
     checks: [
-      { name: "Node.js version", status: "pass", message: "v22.10.0 (>= v20 required)" },
+      { name: "Node.js version", status: "pass", message: "v24.10.0 (>= v24 required)" },
       { name: "PATH resolution", status: "pass", message: "Resolved PATH has 2 entries" },
     ],
     ...overrides,
@@ -147,6 +147,21 @@ describe("runDiagnostics", () => {
     const nodeCheck = report.checks.find((c) => c.name === "Node.js version");
     expect(nodeCheck).toBeDefined();
     expect(nodeCheck?.status).toBe("pass");
+    expect(nodeCheck?.message).toContain("(>= v24 required)");
+  });
+
+  it("fails the Node.js check below the Node 24 LTS floor", async () => {
+    const real = process.version;
+    Object.defineProperty(process, "version", { value: "v22.18.0", configurable: true });
+    try {
+      const report = await runDiagnostics([]);
+      const nodeCheck = report.checks.find((c) => c.name === "Node.js version");
+      expect(nodeCheck?.status).toBe("fail");
+      expect(nodeCheck?.message).toContain("Ask LLM requires Node 24 (the current LTS)");
+      expect(nodeCheck?.fix).toContain("nvm install 24");
+    } finally {
+      Object.defineProperty(process, "version", { value: real, configurable: true });
+    }
   });
 
   it("includes a PATH resolution check", async () => {
