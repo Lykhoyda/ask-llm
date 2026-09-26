@@ -1,5 +1,5 @@
 {
-  "$schema": "https://biomejs.dev/schemas/2.4.4/schema.json",
+  "$schema": "https://biomejs.dev/schemas/2.5.10/schema.json",
   "vcs": {
     "enabled": true,
     "clientKind": "git",
@@ -9,7 +9,17 @@
     "includes": [
       "packages/*/src/**",
       "packages/claude-plugin/scripts/**",
-      "!!packages/claude-plugin/scripts/benchmark/fixtures/**",
+      "!!packages/claude-plugin/scripts/benchmark/fixtures",
+      "!!packages/claude-plugin/scripts/codex-pair-debounce-worker.mjs",
+      "!!packages/claude-plugin/scripts/codex-pair-prompt-drain.mjs",
+      "!!packages/claude-plugin/scripts/codex-pair-session.mjs",
+      "!!packages/claude-plugin/scripts/codex-pair-stop-gate.mjs",
+      "!!packages/claude-plugin/scripts/codex-pair-watch.mjs",
+      "!!packages/claude-plugin/scripts/lib/broker.mjs",
+      "!!packages/claude-plugin/scripts/lib/broker-lifecycle.mjs",
+      "!!packages/claude-plugin/scripts/lib/broker-rpc.mjs",
+      "!!packages/claude-plugin/scripts/lib/broker-transport.mjs",
+      "!!packages/claude-plugin/scripts/lib/frontmatter.mjs",
       "scripts/**",
       "apps/docs/**/*.ts"
     ]
@@ -30,7 +40,7 @@
   "linter": {
     "enabled": true,
     "rules": {
-      "recommended": true,
+      "preset": "recommended",
       "complexity": {
         "noStaticOnlyClass": "off"
       },

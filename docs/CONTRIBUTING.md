@@ -12,7 +12,7 @@ yarn build
 yarn test
 ```
 
-Requires Node.js 22.18+ to build (the tsdown toolchain's floor since ADR-119 — published packages still run on Node 20+) and Yarn 4.18+ (managed via the `packageManager` field). Every workspace compiles with TypeScript 7 (ADR-143); `scripts/typescript-contract.test.ts` fails the build if a package drifts off that floor. Supported platforms are Linux and macOS. CI runs the five-batch test suite on Ubuntu (Node 22.x and 24.x) plus a dedicated `pi-lifecycle-macos` job; native Windows is not supported.
+Use Node.js 24+ for the repository build and Yarn 4.18+ (managed via the `packageManager` field). The provider packages still support Node 20+, while the plugin requires Node 24+ (ADR-170). Every workspace compiles with TypeScript 7 (ADR-143); `scripts/typescript-contract.test.ts` fails the build if a package drifts off that floor. Supported platforms are Linux and macOS. CI runs the five-batch test suite on Ubuntu (Node 22.x and 24.x) plus a dedicated `pi-lifecycle-macos` job; native Windows is not supported.
 
 ## Project layout
 

@@ -14,8 +14,9 @@
   },
   "scripts": {
     "build": "tsc",
+    "build:hooks": "tsc -p scripts/tsconfig.json && chmod 755 scripts/codex-pair-debounce-worker.mjs scripts/codex-pair-prompt-drain.mjs scripts/codex-pair-session.mjs scripts/codex-pair-stop-gate.mjs scripts/codex-pair-watch.mjs",
     "test": "vitest run",
-    "lint": "biome check src/ pi/ && biome lint scripts/ && tsc --noEmit && tsc --noEmit -p pi/tsconfig.json"
+    "lint": "biome check src/ pi/ && biome lint scripts/ && tsc --noEmit && tsc --noEmit -p pi/tsconfig.json && tsc -p scripts/tsconfig.json --noEmit"
   },
   "keywords": [
     "pi-package",
@@ -56,7 +57,7 @@
     "prompts/",
     "README.md",
     "scripts/*.mjs",
-    "scripts/lib/",
+    "scripts/lib/*.mjs",
     "skills/"
   ],
   "pi": {
@@ -96,7 +97,7 @@
     "typebox": "*"
   },
   "engines": {
-    "node": ">=20.0.0"
+    "node": ">=24.0.0"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.10",

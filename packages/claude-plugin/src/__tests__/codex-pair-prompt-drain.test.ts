@@ -9,7 +9,7 @@ import { PLUGIN_ROOT, readFile } from "./_helpers.js";
 const DRAIN_PATH = path.join(PLUGIN_ROOT, "scripts", "codex-pair-prompt-drain.mjs");
 
 describe("scripts/codex-pair-prompt-drain.mjs — structural invariants", () => {
-  const script = readFile("scripts/codex-pair-prompt-drain.mjs");
+  const script = readFile("scripts/codex-pair-prompt-drain.mts");
   const hooks = readFile("hooks/hooks.json");
 
   it("has a node shebang and is executable", () => {
