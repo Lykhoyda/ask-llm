@@ -561,13 +561,15 @@ async function runWithBroker({ prompt, timeoutMs, model, markerDir, }) {
         err.brokerPhase = "connect";
         throw err;
     }
+    const deadline = Date.now() + timeoutMs;
+    // A warm broker must complete its handshake within two seconds, inside its budget.
+    const connectMs = Math.min(2000, Math.floor(timeoutMs / 4));
     let connection = null;
     let rpc;
     try {
-        // A warm broker must complete its handshake within two seconds.
         const init = await initializeBroker(state.transportUrl, brokerClientInfo(), {
-            handshakeTimeoutMs: 2000,
-            initializeTimeoutMs: 2000,
+            handshakeTimeoutMs: connectMs,
+            initializeTimeoutMs: connectMs,
         });
         connection = init.connection;
         rpc = init.rpc;
@@ -590,7 +592,7 @@ async function runWithBroker({ prompt, timeoutMs, model, markerDir, }) {
             prompt,
             model,
             effort: DEFAULT_REASONING_EFFORT,
-            timeoutMs,
+            timeoutMs: Math.max(0, deadline - Date.now()),
         });
     }
     finally {
@@ -607,16 +609,20 @@ async function runWithBroker({ prompt, timeoutMs, model, markerDir, }) {
 async function runCodexWithFallback({ prompt, timeoutMs, model, fallbackModel, markerDir, }) {
     // Broker failures retry directly; quota uses the fallback model; transients consume one retry.
     let retryPrimary = true;
+    let directTimeoutMs = timeoutMs;
     if (isBrokerEnabled(markerDir)) {
+        const deadline = Date.now() + timeoutMs;
         try {
+            // Half the budget leaves a stalled broker's direct fallback the rest, so the review fits one timeout.
             return {
-                response: await runWithBroker({ prompt, model, timeoutMs, markerDir }),
+                response: await runWithBroker({ prompt, model, timeoutMs: Math.floor(timeoutMs / 2), markerDir }),
                 fellBack: false,
                 viaBroker: true,
             };
         }
         catch (caught) {
             const err = caught;
+            directTimeoutMs = deadline - Date.now();
             const quota = isQuotaError(err);
             if (!quota && !err?.brokerFailure && !isTransientError(err))
                 throw err;
@@ -631,12 +637,12 @@ async function runCodexWithFallback({ prompt, timeoutMs, model, fallbackModel, m
                 // best-effort; logging failure must never break the hook
             }
             if (quota)
-                return runFallbackModel(err, { prompt, timeoutMs, model, fallbackModel, markerDir });
+                return runFallbackModel(err, { prompt, timeoutMs: directTimeoutMs, model, fallbackModel, markerDir });
             retryPrimary = Boolean(err?.brokerFailure);
         }
     }
     try {
-        const call = { prompt, model, timeoutMs, markerDir };
+        const call = { prompt, model, timeoutMs: directTimeoutMs, markerDir };
         return {
             response: retryPrimary ? await spawnCodexWithRetry(call) : await spawnCodex(call),
             fellBack: false,
@@ -645,7 +651,13 @@ async function runCodexWithFallback({ prompt, timeoutMs, model, fallbackModel, m
     catch (err) {
         if (!isQuotaError(err))
             throw err;
-        return runFallbackModel(err, { prompt, timeoutMs, model, fallbackModel, markerDir });
+        return runFallbackModel(err, {
+            prompt,
+            timeoutMs: directTimeoutMs,
+            model,
+            fallbackModel,
+            markerDir,
+        });
     }
 }
 async function runFallbackModel(err, { prompt, timeoutMs, model, fallbackModel, markerDir }) {
