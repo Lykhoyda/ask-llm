@@ -260,8 +260,7 @@ export function spawnBroker(markerDir, transportUrl, isolatedHome) {
         stdio: ["ignore", logFd, logFd],
     });
     // Handle asynchronous spawn errors so a missing Codex binary cannot crash the hook.
-    child.on("error", () => {
-    });
+    child.on("error", () => { });
     // Detach so the broker outlives SessionStart.
     child.unref();
     return child;

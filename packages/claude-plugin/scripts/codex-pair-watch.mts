@@ -117,7 +117,6 @@ const TRANSIENT_SIGNALS = [
   /\b504\b/,
 ];
 
-
 // Anchor unhandled-error logs to the edited file’s repository, falling back to cwd before payload parsing.
 let markerAnchor: string | null = null;
 
@@ -128,7 +127,6 @@ interface GlobRule {
   pattern: string;
   raw: string;
 }
-
 
 const SKIP_PATTERNS = [
   // Path patterns — leading/trailing slash guards against substring matches
@@ -305,7 +303,6 @@ async function buildAdaptiveContext({
   };
 }
 
-
 // The same ordered rule parser serves project include and ignore files.
 function readGlobRulesFile(absolutePath: string): GlobRule[] {
   let content: string;
@@ -432,8 +429,6 @@ async function findMarkerUp(startDir: string): Promise<string | null> {
 function buildPrompt(args: Parameters<typeof buildReviewPrompt>[0]): string {
   return buildReviewPrompt(args);
 }
-
-
 
 // Pass the prompt on stdin to avoid ARG_MAX for large edited files.
 function buildCodexArgs(model: string): string[] {

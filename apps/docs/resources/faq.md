@@ -48,7 +48,7 @@ No. The orchestrator (`@ask-llm/mcp`) auto-detects which CLIs are installed and 
 
 ### What Node.js version do I need?
 
-Node v20.0.0 or higher (LTS 20 or 22). The doctor command (`npx @ask-llm/mcp doctor`) will warn if you're on an older version; Gemini CLI 0.36+ uses ES2024 regex features that crash on Node 18.
+The MCP provider and orchestrator packages require Node 20 or newer; `@ask-llm/plugin` requires Node 24 or newer. The doctor command (`npx @ask-llm/mcp doctor`) checks the MCP runtime. Gemini CLI 0.36+ uses ES2024 regex features that crash on Node 18.
 
 ### Should I use the orchestrator or per-provider packages?
 
