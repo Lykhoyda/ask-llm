@@ -18,6 +18,7 @@ describe("Logger.checkNodeVersion", () => {
     fakeNode("22.18.0");
     Logger.checkNodeVersion();
     expect(error).toHaveBeenCalledWith(expect.stringContaining("v24+ required"));
+    expect(error).toHaveBeenCalledWith(expect.stringContaining("Ask LLM requires Node 24 (the current LTS)"));
   });
 
   it("stays quiet on Node 24", () => {

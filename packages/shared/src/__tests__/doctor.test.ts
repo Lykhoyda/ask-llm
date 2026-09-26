@@ -157,6 +157,7 @@ describe("runDiagnostics", () => {
       const report = await runDiagnostics([]);
       const nodeCheck = report.checks.find((c) => c.name === "Node.js version");
       expect(nodeCheck?.status).toBe("fail");
+      expect(nodeCheck?.message).toContain("Ask LLM requires Node 24 (the current LTS)");
       expect(nodeCheck?.fix).toContain("nvm install 24");
     } finally {
       Object.defineProperty(process, "version", { value: real, configurable: true });

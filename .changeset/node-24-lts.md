@@ -1,6 +1,6 @@
 ---
 "@ask-llm/shared": minor
-"@ask-llm/gemini-mcp": minor
+"@ask-llm/gemini-mcp": major
 "@ask-llm/grok-mcp": minor
 "@ask-llm/codex-mcp": minor
 "@ask-llm/claude-mcp": minor

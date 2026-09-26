@@ -138,7 +138,9 @@ describe("supported CI platforms", () => {
   it("does not run Windows jobs in any workflow", () => {
     const workflowsDir = resolve(import.meta.dirname, "../.github/workflows");
     for (const name of readdirSync(workflowsDir).filter((file) => /\.ya?ml$/.test(file))) {
-      const workflow = parse(readFileSync(resolve(workflowsDir, name), "utf8"));
+      const source = readFileSync(resolve(workflowsDir, name), "utf8");
+      expect(source, name).not.toMatch(/windows-latest/);
+      const workflow = parse(source);
       for (const job of Object.values(workflow.jobs ?? {})) {
         expect(job["runs-on"], name).not.toBe("windows-latest");
       }

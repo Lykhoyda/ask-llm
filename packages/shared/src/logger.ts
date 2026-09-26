@@ -81,7 +81,7 @@ export class Logger {
     if (major < minMajor) {
       Logger.error(
         `Node.js v${process.versions.node} detected — v${minMajor}+ required. ` +
-          `Some providers (e.g., gemini-cli) use ES2024 features that will crash on older runtimes.`,
+          "Ask LLM requires Node 24 (the current LTS).",
       );
     }
   }

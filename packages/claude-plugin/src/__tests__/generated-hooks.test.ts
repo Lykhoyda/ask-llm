@@ -28,7 +28,7 @@ it("commits exactly the JavaScript that tsc generates from every TypeScript plug
       .map((line) => path.relative(outDir, line.slice("TSFILE: ".length).trim()));
     const committedJs = fs
       .readdirSync(path.join(PLUGIN_ROOT, "scripts"), { recursive: true, encoding: "utf8" })
-      .filter((rel) => rel.endsWith(".mjs") && !rel.startsWith(`benchmark${path.sep}fixtures`));
+      .filter((rel) => rel.endsWith(".mjs"));
     // Every committed .mjs must be tsc output; a hand-written one has no .mts source.
     expect(emitted.sort()).toEqual(committedJs.sort());
     for (const rel of emitted) {

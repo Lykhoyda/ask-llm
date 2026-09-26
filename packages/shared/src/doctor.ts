@@ -143,7 +143,7 @@ export async function runDiagnostics(providers: ProviderSpec[]): Promise<Diagnos
       : {
           name: "Node.js version",
           status: "fail",
-          message: `${process.version} is too old — provider CLIs use ES2024 features that crash on Node < ${NODE_MIN_MAJOR}`,
+          message: `${process.version} is too old — Ask LLM requires Node 24 (the current LTS)`,
           fix: `Upgrade Node to v${NODE_MIN_MAJOR}+ (LTS). nvm: \`nvm install 24 && nvm use 24\``,
         },
   );
