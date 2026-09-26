@@ -1,6 +1,13 @@
 import { readFileSync } from "node:fs";
 import { version as typescriptVersion } from "typescript";
 import { describe, expect, it } from "vitest";
+import antigravityConfig from "../packages/antigravity-mcp/tsdown.config.js";
+import claudeConfig from "../packages/claude-mcp/tsdown.config.js";
+import codexConfig from "../packages/codex-mcp/tsdown.config.js";
+import geminiConfig from "../packages/gemini-mcp/tsdown.config.js";
+import grokConfig from "../packages/grok-mcp/tsdown.config.js";
+import llmConfig from "../packages/llm-mcp/tsdown.config.js";
+import ollamaConfig from "../packages/ollama-mcp/tsdown.config.js";
 
 const ROOT = new URL("../", import.meta.url);
 
@@ -20,6 +27,16 @@ const TYPESCRIPT_PACKAGES = [
 const TSDOWN_PACKAGES = TYPESCRIPT_PACKAGES.filter(
   (packagePath) => packagePath !== "." && packagePath !== "packages/claude-plugin" && packagePath !== "packages/shared",
 );
+
+const TSDOWN_CONFIGS = [
+  antigravityConfig,
+  claudeConfig,
+  codexConfig,
+  geminiConfig,
+  grokConfig,
+  llmConfig,
+  ollamaConfig,
+];
 
 interface PackageManifest {
   packageManager?: string;
@@ -93,14 +110,16 @@ describe("TypeScript 7 toolchain contract", () => {
 
 describe("Node 24 LTS runtime contract", () => {
   it("declares, targets, and types against Node 24 in every workspace", () => {
-    for (const packagePath of TYPESCRIPT_PACKAGES) {
+    for (const packagePath of [...TYPESCRIPT_PACKAGES, "apps/docs"]) {
       const manifest = readJson<PackageManifest>(`${packagePath}/package.json`);
       expect(manifest.engines?.node, packagePath).toBe(">=24.0.0");
+    }
+    for (const packagePath of TYPESCRIPT_PACKAGES) {
+      const manifest = readJson<PackageManifest>(`${packagePath}/package.json`);
       expect(manifest.devDependencies?.["@types/node"], packagePath).toMatch(/^\^24\./);
     }
-    for (const packagePath of TSDOWN_PACKAGES) {
-      const config = readFileSync(new URL(`${packagePath}/tsdown.config.ts`, ROOT), "utf8");
-      expect(config, packagePath).toContain('target: "node24"');
+    for (const [index, config] of TSDOWN_CONFIGS.entries()) {
+      expect(config, TSDOWN_PACKAGES[index]).toMatchObject({ target: "node24" });
     }
   });
 });

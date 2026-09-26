@@ -118,16 +118,30 @@ describe("supported CI platforms", () => {
     expect(parsedWorkflow.jobs["global-install-smoke"].strategy.matrix["node-version"]).toEqual(["24.x", "26.x"]);
     const workflowsDir = resolve(import.meta.dirname, "../.github/workflows");
     for (const name of readdirSync(workflowsDir).filter((file) => /\.ya?ml$/.test(file))) {
-      const source = readFileSync(resolve(workflowsDir, name), "utf8");
-      expect(source, name).not.toMatch(/node-version: "?2[02](\.x)?"?$|\b2[02]\.x\b|node2[02]/m);
+      const workflow = parse(readFileSync(resolve(workflowsDir, name), "utf8"));
+      for (const job of Object.values(workflow.jobs ?? {})) {
+        const matrixVersions = job.strategy?.matrix?.["node-version"];
+        if (matrixVersions) expect(matrixVersions, name).toEqual(["24.x", "26.x"]);
+        for (const step of job.steps ?? []) {
+          if (!step.uses?.startsWith("actions/setup-node@")) continue;
+          const version = step.with?.["node-version"];
+          if (matrixVersions) {
+            expect(version, name).toBe("${{ matrix.node-version }}");
+          } else {
+            expect([24, "24", "24.x"], name).toContain(version);
+          }
+        }
+      }
     }
   });
 
   it("does not run Windows jobs in any workflow", () => {
     const workflowsDir = resolve(import.meta.dirname, "../.github/workflows");
     for (const name of readdirSync(workflowsDir).filter((file) => /\.ya?ml$/.test(file))) {
-      const source = readFileSync(resolve(workflowsDir, name), "utf8");
-      expect(source, name).not.toMatch(/windows-latest/);
+      const workflow = parse(readFileSync(resolve(workflowsDir, name), "utf8"));
+      for (const job of Object.values(workflow.jobs ?? {})) {
+        expect(job["runs-on"], name).not.toBe("windows-latest");
+      }
     }
   });
 });

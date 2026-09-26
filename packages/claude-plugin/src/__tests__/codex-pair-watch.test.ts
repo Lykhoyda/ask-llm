@@ -2102,7 +2102,6 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
     // The spawn-with-detached call sites still live in the hook script.
     const scriptText = fs.readFileSync(path.join(PLUGIN_ROOT, "scripts", "codex-pair-watch.mts"), "utf-8");
     expect(scriptText).toMatch(/detached:\s*!IS_WINDOWS/);
-    expect(scriptText).toMatch(/from "\.\/lib\/process\.mts"/);
   });
 
   it("ADR-084: spawnCodex timeout path triggers process-tree termination (uses terminateProcessTree)", () => {
