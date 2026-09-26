@@ -122,6 +122,10 @@ function reclaimAbandonedLock(lockPath) {
     const owner = readLockFile(lockPath, LOCK_OWNER_FILE);
     if (!isAbandonedLock(lockPath, owner))
         return false;
+    // Look the orphan up before claiming, so an unknown ps leaves the lock and its record in place.
+    const orphan = findAbandonedBroker(lockPath);
+    if (!orphan)
+        return false;
     const claimed = `${lockPath}.abandoned.${process.pid}.${Date.now()}`;
     try {
         renameSync(lockPath, claimed);
@@ -136,7 +140,7 @@ function reclaimAbandonedLock(lockPath) {
         catch { }
         return false;
     }
-    recoverAbandonedBootstrap(claimed);
+    stopAbandonedBroker(orphan);
     rmSync(claimed, { recursive: true, force: true });
     return true;
 }
@@ -150,21 +154,25 @@ function isAbandonedLock(lockPath, owner) {
         return false;
     }
 }
-// The transport is recorded before spawning, so a broker orphaned at any point is found by it.
-function recoverAbandonedBootstrap(lockPath) {
+// The transport is recorded before spawning, so a broker orphaned at any point is found by it; null means ps failed.
+function findAbandonedBroker(lockPath) {
     let spawned;
     try {
         const record = readLockFile(lockPath, LOCK_SPAWN_FILE) ?? readLockFile(lockPath, `${LOCK_SPAWN_FILE}.tmp`);
         spawned = JSON.parse(record ?? "");
         if (!isIsolatedBrokerHome(spawned.isolatedHome))
-            return;
+            return { pids: [] };
         if (spawned.transportUrl !== chooseTransport(spawned.isolatedHome))
-            return;
+            return { pids: [] };
     }
     catch {
-        return;
+        return { pids: [] };
     }
-    for (const pid of findBrokerPids(spawned.transportUrl)) {
+    const pids = findBrokerPids(spawned.transportUrl);
+    return pids && { pids, isolatedHome: spawned.isolatedHome };
+}
+function stopAbandonedBroker({ pids, isolatedHome }) {
+    for (const pid of pids) {
         try {
             process.kill(-pid, "SIGKILL");
         }
@@ -175,7 +183,7 @@ function recoverAbandonedBootstrap(lockPath) {
             catch { }
         }
     }
-    removeIsolatedBrokerHome(spawned.isolatedHome);
+    removeIsolatedBrokerHome(isolatedHome);
 }
 function recordBootstrapSpawn(lockPath, spawned) {
     const file = join(lockPath, LOCK_SPAWN_FILE);
@@ -330,11 +338,21 @@ export async function bootstrapBroker(markerDir, options = {}) {
             const startedAt = Date.parse(previous.startedAt ?? "");
             const ageMs = Date.now() - startedAt;
             const expired = !Number.isFinite(ageMs) || ageMs >= BROKER_OWNER_TTL_MS || ageMs < -5 * 60 * 1000;
-            const live = !expired && (injectDeps?.isRecordedBroker ?? isRecordedBroker)(previous);
+            const liveness = expired ? null : (injectDeps?.brokerLiveness ?? brokerLiveness)(previous);
+            // Unverifiable liveness keeps the recorded broker and starts no second one; reviews go direct.
+            if (liveness === "unknown")
+                return null;
+            const live = liveness === "live";
             if (hasCredentials && live && hasCurrentBrokerAuth(previous.isolatedHome, options.sourceHome)) {
                 return previous;
             }
-            await teardownBroker(markerDir, { lockHeld: true, injectDeps, onlyIfCredentialMissing: !hasCredentials && live });
+            const retired = await teardownBroker(markerDir, {
+                lockHeld: true,
+                injectDeps,
+                onlyIfCredentialMissing: !hasCredentials && live,
+            });
+            if (!retired)
+                return null;
         }
         if (!hasCredentials)
             return null;
@@ -446,18 +464,19 @@ export function isPidAlive(pid) {
     }
 }
 // Descriptors outlive crashes and reboots, so a recorded pid may since belong to an unrelated process.
-export function isRecordedBroker(descriptor) {
+export function brokerLiveness(descriptor) {
     if (IS_WINDOWS || !isPidAlive(descriptor.pid) || typeof descriptor.transportUrl !== "string")
-        return false;
+        return "dead";
     try {
         const args = execFileSync("ps", ["-ww", "-o", "args=", "-p", String(descriptor.pid)], {
             encoding: "utf-8",
             timeout: 2000,
         });
-        return isBrokerCommand(args, descriptor.transportUrl);
+        return isBrokerCommand(args, descriptor.transportUrl) ? "live" : "dead";
     }
     catch {
-        return false;
+        // ps also exits non-zero when the pid exited after the liveness probe.
+        return isPidAlive(descriptor.pid) ? "unknown" : "dead";
     }
 }
 function isBrokerCommand(args, transportUrl) {
@@ -478,11 +497,8 @@ function findBrokerPids(transportUrl) {
         });
     }
     catch {
-        return [];
+        return null;
     }
-}
-async function killRecordedBroker(descriptor, graceMs) {
-    return isRecordedBroker(descriptor) ? killPidGracefully(descriptor.pid, graceMs) : false;
 }
 async function killPidGracefully(pid, graceMs) {
     if (!isPidAlive(pid))
@@ -622,11 +638,15 @@ export async function teardownBroker(markerDir, options = {}) {
                     return null;
             }
         }
+        // An unverified pid is never signaled, and its state is kept so the broker is not orphaned.
+        const liveness = (injectDeps?.brokerLiveness ?? brokerLiveness)(descriptor);
+        if (liveness === "unknown")
+            return null;
         try {
             if (injectDeps?.killPid)
                 await injectDeps.killPid(descriptor.pid, graceMs);
-            else
-                await killRecordedBroker(descriptor, graceMs);
+            else if (liveness === "live")
+                await killPidGracefully(descriptor.pid, graceMs);
         }
         catch {
             // best-effort

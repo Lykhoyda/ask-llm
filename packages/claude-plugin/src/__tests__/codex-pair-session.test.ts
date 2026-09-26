@@ -11,9 +11,9 @@ import {
 } from "../../scripts/lib/broker.mts";
 import {
   bootstrapBroker,
+  brokerLiveness,
   chooseTransport,
   createIsolatedBrokerHome,
-  isRecordedBroker,
   removeIsolatedBrokerHome,
   spawnBroker,
   teardownBroker,
@@ -32,6 +32,18 @@ async function until(check: () => boolean, timeoutMs = 5000): Promise<boolean> {
     await new Promise((resolve) => setTimeout(resolve, 25));
   }
   return true;
+}
+
+// Simulates a ps that fails for every call in this process until restored.
+function withFailingPs(): () => void {
+  const bin = fs.mkdtempSync(path.join(os.tmpdir(), "cp-failing-ps-"));
+  fs.writeFileSync(path.join(bin, "ps"), "#!/bin/sh\nexit 1\n", { mode: 0o755 });
+  const priorPath = process.env.PATH;
+  process.env.PATH = `${bin}${path.delimiter}${priorPath}`;
+  return () => {
+    process.env.PATH = priorPath;
+    fs.rmSync(bin, { recursive: true, force: true });
+  };
 }
 
 describe("codex-pair session hooks", () => {
@@ -154,7 +166,7 @@ describe("codex-pair session hooks", () => {
         initializeResult: { codexHome: spawnedHome },
       }),
       readCodexVersion: () => "test",
-      isRecordedBroker: (d: { pid: number }) => d.pid === process.pid,
+      brokerLiveness: (d: { pid: number }) => (d.pid === process.pid ? ("live" as const) : ("dead" as const)),
     };
     try {
       const current = await bootstrapBroker(repo, { sessionId: "B", sourceHome: repo, injectDeps });
@@ -296,10 +308,10 @@ describe("codex-pair session hooks", () => {
       },
     );
     try {
-      expect(await until(() => isRecordedBroker({ pid: broker.pid as number, transportUrl }))).toBe(true);
-      expect(isRecordedBroker({ pid: lookalike.pid as number, transportUrl })).toBe(false);
-      expect(isRecordedBroker({ pid: broker.pid as number, transportUrl: `${transportUrl}x` })).toBe(false);
-      expect(isRecordedBroker({ pid: broker.pid as number, transportUrl })).toBe(true);
+      expect(await until(() => brokerLiveness({ pid: broker.pid as number, transportUrl }) === "live")).toBe(true);
+      expect(brokerLiveness({ pid: lookalike.pid as number, transportUrl })).toBe("dead");
+      expect(brokerLiveness({ pid: broker.pid as number, transportUrl: `${transportUrl}x` })).toBe("dead");
+      expect(brokerLiveness({ pid: broker.pid as number, transportUrl })).toBe("live");
       await writeBrokerDescriptor(repo, {
         pid: broker.pid as number,
         transportUrl,
@@ -339,7 +351,9 @@ describe("codex-pair session hooks", () => {
       fs.writeFileSync(path.join(lock, record), JSON.stringify({ transportUrl: orphanUrl, isolatedHome: orphanHome }));
       let spawnedHome = "";
       try {
-        expect(await until(() => isRecordedBroker({ pid: orphan.pid as number, transportUrl: orphanUrl }))).toBe(true);
+        expect(
+          await until(() => brokerLiveness({ pid: orphan.pid as number, transportUrl: orphanUrl }) === "live"),
+        ).toBe(true);
         const result = await bootstrapBroker(repo, {
           sessionId: "F",
           sourceHome: repo,
@@ -371,6 +385,102 @@ describe("codex-pair session hooks", () => {
       }
     },
   );
+
+  it.each([true, false])(
+    "keeps a broker whose liveness ps cannot verify and starts no second one (credentials=%s)",
+    async (hasCredentials) => {
+      const sourceA = path.join(repo, "source-a");
+      fs.mkdirSync(sourceA);
+      fs.writeFileSync(path.join(sourceA, "auth.json"), "{}");
+      fs.mkdirSync(path.join(repo, ".codex-pair", "state"), { recursive: true });
+      const home = createIsolatedBrokerHome({ sourceHome: sourceA });
+      const transportUrl = chooseTransport(home);
+      const fakeCodex = path.join(repo, "codex");
+      fs.writeFileSync(fakeCodex, "#!/usr/bin/env node\nsetTimeout(() => {}, 30000);\n", { mode: 0o755 });
+      const broker = spawn(fakeCodex, ["app-server", "--listen", transportUrl], { detached: true, stdio: "ignore" });
+      let spawned = false;
+      let restorePs = () => {};
+      try {
+        expect(await until(() => brokerLiveness({ pid: broker.pid as number, transportUrl }) === "live")).toBe(true);
+        await writeBrokerDescriptor(repo, {
+          pid: broker.pid as number,
+          transportUrl,
+          sessionId: "healthy",
+          isolatedHome: home,
+          protocolVersion: "v2",
+          startedAt: new Date().toISOString(),
+        });
+        restorePs = withFailingPs();
+        expect(brokerLiveness({ pid: broker.pid as number, transportUrl })).toBe("unknown");
+        const result = await bootstrapBroker(repo, {
+          sessionId: "next",
+          sourceHome: hasCredentials ? sourceA : path.join(repo, "no-credentials"),
+          injectDeps: {
+            spawnBroker: () => {
+              spawned = true;
+              return { pid: 2 ** 22 + 6, kill: () => true };
+            },
+          },
+        });
+        expect(result).toBeNull();
+        expect(await teardownBroker(repo, { sessionId: "healthy" })).toBeNull();
+        expect(spawned).toBe(false);
+        expect(readBrokerState(repo)?.sessionId).toBe("healthy");
+        expect(fs.existsSync(home)).toBe(true);
+        expect(broker.exitCode === null && broker.signalCode === null).toBe(true);
+      } finally {
+        restorePs();
+        broker.kill("SIGKILL");
+        removeIsolatedBrokerHome(home);
+      }
+    },
+  );
+
+  it("keeps an interrupted bootstrap's record until ps can find its orphan", async () => {
+    const lock = path.join(repo, ".codex-pair", "state", "broker.lock");
+    fs.mkdirSync(lock, { recursive: true });
+    const orphanHome = createIsolatedBrokerHome({ sourceHome: repo });
+    const orphanUrl = chooseTransport(orphanHome);
+    const fakeCodex = path.join(repo, "codex");
+    fs.writeFileSync(fakeCodex, "#!/usr/bin/env node\nsetTimeout(() => {}, 30000);\n", { mode: 0o755 });
+    const orphan = spawn(fakeCodex, ["app-server", "--listen", orphanUrl], { detached: true, stdio: "ignore" });
+    const deadOwner = spawnSync(process.execPath, ["-e", "process.stdout.write(String(process.pid))"], {
+      encoding: "utf-8",
+    });
+    fs.writeFileSync(path.join(lock, "owner.json"), JSON.stringify({ pid: Number(deadOwner.stdout), at: Date.now() }));
+    fs.writeFileSync(
+      path.join(lock, "spawn.json"),
+      JSON.stringify({ transportUrl: orphanUrl, isolatedHome: orphanHome }),
+    );
+    let spawned = false;
+    const injectDeps = {
+      spawnBroker: () => {
+        spawned = true;
+        return { pid: 2 ** 22 + 7, kill: () => true };
+      },
+      pollSocketReachable: async () => false,
+    };
+    let restorePs = () => {};
+    try {
+      expect(await until(() => brokerLiveness({ pid: orphan.pid as number, transportUrl: orphanUrl }) === "live")).toBe(
+        true,
+      );
+      restorePs = withFailingPs();
+      expect(await bootstrapBroker(repo, { sessionId: "blind", sourceHome: repo, injectDeps })).toBeNull();
+      expect(spawned).toBe(false);
+      expect(orphan.exitCode === null && orphan.signalCode === null).toBe(true);
+      expect(fs.existsSync(orphanHome)).toBe(true);
+      expect(fs.existsSync(path.join(lock, "spawn.json"))).toBe(true);
+      restorePs();
+      await bootstrapBroker(repo, { sessionId: "sighted", sourceHome: repo, injectDeps });
+      expect(await until(() => orphan.exitCode !== null || orphan.signalCode !== null)).toBe(true);
+      expect(fs.existsSync(orphanHome)).toBe(false);
+    } finally {
+      restorePs();
+      orphan.kill("SIGKILL");
+      removeIsolatedBrokerHome(orphanHome);
+    }
+  });
 
   it("leaves a lock held by a live bootstrap alone", async () => {
     const lock = path.join(repo, ".codex-pair", "state", "broker.lock");
@@ -423,7 +533,7 @@ describe("codex-pair session hooks", () => {
         sessionId: "next",
         sourceHome: repo,
         injectDeps: {
-          isRecordedBroker: () => true,
+          brokerLiveness: () => "live" as const,
           killPid: async () => {
             stopped = true;
             return true;
@@ -559,9 +669,9 @@ describe("codex-pair session hooks", () => {
           sessionId: "keyring-user",
           sourceHome: noCredentials,
           injectDeps: {
-            isRecordedBroker: () => {
+            brokerLiveness: () => {
               checked = true;
-              return alive;
+              return alive ? "live" : "dead";
             },
             killPid: async () => {
               stopped = true;
@@ -609,7 +719,7 @@ describe("codex-pair session hooks", () => {
         sessionId: "second-account",
         sourceHome: sourceB,
         injectDeps: {
-          isRecordedBroker: () => true,
+          brokerLiveness: () => "live" as const,
           killPid: async () => {
             stopped = true;
             return true;

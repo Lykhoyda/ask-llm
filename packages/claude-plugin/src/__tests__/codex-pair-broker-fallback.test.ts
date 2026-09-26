@@ -1,4 +1,4 @@
-import { spawn } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import * as fs from "node:fs";
 import { createServer, type Socket } from "node:net";
@@ -15,11 +15,29 @@ import { PLUGIN_ROOT } from "./_helpers.js";
 type Scenario = "timeout" | "rejection" | "missing_id" | "start_close" | "completion_close" | { failedTurn: string };
 
 interface EditOutcome {
-  log: Array<{ verdict: string; fellBack?: boolean }>;
+  log: Array<{ verdict: string; fellBack?: boolean; durationMs?: number }>;
   methods: string[];
   execAttempts: number;
   paused: boolean;
   stderr: string;
+  gates: Array<{ decision?: string; reason?: string }>;
+}
+
+interface EditOptions {
+  seedAttempts?: number;
+  marker?: string;
+}
+
+const STOP_GATE_PATH = path.join(PLUGIN_ROOT, "scripts", "codex-pair-stop-gate.mjs");
+
+function runStopGate(repo: string): { decision?: string; reason?: string } {
+  const result = spawnSync(process.execPath, [STOP_GATE_PATH], {
+    input: JSON.stringify({ hook_event_name: "Stop" }),
+    cwd: repo,
+    encoding: "utf-8",
+    timeout: 10_000,
+  });
+  return JSON.parse(result.stdout.trim() || "{}");
 }
 
 function frame(body: Buffer): Buffer {
@@ -30,12 +48,16 @@ function frame(body: Buffer): Buffer {
   return Buffer.concat([header, body]);
 }
 
-async function runBrokerEdit(scenario: Scenario, fakeCodexScenario: string, seedAttempts = 0): Promise<EditOutcome> {
+async function runBrokerEdit(
+  scenario: Scenario,
+  fakeCodexScenario: string,
+  { seedAttempts = 0, marker = "timeoutMs: 750" }: EditOptions = {},
+): Promise<EditOutcome> {
   const repo = fs.mkdtempSync(path.join("/tmp", "cpb-"));
   fs.writeFileSync(path.join(repo, "auth.json"), "{}");
   const home = createIsolatedBrokerHome({ sourceHome: repo });
   fs.mkdirSync(path.join(repo, ".codex-pair", "state"), { recursive: true });
-  fs.writeFileSync(path.join(repo, ".codex-pair", "context.md"), "---\ndebounceMs: 0\ntimeoutMs: 750\n---\n# test");
+  fs.writeFileSync(path.join(repo, ".codex-pair", "context.md"), `---\ndebounceMs: 0\n${marker}\n---\n# test`);
   const edited = path.join(repo, "edited.ts");
   fs.writeFileSync(edited, "export const value = 1;\n");
   const attempts = path.join(repo, "attempts");
@@ -43,6 +65,7 @@ async function runBrokerEdit(scenario: Scenario, fakeCodexScenario: string, seed
   const transportUrl = chooseTransport(home);
   const sockets = new Set<Socket>();
   const methods: string[] = [];
+  const gates: EditOutcome["gates"] = [];
   const server = createServer((socket) => {
     sockets.add(socket);
     socket.on("close", () => sockets.delete(socket));
@@ -104,6 +127,7 @@ async function runBrokerEdit(scenario: Scenario, fakeCodexScenario: string, seed
           else if (scenario === "start_close") socket.destroy();
           else {
             reply({ turn: { id: "turn-1" } });
+            if (scenario === "timeout" && marker.includes("blockOn")) gates.push(runStopGate(repo));
             if (scenario === "completion_close") setImmediate(() => socket.destroy());
             if (typeof scenario === "object") {
               send({
@@ -169,6 +193,7 @@ async function runBrokerEdit(scenario: Scenario, fakeCodexScenario: string, seed
       child.once("error", reject);
     });
     expect(exitCode).toBe(0);
+    if (marker.includes("blockOn")) gates.push(runStopGate(repo));
     return {
       log: fs
         .readFileSync(path.join(repo, ".codex-pair", "log.jsonl"), "utf8")
@@ -179,6 +204,7 @@ async function runBrokerEdit(scenario: Scenario, fakeCodexScenario: string, seed
       execAttempts: fs.existsSync(attempts) ? Number(fs.readFileSync(attempts, "utf8")) : 0,
       paused: fs.existsSync(path.join(repo, ".codex-pair", "state", "paused")),
       stderr,
+      gates,
     };
   } finally {
     for (const socket of sockets) socket.destroy();
@@ -205,7 +231,7 @@ it("sends a broker quota error through the direct fallback-model ladder instead 
   const { log, execAttempts, paused } = await runBrokerEdit(
     { failedTurn: "You've hit your usage limit. Try again in 3 hours 25 minutes." },
     "quota-plan-recover",
-    1,
+    { seedAttempts: 1 },
   );
   expect(log.map((entry) => entry.verdict)).toEqual(["broker_fallback", "none"]);
   expect(log[1].fellBack).toBe(true);
@@ -230,4 +256,15 @@ it("does not re-run a genuine broker model error through direct review", async (
   );
   expect(log.map((entry) => entry.verdict)).toEqual(["error"]);
   expect(execAttempts).toBe(0);
+}, 15_000);
+
+it("finishes a stalled broker turn's direct fallback within one review timeout and gates on its HIGH", async () => {
+  const timeoutMs = 4000;
+  const { log, gates } = await runBrokerEdit("timeout", "concerns-labeled", {
+    marker: `timeoutMs: ${timeoutMs}\nblockOn: HIGH`,
+  });
+  expect(log.map((entry) => entry.verdict)).toEqual(["broker_fallback", "concerns"]);
+  expect(log[1].durationMs).toBeLessThan(timeoutMs);
+  expect(gates[0]).toMatchObject({ decision: "block", reason: expect.stringMatching(/in flight/i) });
+  expect(gates[1]).toMatchObject({ decision: "block", reason: expect.stringMatching(/critical issue summary/) });
 }, 15_000);
