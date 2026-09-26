@@ -81,7 +81,7 @@ export function readBrokerState(markerDir) {
     return lifecycleReadBrokerDescriptor(markerDir);
 }
 export function resolveBrokerPreference(markerDir, env = process.env) {
-    if (env.ASK_CODEX_BROKER === "0")
+    if (env.ASK_CODEX_BROKER !== "1")
         return false;
     try {
         const marker = readFileSync(join(markerDir, ".codex-pair", "context.md"), "utf8");

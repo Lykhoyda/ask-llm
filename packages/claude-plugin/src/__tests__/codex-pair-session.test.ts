@@ -74,8 +74,8 @@ describe("codex-pair session hooks", () => {
     expect(readEditRecord(repo, file)).toBeNull();
   });
 
-  it("enables the broker by default unless the environment opts out", () => {
-    expect(resolveBrokerPreference(repo, {})).toBe(true);
+  it("requires an explicit broker opt-in", () => {
+    expect(resolveBrokerPreference(repo, {})).toBe(false);
     expect(resolveBrokerPreference(repo, { ASK_CODEX_BROKER: "0" })).toBe(false);
     expect(resolveBrokerPreference(repo, { ASK_CODEX_BROKER: "1" })).toBe(true);
   });
@@ -87,6 +87,46 @@ describe("codex-pair session hooks", () => {
       expect(resolveBrokerPreference(repo, { ASK_CODEX_BROKER: "1" })).toBe(false);
     },
   );
+
+  it.each([
+    { name: "environment", brokerEnv: "0", projectOptOut: false, missingSource: false },
+    { name: "environment", brokerEnv: "0", projectOptOut: false, missingSource: true },
+    { name: "project", brokerEnv: "1", projectOptOut: true, missingSource: false },
+    { name: "project", brokerEnv: "1", projectOptOut: true, missingSource: true },
+  ])("$name opt-out preserves a broker unless its own credential is absent ($missingSource)", async (scenario) => {
+    const sourceB = path.join(repo, "other-codex-home");
+    fs.mkdirSync(sourceB);
+    fs.writeFileSync(path.join(sourceB, "auth.json"), "{}");
+    if (scenario.projectOptOut) {
+      fs.writeFileSync(path.join(repo, ".codex-pair", "context.md"), "---\nbroker: false\n---\n# ctx");
+    }
+    const home = createIsolatedBrokerHome({ sourceHome: repo });
+    const descriptorPath = path.join(repo, ".codex-pair", "state", "broker.json");
+    fs.mkdirSync(path.dirname(descriptorPath), { recursive: true });
+    try {
+      await writeBrokerDescriptor(repo, {
+        pid: 99999999,
+        transportUrl: chooseTransport(home),
+        sessionId: "earlier",
+        isolatedHome: home,
+        protocolVersion: "v2",
+        startedAt: new Date().toISOString(),
+      });
+      if (scenario.missingSource) fs.rmSync(path.join(repo, "auth.json"));
+      const result = spawnSync(process.execPath, [SESSION_PATH], {
+        input: JSON.stringify({ hook_event_name: "SessionStart", session_id: "opted-out" }),
+        cwd: repo,
+        env: { ...process.env, CODEX_HOME: sourceB, ASK_CODEX_BROKER: scenario.brokerEnv },
+        encoding: "utf8",
+        timeout: 10_000,
+      });
+      expect(result.status).toBe(0);
+      expect(fs.existsSync(descriptorPath)).toBe(!scenario.missingSource);
+      expect(fs.existsSync(home)).toBe(!scenario.missingSource);
+    } finally {
+      removeIsolatedBrokerHome(home);
+    }
+  });
 
   it("keeps B's live broker when A starts or ends late", async () => {
     fs.mkdirSync(path.join(repo, ".codex-pair", "state"), { recursive: true });
@@ -621,7 +661,7 @@ describe("codex-pair session hooks", () => {
         FAKE_CODEX_SCENARIO: "none",
         ASK_CODEX_DEBOUNCE_MS: "0",
       };
-      delete env.ASK_CODEX_BROKER;
+      env.ASK_CODEX_BROKER = "1";
       const res = spawnSync("node", [path.join(PLUGIN_ROOT, "scripts", "codex-pair-watch.mjs")], {
         input: JSON.stringify({ tool_name: "Edit", tool_input: { file_path: file }, session_id: session }),
         cwd: repo,

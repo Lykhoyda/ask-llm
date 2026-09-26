@@ -139,7 +139,7 @@ export function readBrokerState(markerDir: string): BrokerDescriptor | null {
 }
 
 export function resolveBrokerPreference(markerDir: string, env: NodeJS.ProcessEnv = process.env): boolean {
-  if (env.ASK_CODEX_BROKER === "0") return false;
+  if (env.ASK_CODEX_BROKER !== "1") return false;
   try {
     const marker = readFileSync(join(markerDir, ".codex-pair", "context.md"), "utf8");
     return (parseFrontmatter(marker).frontmatter as Record<string, unknown>).broker !== false;

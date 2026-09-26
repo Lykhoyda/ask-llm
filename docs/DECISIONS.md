@@ -20,7 +20,7 @@
 
 **Consequences:** The same hook command works in both install layouts on Node 24 and newer. On older Node the hooks fail at startup instead of degrading. npm installs depend on `stripTypeScriptTypes`, which Node 24 still marks experimental (its warning is suppressed); marketplace installs never call it. The loader itself is JavaScript: the hooks are TypeScript sources, but not a TypeScript-only package.
 
-## ADR-168: Default-on broker lifecycle and review parity
+## ADR-168: Broker lifecycle and review parity
 
 **Status:** Accepted (2026-09-25)
 
@@ -28,7 +28,7 @@
 
 **Decision:** Signal or reuse a recorded broker only while `ps` shows a codex executable running exactly `app-server --listen <recorded transport>`. Route broker quota errors into the fallback-model ladder and count a transient broker error as the first of the direct path's two attempts; other model errors still propagate. Record the lock owner and, before spawning, the isolated home and transport inside the lock; a lock whose owner died or that outlives any bootstrap is claimed by rename, its orphaned broker is found by transport and stopped, and its home removed. Bind the socket inside the isolated home and reject paths over 103 bytes. Keep linking auth.json. In Codex 0.156.1 the default credential store is the file, and both login and ChatGPT token refresh persist through `FileAuthStorage::save`, which truncates and rewrites `CODEX_HOME/auth.json` in place (source at `rust-v0.156.1`; login confirmed against a scratch home), so a broker refresh follows the link into the user's own credentials instead of diverging from them. Skip the broker when there is no auth.json to share (keyring or environment-key setups keep direct reviews).
 
-**Consequences:** Broker and direct reviews reach the same outcome for broker faults, quota, and transient errors. Credential state is shared with the user's Codex, not isolated: the broker is one more process that may refresh and rewrite the user's auth.json, non-atomically, exactly as concurrent Codex CLI sessions do, and a future Codex that saves by rename would break the link (the gated real-Codex test pins today's behavior). Residual risks accepted: three or more starts reclaiming one abandoned lock within milliseconds can overlap, a start killed between creating its home and recording it leaves an empty private temp directory, and a `ps` failure skips signaling a genuine broker. Overlapping sessions still lose the broker when its owner ends and fall back to direct reviews.
+**Consequences:** Broker and direct reviews reach the same outcome for broker faults, quota, and transient errors. Credential state is shared with the user's Codex, not isolated: the broker may refresh and rewrite the user's auth.json, non-atomically, and a future Codex that saves by rename would break the link (the gated real-Codex test pins today's behavior). This shared-write risk prevents default-on operation; ADR-166 keeps the broker opt-in. Three or more starts reclaiming one abandoned lock within milliseconds can overlap, a start killed between creating its home and recording it leaves an empty private temp directory, and a `ps` failure skips signaling a genuine broker. Overlapping sessions still lose the broker when its owner ends and fall back to direct reviews.
 
 ## ADR-167: Codex-pair broker modules are TypeScript run by Node type stripping
 
@@ -40,15 +40,15 @@
 
 **Consequences:** Default-on broker reviews need Node 22.18+ or 23.6+; older supported Node keeps today's direct review path without hook errors, so the plugin floor does not change.
 
-## ADR-166: Enable the isolated codex-pair broker by default
+## ADR-166: Keep the codex-pair broker opt-in
 
-**Status:** Accepted (2026-09-24)
+**Status:** Amended (2026-09-26)
 
-**Context:** Default-on requires proving that an isolated Codex home starts no user hooks, rules, or MCP servers while authentication works. Codex 0.156.1 enables the built-in apps connector by default, so an otherwise empty home still lists `codex_apps`.
+**Context:** A private Codex home can exclude user hooks, rules, and MCP servers while authentication works. Codex 0.156.1 enables the built-in apps connector by default, so an otherwise empty home still lists `codex_apps`. The broker links the user's auth.json, and token refresh can write through that link; a safer credential strategy remains open.
 
-**Decision:** Start the broker by default in a private Codex home with linked authentication and a minimal config that disables apps. `ASK_CODEX_BROKER=0` and project `broker: false` opt out. Preserve direct per-edit review for unavailable, unhealthy, or protocol-incompatible brokers. Only replace a recorded broker after its process dies or its 24-hour owner lease expires; SessionEnd removes only its own broker. Send `initialized` after the handshake and use a strict output schema compatible with current Codex.
+**Decision:** Start the broker only with `ASK_CODEX_BROKER=1` and no project `broker: false`, in a private Codex home with linked authentication and a minimal config that disables apps. Preserve direct per-edit review for unavailable, unhealthy, or protocol-incompatible brokers. An opted-out SessionStart preserves another session's broker while its own credential source exists and may retire it when that source is absent. An opted-in SessionStart replaces a recorded broker after its process dies or its 24-hour owner lease expires; SessionEnd removes only its own broker. Send `initialized` after the handshake and use a strict output schema compatible with current Codex.
 
-**Consequences:** A default pair session starts a background app-server with private temporary state. Failed SessionEnd cleanup is recovered on a later SessionStart after the broker dies or its lease expires. The app-server protocol remains experimental, so reviews fall back to `codex exec` on broker failures.
+**Consequences:** Ordinary pair sessions use per-edit `codex exec`; explicit opt-in starts a background app-server with private temporary state but shared auth.json writes. A missed SessionEnd may leave a healthy broker running while later sessions remain opted out; there is no global orphan reaper. An opted-in SessionStart can recover it after the broker dies or its lease expires, and an opted-out start can retire it when its credential source disappears. The app-server protocol remains experimental, so reviews fall back to `codex exec` on broker failures.
 
 ## ADR-165: Review prompts insert file and context text literally, in one pass
 

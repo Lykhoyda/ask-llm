@@ -611,6 +611,20 @@ export async function teardownBroker(markerDir, options = {}) {
         if (!descriptor || ("sessionId" in options && (!options.sessionId || descriptor.sessionId !== options.sessionId))) {
             return null;
         }
+        if (options.onlyIfCredentialMissing) {
+            if (!isIsolatedBrokerHome(descriptor.isolatedHome))
+                return null;
+            let source = null;
+            try {
+                source = readlinkSync(join(descriptor.isolatedHome, "auth.json"));
+                statSync(resolvePath(descriptor.isolatedHome, source));
+                return null;
+            }
+            catch (error) {
+                if (!source || error.code !== "ENOENT")
+                    return null;
+            }
+        }
         try {
             if (injectDeps?.killPid)
                 await injectDeps.killPid(descriptor.pid, graceMs);

@@ -2,4 +2,4 @@
 "@ask-llm/plugin": minor
 ---
 
-Enable the isolated codex-pair broker by default with project and environment opt-outs, stale-broker cleanup, and direct-review fallback on broker protocol failures.
+Keep the codex-pair broker opt-in with project and environment controls, stale-broker cleanup, and direct-review fallback on broker protocol failures.

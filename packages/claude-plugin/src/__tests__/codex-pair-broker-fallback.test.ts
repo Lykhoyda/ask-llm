@@ -143,7 +143,7 @@ async function runBrokerEdit(scenario: Scenario, fakeCodexScenario: string, seed
       FAKE_CODEX_ATTEMPT_FILE: attempts,
       ASK_CODEX_DEBOUNCE_MS: "0",
     };
-    delete env.ASK_CODEX_BROKER;
+    env.ASK_CODEX_BROKER = "1";
     const child = spawn(process.execPath, [path.join(PLUGIN_ROOT, "scripts", "codex-pair-watch.mjs")], {
       cwd: repo,
       env,

@@ -66,6 +66,7 @@ export interface TeardownOptions {
   graceMs?: number;
   injectDeps?: BootstrapDeps;
   lockHeld?: boolean;
+  onlyIfCredentialMissing?: boolean;
   sessionId?: string;
 }
 
@@ -652,6 +653,17 @@ export async function teardownBroker(
     const descriptor = readBrokerDescriptorSync(markerDir);
     if (!descriptor || ("sessionId" in options && (!options.sessionId || descriptor.sessionId !== options.sessionId))) {
       return null;
+    }
+    if (options.onlyIfCredentialMissing) {
+      if (!isIsolatedBrokerHome(descriptor.isolatedHome)) return null;
+      let source: string | null = null;
+      try {
+        source = readlinkSync(join(descriptor.isolatedHome, "auth.json"));
+        statSync(resolvePath(descriptor.isolatedHome, source));
+        return null;
+      } catch (error) {
+        if (!source || (error as NodeJS.ErrnoException).code !== "ENOENT") return null;
+      }
     }
     try {
       if (injectDeps?.killPid) await injectDeps.killPid(descriptor.pid, graceMs);

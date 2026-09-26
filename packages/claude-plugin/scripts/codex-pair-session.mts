@@ -145,11 +145,13 @@ async function main() {
   }
 
   const brokerMarkerDir = await findMarkerUp(process.cwd());
-  if (!brokerMarkerDir || (event === "SessionStart" && !resolveBrokerPreference(brokerMarkerDir))) process.exit(0);
+  if (!brokerMarkerDir) process.exit(0);
 
   try {
-    if (event === "SessionStart") await handleSessionStart(payload?.session_id);
-    else if (event === "SessionEnd") await handleSessionEnd(payload?.session_id);
+    if (event === "SessionStart") {
+      if (resolveBrokerPreference(brokerMarkerDir)) await handleSessionStart(payload?.session_id);
+      else await teardownBroker(brokerMarkerDir, { onlyIfCredentialMissing: true });
+    } else if (event === "SessionEnd") await handleSessionEnd(payload?.session_id);
   } catch {
     // Bootstrap failure must not break the session.
   }
