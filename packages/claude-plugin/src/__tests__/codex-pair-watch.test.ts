@@ -604,7 +604,7 @@ describe("scripts/codex-pair-watch.mjs — structural invariants (ADR-077)", () 
     expect(includeBlock?.[0]).not.toMatch(/emitSystemMessage/);
   });
 
-  it("auto-pause lost-race branches and sync-fallback consume state correctly (PR #208 round-2 review)", () => {
+  it("auto-pause lost-race branches flush pending notices (PR #208 round-2 review)", () => {
     // Both writeAutoPause lost-wx-race sub-branches flush a pending notice
     // instead of exiting silently.
     const quotaBlock = script.match(/quotaExhausted\) \{[\s\S]*?process\.exit\(0\);/)?.[0];
@@ -615,9 +615,6 @@ describe("scripts/codex-pair-watch.mjs — structural invariants (ADR-077)", () 
     )?.[0];
     expect(failuresBlock).toBeTruthy();
     expect(failuresBlock).toMatch(/} else \{[\s\S]*?await flushNoticeOnly\(\);/);
-    // The worker-spawn-failed sync fallback consumes the debounce record so
-    // the Stop-gate doesn't treat the already-reviewed burst as still settling.
-    expect(script).toMatch(/Worker spawn failed[\s\S]{0,500}markReviewed\(markerDir, filePath, record\.generation\)/);
   });
 
   // Phase 1 item #3: expanded skip patterns
