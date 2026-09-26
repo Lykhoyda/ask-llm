@@ -43,7 +43,7 @@ Add to `claude_desktop_config.json`:
 
 ## Prerequisites
 
-- **[Node.js](https://nodejs.org/)** v20.0.0 or higher
+- **[Node.js](https://nodejs.org/)** v24.0.0 or higher
 - **At least one provider** installed:
   - [Gemini CLI](https://github.com/google-gemini/gemini-cli) for `ask-gemini` tools
   - [Codex CLI](https://github.com/openai/codex) for `ask-codex` tools

@@ -1,5 +1,15 @@
 # Architectural Decisions
 
+## ADR-171: All plugin scripts are TypeScript, and every package requires Node 24
+
+**Status:** Accepted (2026-09-26). Amends ADR-170.
+
+**Context:** ADR-170 left the shared hook helpers, the `codex-pair-log` CLI, the Sol review transport, and the prompt benchmark as hand-written JavaScript, and only the plugin required Node 24 while the provider and orchestrator packages still declared Node 20 and CI tested Node 22. The captain asked for TypeScript 7 everywhere in the plugin and support for only the latest LTS. The official Node.js release schedule lists Node 24 as the Active LTS on 2026-09-26 (Node 20 reached end of life on 2026-04-30).
+
+**Decision:** Every file under `packages/claude-plugin/scripts/` is authored as `.mts` and compiled by `build:hooks` into a committed sibling `.mjs`, following ADR-170; the `.d.mts` shims are gone except the type-only `hook-input.d.mts`. `generated-hooks.test.ts` requires the set of committed `.mjs` files to equal tsc's emitted set, so a hand-written `.mjs` fails CI. Every workspace declares `engines.node >=24.0.0`, tsdown targets `node24`, `@types/node` tracks the Node 24 line, and the startup warning and `doctor` Node check both require 24. CI builds and tests on Node 24 only; the packed global-install smoke runs on Node 24 (the floor) and Node 26 (the #115 environment and next LTS line).
+
+**Consequences:** Node 20 and 22 users must upgrade before taking the next release of any package. When Node 26 becomes Active LTS, raising the floor again follows this same pattern.
+
 ## ADR-170: Codex-pair hooks are TypeScript sources shipped as committed generated JavaScript
 
 **Status:** Accepted (2026-09-25). Supersedes ADR-169.

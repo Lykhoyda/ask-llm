@@ -23,7 +23,7 @@ jobs:
         with:
           # 22 for consistency with the CI/build matrix (ADR-119 toolchain floor);
           # VitePress itself does not need the package build.
-          node-version: 22
+          node-version: 24
       - run: corepack enable
       - run: yarn install --immutable
       - run: yarn docs:build

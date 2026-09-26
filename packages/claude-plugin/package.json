@@ -14,7 +14,7 @@
   },
   "scripts": {
     "build": "tsc",
-    "build:hooks": "tsc -p scripts/tsconfig.json && chmod 755 scripts/codex-pair-debounce-worker.mjs scripts/codex-pair-prompt-drain.mjs scripts/codex-pair-session.mjs scripts/codex-pair-stop-gate.mjs scripts/codex-pair-watch.mjs",
+    "build:hooks": "tsc -p scripts/tsconfig.json && chmod 755 scripts/benchmark/prompt-ab.mjs scripts/codex-pair-debounce-worker.mjs scripts/codex-pair-log.mjs scripts/codex-pair-prompt-drain.mjs scripts/codex-pair-session.mjs scripts/codex-pair-stop-gate.mjs scripts/codex-pair-watch.mjs",
     "test": "vitest run",
     "lint": "biome check src/ pi/ && biome lint scripts/ && tsc --noEmit && tsc --noEmit -p pi/tsconfig.json && tsc -p scripts/tsconfig.json --noEmit"
   },
@@ -103,7 +103,7 @@
     "@biomejs/biome": "^2.5.10",
     "@earendil-works/pi-ai": "^0.84.2",
     "@earendil-works/pi-coding-agent": "^0.84.2",
-    "@types/node": "^22.20.1",
+    "@types/node": "^24.13.6",
     "typebox": "1.3.7",
     "typescript": "^7.0.2",
     "vitest": "^4.1.11"

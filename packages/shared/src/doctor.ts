@@ -91,7 +91,7 @@ export interface ProviderSpec {
   enrich?: (ctx: { command: string; pathEnv: string }) => Promise<ProviderEnrichment | undefined>;
 }
 
-const NODE_MIN_MAJOR = 20;
+const NODE_MIN_MAJOR = 24;
 const VERSION_PROBE_TIMEOUT_MS = 5000;
 
 function parseNodeMajor(version: string): number {
@@ -144,7 +144,7 @@ export async function runDiagnostics(providers: ProviderSpec[]): Promise<Diagnos
           name: "Node.js version",
           status: "fail",
           message: `${process.version} is too old — provider CLIs use ES2024 features that crash on Node < ${NODE_MIN_MAJOR}`,
-          fix: `Upgrade Node to v${NODE_MIN_MAJOR}+ (LTS). nvm: \`nvm install 22 && nvm use 22\``,
+          fix: `Upgrade Node to v${NODE_MIN_MAJOR}+ (LTS). nvm: \`nvm install 24 && nvm use 24\``,
         },
   );
 

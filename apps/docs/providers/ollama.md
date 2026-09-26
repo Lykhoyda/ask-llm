@@ -19,7 +19,7 @@ Or install globally: `npm install -g @ask-llm/ollama-mcp`
 
 ## Prerequisites
 
-1. **Node.js** v20.0.0 or higher
+1. **Node.js** v24.0.0 or higher
 2. **[Ollama](https://ollama.com)** installed and running locally
 3. **A model pulled:**
 

@@ -69,7 +69,7 @@ If it's still failing:
       "command": "npx",
       "args": ["-y", "@ask-llm/mcp"],
       "env": {
-        "ASK_LLM_PATH": "/usr/local/bin:/opt/homebrew/bin:$HOME/.nvm/versions/node/v22.0.0/bin"
+        "ASK_LLM_PATH": "/usr/local/bin:/opt/homebrew/bin:$HOME/.nvm/versions/node/v24.0.0/bin"
       }
     }
   }

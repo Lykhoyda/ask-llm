@@ -38,7 +38,7 @@ Or install globally: `npm install -g @ask-llm/gemini-mcp`
 
 ## Prerequisites
 
-1. **Node.js** v20.0.0 or higher
+1. **Node.js** v24.0.0 or higher
 2. **[Gemini CLI](https://github.com/google-gemini/gemini-cli)** installed and authenticated:
 
 ```bash

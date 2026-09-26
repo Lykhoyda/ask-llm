@@ -19,7 +19,7 @@ Then ask Codex to use `ask-claude` for an independent review or second opinion.
 
 ## Prerequisites
 
-- Node.js 20 or newer.
+- Node.js 24 or newer.
 - [Claude Code CLI](https://docs.anthropic.com/en/docs/claude-code/getting-started)
   installed, on `PATH`, and authenticated. The implementation is validated
   against Claude Code 2.1.206 and requires a version that supports `--safe-mode`.

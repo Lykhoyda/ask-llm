@@ -47,13 +47,6 @@ describe("Pi host support workflow contract", () => {
 describe("five-batch workflow contract", () => {
   const chains = [
     {
-      setupId: "test-setup-node22-ubuntu",
-      batchesId: "test-batches-node22-ubuntu",
-      gateId: "test-node22-ubuntu",
-      nodeVersion: "22.x",
-      os: "ubuntu-latest",
-    },
-    {
       setupId: "test-setup-node24-ubuntu",
       batchesId: "test-batches-node24-ubuntu",
       gateId: "test-node24-ubuntu",
@@ -116,12 +109,25 @@ describe("five-batch workflow contract", () => {
 });
 
 describe("supported CI platforms", () => {
+  it("builds and tests only on the current Node LTS and smokes the packed CLIs on it plus the next line", () => {
+    expect(Object.keys(parsedWorkflow.jobs).filter((id) => /^test(-setup|-batches)?-node/.test(id))).toEqual([
+      "test-setup-node24-ubuntu",
+      "test-batches-node24-ubuntu",
+      "test-node24-ubuntu",
+    ]);
+    expect(parsedWorkflow.jobs["global-install-smoke"].strategy.matrix["node-version"]).toEqual(["24.x", "26.x"]);
+    const workflowsDir = resolve(import.meta.dirname, "../.github/workflows");
+    for (const name of readdirSync(workflowsDir).filter((file) => /\.ya?ml$/.test(file))) {
+      const source = readFileSync(resolve(workflowsDir, name), "utf8");
+      expect(source, name).not.toMatch(/node-version: "?2[02](\.x)?"?$|\b2[02]\.x\b|node2[02]/m);
+    }
+  });
+
   it("does not run Windows jobs in any workflow", () => {
     const workflowsDir = resolve(import.meta.dirname, "../.github/workflows");
     for (const name of readdirSync(workflowsDir).filter((file) => /\.ya?ml$/.test(file))) {
       const source = readFileSync(resolve(workflowsDir, name), "utf8");
       expect(source, name).not.toMatch(/windows-latest/);
-      expect(source, name).not.toMatch(/test-setup-node22-windows|test-batches-node22-windows|test-node22-windows/);
     }
   });
 });

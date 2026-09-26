@@ -7,9 +7,9 @@ import { execFileSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync, realpathSync, statSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
-import { debounceRoot, drainPending, joinPendingForSurface, reviewingRoot } from "./lib/debounce-state.mjs";
+import { debounceRoot, drainPending, joinPendingForSurface, reviewingRoot } from "./lib/debounce-state.mts";
 import type { HookInput } from "./lib/hook-input.mjs";
-import { collectSessionMarkers } from "./lib/session-registry.mjs";
+import { collectSessionMarkers } from "./lib/session-registry.mts";
 import {
   CONTEXT_FILENAME,
   contextPath,
@@ -18,7 +18,7 @@ import {
   logPath,
   PAIR_ROOT_DIR,
   readAcks,
-} from "./lib/state.mjs";
+} from "./lib/state.mts";
 import {
   collectBlockingHighs,
   collectInFlight,
@@ -26,7 +26,7 @@ import {
   formatInFlightMessage,
   parseGitPorcelain,
   selectLatestEntries,
-} from "./lib/stop-gate.mjs";
+} from "./lib/stop-gate.mts";
 
 const MARKER_FILE = join(PAIR_ROOT_DIR, CONTEXT_FILENAME);
 

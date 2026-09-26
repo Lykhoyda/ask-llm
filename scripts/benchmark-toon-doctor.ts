@@ -164,7 +164,7 @@ const scenarios: Array<[string, DiagnosticReport]> = [
           name: "Node.js version",
           status: "fail",
           message: "Node.js is too old",
-          fix: "Install Node.js 22 LTS.",
+          fix: "Install Node.js 24 LTS.",
         },
       ],
     }),

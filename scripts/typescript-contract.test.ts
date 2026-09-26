@@ -24,6 +24,7 @@ const TSDOWN_PACKAGES = TYPESCRIPT_PACKAGES.filter(
 interface PackageManifest {
   packageManager?: string;
   devDependencies?: Record<string, string>;
+  engines?: { node?: string };
 }
 
 interface TsConfig {
@@ -87,5 +88,19 @@ describe("TypeScript 7 toolchain contract", () => {
 
     expect(baseConfig.compilerOptions?.types).toContain("node");
     expect(scriptsConfig.compilerOptions?.types).toContain("node");
+  });
+});
+
+describe("Node 24 LTS runtime contract", () => {
+  it("declares, targets, and types against Node 24 in every workspace", () => {
+    for (const packagePath of TYPESCRIPT_PACKAGES) {
+      const manifest = readJson<PackageManifest>(`${packagePath}/package.json`);
+      expect(manifest.engines?.node, packagePath).toBe(">=24.0.0");
+      expect(manifest.devDependencies?.["@types/node"], packagePath).toMatch(/^\^24\./);
+    }
+    for (const packagePath of TSDOWN_PACKAGES) {
+      const config = readFileSync(new URL(`${packagePath}/tsdown.config.ts`, ROOT), "utf8");
+      expect(config, packagePath).toContain('target: "node24"');
+    }
   });
 });

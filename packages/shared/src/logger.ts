@@ -76,7 +76,7 @@ export class Logger {
     Logger._commandStartTimes.delete(commandId);
   }
 
-  static checkNodeVersion(minMajor = 20): void {
+  static checkNodeVersion(minMajor = 24): void {
     const major = parseInt(process.versions.node.split(".")[0], 10);
     if (major < minMajor) {
       Logger.error(

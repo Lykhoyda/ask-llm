@@ -8,7 +8,7 @@ export default defineConfig({
     register: "src/tools/index.ts",
   },
   format: ["esm"],
-  target: "node20",
+  target: "node24",
   fixedExtension: false,
   sourcemap: true,
   clean: true,
