@@ -38,7 +38,7 @@ Pi is the host, not a consulted provider, and has no built-in MCP client. The pa
 
 ## Prerequisites
 
-- Node.js >= 20.0.0 (runtime)
+- Node.js >= 20.0.0 for MCP packages; >= 24.0.0 for `@ask-llm/plugin` (see https://lykhoyda.github.io/ask-llm/plugin/pi)
 - For Codex: Codex CLI installed and authenticated
 - For Claude: `npm install -g @anthropic-ai/claude-code`, then authenticate (provider is for Codex and other non-Claude hosts)
 - For Antigravity: `agy` 1.1.5 or newer installed and logged in once (`agy --version`, then run `agy` interactively to authenticate)
