@@ -206,6 +206,7 @@ describe("codex-pair session hooks", () => {
         sessionId: "new",
         sourceHome: repo,
         injectDeps: {
+          brokerLiveness: () => "live",
           killPid: async () => {
             stopped = true;
             return true;
@@ -685,7 +686,7 @@ describe("codex-pair session hooks", () => {
         });
         expect(result).toBeNull();
         expect(checked).toBe(true);
-        expect(stopped).toBe(!kept);
+        expect(stopped).toBe(false);
         expect(spawned).toBe(false);
         expect(readBrokerState(repo)?.sessionId).toBe(kept ? "healthy" : undefined);
         expect(fs.existsSync(liveHome)).toBe(kept);

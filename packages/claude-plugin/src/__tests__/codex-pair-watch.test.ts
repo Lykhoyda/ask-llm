@@ -3050,6 +3050,7 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
     let unlinkedSock: string | null = null;
     const result = await teardownBroker(tempDir, {
       injectDeps: {
+        brokerLiveness: () => "live",
         killPid: async (pid: number) => {
           killedPid = pid;
           return true;

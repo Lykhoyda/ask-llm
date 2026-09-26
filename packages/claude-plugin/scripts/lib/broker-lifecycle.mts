@@ -398,7 +398,7 @@ export async function bootstrapBroker(
       const ageMs = Date.now() - startedAt;
       const expired = !Number.isFinite(ageMs) || ageMs >= BROKER_OWNER_TTL_MS || ageMs < -5 * 60 * 1000;
       const liveness = expired ? null : (injectDeps?.brokerLiveness ?? brokerLiveness)(previous);
-      // Unverifiable liveness keeps the recorded broker and starts no second one; reviews go direct.
+      // Unverifiable liveness keeps the recorded broker and starts no second one; edits fall back to direct if it fails.
       if (liveness === "unknown") return null;
       const live = liveness === "live";
       if (hasCredentials && live && hasCurrentBrokerAuth(previous.isolatedHome, options.sourceHome)) {
@@ -679,8 +679,7 @@ export async function teardownBroker(
     const liveness = (injectDeps?.brokerLiveness ?? brokerLiveness)(descriptor);
     if (liveness === "unknown") return null;
     try {
-      if (injectDeps?.killPid) await injectDeps.killPid(descriptor.pid, graceMs);
-      else if (liveness === "live") await killPidGracefully(descriptor.pid, graceMs);
+      if (liveness === "live") await (injectDeps?.killPid ?? killPidGracefully)(descriptor.pid, graceMs);
     } catch {
       // best-effort
     }
