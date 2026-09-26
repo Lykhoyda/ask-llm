@@ -6,7 +6,7 @@ export const IS_WINDOWS = platform === "win32";
 export function quoteArgsForWindows(args) {
     return args.map((arg) => {
         if (arg.includes(" ") || arg.includes('"') || arg.includes("&") || arg.includes("|") || arg.includes("^")) {
-            return `"${arg.replace(/"/g, '\\"')}"`;
+            return `"${arg.replace(/(\\*)"/g, (_match, slashes) => `${slashes}${slashes}\\"`).replace(/(\\+)$/, "$1$1")}"`;
         }
         return arg;
     });
