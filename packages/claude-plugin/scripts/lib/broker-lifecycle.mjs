@@ -336,7 +336,7 @@ export async function bootstrapBroker(markerDir, options = {}) {
                 (injectDeps?.isRecordedBroker ?? isRecordedBroker)(previous)) {
                 return previous;
             }
-            await teardownBroker(markerDir, { lockHeld: true, injectDeps });
+            await teardownBroker(markerDir, { lockHeld: true, injectDeps, onlyIfCredentialMissing: !hasCredentials });
         }
         if (!hasCredentials)
             return null;

@@ -395,7 +395,7 @@ export async function bootstrapBroker(
       ) {
         return previous;
       }
-      await teardownBroker(markerDir, { lockHeld: true, injectDeps });
+      await teardownBroker(markerDir, { lockHeld: true, injectDeps, onlyIfCredentialMissing: !hasCredentials });
     }
     if (!hasCredentials) return null;
     isolatedHome = createIsolatedBrokerHome({ sourceHome: options.sourceHome });

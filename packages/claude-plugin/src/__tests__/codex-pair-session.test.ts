@@ -530,6 +530,50 @@ describe("codex-pair session hooks", () => {
     }
   });
 
+  it("keeps another session's live broker when this session has no file credentials", async () => {
+    const sourceA = path.join(repo, "source-a");
+    const noCredentials = path.join(repo, "no-credentials");
+    fs.mkdirSync(sourceA);
+    fs.mkdirSync(noCredentials);
+    fs.writeFileSync(path.join(sourceA, "auth.json"), "{}");
+    fs.mkdirSync(path.join(repo, ".codex-pair", "state"), { recursive: true });
+    const liveHome = createIsolatedBrokerHome({ sourceHome: sourceA });
+    let stopped = false;
+    let spawned = false;
+    try {
+      await writeBrokerDescriptor(repo, {
+        pid: process.pid,
+        transportUrl: chooseTransport(liveHome),
+        sessionId: "healthy",
+        isolatedHome: liveHome,
+        protocolVersion: "v2",
+        startedAt: new Date().toISOString(),
+      });
+      const result = await bootstrapBroker(repo, {
+        sessionId: "keyring-user",
+        sourceHome: noCredentials,
+        injectDeps: {
+          isRecordedBroker: () => true,
+          killPid: async () => {
+            stopped = true;
+            return true;
+          },
+          spawnBroker: () => {
+            spawned = true;
+            return { pid: 2 ** 22 + 5, kill: () => true };
+          },
+        },
+      });
+      expect(result).toBeNull();
+      expect(stopped).toBe(false);
+      expect(spawned).toBe(false);
+      expect(readBrokerState(repo)?.sessionId).toBe("healthy");
+      expect(fs.existsSync(liveHome)).toBe(true);
+    } finally {
+      removeIsolatedBrokerHome(liveHome);
+    }
+  });
+
   it("replaces a live broker from a different credential home", async () => {
     const sourceA = path.join(repo, "source-a");
     const sourceB = path.join(repo, "source-b");
@@ -605,7 +649,7 @@ describe("codex-pair session hooks", () => {
     expect(() => spawnBroker(repo, chooseTransport(repo), undefined)).toThrow(/isolated Codex home/);
   });
 
-  it("launches the fake app-server with isolated credentials and config", async () => {
+  it("launches the fake app-server with linked credentials and a private config", async () => {
     fs.mkdirSync(path.join(repo, ".codex-pair", "state"), { recursive: true });
     fs.writeFileSync(path.join(repo, "auth.json"), "test credential");
     fs.writeFileSync(path.join(repo, "hooks.json"), "user hook");
