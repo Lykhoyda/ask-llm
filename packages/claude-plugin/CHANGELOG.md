@@ -1,5 +1,21 @@
 # @ask-llm/plugin
 
+## 0.19.0
+
+### Minor Changes
+
+- [#340](https://github.com/Lykhoyda/ask-llm/pull/340) [`d9c4ff8`](https://github.com/Lykhoyda/ask-llm/commit/d9c4ff804fe3349dffa16be451b58ac39bd6d5da) Thanks [@Lykhoyda](https://github.com/Lykhoyda)! - Keep the codex-pair broker opt-in with project and environment controls, stale-broker cleanup, and direct-review fallback on broker protocol failures.
+
+- [#340](https://github.com/Lykhoyda/ask-llm/pull/340) [`d9c4ff8`](https://github.com/Lykhoyda/ask-llm/commit/d9c4ff804fe3349dffa16be451b58ac39bd6d5da) Thanks [@Lykhoyda](https://github.com/Lykhoyda)! - Author the codex-pair hooks and broker in TypeScript, ship them as generated JavaScript, and require Node 24 or newer.
+
+### Patch Changes
+
+- [#340](https://github.com/Lykhoyda/ask-llm/pull/340) [`d9c4ff8`](https://github.com/Lykhoyda/ask-llm/commit/d9c4ff804fe3349dffa16be451b58ac39bd6d5da) Thanks [@Lykhoyda](https://github.com/Lykhoyda)! - Make the opt-in codex-pair broker safe to tear down and recover, keep its socket usable on deep project paths, and give broker reviews the same quota fallback and transient retry as direct reviews.
+
+- [#341](https://github.com/Lykhoyda/ask-llm/pull/341) [`97030be`](https://github.com/Lykhoyda/ask-llm/commit/97030bec4dd923ed64b8f5bf3378493da3e2c316) Thanks [@Lykhoyda](https://github.com/Lykhoyda)! - Keep a codex-pair broker running and tracked when `ps` cannot verify it, and give a stalled broker review half the review timeout so its direct fallback still finishes within one timeout.
+
+- [#338](https://github.com/Lykhoyda/ask-llm/pull/338) [`52f5230`](https://github.com/Lykhoyda/ask-llm/commit/52f5230a1e67ea499d18a3250801780ac39bdd4e) Thanks [@Lykhoyda](https://github.com/Lykhoyda)! - Insert codex-pair file and context text literally to prevent phantom injected-prompt findings.
+
 ## 0.18.0
 
 ### Minor Changes

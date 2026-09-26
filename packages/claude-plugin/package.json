@@ -1,6 +1,6 @@
 {
   "name": "@ask-llm/plugin",
-  "version": "0.18.0",
+  "version": "0.19.0",
   "description": "Ask LLM review, comparison, brainstorming, image, verification, and pairing workflows for Claude Code, Cursor Agent, and Pi",
   "type": "module",
   "main": "dist/index.js",
