@@ -169,7 +169,7 @@ charge).
 Once enabled, the hook checks at turn-end whether any HIGH findings in `log.jsonl` are unacknowledged and unresolved. It reconciles against present reality before blocking:
 
 - **File deleted or renamed** → finding skipped (no longer relevant)
-- **File clean vs HEAD** (`git status --porcelain`) → finding skipped (reverted or branch-switched away)
+- **File clean vs HEAD** → finding skipped (reverted or branch-switched away); new files inside untracked directories remain eligible to block
 - **Latest log entry for the file is indeterminate** (`skipped`/`error`/`retried`/`broker_fallback`) → fail-open, finding skipped (don't block on a stale HIGH from before a transient error)
 
 ### In-flight reviews block too
