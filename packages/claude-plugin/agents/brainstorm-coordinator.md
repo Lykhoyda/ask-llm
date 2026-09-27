@@ -322,7 +322,7 @@ Surface this grade as the first line of the synthesis output (see Output Format 
 - ✅ Codex via Cursor Agent — requested `gpt-6-sol-high` (selected-unverified); reported display label `GPT-6 Sol 1M High`
 - (direct route example) ✅ Grok via xAI API — requested `grok-4.7`; observed served `grok-4.7-<snapshot>` (observed-alias, disclosed same-product resolution)
 - 🚫 Gemini: explicitly excluded (not called)
-- ⏭️ Antigravity: skipped — agy is not isolated from the working copy (ADR-177, #283); set ASK_ANTIGRAVITY_ALLOW_UNISOLATED=1 to include it without a read-only guarantee.
+- (bare-provider mode, Antigravity requested without the opt-in) ⏭️ Antigravity: skipped — agy is not isolated from the working copy (ADR-177, #283); set ASK_ANTIGRAVITY_ALLOW_UNISOLATED=1 to include it without a read-only guarantee.
 
 ### Consensus (high confidence; omit for a partial exact panel)
 1. [Point] — independently agreed by <name both successful panel participants with provider/harness/model>
