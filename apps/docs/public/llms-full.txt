@@ -256,7 +256,7 @@ Send prompts to a local Ollama LLM via HTTP. No API keys or network calls needed
 
 ### ask-antigravity
 
-Send prompts to Google's Antigravity CLI (`agy`) for a subscription-backed second opinion, code review, or analysis. Intended for read-only review, but note: `agy` is an agent that *can* act. ask-antigravity constrains it with a read-only prompt preamble **plus** a sandbox (`--sandbox`, on by default; disable with `ASK_ANTIGRAVITY_SANDBOX=0`) and runs `agy` with `--dangerously-skip-permissions` to avoid headless approval hangs: this is a soft, defense-in-depth guard, not a hard non-mutating execution mode, so treat workspace context passed via `includeDirs` accordingly. Single-turn only (no multi-turn sessions).
+Send prompts to Google's Antigravity CLI (`agy`) for a subscription-backed second opinion, code review, or analysis. Execution refuses by default; only `ASK_ANTIGRAVITY_ALLOW_UNISOLATED=1` permits an unisolated run that may modify files, run shell commands, or access the network. See the [Antigravity provider guide](https://lykhoyda.github.io/ask-llm/providers/antigravity) for isolation limits. Single-turn only (no multi-turn sessions).
 
 - **Package:** @ask-llm/antigravity-mcp
 - **Parameters:**
@@ -497,6 +497,7 @@ All MCP servers handle errors gracefully:
 |----------|---------|-------------|
 | ASK_CODEX_LOAD_USER_CONFIG | unset (isolated) | By default @ask-llm/codex-mcp passes `--ignore-user-config` + `--ignore-rules` so your `~/.codex` config, MCP servers, and hooks are NOT loaded. Set to `1` to load them. |
 | ASK_GEMINI_REQUIRE_WORKSPACE_TRUST | unset (auto-trust) | By default @ask-llm/gemini-mcp co-emits the workspace-trust env vars so the CWD is trusted. Set to `1` to require explicit workspace trust instead (Gemini blocks untrusted dirs). |
+| ASK_ANTIGRAVITY_ALLOW_UNISOLATED | unset (refused) | Only `1` permits Antigravity review/tool and read-only machine execution; see the [provider guide](https://lykhoyda.github.io/ask-llm/providers/antigravity). |
 | ASK_ANTIGRAVITY_SANDBOX | 1 (sandboxed) | Antigravity runs `agy` with `--sandbox` by default. Set to `0` to drop the sandbox flag. |
 
 ## Links

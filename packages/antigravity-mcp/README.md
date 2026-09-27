@@ -16,7 +16,7 @@ subscription-backed second opinion / code review from Antigravity.
 > model and lets agy pick its default; any other rejected model fails with an
 > actionable error naming `agy models`.
 
-Execution is refused by default on both the review tool and read-only machine paths, before even probing agy. Only `ASK_ANTIGRAVITY_ALLOW_UNISOLATED=1` opts in; opted-in runs warn that read-only isolation is not guaranteed and may modify files, run shell commands, and access the network. No run passes `--dangerously-skip-permissions`; plan/sandbox flags and the prompt preamble are best effort only.
+This package's review tool and read-only machine execution refuse before probing agy unless `ASK_ANTIGRAVITY_ALLOW_UNISOLATED=1`. Opted-in runs can modify files, run shell commands, and access the network; this package omits `--dangerously-skip-permissions`. See the [provider guide](https://lykhoyda.github.io/ask-llm/providers/antigravity) for the isolation limits.
 
 ## Prerequisites
 - `agy` >=1.1.5 installed and on PATH (`agy --version`), and logged in once (run `agy` interactively). Older versions are not supported.

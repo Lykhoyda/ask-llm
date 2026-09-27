@@ -143,10 +143,10 @@
 ### `agy` (Antigravity) read-only guard remains soft — raw-call bypass FIXED
 - **Severity:** Medium — the provider's PRIMARY use case is read-only second-opinions/reviews, yet `agy` can silently modify the repo.
 - **Discovered:** 2026-06-09, while asking `agy` to *critique* the #142 stop-gate design. It went ahead and **implemented the whole feature** (created/edited 6 files on `main`, ran the test suite) instead of just reviewing. Changes were reverted; no harm, but the behavior is the concern.
-- **Root cause:** `agy` is an agentic CLI run with `--dangerously-skip-permissions` (required to avoid headless `-p` approval-prompt hangs). `--sandbox` only restricts the *terminal*, not file writes. `agy` 1.0.6 has **no hard read-only / tool-restriction flag**. The only guard is a **soft** prompt preamble (`READ_ONLY_PREAMBLE`, `packages/antigravity-mcp/src/constants.ts`) — and it is prepended **only on the MCP-tool path**.
-- **Remaining gap:** Even with the preamble and `--sandbox`, the constraint is **soft** — agy may ignore it because upstream exposes no hard read-only control for file tools.
+- **Original root cause:** `agy` was run with `--dangerously-skip-permissions` to avoid headless `-p` approval-prompt hangs. `--sandbox` only restricts the *terminal*, not file writes. `agy` 1.0.6 had **no hard read-only / tool-restriction flag**. The only guard was a **soft** prompt preamble (`READ_ONLY_PREAMBLE`, `packages/antigravity-mcp/src/constants.ts`), initially prepended only on the MCP-tool path.
+- **Remaining gap:** Plugin raw paths still rely on soft guards; MCP review/tool and read-only machine paths now refuse unisolated execution by default (ADR-177).
 - **Recommended:** for a hard guarantee, run review-mode `agy` in an isolated throwaway checkout/container; continue tracking upstream for a real `--read-only` / `--allowed-tools` mode.
-- **Status:** **PARTIALLY FIXED** (ADR-136): every managed raw `agy` path now prepends the same read-only preamble as the MCP executor and adds `--sandbox`; contract tests prevent that bypass from returning. The upstream hard-isolation limitation remains open and explicit.
+- **Status:** **PARTIALLY FIXED** (ADR-136, ADR-177): managed raw paths use the preamble and `--sandbox`; MCP review/tool and read-only machine paths require `ASK_ANTIGRAVITY_ALLOW_UNISOLATED=1`. Upstream hard isolation remains open.
 
 ### Codex quota fallback broken for CLI 0.137+ ("You've hit your usage limit") — also blocked unrelated pushes
 - **Severity:** ~~Low (local DX)~~ → **Medium** (refined): the real impact is a **user-facing** quota-fallback regression, not just a local pre-push annoyance.

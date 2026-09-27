@@ -142,7 +142,7 @@ A valid dispatch returns a typed success or provider-failure envelope:
 
 The complete envelope also records model, fallback, duration, token, response-hash, and session provenance. Provider-level failures use the same strict result contract and still exit successfully so controllers can parse and classify them.
 
-All machine dispatches force `readOnly: true` and pass read-only sandbox options to the provider adapter. The interface supports Codex, Claude, and Antigravity; it does not provide a write path. Subscription usage percentages remain unknown unless the provider exposes them, and the dispatcher never infers a percentage from token counts.
+All machine dispatches request `readOnly: true` and pass read-only options to the provider adapter. The interface supports Codex, Claude, and Antigravity; it does not provide a write path. Antigravity refuses execution by default because its read-only options do not guarantee isolation; see the [provider guide](../../apps/docs/providers/antigravity.md). Subscription usage percentages remain unknown unless the provider exposes them, and the dispatcher never infers a percentage from token counts.
 
 | Exit code | Meaning | Stdout |
 |-----------|---------|--------|

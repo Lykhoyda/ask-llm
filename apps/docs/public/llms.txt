@@ -9,7 +9,7 @@ Ask LLM provides Model Context Protocol (MCP) servers that let any MCP-compatibl
 - `@ask-llm/codex-mcp`: MCP server for OpenAI Codex CLI. Default model: gpt-6-astra → gpt-5.6-terra on quota.
 - `@ask-llm/claude-mcp`: MCP server for Anthropic Claude Code CLI, intended for Codex and other non-Claude hosts. Default: opus (Opus 5.5, `claude-opus-5-5`) → sonnet. Native sessions; Read/Glob/Grep-only tools.
 - `@ask-llm/grok-mcp`: MCP server for Grok through the metered xAI Responses API. Default model: `grok-4.7` on both harnesses; explicit `xai-api` or `grok-cli`; high effort; no harness/model/provider fallback.
-- `@ask-llm/antigravity-mcp`: MCP server for Google Antigravity CLI (`agy` ≥1.1.5). Subscription-backed second opinion. Default model: `gemini-3.1-pro` → `gemini-3.5-flash` on rate limit, both at high effort.
+- `@ask-llm/antigravity-mcp`: MCP server for Google Antigravity CLI (`agy` ≥1.1.5). Subscription-backed second opinion. Execution refuses by default; see the [provider guide](https://lykhoyda.github.io/ask-llm/providers/antigravity) for opt-in and isolation limits. Default model: `gemini-3.1-pro` → `gemini-3.5-flash` on rate limit, both at high effort.
 - `@ask-llm/ollama-mcp`: MCP server for local Ollama. No API keys, fully private. Default model: qwen3.8:27b (no fallback).
 - `@ask-llm/gemini-mcp`: MCP server for Google Gemini CLI. 1M+ token context. Default model: gemini-3.1-pro-preview → gemini-3.8-flash on quota. (Enterprise-gated since 2026-06-18.)
 - `@ask-llm/mcp`: Unified server: auto-detects installed providers and registers all available tools.
