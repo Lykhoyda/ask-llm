@@ -48,7 +48,7 @@ export const OUTPUT_FORMATS = {
 // legacy names remain valid only when no implicit effort flag is added.
 export const MODELS = {
   DEFAULT: "gemini-3.1-pro",
-  FALLBACK: "gemini-3.5-flash",
+  FALLBACK: "gemini-3.8-flash",
   // Reported as the result model when a model-unavailable retry let agy pick.
   AGY_DEFAULT_LABEL: "agy default",
 } as const;

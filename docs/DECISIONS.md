@@ -1,5 +1,15 @@
 # Architectural Decisions
 
+## ADR-178: Antigravity adopts live agy 1.2.12 evidence (fallback model)
+
+**Status:** Accepted (2026-09-27). Supersedes the antigravity half of ADR-125/137/155's `gemini-3.5-flash` fallback pin.
+
+**Context:** Live agy 1.2.12 rejects the shipped rate-limit fallback: `--model gemini-3.5-flash` fails with `invalid model selection … is not recognized as a known model`, so a rate limit fell into model-unavailable recovery instead of a Flash retry. `agy models` lists only tiered ids (`gemini-3.8-flash-high|medium|low`, `gemini-3.7-…`, `gemini-3.6-…`, `gemini-3.1-pro-high|low`). A tiered id conflicts with any other effort (`--model gemini-3.8-flash-high --effort low` → `conflicts with --effort=low`), while the base slug works with every tier (`gemini-3.8-flash --effort low|medium|high` all answered live) and fails without one (`requires --effort`), the same form as the shipped default `gemini-3.1-pro`.
+
+**Decision:** Set the antigravity fallback to the base slug `gemini-3.8-flash`, sent with `--effort high` by default and `ASK_ANTIGRAVITY_EFFORT` still honored (ADR-137 contract). Do not use the listed tiered id: it would force dropping `--effort` on fallback and silently ignore the user's effort. The gemini-cli fallback (ADR-155) is unchanged and independent.
+
+**Consequences:** Subscription rate limits retry on a model agy 1.2.12 accepts. Current-facing surfaces and the docs drift guard move together; historical ADRs, roadmap entries, bugs, and changelogs keep the pins they recorded.
+
 ## ADR-177: Refuse unisolated Antigravity executor runs by default
 
 **Status:** Accepted (2026-09-27). Amends ADR-136 for MCP tool and machine execution.

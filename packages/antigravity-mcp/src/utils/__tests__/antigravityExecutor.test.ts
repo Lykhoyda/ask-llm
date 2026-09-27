@@ -403,9 +403,9 @@ describe("executeAntigravityCLI error handling", () => {
 });
 
 describe("executeAntigravityCLI rate-limit fallback", () => {
-  // Keep agy's fallback on its live-catalog-proven slug until fresh `agy models` evidence exists.
-  it("keeps the evidence-based agy fallback slug on gemini-3.5-flash", () => {
-    expect(MODELS.FALLBACK).toBe("gemini-3.5-flash");
+  // agy 1.2.12 dropped gemini-3.5-flash; the base slug is proven live with --effort low|medium|high.
+  it("falls back to the live-proven gemini-3.8-flash base slug", () => {
+    expect(MODELS.FALLBACK).toBe("gemini-3.8-flash");
     expect(MODELS.DEFAULT).toBe("gemini-3.1-pro");
   });
 
