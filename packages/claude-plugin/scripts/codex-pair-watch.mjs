@@ -8,7 +8,7 @@ import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { initializeBroker, isBrokerDescriptorEligible, isBrokerEnabled, readBrokerState, submitReview, } from "./lib/broker.mjs";
-import { bumpEditRecord, contentHash, DEFAULT_DEBOUNCE_MAX_MS, DEFAULT_DEBOUNCE_MS, drainPending, joinPendingForSurface, markReviewed, sweepStaleDebounce, writePending, writePendingNotice, } from "./lib/debounce-state.mjs";
+import { bumpEditRecord, contentHash, DEFAULT_DEBOUNCE_MAX_MS, DEFAULT_DEBOUNCE_MS, drainPending, fileContentHash, joinPendingForSurface, markReviewed, sweepStaleDebounce, writePending, writePendingNotice, } from "./lib/debounce-state.mjs";
 import { parseFrontmatter } from "./lib/frontmatter.mjs";
 import { buildVerdictMessage, DEFAULT_SURFACE_THRESHOLD, formatDuration, parseConcerns, parseResetHint, VALID_THRESHOLDS, VERDICT_PREFIXES, } from "./lib/parser.mjs";
 import { IS_WINDOWS, terminateProcessTree } from "./lib/process.mjs";
@@ -116,7 +116,9 @@ async function readStdin() {
 let noticePrefix = null;
 let forcedTarget = null;
 // Send notices to both the transcript and model context, then await stdout flush before exit.
-function emitSystemMessage(text, reviewedContentHash) {
+function emitSystemMessage(text, reviewedContentHash, filePath) {
+    if (reviewedContentHash && filePath && reviewedContentHash !== fileContentHash(filePath))
+        return flushNoticeOnly();
     if (forcedTarget) {
         // Forced runs belong to the worker: no stdout to Claude, and the file lock is held.
         if (noticePrefix)
@@ -1000,7 +1002,7 @@ async function main() {
             cached: true,
             repeatedIgnoredCount: cachedRepeatedIgnoredCount,
             logPath: logPath(markerDir),
-        }), reviewedContentHash);
+        }), reviewedContentHash, filePath);
         process.exit(0);
     }
     // Coalesce concurrent reviews of one file without stealing live locks; forced runs execute inside the worker's lock.
@@ -1013,7 +1015,6 @@ async function main() {
                 tool: toolName,
                 file: filePath,
                 verdict: "skipped",
-                contentHash: reviewedContentHash,
                 reason: `coalesced — another review is in-flight for this file (${lockResult.reason})`,
             });
             await flushNoticeOnly();
@@ -1153,7 +1154,7 @@ async function main() {
         surfaceThreshold: config.surfaceThreshold,
         repeatedIgnoredCount,
         logPath: logPath(markerDir),
-    }), reviewedContentHash);
+    }), reviewedContentHash, filePath);
     process.exit(0);
 }
 main().catch(async (err) => {

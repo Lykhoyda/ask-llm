@@ -23,6 +23,7 @@ import {
   DEFAULT_DEBOUNCE_MAX_MS,
   DEFAULT_DEBOUNCE_MS,
   drainPending,
+  fileContentHash,
   joinPendingForSurface,
   markReviewed,
   sweepStaleDebounce,
@@ -188,7 +189,8 @@ let noticePrefix: string | null = null;
 let forcedTarget: { markerDir: string; filePath: string } | null = null;
 
 // Send notices to both the transcript and model context, then await stdout flush before exit.
-function emitSystemMessage(text: string, reviewedContentHash?: string): Promise<void> {
+function emitSystemMessage(text: string, reviewedContentHash?: string, filePath?: string): Promise<void> {
+  if (reviewedContentHash && filePath && reviewedContentHash !== fileContentHash(filePath)) return flushNoticeOnly();
   if (forcedTarget) {
     // Forced runs belong to the worker: no stdout to Claude, and the file lock is held.
     if (noticePrefix) writePendingNotice(forcedTarget.markerDir, noticePrefix);
@@ -1154,6 +1156,7 @@ async function main() {
         logPath: logPath(markerDir),
       }),
       reviewedContentHash,
+      filePath,
     );
     process.exit(0);
   }
@@ -1168,7 +1171,6 @@ async function main() {
         tool: toolName,
         file: filePath,
         verdict: "skipped",
-        contentHash: reviewedContentHash,
         reason: `coalesced — another review is in-flight for this file (${lockResult.reason})`,
       });
       await flushNoticeOnly();
@@ -1323,6 +1325,7 @@ async function main() {
       logPath: logPath(markerDir),
     }),
     reviewedContentHash,
+    filePath,
   );
 
   process.exit(0);

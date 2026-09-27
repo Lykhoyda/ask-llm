@@ -4437,6 +4437,42 @@ describe("scripts/codex-pair-watch.mjs — MultiEdit + parallel-fire fixtures", 
       .map((l) => JSON.parse(l));
   }
 
+  it("E4: sync mode drops a verdict if the reviewed file changes before emission", async () => {
+    setupMarker(tempDir);
+    const started = path.join(tempDir, "started");
+    for (const changed of [true, false]) {
+      const filePath = path.join(tempDir, changed ? "changed.ts" : "stable.ts");
+      const original = `// REVIEW_TOKEN_${changed ? "one" : "two"}\n`;
+      fs.writeFileSync(filePath, original);
+      const release = path.join(tempDir, changed ? "release-changed" : "release-stable");
+      const payload = JSON.stringify({ tool_name: "Edit", tool_input: { file_path: filePath } });
+      const startCount = fs.existsSync(started) ? fs.readFileSync(started, "utf8").split("\n").filter(Boolean).length : 0;
+      const running = runHookAsyncWithFakeCodex(payload, tempDir, "gated", {
+        FAKE_CODEX_STARTED_FILE: started,
+        FAKE_CODEX_RELEASE_FILE: release,
+      });
+      try {
+        const deadline = Date.now() + 5_000;
+        while (
+          (!fs.existsSync(started) || fs.readFileSync(started, "utf8").split("\n").filter(Boolean).length === startCount) &&
+          Date.now() < deadline
+        ) {
+          await new Promise((resolve) => setTimeout(resolve, 20));
+        }
+        expect(fs.readFileSync(started, "utf8").split("\n").filter(Boolean)).toHaveLength(startCount + 1);
+        if (changed) fs.writeFileSync(filePath, "// REVIEW_TOKEN_new\n");
+      } finally {
+        fs.writeFileSync(release, "");
+      }
+      const result = await running;
+      expect(result.status).toBe(0);
+      const review = readLog(tempDir).find((entry) => entry.file === filePath && entry.verdict === "concerns");
+      expect(review?.contentHash).toBe(contentHash(original));
+      if (changed) expect(result.stdout.trim()).toBe("");
+      else expect(JSON.parse(result.stdout.trim()).systemMessage).toMatch(/REVIEW_TOKEN_two/);
+    }
+  }, 15_000);
+
   it("MultiEdit: payload with {file_path, edits[]} is accepted and reviewed (closes 313→0 MultiEdit fixture gap)", () => {
     // The hook reads payload.tool_input.file_path (singular) at codex-pair-
     // watch.mjs:809. MultiEdit's actual Claude Code schema is {file_path,

@@ -34,6 +34,7 @@ describe("selectLatestEntries", () => {
     const log = [
       '{"file":"/r/a.ts","verdict":"concerns","contentHash":"h","concerns":{"high":["H1"]}}',
       '{"file":"/r/a.ts","verdict":"skipped","reason":"coalesced"}',
+      '{"file":"/r/a.ts","verdict":"skipped","reason":"paused via /codex-pair-pause"}',
       '{"file":"/r/a.ts","level":"info","reason":"over-cap"}',
     ].join("\n");
     expect(selectLatestEntries(log).get("/r/a.ts").concerns.high).toEqual(["H1"]);
