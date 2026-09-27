@@ -67,8 +67,7 @@ export const ANTIGRAVITY = {
   // agy 1.1.28 exits 0 on --print-timeout with a stderr truncation note.
   PRINT_TIMEOUT_SUCCESS_TRUNCATION_MIN_VERSION: "1.1.28",
   PARTIAL_OUTPUT_PREVIEW_CHARS: 500,
-  // agy 1.2.12 live: "[agy] print timeout after 30s with turn in progress; returning partial output".
-  // The rest are changelog-shaped belts. Keep disjoint from quota/model signals.
+  // agy 1.2.12 emits "print timeout"; keep other signals disjoint from quota/model errors.
   PRINT_TIMEOUT_TRUNCATION_SIGNALS: [
     "print timeout",
     "truncated",
