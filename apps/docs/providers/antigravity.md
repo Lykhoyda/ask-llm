@@ -54,7 +54,7 @@ Provider discovery runs `agy --version` and only makes Antigravity available to 
 | Env var | Default | Purpose |
 |---------|---------|---------|
 | `ASK_ANTIGRAVITY_TIMEOUT_MS` | `300000` | Process timeout (5 minutes). `agy --print-timeout` is set 5s below this so agy expires first. On agy ≥ 1.1.28 a mid-turn expiry is a truncated-answer error, not a complete response. |
-| `ASK_ANTIGRAVITY_ALLOW_UNISOLATED` | unset | Only the exact value `1` permits unisolated review/tool and read-only machine execution |
+| `ASK_ANTIGRAVITY_ALLOW_UNISOLATED` | unset | Only the exact value `1` permits unisolated review/tool, read-only machine, and `/brainstorm` raw agy execution |
 | `ASK_ANTIGRAVITY_SANDBOX` | on | Set `0` to drop `agy`'s `--sandbox` flag if it blocks `--add-dir` context reads |
 | `ASK_ANTIGRAVITY_MODEL` | `gemini-3.1-pro` | agy model passed via `--model`; on a rate limit the executor retries once on `gemini-3.5-flash` (run `agy models` for the list of kebab-case slugs, e.g. `claude-sonnet-4-6`; legacy display strings like `Gemini 3.1 Pro (High)` still resolve as compatibility-only pins) |
 | `ASK_ANTIGRAVITY_EFFORT` | `high` | agy reasoning effort passed via `--effort` (`low` \| `medium` \| `high`). The default is paired with the built-in base slugs and with model-less recovery attempts; an explicit value is always passed — note agy limits tiers per model (e.g. `gemini-3.1-pro` has no `medium`). Invalid values warn and fall back to the default behavior |

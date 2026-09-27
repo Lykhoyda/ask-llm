@@ -8,7 +8,7 @@
 
 **Decision:** The shared `executeAntigravityCLI` boundary refuses review/tool and read-only machine calls before any agy spawn, including the version probe. Only the exact environment value `ASK_ANTIGRAVITY_ALLOW_UNISOLATED=1` permits execution. Opted-in calls warn that read-only isolation is not guaranteed and omit `--dangerously-skip-permissions` on every primary and retry invocation. Existing plan/sandbox settings remain best effort; model, timeout, truncation, and recovery behavior are unchanged.
 
-**Consequences:** Default callers receive a refusal instead of an unsafe review. Explicit opt-in accepts possible file mutation, shell execution, and network access; it does not create an isolation guarantee. Regression tests cover both public call paths and the shared process boundary. Discovery version probes remain diagnostic and do not authorize execution.
+**Consequences:** Default callers receive a refusal instead of an unsafe review. Explicit opt-in accepts possible file mutation, shell execution, and network access; it does not create an isolation guarantee. Regression tests cover both public call paths and the shared process boundary. Discovery version probes remain diagnostic and do not authorize execution. The `/brainstorm` coordinator's raw agy call applies the same exact-value gate: otherwise it skips the participant and discloses the reason in the synthesis; under the opt-in it discloses the same warning and omits `--dangerously-skip-permissions`.
 
 ## ADR-175: codex-pair logs canonical file paths, and the Stop gate treats `?? dir/` as a dirty prefix
 
