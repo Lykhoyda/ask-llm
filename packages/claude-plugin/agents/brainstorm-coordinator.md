@@ -194,7 +194,7 @@ PROMPT_EOF
 # --model gemini-3.1-pro --effort high: pin the same default @ask-llm/antigravity-mcp
 # uses (ADR-116; agy >=1.1.5 splits the effort tier into --effort). This raw `agy`
 # call bypasses that executor, so the default must be restated here or agy falls
-# back to its own built-in model. Note the executor's gemini-3.5-flash rate-limit
+# back to its own built-in model. Note the executor's gemini-3.8-flash rate-limit
 # fallback does NOT apply to this raw path. The long --model flag works under -p
 # (only the short -m hangs). Run `agy models`.
 agy -p "$(cat "$workdir/antigravity-prompt.md")" --model "gemini-3.1-pro" --effort high --dangerously-skip-permissions --sandbox > "$workdir/antigravity.out" 2> "$workdir/antigravity.err" &

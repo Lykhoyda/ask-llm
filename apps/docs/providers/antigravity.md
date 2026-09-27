@@ -42,6 +42,7 @@ Or install globally: `npm install -g @ask-llm/antigravity-mcp`
 
 - **Default:** `gemini-3.1-pro`, passed to `agy` via `--model`, at `high` reasoning effort via `--effort` (agy ≥ 1.1.5 splits the effort tier out of the model name)
 - **Rate-limit fallback:** `gemini-3.8-flash`, retried once on a rate limit
+- **Quota diagnostics:** when a rate limit exhausts the available model attempts, agy ≥ 1.1.11 adds remaining quota percentages and reset times to the error when its `/quota` probe succeeds; a failed probe leaves the usual rate-limit error
 - **Model-unavailable recovery:** if agy rejects a model whose value equals one of the built-in base slugs (upstream drift), the executor retries once **without** a model and lets agy pick its default; any other rejected model fails with an actionable error pointing at `agy models`
 - **Overrides:** `ASK_ANTIGRAVITY_MODEL` and `ASK_ANTIGRAVITY_EFFORT` (run `agy models` for the full list of kebab-case slugs, e.g. `claude-sonnet-4-6`). Legacy effort-carrying display strings like `Gemini 3.1 Pro (High)` are compatibility-only pins that still resolve; the default effort is only sent when the model value equals one of the built-in base slugs, because agy rejects `--effort` next to an effort-carrying name
 
