@@ -102,7 +102,10 @@ export function selectReviewEntries(logText) {
         catch {
             continue;
         }
-        if (entry && typeof entry.file === "string" && typeof entry.contentHash === "string" && entry.verdict !== "skipped") {
+        if (entry &&
+            typeof entry.file === "string" &&
+            typeof entry.contentHash === "string" &&
+            entry.verdict !== "skipped") {
             const list = reviews.get(entry.file) ?? [];
             list.unshift(entry);
             reviews.set(entry.file, list);
