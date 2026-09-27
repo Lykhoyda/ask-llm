@@ -24,7 +24,7 @@ The existing detailed workflow below is the Claude Code adapter. Its Agent, MCP,
 
 # Multi-LLM Brainstorm (All Providers)
 
-Consult all available external LLM providers (Gemini, Codex, Grok, Ollama, Antigravity) simultaneously while Claude Opus performs its own independent research on the topic, then synthesize perspectives from all six participants.
+Request all five external providers (Gemini, Codex, Grok, Ollama, Antigravity) while Claude Opus performs its own independent research, then synthesize the participants that answered. The coordinator reports Antigravity as skipped unless `ASK_ANTIGRAVITY_ALLOW_UNISOLATED=1`.
 
 ## Instructions
 
@@ -37,7 +37,7 @@ Consult all available external LLM providers (Gemini, Codex, Grok, Ollama, Antig
 
 3. Launch the `brainstorm-coordinator` agent with the topic, external providers set to `gemini,codex,grok,ollama,antigravity`, and any gathered context. The coordinator will:
    - Run its own Claude Opus research phase in parallel with the external dispatches (Phase 3B — reads actual files, traces code, uses WebFetch/WebSearch on referenced external docs)
-   - Dispatch the topic to the five external providers in parallel (Phase 3A)
+   - Request the five external providers in parallel (Phase 3A); disclose any skipped participant
    - Synthesize all findings with Claude's verified findings weighted higher than inferred ones
 
 <!-- HOST-ADAPTER:CLAUDE-CODE:END -->

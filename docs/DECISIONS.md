@@ -574,9 +574,8 @@ advertise `readOnlyHint: true`. `workspace-write` remains reachable only as an
 explicit `sandbox: "workspace-write"` opt-in on the executor's machine contract
 (the #227 safe machine contracts), which the public tools never pass — so the
 advertised read-only hint stays honest. The raw Antigravity brainstorm path
-prepends the executor's exact read-only preamble and passes `--sandbox`
-alongside the headless-only `--dangerously-skip-permissions`. Contract tests
-assert these flags. The Stop gate also adopts `git status --porcelain=v1 -z` so
+prepends the executor's exact read-only preamble and passes `--sandbox`. Its
+permission-skip flag was removed by ADR-177. The Stop gate also adopts `git status --porcelain=v1 -z` so
 special-character filenames cannot bypass dirty-file reconciliation, and
 `/compare` isolates concurrent runs while inlining provider-neutral file context.
 

@@ -70,7 +70,7 @@ If Codex registration is missing, provision the unified server first (`claude mc
 | `/ollama-review` | Ollama | Local review, no data leaves your machine |
 | `/antigravity-review` | Antigravity | Subscription-backed second opinion via Google `agy` (experimental) |
 | `/brainstorm` | Explicit panel + Claude Opus evidence | Supports exact provider/harness/model routes, including a no-Gemini Grok + GPT-6 Sol panel through Cursor Agent; partial failures never become consensus |
-| `/brainstorm-all` | All + Claude Opus | Brainstorm with all five external providers (Gemini, Codex, Grok, Ollama, Antigravity) plus Claude Opus research |
+| `/brainstorm-all` | All + Claude Opus | Requests all five external providers plus Claude Opus research; see the [Antigravity execution gate](/providers/antigravity) |
 | `/compare` | Multi (configurable) | Side-by-side raw responses from selected providers: no synthesis, no consensus extraction. Use when you want to see how each provider phrases the same answer |
 
 > `/codex-review` and `/sol-review` require an installed, authenticated Codex CLI; the plugin supplies their MCP registration. `/grok-review`, `/ollama-review`, `/antigravity-review`, and bare-provider `/brainstorm` routes require their respective configured tools and credentials. Routed `/brainstorm ...@cursor-agent:<exact-id>` participants use the packaged model-neutral Cursor runner and require an authenticated Cursor Agent CLI; they do not silently use provider MCP tools as fallback.

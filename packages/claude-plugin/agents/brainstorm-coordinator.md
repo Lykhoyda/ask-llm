@@ -186,11 +186,8 @@ PROMPT_EOF
 # which makes `wait` return immediately and orphans the job to be
 # SIGKILLed when the Bash tool call returns and the sub-agent turn ends.
 # Only include this block if antigravity was requested (in the default set).
-# agy can write files, run shell commands and reach the network and is not yet
-# isolated (ADR-177, #283), so it runs only when ASK_ANTIGRAVITY_ALLOW_UNISOLATED=1,
-# with a disclosed warning and never with the permission-skip flag: headless agy
-# then auto-denies tool permissions it cannot prompt for. Otherwise the participant
-# is skipped and the reason lands in antigravity.err (`false &` keeps rc non-zero).
+# Raw agy is unisolated (ADR-177): require exact opt-in and preserve the warning
+# in stderr; `false &` records a skipped participant as a nonzero result.
 # --model gemini-3.1-pro --effort high: pin the same default @ask-llm/antigravity-mcp
 # uses (ADR-116; agy >=1.1.5 splits the effort tier into --effort). This raw `agy`
 # call bypasses that executor, so the default must be restated here or agy falls

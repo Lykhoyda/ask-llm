@@ -117,7 +117,7 @@ Send a topic to an explicit multi-model panel, ground it with independent Claude
 /brainstorm grok@grok-cli:grok-4.7,codex@cursor-agent:gpt-6-sol-high "review this architecture"
 ```
 
-**Default external providers:** `antigravity,codex` (avoids unnecessary Ollama calls). Compatible bare provider lists remain supported. For predictable routing use `provider@harness:exact-model-id`; the preferred Grok path is Cursor Agent. A list is either all bare names or all routed specs—mixing them (for example `grok@cursor-agent:grok-4.7-high,antigravity`) is refused before any provider is called, with no rerouting or substitution; generalized mixed panels are deferred to a future ADR. Exact IDs come from the selected harness catalog (`agent --list-models`, `grok models`, or xAI `/v1/models`) and are never translated between catalogs.
+**Default external providers:** `antigravity,codex` (avoids unnecessary Ollama calls). Antigravity follows the [execution gate](/providers/antigravity). Compatible bare provider lists remain supported. For predictable routing use `provider@harness:exact-model-id`; the preferred Grok path is Cursor Agent. A list is either all bare names or all routed specs—mixing them (for example `grok@cursor-agent:grok-4.7-high,antigravity`) is refused before any provider is called, with no rerouting or substitution; generalized mixed panels are deferred to a future ADR. Exact IDs come from the selected harness catalog (`agent --list-models`, `grok models`, or xAI `/v1/models`) and are never translated between catalogs.
 
 The architect panel invokes only the two listed Cursor participants: `provider: "grok"` with `model: "grok-4.7-high"`, and `provider: "codex"` with `model: "gpt-6-sol-high"`. It never calls Gemini or Cursor `Auto`. If registration, authentication, model availability, or route support fails for either participant, the result is **partial** and surviving insights are attributed only to the model that answered—never called two-model consensus. Claude's evidence can verify claims but cannot supply the missing vote.
 
@@ -125,7 +125,7 @@ The `grok-cli` form is supported only when the installed official Grok Build exp
 
 ### `/brainstorm-all`
 
-Shortcut for `/brainstorm gemini,codex,grok,ollama,antigravity <topic>`. Sends to all five external providers (Gemini, Codex, Grok, Ollama, Antigravity) plus the always-on Claude Opus research phase; up to six participants total.
+Shortcut for `/brainstorm gemini,codex,grok,ollama,antigravity <topic>`. Requests all five external providers plus the always-on Claude Opus research phase; Antigravity may be skipped by its [execution gate](/providers/antigravity).
 
 ```text
 /brainstorm-all What's the best caching strategy for our API?
