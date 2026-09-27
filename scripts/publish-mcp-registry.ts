@@ -24,14 +24,22 @@ interface Logger {
   error(message: string): void;
 }
 
-type FetchLike = (url: URL) => Promise<Response>;
+type FetchLike = (url: URL, init?: RequestInit) => Promise<Response>;
 type RunPublisher = (operation: string, manifestPath: string) => Promise<PublisherResult>;
 
 interface RegistryLookupPayload {
   servers?: Array<{ server?: JsonValue }>;
 }
 
-type FailurePhase = "read" | "validate" | "verify" | "lookup" | "login" | "publish" | "duplicate-race";
+type FailurePhase =
+  | "read"
+  | "validate"
+  | "verify"
+  | "lookup"
+  | "npm-visibility"
+  | "login"
+  | "publish"
+  | "duplicate-race";
 interface Failure {
   manifestPath: string;
   target?: string;
@@ -53,15 +61,29 @@ interface PublishResult {
   skipped: string[];
 }
 
+interface NpmVersion {
+  identifier: string;
+  version: string;
+}
+
+interface NpmWaitOptions {
+  timeoutMs?: number;
+  intervalMs?: number;
+  sleep?: (ms: number) => Promise<void>;
+  now?: () => number;
+}
+
 interface PublishOptions {
   manifestPaths?: string[];
   fetchImpl?: FetchLike;
   registryUrl?: string;
   runPublisher?: RunPublisher;
   log?: Logger;
+  npmWait?: NpmWaitOptions;
 }
 
 const DEFAULT_REGISTRY_URL = "https://registry.modelcontextprotocol.io";
+const NPM_REGISTRY_URL = "https://registry.npmjs.org";
 const DUPLICATE_VERSION = /invalid version:\s*cannot publish duplicate version/i;
 const OPTIONAL_FALSE_FIELDS = new Set(["isRequired", "isSecret"]);
 const OUTPUT_LIMIT = 16_384;
@@ -234,6 +256,58 @@ export async function lookupExactRecord(
   return matches[0] ?? null;
 }
 
+function npmTarget({ identifier, version }: NpmVersion): string {
+  return `${identifier}@${version}`;
+}
+
+function npmVersionsOf(manifest: ServerManifest): NpmVersion[] {
+  const packages = Array.isArray(manifest.packages) ? (manifest.packages as JsonObject[]) : [];
+  return packages
+    .filter((entry) => entry?.registryType === "npm")
+    .map((entry) => ({ identifier: String(entry.identifier), version: String(entry.version) }));
+}
+
+// Mirrors the Registry's npm validator, which 404s for a minute or more after `changeset publish` (issue #333).
+export async function waitForNpmVersions(
+  versions: NpmVersion[],
+  {
+    fetchImpl = fetch,
+    log = console,
+    timeoutMs = 600_000,
+    intervalMs = 15_000,
+    sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
+    now = Date.now,
+  }: NpmWaitOptions & { fetchImpl?: FetchLike; log?: Logger } = {},
+): Promise<Map<string, string>> {
+  const deadline = now() + timeoutMs;
+  const pending = new Map(versions.map((entry) => [npmTarget(entry), entry]));
+  while (true) {
+    const missing = new Map<string, string>();
+    for (const [target, { identifier, version }] of pending) {
+      // Same spelling as Go's url.PathEscape so we read the Registry validator's CDN cache entry.
+      const path = `/${encodeURIComponent(identifier).replace(/^%40/, "@")}/${encodeURIComponent(version)}`;
+      try {
+        const response = await fetchImpl(new URL(path, NPM_REGISTRY_URL), {
+          headers: { accept: "application/json" },
+          signal: AbortSignal.timeout(10_000),
+        });
+        if (response.status === 200) {
+          pending.delete(target);
+        } else {
+          missing.set(target, `HTTP ${response.status}`);
+        }
+      } catch (error) {
+        missing.set(target, (error as Error).message);
+      }
+    }
+    const remainingMs = deadline - now();
+    if (missing.size === 0 || remainingMs <= 0) return missing;
+    const waiting = [...missing].map(([target, detail]) => `${target} (${detail})`).join(", ");
+    log.log(`Waiting for npm to show ${waiting}; ${Math.ceil(remainingMs / 1000)}s left`);
+    await sleep(Math.min(intervalMs, remainingMs));
+  }
+}
+
 export function runPublisherCommand(
   operation: string,
   manifestPath: string,
@@ -274,6 +348,7 @@ export async function publishMissingRegistryVersions({
   registryUrl = DEFAULT_REGISTRY_URL,
   runPublisher = runPublisherCommand,
   log = console,
+  npmWait = {},
 }: PublishOptions = {}): Promise<PublishResult> {
   if (!Array.isArray(manifestPaths) || manifestPaths.length === 0) {
     throw new Error("At least one server.json path is required");
@@ -327,7 +402,25 @@ export async function publishMissingRegistryVersions({
     }
   }
 
-  if (selected.length > 0) {
+  const missingOnNpm = await waitForNpmVersions(
+    selected.flatMap(({ manifest }) => npmVersionsOf(manifest)),
+    { ...npmWait, fetchImpl, log },
+  );
+  const publishable = selected.filter(({ manifest, manifestPath, target }) => {
+    const missing = npmVersionsOf(manifest)
+      .map(npmTarget)
+      .filter((npmVersion) => missingOnNpm.has(npmVersion));
+    if (missing.length === 0) return true;
+    failures.push({
+      manifestPath,
+      target,
+      phase: "npm-visibility",
+      message: `npm still does not show ${missing.map((npmVersion) => `${npmVersion} (last: ${missingOnNpm.get(npmVersion)})`).join(", ")}; re-run Release on main once npm shows it`,
+    });
+    return false;
+  });
+
+  if (publishable.length > 0) {
     let login: PublisherResult | undefined;
     try {
       login = await runPublisher("login", "github-oidc");
@@ -340,7 +433,7 @@ export async function publishMissingRegistryVersions({
   }
 
   const loginFailed = failures.some(({ phase }) => phase === "login");
-  for (const candidate of loginFailed ? [] : selected) {
+  for (const candidate of loginFailed ? [] : publishable) {
     const { manifest, manifestPath, target } = candidate;
     log.log(`Publishing missing MCP Registry record ${target}`);
 

@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, test } from "vitest";
-import { publishMissingRegistryVersions, recordsMatch } from "./publish-mcp-registry.ts";
+import { publishMissingRegistryVersions, recordsMatch, waitForNpmVersions } from "./publish-mcp-registry.ts";
 
 type PackageArgument = {
   type: string;
@@ -350,7 +350,10 @@ test("duplicate race is accepted only after the exact record appears", async () 
 
   const result = await publishMissingRegistryVersions({
     manifestPaths: [path],
-    fetchImpl: async () => responseFor(lookups++ === 0 ? null : registryRecord(expected)),
+    fetchImpl: async (url) => {
+      if (url.hostname === "registry.npmjs.org") return new Response("{}");
+      return responseFor(lookups++ === 0 ? null : registryRecord(expected));
+    },
     runPublisher: publisher.run,
     log: createLogger().log,
   });
@@ -446,4 +449,166 @@ test("validation and Registry lookup failures fail closed without blocking unrel
     ["validate", "lookup"],
   );
   assert.deepEqual(result.published, ["ask-ok@3.0.0"]);
+});
+
+function fakeClock() {
+  let time = 0;
+  const sleeps: number[] = [];
+  return {
+    sleeps,
+    now: () => time,
+    sleep: async (ms: number) => {
+      sleeps.push(ms);
+      time += ms;
+    },
+  };
+}
+
+function npmVisibility(pollsUntilVisible: Map<string, number>) {
+  const polls = new Map<string, number>();
+  const fetchImpl = async (url: URL): Promise<Response> => {
+    if (url.hostname !== "registry.npmjs.org") return responseFor(null);
+    const key = decodeURIComponent(url.pathname.slice(1));
+    const count = (polls.get(key) ?? 0) + 1;
+    polls.set(key, count);
+    const needed = pollsUntilVisible.get(key) ?? 1;
+    return new Response("{}", { status: count >= needed ? 200 : 404 });
+  };
+  return { fetchImpl, polls };
+}
+
+const gemini = { identifier: "@ask-llm/gemini-mcp", version: "2.0.0" };
+const codex = { identifier: "@ask-llm/codex-mcp", version: "0.9.0" };
+
+test("npm wait returns immediately when every version is already visible", async () => {
+  const clock = fakeClock();
+  const npm = npmVisibility(new Map());
+  const urls: string[] = [];
+
+  const missing = await waitForNpmVersions([gemini, codex], {
+    fetchImpl: async (url) => {
+      urls.push(url.href);
+      return npm.fetchImpl(url);
+    },
+    ...clock,
+    log: createLogger().log,
+  });
+
+  assert.deepEqual([...missing], []);
+  assert.deepEqual(clock.sleeps, []);
+  assert.deepEqual(urls, [
+    "https://registry.npmjs.org/@ask-llm%2Fgemini-mcp/2.0.0",
+    "https://registry.npmjs.org/@ask-llm%2Fcodex-mcp/0.9.0",
+  ]);
+});
+
+test("npm wait polls until a lagging version appears and stops re-checking visible ones", async () => {
+  const clock = fakeClock();
+  const npm = npmVisibility(new Map([["@ask-llm/gemini-mcp/2.0.0", 4]]));
+  const logger = createLogger();
+
+  const missing = await waitForNpmVersions([gemini, codex], {
+    fetchImpl: npm.fetchImpl,
+    ...clock,
+    intervalMs: 10_000,
+    log: logger.log,
+  });
+
+  assert.deepEqual([...missing], []);
+  assert.deepEqual(clock.sleeps, [10_000, 10_000, 10_000]);
+  assert.equal(npm.polls.get("@ask-llm/gemini-mcp/2.0.0"), 4);
+  assert.equal(npm.polls.get("@ask-llm/codex-mcp/0.9.0"), 1);
+  assert.ok(logger.lines.some((line) => line.includes("@ask-llm/gemini-mcp@2.0.0 (HTTP 404)")));
+});
+
+test("npm wait times out at one shared 10-minute deadline and names every version still missing", async () => {
+  const clock = fakeClock();
+  const claude = { identifier: "@ask-llm/claude-mcp", version: "0.2.0" };
+  const npm = npmVisibility(
+    new Map([
+      ["@ask-llm/gemini-mcp/2.0.0", Number.POSITIVE_INFINITY],
+      ["@ask-llm/claude-mcp/0.2.0", Number.POSITIVE_INFINITY],
+    ]),
+  );
+
+  const missing = await waitForNpmVersions([gemini, codex, claude], {
+    fetchImpl: npm.fetchImpl,
+    ...clock,
+    log: createLogger().log,
+  });
+
+  assert.deepEqual(
+    [...missing],
+    [
+      ["@ask-llm/gemini-mcp@2.0.0", "HTTP 404"],
+      ["@ask-llm/claude-mcp@0.2.0", "HTTP 404"],
+    ],
+  );
+  assert.equal(clock.now(), 600_000);
+});
+
+test("npm wait treats network errors as not yet visible", async () => {
+  const clock = fakeClock();
+  let calls = 0;
+
+  const missing = await waitForNpmVersions([gemini], {
+    fetchImpl: async () => {
+      calls += 1;
+      if (calls === 1) throw new Error("socket hang up");
+      return new Response("{}", { status: 200 });
+    },
+    ...clock,
+    log: createLogger().log,
+  });
+
+  assert.deepEqual([...missing], []);
+  assert.equal(calls, 2);
+});
+
+test("Registry publish skips candidates whose npm version never appears but publishes visible ones", async () => {
+  const values = [manifest("ask-lagging", "1.0.0"), manifest("ask-visible", "2.0.0")];
+  const paths = writeManifests(values);
+  const publisher = createPublisher();
+  const npm = npmVisibility(new Map([["@ask-llm/ask-lagging/1.0.0", Number.POSITIVE_INFINITY]]));
+
+  const result = await publishMissingRegistryVersions({
+    manifestPaths: paths,
+    fetchImpl: npm.fetchImpl,
+    runPublisher: publisher.run,
+    log: createLogger().log,
+    npmWait: { ...fakeClock(), timeoutMs: 30_000, intervalMs: 10_000 },
+  });
+
+  assert.equal(result.failures.length, 1);
+  assert.equal(result.failures[0].phase, "npm-visibility");
+  assert.match(result.failures[0].message, /@ask-llm\/ask-lagging@1\.0\.0 .*HTTP 404/);
+  assert.deepEqual(result.published, ["ask-visible@2.0.0"]);
+  assert.deepEqual(
+    publisher.calls.filter(({ operation }) => operation === "publish").map(({ path }) => path),
+    [paths[1]],
+  );
+});
+
+test("recovery with every Registry record present never polls npm", async () => {
+  const values = [manifest("ask-one", "1.0.0")];
+  const paths = writeManifests(values);
+  const hostnames: string[] = [];
+  const publisher = createPublisher();
+
+  const result = await publishMissingRegistryVersions({
+    manifestPaths: paths,
+    fetchImpl: async (url) => {
+      hostnames.push(url.hostname);
+      return responseFor(registryRecord(values[0]));
+    },
+    runPublisher: publisher.run,
+    log: createLogger().log,
+  });
+
+  assert.deepEqual(result.failures, []);
+  assert.ok(hostnames.every((hostname) => hostname !== "registry.npmjs.org"));
+  assert.deepEqual(
+    publisher.calls.map(({ operation }) => operation),
+    ["validate"],
+  );
 });
