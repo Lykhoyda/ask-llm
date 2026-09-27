@@ -10,7 +10,7 @@ subscription-backed second opinion / code review from Antigravity.
 > agy's structured JSON stdout; see the [provider guide](https://lykhoyda.github.io/ask-llm/providers/antigravity)
 > for response parsing, version gates, token usage, and limitations. Single-turn only for now (headless resume via agy's
 > JSON `conversation_id` is tracked as follow-up work). Defaults to the
-> gemini-3.1-pro model at high reasoning effort, falling back to gemini-3.5-flash
+> gemini-3.1-pro model at high reasoning effort, falling back to gemini-3.8-flash
 > on a rate limit. When agy rejects a model whose value equals one of those
 > built-in base slugs (upstream drift), the executor retries once without a
 > model and lets agy pick its default; any other rejected model fails with an
@@ -25,5 +25,5 @@ This package's review tool and read-only machine execution refuse before probing
 - `ASK_ANTIGRAVITY_ALLOW_UNISOLATED` — unset by default; only the exact value `1` permits unisolated execution.
 - `ASK_ANTIGRAVITY_TIMEOUT_MS` — process timeout (default 300000 = 5m). On agy ≥1.1.28 a `--print-timeout` expiry is a truncated-answer error rather than a complete response.
 - `ASK_ANTIGRAVITY_SANDBOX` — set `0` to drop `--sandbox` if it blocks context reads.
-- `ASK_ANTIGRAVITY_MODEL` — agy model via `--model` (default `gemini-3.1-pro`, with `gemini-3.5-flash` as the rate-limit fallback; run `agy models` for options). Legacy effort-carrying display strings like `Gemini 3.1 Pro (High)` still resolve for backward compatibility, but they conflict with `--effort`, so the default effort is only sent when the model value equals one of the built-in base slugs.
+- `ASK_ANTIGRAVITY_MODEL` — agy model via `--model` (default `gemini-3.1-pro`, with `gemini-3.8-flash` as the rate-limit fallback; run `agy models` for options). Legacy effort-carrying display strings like `Gemini 3.1 Pro (High)` still resolve for backward compatibility, but they conflict with `--effort`, so the default effort is only sent when the model value equals one of the built-in base slugs.
 - `ASK_ANTIGRAVITY_EFFORT` — agy reasoning effort via `--effort` (`low` | `medium` | `high`; default `high`). The default effort is paired with the built-in base slugs and with model-less recovery attempts; an explicitly set value is always passed (you own the model/effort combination — note agy limits some tiers per model, e.g. `gemini-3.1-pro` has no `medium`). Invalid values log a warning and fall back to the default behavior.

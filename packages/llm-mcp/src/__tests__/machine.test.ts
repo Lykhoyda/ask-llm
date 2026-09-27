@@ -395,7 +395,7 @@ describe("runMachineRequest", () => {
   it("derives an omitted-model Antigravity fallback from its configured default", async () => {
     const executor: ExecutorFn = vi.fn().mockResolvedValue({
       response: JSON.stringify(brainstormPayload),
-      model: "gemini-3.5-flash",
+      model: "gemini-3.8-flash",
       usage: undefined,
     });
 
@@ -411,11 +411,11 @@ describe("runMachineRequest", () => {
     );
 
     expect(result).toMatchObject({
-      actualModel: "gemini-3.5-flash",
+      actualModel: "gemini-3.8-flash",
       fallback: {
         occurred: true,
         requestedModel: "gemini-3.1-pro",
-        actualModel: "gemini-3.5-flash",
+        actualModel: "gemini-3.8-flash",
       },
     });
   });

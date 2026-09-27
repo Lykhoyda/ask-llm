@@ -1,5 +1,19 @@
 # Architectural Decisions
 
+## ADR-178: Antigravity adopts live agy 1.2.12 evidence (fallback model, AGY_ERROR, quota)
+
+**Status:** Accepted (2026-09-27). Supersedes the antigravity half of ADR-125/137/155's `gemini-3.5-flash` fallback pin.
+
+**Context:** Live agy 1.2.12 rejects the shipped rate-limit fallback: `--model gemini-3.5-flash` fails with `invalid model selection … is not recognized as a known model`, so a rate limit fell into model-unavailable recovery instead of a Flash retry. `agy models` lists only tiered ids (`gemini-3.8-flash-high|medium|low`, `gemini-3.7-…`, `gemini-3.6-…`, `gemini-3.1-pro-high|low`). A tiered id conflicts with any other effort (`--model gemini-3.8-flash-high --effort low` → `conflicts with --effort=low`), while the base slug works with every tier (`gemini-3.8-flash --effort low|medium|high` all answered live) and fails without one (`requires --effort`), the same form as the shipped default `gemini-3.1-pro`.
+
+**Decision:** Set the antigravity fallback to the base slug `gemini-3.8-flash`, sent with `--effort high` by default and `ASK_ANTIGRAVITY_EFFORT` still honored (ADR-137 contract). Do not use the listed tiered id: it would force dropping `--effort` on fallback and silently ignore the user's effort. The gemini-cli fallback (ADR-155) is unchanged and independent.
+
+**Consequences:** Subscription rate limits retry on a model agy 1.2.12 accepts. Current-facing surfaces and the docs drift guard move together; historical ADRs, roadmap entries, bugs, and changelogs keep the pins they recorded.
+
+**AGY_ERROR (#335):** agy ≥1.2.6 ends a failed headless turn with exit 3 and a stderr line `AGY_ERROR: {…}`. The shared `sanitizeErrorForLLM` keeps only the first 3 non-empty lines unless a narrow quota passthrough matches, so the line was dropped whenever agy printed a multi-line startup warning first, and a 429 never reached `isRateLimitError`. The executor now takes the last `AGY_ERROR:` line from its own raw stderr capture, limits `short_error` to 300 characters, drops `error_id` from classification, and prepends the remaining fields to the rejection so the existing substring matchers classify it; the shared sanitizer and other providers are unchanged. No version gate: the line cannot appear before 1.2.6. The payload keys (`short_error`, `retryable`, `error_id`, `status`, `code`, `http_status`) come from strings in the agy 1.2.12 binary; two cheap live triggers (unknown `--conversation`, unknown `--agent`) only warned and exited 0, so no failure was live-captured. Classification therefore stays on substrings (`429`, `resource_exhausted`, `too many requests`, `invalid model selection`) rather than parsing specific keys.
+
+**Quota diagnostics (#268, thin slice):** Live on agy 1.2.12, `agy -p /quota --output-format json` exits 0 with no agent turn (`num_turns: 0`, zero usage) and a `response` of tab-separated `group, bucket, remaining %, reset time` lines, plus the same data under `command.data.groups[].buckets[]`. When both the primary and the Flash fallback are rate limited, the executor runs that probe (agy ≥1.1.11, 5s budget, no workspace flags) and appends the lines to `RATE_LIMITED`; any probe failure keeps the plain message. The probe starts no agent turn, so it cannot act on the workspace and is independent of the read-only fix. Deferred under #268: a `doctor` quota probe and inlining `/model`/`/effort` slugs into model-unavailable errors.
+
 ## ADR-177: Refuse unisolated Antigravity executor runs by default
 
 **Status:** Accepted (2026-09-27). Amends ADR-136 for MCP tool and machine execution.
@@ -152,7 +166,7 @@ The Stop gate uses the latest review of the content on disk; without one there i
 
 **Decision:** Keep `MINIMUM_AGY_VERSION` at 1.1.5 and keep `--print-timeout` 5s below the process timeout so agy still expires first. On probed agy ≥ 1.1.28 (`PRINT_TIMEOUT_SUCCESS_TRUNCATION_MIN_VERSION`), fail closed when stderr contains `print timeout` or an earlier truncation substring, or the envelope sets `truncated: true` (or a timeout/partial/truncated `status`). Do not infer truncation from zeroed usage or the benign plan-mode warning that complete runs also print. The error names `ASK_ANTIGRAVITY_TIMEOUT_MS` and includes a bounded preview of any partial output; it is not a rate-limit or model-unavailable signal and does not retry. Recovery classifiers (`isRateLimitError`, `isModelUnavailableError`) ignore messages that start with the truncation prefix so a preview that quotes `quota` or `invalid model selection` cannot trigger Flash or a model-less retry. Capture stderr through the existing `executeCommand` `onStderr` hook rather than changing the shared success return type (that would cascade every provider via ADR-119). Below 1.1.28, ignore truncation-shaped stderr on exit 0 because timeout still fails non-zero. Parse `denied_actions` additively on complete answers and append a notice; do not fail the call for denials alone.
 
-**Consequences:** Slow models on agy ≥ 1.1.28 produce an actionable truncated-answer error instead of a complete-looking response. Older supported CLIs keep the ADR-141 timeout-as-error path. Shared `commandExecutor` behavior is unchanged. `printTimeoutTruncation.test.ts` replays the captured stderr and envelopes for partial, empty, and complete answers.
+**Consequences:** Slow models on agy ≥ 1.1.28 produce an actionable truncated-answer error instead of a complete-looking response. Older supported CLIs keep the ADR-141 timeout-as-error path. Shared `commandExecutor` behavior is unchanged. `fakeAgy.test.ts` replays the captured stderr and envelopes for partial, empty, and complete answers.
 
 ## ADR-161: Plugin Codex workflows use unified MCP without stripping provider options
 

@@ -9,6 +9,8 @@ export const ERROR_MESSAGES = {
   TRUNCATED: "Antigravity (agy) hit --print-timeout and returned a truncated answer instead of a complete response.",
   UNISOLATED_REFUSED:
     "Antigravity (agy) execution refused: read-only isolation is not guaranteed. To explicitly allow an unisolated run that may modify files, run shell commands, and access the network, set ASK_ANTIGRAVITY_ALLOW_UNISOLATED=1.",
+  DENIED_WITHOUT_ANSWER:
+    "Antigravity (agy) returned no answer because it refused tool actions it was not permitted to take; ask for analysis only.",
   TOOL_NOT_FOUND: "not found in registry",
 } as const;
 
@@ -48,7 +50,7 @@ export const OUTPUT_FORMATS = {
 // legacy names remain valid only when no implicit effort flag is added.
 export const MODELS = {
   DEFAULT: "gemini-3.1-pro",
-  FALLBACK: "gemini-3.5-flash",
+  FALLBACK: "gemini-3.8-flash",
   // Reported as the result model when a model-unavailable retry let agy pick.
   AGY_DEFAULT_LABEL: "agy default",
 } as const;
@@ -57,7 +59,7 @@ export const ANTIGRAVITY = {
   MINIMUM_AGY_VERSION,
   VERSION_CHECK_TIMEOUT_MS: 5_000,
   TIMEOUT_ENV_VAR: "ASK_ANTIGRAVITY_TIMEOUT_MS",
-  // agy's --print-timeout defaults to 5m; mirror that as our process timeout.
+  // A deliberate 5m cap; agy >=1.2.6 defaults --print-timeout to unlimited, and we always pass it.
   DEFAULT_TIMEOUT_MS: 300_000,
   ALLOW_UNISOLATED_ENV_VAR: "ASK_ANTIGRAVITY_ALLOW_UNISOLATED",
   SANDBOX_ENV_VAR: "ASK_ANTIGRAVITY_SANDBOX",
@@ -79,6 +81,10 @@ export const ANTIGRAVITY = {
     "timed out",
     "timeout expired",
   ],
+  QUOTA_COMMAND: "/quota",
+  QUOTA_COMMAND_MIN_VERSION: "1.1.11",
+  // agy >=1.2.6 prints this stderr line on a failed headless turn and exits 3.
+  STRUCTURED_ERROR_PREFIX: "AGY_ERROR:",
   // Lowercased substrings; isRateLimitError() lowercases the message first.
   RATE_LIMIT_SIGNALS: ["rate limit", "rate_limit", "resource_exhausted", "quota", "429", "too many requests"],
   // Keep model-selection signals disjoint from quota; "Available models:" is too generic.
