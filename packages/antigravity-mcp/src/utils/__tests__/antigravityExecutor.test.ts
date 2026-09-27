@@ -868,4 +868,35 @@ describe("AGY_ERROR stderr line (#335)", () => {
     await expect(executeAntigravityCLI({ prompt: "q" })).rejects.toThrow(/^Command timed out/);
     expect(mockExec).toHaveBeenCalledOnce();
   });
+
+  it("does not fall back to Flash because an opaque error_id happens to contain 429", async () => {
+    mockExec.mockImplementation(async (_command, _args, _onProgress, onStderr) => {
+      onStderr?.('AGY_ERROR: {"status":"INTERNAL","http_status":500,"error_id":"3f429ba0"}\n');
+      throw new Error("warning: startup notice");
+    });
+    await expect(executeAntigravityCLI({ prompt: "q" })).rejects.toThrow(/"status":"INTERNAL"/);
+    expect(mockExec).toHaveBeenCalledOnce();
+  });
+
+  it("propagates a cancellation during the /quota probe instead of reporting a rate limit", async () => {
+    mockAssertSupportedAgyVersion.mockResolvedValue("1.2.12");
+    const controller = new AbortController();
+    const cancelled = new Error("Provider command cancelled");
+    mockExec
+      .mockRejectedValueOnce(new Error("RESOURCE_EXHAUSTED: quota"))
+      .mockRejectedValueOnce(new Error("RESOURCE_EXHAUSTED: quota"))
+      .mockImplementationOnce(async () => {
+        controller.abort(cancelled);
+        throw cancelled;
+      });
+    await expect(executeAntigravityCLI({ prompt: "q", signal: controller.signal })).rejects.toBe(cancelled);
+  });
+
+  it("does not recover when a denied-without-answer message names a quota-like action", async () => {
+    mockExec.mockResolvedValue(
+      JSON.stringify({ status: "SUCCESS", response: "", denied_actions: [{ action: "fetch_quota_429" }] }),
+    );
+    await expect(executeAntigravityCLI({ prompt: "q" })).rejects.toThrow(ERROR_MESSAGES.DENIED_WITHOUT_ANSWER);
+    expect(mockExec).toHaveBeenCalledOnce();
+  });
 });

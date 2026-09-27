@@ -172,7 +172,8 @@ async function describeQuota(signal?: AbortSignal): Promise<string | undefined> 
       .filter((cells) => cells.length === 4)
       .map(([group, bucket, remaining, reset]) => `${group} ${bucket}: ${remaining} (resets ${reset})`);
     return lines.length > 0 ? lines.join("; ") : undefined;
-  } catch {
+  } catch (error) {
+    if (signal?.aborted) throw error;
     return undefined;
   }
 }
@@ -201,20 +202,25 @@ function buildUsageStats(
   };
 }
 
+// Our own messages quote agy output (partials, action names), so they must never trigger recovery.
+function isTerminalOwnError(message: string): boolean {
+  return isTruncatedAnswerError(message) || message.startsWith(ERROR_MESSAGES.DENIED_WITHOUT_ANSWER);
+}
+
 function isRateLimitError(message: string): boolean {
-  if (isTruncatedAnswerError(message)) return false;
+  if (isTerminalOwnError(message)) return false;
   const lower = message.toLowerCase();
   return ANTIGRAVITY.RATE_LIMIT_SIGNALS.some((s) => lower.includes(s));
 }
 
 // ADR-117 makes JSON error envelopes visible here without changing recovery matching.
 export function isModelUnavailableError(message: string): boolean {
-  if (isTruncatedAnswerError(message)) return false;
+  if (isTerminalOwnError(message)) return false;
   const lower = message.toLowerCase();
   return ANTIGRAVITY.MODEL_UNAVAILABLE_SIGNALS.some((s) => lower.includes(s));
 }
 
-// Keeps the classification fields whole and bounds only the free-text short_error.
+// Keeps the classification fields whole, bounds short_error, and drops error_id (an opaque id can contain "429").
 export function findAgyErrorLine(stderr: string): string | undefined {
   const prefix = ANTIGRAVITY.STRUCTURED_ERROR_PREFIX;
   const line = stderr
@@ -225,8 +231,9 @@ export function findAgyErrorLine(stderr: string): string | undefined {
   if (!line) return undefined;
   try {
     const { status, code, http_status, retryable, error_id, short_error } = JSON.parse(line.slice(prefix.length));
+    if (error_id !== undefined) Logger.warn(`antigravity: agy error_id ${String(error_id)}`);
     const shortError = typeof short_error === "string" ? short_error.slice(0, 300) : undefined;
-    return `${prefix} ${JSON.stringify({ status, code, http_status, retryable, error_id, short_error: shortError })}`;
+    return `${prefix} ${JSON.stringify({ status, code, http_status, retryable, short_error: shortError })}`;
   } catch {
     return line.slice(0, ANTIGRAVITY.PARTIAL_OUTPUT_PREVIEW_CHARS);
   }
