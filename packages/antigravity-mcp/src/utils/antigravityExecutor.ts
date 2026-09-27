@@ -352,7 +352,7 @@ export async function executeAntigravityCLI(options: AntigravityExecutorOptions)
         throw error;
       }
       const agyError = findAgyErrorLine(stderrChunks.join(""));
-      if (agyError && !error.message.includes(agyError)) {
+      if (agyError) {
         throw new Error(`${agyError}\n${error.message}`);
       }
       throw error;
