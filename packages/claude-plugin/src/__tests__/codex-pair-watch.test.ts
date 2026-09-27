@@ -1358,6 +1358,33 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
     expect(result.stdout).not.toMatch(/src\/bar\.ts/);
   });
 
+  it("codex-pair-log CLI: --file matches entries logged under another path to the same file", () => {
+    setupMarker(tempDir, "# ctx");
+    const real = fs.realpathSync(tempDir);
+    const alias = `${tempDir}-alias`;
+    fs.symlinkSync(real, alias);
+    try {
+      fs.writeFileSync(path.join(real, "foo.ts"), "x");
+      const entries = [
+        { file: path.join(real, "foo.ts"), verdict: "concerns" },
+        { file: path.join(alias, "foo.ts"), verdict: "none" },
+      ].map((e) => JSON.stringify({ timestamp: new Date().toISOString(), ...e }));
+      fs.writeFileSync(path.join(tempDir, ".codex-pair/log.jsonl"), `${entries.join("\n")}\n`);
+      const cliPath = path.join(PLUGIN_ROOT, "scripts", "codex-pair-log.mjs");
+      const result = spawnSync("node", [cliPath, "--file", path.join(alias, "foo.ts")], {
+        cwd: tempDir,
+        env: process.env,
+        encoding: "utf-8",
+        timeout: 5000,
+      });
+      expect(result.status).toBe(0);
+      expect(result.stdout).toMatch(/concerns/);
+      expect(result.stdout).toMatch(/none/);
+    } finally {
+      fs.rmSync(alias, { force: true });
+    }
+  });
+
   it("codex-pair-log CLI: exits non-zero with no marker", () => {
     // No marker file in tempDir
     const cliPath = path.join(PLUGIN_ROOT, "scripts", "codex-pair-log.mjs");

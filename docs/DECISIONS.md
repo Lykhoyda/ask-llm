@@ -8,7 +8,7 @@
 
 **Decision:** `appendLog` records `realpath(file)` when the file resolves, so new entries use one path per file. The Stop gate still canonicalizes entries at read time, because logs written before this change contain raw alias paths; `selectReviewEntries` now groups every entry under its canonical path in log order instead of letting one alias's list replace another's. The `[B]` filter counts a logged file as dirty when any `??` record ending in `/` is a prefix of its path.
 
-**Consequences:** Hashing is still limited to dirty existing files with review entries. Other state keyed by file path (debounce, pending, inflight, repetitions) keeps the raw path. A path that cannot be resolved is logged raw, as before.
+**Consequences:** Hashing is still limited to dirty existing files with review entries. Other state keyed by file path (debounce, pending, inflight, repetitions) keeps the raw path. A path that cannot be resolved is logged raw, as before. `codex-pair-log --file` matches entries by canonical path, so either alias finds both old and new entries.
 
 ## ADR-174: The Registry helper waits for npm to show each version before publishing it
 
