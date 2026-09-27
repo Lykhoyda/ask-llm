@@ -402,20 +402,20 @@ export async function publishMissingRegistryVersions({
     }
   }
 
-  const invisible = await waitForNpmVersions(
+  const missingOnNpm = await waitForNpmVersions(
     selected.flatMap(({ manifest }) => npmVersionsOf(manifest)),
     { ...npmWait, fetchImpl, log },
   );
   const publishable = selected.filter(({ manifest, manifestPath, target }) => {
-    const unseen = npmVersionsOf(manifest)
+    const missing = npmVersionsOf(manifest)
       .map(npmTarget)
-      .filter((npmVersion) => invisible.has(npmVersion));
-    if (unseen.length === 0) return true;
+      .filter((npmVersion) => missingOnNpm.has(npmVersion));
+    if (missing.length === 0) return true;
     failures.push({
       manifestPath,
       target,
       phase: "npm-visibility",
-      message: `npm still does not show ${unseen.map((npmVersion) => `${npmVersion} (last: ${invisible.get(npmVersion)})`).join(", ")}; not publishing to the Registry. Re-run Release on main once npm shows it`,
+      message: `npm still does not show ${missing.map((npmVersion) => `${npmVersion} (last: ${missingOnNpm.get(npmVersion)})`).join(", ")}; re-run Release on main once npm shows it`,
     });
     return false;
   });
