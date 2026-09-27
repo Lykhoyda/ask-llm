@@ -19,7 +19,7 @@ Or install globally: `npm install -g @ask-llm/codex-mcp`
 
 ## Prerequisites
 
-1. **Node.js** v20.0.0 or higher
+1. **Node.js** v24.0.0 or higher
 2. **[Codex CLI](https://github.com/openai/codex)** >= 0.153.0 installed and authenticated (`gpt-6-astra` is rejected on older CLIs; pin `ASK_CODEX_MODEL=gpt-6-sol` to stay on Sol)
 
 ## Tools

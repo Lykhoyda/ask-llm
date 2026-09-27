@@ -8,9 +8,9 @@ import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { resolveBrokerPreference } from "./lib/broker.mts";
 import { bootstrapBroker, teardownBroker } from "./lib/broker-lifecycle.mts";
-import { clearAllDebounceState } from "./lib/debounce-state.mjs";
+import { clearAllDebounceState } from "./lib/debounce-state.mts";
 import type { HookInput } from "./lib/hook-input.mjs";
-import { clearSession } from "./lib/session-registry.mjs";
+import { clearSession } from "./lib/session-registry.mts";
 import {
   appendLog,
   CONTEXT_FILENAME,
@@ -19,7 +19,7 @@ import {
   readPauseInfo,
   readPluginVersion,
   resolveAutoResume,
-} from "./lib/state.mjs";
+} from "./lib/state.mts";
 
 const MARKER_FILE = join(PAIR_ROOT_DIR, CONTEXT_FILENAME);
 

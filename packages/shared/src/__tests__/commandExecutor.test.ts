@@ -58,7 +58,8 @@ SyntaxError: Invalid regular expression flags
     at ESMLoader.moduleStrategy
 Node.js v18.15.0`;
     const result = sanitizeErrorForLLM(stderr, "gemini");
-    expect(result).toContain("Node.js v20+");
+    expect(result).toContain("Node.js v24+");
+    expect(result).not.toContain("v20");
     expect(result).toContain("v18.15.0");
     expect(result).not.toContain("ESMLoader");
   });

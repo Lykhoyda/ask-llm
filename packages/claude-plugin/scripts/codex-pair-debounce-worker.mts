@@ -13,7 +13,7 @@ import {
   markReviewing,
   readEditRecord,
   writePending,
-} from "./lib/debounce-state.mjs";
+} from "./lib/debounce-state.mts";
 
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
 const HOOK_PATH = join(SCRIPT_DIR, "codex-pair-watch.mjs");

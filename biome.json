@@ -10,16 +10,7 @@
       "packages/*/src/**",
       "packages/claude-plugin/scripts/**",
       "!!packages/claude-plugin/scripts/benchmark/fixtures",
-      "!!packages/claude-plugin/scripts/codex-pair-debounce-worker.mjs",
-      "!!packages/claude-plugin/scripts/codex-pair-prompt-drain.mjs",
-      "!!packages/claude-plugin/scripts/codex-pair-session.mjs",
-      "!!packages/claude-plugin/scripts/codex-pair-stop-gate.mjs",
-      "!!packages/claude-plugin/scripts/codex-pair-watch.mjs",
-      "!!packages/claude-plugin/scripts/lib/broker.mjs",
-      "!!packages/claude-plugin/scripts/lib/broker-lifecycle.mjs",
-      "!!packages/claude-plugin/scripts/lib/broker-rpc.mjs",
-      "!!packages/claude-plugin/scripts/lib/broker-transport.mjs",
-      "!!packages/claude-plugin/scripts/lib/frontmatter.mjs",
+      "!!packages/claude-plugin/scripts/**/*.mjs",
       "scripts/**",
       "apps/docs/**/*.ts"
     ]

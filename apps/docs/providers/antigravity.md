@@ -23,7 +23,7 @@ Or install globally: `npm install -g @ask-llm/antigravity-mcp`
 
 ## Prerequisites
 
-1. **Node.js** v20.0.0 or higher
+1. **Node.js** v24.0.0 or higher
 2. **[Antigravity CLI](https://antigravity.google)** (`agy`) version 1.1.5 or newer installed and **logged in once**: verify with `agy --version`, then run `agy` interactively to complete the Google Sign-In before using the MCP server
 
 ## Tools

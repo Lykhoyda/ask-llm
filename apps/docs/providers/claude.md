@@ -19,7 +19,7 @@ Or install globally: `npm install -g @ask-llm/claude-mcp`
 
 ## Prerequisites
 
-1. **Node.js** v20.0.0 or higher
+1. **Node.js** v24.0.0 or higher
 2. **[Claude Code CLI](https://docs.anthropic.com/en/docs/claude-code/getting-started)** installed, on `PATH`, and authenticated
 
 ## Tools

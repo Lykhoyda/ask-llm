@@ -6,10 +6,10 @@
 import { access } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
-import { drainPending, joinPendingForSurface } from "./lib/debounce-state.mjs";
+import { drainPending, joinPendingForSurface } from "./lib/debounce-state.mts";
 import type { HookInput } from "./lib/hook-input.mjs";
-import { collectSessionMarkers } from "./lib/session-registry.mjs";
-import { CONTEXT_FILENAME, PAIR_ROOT_DIR } from "./lib/state.mjs";
+import { collectSessionMarkers } from "./lib/session-registry.mts";
+import { CONTEXT_FILENAME, PAIR_ROOT_DIR } from "./lib/state.mts";
 
 const MARKER_FILE = join(PAIR_ROOT_DIR, CONTEXT_FILENAME);
 

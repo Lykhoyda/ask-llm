@@ -76,12 +76,12 @@ export class Logger {
     Logger._commandStartTimes.delete(commandId);
   }
 
-  static checkNodeVersion(minMajor = 20): void {
+  static checkNodeVersion(minMajor = 24): void {
     const major = parseInt(process.versions.node.split(".")[0], 10);
     if (major < minMajor) {
       Logger.error(
         `Node.js v${process.versions.node} detected — v${minMajor}+ required. ` +
-          `Some providers (e.g., gemini-cli) use ES2024 features that will crash on older runtimes.`,
+          "Ask LLM requires Node 24 (the current LTS).",
       );
     }
   }

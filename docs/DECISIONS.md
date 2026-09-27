@@ -1,12 +1,22 @@
 # Architectural Decisions
 
+## ADR-171: All plugin scripts are TypeScript, and every package requires Node 24
+
+**Status:** Accepted (2026-09-26). Amends ADR-170.
+
+**Context:** ADR-170 left the shared hook helpers, the `codex-pair-log` CLI, the Sol review transport, and the prompt benchmark as hand-written JavaScript, and only the plugin required Node 24 while the provider and orchestrator packages still declared Node 20 and CI tested Node 22. The captain asked for TypeScript 7 everywhere in the plugin and support for only the latest LTS. The official Node.js release schedule lists Node 24 as the Active LTS on 2026-09-26 (Node 20 reached end of life on 2026-04-30).
+
+**Decision:** Every runtime script under `packages/claude-plugin/scripts/` is authored as `.mts` and compiled by `build:hooks` into a committed sibling `.mjs`, following ADR-170; the `.d.mts` shims are gone except the type-only `hook-input.d.mts`. `generated-hooks.test.ts` requires the set of committed `.mjs` files to equal tsc's emitted set, so a hand-written `.mjs` fails CI. Every workspace declares `engines.node >=24.0.0`, tsdown targets `node24`, `@types/node` tracks the Node 24 line, and the startup warning and `doctor` Node check both require 24. CI builds and tests on Node 24 only; the packed global-install smoke runs on Node 24 (the floor) and Node 26 (the #115 environment and next LTS line).
+
+**Consequences:** Node 20 and 22 users must upgrade before taking the next release of any package. When Node 26 becomes Active LTS, raising the floor again follows this same pattern.
+
 ## ADR-170: Codex-pair hooks are TypeScript sources shipped as committed generated JavaScript
 
-**Status:** Accepted (2026-09-25). Supersedes ADR-169.
+**Status:** Accepted (2026-09-25). Supersedes ADR-169; amended by ADR-171.
 
 **Context:** The captain chose that authored hook and broker source must be TypeScript v7, that JavaScript may exist only as generated distribution output, and that the hand-written `strip-types.mjs` loader must go; support stays at the latest Node LTS (24). Claude marketplace `git-subdir` installs run the checked-in files with no install or build step, and npm installs place the package under `node_modules`, where Node refuses to strip TypeScript.
 
-**Decision:** The hook entry points (`scripts/codex-pair-{stop-gate,watch,session,prompt-drain,debounce-worker}.mts`), the broker (`scripts/lib/broker{,-lifecycle,-rpc,-transport}.mts`), and `scripts/lib/frontmatter.mts` are the source of truth. `yarn workspace @ask-llm/plugin build:hooks` runs `tsc -p scripts/tsconfig.json` with TypeScript 7 and `rewriteRelativeImportExtensions`, emitting each sibling `.mjs` in place; those generated `.mjs` files are committed because git-subdir installs cannot build them. `hooks/hooks.json` runs the generated `scripts/<hook>.mjs` exactly as before this work, with no loader or Node flags, so both install layouts execute plain JavaScript. `build:hooks` is deliberately not part of `build`, so CI never rewrites the committed output before `generated-hooks.test.ts` regenerates into a temporary directory and fails if any checked-out `.mjs` differs; generated output is never hand-edited, and Biome skips the generated files. The shared helpers the hooks import (`state`, `parser`, `prompt`, `process`, `debounce-state`, `session-registry`, `stop-gate`) remain hand-written JavaScript typed by `.d.mts` declarations; converting them is a follow-up outside the broker and hook scope. `engines.node` stays `>=24.0.0`.
+**Decision:** The hook entry points (`scripts/codex-pair-{stop-gate,watch,session,prompt-drain,debounce-worker}.mts`), the broker (`scripts/lib/broker{,-lifecycle,-rpc,-transport}.mts`), and `scripts/lib/frontmatter.mts` are the source of truth. `yarn workspace @ask-llm/plugin build:hooks` runs `tsc -p scripts/tsconfig.json` with TypeScript 7 and `rewriteRelativeImportExtensions`, emitting each sibling `.mjs` in place; those generated `.mjs` files are committed because git-subdir installs cannot build them. `hooks/hooks.json` runs the generated `scripts/<hook>.mjs` exactly as before this work, with no loader or Node flags, so both install layouts execute plain JavaScript. `build:hooks` is deliberately not part of `build`, so CI never rewrites the committed output before `generated-hooks.test.ts` regenerates into a temporary directory and fails if any checked-out `.mjs` differs; generated output is never hand-edited, and Biome skips the generated files. The shared helpers remained hand-written JavaScript in this decision's scope; ADR-171 records their conversion. `engines.node` stays `>=24.0.0`.
 
 **Consequences:** Marketplace and npm installs behave identically and need no type stripping, experimental Node API, or install hook. Every change to a hook or broker `.mts` must be followed by `build:hooks` and committed together with its generated `.mjs`; CI enforces this through the drift test.
 

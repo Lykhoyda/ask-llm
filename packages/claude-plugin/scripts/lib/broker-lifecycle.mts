@@ -25,8 +25,8 @@ import { homedir, tmpdir } from "node:os";
 import { basename, dirname, join, resolve as resolvePath, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { BROKER_PROTOCOL_VERSION, type BrokerSession, type ClientInfo, initializeBroker } from "./broker.mts";
-import { IS_WINDOWS, terminateProcessTree } from "./process.mjs";
-import { stateRoot } from "./state.mjs";
+import { IS_WINDOWS, terminateProcessTree } from "./process.mts";
+import { stateRoot } from "./state.mts";
 
 export interface BrokerDescriptor {
   pid: number;

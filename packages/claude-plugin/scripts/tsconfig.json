@@ -15,5 +15,5 @@
     "types": ["node"],
     "lib": ["ES2023"]
   },
-  "include": ["*.mts", "lib/**/*.mts"]
+  "include": ["*.mts", "lib/**/*.mts", "benchmark/**/*.mts"]
 }

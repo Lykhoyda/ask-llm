@@ -266,9 +266,18 @@ describe("active Claude MCP inventory", () => {
   it("uses shell resolution for Claude's Windows command shim", () => {
     const execute = vi.fn().mockReturnValue({ status: 0, stdout: connectedPluginList, stderr: "" });
 
-    readActiveMcpServers({ command: "claude.cmd", execute, platform: "win32" });
+    readActiveMcpServers({
+      command: "claude.cmd",
+      execute,
+      platform: "win32",
+      contextArgs: [String.raw`C:\Program Files\ask\"plugin`, "C:\\Program Files\\ask\\"],
+    });
 
-    expect(execute).toHaveBeenCalledWith("claude.cmd", ["mcp", "list"], expect.objectContaining({ shell: true }));
+    expect(execute).toHaveBeenCalledWith(
+      "claude.cmd",
+      [String.raw`"C:\Program Files\ask\\\"plugin"`, String.raw`"C:\Program Files\ask\\"`, "mcp", "list"],
+      expect.objectContaining({ shell: true }),
+    );
   });
 
   it("preserves session-local Claude discovery context", () => {

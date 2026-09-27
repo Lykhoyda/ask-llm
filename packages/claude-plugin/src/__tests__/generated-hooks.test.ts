@@ -6,7 +6,7 @@ import { expect, it } from "vitest";
 import { PLUGIN_ROOT, REPO_ROOT } from "./_helpers.js";
 
 // Marketplace git-subdir installs run the committed .mjs with no build step, so it must equal tsc's output.
-it("commits exactly the JavaScript that tsc generates from the TypeScript hook and broker sources", () => {
+it("commits exactly the JavaScript that tsc generates from every TypeScript plugin script", () => {
   const outDir = fs.mkdtempSync(path.join(os.tmpdir(), "cp-generated-"));
   try {
     const tsc = spawnSync(
@@ -26,18 +26,11 @@ it("commits exactly the JavaScript that tsc generates from the TypeScript hook a
       .split("\n")
       .filter((line) => line.startsWith("TSFILE: "))
       .map((line) => path.relative(outDir, line.slice("TSFILE: ".length).trim()));
-    expect(emitted.sort()).toEqual([
-      "codex-pair-debounce-worker.mjs",
-      "codex-pair-prompt-drain.mjs",
-      "codex-pair-session.mjs",
-      "codex-pair-stop-gate.mjs",
-      "codex-pair-watch.mjs",
-      "lib/broker-lifecycle.mjs",
-      "lib/broker-rpc.mjs",
-      "lib/broker-transport.mjs",
-      "lib/broker.mjs",
-      "lib/frontmatter.mjs",
-    ]);
+    const committedJs = fs
+      .readdirSync(path.join(PLUGIN_ROOT, "scripts"), { recursive: true, encoding: "utf8" })
+      .filter((rel) => rel.endsWith(".mjs"));
+    // Every committed .mjs must be tsc output; a hand-written one has no .mts source.
+    expect(emitted.sort()).toEqual(committedJs.sort());
     for (const rel of emitted) {
       const committed = fs.readFileSync(path.join(PLUGIN_ROOT, "scripts", rel), "utf8");
       expect(committed, `${rel} is stale: run yarn workspace @ask-llm/plugin build:hooks`).toBe(

@@ -8,7 +8,7 @@ Three steps: install at least one provider CLI, register the MCP server with you
 
 ## 1. Install a provider
 
-**Node.js v20+** on Linux or macOS is required. Then pick a provider. Codex and Claude are the recommended pair: each can review the other.
+**Node.js 24+** (the current LTS) on Linux or macOS is required. Then pick a provider. Codex and Claude are the recommended pair: each can review the other.
 
 ::: code-group
 

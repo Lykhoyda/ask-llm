@@ -47,13 +47,6 @@ describe("Pi host support workflow contract", () => {
 describe("five-batch workflow contract", () => {
   const chains = [
     {
-      setupId: "test-setup-node22-ubuntu",
-      batchesId: "test-batches-node22-ubuntu",
-      gateId: "test-node22-ubuntu",
-      nodeVersion: "22.x",
-      os: "ubuntu-latest",
-    },
-    {
       setupId: "test-setup-node24-ubuntu",
       batchesId: "test-batches-node24-ubuntu",
       gateId: "test-node24-ubuntu",
@@ -116,12 +109,41 @@ describe("five-batch workflow contract", () => {
 });
 
 describe("supported CI platforms", () => {
+  it("builds and tests only on the current Node LTS and smokes the packed CLIs on it plus the next line", () => {
+    expect(Object.keys(parsedWorkflow.jobs).filter((id) => /^test(-setup|-batches)?-node/.test(id))).toEqual([
+      "test-setup-node24-ubuntu",
+      "test-batches-node24-ubuntu",
+      "test-node24-ubuntu",
+    ]);
+    expect(parsedWorkflow.jobs["global-install-smoke"].strategy.matrix["node-version"]).toEqual(["24.x", "26.x"]);
+    const workflowsDir = resolve(import.meta.dirname, "../.github/workflows");
+    for (const name of readdirSync(workflowsDir).filter((file) => /\.ya?ml$/.test(file))) {
+      const workflow = parse(readFileSync(resolve(workflowsDir, name), "utf8"));
+      for (const job of Object.values(workflow.jobs ?? {})) {
+        const matrixVersions = job.strategy?.matrix?.["node-version"];
+        if (matrixVersions) expect(matrixVersions, name).toEqual(["24.x", "26.x"]);
+        for (const step of job.steps ?? []) {
+          if (!step.uses?.startsWith("actions/setup-node@")) continue;
+          const version = step.with?.["node-version"];
+          if (matrixVersions) {
+            expect(version, name).toBe("${{ matrix.node-version }}");
+          } else {
+            expect([24, "24", "24.x"], name).toContain(version);
+          }
+        }
+      }
+    }
+  });
+
   it("does not run Windows jobs in any workflow", () => {
     const workflowsDir = resolve(import.meta.dirname, "../.github/workflows");
     for (const name of readdirSync(workflowsDir).filter((file) => /\.ya?ml$/.test(file))) {
       const source = readFileSync(resolve(workflowsDir, name), "utf8");
       expect(source, name).not.toMatch(/windows-latest/);
-      expect(source, name).not.toMatch(/test-setup-node22-windows|test-batches-node22-windows|test-node22-windows/);
+      const workflow = parse(source);
+      for (const job of Object.values(workflow.jobs ?? {})) {
+        expect(job["runs-on"], name).not.toBe("windows-latest");
+      }
     }
   });
 });

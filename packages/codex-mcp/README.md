@@ -48,7 +48,7 @@ Add to `claude_desktop_config.json`:
 
 ## Prerequisites
 
-- **[Node.js](https://nodejs.org/)** v20.0.0 or higher
+- **[Node.js](https://nodejs.org/)** v24.0.0 or higher
 - **[Codex CLI](https://github.com/openai/codex)** installed and authenticated
 
 ## Tools

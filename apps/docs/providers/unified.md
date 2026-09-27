@@ -19,7 +19,7 @@ Or install globally: `npm install -g @ask-llm/mcp`. The installed `ask-llm-mcp` 
 
 ## Prerequisites
 
-1. **Node.js** v20.0.0 or higher
+1. **Node.js** v24.0.0 or higher
 2. **At least one provider** installed and authenticated:
    - [Gemini CLI](https://github.com/google-gemini/gemini-cli) for `ask-gemini` tools
    - [Codex CLI](https://github.com/openai/codex) for `ask-codex` tools

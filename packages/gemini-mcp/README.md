@@ -118,7 +118,7 @@ Add to `opencode.json` in your project (or `~/.config/opencode/opencode.json` fo
 
 ## Prerequisites
 
-- **[Node.js](https://nodejs.org/)** v20.0.0 or higher (LTS)
+- **[Node.js](https://nodejs.org/)** v24.0.0 or higher (LTS)
 - **[Google Gemini CLI](https://github.com/google-gemini/gemini-cli)** installed and authenticated — **v0.39.1+ recommended** (earlier versions still work; v0.39.1 introduced a workspace-trust gate that this server transparently handles by co-emitting `GEMINI_CLI_TRUST_WORKSPACE=true` (gemini ≥0.42) and `GEMINI_TRUST_WORKSPACE=true` (gemini ≤0.41) — the env var was renamed upstream; we set both so one release covers any gemini-cli version in current rotation. Opt out with `ASK_GEMINI_REQUIRE_WORKSPACE_TRUST=1`.)
 
 ## Tools

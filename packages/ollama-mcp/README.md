@@ -48,7 +48,7 @@ Add to `claude_desktop_config.json`:
 
 ## Prerequisites
 
-- **[Node.js](https://nodejs.org/)** v20.0.0 or higher
+- **[Node.js](https://nodejs.org/)** v24.0.0 or higher
 - **[Ollama](https://ollama.com)** installed and running locally
 - **A model pulled:** `ollama pull qwen3.8:27b`
 
