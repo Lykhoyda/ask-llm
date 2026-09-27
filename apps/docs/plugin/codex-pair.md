@@ -169,9 +169,9 @@ charge).
 Once enabled, the hook checks at turn-end whether any HIGH findings in `log.jsonl` are unacknowledged and unresolved. It reconciles against present reality before blocking:
 
 - **File deleted or renamed** → finding skipped (no longer relevant)
-- **File clean vs HEAD** (`git status --porcelain=v1 -z --untracked-files=all`) → finding skipped (reverted or branch-switched away); new files inside untracked directories remain eligible to block
+- **File clean vs HEAD** (`git status --porcelain=v1 -z --untracked-files=all`) → finding skipped (reverted or branch-switched away); new files inside untracked directories, including untracked nested git repositories that git reports only as `?? dir/`, remain eligible to block
 - **Latest review of the content on disk is indeterminate** (`error`/`retried`/`broker_fallback`) → fail-open, finding skipped (don't block on a stale HIGH from before a transient error). Skip entries have no content hash and do not displace the last review.
-- **No review matches the content on disk** → finding skipped. A queued settled edit gets its own review; an edit made outside Claude needs a later reviewed edit. The gate uses the latest matching review even if a review of older content finished afterward.
+- **No review matches the content on disk** → finding skipped. A queued settled edit gets its own review; an edit made outside Claude needs a later reviewed edit. The gate uses the latest matching review even if a review of older content finished afterward, including when that review was logged under another path to the same file (such as `/var` and `/private/var` on macOS).
 
 ### In-flight reviews block too
 

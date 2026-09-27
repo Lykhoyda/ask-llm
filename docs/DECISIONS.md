@@ -1,5 +1,15 @@
 # Architectural Decisions
 
+## ADR-175: codex-pair logs canonical file paths, and the Stop gate treats `?? dir/` as a dirty prefix
+
+**Status:** Accepted (2026-09-27). Amends ADR-118 and ADR-173.
+
+**Context:** Two pre-existing gaps let the Stop gate allow a turn with an unaddressed current-content HIGH. Git reports an untracked nested (non-submodule) repository as a single `?? vendor/lib/` record even with `--untracked-files=all`, so a new file inside it failed the `[B]` dirty filter. And when one file was logged under two paths to it, such as macOS `/var` and `/private/var`, the gate kept one review list per raw path and then kept only the last list for the real path, which could drop the current-content review.
+
+**Decision:** `appendLog` records `realpath(file)` when the file resolves, so new entries use one path per file. The Stop gate still canonicalizes entries at read time, because logs written before this change contain raw alias paths; `selectReviewEntries` now groups every entry under its canonical path in log order instead of letting one alias's list replace another's. The `[B]` filter counts a logged file as dirty when any `??` record ending in `/` is a prefix of its path.
+
+**Consequences:** Hashing is still limited to dirty existing files with review entries. Other state keyed by file path (debounce, pending, inflight, repetitions) keeps the raw path. A path that cannot be resolved is logged raw, as before.
+
 ## ADR-174: The Registry helper waits for npm to show each version before publishing it
 
 **Status:** Accepted (2026-09-27). Amends ADR-139.

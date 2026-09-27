@@ -121,18 +121,12 @@ function writeAndExit(obj: unknown): void {
 }
 
 // Canonicalize for git paths; macOS may resolve /var to /private/var.
-function canonicalizeEntries<T>(entries: Iterable<[string, T]>): Map<string, T> {
-  const out = new Map<string, T>();
-  for (const [file, entry] of entries) {
-    let real = file;
-    try {
-      real = realpathSync(file);
-    } catch {
-      // missing/inaccessible → keep raw; collectBlockingHighs' existsFn drops it
-    }
-    out.set(real, entry);
+function canonicalFile(file: string): string {
+  try {
+    return realpathSync(file);
+  } catch {
+    return file; // missing/inaccessible → keep raw; collectBlockingHighs' existsFn drops it
   }
-  return out;
 }
 
 // Read in-flight state from the raw marker path and canonicalize only for git/log matching.
@@ -165,7 +159,7 @@ function evaluateMarker(markerDir: string) {
   }
 
   const blocking = collectBlockingHighs({
-    entries: canonicalizeEntries(selectReviewEntries(logText)),
+    entries: selectReviewEntries(logText, canonicalFile),
     acks: readAcks(canonical),
     existsFn: existsSync,
     hashFn: fileContentHash,

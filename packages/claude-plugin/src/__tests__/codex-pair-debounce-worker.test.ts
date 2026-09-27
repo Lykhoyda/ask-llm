@@ -32,7 +32,7 @@ describe("scripts/codex-pair-debounce-worker.mjs — runtime behavior", () => {
   let release: string;
   const children: ChildProcess[] = [];
   beforeEach(() => {
-    dir = fs.mkdtempSync(path.join(os.tmpdir(), "debounce-worker-"));
+    dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "debounce-worker-")));
     fs.mkdirSync(path.join(dir, ".codex-pair"), { recursive: true });
     fs.writeFileSync(path.join(dir, ".codex-pair/context.md"), "# ctx");
     started = path.join(dir, "codex-started");

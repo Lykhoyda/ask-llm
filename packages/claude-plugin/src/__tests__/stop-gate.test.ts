@@ -40,6 +40,17 @@ describe("selectReviewEntries", () => {
     ].join("\n");
     expect(selectReviewEntries(log).get("/r/a.ts")?.[0].concerns?.high).toEqual(["H1"]);
   });
+
+  it("merges path aliases of one file under the canonical key, newest first in log order", () => {
+    const log = [
+      '{"file":"/private/r/a.ts","verdict":"concerns","contentHash":"h1"}',
+      '{"file":"/r/a.ts","verdict":"none","contentHash":"h2"}',
+      '{"file":"/private/r/a.ts","verdict":"cached","contentHash":"h3"}',
+    ].join("\n");
+    const map = selectReviewEntries(log, (file) => file.replace(/^\/private/, ""));
+    expect([...map.keys()]).toEqual(["/r/a.ts"]);
+    expect(map.get("/r/a.ts")?.map((entry) => entry.contentHash)).toEqual(["h3", "h2", "h1"]);
+  });
 });
 
 describe("parseGitPorcelain", () => {
@@ -100,6 +111,16 @@ describe("collectBlockingHighs", () => {
     expect(dirty).toHaveLength(1);
   });
 
+  it("[B] a file inside an untracked nested repo reported as `?? dir/` counts as dirty", () => {
+    const file = join("/r", "vendor", "lib", "new.ts");
+    const entries = m({ [file]: { file, contentHash: "h", verdict: "concerns", concerns: { high: ["H"] } } });
+    const gitDirty = parseGitPorcelain("?? vendor/lib/\0?? vendor/libx.ts\0", "/r");
+    expect(collectBlockingHighs({ ...base, entries, acks: {}, gitDirty })).toHaveLength(1);
+    const sibling = join("/r", "vendor", "libother.ts");
+    const other = m({ [sibling]: { file: sibling, contentHash: "h", verdict: "concerns", concerns: { high: ["H"] } } });
+    expect(collectBlockingHighs({ ...base, entries: other, acks: {}, gitDirty })).toHaveLength(0);
+  });
+
   it("[E] acks are file-scoped — same text on two files acks independently", () => {
     const entries = m({
       "/r/a.ts": { file: "/r/a.ts", contentHash: "h", verdict: "concerns", concerns: { high: ["dup"] } },
@@ -158,10 +179,10 @@ describe("collectBlockingHighs", () => {
   });
 });
 
-import { mkdtempSync, readdirSync, rmSync } from "node:fs";
+import { mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { acksPath, acksRoot, addAck, readAcks } from "../../scripts/lib/state.mjs";
+import { acksPath, acksRoot, addAck, appendLog, logPath, readAcks } from "../../scripts/lib/state.mjs";
 
 describe("acks state helpers", () => {
   it("addAck persists, readAcks reads back, missing file → {}", () => {
@@ -177,6 +198,26 @@ describe("acks state helpers", () => {
       expect(Object.keys(readAcks(dir))).toHaveLength(2);
       expect(readdirSync(acksRoot(dir)).filter((name) => name.endsWith(".json"))).toHaveLength(2);
     } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("appendLog records the canonical path of a file logged through a symlink alias", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "logtest-"));
+    const alias = `${dir}-alias`;
+    try {
+      const real = realpathSync(dir);
+      symlinkSync(real, alias);
+      writeFileSync(join(real, "a.ts"), "x");
+      await appendLog(alias, { file: join(alias, "a.ts"), verdict: "none" });
+      await appendLog(alias, { file: join(alias, "missing.ts"), verdict: "error" });
+      const files = readFileSync(logPath(real), "utf8")
+        .trim()
+        .split("\n")
+        .map((line) => JSON.parse(line).file);
+      expect(files).toEqual([join(real, "a.ts"), join(alias, "missing.ts")]);
+    } finally {
+      rmSync(alias, { force: true });
       rmSync(dir, { recursive: true, force: true });
     }
   });
@@ -420,6 +461,63 @@ describe("codex-pair-stop-gate.mjs — runtime (pending drain + in-flight block)
     expect(out.decision).toBe("block");
     expect(out.reason).toMatch(/H-new-dir/);
     expect(out.reason).not.toMatch(/H-clean/);
+  });
+
+  it("blockOn HIGH: a HIGH on a new file inside an untracked nested git repo still blocks", () => {
+    writeMarker("---\nblockOn: HIGH\n---\n");
+    const git = (cwd: string, ...args: string[]) =>
+      spawnSync("git", ["-C", cwd, "-c", "user.name=t", "-c", "user.email=t@t", ...args]).status;
+    expect(git(dir, "init", "-q")).toBe(0);
+    expect(git(dir, "commit", "-q", "--allow-empty", "-m", "init")).toBe(0);
+    const nested = path.join(dir, "vendor", "lib");
+    fs.mkdirSync(nested, { recursive: true });
+    expect(git(nested, "init", "-q")).toBe(0);
+    const edited = path.join(fs.realpathSync(nested), "new.ts");
+    fs.writeFileSync(edited, "export const x = 1;");
+    fs.writeFileSync(
+      path.join(dir, ".codex-pair", "log.jsonl"),
+      `${JSON.stringify({ file: edited, verdict: "concerns", contentHash: contentHash("export const x = 1;"), concerns: { high: ["H-nested"] } })}\n`,
+    );
+    const result = runGate();
+    expect(result.status).toBe(0);
+    const out = JSON.parse(result.stdout.trim());
+    expect(out.decision).toBe("block");
+    expect(out.reason).toMatch(/H-nested/);
+  });
+
+  it("blockOn HIGH: a current-content HIGH under the real path blocks despite a later review under a symlink alias", () => {
+    writeMarker("---\nblockOn: HIGH\n---\n");
+    const real = fs.realpathSync(dir);
+    const alias = `${dir}-alias`;
+    fs.symlinkSync(real, alias);
+    try {
+      fs.writeFileSync(path.join(real, "src.ts"), "export const x = 2;");
+      fs.writeFileSync(
+        path.join(dir, ".codex-pair", "log.jsonl"),
+        [
+          JSON.stringify({
+            file: path.join(real, "src.ts"),
+            verdict: "cached",
+            contentHash: contentHash("export const x = 2;"),
+            concerns: { high: ["H-current"] },
+          }),
+          JSON.stringify({
+            file: path.join(alias, "src.ts"),
+            verdict: "none",
+            contentHash: contentHash("export const x = 1;"),
+            concerns: { high: [] },
+          }),
+          "",
+        ].join("\n"),
+      );
+      const result = runGate();
+      expect(result.status).toBe(0);
+      const out = JSON.parse(result.stdout.trim());
+      expect(out.decision).toBe("block");
+      expect(out.reason).toMatch(/H-current/);
+    } finally {
+      fs.rmSync(alias, { force: true });
+    }
   });
 
   it("D4: blockOn HIGH: a HIGH for content that has since changed does not block", () => {

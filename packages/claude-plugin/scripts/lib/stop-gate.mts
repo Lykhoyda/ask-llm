@@ -53,9 +53,11 @@ export function collectBlockingHighs({
   markerDir: string;
 }): BlockingHigh[] {
   const blocking: BlockingHigh[] = [];
+  // Git reports an untracked nested repository only as `?? dir/`, never its files.
+  const dirtyDirs = gitDirty ? [...gitDirty].filter((path) => path.endsWith("/")) : [];
   for (const [file, reviews] of entries) {
     if (!existsFn(file)) continue; // [A] deleted/renamed
-    if (gitDirty && !gitDirty.has(file)) continue; // [B] clean vs HEAD
+    if (gitDirty && !gitDirty.has(file) && !dirtyDirs.some((dir) => file.startsWith(dir))) continue; // [B] clean vs HEAD
     const currentHash = hashFn(file);
     const entry = reviews.find((review) => review.contentHash === currentHash);
     if (!entry) continue;
@@ -139,7 +141,11 @@ export function formatInFlightMessage(
   );
 }
 
-export function selectReviewEntries(logText: string): Map<string, LogEntry[]> {
+// Pre-canonical log entries may name one file by several aliases, so group them by canonical path in log order.
+export function selectReviewEntries(
+  logText: string,
+  canonicalize: (file: string) => string = (file) => file,
+): Map<string, LogEntry[]> {
   const reviews = new Map<string, LogEntry[]>();
   for (const line of logText.split("\n")) {
     const t = line.trim();
@@ -156,9 +162,10 @@ export function selectReviewEntries(logText: string): Map<string, LogEntry[]> {
       typeof entry.contentHash === "string" &&
       entry.verdict !== "skipped"
     ) {
-      const list = reviews.get(entry.file) ?? [];
+      const file = canonicalize(entry.file);
+      const list = reviews.get(file) ?? [];
       list.unshift(entry);
-      reviews.set(entry.file, list);
+      reviews.set(file, list);
     }
   }
   return reviews;

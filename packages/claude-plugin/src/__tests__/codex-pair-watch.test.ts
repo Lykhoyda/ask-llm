@@ -4358,7 +4358,7 @@ describe("scripts/codex-pair-watch.mjs — MultiEdit + parallel-fire fixtures", 
   const FIXTURE_DIR = path.join(PLUGIN_ROOT, "src", "__tests__", "_fixtures");
 
   beforeEach(() => {
-    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "codex-pair-parallel-"));
+    tempDir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "codex-pair-parallel-")));
   });
 
   afterEach(() => {
