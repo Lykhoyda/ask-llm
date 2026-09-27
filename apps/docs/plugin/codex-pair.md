@@ -171,7 +171,7 @@ Once enabled, the hook checks at turn-end whether any HIGH findings in `log.json
 - **File deleted or renamed** → finding skipped (no longer relevant)
 - **File clean vs HEAD** (`git status --porcelain=v1 -z --untracked-files=all`) → finding skipped (reverted or branch-switched away); new files inside untracked directories remain eligible to block
 - **Latest review of the content on disk is indeterminate** (`error`/`retried`/`broker_fallback`) → fail-open, finding skipped (don't block on a stale HIGH from before a transient error). Skip entries have no content hash and do not displace the last review.
-- **No review matches the content on disk** → finding skipped; the settled edit's own review follows. The gate uses the latest matching review even if a review of older content finished afterward.
+- **No review matches the content on disk** → finding skipped. A queued settled edit gets its own review; an edit made outside Claude needs a later reviewed edit. The gate uses the latest matching review even if a review of older content finished afterward.
 
 ### In-flight reviews block too
 
@@ -179,7 +179,7 @@ With the default 15s debounce plus 13–50s of review latency, a review is often
 
 ### Queued verdicts drain at turn-end
 
-Debounced verdicts that finished mid-turn used to wait for the *next* edit or user prompt to surface. The Stop hook drains them at turn-end, no `blockOn` opt-in required: as additional context when nothing blocks, or folded into the block message when it does. A queued verdict surfaces only while the file still holds the content it reviewed; a verdict for content that has since changed is dropped, and the settled edit's own review follows. Like every Stop/prompt-scoped hook, the drain resolves the project from the session's working directory; verdicts queued by cross-repo edits (cwd in repo A, edit in repo B) still wait for the next edit or prompt in that repo, tracked in [#209](https://github.com/Lykhoyda/ask-llm/issues/209).
+Debounced verdicts that finished mid-turn used to wait for the *next* edit or user prompt to surface. The Stop hook drains them at turn-end, no `blockOn` opt-in required: as additional context when nothing blocks, or folded into the block message when it does. A queued verdict surfaces only while the file still holds the content it reviewed; a verdict for content that has since changed is dropped. Like every Stop/prompt-scoped hook, the drain resolves the project from the session's working directory; verdicts queued by cross-repo edits (cwd in repo A, edit in repo B) still wait for the next edit or prompt in that repo, tracked in [#209](https://github.com/Lykhoyda/ask-llm/issues/209).
 
 ### Fail-open behavior
 

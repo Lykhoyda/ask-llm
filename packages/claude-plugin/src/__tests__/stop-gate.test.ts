@@ -139,7 +139,9 @@ describe("collectBlockingHighs", () => {
       "/r/gone.ts": { file: "/r/gone.ts", verdict: "concerns", contentHash: "h", concerns: { high: ["H"] } },
     });
     const gitDirty = new Set(["/r/none.ts", "/r/dirty.ts", "/r/gone.ts"]);
-    expect(collectBlockingHighs({ ...base, entries, acks: {}, gitDirty, hashFn, existsFn: (file) => file !== "/r/gone.ts" })).toHaveLength(1);
+    expect(
+      collectBlockingHighs({ ...base, entries, acks: {}, gitDirty, hashFn, existsFn: (file) => file !== "/r/gone.ts" }),
+    ).toHaveLength(1);
     expect(calls).toEqual(["/r/none.ts", "/r/dirty.ts"]);
   });
 
@@ -150,7 +152,9 @@ describe("collectBlockingHighs", () => {
       JSON.stringify({ file, verdict: "concerns", contentHash: "A", concerns: { high: ["old HIGH"] } }),
     ].join("\n");
     const entries = selectReviewEntries(log);
-    expect(collectBlockingHighs({ ...base, entries, acks: {}, hashFn: () => "B" }).map((finding) => finding.text)).toEqual(["current HIGH"]);
+    expect(
+      collectBlockingHighs({ ...base, entries, acks: {}, hashFn: () => "B" }).map((finding) => finding.text),
+    ).toEqual(["current HIGH"]);
   });
 });
 

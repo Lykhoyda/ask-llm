@@ -4450,7 +4450,9 @@ describe("scripts/codex-pair-watch.mjs — MultiEdit + parallel-fire fixtures", 
       fs.writeFileSync(filePath, original);
       const release = path.join(tempDir, `release-${name}`);
       const payload = JSON.stringify({ tool_name: "Edit", tool_input: { file_path: filePath } });
-      const startCount = fs.existsSync(started) ? fs.readFileSync(started, "utf8").split("\n").filter(Boolean).length : 0;
+      const startCount = fs.existsSync(started)
+        ? fs.readFileSync(started, "utf8").split("\n").filter(Boolean).length
+        : 0;
       const running = runHookAsyncWithFakeCodex(payload, tempDir, scenario, {
         FAKE_CODEX_STARTED_FILE: started,
         FAKE_CODEX_RELEASE_FILE: release,
@@ -4458,7 +4460,8 @@ describe("scripts/codex-pair-watch.mjs — MultiEdit + parallel-fire fixtures", 
       try {
         const deadline = Date.now() + 5_000;
         while (
-          (!fs.existsSync(started) || fs.readFileSync(started, "utf8").split("\n").filter(Boolean).length === startCount) &&
+          (!fs.existsSync(started) ||
+            fs.readFileSync(started, "utf8").split("\n").filter(Boolean).length === startCount) &&
           Date.now() < deadline
         ) {
           await new Promise((resolve) => setTimeout(resolve, 20));
@@ -4470,7 +4473,9 @@ describe("scripts/codex-pair-watch.mjs — MultiEdit + parallel-fire fixtures", 
       }
       const result = await running;
       expect(result.status).toBe(0);
-      const review = readLog(tempDir).find((entry) => entry.file === filePath && entry.verdict === (name === "error" ? "error" : "concerns"));
+      const review = readLog(tempDir).find(
+        (entry) => entry.file === filePath && entry.verdict === (name === "error" ? "error" : "concerns"),
+      );
       expect(review?.contentHash).toBe(contentHash(original));
       if (changed) expect(result.stdout.trim()).toBe("");
       else expect(JSON.parse(result.stdout.trim()).systemMessage).toMatch(/REVIEW_TOKEN_stable/);
