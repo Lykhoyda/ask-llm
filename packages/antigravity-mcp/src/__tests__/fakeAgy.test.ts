@@ -1,7 +1,7 @@
-import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { ERROR_MESSAGES, MODELS } from "../constants.js";
 import { executeAntigravityCLI } from "../utils/antigravityExecutor.js";
 
@@ -37,13 +37,15 @@ const STARTUP_WARNINGS = [
 const errorEnvelope = (error: string) =>
   JSON.stringify({ conversation_id: "", status: "ERROR", response: "", error, num_turns: 1, usage: ZERO_USAGE });
 
-type Scenario = { stdout: string; stderr: string; exit?: number };
+type Scenario = { stdout: string; stderr: string; exit?: number; sleepSec?: number };
 
 describe("fake agy 1.2.12", { timeout: 30_000 }, () => {
   let dir: string;
 
-  const writeScenario = (name: string, { stdout, stderr, exit = 0 }: Scenario) => {
+  const writeScenario = (name: string, { stdout, stderr, exit = 0, sleepSec = 0 }: Scenario) => {
+    rmSync(join(dir, name), { recursive: true, force: true });
     mkdirSync(join(dir, name), { recursive: true });
+    writeFileSync(join(dir, name, "sleep.txt"), String(sleepSec));
     writeFileSync(join(dir, name, "stdout.txt"), stdout);
     writeFileSync(join(dir, name, "stderr.txt"), stderr);
     writeFileSync(join(dir, name, "exit.txt"), String(exit));
@@ -73,6 +75,7 @@ describe("fake agy 1.2.12", { timeout: 30_000 }, () => {
       `for a; do case "$a" in ${MODELS.FALLBACK}) d='${join(dir, "fallback")}';; /quota) d='${join(dir, "quota")}';; esac; done`,
       'printf "%s\\n" "$@" > "$d/argv.txt"',
       'cat "$d/stderr.txt" >&2',
+      'sleep "$(cat "$d/sleep.txt")"',
       'cat "$d/stdout.txt"',
       'exit "$(cat "$d/exit.txt")"',
     ].join("\n");
@@ -160,6 +163,23 @@ describe("fake agy 1.2.12", { timeout: 30_000 }, () => {
     });
   });
 
+  describe("process timeout", () => {
+    afterEach(() => {
+      vi.stubEnv("ASK_ANTIGRAVITY_TIMEOUT_MS", undefined);
+    });
+
+    it("keeps the shared timeout error instead of reclassifying agy's captured AGY_ERROR", async () => {
+      vi.stubEnv("ASK_ANTIGRAVITY_TIMEOUT_MS", "1000");
+      installFakeAgy({
+        stdout: "",
+        stderr: agyError({ status: "RESOURCE_EXHAUSTED", http_status: 429, retryable: true }),
+        sleepSec: 10,
+      });
+      await expect(executeAntigravityCLI({ prompt: "q" })).rejects.toThrow(/^Command timed out after 1s\./);
+      expect(existsSync(join(dir, "fallback", "argv.txt"))).toBe(false);
+    });
+  });
+
   describe("rate-limit quota diagnostics (#268)", () => {
     const rateLimited = {
       stdout: errorEnvelope("Too many requests"),
@@ -188,6 +208,7 @@ describe("fake agy 1.2.12", { timeout: 30_000 }, () => {
       expect((error as Error).message).toContain(
         "Gemini Models Five Hour Limit Remaining: 0% (resets 2026-09-27T20:10:40Z)",
       );
+      expect(argvOf("quota")).toEqual(["-p", "/quota", "--output-format", "json"]);
     });
 
     it("keeps the plain rate-limit message when the quota probe fails", async () => {

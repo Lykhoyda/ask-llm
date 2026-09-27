@@ -61,6 +61,8 @@ jobs:
         name: test-setup-24.x-ubuntu-latest
     - name: Restore platform setup
       run: tar -xzf test-setup.tgz
+    - name: Install zsh for the brainstorm shell-guard legs
+      run: sudo apt-get update -qq && sudo apt-get install -y -qq zsh
     - name: Run test batch ${{ matrix.batch }}/5
       run: yarn test:batch "${{ matrix.batch }}/5"
     - name: Record successful batch
