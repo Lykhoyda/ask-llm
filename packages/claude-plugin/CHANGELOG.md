@@ -1,5 +1,18 @@
 # @ask-llm/plugin
 
+## 0.19.2
+
+### Patch Changes
+
+- [#354](https://github.com/Lykhoyda/ask-llm/pull/354) [`2aed1d6`](https://github.com/Lykhoyda/ask-llm/commit/2aed1d66359960d6fd2c0af5eede682e5542b11c) Thanks [@Lykhoyda](https://github.com/Lykhoyda)! - `/brainstorm` now skips its Antigravity participant with a disclosed reason unless `ASK_ANTIGRAVITY_ALLOW_UNISOLATED=1`, and under that opt-in runs agy with an isolation warning and without `--dangerously-skip-permissions`.
+
+- [#346](https://github.com/Lykhoyda/ask-llm/pull/346) [`4bb57be`](https://github.com/Lykhoyda/ask-llm/commit/4bb57be47495aa85aa73a2ff21538ff1e63fb79d) Thanks [@Lykhoyda](https://github.com/Lykhoyda)! - codex-pair now reviews the latest settled edit of each file and never surfaces or gates on a verdict for content that has since changed.
+
+- [#350](https://github.com/Lykhoyda/ask-llm/pull/350) [`0066c4b`](https://github.com/Lykhoyda/ask-llm/commit/0066c4b3c8ef6958158eed38621423b8ec9d560b) Thanks [@Lykhoyda](https://github.com/Lykhoyda)! - The codex-pair Stop gate now blocks on HIGH findings in files inside untracked nested git repositories and no longer loses a file's current-content review when it was logged under two paths to the same file.
+- Updated dependencies [[`c7bfa2e`](https://github.com/Lykhoyda/ask-llm/commit/c7bfa2e9aad1bf972001d0cb4cce593ae5bfc0c6), [`c7bfa2e`](https://github.com/Lykhoyda/ask-llm/commit/c7bfa2e9aad1bf972001d0cb4cce593ae5bfc0c6), [`f15c394`](https://github.com/Lykhoyda/ask-llm/commit/f15c394967d5284aa0ea57458f3e5986e05bfbbc), [`c7bfa2e`](https://github.com/Lykhoyda/ask-llm/commit/c7bfa2e9aad1bf972001d0cb4cce593ae5bfc0c6), [`c7bfa2e`](https://github.com/Lykhoyda/ask-llm/commit/c7bfa2e9aad1bf972001d0cb4cce593ae5bfc0c6), [`20a4e3c`](https://github.com/Lykhoyda/ask-llm/commit/20a4e3c660f5913dd6e6fe051f94b6768b399adc)]:
+  - @ask-llm/antigravity-mcp@0.8.1
+  - @ask-llm/mcp@0.12.1
+
 ## 0.19.1
 
 ### Patch Changes
