@@ -11,7 +11,13 @@ const pluginManifest = JSON.parse(
 const batch = "$" + "{{ matrix.batch }}";
 const piVersion = "$" + "{{ matrix.pi-version }}";
 
-function job(name) {
+interface WorkflowJob {
+  "runs-on"?: string;
+  strategy?: { matrix?: Record<string, unknown> };
+  steps?: { uses?: string; with?: Record<string, unknown> }[];
+}
+
+function job(name: string): string {
   const start = workflow.indexOf(`  ${name}:\n`);
   if (start === -1) throw new Error(`missing workflow job: ${name}`);
   const rest = workflow.slice(workflow.indexOf("\n", start) + 1);
@@ -22,7 +28,7 @@ function job(name) {
 describe("Pi host support workflow contract", () => {
   const piJob = parsedWorkflow.jobs["pi-package-smoke"];
   const lifecycleStep = piJob.steps.find(
-    (step) => step.name === "Clean Pi install, discovery, update, remove, and temporary evaluation",
+    (step: { name?: string }) => step.name === "Clean Pi install, discovery, update, remove, and temporary evaluation",
   );
 
   it("keeps the published floor and current compile SDK as exact non-fail-fast smoke cells", () => {
@@ -65,13 +71,13 @@ describe("five-batch workflow contract", () => {
       expect(setup).toContain("yarn install --immutable");
       expect(setup).toContain("run: yarn build");
       expect(setup).toContain("run: yarn lint");
-      expect(setup).toContain("check-shared-changeset.mjs");
+      expect(setup).toContain("check-shared-changeset.ts");
       expect(setup).toContain(`name: test-setup-${chain.nodeVersion}-${chain.os}`);
 
       expect(batches).not.toContain("yarn install");
       expect(batches).not.toContain("run: yarn build");
       expect(batches).not.toContain("run: yarn lint");
-      expect(batches).not.toContain("check-shared-changeset.mjs");
+      expect(batches).not.toContain("check-shared-changeset.ts");
     }
   });
 
@@ -119,7 +125,7 @@ describe("supported CI platforms", () => {
     const workflowsDir = resolve(import.meta.dirname, "../.github/workflows");
     for (const name of readdirSync(workflowsDir).filter((file) => /\.ya?ml$/.test(file))) {
       const workflow = parse(readFileSync(resolve(workflowsDir, name), "utf8"));
-      for (const job of Object.values(workflow.jobs ?? {})) {
+      for (const job of Object.values((workflow.jobs ?? {}) as Record<string, WorkflowJob>)) {
         const matrixVersions = job.strategy?.matrix?.["node-version"];
         if (matrixVersions) expect(matrixVersions, name).toEqual(["24.x", "26.x"]);
         for (const step of job.steps ?? []) {
@@ -141,7 +147,7 @@ describe("supported CI platforms", () => {
       const source = readFileSync(resolve(workflowsDir, name), "utf8");
       expect(source, name).not.toMatch(/windows-latest/);
       const workflow = parse(source);
-      for (const job of Object.values(workflow.jobs ?? {})) {
+      for (const job of Object.values((workflow.jobs ?? {}) as Record<string, WorkflowJob>)) {
         expect(job["runs-on"], name).not.toBe("windows-latest");
       }
     }

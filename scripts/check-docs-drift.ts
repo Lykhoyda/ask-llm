@@ -45,7 +45,7 @@ for (const provider of providers) {
 // providers.ts must quote the same default/fallback models as package constants.
 const dataSource = readFileSync(join(root, "apps/docs/.vitepress/theme/providers.ts"), "utf8");
 // Provider scoping prevents identical model values from masking cross-provider swaps.
-function providerBlock(provider) {
+function providerBlock(provider: string): string | null {
   const entryStart = new RegExp(`^  ${provider}: \\{`, "m").exec(dataSource);
   if (!entryStart) return null;
   const rest = dataSource.slice(entryStart.index + entryStart[0].length);
@@ -53,7 +53,7 @@ function providerBlock(provider) {
   return rest.slice(0, nextEntry ? nextEntry.index : rest.length);
 }
 
-const modelChecks = [
+const modelChecks: [provider: string, constantsPath: string, pattern: RegExp][] = [
   ["codex", "packages/codex-mcp/src/constants.ts", /FACTORY_DEFAULT_MODEL = "([^"]+)"/],
   ["claude", "packages/claude-mcp/src/constants.ts", /FACTORY_DEFAULT_MODEL = "([^"]+)"/],
   ["gemini", "packages/gemini-mcp/src/constants.ts", /FACTORY_DEFAULT_MODEL = "([^"]+)"/],
@@ -61,7 +61,7 @@ const modelChecks = [
   ["ollama", "packages/ollama-mcp/src/constants.ts", /FACTORY_DEFAULT_MODEL = "([^"]+)"/],
   ["antigravity", "packages/antigravity-mcp/src/constants.ts", /DEFAULT: "([^"]+)"/],
 ];
-const fallbackChecks = [
+const fallbackChecks: [provider: string, constantsPath: string, pattern: RegExp][] = [
   ["gemini", "packages/gemini-mcp/src/constants.ts", /FLASH: process\.env\.ASK_GEMINI_FALLBACK_MODEL \|\| "([^"]+)"/],
   ["antigravity", "packages/antigravity-mcp/src/constants.ts", /FALLBACK: "([^"]+)"/],
   ["codex", "packages/codex-mcp/src/constants.ts", /FALLBACK: process\.env\.ASK_CODEX_FALLBACK_MODEL \|\| "([^"]+)"/],
@@ -69,7 +69,7 @@ const fallbackChecks = [
 for (const [field, checks] of [
   ["defaultModel", modelChecks],
   ["fallbackModel", fallbackChecks],
-]) {
+] as const) {
   for (const [provider, constantsPath, pattern] of checks) {
     const constant = readFileSync(join(root, constantsPath), "utf8").match(pattern)?.[1];
     if (!constant) {

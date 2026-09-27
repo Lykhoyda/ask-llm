@@ -33,7 +33,7 @@ if (!/MCP_PUBLISHER_SHA256:\s*[0-9a-f]{64}/.test(release) || !release.includes("
 if (release.includes("continue-on-error: true")) {
   errors.push(".github/workflows/release.yml must fail loudly when a registry publication step fails");
 }
-if (!release.includes("node scripts/publish-mcp-registry.mjs")) {
+if (!release.includes("node scripts/publish-mcp-registry.ts")) {
   errors.push(".github/workflows/release.yml must use the selective MCP Registry publication helper");
 }
 if (/run:\s*\.\/mcp-publisher (?:login|publish)/.test(release)) {
@@ -101,7 +101,7 @@ if (
 if (!release.includes("Create or verify per-package Git tags")) {
   errors.push("Normal publication and Registry recovery must create or verify per-package Git tags");
 }
-if (!release.includes("node scripts/create-or-verify-package-tags.mjs --verify-npm-git-head")) {
+if (!release.includes("node scripts/create-or-verify-package-tags.ts --verify-npm-git-head")) {
   errors.push("Release automation must use the fail-closed per-package tag helper with npm gitHead verification");
 }
 

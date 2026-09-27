@@ -11,11 +11,11 @@ import { machineJsonSchemaBundle } from "../machine.js";
 const cliPath = fileURLToPath(new URL("../../dist/cli.js", import.meta.url));
 const requestPath = fileURLToPath(new URL("./fixtures/review-request.json", import.meta.url));
 const successPayloadPath = fileURLToPath(new URL("./fixtures/review-success.json", import.meta.url));
-const successExecutorPath = fileURLToPath(new URL("./fixtures/machine-success-executor.mjs", import.meta.url));
+const successExecutorPath = fileURLToPath(new URL("./fixtures/machine-success-executor.ts", import.meta.url));
 const largeSuccessExecutorPath = fileURLToPath(
-  new URL("./fixtures/machine-large-success-executor.mjs", import.meta.url),
+  new URL("./fixtures/machine-large-success-executor.ts", import.meta.url),
 );
-const failureExecutorPath = fileURLToPath(new URL("./fixtures/machine-failure-executor.mjs", import.meta.url));
+const failureExecutorPath = fileURLToPath(new URL("./fixtures/machine-failure-executor.ts", import.meta.url));
 
 const request = JSON.parse(readFileSync(requestPath, "utf8")) as Record<string, unknown>;
 const successPayload = JSON.parse(readFileSync(successPayloadPath, "utf8"));
@@ -71,7 +71,8 @@ function runCli(
 }
 
 async function runCliWithClosedStdout(input: string, executorPath: string): Promise<ClosedStdoutCliResult> {
-  const child = spawn(process.execPath, [cliPath, "machine"], {
+  // Node 24.0-24.2 warn on stderr when stripping the .ts fixture; this test pins exact stderr.
+  const child = spawn(process.execPath, ["--disable-warning=ExperimentalWarning", cliPath, "machine"], {
     env: {
       ...process.env,
       ASK_LLM_LOG_LEVEL: "debug",

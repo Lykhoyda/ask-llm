@@ -45,7 +45,7 @@ jobs:
       # is exactly what npm publishes. History: ADR-052 (npm 9 EUNSUPPORTEDPROTOCOL),
       # ADR-106/107 (2026-05-27 broken-release incident), #115 (npm 11 global install).
       - name: Preflight — assert no workspace:* in published manifests
-        run: node scripts/preflight-no-workspace-protocol.mjs
+        run: node scripts/preflight-no-workspace-protocol.ts
 
       - name: Verify npm authorization for @ask-llm/plugin without publishing
         if: github.event_name != 'workflow_dispatch'
@@ -197,7 +197,7 @@ jobs:
         env:
           MCP_PUBLISHER_PATH: ./mcp-publisher
         run: >-
-          node scripts/publish-mcp-registry.mjs
+          node scripts/publish-mcp-registry.ts
           packages/gemini-mcp/server.json
           packages/codex-mcp/server.json
           packages/claude-mcp/server.json
@@ -244,7 +244,7 @@ jobs:
       # release creation or verification; the helper is idempotent on rerun.
       - name: Create or verify per-package Git tags
         if: steps.changesets.outputs.published == 'true' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')
-        run: node scripts/create-or-verify-package-tags.mjs --verify-npm-git-head
+        run: node scripts/create-or-verify-package-tags.ts --verify-npm-git-head
 
       # Loud-on-failure: open a tracking issue (or comment on an existing one)
       # when any main-branch release step fails. Lived-experience trigger: PR #112's release

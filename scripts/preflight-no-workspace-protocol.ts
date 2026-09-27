@@ -12,7 +12,7 @@
  *      (the #115 npm-11 global-install class);
  *   3. no `prepack`/`postpack` scripts (nothing may mutate the manifest again).
  *
- * Run locally: node scripts/preflight-no-workspace-protocol.mjs
+ * Run locally: node scripts/preflight-no-workspace-protocol.ts
  */
 import fs from "node:fs";
 import path from "node:path";
@@ -20,7 +20,7 @@ import { fileURLToPath } from "node:url";
 
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const DEPS_FIELDS = ["dependencies", "peerDependencies", "optionalDependencies"];
-const CANONICAL_PACKAGES = {
+const CANONICAL_PACKAGES: Record<string, { name: string; bins: string[] }> = {
   "antigravity-mcp": { name: "@ask-llm/antigravity-mcp", bins: ["ask-antigravity-mcp"] },
   "claude-mcp": { name: "@ask-llm/claude-mcp", bins: ["ask-claude-mcp"] },
   "claude-plugin": {

@@ -11,15 +11,33 @@ import {
   lookupRemoteTag,
   pushMissingTag,
   verifyNpmGitHead,
-} from "./create-or-verify-package-tags.mjs";
+} from "./create-or-verify-package-tags.ts";
 
-const scratchDirectories = [];
+interface WorkflowStep {
+  name: string;
+  if: string;
+  run: string;
+  uses: string;
+  env: Record<string, string>;
+  with: Record<string, unknown>;
+}
 
-function git(cwd, ...args) {
+interface Workflow {
+  on: {
+    workflow_dispatch?: { inputs?: unknown };
+  };
+  jobs: {
+    release: { steps: WorkflowStep[] };
+  };
+}
+
+const scratchDirectories: string[] = [];
+
+function git(cwd: string, ...args: string[]): string {
   return execFileSync("git", args, { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }).trim();
 }
 
-function manifest(name, version, extra = {}) {
+function manifest(name: string, version: string, extra: Record<string, unknown> = {}): string {
   return `${JSON.stringify(
     {
       name,
@@ -32,13 +50,19 @@ function manifest(name, version, extra = {}) {
   )}\n`;
 }
 
-function writePackage(root, directory, name, version, extra) {
+function writePackage(
+  root: string,
+  directory: string,
+  name: string,
+  version: string,
+  extra?: Record<string, unknown>,
+): void {
   const packageDirectory = join(root, "packages", directory);
   mkdirSync(packageDirectory, { recursive: true });
   writeFileSync(join(packageDirectory, "package.json"), manifest(name, version, extra));
 }
 
-function commitAll(root, message) {
+function commitAll(root: string, message: string): string {
   git(root, "add", ".");
   git(root, "commit", "-m", message);
   return git(root, "rev-parse", "HEAD");
@@ -69,15 +93,15 @@ function fixture() {
   return { root, remote, previous, release };
 }
 
-function remoteTarget(root, remote, tag) {
+function remoteTarget(root: string, remote: string, tag: string): string | null {
   return lookupRemoteTag(`refs/tags/${tag}`, { cwd: root, remote });
 }
 
-function silentLog() {
-  const lines = [];
+function silentLog(): { lines: string[]; logger: { log: (line: string) => void; error: (line: string) => void } } {
+  const lines: string[] = [];
   return {
     lines,
-    logger: { log: (line) => lines.push(line), error: (line) => lines.push(line) },
+    logger: { log: (line: string) => lines.push(line), error: (line: string) => lines.push(line) },
   };
 }
 
@@ -136,7 +160,9 @@ test("dry-run reports every mismatched remote tag before one failure and never r
 
   assert.throws(
     () => createOrVerifyPackageTags({ cwd: root, remote, dryRun: true }, { log: logger }),
-    (error) => error.message.includes("@ask-llm/one@1.0.0") && error.message.includes("@ask-llm/two@2.0.0"),
+    (error) =>
+      (error as Error).message.includes("@ask-llm/one@1.0.0") &&
+      (error as Error).message.includes("@ask-llm/two@2.0.0"),
   );
   assert.equal(lines.filter((line) => line.startsWith("MISMATCH ")).length, 2);
   assert.equal(remoteTarget(root, remote, "@ask-llm/one@1.0.0"), previous);
@@ -160,8 +186,8 @@ test("partial completion verifies an existing tag and creates only the missing t
 test("a duplicate push race is accepted only when the remote winner has the expected target", () => {
   const target = "a".repeat(40);
   const plan = { tag: "@ask-llm/one@1.0.0", tagRef: "refs/tags/@ask-llm/one@1.0.0", target };
-  const calls = [];
-  const fakeGit = (args) => {
+  const calls: string[][] = [];
+  const fakeGit = (args: string[]) => {
     calls.push(args);
     return { status: 1, stdout: "", stderr: "rejected: reference already exists" };
   };
@@ -179,7 +205,11 @@ test("a duplicate push race is accepted only when the remote winner has the expe
 test("npm gitHead cross-check detects a wrong release commit", () => {
   const packageInfo = { name: "@ask-llm/one", version: "1.0.0" };
   const target = "a".repeat(40);
-  const npm = () => ({ status: 0, stdout: `"${"b".repeat(40)}"\n`, stderr: "" });
+  const npm = (): { status: number; stdout: string; stderr: string } => ({
+    status: 0,
+    stdout: `"${"b".repeat(40)}"\n`,
+    stderr: "",
+  });
 
   assert.throws(() => verifyNpmGitHead(packageInfo, target, { npm }), /npm gitHead mismatch/);
 });
@@ -187,7 +217,7 @@ test("npm gitHead cross-check detects a wrong release commit", () => {
 test("an npm gitHead mismatch skips only the affected package, still tags consistent packages, and fails the run", () => {
   const { root, remote, release } = fixture();
   const { logger, lines } = silentLog();
-  const npm = (args) => ({
+  const npm = (args: string[]) => ({
     status: 0,
     stdout: `"${args[1] === "@ask-llm/two@2.0.0" ? "b".repeat(40) : release}"\n`,
     stderr: "",
@@ -200,7 +230,7 @@ test("an npm gitHead mismatch skips only the affected package, still tags consis
   assert.equal(remoteTarget(root, remote, "@ask-llm/one@1.0.0"), release);
   assert.equal(remoteTarget(root, remote, "@ask-llm/two@2.0.0"), null);
   assert.match(
-    lines.find((line) => line.startsWith("INCONSISTENT ")),
+    lines.find((line) => line.startsWith("INCONSISTENT ")) as string,
     /@ask-llm\/two@2\.0\.0.*npm gitHead mismatch/,
   );
 });
@@ -208,7 +238,7 @@ test("an npm gitHead mismatch skips only the affected package, still tags consis
 test("a failing npm view is not treated as a gitHead mismatch and creates no tags", () => {
   const { root, remote, release } = fixture();
   const { logger, lines } = silentLog();
-  const npm = (args) =>
+  const npm = (args: string[]) =>
     args[1] === "@ask-llm/two@2.0.0"
       ? { status: 1, stdout: "", stderr: "npm ERR! 503 Service Unavailable" }
       : { status: 0, stdout: `"${release}"\n`, stderr: "" };
@@ -216,8 +246,8 @@ test("a failing npm view is not treated as a gitHead mismatch and creates no tag
   assert.throws(
     () => createOrVerifyPackageTags({ cwd: root, remote, verifyNpm: true }, { npm, log: logger }),
     (error) =>
-      /npm view @ask-llm\/two@2\.0\.0 gitHead failed.*503/.test(error.message) &&
-      !/publishing a new version/.test(error.message),
+      /npm view @ask-llm\/two@2\.0\.0 gitHead failed.*503/.test((error as Error).message) &&
+      !/publishing a new version/.test((error as Error).message),
   );
   assert.equal(remoteTarget(root, remote, "@ask-llm/one@1.0.0"), null);
   assert.equal(remoteTarget(root, remote, "@ask-llm/two@2.0.0"), null);
@@ -268,18 +298,20 @@ test("fails when a version was introduced more than once on first-parent history
 });
 
 test("workflow structurally runs package tags after the unified release for publication and recovery", () => {
-  const workflow = parseYaml(readFileSync(join(import.meta.dirname, "../.github/workflows/release.yml"), "utf8"));
+  const workflow = parseYaml(
+    readFileSync(join(import.meta.dirname, "../.github/workflows/release.yml"), "utf8"),
+  ) as Workflow;
   const steps = workflow.jobs.release.steps;
   const tagSteps = steps.filter((step) => step.name === "Create or verify per-package Git tags");
   const unifiedSteps = steps.filter((step) => step.name === "Create or verify unified GitHub Release");
-  const failureStep = steps.find((step) => step.name === "Open tracking issue on release failure");
-  const changesetsStep = steps.find((step) => step.name === "Create Release PR or Publish");
+  const failureStep = steps.find((step) => step.name === "Open tracking issue on release failure") as WorkflowStep;
+  const changesetsStep = steps.find((step) => step.name === "Create Release PR or Publish") as WorkflowStep;
   const expectedGate =
     "steps.changesets.outputs.published == 'true' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')";
 
   assert.equal(tagSteps.length, 1);
   assert.equal(unifiedSteps.length, 1);
-  assert.equal(tagSteps[0].run, "node scripts/create-or-verify-package-tags.mjs --verify-npm-git-head");
+  assert.equal(tagSteps[0].run, "node scripts/create-or-verify-package-tags.ts --verify-npm-git-head");
   assert.equal(tagSteps[0].if, expectedGate);
   assert.equal(unifiedSteps[0].if, expectedGate);
   assert.equal(changesetsStep.with["create-github-releases"], false);
@@ -290,7 +322,7 @@ test("workflow structurally runs package tags after the unified release for publ
 
 test("manual dispatch has no inputs and on main is always registry/release/tag recovery without npm", () => {
   const source = readFileSync(join(import.meta.dirname, "../.github/workflows/release.yml"), "utf8");
-  const workflow = parseYaml(source);
+  const workflow = parseYaml(source) as Workflow;
   const steps = workflow.jobs.release.steps;
   const dispatch = workflow.on.workflow_dispatch;
   const skipNpm = "github.event_name != 'workflow_dispatch'";
@@ -298,17 +330,19 @@ test("manual dispatch has no inputs and on main is always registry/release/tag r
     "steps.changesets.outputs.published == 'true' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')";
   const verifyStep = steps.find(
     (step) => step.name === "Verify npm authorization for @ask-llm/plugin without publishing",
-  );
-  const changesetsStep = steps.find((step) => step.name === "Create Release PR or Publish");
-  const publisherStep = steps.find((step) => step.name === "Install mcp-publisher");
+  ) as WorkflowStep;
+  const changesetsStep = steps.find((step) => step.name === "Create Release PR or Publish") as WorkflowStep;
+  const publisherStep = steps.find((step) => step.name === "Install mcp-publisher") as WorkflowStep;
   const syncStep = steps.find(
     (step) => step.name === "Sync versions from package.json to server.json and marketplace.json",
-  );
-  const registryStep = steps.find((step) => step.name === "Publish missing servers to MCP Registry");
-  const geminiVersionStep = steps.find((step) => step.name === "Get gemini version for unified release tag");
-  const unifiedStep = steps.find((step) => step.name === "Create or verify unified GitHub Release");
-  const tagStep = steps.find((step) => step.name === "Create or verify per-package Git tags");
-  const failureStep = steps.find((step) => step.name === "Open tracking issue on release failure");
+  ) as WorkflowStep;
+  const registryStep = steps.find((step) => step.name === "Publish missing servers to MCP Registry") as WorkflowStep;
+  const geminiVersionStep = steps.find(
+    (step) => step.name === "Get gemini version for unified release tag",
+  ) as WorkflowStep;
+  const unifiedStep = steps.find((step) => step.name === "Create or verify unified GitHub Release") as WorkflowStep;
+  const tagStep = steps.find((step) => step.name === "Create or verify per-package Git tags") as WorkflowStep;
+  const failureStep = steps.find((step) => step.name === "Open tracking issue on release failure") as WorkflowStep;
 
   assert.ok(Object.hasOwn(workflow.on, "workflow_dispatch"));
   assert.equal(dispatch == null ? undefined : dispatch.inputs, undefined);
@@ -327,17 +361,19 @@ test("manual dispatch has no inputs and on main is always registry/release/tag r
   assert.equal(unifiedStep.if, recoveryGate);
   assert.equal(tagStep.if, recoveryGate);
   assert.match(failureStep.uses, /actions\/github-script@/);
-  assert.match(failureStep.with.script, /Run the Release workflow on main/);
-  assert.doesNotMatch(failureStep.with.script, /retry_registry_publish/);
+  assert.match(failureStep.with.script as string, /Run the Release workflow on main/);
+  assert.doesNotMatch(failureStep.with.script as string, /retry_registry_publish/);
 });
 
 test("publish authenticates Yarn Berry; npm whoami is not sufficient after Changesets 3", () => {
-  const workflow = parseYaml(readFileSync(join(import.meta.dirname, "../.github/workflows/release.yml"), "utf8"));
+  const workflow = parseYaml(
+    readFileSync(join(import.meta.dirname, "../.github/workflows/release.yml"), "utf8"),
+  ) as Workflow;
   const steps = workflow.jobs.release.steps;
   const verifyStep = steps.find(
     (step) => step.name === "Verify npm authorization for @ask-llm/plugin without publishing",
-  );
-  const changesetsStep = steps.find((step) => step.name === "Create Release PR or Publish");
+  ) as WorkflowStep;
+  const changesetsStep = steps.find((step) => step.name === "Create Release PR or Publish") as WorkflowStep;
   const token = "$" + "{{ secrets.NODE_AUTH_TOKEN }}";
 
   assert.equal(verifyStep.env.NODE_AUTH_TOKEN, token);
@@ -354,10 +390,12 @@ test("publish authenticates Yarn Berry; npm whoami is not sufficient after Chang
 });
 
 test("public-access step does not fail the release when packages are already public or the token cannot mutate access", () => {
-  const workflow = parseYaml(readFileSync(join(import.meta.dirname, "../.github/workflows/release.yml"), "utf8"));
+  const workflow = parseYaml(
+    readFileSync(join(import.meta.dirname, "../.github/workflows/release.yml"), "utf8"),
+  ) as Workflow;
   const publicStep = workflow.jobs.release.steps.find(
     (step) => step.name === "Ensure Ask LLM packages are public on npm",
-  );
+  ) as WorkflowStep;
 
   assert.equal(publicStep.if, "steps.changesets.outputs.published == 'true'");
   assert.equal(publicStep.env.NODE_AUTH_TOKEN, "$" + "{{ secrets.NODE_AUTH_TOKEN }}");

@@ -23,9 +23,9 @@ yarn install --immutable
 yarn build
 yarn lint
 yarn test
-node scripts/harness-smoke.mjs --dry-run
+node scripts/harness-smoke.ts --dry-run
 if [[ "$mode" == "--live" ]]; then
-  node scripts/harness-smoke.mjs --live
+  node scripts/harness-smoke.ts --live
 fi
 
 cat <<'EVIDENCE'

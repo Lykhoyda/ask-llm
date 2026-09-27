@@ -1,5 +1,6 @@
+import type { SpawnSyncOptionsWithStringEncoding } from "node:child_process";
 import { describe, expect, it } from "vitest";
-import { assignTestFiles, parseBatch, run, vitestCommand } from "./run-test-batch.mjs";
+import { assignTestFiles, parseBatch, run, vitestCommand } from "./run-test-batch.ts";
 
 describe("test batch assignment", () => {
   it("covers every sorted file exactly once across five batches", () => {
@@ -31,11 +32,11 @@ describe("test batch assignment", () => {
     const nodePath = "C:\\Program Files\\nodejs\\node.exe";
     const vitestPath = "C:\\repo path\\node_modules\\vitest\\vitest.mjs";
     const testPath = "packages/a test/src/quoted ' name.test.ts";
-    const calls = [];
+    const calls: { command: string; args: string[]; options: SpawnSyncOptionsWithStringEncoding }[] = [];
 
     run(vitestCommand([testPath], { nodePath, vitestPath }), {}, (command, args, options) => {
       calls.push({ command, args, options });
-      return { status: 0, stdout: "" };
+      return { status: 0, stdout: "", stderr: "" };
     });
 
     expect(calls).toEqual([

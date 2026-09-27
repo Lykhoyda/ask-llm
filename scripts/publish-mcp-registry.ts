@@ -5,44 +5,101 @@ import { readFile } from "node:fs/promises";
 import { pathToFileURL } from "node:url";
 import { isDeepStrictEqual } from "node:util";
 
+type JsonValue = string | number | boolean | null | JsonValue[] | JsonObject;
+interface JsonObject {
+  [key: string]: JsonValue;
+}
+type ServerManifest = JsonObject & { name: string; version: string };
+type SemanticSetField = "packages" | "environmentVariables";
+type JsonPath = Array<string | number>;
+
+interface PublisherResult {
+  code: number;
+  signal?: NodeJS.Signals | null;
+  output: string;
+}
+
+interface Logger {
+  log(message: string): void;
+  error(message: string): void;
+}
+
+type FetchLike = (url: URL) => Promise<Response>;
+type RunPublisher = (operation: string, manifestPath: string) => Promise<PublisherResult>;
+
+interface RegistryLookupPayload {
+  servers?: Array<{ server?: JsonValue }>;
+}
+
+type FailurePhase = "read" | "validate" | "verify" | "lookup" | "login" | "publish" | "duplicate-race";
+interface Failure {
+  manifestPath: string;
+  target?: string;
+  phase: FailurePhase;
+  message: string;
+}
+
+interface SelectedCandidate {
+  manifest: ServerManifest;
+  manifestPath: string;
+  target: string;
+}
+
+interface PublishResult {
+  failures: Failure[];
+  published: string[];
+  raced: string[];
+  selected: string[];
+  skipped: string[];
+}
+
+interface PublishOptions {
+  manifestPaths?: string[];
+  fetchImpl?: FetchLike;
+  registryUrl?: string;
+  runPublisher?: RunPublisher;
+  log?: Logger;
+}
+
 const DEFAULT_REGISTRY_URL = "https://registry.modelcontextprotocol.io";
 const DUPLICATE_VERSION = /invalid version:\s*cannot publish duplicate version/i;
 const OPTIONAL_FALSE_FIELDS = new Set(["isRequired", "isSecret"]);
 const OUTPUT_LIMIT = 16_384;
 
-function boundedTail(value) {
+function boundedTail(value: string): string {
   return value.length <= OUTPUT_LIMIT ? value : value.slice(-OUTPUT_LIMIT);
 }
 
-function canonicalJson(value) {
+function canonicalJson(value: unknown): string {
   return JSON.stringify(value);
 }
 
-function semanticSetKey(fieldName, value) {
+function semanticSetKey(fieldName: string, value: JsonValue): string | null {
+  const record = value as JsonObject | null;
   if (fieldName === "packages") {
     return canonicalJson([
-      value?.registryType ?? null,
-      value?.registryBaseUrl ?? null,
-      value?.identifier ?? null,
-      value?.version ?? null,
-      value?.fileSha256 ?? null,
+      record?.registryType ?? null,
+      record?.registryBaseUrl ?? null,
+      record?.identifier ?? null,
+      record?.version ?? null,
+      record?.fileSha256 ?? null,
       canonicalJson(value),
     ]);
   }
   if (fieldName === "environmentVariables") {
-    return canonicalJson([value?.name ?? null, canonicalJson(value)]);
+    return canonicalJson([record?.name ?? null, canonicalJson(value)]);
   }
   return null;
 }
 
-function compareCanonicalSetEntries(fieldName, left, right) {
+function compareCanonicalSetEntries(fieldName: SemanticSetField, left: JsonValue, right: JsonValue): number {
   const leftKey = semanticSetKey(fieldName, left);
   const rightKey = semanticSetKey(fieldName, right);
   if (leftKey === null || rightKey === null || leftKey === rightKey) return 0;
   return leftKey < rightKey ? -1 : 1;
 }
 
-function semanticSetField(path) {
+function semanticSetField(path: JsonPath): SemanticSetField | null {
   if (path.length === 1 && path[0] === "packages") return "packages";
   if (path.length === 3 && path[0] === "packages" && Number.isInteger(path[1]) && path[2] === "environmentVariables") {
     return "environmentVariables";
@@ -50,17 +107,17 @@ function semanticSetField(path) {
   return null;
 }
 
-function isArgumentPath(path) {
+function isArgumentPath(path: JsonPath): boolean {
   return (
     path.length === 4 &&
     path[0] === "packages" &&
     Number.isInteger(path[1]) &&
-    ["packageArguments", "runtimeArguments"].includes(path[2]) &&
+    ["packageArguments", "runtimeArguments"].includes(path[2] as string) &&
     Number.isInteger(path[3])
   );
 }
 
-function isInputWithVariablesPath(path) {
+function isInputWithVariablesPath(path: JsonPath): boolean {
   const packageInput =
     isArgumentPath(path) ||
     (path.length === 4 &&
@@ -84,7 +141,7 @@ function isInputWithVariablesPath(path) {
   return packageInput || packageHeader || remoteHeader;
 }
 
-function isSchemaInputPath(path) {
+function isSchemaInputPath(path: JsonPath): boolean {
   if (isInputWithVariablesPath(path)) return true;
   if (
     path.length === 4 &&
@@ -103,15 +160,15 @@ function isSchemaInputPath(path) {
   );
 }
 
-function isSchemaDefaultFalse(path, key, value) {
+function isSchemaDefaultFalse(path: JsonPath, key: string, value: JsonValue): boolean {
   if (value !== false) return false;
   if (OPTIONAL_FALSE_FIELDS.has(key)) return isSchemaInputPath(path);
   return key === "isRepeated" && isArgumentPath(path);
 }
 
-function normalizeRegistryValue(value, path = []) {
+function normalizeRegistryValue(value: JsonValue, path: JsonPath = []): JsonValue {
   if (Array.isArray(value)) {
-    const normalized = value.map((child, index) => normalizeRegistryValue(child, [...path, index]));
+    const normalized: JsonValue[] = value.map((child, index) => normalizeRegistryValue(child, [...path, index]));
     const fieldName = semanticSetField(path);
     return fieldName !== null
       ? [...normalized].sort((left, right) => compareCanonicalSetEntries(fieldName, left, right))
@@ -127,15 +184,15 @@ function normalizeRegistryValue(value, path = []) {
   );
 }
 
-export function recordsMatch(expected, actual) {
+export function recordsMatch(expected: JsonValue, actual: JsonValue): boolean {
   return isDeepStrictEqual(normalizeRegistryValue(expected), normalizeRegistryValue(actual));
 }
 
-function identity(manifest) {
+function identity(manifest: ServerManifest): string {
   return `${manifest.name}@${manifest.version}`;
 }
 
-async function responseDetail(response) {
+async function responseDetail(response: Response): Promise<string> {
   try {
     return boundedTail(await response.text());
   } catch {
@@ -143,7 +200,10 @@ async function responseDetail(response) {
   }
 }
 
-export async function lookupExactRecord(manifest, { fetchImpl = fetch, registryUrl = DEFAULT_REGISTRY_URL } = {}) {
+export async function lookupExactRecord(
+  manifest: ServerManifest,
+  { fetchImpl = fetch, registryUrl = DEFAULT_REGISTRY_URL }: { fetchImpl?: FetchLike; registryUrl?: string } = {},
+): Promise<ServerManifest | null> {
   const url = new URL("/v0/servers", registryUrl);
   url.searchParams.set("search", manifest.name);
   url.searchParams.set("version", manifest.version);
@@ -155,14 +215,17 @@ export async function lookupExactRecord(manifest, { fetchImpl = fetch, registryU
     );
   }
 
-  const payload = await response.json();
+  const payload = (await response.json()) as RegistryLookupPayload;
   if (!Array.isArray(payload.servers)) {
     throw new Error(`Registry lookup for ${identity(manifest)} returned an invalid response: missing servers array`);
   }
 
   const matches = payload.servers
     .map((entry) => entry?.server)
-    .filter((server) => server?.name === manifest.name && server?.version === manifest.version);
+    .filter((server): server is ServerManifest => {
+      const record = server as JsonObject | undefined;
+      return record?.name === manifest.name && record?.version === manifest.version;
+    });
 
   if (matches.length > 1) {
     throw new Error(`Registry lookup for ${identity(manifest)} returned ${matches.length} exact records`);
@@ -171,22 +234,26 @@ export async function lookupExactRecord(manifest, { fetchImpl = fetch, registryU
   return matches[0] ?? null;
 }
 
-export function runPublisherCommand(operation, manifestPath, { publisherPath = "./mcp-publisher" } = {}) {
+export function runPublisherCommand(
+  operation: string,
+  manifestPath: string,
+  { publisherPath = "./mcp-publisher" }: { publisherPath?: string } = {},
+): Promise<PublisherResult> {
   return new Promise((resolve, reject) => {
     const child = spawn(publisherPath, [operation, manifestPath], {
       stdio: ["ignore", "pipe", "pipe"],
     });
     let output = "";
 
-    const capture = (stream, destination) => {
-      stream.on("data", (chunk) => {
+    const capture = (stream: NodeJS.ReadableStream, destination: NodeJS.WritableStream): void => {
+      stream.on("data", (chunk: Buffer | string) => {
         const text = chunk.toString();
         destination.write(text);
         output = boundedTail(output + text);
       });
     };
-    capture(child.stdout, process.stdout);
-    capture(child.stderr, process.stderr);
+    capture(child.stdout as NodeJS.ReadableStream, process.stdout);
+    capture(child.stderr as NodeJS.ReadableStream, process.stderr);
 
     child.once("error", reject);
     child.once("close", (code, signal) => {
@@ -195,7 +262,7 @@ export function runPublisherCommand(operation, manifestPath, { publisherPath = "
   });
 }
 
-function failureMessage(result) {
+function failureMessage(result: PublisherResult): string {
   const detail = result.output.trim();
   const suffix = result.signal ? ` (signal ${result.signal})` : "";
   return detail ? `${detail}${suffix}` : `publisher exited ${result.code}${suffix} without output`;
@@ -207,32 +274,32 @@ export async function publishMissingRegistryVersions({
   registryUrl = DEFAULT_REGISTRY_URL,
   runPublisher = runPublisherCommand,
   log = console,
-} = {}) {
+}: PublishOptions = {}): Promise<PublishResult> {
   if (!Array.isArray(manifestPaths) || manifestPaths.length === 0) {
     throw new Error("At least one server.json path is required");
   }
 
-  const failures = [];
-  const selected = [];
-  const skipped = [];
-  const published = [];
-  const raced = [];
+  const failures: Failure[] = [];
+  const selected: SelectedCandidate[] = [];
+  const skipped: string[] = [];
+  const published: string[] = [];
+  const raced: string[] = [];
 
   for (const manifestPath of manifestPaths) {
-    let manifest;
+    let manifest: ServerManifest;
     try {
-      manifest = JSON.parse(await readFile(manifestPath, "utf8"));
+      manifest = JSON.parse(await readFile(manifestPath, "utf8")) as ServerManifest;
     } catch (error) {
-      failures.push({ manifestPath, phase: "read", message: error.message });
+      failures.push({ manifestPath, phase: "read", message: (error as Error).message });
       continue;
     }
 
     const target = identity(manifest);
-    let validation;
+    let validation: PublisherResult;
     try {
       validation = await runPublisher("validate", manifestPath);
     } catch (error) {
-      failures.push({ manifestPath, target, phase: "validate", message: error.message });
+      failures.push({ manifestPath, target, phase: "validate", message: (error as Error).message });
       continue;
     }
     if (validation.code !== 0) {
@@ -256,16 +323,16 @@ export async function publishMissingRegistryVersions({
         });
       }
     } catch (error) {
-      failures.push({ manifestPath, target, phase: "lookup", message: error.message });
+      failures.push({ manifestPath, target, phase: "lookup", message: (error as Error).message });
     }
   }
 
   if (selected.length > 0) {
-    let login;
+    let login: PublisherResult | undefined;
     try {
       login = await runPublisher("login", "github-oidc");
     } catch (error) {
-      failures.push({ manifestPath: "<publisher>", phase: "login", message: error.message });
+      failures.push({ manifestPath: "<publisher>", phase: "login", message: (error as Error).message });
     }
     if (login && login.code !== 0) {
       failures.push({ manifestPath: "<publisher>", phase: "login", message: failureMessage(login) });
@@ -277,11 +344,11 @@ export async function publishMissingRegistryVersions({
     const { manifest, manifestPath, target } = candidate;
     log.log(`Publishing missing MCP Registry record ${target}`);
 
-    let result;
+    let result: PublisherResult;
     try {
       result = await runPublisher("publish", manifestPath);
     } catch (error) {
-      failures.push({ manifestPath, target, phase: "publish", message: error.message });
+      failures.push({ manifestPath, target, phase: "publish", message: (error as Error).message });
       continue;
     }
 
@@ -312,7 +379,7 @@ export async function publishMissingRegistryVersions({
         });
       }
     } catch (error) {
-      failures.push({ manifestPath, target, phase: "duplicate-race", message: error.message });
+      failures.push({ manifestPath, target, phase: "duplicate-race", message: (error as Error).message });
     }
   }
 
@@ -330,7 +397,7 @@ export async function publishMissingRegistryVersions({
   return { failures, published, raced, selected: selected.map(({ target }) => target), skipped };
 }
 
-async function main() {
+async function main(): Promise<void> {
   const result = await publishMissingRegistryVersions({
     manifestPaths: process.argv.slice(2),
     registryUrl: process.env.MCP_REGISTRY_URL ?? DEFAULT_REGISTRY_URL,

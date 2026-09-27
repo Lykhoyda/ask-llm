@@ -4,15 +4,36 @@ import { constants } from "node:fs";
 import { access, mkdir, mkdtemp, readdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { delimiter, join, resolve } from "node:path";
+import type { CursorProviderName } from "@ask-llm/mcp/cursor";
 
 export const RESULTS = Object.freeze({
   PASS: "PASS",
   FAIL: "FAIL",
   SKIP_UNAVAILABLE: "SKIP_UNAVAILABLE",
   SKIP_NOT_AUTHORIZED: "SKIP_NOT_AUTHORIZED",
-});
+} as const);
 
-export const SCENARIOS = Object.freeze([
+type ResultStatus = (typeof RESULTS)[keyof typeof RESULTS];
+type Mode = "dry-run" | "live";
+
+export interface Scenario {
+  id: string;
+  tool: string;
+  surface: string;
+  host: string;
+  hostModelKey?: string;
+  modelKey?: string;
+  secondaryModelKey?: string;
+  provider?: string;
+  harness?: string;
+  effort?: string;
+  liveSupported?: boolean;
+  liveUnavailableReason?: string;
+  supported?: boolean;
+  unavailableReason?: string;
+}
+
+export const SCENARIOS: readonly Scenario[] = Object.freeze([
   {
     id: "claude:/brainstorm",
     tool: "claude",
@@ -173,7 +194,7 @@ const EXACT_DRY_MODELS = Object.freeze({
   CODEX: "gpt-6-astra",
   CODEX_PAIR: "gpt-6-sol",
   GROK: "grok-4.7",
-});
+} as const);
 
 const SENSITIVE_NAME = /(api.?key|token|secret|credential|authorization|session)/i;
 const FALLBACK_TEXT =
@@ -181,7 +202,7 @@ const FALLBACK_TEXT =
 const FORBIDDEN_FLAGS = new Set(["--force", "--yolo", "--trust", "--approve"]);
 const MUTATION_TOOL_NAMES = new Set(["edit", "write", "multiedit", "notebookedit"]);
 
-export function redact(value, env = process.env, extraSecrets = []) {
+export function redact(value: unknown, env: NodeJS.ProcessEnv = process.env, extraSecrets: string[] = []): string {
   let text = String(value ?? "");
   const secrets = [...extraSecrets];
   for (const [name, secret] of Object.entries(env)) {
@@ -192,7 +213,12 @@ export function redact(value, env = process.env, extraSecrets = []) {
   return text;
 }
 
-export function parseCatalog(tool, output) {
+interface CodexCatalogEntry {
+  slug?: string;
+  id?: string;
+}
+
+export function parseCatalog(tool: string, output: unknown): string[] {
   const text = String(output ?? "");
   if (tool === "agent") {
     return [
@@ -227,10 +253,17 @@ export function parseCatalog(tool, output) {
   }
   if (tool === "codex") {
     try {
-      const parsed = JSON.parse(text);
-      const models = Array.isArray(parsed) ? parsed : parsed.models;
+      const parsed = JSON.parse(text) as unknown;
+      const container = parsed as unknown[] | { models?: unknown[] };
+      const models = Array.isArray(container) ? container : container.models;
       return Array.isArray(models)
-        ? models.map((entry) => (typeof entry === "string" ? entry : (entry?.slug ?? entry?.id))).filter(Boolean)
+        ? (models
+            .map((entry) =>
+              typeof entry === "string"
+                ? entry
+                : ((entry as CodexCatalogEntry | null)?.slug ?? (entry as CodexCatalogEntry | null)?.id),
+            )
+            .filter(Boolean) as string[])
         : [];
     } catch {
       return [];
@@ -239,7 +272,7 @@ export function parseCatalog(tool, output) {
   return [];
 }
 
-function structuredFallback(value, seen = new Set()) {
+function structuredFallback(value: unknown, seen: Set<unknown> = new Set()): boolean {
   if (typeof value === "string") {
     try {
       return structuredFallback(JSON.parse(value), seen);
@@ -256,7 +289,7 @@ function structuredFallback(value, seen = new Set()) {
   return false;
 }
 
-export function hasFallbackDisclosure(output) {
+export function hasFallbackDisclosure(output: unknown): boolean {
   const text = String(output ?? "");
   if (FALLBACK_TEXT.test(text)) return true;
   const candidates = [text, ...text.split(/\r?\n/)].map((value) => value.trim()).filter(Boolean);
@@ -270,9 +303,26 @@ export function hasFallbackDisclosure(output) {
   return false;
 }
 
-export function smokeMarker(scenario, requestedModel) {
+export function smokeMarker(scenario: Scenario, requestedModel: string): string {
   const provider = scenario.provider ?? scenario.host;
   return `ASK_LLM_SMOKE_OK host=${scenario.host} provider=${provider} model=${requestedModel} fallback=false`;
+}
+
+export interface EvaluateInvocationOptions {
+  scenario: Scenario;
+  requestedModel: string;
+  selectedModel?: string;
+  observedModel?: string;
+  output: string;
+  exitCode: number;
+  timedOut: boolean;
+  mutated: boolean;
+  args?: string[];
+}
+
+interface EvaluationResult {
+  status: ResultStatus;
+  reason: string;
 }
 
 export function evaluateInvocation({
@@ -285,7 +335,7 @@ export function evaluateInvocation({
   timedOut,
   mutated,
   args = [],
-}) {
+}: EvaluateInvocationOptions): EvaluationResult {
   if (timedOut) return { status: RESULTS.FAIL, reason: "timed out; the process was terminated" };
   if (exitCode !== 0) return { status: RESULTS.FAIL, reason: `exited nonzero (${exitCode})` };
   if (mutated) return { status: RESULTS.FAIL, reason: "the repository changed during a read-only scenario" };
@@ -319,7 +369,7 @@ export function evaluateInvocation({
   };
 }
 
-function commandExists(command, env) {
+function commandExists(command: string, env: NodeJS.ProcessEnv): Promise<boolean> {
   const path = env.PATH ?? "";
   const extensions = process.platform === "win32" ? [".exe", ".cmd", ".bat", ""] : [""];
   return Promise.any(
@@ -339,9 +389,29 @@ function commandExists(command, env) {
     .catch(() => false);
 }
 
-export async function runCommand(command, args, options = {}) {
+interface RunCommandOptions {
+  cwd?: string;
+  env?: NodeJS.ProcessEnv;
+  stdin?: string;
+  timeoutMs?: number;
+}
+
+export interface CommandResult {
+  exitCode: number;
+  stdout: string;
+  stderr: string;
+  timedOut: boolean;
+}
+
+export type CommandRunner = (command: string, args: string[], options?: RunCommandOptions) => Promise<CommandResult>;
+
+export async function runCommand(
+  command: string,
+  args: string[],
+  options: RunCommandOptions = {},
+): Promise<CommandResult> {
   const { cwd, env = process.env, stdin = "", timeoutMs = 30_000 } = options;
-  return new Promise((resolveResult) => {
+  return new Promise<CommandResult>((resolveResult) => {
     let stdout = "";
     let stderr = "";
     let timedOut = false;
@@ -352,8 +422,8 @@ export async function runCommand(command, args, options = {}) {
       child.kill("SIGTERM");
       setTimeout(() => child.kill("SIGKILL"), 500).unref();
     }, timeoutMs);
-    child.stdout.on("data", (chunk) => (stdout += chunk));
-    child.stderr.on("data", (chunk) => (stderr += chunk));
+    child.stdout.on("data", (chunk: Buffer) => (stdout += chunk));
+    child.stderr.on("data", (chunk: Buffer) => (stderr += chunk));
     child.on("error", (error) => {
       if (settled) return;
       settled = true;
@@ -370,9 +440,9 @@ export async function runCommand(command, args, options = {}) {
   });
 }
 
-async function treeFingerprint(root) {
+async function treeFingerprint(root: string): Promise<string> {
   const hash = createHash("sha256");
-  async function visit(directory) {
+  async function visit(directory: string): Promise<void> {
     const entries = await readdir(directory, { withFileTypes: true });
     entries.sort((left, right) => left.name.localeCompare(right.name));
     for (const entry of entries) {
@@ -393,7 +463,7 @@ async function treeFingerprint(root) {
   return hash.digest("hex");
 }
 
-async function gitFingerprint(cwd, commandRunner) {
+async function gitFingerprint(cwd: string, commandRunner: CommandRunner): Promise<string> {
   const status = await commandRunner("git", ["status", "--porcelain=v1", "-z", "--untracked-files=all"], {
     cwd,
     timeoutMs: 10_000,
@@ -417,7 +487,7 @@ async function gitFingerprint(cwd, commandRunner) {
   return hash.digest("hex");
 }
 
-function authorizationSet(env) {
+function authorizationSet(env: NodeJS.ProcessEnv): Set<string> {
   return new Set(
     (env.ASK_LLM_HARNESS_SMOKE_AUTHORIZED ?? "")
       .split(",")
@@ -426,20 +496,29 @@ function authorizationSet(env) {
   );
 }
 
-function selectedModel(modelKey, mode, env) {
-  return mode === "dry-run" ? EXACT_DRY_MODELS[modelKey] : env[`ASK_LLM_HARNESS_SMOKE_${modelKey}_MODEL`]?.trim();
+function selectedModel(modelKey: string | undefined, mode: Mode, env: NodeJS.ProcessEnv): string | undefined {
+  return mode === "dry-run"
+    ? EXACT_DRY_MODELS[modelKey as keyof typeof EXACT_DRY_MODELS]
+    : env[`ASK_LLM_HARNESS_SMOKE_${modelKey}_MODEL`]?.trim();
 }
 
-function selectedEffort(scenario, mode, env) {
+function selectedEffort(scenario: Scenario, mode: Mode, env: NodeJS.ProcessEnv): string | undefined {
   if (!scenario.effort) return undefined;
   if (mode === "dry-run") return scenario.effort;
   return env[`ASK_LLM_HARNESS_SMOKE_${scenario.provider?.toUpperCase()}_EFFORT`]?.trim() || scenario.effort;
 }
 
-export function buildLivePrompt(scenario, selection) {
+export interface Selection {
+  model: string;
+  secondaryModel?: string;
+  hostModel?: string;
+  effort?: string;
+}
+
+export function buildLivePrompt(scenario: Scenario, selection: Selection): string {
   const marker = smokeMarker(scenario, selection.model);
   const task = `task="Return only ${marker}" consent=confirmed`;
-  let command;
+  let command: string;
   if (scenario.surface.includes("brainstorm") && selection.secondaryModel) {
     command = `${scenario.host === "pi" ? "/skill:brainstorm" : "/brainstorm"} grok@cursor-agent:${selection.model},codex@cursor-agent:${selection.secondaryModel} ${task}`;
   } else if (scenario.surface.includes("codex-pair")) {
@@ -456,12 +535,25 @@ export function buildLivePrompt(scenario, selection) {
   ].join("\n");
 }
 
-function skillPath(root, surface) {
+function skillPath(root: string, surface: string): string {
   const name = surface.replace("/skill:", "").replace("/", "");
   return join(root, "packages", "claude-plugin", "skills", name, "SKILL.md");
 }
 
-function liveInvocation(scenario, hostModel, routeModel, root, privatePrompt, effort) {
+interface Invocation {
+  args: string[];
+  stdin?: string;
+  env?: NodeJS.ProcessEnv;
+}
+
+function liveInvocation(
+  scenario: Scenario,
+  hostModel: string,
+  routeModel: string,
+  root: string,
+  privatePrompt: string,
+  effort?: string,
+): Invocation {
   const plugin = join(root, "packages", "claude-plugin");
   if (scenario.tool === "claude") {
     return {
@@ -538,7 +630,7 @@ function liveInvocation(scenario, hostModel, routeModel, root, privatePrompt, ef
       "--model",
       routeModel,
       "--effort",
-      effort,
+      effort as string,
       "--sandbox",
       "read-only",
       "--max-turns",
@@ -550,7 +642,20 @@ function liveInvocation(scenario, hostModel, routeModel, root, privatePrompt, ef
   };
 }
 
-async function discoverLive(tool, env, root, commandRunner, executionCwd = root) {
+interface Discovery {
+  available: boolean;
+  reason?: string;
+  catalog: string[];
+  catalogAuthorized?: boolean;
+}
+
+async function discoverLive(
+  tool: string,
+  env: NodeJS.ProcessEnv,
+  root: string,
+  commandRunner: CommandRunner,
+  executionCwd: string = root,
+): Promise<Discovery> {
   if (!(await commandExists(tool, env)))
     return { available: false, reason: `${tool} is not installed on PATH`, catalog: [] };
   const version = await commandRunner(tool, ["--version"], { cwd: executionCwd, env, timeoutMs: 10_000 });
@@ -587,7 +692,7 @@ async function discoverLive(tool, env, root, commandRunner, executionCwd = root)
     const cachePath = env.CODEX_HOME
       ? join(env.CODEX_HOME, "models_cache.json")
       : join(env.HOME ?? "", ".codex", "models_cache.json");
-    let catalog = [];
+    let catalog: string[] = [];
     try {
       catalog = parseCatalog("codex", await readFile(cachePath, "utf8"));
     } catch {
@@ -598,7 +703,10 @@ async function discoverLive(tool, env, root, commandRunner, executionCwd = root)
   return { available: true, catalogAuthorized: true, reason: "Claude --help model contract", catalog: [] };
 }
 
-export async function validateCursorProviderFamily(provider, model) {
+export async function validateCursorProviderFamily(
+  provider: string,
+  model: string,
+): Promise<CursorProviderName | null> {
   const { cursorModelFamily } = await import("@ask-llm/mcp/cursor");
   const family = cursorModelFamily(model);
   if (family !== provider) {
@@ -611,7 +719,7 @@ export async function validateCursorProviderFamily(provider, model) {
   return family;
 }
 
-function extractObservedModel(output, scenario) {
+function extractObservedModel(output: unknown, scenario: Scenario): string | undefined {
   const text = String(output);
   const explicit = [...text.matchAll(/"observedModel"\s*:\s*"([^"]+)"/g)].at(-1)?.[1];
   if (explicit) return explicit;
@@ -621,7 +729,27 @@ function extractObservedModel(output, scenario) {
   return undefined;
 }
 
-async function runRealAdapterProbe({ root, workspace, artifacts, scenario, selection, prompt, commandRunner, env }) {
+interface AdapterContext {
+  root: string;
+  workspace: string;
+  artifacts: string;
+  scenario: Scenario;
+  selection: Selection;
+  prompt: string;
+  commandRunner: CommandRunner;
+  env: NodeJS.ProcessEnv;
+}
+
+async function runRealAdapterProbe({
+  root,
+  workspace,
+  artifacts,
+  scenario,
+  selection,
+  prompt,
+  commandRunner,
+  env,
+}: AdapterContext): Promise<CommandResult> {
   const configPath = join(artifacts, `${scenario.id.replaceAll(/[^a-z0-9]+/gi, "-")}.adapter.json`);
   await writeFile(
     configPath,
@@ -644,21 +772,45 @@ async function runRealAdapterProbe({ root, workspace, artifacts, scenario, selec
   });
 }
 
-function routeTool(scenario) {
+function routeTool(scenario: Scenario): string {
   if (scenario.harness === "cursor-agent") return "agent";
   if (scenario.provider === "codex") return "codex";
   if (scenario.provider === "grok") return "grok";
   return scenario.tool;
 }
 
-export async function runHarnessSuite(options = {}) {
+interface ScenarioResult {
+  id: string;
+  status: ResultStatus;
+  reason: string;
+  detail?: string;
+}
+
+interface SuiteReport {
+  mode: Mode;
+  tempRoot: string;
+  results: ScenarioResult[];
+}
+
+export interface RunHarnessSuiteOptions {
+  mode?: Mode;
+  env?: NodeJS.ProcessEnv;
+  root?: string;
+  commandRunner?: CommandRunner;
+  fingerprint?: () => Promise<string>;
+  scenarios?: readonly Scenario[];
+  discovery?: Record<string, Discovery>;
+  deterministicAdapter?: (context: AdapterContext) => Promise<CommandResult>;
+}
+
+export async function runHarnessSuite(options: RunHarnessSuiteOptions = {}): Promise<SuiteReport> {
   const mode = options.mode ?? "dry-run";
   const env = options.env ?? process.env;
   const root = resolve(options.root ?? process.cwd());
   const commandRunner = options.commandRunner ?? runCommand;
   const fingerprint = options.fingerprint ?? (() => gitFingerprint(root, commandRunner));
   const scenarios = options.scenarios ?? SCENARIOS;
-  const results = [];
+  const results: ScenarioResult[] = [];
   const tempRoot = await mkdtemp(join(tmpdir(), "ask-llm-harness-smoke-"));
   const workspace = join(tempRoot, "workspace");
   const artifacts = join(tempRoot, "private-artifacts");
@@ -668,7 +820,7 @@ export async function runHarnessSuite(options = {}) {
   try {
     const before = await fingerprint();
     const authorized = authorizationSet(env);
-    const discovery = new Map();
+    const discovery = new Map<string, Discovery>();
     if (mode === "live") {
       const tools = new Set(
         scenarios
@@ -685,20 +837,24 @@ export async function runHarnessSuite(options = {}) {
 
     for (const scenario of scenarios) {
       if (scenario.supported === false) {
-        results.push({ id: scenario.id, status: RESULTS.SKIP_UNAVAILABLE, reason: scenario.unavailableReason });
+        results.push({
+          id: scenario.id,
+          status: RESULTS.SKIP_UNAVAILABLE,
+          reason: scenario.unavailableReason as string,
+        });
         continue;
       }
       if (mode === "live" && scenario.liveSupported === false) {
         results.push({
           id: scenario.id,
           status: RESULTS.SKIP_UNAVAILABLE,
-          reason: scenario.liveUnavailableReason,
+          reason: scenario.liveUnavailableReason as string,
         });
         continue;
       }
 
-      const selection = {
-        model: selectedModel(scenario.modelKey, mode, env),
+      const selection: Selection = {
+        model: selectedModel(scenario.modelKey, mode, env) as string,
         secondaryModel: scenario.secondaryModelKey ? selectedModel(scenario.secondaryModelKey, mode, env) : undefined,
         hostModel: scenario.hostModelKey ? selectedModel(scenario.hostModelKey, mode, env) : undefined,
         effort: selectedEffort(scenario, mode, env),
@@ -738,10 +894,10 @@ export async function runHarnessSuite(options = {}) {
 
         const hostCatalogModel = selection.hostModel ?? selection.model;
         if (host.catalogAuthorized === false && scenario.tool !== "claude") {
-          results.push({ id: scenario.id, status: RESULTS.SKIP_NOT_AUTHORIZED, reason: host.reason });
+          results.push({ id: scenario.id, status: RESULTS.SKIP_NOT_AUTHORIZED, reason: host.reason as string });
           continue;
         }
-        if (host.catalog?.length > 0 && !host.catalog.includes(hostCatalogModel)) {
+        if ((host.catalog?.length ?? 0) > 0 && !host.catalog.includes(hostCatalogModel)) {
           results.push({
             id: scenario.id,
             status: RESULTS.FAIL,
@@ -752,12 +908,12 @@ export async function runHarnessSuite(options = {}) {
 
         const route = discovery.get(routeTool(scenario));
         if (route?.catalogAuthorized === false) {
-          results.push({ id: scenario.id, status: RESULTS.SKIP_NOT_AUTHORIZED, reason: route.reason });
+          results.push({ id: scenario.id, status: RESULTS.SKIP_NOT_AUTHORIZED, reason: route.reason as string });
           continue;
         }
         const missingRouteModel = [selection.model, selection.secondaryModel]
-          .filter(Boolean)
-          .find((routeModel) => route?.catalog?.length > 0 && !route.catalog.includes(routeModel));
+          .filter((value): value is string => Boolean(value))
+          .find((routeModel) => (route?.catalog?.length ?? 0) > 0 && !route?.catalog.includes(routeModel));
         if (missingRouteModel) {
           results.push({
             id: scenario.id,
@@ -770,7 +926,7 @@ export async function runHarnessSuite(options = {}) {
 
       try {
         if (scenario.harness === "cursor-agent") {
-          await validateCursorProviderFamily(scenario.provider, selection.model);
+          await validateCursorProviderFamily(scenario.provider as string, selection.model);
           if (selection.secondaryModel) await validateCursorProviderFamily("codex", selection.secondaryModel);
         }
       } catch (error) {
@@ -787,10 +943,17 @@ export async function runHarnessSuite(options = {}) {
       await writeFile(promptPath, privatePrompt, { mode: 0o600 });
       const scenarioRepoBefore = await fingerprint();
       const workspaceBefore = await treeFingerprint(workspace);
-      const invocation =
+      const invocation: Invocation =
         mode === "dry-run"
           ? { args: ["--model", selection.model], stdin: undefined }
-          : liveInvocation(scenario, selection.hostModel, selection.model, root, privatePrompt, selection.effort);
+          : liveInvocation(
+              scenario,
+              selection.hostModel as string,
+              selection.model,
+              root,
+              privatePrompt,
+              selection.effort,
+            );
       const run =
         mode === "dry-run"
           ? await (options.deterministicAdapter ?? runRealAdapterProbe)({

@@ -14,15 +14,15 @@ const MARKETPLACE_JSON = resolve(ROOT, ".claude-plugin/marketplace.json");
 const PLUGIN_NAME = "ask-llm";
 const CHECK_ONLY = process.argv.includes("--check");
 
-async function readJson(path) {
+async function readJson(path: string) {
   return JSON.parse(await readFile(path, "utf8"));
 }
 
-async function writeJson(path, data) {
+async function writeJson(path: string, data: unknown) {
   await writeFile(path, `${JSON.stringify(data, null, 2)}\n`);
 }
 
-async function syncPluginJson(path, version) {
+async function syncPluginJson(path: string, version: string) {
   const pluginJson = await readJson(path);
   if (pluginJson.version === version) return false;
   if (!CHECK_ONLY) {
@@ -32,9 +32,9 @@ async function syncPluginJson(path, version) {
   return true;
 }
 
-async function syncMarketplaceJson(version) {
+async function syncMarketplaceJson(version: string) {
   const marketplace = await readJson(MARKETPLACE_JSON);
-  const entry = marketplace.plugins?.find((p) => p.name === PLUGIN_NAME);
+  const entry = marketplace.plugins?.find((p: { name: string }) => p.name === PLUGIN_NAME);
   if (!entry) {
     throw new Error(`marketplace.json: no plugin entry named "${PLUGIN_NAME}"`);
   }

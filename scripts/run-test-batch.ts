@@ -1,4 +1,4 @@
-import { spawnSync } from "node:child_process";
+import { type SpawnSyncOptionsWithStringEncoding, spawnSync } from "node:child_process";
 import { createRequire } from "node:module";
 import { dirname, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -11,7 +11,28 @@ function resolveVitestPath() {
   return resolve(dirname(packagePath), require(packagePath).bin.vitest);
 }
 
-export function parseBatch(value) {
+interface Batch {
+  index: number;
+  count: number;
+}
+
+interface Runtime {
+  nodePath?: string;
+  vitestPath?: string;
+}
+
+type Spawn = (
+  command: string,
+  args: string[],
+  options: SpawnSyncOptionsWithStringEncoding,
+) => { status: number | null; stdout: string; stderr: string; error?: Error };
+
+interface Invocation {
+  command: string;
+  args: string[];
+}
+
+export function parseBatch(value: string | undefined): Batch {
   const match = /^(\d+)\/(\d+)$/.exec(value ?? "");
   if (!match) throw new Error("batch must use the format <index>/<count>");
 
@@ -23,22 +44,26 @@ export function parseBatch(value) {
   return { index, count };
 }
 
-export function assignTestFiles(files, { index, count }) {
+export function assignTestFiles(files: readonly string[], { index, count }: Batch): string[] {
   return [...files].sort((a, b) => a.localeCompare(b, "en")).filter((_, position) => position % count === index - 1);
 }
 
-export function vitestInvocation(args, runtime = {}) {
+export function vitestInvocation(args: string[], runtime: Runtime = {}): Invocation {
   return {
     command: runtime.nodePath ?? process.execPath,
     args: [runtime.vitestPath ?? resolveVitestPath(), ...args],
   };
 }
 
-export function vitestCommand(files, runtime) {
+export function vitestCommand(files: string[], runtime?: Runtime): Invocation {
   return vitestInvocation(["run", ...files], runtime);
 }
 
-export function run({ command, args }, options = {}, spawn = spawnSync) {
+export function run(
+  { command, args }: Invocation,
+  options: { capture?: boolean } = {},
+  spawn: Spawn = spawnSync,
+): string {
   const result = spawn(command, args, {
     cwd: root,
     encoding: "utf8",
@@ -53,13 +78,13 @@ export function run({ command, args }, options = {}, spawn = spawnSync) {
   return result.stdout;
 }
 
-function discoverTestFiles() {
+function discoverTestFiles(): string[] {
   const command = vitestInvocation(["list", "--filesOnly", "--json"]);
   const output = run(command, { capture: true });
-  return JSON.parse(output).map(({ file }) => relative(root, file));
+  return (JSON.parse(output) as { file: string }[]).map(({ file }) => relative(root, file));
 }
 
-export function main(argv = process.argv.slice(2)) {
+export function main(argv: string[] = process.argv.slice(2)): void {
   const batch = parseBatch(argv[0]);
   const allFiles = discoverTestFiles();
   const files = assignTestFiles(allFiles, batch);
