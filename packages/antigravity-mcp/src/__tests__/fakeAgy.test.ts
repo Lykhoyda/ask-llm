@@ -1,4 +1,4 @@
-import { chmodSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
@@ -41,7 +41,6 @@ type Scenario = { stdout: string; stderr: string; exit?: number };
 
 describe("fake agy 1.2.12", { timeout: 30_000 }, () => {
   let dir: string;
-  let previousPath: string | undefined;
 
   const writeScenario = (name: string, { stdout, stderr, exit = 0 }: Scenario) => {
     mkdirSync(join(dir, name), { recursive: true });
@@ -55,29 +54,35 @@ describe("fake agy 1.2.12", { timeout: 30_000 }, () => {
     writeScenario("quota", quota ?? { stdout: "", stderr: "unexpected /quota call", exit: 1 });
   };
 
+  const argvOf = (name: string) =>
+    readFileSync(join(dir, name, "argv.txt"), "utf8")
+      .trim()
+      .split("\n");
+
   // One executable for the file: macOS can stall seconds scanning each newly written binary.
   beforeAll(() => {
     vi.stubEnv("ASK_ANTIGRAVITY_ALLOW_UNISOLATED", "1");
-    previousPath = process.env.PATH;
+    for (const key of ["ASK_ANTIGRAVITY_MODEL", "ASK_ANTIGRAVITY_EFFORT", "ASK_ANTIGRAVITY_TIMEOUT_MS"]) {
+      vi.stubEnv(key, undefined);
+    }
     dir = mkdtempSync(join(tmpdir(), "fake-agy-"));
     const script = [
       "#!/bin/sh",
       'if [ "$1" = "--version" ]; then echo 1.2.12; exit 0; fi',
       `d='${join(dir, "primary")}'`,
       `for a; do case "$a" in ${MODELS.FALLBACK}) d='${join(dir, "fallback")}';; /quota) d='${join(dir, "quota")}';; esac; done`,
+      'printf "%s\\n" "$@" > "$d/argv.txt"',
       'cat "$d/stderr.txt" >&2',
       'cat "$d/stdout.txt"',
       'exit "$(cat "$d/exit.txt")"',
     ].join("\n");
     writeFileSync(join(dir, "agy"), `${script}\n`);
     chmodSync(join(dir, "agy"), 0o755);
-    vi.stubEnv("ASK_LLM_PATH", `${dir}:${previousPath ?? ""}`);
+    vi.stubEnv("ASK_LLM_PATH", `${dir}:${process.env.PATH ?? ""}`);
   });
 
   afterAll(() => {
     vi.unstubAllEnvs();
-    if (previousPath === undefined) delete process.env.PATH;
-    else process.env.PATH = previousPath;
     rmSync(dir, { recursive: true, force: true });
   });
 
@@ -119,6 +124,8 @@ describe("fake agy 1.2.12", { timeout: 30_000 }, () => {
       const result = await executeAntigravityCLI({ prompt: "q" });
       expect(result.response).toBe("flash answer");
       expect(result.model).toBe(MODELS.FALLBACK);
+      const fallbackArgv = argvOf("fallback");
+      expect(fallbackArgv[fallbackArgv.indexOf("--effort") + 1]).toBe("high");
     });
 
     it("surfaces a non-quota AGY_ERROR without falling back", async () => {

@@ -213,13 +213,22 @@ export function isModelUnavailableError(message: string): boolean {
   return ANTIGRAVITY.MODEL_UNAVAILABLE_SIGNALS.some((s) => lower.includes(s));
 }
 
+// Keeps the classification fields whole and bounds only the free-text short_error.
 export function findAgyErrorLine(stderr: string): string | undefined {
+  const prefix = ANTIGRAVITY.STRUCTURED_ERROR_PREFIX;
   const line = stderr
     .split("\n")
     .reverse()
-    .find((l) => l.startsWith(ANTIGRAVITY.STRUCTURED_ERROR_PREFIX))
+    .find((l) => l.startsWith(prefix))
     ?.trim();
-  return line?.slice(0, ANTIGRAVITY.PARTIAL_OUTPUT_PREVIEW_CHARS);
+  if (!line) return undefined;
+  try {
+    const { status, code, http_status, retryable, error_id, short_error } = JSON.parse(line.slice(prefix.length));
+    const shortError = typeof short_error === "string" ? short_error.slice(0, 300) : undefined;
+    return `${prefix} ${JSON.stringify({ status, code, http_status, retryable, error_id, short_error: shortError })}`;
+  } catch {
+    return line.slice(0, ANTIGRAVITY.PARTIAL_OUTPUT_PREVIEW_CHARS);
+  }
 }
 
 export function isTruncatedAnswerError(message: string): boolean {
@@ -337,8 +346,12 @@ export async function executeAntigravityCLI(options: AntigravityExecutorOptions)
       options.signal,
     ).catch((error: unknown) => {
       // The shared sanitizer keeps only 3 stderr lines, which can drop agy's AGY_ERROR line (#335).
+      // Timeouts and cancellations keep their own error; AGY_ERROR describes only agy's exit.
+      if (!(error instanceof Error) || options.signal?.aborted || error.message.startsWith("Command timed out")) {
+        throw error;
+      }
       const agyError = findAgyErrorLine(stderrChunks.join(""));
-      if (agyError && error instanceof Error && !error.message.includes(agyError)) {
+      if (agyError && !error.message.includes(agyError)) {
         throw new Error(`${agyError}\n${error.message}`);
       }
       throw error;

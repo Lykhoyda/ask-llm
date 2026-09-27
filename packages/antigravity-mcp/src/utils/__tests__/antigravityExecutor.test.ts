@@ -24,6 +24,7 @@ import { assertSupportedAgyVersion } from "../agyVersion.js";
 import {
   buildArgs,
   executeAntigravityCLI,
+  findAgyErrorLine,
   isModelUnavailableError,
   isPrintTimeoutTruncation,
   isTruncatedAnswerError,
@@ -848,4 +849,23 @@ describe("Antigravity isolation guard", () => {
       for (const [, args] of mockExec.mock.calls) expect(args).not.toContain("--dangerously-skip-permissions");
     },
   );
+});
+
+describe("AGY_ERROR stderr line (#335)", () => {
+  const rateLimitLine = 'AGY_ERROR: {"status":"RESOURCE_EXHAUSTED","http_status":429,"retryable":true}\n';
+
+  it("keeps classification fields when short_error is long", () => {
+    const line = findAgyErrorLine(`AGY_ERROR: {"short_error":"${"x".repeat(2000)}","http_status":429}\n`);
+    expect(line).toContain('"http_status":429');
+    expect(line?.length).toBeLessThan(500);
+  });
+
+  it("leaves a process timeout unclassified instead of recovering from a captured AGY_ERROR", async () => {
+    mockExec.mockImplementation(async (_command, _args, _onProgress, onStderr) => {
+      onStderr?.(rateLimitLine);
+      throw new Error("Command timed out after 300s. The LLM provider took too long to respond.");
+    });
+    await expect(executeAntigravityCLI({ prompt: "q" })).rejects.toThrow(/^Command timed out/);
+    expect(mockExec).toHaveBeenCalledOnce();
+  });
 });
