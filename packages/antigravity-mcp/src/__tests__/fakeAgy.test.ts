@@ -107,6 +107,26 @@ describe("fake agy 1.2.12", { timeout: 30_000 }, () => {
     });
   });
 
+  it("reports agy's refused actions instead of NO_OUTPUT when a denial left no answer", async () => {
+    // Live-captured by the read-only investigation on agy 1.2.12 (probe B-a).
+    const stdout = JSON.stringify({
+      conversation_id: "2a1f2258-0000-0000-0000-000000000000",
+      status: "SUCCESS",
+      response: "",
+      duration_seconds: 4.2,
+      num_turns: 1,
+      usage: ZERO_USAGE,
+      denied_actions: [{ action: "write_file", display_name: "WriteToFile" }],
+    });
+    const stderr =
+      PLAN_WARNING +
+      'jetski: no output produced — a tool required the "write_file" permission that headless mode cannot prompt for, so it was auto-denied.\n';
+    installFakeAgy({ stdout, stderr });
+    const error = await executeAntigravityCLI({ prompt: "q", readOnly: true }).catch((err: unknown) => err);
+    expect((error as Error).message).not.toContain(ERROR_MESSAGES.NO_OUTPUT);
+    expect((error as Error).message).toContain("write_file");
+  });
+
   describe("structured AGY_ERROR stderr (#335)", () => {
     const rateLimited = agyError({
       status: "RATE_LIMITED",

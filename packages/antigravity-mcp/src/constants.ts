@@ -9,6 +9,8 @@ export const ERROR_MESSAGES = {
   TRUNCATED: "Antigravity (agy) hit --print-timeout and returned a truncated answer instead of a complete response.",
   UNISOLATED_REFUSED:
     "Antigravity (agy) execution refused: read-only isolation is not guaranteed. To explicitly allow an unisolated run that may modify files, run shell commands, and access the network, set ASK_ANTIGRAVITY_ALLOW_UNISOLATED=1.",
+  DENIED_WITHOUT_ANSWER:
+    "Antigravity (agy) returned no answer because it refused tool actions it was not permitted to take; ask for analysis only.",
   TOOL_NOT_FOUND: "not found in registry",
 } as const;
 

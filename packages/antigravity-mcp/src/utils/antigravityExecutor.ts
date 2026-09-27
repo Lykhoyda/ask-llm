@@ -94,6 +94,7 @@ function formatDeniedActions(value: unknown): string | undefined {
   if (!Array.isArray(value) || value.length === 0) return undefined;
   const names = value.map((item) => {
     if (typeof item === "string") return item;
+    if (typeof item?.action === "string") return item.action;
     try {
       return JSON.stringify(item);
     } catch {
@@ -390,6 +391,9 @@ export async function executeAntigravityCLI(options: AntigravityExecutorOptions)
         Logger.debug("antigravity: response from stdout-plain");
         return { response: plain, model: reportedModel, sessionId: undefined, usage: undefined };
       }
+    }
+    if (parsed.kind === "envelope-without-answer" && parsed.deniedNotice) {
+      throw new Error(`${ERROR_MESSAGES.DENIED_WITHOUT_ANSWER} ${parsed.deniedNotice}`);
     }
     // agy exited cleanly but produced no readable answer anywhere.
     throw new Error(ERROR_MESSAGES.NO_OUTPUT);
