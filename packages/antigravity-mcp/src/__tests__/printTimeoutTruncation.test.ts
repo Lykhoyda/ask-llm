@@ -1,7 +1,7 @@
 import { chmodSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { ERROR_MESSAGES } from "../constants.js";
 import { executeAntigravityCLI } from "../utils/antigravityExecutor.js";
 
@@ -31,6 +31,7 @@ describe("fake agy 1.2.12 print-timeout expiry", { timeout: 30_000 }, () => {
 
   // One executable for the file: macOS can stall seconds scanning each newly written binary.
   beforeAll(() => {
+    vi.stubEnv("ASK_ANTIGRAVITY_ALLOW_UNISOLATED", "1");
     previousPath = process.env.PATH;
     dir = mkdtempSync(join(tmpdir(), "fake-agy-"));
     const script = [
@@ -42,10 +43,11 @@ describe("fake agy 1.2.12 print-timeout expiry", { timeout: 30_000 }, () => {
     ].join("\n");
     writeFileSync(join(dir, "agy"), `${script}\n`);
     chmodSync(join(dir, "agy"), 0o755);
-    process.env.PATH = `${dir}:${previousPath ?? ""}`;
+    vi.stubEnv("ASK_LLM_PATH", `${dir}:${previousPath ?? ""}`);
   });
 
   afterAll(() => {
+    vi.unstubAllEnvs();
     if (previousPath === undefined) delete process.env.PATH;
     else process.env.PATH = previousPath;
     rmSync(dir, { recursive: true, force: true });

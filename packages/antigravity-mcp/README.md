@@ -16,10 +16,13 @@ subscription-backed second opinion / code review from Antigravity.
 > model and lets agy pick its default; any other rejected model fails with an
 > actionable error naming `agy models`.
 
+This package's review tool and read-only machine execution refuse before probing agy unless `ASK_ANTIGRAVITY_ALLOW_UNISOLATED=1`. Opted-in runs can modify files, run shell commands, and access the network; this package omits `--dangerously-skip-permissions`. See the [provider guide](https://lykhoyda.github.io/ask-llm/providers/antigravity) for the isolation limits.
+
 ## Prerequisites
 - `agy` >=1.1.5 installed and on PATH (`agy --version`), and logged in once (run `agy` interactively). Older versions are not supported.
 
 ## Config
+- `ASK_ANTIGRAVITY_ALLOW_UNISOLATED` — unset by default; only the exact value `1` permits unisolated execution.
 - `ASK_ANTIGRAVITY_TIMEOUT_MS` — process timeout (default 300000 = 5m). On agy ≥1.1.28 a `--print-timeout` expiry is a truncated-answer error rather than a complete response.
 - `ASK_ANTIGRAVITY_SANDBOX` — set `0` to drop `--sandbox` if it blocks context reads.
 - `ASK_ANTIGRAVITY_MODEL` — agy model via `--model` (default `gemini-3.1-pro`, with `gemini-3.5-flash` as the rate-limit fallback; run `agy models` for options). Legacy effort-carrying display strings like `Gemini 3.1 Pro (High)` still resolve for backward compatibility, but they conflict with `--effort`, so the default effort is only sent when the model value equals one of the built-in base slugs.

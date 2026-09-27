@@ -262,6 +262,7 @@ const child = spawn(process.env.PI_BIN || "pi", childArgs, {
     // override is present. Pinning it is load-bearing: PATH alone can select a
     // developer's authenticated CLI and invalidate a hermetic acceptance run.
     ASK_LLM_PATH: hermeticPath,
+    ASK_ANTIGRAVITY_ALLOW_UNISOLATED: "1",
     PI_CODING_AGENT_DIR: agentDir,
     PI_SKIP_VERSION_CHECK: "1",
     PI_TELEMETRY: "0",

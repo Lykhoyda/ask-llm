@@ -14,7 +14,7 @@ describe("Antigravity machine options", () => {
     expect(args).not.toContain(CLI.FLAGS.EFFORT);
   });
 
-  it("keeps legacy human argv when read-only mode is disabled", () => {
+  it("omits permission bypass when read-only mode is disabled", () => {
     const args = buildArgs("review", [], 295, true, "Gemini 3.1 Pro (High)", false);
 
     expect(args).toEqual([
@@ -26,7 +26,6 @@ describe("Antigravity machine options", () => {
       "295s",
       CLI.FLAGS.OUTPUT_FORMAT,
       OUTPUT_FORMATS.JSON,
-      CLI.FLAGS.SKIP_PERMISSIONS,
       CLI.FLAGS.SANDBOX,
     ]);
   });

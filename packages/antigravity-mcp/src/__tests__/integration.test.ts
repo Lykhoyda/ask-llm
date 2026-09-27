@@ -1,6 +1,15 @@
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { chmodSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+  chmodSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -32,7 +41,14 @@ function hashTree(root: string): string {
 }
 
 describe.skipIf(!SMOKE)("Antigravity (agy) CLI integration", () => {
-  const environmentKeys = ["ASK_ANTIGRAVITY_TIMEOUT_MS", "AGY_ARGV_CAPTURE", "AGY_REAL_BIN", "PATH"] as const;
+  const environmentKeys = [
+    "ASK_ANTIGRAVITY_TIMEOUT_MS",
+    "AGY_ARGV_CAPTURE",
+    "AGY_REAL_BIN",
+    "AGY_FIXTURE_DIR",
+    "ASK_LLM_PATH",
+    "PATH",
+  ] as const;
   let previousEnvironment: Record<(typeof environmentKeys)[number], string | undefined>;
   let smokeDir: string;
   let fixtureDir: string;
@@ -52,13 +68,17 @@ describe.skipIf(!SMOKE)("Antigravity (agy) CLI integration", () => {
     writeFileSync(join(fixtureDir, "review.json"), '{"status":"safe","value":42}\n');
 
     const shimPath = join(shimDir, "agy");
-    writeFileSync(shimPath, '#!/bin/sh\nprintf \'%s\\n\' "$@" > "$AGY_ARGV_CAPTURE"\nexec "$AGY_REAL_BIN" "$@"\n');
+    writeFileSync(
+      shimPath,
+      '#!/bin/sh\nprintf \'%s\\n\' "$@" > "$AGY_ARGV_CAPTURE"\ncd "$AGY_FIXTURE_DIR" || exit 1\nexec "$AGY_REAL_BIN" "$@"\n',
+    );
     chmodSync(shimPath, 0o755);
 
     process.env.ASK_ANTIGRAVITY_TIMEOUT_MS = String(EXECUTOR_TIMEOUT_MS);
     process.env.AGY_ARGV_CAPTURE = argvCapturePath;
     process.env.AGY_REAL_BIN = realAgy;
-    process.env.PATH = `${shimDir}:${previousEnvironment.PATH ?? ""}`;
+    process.env.AGY_FIXTURE_DIR = fixtureDir;
+    process.env.ASK_LLM_PATH = `${shimDir}:${previousEnvironment.PATH ?? ""}`;
   });
 
   afterEach(() => {
@@ -70,8 +90,18 @@ describe.skipIf(!SMOKE)("Antigravity (agy) CLI integration", () => {
     rmSync(smokeDir, { recursive: true, force: true });
   });
 
-  it(
-    "reviews a fixture in read-only plan+sandbox mode without changing it",
+  it.skipIf(process.env.ASK_ANTIGRAVITY_ALLOW_UNISOLATED === "1")(
+    "refuses without explicit unisolated opt-in before any agy spawn",
+    async () => {
+      await expect(executeAntigravityCLI({ prompt: "Review fixture", readOnly: true })).rejects.toThrow(
+        "ASK_ANTIGRAVITY_ALLOW_UNISOLATED=1",
+      );
+      expect(existsSync(argvCapturePath)).toBe(false);
+    },
+  );
+
+  it.skipIf(process.env.ASK_ANTIGRAVITY_ALLOW_UNISOLATED !== "1")(
+    "reviews a disposable fixture under explicit unisolated opt-in with best-effort flags",
     async () => {
       const beforeHash = hashTree(fixtureDir);
       let result: Awaited<ReturnType<typeof executeAntigravityCLI>>;
