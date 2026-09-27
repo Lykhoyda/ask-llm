@@ -11,22 +11,23 @@ import {
   formatBlockMessage,
   formatInFlightMessage,
   parseGitPorcelain,
-  selectLatestEntries,
+  selectReviewEntries,
 } from "../../scripts/lib/stop-gate.mjs";
 import { PLUGIN_ROOT } from "./_helpers.js";
 
-describe("selectLatestEntries", () => {
-  it("keeps the last entry per file and tolerates blank/garbage lines", () => {
+describe("selectReviewEntries", () => {
+  it("keeps hashed reviews newest first per file and tolerates blank/garbage lines", () => {
     const log = [
       '{"file":"/r/a.ts","verdict":"concerns","contentHash":"h1","concerns":{"high":["H1"]}}',
       "",
       "not json",
       '{"file":"/r/a.ts","verdict":"none","contentHash":"h2","concerns":{"high":[]}}',
+      '{"file":"/r/a.ts","verdict":"skipped","contentHash":"h2"}',
       '{"file":"/r/b.ts","verdict":"concerns","contentHash":"h3","concerns":{"high":["H2"]}}',
     ].join("\n");
-    const map = selectLatestEntries(log);
-    expect(map.get("/r/a.ts").verdict).toBe("none");
-    expect(map.get("/r/b.ts").concerns.high).toEqual(["H2"]);
+    const map = selectReviewEntries(log);
+    expect(map.get("/r/a.ts")?.map((entry) => entry.verdict)).toEqual(["none", "concerns"]);
+    expect(map.get("/r/b.ts")?.[0].concerns?.high).toEqual(["H2"]);
     expect(map.size).toBe(2);
   });
 
@@ -37,7 +38,7 @@ describe("selectLatestEntries", () => {
       '{"file":"/r/a.ts","verdict":"skipped","reason":"paused via /codex-pair-pause"}',
       '{"file":"/r/a.ts","level":"info","reason":"over-cap"}',
     ].join("\n");
-    expect(selectLatestEntries(log).get("/r/a.ts").concerns.high).toEqual(["H1"]);
+    expect(selectReviewEntries(log).get("/r/a.ts")?.[0].concerns?.high).toEqual(["H1"]);
   });
 });
 
@@ -60,8 +61,7 @@ describe("parseGitPorcelain", () => {
   });
 });
 
-// helper: build a Map<file, entry>
-const m = (obj) => new Map(Object.entries(obj));
+const m = (obj) => new Map(Object.entries(obj).map(([file, entry]) => [file, [entry]]));
 
 describe("collectBlockingHighs", () => {
   const base = { markerDir: "/r", existsFn: () => true, hashFn: () => "h", gitDirty: null };
@@ -126,21 +126,31 @@ describe("collectBlockingHighs", () => {
     expect(collectBlockingHighs({ ...base, entries, acks: {}, hashFn: () => "old" })).toHaveLength(1);
   });
 
-  it("D2: hashes only dirty files whose latest verdict has a HIGH", () => {
-    let calls = 0;
-    const hashFn = () => {
-      calls++;
+  it("D2: hashes each existing dirty file with review entries once, including clean verdicts", () => {
+    const calls: string[] = [];
+    const hashFn = (file: string) => {
+      calls.push(file);
       return "h";
     };
     const entries = m({
       "/r/clean.ts": { file: "/r/clean.ts", verdict: "concerns", contentHash: "h", concerns: { high: ["H"] } },
-      "/r/skip.ts": { file: "/r/skip.ts", verdict: "skipped", contentHash: "h" },
       "/r/none.ts": { file: "/r/none.ts", verdict: "none", contentHash: "h", concerns: { high: [] } },
       "/r/dirty.ts": { file: "/r/dirty.ts", verdict: "concerns", contentHash: "h", concerns: { high: ["H"] } },
+      "/r/gone.ts": { file: "/r/gone.ts", verdict: "concerns", contentHash: "h", concerns: { high: ["H"] } },
     });
-    const gitDirty = new Set(["/r/skip.ts", "/r/none.ts", "/r/dirty.ts"]);
-    expect(collectBlockingHighs({ ...base, entries, acks: {}, gitDirty, hashFn })).toHaveLength(1);
-    expect(calls).toBe(1);
+    const gitDirty = new Set(["/r/none.ts", "/r/dirty.ts", "/r/gone.ts"]);
+    expect(collectBlockingHighs({ ...base, entries, acks: {}, gitDirty, hashFn, existsFn: (file) => file !== "/r/gone.ts" })).toHaveLength(1);
+    expect(calls).toEqual(["/r/none.ts", "/r/dirty.ts"]);
+  });
+
+  it("D5: an older non-matching review logged last cannot hide a cached HIGH for current content", () => {
+    const file = "/r/a.ts";
+    const log = [
+      JSON.stringify({ file, verdict: "cached", contentHash: "B", concerns: { high: ["current HIGH"] } }),
+      JSON.stringify({ file, verdict: "concerns", contentHash: "A", concerns: { high: ["old HIGH"] } }),
+    ].join("\n");
+    const entries = selectReviewEntries(log);
+    expect(collectBlockingHighs({ ...base, entries, acks: {}, hashFn: () => "B" }).map((finding) => finding.text)).toEqual(["current HIGH"]);
   });
 });
 

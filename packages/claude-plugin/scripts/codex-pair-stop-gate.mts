@@ -25,7 +25,7 @@ import {
   formatBlockMessage,
   formatInFlightMessage,
   parseGitPorcelain,
-  selectLatestEntries,
+  selectReviewEntries,
 } from "./lib/stop-gate.mts";
 
 const MARKER_FILE = join(PAIR_ROOT_DIR, CONTEXT_FILENAME);
@@ -121,8 +121,8 @@ function writeAndExit(obj: unknown): void {
 }
 
 // Canonicalize for git paths; macOS may resolve /var to /private/var.
-function canonicalizeEntries<T extends object>(entries: Iterable<[string, T]>): Map<string, T & { file: string }> {
-  const out = new Map<string, T & { file: string }>();
+function canonicalizeEntries<T>(entries: Iterable<[string, T]>): Map<string, T> {
+  const out = new Map<string, T>();
   for (const [file, entry] of entries) {
     let real = file;
     try {
@@ -130,7 +130,7 @@ function canonicalizeEntries<T extends object>(entries: Iterable<[string, T]>): 
     } catch {
       // missing/inaccessible → keep raw; collectBlockingHighs' existsFn drops it
     }
-    out.set(real, { ...entry, file: real });
+    out.set(real, entry);
   }
   return out;
 }
@@ -165,7 +165,7 @@ function evaluateMarker(markerDir: string) {
   }
 
   const blocking = collectBlockingHighs({
-    entries: canonicalizeEntries(selectLatestEntries(logText)),
+    entries: canonicalizeEntries(selectReviewEntries(logText)),
     acks: readAcks(canonical),
     existsFn: existsSync,
     hashFn: fileContentHash,

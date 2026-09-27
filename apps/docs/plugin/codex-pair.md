@@ -170,8 +170,8 @@ Once enabled, the hook checks at turn-end whether any HIGH findings in `log.json
 
 - **File deleted or renamed** → finding skipped (no longer relevant)
 - **File clean vs HEAD** (`git status --porcelain=v1 -z --untracked-files=all`) → finding skipped (reverted or branch-switched away); new files inside untracked directories remain eligible to block
-- **Latest hashed log entry for the file is indeterminate** (`error`/`retried`/`broker_fallback`) → fail-open, finding skipped (don't block on a stale HIGH from before a transient error). Skip entries have no content hash and do not displace the last review.
-- **Latest review is for content that has since changed** (its recorded content hash no longer matches the file on disk) → finding skipped; the settled edit's own review follows
+- **Latest review of the content on disk is indeterminate** (`error`/`retried`/`broker_fallback`) → fail-open, finding skipped (don't block on a stale HIGH from before a transient error). Skip entries have no content hash and do not displace the last review.
+- **No review matches the content on disk** → finding skipped; the settled edit's own review follows. The gate uses the latest matching review even if a review of older content finished afterward.
 
 ### In-flight reviews block too
 

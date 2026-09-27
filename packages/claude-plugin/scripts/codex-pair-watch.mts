@@ -1261,6 +1261,8 @@ async function main() {
     });
     await emitSystemMessage(
       `codex-pair ${prefix}: ${filePath} — review failed: ${reason} (${formatDuration(durationMs)}) (failure ${failureCount}/${AUTOPAUSE_FAILURE_THRESHOLD} before auto-pause)`,
+      reviewedContentHash,
+      filePath,
     );
     process.exit(0);
   }

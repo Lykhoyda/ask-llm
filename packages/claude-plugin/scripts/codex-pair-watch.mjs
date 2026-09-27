@@ -1098,7 +1098,7 @@ async function main() {
             reason,
             durationMs,
         });
-        await emitSystemMessage(`codex-pair ${prefix}: ${filePath} — review failed: ${reason} (${formatDuration(durationMs)}) (failure ${failureCount}/${AUTOPAUSE_FAILURE_THRESHOLD} before auto-pause)`);
+        await emitSystemMessage(`codex-pair ${prefix}: ${filePath} — review failed: ${reason} (${formatDuration(durationMs)}) (failure ${failureCount}/${AUTOPAUSE_FAILURE_THRESHOLD} before auto-pause)`, reviewedContentHash, filePath);
         process.exit(0);
     }
     // Live review succeeded — any failure streak is over (#176 backstop).

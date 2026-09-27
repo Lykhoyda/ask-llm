@@ -4437,17 +4437,21 @@ describe("scripts/codex-pair-watch.mjs — MultiEdit + parallel-fire fixtures", 
       .map((l) => JSON.parse(l));
   }
 
-  it("E4: sync mode drops a verdict if the reviewed file changes before emission", async () => {
+  it("E4: sync mode drops a verdict or error if the reviewed file changes before emission", async () => {
     setupMarker(tempDir);
     const started = path.join(tempDir, "started");
-    for (const changed of [true, false]) {
-      const filePath = path.join(tempDir, changed ? "changed.ts" : "stable.ts");
-      const original = `// REVIEW_TOKEN_${changed ? "one" : "two"}\n`;
+    for (const { name, scenario, changed } of [
+      { name: "changed", scenario: "gated", changed: true },
+      { name: "stable", scenario: "gated", changed: false },
+      { name: "error", scenario: "exit-nonzero", changed: true },
+    ]) {
+      const filePath = path.join(tempDir, `${name}.ts`);
+      const original = `// REVIEW_TOKEN_${name}\n`;
       fs.writeFileSync(filePath, original);
-      const release = path.join(tempDir, changed ? "release-changed" : "release-stable");
+      const release = path.join(tempDir, `release-${name}`);
       const payload = JSON.stringify({ tool_name: "Edit", tool_input: { file_path: filePath } });
       const startCount = fs.existsSync(started) ? fs.readFileSync(started, "utf8").split("\n").filter(Boolean).length : 0;
-      const running = runHookAsyncWithFakeCodex(payload, tempDir, "gated", {
+      const running = runHookAsyncWithFakeCodex(payload, tempDir, scenario, {
         FAKE_CODEX_STARTED_FILE: started,
         FAKE_CODEX_RELEASE_FILE: release,
       });
@@ -4466,10 +4470,10 @@ describe("scripts/codex-pair-watch.mjs — MultiEdit + parallel-fire fixtures", 
       }
       const result = await running;
       expect(result.status).toBe(0);
-      const review = readLog(tempDir).find((entry) => entry.file === filePath && entry.verdict === "concerns");
+      const review = readLog(tempDir).find((entry) => entry.file === filePath && entry.verdict === (name === "error" ? "error" : "concerns"));
       expect(review?.contentHash).toBe(contentHash(original));
       if (changed) expect(result.stdout.trim()).toBe("");
-      else expect(JSON.parse(result.stdout.trim()).systemMessage).toMatch(/REVIEW_TOKEN_two/);
+      else expect(JSON.parse(result.stdout.trim()).systemMessage).toMatch(/REVIEW_TOKEN_stable/);
     }
   }, 15_000);
 

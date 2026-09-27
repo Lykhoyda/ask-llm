@@ -34,7 +34,7 @@ export function parseGitPorcelain(stdout: string, repoRoot: string): Set<string>
 }
 
 // Verdicts without a trustworthy final-state review; `retried`/`broker_fallback` carry no `file` today.
-const INDETERMINATE = new Set(["skipped", "error", "retried", "broker_fallback"]);
+const INDETERMINATE = new Set(["error", "retried", "broker_fallback"]);
 
 export function collectBlockingHighs({
   entries,
@@ -44,7 +44,7 @@ export function collectBlockingHighs({
   gitDirty,
   markerDir,
 }: {
-  entries: Iterable<[string, LogEntry]>;
+  entries: Iterable<[string, LogEntry[]]>;
   acks: Record<string, unknown>;
   existsFn: (file: string) => boolean;
   // Required and injected like existsFn so this module stays I/O-free.
@@ -53,13 +53,15 @@ export function collectBlockingHighs({
   markerDir: string;
 }): BlockingHigh[] {
   const blocking: BlockingHigh[] = [];
-  for (const [file, entry] of entries) {
+  for (const [file, reviews] of entries) {
     if (!existsFn(file)) continue; // [A] deleted/renamed
-    if (INDETERMINATE.has(entry.verdict as string)) continue; // [C] indeterminate latest → fail-open
     if (gitDirty && !gitDirty.has(file)) continue; // [B] clean vs HEAD
+    const currentHash = hashFn(file);
+    const entry = reviews.find((review) => review.contentHash === currentHash);
+    if (!entry) continue;
+    if (INDETERMINATE.has(entry.verdict as string)) continue; // [C] indeterminate latest → fail-open
     const highs = Array.isArray(entry.concerns?.high) ? entry.concerns.high : [];
     if (highs.length === 0) continue;
-    if (entry.contentHash !== hashFn(file)) continue; // [D] verdict is for older content
     for (const text of highs) {
       const hash = hashConcernBody(`${relative(markerDir, file)}:${text}`); // [E] file-scoped
       if (!acks[hash]) blocking.push({ file, text, hash });
@@ -137,9 +139,8 @@ export function formatInFlightMessage(
   );
 }
 
-// The log is append-only, so the last hashed entry per file is its latest review.
-export function selectLatestEntries(logText: string): Map<string, LogEntry> {
-  const latest = new Map<string, LogEntry>();
+export function selectReviewEntries(logText: string): Map<string, LogEntry[]> {
+  const reviews = new Map<string, LogEntry[]>();
   for (const line of logText.split("\n")) {
     const t = line.trim();
     if (!t) continue;
@@ -149,7 +150,11 @@ export function selectLatestEntries(logText: string): Map<string, LogEntry> {
     } catch {
       continue;
     }
-    if (entry && typeof entry.file === "string" && typeof entry.contentHash === "string") latest.set(entry.file, entry);
+    if (entry && typeof entry.file === "string" && typeof entry.contentHash === "string" && entry.verdict !== "skipped") {
+      const list = reviews.get(entry.file) ?? [];
+      list.unshift(entry);
+      reviews.set(entry.file, list);
+    }
   }
-  return latest;
+  return reviews;
 }

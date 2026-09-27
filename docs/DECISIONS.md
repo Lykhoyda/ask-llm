@@ -10,6 +10,8 @@
 
 Skip entries have no content hash and do not displace the last review.
 
+The Stop gate uses the latest review of the content on disk; without one there is nothing to gate, and an errored review of that content fails open.
+
 **Consequences:** No config knob, worker-to-hook status protocol, or hook-side lock wait is added. Verdicts recorded before this version neither surface nor gate; the next edit re-reviews the file. Continuous editing drops verdicts until the file settles, an edit made outside Claude suppresses the last verdict until the next reviewed edit, and sync mode (`debounceMs: 0`) keeps its coalesced skip.
 
 ## ADR-172: Repository scripts and test fixtures are TypeScript run by Node's type stripping

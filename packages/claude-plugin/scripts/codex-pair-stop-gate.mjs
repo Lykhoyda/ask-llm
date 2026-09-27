@@ -8,7 +8,7 @@ import { dirname, join, resolve } from "node:path";
 import { drainPending, fileContentHash, joinPendingForSurface, readDebounceRecords } from "./lib/debounce-state.mjs";
 import { collectSessionMarkers } from "./lib/session-registry.mjs";
 import { CONTEXT_FILENAME, contextPath, INFLIGHT_TTL_MIN_MS, inflightRoot, logPath, PAIR_ROOT_DIR, readAcks, } from "./lib/state.mjs";
-import { collectBlockingHighs, collectInFlight, formatBlockMessage, formatInFlightMessage, parseGitPorcelain, selectLatestEntries, } from "./lib/stop-gate.mjs";
+import { collectBlockingHighs, collectInFlight, formatBlockMessage, formatInFlightMessage, parseGitPorcelain, selectReviewEntries, } from "./lib/stop-gate.mjs";
 const MARKER_FILE = join(PAIR_ROOT_DIR, CONTEXT_FILENAME);
 function findMarkerUp(startDir) {
     const home = homedir();
@@ -105,7 +105,7 @@ function canonicalizeEntries(entries) {
         catch {
             // missing/inaccessible → keep raw; collectBlockingHighs' existsFn drops it
         }
-        out.set(real, { ...entry, file: real });
+        out.set(real, entry);
     }
     return out;
 }
@@ -136,7 +136,7 @@ function evaluateMarker(markerDir) {
         // no log yet — an in-flight first-ever review can still block below
     }
     const blocking = collectBlockingHighs({
-        entries: canonicalizeEntries(selectLatestEntries(logText)),
+        entries: canonicalizeEntries(selectReviewEntries(logText)),
         acks: readAcks(canonical),
         existsFn: existsSync,
         hashFn: fileContentHash,

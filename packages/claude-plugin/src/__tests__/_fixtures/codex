@@ -97,6 +97,13 @@ async function run() {
     process.exit(Number(process.env.FAKE_CODEX_EXIT_CODE ?? 0));
   }
 
+  if (SCENARIO === "gated" || (SCENARIO === "exit-nonzero" && process.env.FAKE_CODEX_RELEASE_FILE)) {
+    const fs = require("node:fs");
+    if (process.env.FAKE_CODEX_STARTED_FILE) fs.appendFileSync(process.env.FAKE_CODEX_STARTED_FILE, "started\n");
+    const release = process.env.FAKE_CODEX_RELEASE_FILE;
+    while (release && !fs.existsSync(release)) await new Promise((resolve) => setTimeout(resolve, 20));
+  }
+
   switch (SCENARIO) {
     case "none":
       // The current ADR-077 happy path: codex says NONE.
@@ -307,11 +314,6 @@ async function run() {
     }
 
     case "gated": {
-      // Records its start, then holds until the release file exists so tests can order overlapping reviews.
-      const fs = require("node:fs");
-      if (process.env.FAKE_CODEX_STARTED_FILE) fs.appendFileSync(process.env.FAKE_CODEX_STARTED_FILE, "started\n");
-      const release = process.env.FAKE_CODEX_RELEASE_FILE;
-      while (release && !fs.existsSync(release)) await new Promise((resolve) => setTimeout(resolve, 20));
       const token = prompt.match(/REVIEW_TOKEN_\w+/)?.[0] ?? "none";
       emitAgentMessage([`[HIGH] saw ${token}`, `x:1: reviewed ${token}`, "fix it"].join("\n"));
       process.exit(0);

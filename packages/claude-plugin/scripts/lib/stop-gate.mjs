@@ -19,21 +19,23 @@ export function parseGitPorcelain(stdout, repoRoot) {
     return dirty;
 }
 // Verdicts without a trustworthy final-state review; `retried`/`broker_fallback` carry no `file` today.
-const INDETERMINATE = new Set(["skipped", "error", "retried", "broker_fallback"]);
+const INDETERMINATE = new Set(["error", "retried", "broker_fallback"]);
 export function collectBlockingHighs({ entries, acks, existsFn, hashFn, gitDirty, markerDir, }) {
     const blocking = [];
-    for (const [file, entry] of entries) {
+    for (const [file, reviews] of entries) {
         if (!existsFn(file))
             continue; // [A] deleted/renamed
-        if (INDETERMINATE.has(entry.verdict))
-            continue; // [C] indeterminate latest → fail-open
         if (gitDirty && !gitDirty.has(file))
             continue; // [B] clean vs HEAD
+        const currentHash = hashFn(file);
+        const entry = reviews.find((review) => review.contentHash === currentHash);
+        if (!entry)
+            continue;
+        if (INDETERMINATE.has(entry.verdict))
+            continue; // [C] indeterminate latest → fail-open
         const highs = Array.isArray(entry.concerns?.high) ? entry.concerns.high : [];
         if (highs.length === 0)
             continue;
-        if (entry.contentHash !== hashFn(file))
-            continue; // [D] verdict is for older content
         for (const text of highs) {
             const hash = hashConcernBody(`${relative(markerDir, file)}:${text}`); // [E] file-scoped
             if (!acks[hash])
@@ -87,9 +89,8 @@ export function formatInFlightMessage({ settling, reviewing }, markerDir) {
         `Wait for them (e.g. \`sleep 45\`), read the newest entries for the files you edited, ` +
         `address any HIGH findings, then end the turn.`);
 }
-// The log is append-only, so the last hashed entry per file is its latest review.
-export function selectLatestEntries(logText) {
-    const latest = new Map();
+export function selectReviewEntries(logText) {
+    const reviews = new Map();
     for (const line of logText.split("\n")) {
         const t = line.trim();
         if (!t)
@@ -101,8 +102,11 @@ export function selectLatestEntries(logText) {
         catch {
             continue;
         }
-        if (entry && typeof entry.file === "string" && typeof entry.contentHash === "string")
-            latest.set(entry.file, entry);
+        if (entry && typeof entry.file === "string" && typeof entry.contentHash === "string" && entry.verdict !== "skipped") {
+            const list = reviews.get(entry.file) ?? [];
+            list.unshift(entry);
+            reviews.set(entry.file, list);
+        }
     }
-    return latest;
+    return reviews;
 }
