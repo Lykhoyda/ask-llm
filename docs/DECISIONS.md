@@ -124,6 +124,8 @@ The Stop gate uses the latest review of the content on disk; without one there i
 
 **Consequences:** Slow models on agy ≥ 1.1.28 produce an actionable truncated-answer error instead of a complete-looking response. Older supported CLIs keep the ADR-141 timeout-as-error path. Shared `commandExecutor` behavior is unchanged. Live dogfood of the exact stderr sentence and envelope keys remains follow-up evidence; substring matching plus `truncated: true` is the fail-closed belt until that capture exists.
 
+**Update (2026-09-27, issue #325):** Live capture on agy 1.2.12 showed the changelog-shaped substrings never matched, so partial answers were still served as complete. Expiry exits 0 with stderr `[agy] print timeout after <N>s with turn in progress; returning partial output` and an ordinary envelope (`conversation_id`, `status: "SUCCESS"`, `response` holding the partial or empty text, `duration_seconds: 0`, `num_turns`, all-zero `usage`) with no truncation key. `PRINT_TIMEOUT_TRUNCATION_SIGNALS` now leads with `print timeout`; the earlier substrings and envelope checks stay as belts. The stderr note is the only signal; do not infer truncation from the zeroed usage. A fake-agy regression test replays the captured envelope and stderr, including the benign `--mode plan has no effect while slash command expansion is disabled` warning that complete runs also print.
+
 ## ADR-161: Plugin Codex workflows use unified MCP without stripping provider options
 
 **Status:** Accepted (2026-09-15)

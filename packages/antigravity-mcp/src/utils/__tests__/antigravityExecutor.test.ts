@@ -45,9 +45,9 @@ const jsonStdout = (response: string, usage?: Record<string, number>, extra?: Re
     ...extra,
   });
 
-// agy 1.1.28 prints a truncation note on stderr and still exits 0. Wording is
-// changelog-shaped (not live-captured); matching is substring-based.
-const PRINT_TIMEOUT_TRUNCATION_STDERR = "warning: the response may be truncated because --print-timeout expired\n";
+// Live-captured from agy 1.2.12: exit 0 with this stderr note and a partial answer.
+const PRINT_TIMEOUT_TRUNCATION_STDERR =
+  "[agy] print timeout after 30s with turn in progress; returning partial output\n";
 
 function mockSuccessWithStderr(stdout: string, stderr: string): void {
   mockExec.mockImplementation(async (_command, _args, _onProgress, onStderr) => {
@@ -710,7 +710,7 @@ describe("executeAntigravityCLI model-unavailable recovery (#243)", () => {
 });
 
 describe("isPrintTimeoutTruncation", () => {
-  it("matches changelog-shaped truncation notes and status tokens", () => {
+  it("matches the live agy print-timeout note and changelog-shaped belts", () => {
     expect(isPrintTimeoutTruncation(PRINT_TIMEOUT_TRUNCATION_STDERR)).toBe(true);
     expect(isPrintTimeoutTruncation("timeout expired")).toBe(true);
     expect(isPrintTimeoutTruncation("partial output may be truncated")).toBe(true);
