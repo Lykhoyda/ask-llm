@@ -1,6 +1,6 @@
 # Architectural Decisions
 
-## ADR-178: Antigravity adopts live agy 1.2.12 evidence (fallback model)
+## ADR-178: Antigravity adopts live agy 1.2.12 evidence (fallback model, AGY_ERROR)
 
 **Status:** Accepted (2026-09-27). Supersedes the antigravity half of ADR-125/137/155's `gemini-3.5-flash` fallback pin.
 
@@ -9,6 +9,8 @@
 **Decision:** Set the antigravity fallback to the base slug `gemini-3.8-flash`, sent with `--effort high` by default and `ASK_ANTIGRAVITY_EFFORT` still honored (ADR-137 contract). Do not use the listed tiered id: it would force dropping `--effort` on fallback and silently ignore the user's effort. The gemini-cli fallback (ADR-155) is unchanged and independent.
 
 **Consequences:** Subscription rate limits retry on a model agy 1.2.12 accepts. Current-facing surfaces and the docs drift guard move together; historical ADRs, roadmap entries, bugs, and changelogs keep the pins they recorded.
+
+**AGY_ERROR (#335):** agy ≥1.2.6 ends a failed headless turn with exit 3 and a stderr line `AGY_ERROR: {…}`. The shared `sanitizeErrorForLLM` keeps only the first 3 non-empty lines unless a narrow quota passthrough matches, so the line was dropped whenever agy printed a multi-line startup warning first, and a 429 never reached `isRateLimitError`. The executor now takes the last `AGY_ERROR:` line from its own raw stderr capture and prepends it (bounded to 500 chars) to the rejection, so the existing substring matchers classify it; the shared sanitizer and other providers are unchanged. No version gate: the line cannot appear before 1.2.6. The payload keys (`short_error`, `retryable`, `error_id`, `status`, `code`, `http_status`) come from strings in the agy 1.2.12 binary; two cheap live triggers (unknown `--conversation`, unknown `--agent`) only warned and exited 0, so no failure was live-captured. Classification therefore stays on substrings (`429`, `resource_exhausted`, `too many requests`, `invalid model selection`) rather than parsing specific keys.
 
 ## ADR-177: Refuse unisolated Antigravity executor runs by default
 

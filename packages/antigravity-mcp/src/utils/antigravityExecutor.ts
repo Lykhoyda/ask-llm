@@ -186,6 +186,15 @@ export function isModelUnavailableError(message: string): boolean {
   return ANTIGRAVITY.MODEL_UNAVAILABLE_SIGNALS.some((s) => lower.includes(s));
 }
 
+export function findAgyErrorLine(stderr: string): string | undefined {
+  const line = stderr
+    .split("\n")
+    .reverse()
+    .find((l) => l.startsWith(ANTIGRAVITY.STRUCTURED_ERROR_PREFIX))
+    ?.trim();
+  return line?.slice(0, ANTIGRAVITY.PARTIAL_OUTPUT_PREVIEW_CHARS);
+}
+
 export function isTruncatedAnswerError(message: string): boolean {
   return message.startsWith(ERROR_MESSAGES.TRUNCATED);
 }
@@ -290,7 +299,14 @@ export async function executeAntigravityCLI(options: AntigravityExecutorOptions)
       timeoutMs,
       commandLogging,
       options.signal,
-    );
+    ).catch((error: unknown) => {
+      // The shared sanitizer keeps only 3 stderr lines, which can drop agy's AGY_ERROR line (#335).
+      const agyError = findAgyErrorLine(stderrChunks.join(""));
+      if (agyError && error instanceof Error && !error.message.includes(agyError)) {
+        throw new Error(`${agyError}\n${error.message}`);
+      }
+      throw error;
+    });
     const durationMs = Date.now() - startedAt;
     const reportedModel = model ?? MODELS.AGY_DEFAULT_LABEL;
     const stderr = stderrChunks.join("");

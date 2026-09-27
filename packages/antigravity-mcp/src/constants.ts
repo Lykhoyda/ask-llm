@@ -57,7 +57,7 @@ export const ANTIGRAVITY = {
   MINIMUM_AGY_VERSION,
   VERSION_CHECK_TIMEOUT_MS: 5_000,
   TIMEOUT_ENV_VAR: "ASK_ANTIGRAVITY_TIMEOUT_MS",
-  // agy's --print-timeout defaults to 5m; mirror that as our process timeout.
+  // A deliberate 5m cap; agy >=1.2.6 defaults --print-timeout to unlimited, and we always pass it.
   DEFAULT_TIMEOUT_MS: 300_000,
   ALLOW_UNISOLATED_ENV_VAR: "ASK_ANTIGRAVITY_ALLOW_UNISOLATED",
   SANDBOX_ENV_VAR: "ASK_ANTIGRAVITY_SANDBOX",
@@ -79,6 +79,8 @@ export const ANTIGRAVITY = {
     "timed out",
     "timeout expired",
   ],
+  // agy >=1.2.6 prints this stderr line on a failed headless turn and exits 3.
+  STRUCTURED_ERROR_PREFIX: "AGY_ERROR:",
   // Lowercased substrings; isRateLimitError() lowercases the message first.
   RATE_LIMIT_SIGNALS: ["rate limit", "rate_limit", "resource_exhausted", "quota", "429", "too many requests"],
   // Keep model-selection signals disjoint from quota; "Available models:" is too generic.
