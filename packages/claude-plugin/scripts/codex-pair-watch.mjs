@@ -877,7 +877,11 @@ async function main() {
             now: Date.now(),
         });
         if (Math.random() < 0.05)
-            sweepStaleDebounce(markerDir, config.debounceMaxMs);
+            sweepStaleDebounce(markerDir, {
+                debounceMaxMs: config.debounceMaxMs,
+                timeoutMs: config.timeoutMs,
+                settleMs: effectiveDebounceMs,
+            });
         const spawned = spawnDebounceWorker({
             markerDir,
             filePath,

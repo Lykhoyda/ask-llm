@@ -5,7 +5,7 @@
 import { createHash } from "node:crypto";
 import { mkdirSync, readdirSync, readFileSync, renameSync, statSync, unlinkSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { stateRoot } from "./state.mts";
+import { INFLIGHT_TTL_MIN_MS, stateRoot } from "./state.mts";
 
 export interface EditRecord {
   file: string;
@@ -225,8 +225,24 @@ export function clearAllDebounceState(markerDir: string): void {
 }
 
 // Also removes .claimed pending files left by a drain that crashed mid-read.
-export function sweepStaleDebounce(markerDir: string, maxMs: number): void {
-  const cutoff = Date.now() - (maxMs + DEBOUNCE_STALE_BUFFER_MS);
+export function sweepHorizonMs({
+  debounceMaxMs,
+  timeoutMs,
+  settleMs,
+}: {
+  debounceMaxMs: number;
+  timeoutMs: number;
+  settleMs: number;
+}): number {
+  const lockTtlMs = Math.max(timeoutMs, INFLIGHT_TTL_MIN_MS) + 60_000;
+  return Math.max(debounceMaxMs + DEBOUNCE_STALE_BUFFER_MS, 2 * lockTtlMs + settleMs + 60_000);
+}
+
+export function sweepStaleDebounce(
+  markerDir: string,
+  timing: { debounceMaxMs: number; timeoutMs: number; settleMs: number },
+): void {
+  const cutoff = Date.now() - sweepHorizonMs(timing);
   for (const root of [debounceRoot(markerDir), pendingRoot(markerDir), reviewedRoot(markerDir)]) {
     let names: string[];
     try {

@@ -3,7 +3,7 @@
 import { createHash } from "node:crypto";
 import { mkdirSync, readdirSync, readFileSync, renameSync, statSync, unlinkSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { stateRoot } from "./state.mjs";
+import { INFLIGHT_TTL_MIN_MS, stateRoot } from "./state.mjs";
 export const DEBOUNCE_DIR = "debounce";
 export const PENDING_DIR = "pending";
 export const REVIEWED_DIR = "reviewed";
@@ -199,8 +199,12 @@ export function clearAllDebounceState(markerDir) {
     }
 }
 // Also removes .claimed pending files left by a drain that crashed mid-read.
-export function sweepStaleDebounce(markerDir, maxMs) {
-    const cutoff = Date.now() - (maxMs + DEBOUNCE_STALE_BUFFER_MS);
+export function sweepHorizonMs({ debounceMaxMs, timeoutMs, settleMs, }) {
+    const lockTtlMs = Math.max(timeoutMs, INFLIGHT_TTL_MIN_MS) + 60_000;
+    return Math.max(debounceMaxMs + DEBOUNCE_STALE_BUFFER_MS, 2 * lockTtlMs + settleMs + 60_000);
+}
+export function sweepStaleDebounce(markerDir, timing) {
+    const cutoff = Date.now() - sweepHorizonMs(timing);
     for (const root of [debounceRoot(markerDir), pendingRoot(markerDir), reviewedRoot(markerDir)]) {
         let names;
         try {

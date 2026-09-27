@@ -12,8 +12,12 @@ import {
   joinPendingForSurface,
   MAX_SURFACE_VERDICTS,
   markReviewed,
+  pendingPath,
   pendingRoot,
   readEditRecord,
+  reviewedPath,
+  sweepHorizonMs,
+  sweepStaleDebounce,
   writePending,
   writePendingNotice,
 } from "../../scripts/lib/debounce-state.mjs";
@@ -148,6 +152,40 @@ describe("lib/debounce-state.mjs", () => {
     expect(next.generation).toBe(8);
     const decision = decideReview({ record: readEditRecord(dir, "/x.ts"), myGeneration: 8, now: 2000, maxMs: 60000 });
     expect(decision.reason).toBe("settled");
+  });
+
+  it("C5: sweep retains active generations and expires all three state roots after the review horizon", () => {
+    const file = path.join(dir, "active.ts");
+    bumpEditRecord(dir, file, { now: Date.now() });
+    writePending(dir, file, "review", contentHash("review"));
+    markReviewed(dir, file, 1);
+    const paths = [debounceRecordPath(dir, file), pendingPath(dir, file), reviewedPath(dir, file)];
+    const timing = { debounceMaxMs: 60_000, timeoutMs: 800_000, settleMs: 15_000 };
+    const age = (minutes: number) => {
+      const old = new Date(Date.now() - minutes * 60_000);
+      for (const p of paths) fs.utimesSync(p, old, old);
+    };
+
+    age(20);
+    sweepStaleDebounce(dir, timing);
+    expect(paths.every(fs.existsSync)).toBe(true);
+
+    age(31);
+    sweepStaleDebounce(dir, timing);
+    expect(paths.every((p) => !fs.existsSync(p))).toBe(true);
+
+    const floorTiming = { debounceMaxMs: 1_200_000, timeoutMs: 1, settleMs: 0 };
+    expect(sweepHorizonMs(floorTiming)).toBe(1_500_000);
+    bumpEditRecord(dir, file, { now: Date.now() });
+    const record = debounceRecordPath(dir, file);
+    const old = new Date(Date.now() - 24 * 60_000);
+    fs.utimesSync(record, old, old);
+    sweepStaleDebounce(dir, floorTiming);
+    expect(fs.existsSync(record)).toBe(true);
+    const expired = new Date(Date.now() - 26 * 60_000);
+    fs.utimesSync(record, expired, expired);
+    sweepStaleDebounce(dir, floorTiming);
+    expect(fs.existsSync(record)).toBe(false);
   });
 
   it("C4: drain surfaces a verdict whose content is still on disk", () => {

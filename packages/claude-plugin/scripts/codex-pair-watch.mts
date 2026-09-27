@@ -1026,7 +1026,12 @@ async function main() {
       sessionId: payload?.session_id,
       now: Date.now(),
     });
-    if (Math.random() < 0.05) sweepStaleDebounce(markerDir, config.debounceMaxMs);
+    if (Math.random() < 0.05)
+      sweepStaleDebounce(markerDir, {
+        debounceMaxMs: config.debounceMaxMs,
+        timeoutMs: config.timeoutMs,
+        settleMs: effectiveDebounceMs,
+      });
     const spawned = spawnDebounceWorker({
       markerDir,
       filePath,
