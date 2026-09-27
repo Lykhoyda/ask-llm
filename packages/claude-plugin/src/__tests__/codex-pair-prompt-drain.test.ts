@@ -18,12 +18,6 @@ describe("scripts/codex-pair-prompt-drain.mjs — structural invariants", () => 
     expect((fs.statSync(DRAIN_PATH).mode & 0o100) !== 0).toBe(true);
   });
 
-  it("drains pending and exits 0 on every path", () => {
-    expect(script).toMatch(/drainPending\(/);
-    expect(script).toMatch(/UserPromptSubmit/);
-    expect(script).toMatch(/main\(\)\.catch\(\(\)\s*=>\s*process\.exit\(0\)\)/);
-  });
-
   it("is wired into hooks.json on UserPromptSubmit", () => {
     const parsed = JSON.parse(hooks);
     const ups = parsed.hooks.UserPromptSubmit;
@@ -51,9 +45,9 @@ describe("scripts/codex-pair-prompt-drain.mjs — runtime behavior", () => {
   });
   afterEach(() => fs.rmSync(cwd, { recursive: true, force: true }));
 
-  function runDrain() {
+  function runDrain(input = JSON.stringify({ hook_event_name: "UserPromptSubmit", prompt: "hi" })) {
     return spawnSync("node", [DRAIN_PATH], {
-      input: JSON.stringify({ hook_event_name: "UserPromptSubmit", prompt: "hi" }),
+      input,
       cwd,
       encoding: "utf-8",
       timeout: 10_000,
@@ -73,6 +67,12 @@ describe("scripts/codex-pair-prompt-drain.mjs — runtime behavior", () => {
     const res = runDrain();
     expect(res.status).toBe(0);
     expect(res.stdout).not.toMatch(/additionalContext/);
+  });
+
+  it("exits silently on invalid JSON", () => {
+    const res = runDrain("{");
+    expect(res.status).toBe(0);
+    expect(res.stdout).toBe("");
   });
 });
 

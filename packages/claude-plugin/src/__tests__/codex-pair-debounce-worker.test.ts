@@ -24,13 +24,6 @@ describe("scripts/codex-pair-debounce-worker.mjs — structural invariants", () 
     expect(script).not.toMatch(/from\s+["']@ask-llm\//);
     expect(script).not.toMatch(/from\s+["']ask-(codex|gemini|ollama)-mcp/);
   });
-
-  it("re-invokes the hook in forced-sync mode and exits 0 on every path", () => {
-    expect(script).toMatch(/CODEX_PAIR_FORCE_SYNC:\s*["']1["']/);
-    expect(script).toMatch(/codex-pair-watch\.mjs/);
-    expect(script).toMatch(/decideReview/);
-    expect(script).toMatch(/main\(\)\.catch\(\(\)\s*=>\s*process\.exit\(0\)\)/);
-  });
 });
 
 describe("scripts/codex-pair-debounce-worker.mjs — runtime behavior", () => {
