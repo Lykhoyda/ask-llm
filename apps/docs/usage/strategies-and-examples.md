@@ -97,7 +97,7 @@ When choosing between approaches, get multiple providers' opinions and let Claud
 /brainstorm Should we use server-sent events or WebSockets for our notification system? Pros, cons, and which fits a team that values backwards compatibility.
 ```
 
-The `/brainstorm` skill runs Claude Opus's own research (reads your real codebase), dispatches to Antigravity + Codex in parallel, and returns a synthesis with consensus / unique / contradictory points. Verified findings (Claude reading actual files) outweigh inferred ones.
+The `/brainstorm` skill runs Claude Opus's own research (reads your real codebase), requests Antigravity + Codex in parallel, and returns a synthesis with consensus / unique / contradictory points. Antigravity's [execution gate](/providers/antigravity) may skip it with a disclosed reason. Verified findings (Claude reading actual files) outweigh inferred ones.
 
 ### 5. Multi-Turn Iterative Refinement
 

@@ -90,7 +90,7 @@ See the [Pi host guide](https://lykhoyda.github.io/ask-llm/plugin/pi) for securi
 | `/grok-review` | Grok review through explicit xAI API or Grok CLI harness; no fallback |
 | `/grok-pair` | Consent-gated iterative Grok reviewer through exact Cursor Agent, xAI API, or Grok CLI route; no fallback |
 | `/codex-pair` | Claude/Pi per-edit pairing dashboard; Cursor on-demand session adapter with explicit Thread ID continuity |
-| `/brainstorm-all` | Brainstorm with all five external providers (Gemini, Codex, Grok, Ollama, Antigravity) + Claude Opus research |
+| `/brainstorm-all` | Requests all five external providers + Claude Opus research; [Antigravity may be skipped](https://lykhoyda.github.io/ask-llm/providers/antigravity) |
 | `/compare` | Side-by-side raw responses from multiple providers (no synthesis, no consensus extraction) |
 
 ### Exact Grok + GPT-6 Sol brainstorm

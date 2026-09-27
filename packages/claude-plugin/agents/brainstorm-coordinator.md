@@ -175,8 +175,7 @@ cat > "$workdir/prompt.md" <<'PROMPT_EOF'
 PROMPT_EOF
 
 # Antigravity is an agentic CLI, so raw calls must carry the same safety
-# preamble as @ask-llm/antigravity-mcp. This remains a soft model instruction;
-# --sandbox is the strongest isolation agy currently exposes.
+# preamble as @ask-llm/antigravity-mcp. This remains a soft model instruction.
 {
   printf '%s\n\n' 'You are giving a second opinion / code review. Read and reason only. Do NOT modify, create, or delete files, and do NOT run commands — just analyze and respond.'
   cat "$workdir/prompt.md"
@@ -186,18 +185,22 @@ PROMPT_EOF
 # Subshells (parentheses) detach the child from this shell's job table,
 # which makes `wait` return immediately and orphans the job to be
 # SIGKILLed when the Bash tool call returns and the sub-agent turn ends.
-# Only include this line if antigravity was requested (in the default set).
-# --dangerously-skip-permissions: agy prompts for tool-use approval in interactive
-# contexts; skipping those prompts keeps the background job from hanging on input.
-# --sandbox restricts terminal execution. The read-only preamble above also
-# covers agy's file tools, for which upstream has no hard read-only flag.
+# Only include this block if antigravity was requested (in the default set).
+# Raw agy is unisolated (ADR-177): require exact opt-in and preserve the warning
+# in stderr; `false &` records a skipped participant as a nonzero result.
 # --model gemini-3.1-pro --effort high: pin the same default @ask-llm/antigravity-mcp
 # uses (ADR-116; agy >=1.1.5 splits the effort tier into --effort). This raw `agy`
 # call bypasses that executor, so the default must be restated here or agy falls
 # back to its own built-in model. Note the executor's gemini-3.8-flash rate-limit
 # fallback does NOT apply to this raw path. The long --model flag works under -p
 # (only the short -m hangs). Run `agy models`.
-agy -p "$(cat "$workdir/antigravity-prompt.md")" --model "gemini-3.1-pro" --effort high --dangerously-skip-permissions --sandbox > "$workdir/antigravity.out" 2> "$workdir/antigravity.err" &
+if [ "${ASK_ANTIGRAVITY_ALLOW_UNISOLATED:-}" = "1" ]; then
+  echo "antigravity warning: ASK_ANTIGRAVITY_ALLOW_UNISOLATED=1 permits this run, but read-only isolation is not guaranteed; agy may modify files, run shell commands, and access the network." > "$workdir/antigravity.err"
+  agy -p "$(cat "$workdir/antigravity-prompt.md")" --model "gemini-3.1-pro" --effort high --sandbox > "$workdir/antigravity.out" 2>> "$workdir/antigravity.err" &
+else
+  echo "antigravity skipped: agy is not isolated from the working copy (ADR-177, #283); set ASK_ANTIGRAVITY_ALLOW_UNISOLATED=1 to include it without a read-only guarantee." > "$workdir/antigravity.err"
+  false &
+fi
 pid_antigravity=$!
 
 # Only include this line if gemini was requested:
@@ -269,7 +272,9 @@ cat "$workdir/ollama.err" 2>/dev/null
 ```
 
 **Failure handling:**
-- If a provider exits non-zero or its stdout is empty, record it as failed in Phase 4 ("⚠️ [Provider]: failed — stderr: …") and continue the synthesis with the ones that responded. Do NOT fabricate a missing provider's response.
+- If ANTIGRAVITY STDERR starts with `antigravity skipped:`, report it in Phase 4 as "⏭️ Antigravity: skipped — <reason verbatim>", not as a failure, and do not count it against the synthesis grade.
+- Otherwise, if a provider exits non-zero or its stdout is empty, record it as failed in Phase 4 ("⚠️ [Provider]: failed — stderr: …") and continue the synthesis with the ones that responded. Do NOT fabricate a missing provider's response.
+- If ANTIGRAVITY STDERR contains an `antigravity warning:` line, append it to the Antigravity participant line as "⚠️ <warning verbatim>" even when the run succeeded.
 - If the whole Bash call times out (exceeds 600000ms), the tool returns a timeout error. Treat that as "at least one provider exceeded the 10-minute cap", report the timeout honestly in Phase 4, and proceed with whatever partial output the workdir files captured before the timeout.
 
 ### Phase 4: Synthesis
@@ -317,6 +322,7 @@ Surface this grade as the first line of the synthesis output (see Output Format 
 - ✅ Codex via Cursor Agent — requested `gpt-6-sol-high` (selected-unverified); reported display label `GPT-6 Sol 1M High`
 - (direct route example) ✅ Grok via xAI API — requested `grok-4.7`; observed served `grok-4.7-<snapshot>` (observed-alias, disclosed same-product resolution)
 - 🚫 Gemini: explicitly excluded (not called)
+- (bare-provider mode, Antigravity requested without the opt-in) ⏭️ Antigravity: skipped — agy is not isolated from the working copy (ADR-177, #283); set ASK_ANTIGRAVITY_ALLOW_UNISOLATED=1 to include it without a read-only guarantee.
 
 ### Consensus (high confidence; omit for a partial exact panel)
 1. [Point] — independently agreed by <name both successful panel participants with provider/harness/model>

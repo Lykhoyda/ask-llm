@@ -67,7 +67,7 @@ Orchestrates multi-LLM brainstorming sessions with **Claude Opus as a first-clas
 
 **Phase 3B: Claude Opus Research (runs first).** Claude reads the actual artifacts referenced by the topic with `Read`/`Glob`/`Grep`, traces real code paths, uses `WebFetch`/`WebSearch` for any referenced external docs, and forms its own independent findings. Each finding is tagged **Verified** (backed by an actual file Read or fetched doc) or **Inferred** (reasoned from the topic description). This phase MUST complete before Phase 3A so Claude cannot anchor on external responses.
 
-**Phase 3A: External Provider Dispatch (runs after 3B).** A SINGLE foreground blocking Bash call dispatches all selected external providers in parallel via direct backgrounding (`cmd > out 2>&1 &`) plus per-PID `wait`, with `timeout: 600000` (10 min, the Bash tool maximum). The exact Grok + Sol panel instead runs one foreground `ask-brainstorm-run` process that owns both concurrent routed participants. Background jobs are explicitly forbidden because sub-agents cannot own processes that outlive their turn; Codex at high reasoning effort gets SIGKILLed silently otherwise. Per-provider stdout AND stderr are captured so failures are loud.
+**Phase 3A: External Provider Dispatch (runs after 3B).** A SINGLE foreground blocking Bash call handles selected external providers via direct backgrounding (`cmd > out 2>&1 &`) plus per-PID `wait`, with `timeout: 600000` (10 min, the Bash tool maximum). The raw Antigravity participant follows the [execution gate](/providers/antigravity). The exact Grok + Sol panel instead runs one foreground `ask-brainstorm-run` process that owns both concurrent routed participants. Background jobs are explicitly forbidden because sub-agents cannot own processes that outlive their turn; Codex at high reasoning effort gets SIGKILLed silently otherwise. Per-provider stdout AND stderr are captured so failures are loud.
 
 **Phase 4: Synthesis.** Combines Claude's Phase 3B findings with the external responses:
    - **Consensus**: Where multiple participants agree (verified Claude + external = highest confidence)
@@ -75,7 +75,7 @@ Orchestrates multi-LLM brainstorming sessions with **Claude Opus as a first-clas
    - **Contradictions**: Verified findings outrank inferred ones in tie-breaking
    - **Recommendations**: Prioritized by impact and confidence
 
-The `Participants Consulted` section lists each participant by provider, harness, and requested model (Claude Opus with a `(verified against real files: ...)` annotation; in exact mode it is marked non-voting and Gemini is listed as explicitly excluded). This agent is invoked by the `/brainstorm` and `/brainstorm-all` skills.
+The `Participants Consulted` section lists each participant by provider, harness, and requested model or discloses why it was skipped (Claude Opus has a `(verified against real files: ...)` annotation; in exact mode it is marked non-voting and Gemini is listed as explicitly excluded). This agent is invoked by the `/brainstorm` and `/brainstorm-all` skills.
 
 ## Running Agents Directly
 
