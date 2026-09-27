@@ -231,7 +231,8 @@ export function findAgyErrorLine(stderr: string): string | undefined {
   if (!line) return undefined;
   try {
     const { status, code, http_status, retryable, error_id, short_error } = JSON.parse(line.slice(prefix.length));
-    if (error_id !== undefined) Logger.warn(`antigravity: agy error_id ${String(error_id)}`);
+    if (error_id !== undefined)
+      Logger.warn(`antigravity: agy error_id ${JSON.stringify(String(error_id).slice(0, 80))}`);
     const shortError = typeof short_error === "string" ? short_error.slice(0, 300) : undefined;
     return `${prefix} ${JSON.stringify({ status, code, http_status, retryable, short_error: shortError })}`;
   } catch {
@@ -360,7 +361,12 @@ export async function executeAntigravityCLI(options: AntigravityExecutorOptions)
       }
       const agyError = findAgyErrorLine(stderrChunks.join(""));
       if (agyError) {
-        throw new Error(`${agyError}\n${error.message}`);
+        // Drop the raw line the sanitizer may have kept so only the compacted fields are classified.
+        const rest = error.message
+          .split("\n")
+          .filter((line) => !line.trimStart().startsWith(ANTIGRAVITY.STRUCTURED_ERROR_PREFIX))
+          .join("\n");
+        throw new Error(`${agyError}\n${rest}`);
       }
       throw error;
     });

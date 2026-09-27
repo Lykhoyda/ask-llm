@@ -869,12 +869,17 @@ describe("AGY_ERROR stderr line (#335)", () => {
     expect(mockExec).toHaveBeenCalledOnce();
   });
 
-  it("does not fall back to Flash because an opaque error_id happens to contain 429", async () => {
+  it.each([
+    ["dropped by the sanitizer", "warning: startup notice"],
+    ["kept by the sanitizer", 'AGY_ERROR: {"status":"INTERNAL","http_status":500,"error_id":"3f429ba0"}'],
+  ])("does not fall back to Flash when an opaque error_id contains 429 (raw line %s)", async (_case, sanitized) => {
     mockExec.mockImplementation(async (_command, _args, _onProgress, onStderr) => {
       onStderr?.('AGY_ERROR: {"status":"INTERNAL","http_status":500,"error_id":"3f429ba0"}\n');
-      throw new Error("warning: startup notice");
+      throw new Error(sanitized);
     });
-    await expect(executeAntigravityCLI({ prompt: "q" })).rejects.toThrow(/"status":"INTERNAL"/);
+    const error = await executeAntigravityCLI({ prompt: "q" }).catch((err: unknown) => err);
+    expect((error as Error).message).toContain('"status":"INTERNAL"');
+    expect((error as Error).message).not.toContain("3f429ba0");
     expect(mockExec).toHaveBeenCalledOnce();
   });
 
