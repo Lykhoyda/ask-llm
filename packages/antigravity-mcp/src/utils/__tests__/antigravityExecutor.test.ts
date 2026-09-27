@@ -67,6 +67,7 @@ const USAGE_1_1_5 = { input_tokens: 10987, output_tokens: 297, thinking_tokens: 
 
 beforeEach(() => {
   vi.clearAllMocks();
+  vi.stubEnv("ASK_ANTIGRAVITY_ALLOW_UNISOLATED", "1");
   delete process.env[ANTIGRAVITY.SANDBOX_ENV_VAR];
   delete process.env[ANTIGRAVITY.TIMEOUT_ENV_VAR];
   delete process.env[ANTIGRAVITY.MODEL_ENV_VAR];
@@ -76,6 +77,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  vi.unstubAllEnvs();
   delete process.env[ANTIGRAVITY.SANDBOX_ENV_VAR];
   delete process.env[ANTIGRAVITY.TIMEOUT_ENV_VAR];
   delete process.env[ANTIGRAVITY.MODEL_ENV_VAR];
@@ -83,7 +85,7 @@ afterEach(() => {
 });
 
 describe("buildArgs", () => {
-  it("builds -p, prompt, model, print-timeout, output-format json, skip-permissions, sandbox", () => {
+  it("builds -p, prompt, model, print-timeout, output-format json and sandbox without permission bypass", () => {
     const args = buildArgs("hello", undefined, 295, true, "Gemini 3.5 Flash (High)");
     expect(args).toEqual([
       CLI.FLAGS.PRINT,
@@ -94,7 +96,6 @@ describe("buildArgs", () => {
       "295s",
       CLI.FLAGS.OUTPUT_FORMAT,
       OUTPUT_FORMATS.JSON,
-      CLI.FLAGS.SKIP_PERMISSIONS,
       CLI.FLAGS.SANDBOX,
     ]);
   });
@@ -114,7 +115,6 @@ describe("buildArgs", () => {
       "100s",
       CLI.FLAGS.OUTPUT_FORMAT,
       OUTPUT_FORMATS.JSON,
-      CLI.FLAGS.SKIP_PERMISSIONS,
     ]);
   });
 
@@ -817,4 +817,35 @@ describe("executeAntigravityCLI print-timeout truncation (agy >= 1.1.28)", () =>
     expect(result.response).toContain("thin answer");
     expect(result.response).toMatch(/denied 1 action\(s\): fetch_url/);
   });
+});
+
+describe("Antigravity isolation guard", () => {
+  it.each([undefined, "", "0", "true", " 1 "])("refuses review before any agy spawn with opt-in %s", async (value) => {
+    vi.stubEnv("ASK_ANTIGRAVITY_ALLOW_UNISOLATED", value);
+    mockExec.mockResolvedValue(jsonStdout("answer"));
+    await expect(executeAntigravityCLI({ prompt: "review" })).rejects.toThrow("ASK_ANTIGRAVITY_ALLOW_UNISOLATED=1");
+    expect(mockAssertSupportedAgyVersion).not.toHaveBeenCalled();
+    expect(mockExec).not.toHaveBeenCalled();
+  });
+
+  it("refuses read-only machine execution before any agy spawn", async () => {
+    vi.stubEnv("ASK_ANTIGRAVITY_ALLOW_UNISOLATED", undefined);
+    await expect(executeAntigravityCLI({ prompt: "review", readOnly: true })).rejects.toThrow(
+      "read-only isolation is not guaranteed",
+    );
+    expect(mockAssertSupportedAgyVersion).not.toHaveBeenCalled();
+    expect(mockExec).not.toHaveBeenCalled();
+  });
+
+  it.each([false, true])(
+    "warns and removes permission bypass under explicit opt-in (readOnly=%s)",
+    async (readOnly) => {
+      mockExec.mockResolvedValue(jsonStdout("answer"));
+      await expect(executeAntigravityCLI({ prompt: "review", readOnly })).resolves.toMatchObject({
+        response: "answer",
+      });
+      expect(Logger.warn).toHaveBeenCalledWith(expect.stringContaining("read-only isolation is not guaranteed"));
+      for (const [, args] of mockExec.mock.calls) expect(args).not.toContain("--dangerously-skip-permissions");
+    },
+  );
 });

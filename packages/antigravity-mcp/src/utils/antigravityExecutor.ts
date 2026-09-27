@@ -45,7 +45,6 @@ export function buildArgs(
   if (readOnly) {
     args.push(CLI.FLAGS.MODE, CLI.FLAGS.PLAN, CLI.FLAGS.SANDBOX);
   } else {
-    args.push(CLI.FLAGS.SKIP_PERMISSIONS);
     if (sandbox) args.push(CLI.FLAGS.SANDBOX);
   }
   return args;
@@ -227,16 +226,17 @@ function modelUnavailableMessage(model: string, detail: string, source: ModelSou
 }
 
 export async function executeAntigravityCLI(options: AntigravityExecutorOptions): Promise<AntigravityExecutorResult> {
+  if (process.env[ANTIGRAVITY.ALLOW_UNISOLATED_ENV_VAR] !== "1") {
+    throw new Error(ERROR_MESSAGES.UNISOLATED_REFUSED);
+  }
+  Logger.warn(
+    "Antigravity (agy): ASK_ANTIGRAVITY_ALLOW_UNISOLATED=1 permits execution, but read-only isolation is not guaranteed; agy may modify files, run shell commands, and access the network.",
+  );
   const agyVersion = await assertSupportedAgyVersion(options.signal);
   const disableSlashCommands = isVersionAtLeast(agyVersion, ANTIGRAVITY.SLASH_COMMANDS_FLAG_MIN_VERSION);
   const sandbox = process.env[ANTIGRAVITY.SANDBOX_ENV_VAR] !== "0";
   const timeoutMs = resolveTimeoutMs(ANTIGRAVITY.TIMEOUT_ENV_VAR, ANTIGRAVITY.DEFAULT_TIMEOUT_MS);
-  // Keep agy's --print-timeout 5s below our process timeout so agy expires first
-  // and we observe its envelope instead of SIGTERM. Through 1.1.27 that expiry
-  // is a non-zero error (ADR-141). From 1.1.28 it is exit 0 + partial answer +
-  // stderr warning; we fail closed on that success path (ADR-162).
-  // For very small configured timeouts (<=6s), don't subtract — otherwise agy's
-  // deadline could invert past the process timeout (or clamp to a near-instant 1s).
+  // Keep agy expiry before process timeout to detect exit-0 partial answers (ADR-162).
   const agyTimeoutSec = timeoutMs > 6000 ? Math.round(timeoutMs / 1000) - 5 : Math.max(1, Math.round(timeoutMs / 1000));
   const detectPrintTimeoutTruncation = isVersionAtLeast(
     agyVersion,
@@ -246,8 +246,7 @@ export async function executeAntigravityCLI(options: AntigravityExecutorOptions)
   const fullPrompt = `${READ_ONLY_PREAMBLE}\n\n${options.prompt}`;
   const commandLogging = options.readOnly ? { sensitiveValues: [fullPrompt] } : undefined;
   if (fullPrompt.length > EXECUTION.STDIN_THRESHOLD_BYTES) {
-    // v1 passes the prompt as a -p argument; very large prompts risk the ARG_MAX
-    // ceiling. stdin/temp-file handling is a documented open item (spec §10.1).
+    // agy -p still risks ARG_MAX for large prompts (spec §10.1).
     Logger.warn(
       `antigravity: prompt is ${fullPrompt.length} bytes (> ${EXECUTION.STDIN_THRESHOLD_BYTES}); agy -p passes it as an argv arg, which may hit ARG_MAX. See spec §10.1.`,
     );

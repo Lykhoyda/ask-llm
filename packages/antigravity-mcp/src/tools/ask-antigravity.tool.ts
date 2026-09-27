@@ -13,13 +13,13 @@ const askAntigravityArgsSchema = z.object({
     .array(relativeDirSchema)
     .optional()
     .describe(
-      "Additional directories agy may access alongside the working directory (maps to agy `--add-dir`, repeatable). Must be relative paths (e.g., 'packages/api'). Useful in monorepos where relevant context spans sibling packages. agy runs with --dangerously-skip-permissions, so only pass directories you intend the model to read.",
+      "Additional directories agy may access alongside the working directory (maps to agy `--add-dir`, repeatable). Must be relative paths (e.g., 'packages/api'). Useful in monorepos where relevant context spans sibling packages. Execution requires ASK_ANTIGRAVITY_ALLOW_UNISOLATED=1; read-only isolation is not guaranteed.",
     ),
 });
 
 export const askAntigravityTool: UnifiedTool = {
   name: "ask-antigravity",
-  description: `Send a prompt to Google's Antigravity CLI (agy) for a subscription-backed second opinion, code review, or analysis. Requires agy >=${ANTIGRAVITY.MINIMUM_AGY_VERSION}, installed and logged in once; unsupported versions fail before model invocation. Defaults to the gemini-3.1-pro model at high reasoning effort, falling back to gemini-3.5-flash on a rate limit (override via the ASK_ANTIGRAVITY_MODEL / ASK_ANTIGRAVITY_EFFORT env vars; run \`agy models\` for options); single-turn only (no multi-turn). Returns human-readable text plus a structured response.`,
+  description: `Send a prompt to Google's Antigravity CLI (agy) for a subscription-backed second opinion, code review, or analysis. Refuses execution unless ASK_ANTIGRAVITY_ALLOW_UNISOLATED=1; opted-in runs can modify files, run shell commands, and access the network because read-only isolation is not guaranteed. Requires agy >=${ANTIGRAVITY.MINIMUM_AGY_VERSION}, installed and logged in once; unsupported versions fail before model invocation. Defaults to the gemini-3.1-pro model at high reasoning effort, falling back to gemini-3.5-flash on a rate limit (override via the ASK_ANTIGRAVITY_MODEL / ASK_ANTIGRAVITY_EFFORT env vars; run \`agy models\` for options); single-turn only (no multi-turn). Returns human-readable text plus a structured response.`,
   zodSchema: askAntigravityArgsSchema,
   outputSchema: askResponseSchema,
   annotations: {

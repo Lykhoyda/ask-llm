@@ -7,6 +7,8 @@ export const ERROR_MESSAGES = {
   RATE_LIMITED:
     "Antigravity (agy) hit a subscription rate limit. Google AI Pro/Ultra quotas refresh roughly every 5 hours — wait and retry, or use ask-codex / ask-gemini in the meantime.",
   TRUNCATED: "Antigravity (agy) hit --print-timeout and returned a truncated answer instead of a complete response.",
+  UNISOLATED_REFUSED:
+    "Antigravity (agy) execution refused: read-only isolation is not guaranteed. To explicitly allow an unisolated run that may modify files, run shell commands, and access the network, set ASK_ANTIGRAVITY_ALLOW_UNISOLATED=1.",
   TOOL_NOT_FOUND: "not found in registry",
 } as const;
 
@@ -14,7 +16,7 @@ export const STATUS_MESSAGES = {
   ANTIGRAVITY_RESPONSE: "Antigravity response:",
 } as const;
 
-// Machine callers also enforce plan+sandbox at the CLI layer.
+// Prompt and plan/sandbox flags are best effort, not an isolation boundary.
 export const READ_ONLY_PREAMBLE =
   "You are giving a second opinion / code review. Read and reason only. Do NOT modify, create, or delete files, and do NOT run commands — just analyze and respond.";
 
@@ -57,6 +59,7 @@ export const ANTIGRAVITY = {
   TIMEOUT_ENV_VAR: "ASK_ANTIGRAVITY_TIMEOUT_MS",
   // agy's --print-timeout defaults to 5m; mirror that as our process timeout.
   DEFAULT_TIMEOUT_MS: 300_000,
+  ALLOW_UNISOLATED_ENV_VAR: "ASK_ANTIGRAVITY_ALLOW_UNISOLATED",
   SANDBOX_ENV_VAR: "ASK_ANTIGRAVITY_SANDBOX",
   MODEL_ENV_VAR: "ASK_ANTIGRAVITY_MODEL",
   EFFORT_ENV_VAR: "ASK_ANTIGRAVITY_EFFORT",
