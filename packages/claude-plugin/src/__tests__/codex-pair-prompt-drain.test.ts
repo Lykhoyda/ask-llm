@@ -3,6 +3,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { contentHash } from "../../scripts/lib/debounce-state.mjs";
 import { clearSession, registerMarker } from "../../scripts/lib/session-registry.mjs";
 import { PLUGIN_ROOT, readFile } from "./_helpers.js";
 
@@ -17,12 +18,6 @@ describe("scripts/codex-pair-prompt-drain.mjs — structural invariants", () => 
     expect((fs.statSync(DRAIN_PATH).mode & 0o100) !== 0).toBe(true);
   });
 
-  it("drains pending and exits 0 on every path", () => {
-    expect(script).toMatch(/drainPending\(/);
-    expect(script).toMatch(/UserPromptSubmit/);
-    expect(script).toMatch(/main\(\)\.catch\(\(\)\s*=>\s*process\.exit\(0\)\)/);
-  });
-
   it("is wired into hooks.json on UserPromptSubmit", () => {
     const parsed = JSON.parse(hooks);
     const ups = parsed.hooks.UserPromptSubmit;
@@ -30,6 +25,16 @@ describe("scripts/codex-pair-prompt-drain.mjs — structural invariants", () => 
     expect(JSON.stringify(ups)).toMatch(/codex-pair-prompt-drain\.mjs/);
   });
 });
+
+function seedVerdict(repo: string, name: string, message: string) {
+  const file = path.join(repo, name);
+  const text = `// ${name}\n`;
+  fs.writeFileSync(file, text);
+  fs.writeFileSync(
+    path.join(repo, ".codex-pair/state/pending", "seed.json"),
+    JSON.stringify({ file, message, contentHash: contentHash(text) }),
+  );
+}
 
 describe("scripts/codex-pair-prompt-drain.mjs — runtime behavior", () => {
   let cwd: string;
@@ -40,9 +45,9 @@ describe("scripts/codex-pair-prompt-drain.mjs — runtime behavior", () => {
   });
   afterEach(() => fs.rmSync(cwd, { recursive: true, force: true }));
 
-  function runDrain() {
+  function runDrain(input = JSON.stringify({ hook_event_name: "UserPromptSubmit", prompt: "hi" })) {
     return spawnSync("node", [DRAIN_PATH], {
-      input: JSON.stringify({ hook_event_name: "UserPromptSubmit", prompt: "hi" }),
+      input,
       cwd,
       encoding: "utf-8",
       timeout: 10_000,
@@ -50,10 +55,7 @@ describe("scripts/codex-pair-prompt-drain.mjs — runtime behavior", () => {
   }
 
   it("surfaces a pending verdict as additionalContext and clears it", () => {
-    fs.writeFileSync(
-      path.join(cwd, ".codex-pair/state/pending", "seed.json"),
-      JSON.stringify({ file: path.join(cwd, "y.ts"), message: "[codex-pair] reviewed y.ts — 1H/0M/0L" }),
-    );
+    seedVerdict(cwd, "y.ts", "[codex-pair] reviewed y.ts — 1H/0M/0L");
     const res = runDrain();
     expect(res.status).toBe(0);
     expect(res.stdout).toMatch(/additionalContext/);
@@ -65,6 +67,12 @@ describe("scripts/codex-pair-prompt-drain.mjs — runtime behavior", () => {
     const res = runDrain();
     expect(res.status).toBe(0);
     expect(res.stdout).not.toMatch(/additionalContext/);
+  });
+
+  it("exits silently on invalid JSON", () => {
+    const res = runDrain("{");
+    expect(res.status).toBe(0);
+    expect(res.stdout).toBe("");
   });
 });
 
@@ -89,10 +97,7 @@ describe("codex-pair-prompt-drain.mjs — cross-repo (#209)", () => {
 
   it("drains a pending verdict from a registered non-cwd repo", () => {
     registerMarker(SESSION, otherRepo);
-    fs.writeFileSync(
-      path.join(otherRepo, ".codex-pair/state/pending", "seed.json"),
-      JSON.stringify({ file: path.join(otherRepo, "z.ts"), message: "[codex-pair] reviewed z.ts — 1H/0M/0L" }),
-    );
+    seedVerdict(otherRepo, "z.ts", "[codex-pair] reviewed z.ts — 1H/0M/0L");
     const res = spawnSync("node", [DRAIN_PATH], {
       input: JSON.stringify({ hook_event_name: "UserPromptSubmit", prompt: "hi", session_id: SESSION }),
       cwd: cwdRepo,

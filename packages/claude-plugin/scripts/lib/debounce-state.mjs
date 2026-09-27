@@ -3,21 +3,45 @@
 import { createHash } from "node:crypto";
 import { mkdirSync, readdirSync, readFileSync, renameSync, statSync, unlinkSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { stateRoot } from "./state.mjs";
+import { INFLIGHT_TTL_MIN_MS, stateRoot } from "./state.mjs";
 export const DEBOUNCE_DIR = "debounce";
 export const PENDING_DIR = "pending";
-export const REVIEWING_DIR = "reviewing";
+export const REVIEWED_DIR = "reviewed";
 export const DEFAULT_DEBOUNCE_MS = 15_000;
 export const DEFAULT_DEBOUNCE_MAX_MS = 60_000;
 export const DEBOUNCE_STALE_BUFFER_MS = 300_000;
 export const debounceRoot = (markerDir) => join(stateRoot(markerDir), DEBOUNCE_DIR);
 export const pendingRoot = (markerDir) => join(stateRoot(markerDir), PENDING_DIR);
-export const reviewingRoot = (markerDir) => join(stateRoot(markerDir), REVIEWING_DIR);
+export const reviewedRoot = (markerDir) => join(stateRoot(markerDir), REVIEWED_DIR);
 function fileHash(file) {
     return createHash("sha256").update(String(file)).digest("hex").slice(0, 16);
 }
 export const debounceRecordPath = (markerDir, file) => join(debounceRoot(markerDir), `${fileHash(file)}.json`);
 export const pendingPath = (markerDir, file) => join(pendingRoot(markerDir), `${fileHash(file)}.json`);
+export const reviewedPath = (markerDir, file) => join(reviewedRoot(markerDir), `${fileHash(file)}.json`);
+export const contentHash = (text) => createHash("sha256").update(text).digest("hex");
+export function fileContentHash(file) {
+    try {
+        return contentHash(readFileSync(file, "utf8"));
+    }
+    catch {
+        return null;
+    }
+}
+function readReviewedGen(markerDir, file) {
+    try {
+        const { reviewedGen } = JSON.parse(readFileSync(reviewedPath(markerDir, file), "utf8"));
+        return Number.isFinite(reviewedGen) ? reviewedGen : 0;
+    }
+    catch {
+        return 0;
+    }
+}
+// Pre-upgrade edit records carried reviewedGen themselves, so it still floors the done-marker.
+const withReviewedGen = (markerDir, rec) => ({
+    ...rec,
+    reviewedGen: Math.max(readReviewedGen(markerDir, rec.file), rec.reviewedGen ?? 0),
+});
 function writeAtomicSync(p, value) {
     try {
         mkdirSync(dirname(p), { recursive: true });
@@ -29,7 +53,7 @@ function writeAtomicSync(p, value) {
         // best-effort (ADR-077)
     }
 }
-// burstStartedAt survives while the burst is unconsumed (reviewedGen < generation).
+// Hooks own the edit record; the done-marker in reviewed/ belongs to the lock holder (one writer per file).
 export function bumpEditRecord(markerDir, file, { sessionId, now }) {
     let prev = null;
     try {
@@ -38,20 +62,44 @@ export function bumpEditRecord(markerDir, file, { sessionId, now }) {
     catch {
         prev = null;
     }
-    const generation = (prev?.generation ?? 0) + 1;
-    const burstInProgress = prev && prev.reviewedGen < prev.generation;
+    const reviewedGen = readReviewedGen(markerDir, file);
+    // A swept edit record must not restart below the done-marker.
+    const generation = Math.max(prev?.generation ?? 0, reviewedGen) + 1;
+    const burstInProgress = prev && reviewedGen < prev.generation;
     const burstStartedAt = burstInProgress ? prev.burstStartedAt : now;
-    const record = { file, generation, burstStartedAt, reviewedGen: prev?.reviewedGen ?? 0, sessionId };
+    const record = { file, generation, burstStartedAt, sessionId };
     writeAtomicSync(debounceRecordPath(markerDir, file), record);
-    return record;
+    return { ...record, reviewedGen };
 }
 export function readEditRecord(markerDir, file) {
     try {
-        return JSON.parse(readFileSync(debounceRecordPath(markerDir, file), "utf8"));
+        return withReviewedGen(markerDir, JSON.parse(readFileSync(debounceRecordPath(markerDir, file), "utf8")));
     }
     catch {
         return null;
     }
+}
+export function readDebounceRecords(markerDir) {
+    const root = debounceRoot(markerDir);
+    const records = [];
+    let names;
+    try {
+        names = readdirSync(root);
+    }
+    catch {
+        return records;
+    }
+    for (const name of names) {
+        if (!name.endsWith(".json"))
+            continue;
+        try {
+            records.push(withReviewedGen(markerDir, JSON.parse(readFileSync(join(root, name), "utf8"))));
+        }
+        catch {
+            // malformed record
+        }
+    }
+    return records;
 }
 export function decideReview({ record, myGeneration, now, maxMs, }) {
     if (!record)
@@ -66,35 +114,20 @@ export function decideReview({ record, myGeneration, now, maxMs, }) {
 }
 // A cap-triggered worker advances only to its own generation, so the latest worker still reviews the settled state.
 export function markReviewed(markerDir, file, generation) {
-    const p = debounceRecordPath(markerDir, file);
-    let rec;
-    try {
-        rec = JSON.parse(readFileSync(p, "utf8"));
-    }
-    catch {
-        return;
-    }
-    if (rec.reviewedGen < generation) {
-        rec.reviewedGen = generation;
-        writeAtomicSync(p, rec);
+    // Callers hold the per-file inflight lock, so read-then-write stays monotonic.
+    if (readReviewedGen(markerDir, file) < generation) {
+        writeAtomicSync(reviewedPath(markerDir, file), { file, reviewedGen: generation });
     }
 }
-export function writePending(markerDir, file, message) {
-    writeAtomicSync(pendingPath(markerDir, file), { file, message });
+export function writePending(markerDir, file, message, reviewedContentHash) {
+    writeAtomicSync(pendingPath(markerDir, file), { file, message, contentHash: reviewedContentHash });
 }
-// Held across the worker handoff so the Stop gate never sees a gap between "settling" and "reviewing".
-export const reviewingPath = (markerDir, file) => join(reviewingRoot(markerDir), `${fileHash(file)}.json`);
-export function markReviewing(markerDir, file) {
-    writeAtomicSync(reviewingPath(markerDir, file), { file, at: Date.now() });
+let noticeCounter = 0;
+export function writePendingNotice(markerDir, message) {
+    const name = `notice-${Date.now()}-${process.pid}-${noticeCounter++}.json`;
+    writeAtomicSync(join(pendingRoot(markerDir), name), { message, notice: true });
 }
-export function clearReviewing(markerDir, file) {
-    try {
-        unlinkSync(reviewingPath(markerDir, file));
-    }
-    catch {
-        // already gone
-    }
-}
+// Notices always surface; a verdict surfaces only while the content it reviewed is still on disk.
 export function drainPending(markerDir) {
     const root = pendingRoot(markerDir);
     const messages = [];
@@ -108,17 +141,26 @@ export function drainPending(markerDir) {
     for (const name of names) {
         if (!name.endsWith(".json"))
             continue;
-        const full = join(root, name);
+        // Claim by rename so a verdict written after the claim survives and concurrent drains never double-surface.
+        const claimed = `${join(root, name)}.${process.pid}.claimed`;
         try {
-            const { message } = JSON.parse(readFileSync(full, "utf8"));
-            if (typeof message === "string" && message.length > 0)
-                messages.push(message);
+            renameSync(join(root, name), claimed);
+        }
+        catch {
+            continue;
+        }
+        try {
+            const entry = JSON.parse(readFileSync(claimed, "utf8"));
+            const current = entry.notice === true ||
+                (typeof entry.contentHash === "string" && entry.contentHash === fileContentHash(entry.file));
+            if (current && typeof entry.message === "string" && entry.message.length > 0)
+                messages.push(entry.message);
         }
         catch {
             // skip malformed
         }
         try {
-            unlinkSync(full);
+            unlinkSync(claimed);
         }
         catch {
             // already gone
@@ -138,7 +180,7 @@ export function joinPendingForSurface(messages) {
 }
 // Orphaned sleepers self-cancel once their record is gone (decideReview → record-missing).
 export function clearAllDebounceState(markerDir) {
-    for (const root of [debounceRoot(markerDir), pendingRoot(markerDir), reviewingRoot(markerDir)]) {
+    for (const root of [debounceRoot(markerDir), pendingRoot(markerDir), reviewedRoot(markerDir)]) {
         let names;
         try {
             names = readdirSync(root);
@@ -156,9 +198,14 @@ export function clearAllDebounceState(markerDir) {
         }
     }
 }
-export function sweepStaleDebounce(markerDir, maxMs) {
-    const cutoff = Date.now() - (maxMs + DEBOUNCE_STALE_BUFFER_MS);
-    for (const root of [debounceRoot(markerDir), pendingRoot(markerDir), reviewingRoot(markerDir)]) {
+// Also removes .claimed pending files left by a drain that crashed mid-read.
+export function sweepHorizonMs({ debounceMaxMs, timeoutMs, settleMs, }) {
+    const lockTtlMs = Math.max(timeoutMs, INFLIGHT_TTL_MIN_MS) + 60_000;
+    return Math.max(debounceMaxMs + DEBOUNCE_STALE_BUFFER_MS, 2 * lockTtlMs + settleMs + 60_000);
+}
+export function sweepStaleDebounce(markerDir, timing) {
+    const cutoff = Date.now() - sweepHorizonMs(timing);
+    for (const root of [debounceRoot(markerDir), pendingRoot(markerDir), reviewedRoot(markerDir)]) {
         let names;
         try {
             names = readdirSync(root);

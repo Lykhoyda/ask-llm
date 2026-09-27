@@ -19,8 +19,7 @@ const require = createRequire(import.meta.url);
 const SCENARIO = process.env.FAKE_CODEX_SCENARIO || "none";
 
 // Drain stdin so the hook's child.stdin.write+end pattern doesn't hang
-// waiting for the buffer to flush. We don't actually use the prompt content
-// — scenarios are env-driven.
+// waiting for the buffer to flush. Only the `gated` scenario reads the prompt.
 function drainStdin() {
   return new Promise((resolve) => {
     let buf = "";
@@ -85,7 +84,7 @@ async function run() {
     process.exit(0);
   }
 
-  await drainStdin();
+  const prompt = await drainStdin();
 
   if (SCENARIO === "sol-inventory-failure-fallback") {
     process.stdout.write("validated review after inventory failure\n");
@@ -96,6 +95,13 @@ async function run() {
   if (process.env.FAKE_CODEX_RAW_STDOUT) {
     process.stdout.write(process.env.FAKE_CODEX_RAW_STDOUT);
     process.exit(Number(process.env.FAKE_CODEX_EXIT_CODE ?? 0));
+  }
+
+  if (SCENARIO === "gated" || (SCENARIO === "exit-nonzero" && process.env.FAKE_CODEX_RELEASE_FILE)) {
+    const fs = require("node:fs");
+    if (process.env.FAKE_CODEX_STARTED_FILE) fs.appendFileSync(process.env.FAKE_CODEX_STARTED_FILE, "started\n");
+    const release = process.env.FAKE_CODEX_RELEASE_FILE;
+    while (release && !fs.existsSync(release)) await new Promise((resolve) => setTimeout(resolve, 20));
   }
 
   switch (SCENARIO) {
@@ -303,6 +309,13 @@ async function run() {
       const sleepMs = Number(process.env.FAKE_CODEX_SLEEP_MS ?? 500);
       await new Promise((resolve) => setTimeout(resolve, sleepMs));
       emitAgentMessage("NONE");
+      process.exit(0);
+      break;
+    }
+
+    case "gated": {
+      const token = prompt.match(/REVIEW_TOKEN_\w+/)?.[0] ?? "none";
+      emitAgentMessage([`[HIGH] saw ${token}`, `x:1: reviewed ${token}`, "fix it"].join("\n"));
       process.exit(0);
       break;
     }

@@ -19,12 +19,16 @@ import {
 } from "./lib/broker.mts";
 import {
   bumpEditRecord,
+  contentHash,
   DEFAULT_DEBOUNCE_MAX_MS,
   DEFAULT_DEBOUNCE_MS,
   drainPending,
+  fileContentHash,
   joinPendingForSurface,
   markReviewed,
   sweepStaleDebounce,
+  writePending,
+  writePendingNotice,
 } from "./lib/debounce-state.mts";
 import { type Frontmatter, parseFrontmatter } from "./lib/frontmatter.mts";
 import type { HookInput } from "./lib/hook-input.mjs";
@@ -182,9 +186,20 @@ async function readStdin(): Promise<string> {
 
 // Emit one JSON object per hook run; fold auto-resume notices into the next emission.
 let noticePrefix: string | null = null;
+let forcedTarget: { markerDir: string; filePath: string } | null = null;
 
 // Send notices to both the transcript and model context, then await stdout flush before exit.
-function emitSystemMessage(text: string): Promise<void> {
+function emitSystemMessage(text: string, reviewedContentHash?: string, filePath?: string): Promise<void> {
+  if (reviewedContentHash && filePath && reviewedContentHash !== fileContentHash(filePath)) return flushNoticeOnly();
+  if (forcedTarget) {
+    // Forced runs belong to the worker: no stdout to Claude, and the file lock is held.
+    if (noticePrefix) writePendingNotice(forcedTarget.markerDir, noticePrefix);
+    noticePrefix = null;
+    if (text && reviewedContentHash)
+      writePending(forcedTarget.markerDir, forcedTarget.filePath, text, reviewedContentHash);
+    else if (text) writePendingNotice(forcedTarget.markerDir, text);
+    return Promise.resolve();
+  }
   let full = text;
   if (noticePrefix) {
     full = text ? `${noticePrefix}\n\n${text}` : noticePrefix;
@@ -885,6 +900,7 @@ async function main() {
 
   // Register before skip gates so earlier HIGH findings remain visible across repositories.
   registerMarker(payload?.session_id, markerDir);
+  if (process.env.CODEX_PAIR_FORCE_SYNC === "1") forcedTarget = { markerDir, filePath };
 
   const pauseInfo = readPauseInfo(markerDir);
   if (pauseInfo) {
@@ -1010,7 +1026,12 @@ async function main() {
       sessionId: payload?.session_id,
       now: Date.now(),
     });
-    if (Math.random() < 0.05) sweepStaleDebounce(markerDir, config.debounceMaxMs);
+    if (Math.random() < 0.05)
+      sweepStaleDebounce(markerDir, {
+        debounceMaxMs: config.debounceMaxMs,
+        timeoutMs: config.timeoutMs,
+        settleMs: effectiveDebounceMs,
+      });
     const spawned = spawnDebounceWorker({
       markerDir,
       filePath,
@@ -1050,6 +1071,7 @@ async function main() {
     await emitSystemMessage(`codex-pair ${VERDICT_PREFIXES.skipped}: ${filePath} — unreadable (${err.message})`);
     process.exit(0);
   }
+  const reviewedContentHash = contentHash(fileContent);
 
   const fileBytes = Buffer.byteLength(fileContent, "utf8");
   // Over-cap files get a partial view rather than losing review coverage.
@@ -1100,6 +1122,7 @@ async function main() {
       tool: toolName,
       file: filePath,
       verdict: "cached",
+      contentHash: reviewedContentHash,
       counts: {
         high: cached.high.length,
         med: cached.med.length,
@@ -1137,26 +1160,30 @@ async function main() {
         repeatedIgnoredCount: cachedRepeatedIgnoredCount,
         logPath: logPath(markerDir),
       }),
+      reviewedContentHash,
+      filePath,
     );
     process.exit(0);
   }
 
-  // Coalesce concurrent reviews of one file without stealing live locks.
-  const inflightTtlMs = Math.max(config.timeoutMs, INFLIGHT_TTL_MIN_MS) + 60_000;
-  const lockResult = tryAcquireInflightLock(markerDir, filePath, inflightTtlMs);
-  if (!lockResult.acquired) {
-    await appendLog(markerDir, {
-      timestamp: new Date().toISOString(),
-      tool: toolName,
-      file: filePath,
-      verdict: "skipped",
-      reason: `coalesced — another review is in-flight for this file (${lockResult.reason})`,
-    });
-    await flushNoticeOnly();
-    process.exit(0);
+  // Coalesce concurrent reviews of one file without stealing live locks; forced runs execute inside the worker's lock.
+  if (!forcedTarget) {
+    const inflightTtlMs = Math.max(config.timeoutMs, INFLIGHT_TTL_MIN_MS) + 60_000;
+    const lockResult = tryAcquireInflightLock(markerDir, filePath, inflightTtlMs);
+    if (!lockResult.acquired) {
+      await appendLog(markerDir, {
+        timestamp: new Date().toISOString(),
+        tool: toolName,
+        file: filePath,
+        verdict: "skipped",
+        reason: `coalesced — another review is in-flight for this file (${lockResult.reason})`,
+      });
+      await flushNoticeOnly();
+      process.exit(0);
+    }
+    const acquiredLockPath = lockResult.lockPath;
+    process.on("exit", () => releaseInflightLock(acquiredLockPath));
   }
-  const acquiredLockPath = lockResult.lockPath;
-  process.on("exit", () => releaseInflightLock(acquiredLockPath));
 
   let response: string;
   let fellBack = false;
@@ -1186,6 +1213,7 @@ async function main() {
         tool: toolName,
         file: filePath,
         verdict,
+        contentHash: reviewedContentHash,
         reason,
         durationMs,
         ...(paused ? { autoPaused: "quota" } : {}),
@@ -1211,6 +1239,7 @@ async function main() {
         tool: toolName,
         file: filePath,
         verdict,
+        contentHash: reviewedContentHash,
         reason,
         durationMs,
         ...(paused ? { autoPaused: "failures" } : {}),
@@ -1231,11 +1260,14 @@ async function main() {
       tool: toolName,
       file: filePath,
       verdict,
+      contentHash: reviewedContentHash,
       reason,
       durationMs,
     });
     await emitSystemMessage(
       `codex-pair ${prefix}: ${filePath} — review failed: ${reason} (${formatDuration(durationMs)}) (failure ${failureCount}/${AUTOPAUSE_FAILURE_THRESHOLD} before auto-pause)`,
+      reviewedContentHash,
+      filePath,
     );
     process.exit(0);
   }
@@ -1260,6 +1292,7 @@ async function main() {
     tool: toolName,
     file: filePath,
     verdict: total === 0 ? "none" : "concerns",
+    contentHash: reviewedContentHash,
     fellBack,
     counts: {
       high: concerns.high.length,
@@ -1298,6 +1331,8 @@ async function main() {
       repeatedIgnoredCount,
       logPath: logPath(markerDir),
     }),
+    reviewedContentHash,
+    filePath,
   );
 
   process.exit(0);

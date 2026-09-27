@@ -4,6 +4,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { contentHash, pendingPath } from "../../scripts/lib/debounce-state.mjs";
 import { parseFrontmatter } from "../../scripts/lib/frontmatter.mts";
 import { clearSession, readRegisteredMarkers } from "../../scripts/lib/session-registry.mjs";
 import { PLUGIN_ROOT, readFile } from "./_helpers.js";
@@ -1639,7 +1640,11 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
     // so the filename need not match the file hash).
     fs.writeFileSync(
       path.join(cwd, ".codex-pair/state/pending", "seed.json"),
-      JSON.stringify({ file: target, message: "[codex-pair] reviewed y.ts — 1H/0M/0L" }),
+      JSON.stringify({
+        file: target,
+        message: "[codex-pair] reviewed y.ts — 1H/0M/0L",
+        contentHash: contentHash("export const b = 2;\n"),
+      }),
     );
     const payload = JSON.stringify({
       hook_event_name: "PostToolUse",
@@ -2328,6 +2333,64 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
     expect(coalesced.reason).toMatch(/in-flight/);
     // Lock still exists — the coalesced hook MUST NOT release another hook's lock.
     expect(fs.existsSync(lockPath)).toBe(true);
+  });
+
+  function holdInflightLock(filePath: string) {
+    const lockPath = path.join(
+      tempDir,
+      ".codex-pair/state/inflight",
+      createHash("sha256").update(filePath).digest("hex").slice(0, 16),
+    );
+    fs.mkdirSync(path.dirname(lockPath), { recursive: true });
+    fs.writeFileSync(lockPath, "999999");
+    return lockPath;
+  }
+
+  const readLog = () =>
+    fs
+      .readFileSync(path.join(tempDir, ".codex-pair/log.jsonl"), "utf-8")
+      .trim()
+      .split("\n")
+      .map((l) => JSON.parse(l));
+
+  it("E1: sync mode still emits a cached verdict while another review holds the lock", () => {
+    setupMarker(tempDir);
+    const filePath = path.join(tempDir, "src.ts");
+    fs.writeFileSync(filePath, "export const x = 1;");
+    const payload = JSON.stringify({ tool_name: "Edit", tool_input: { file_path: filePath } });
+    expect(runHookWithFakeCodex(payload, tempDir, "none").status).toBe(0);
+    holdInflightLock(filePath);
+    const startedAt = Date.now();
+    const result = runHookWithFakeCodex(payload, tempDir, "none");
+    expect(Date.now() - startedAt).toBeLessThan(3_000);
+    expect(JSON.parse(result.stdout.trim()).systemMessage).toMatch(/\[cached\]/);
+  });
+
+  it("E2: a forced run reviews under the worker's held lock, writes a hashed pending verdict, and prints nothing", () => {
+    setupMarker(tempDir);
+    const filePath = path.join(tempDir, "src.ts");
+    fs.writeFileSync(filePath, "export const x = 1;");
+    const lockPath = holdInflightLock(filePath);
+    const payload = JSON.stringify({ tool_name: "Edit", tool_input: { file_path: filePath } });
+    const result = runHookWithFakeCodex(payload, tempDir, "none", { CODEX_PAIR_FORCE_SYNC: "1" });
+    expect(result.status).toBe(0);
+    expect(result.stdout.trim()).toBe("");
+    const pending = JSON.parse(fs.readFileSync(pendingPath(tempDir, filePath), "utf-8"));
+    expect(pending.contentHash).toBe(contentHash("export const x = 1;"));
+    expect(pending.message).toMatch(/codex-pair OK:/);
+    expect(fs.readFileSync(lockPath, "utf-8")).toBe("999999");
+  });
+
+  it("E3: cached and live log entries carry the reviewed content hash", () => {
+    setupMarker(tempDir);
+    const filePath = path.join(tempDir, "src.ts");
+    fs.writeFileSync(filePath, "export const x = 1;");
+    const payload = JSON.stringify({ tool_name: "Edit", tool_input: { file_path: filePath } });
+    runHookWithFakeCodex(payload, tempDir, "none");
+    runHookWithFakeCodex(payload, tempDir, "none");
+    const entries = readLog().filter((l) => l.verdict === "none" || l.verdict === "cached");
+    expect(entries.map((l) => l.verdict)).toEqual(["none", "cached"]);
+    for (const l of entries) expect(l.contentHash).toBe(contentHash("export const x = 1;"));
   });
 
   it("ADR-087: stale inflight lock (mtime > TTL) is taken over instead of coalescing", () => {
@@ -4373,6 +4436,51 @@ describe("scripts/codex-pair-watch.mjs — MultiEdit + parallel-fire fixtures", 
       .filter((l) => l.length > 0)
       .map((l) => JSON.parse(l));
   }
+
+  it("E4: sync mode drops a verdict or error if the reviewed file changes before emission", async () => {
+    setupMarker(tempDir);
+    const started = path.join(tempDir, "started");
+    for (const { name, scenario, changed } of [
+      { name: "changed", scenario: "gated", changed: true },
+      { name: "stable", scenario: "gated", changed: false },
+      { name: "error", scenario: "exit-nonzero", changed: true },
+    ]) {
+      const filePath = path.join(tempDir, `${name}.ts`);
+      const original = `// REVIEW_TOKEN_${name}\n`;
+      fs.writeFileSync(filePath, original);
+      const release = path.join(tempDir, `release-${name}`);
+      const payload = JSON.stringify({ tool_name: "Edit", tool_input: { file_path: filePath } });
+      const startCount = fs.existsSync(started)
+        ? fs.readFileSync(started, "utf8").split("\n").filter(Boolean).length
+        : 0;
+      const running = runHookAsyncWithFakeCodex(payload, tempDir, scenario, {
+        FAKE_CODEX_STARTED_FILE: started,
+        FAKE_CODEX_RELEASE_FILE: release,
+      });
+      try {
+        const deadline = Date.now() + 5_000;
+        while (
+          (!fs.existsSync(started) ||
+            fs.readFileSync(started, "utf8").split("\n").filter(Boolean).length === startCount) &&
+          Date.now() < deadline
+        ) {
+          await new Promise((resolve) => setTimeout(resolve, 20));
+        }
+        expect(fs.readFileSync(started, "utf8").split("\n").filter(Boolean)).toHaveLength(startCount + 1);
+        if (changed) fs.writeFileSync(filePath, "// REVIEW_TOKEN_new\n");
+      } finally {
+        fs.writeFileSync(release, "");
+      }
+      const result = await running;
+      expect(result.status).toBe(0);
+      const review = readLog(tempDir).find(
+        (entry) => entry.file === filePath && entry.verdict === (name === "error" ? "error" : "concerns"),
+      );
+      expect(review?.contentHash).toBe(contentHash(original));
+      if (changed) expect(result.stdout.trim()).toBe("");
+      else expect(JSON.parse(result.stdout.trim()).systemMessage).toMatch(/REVIEW_TOKEN_stable/);
+    }
+  }, 15_000);
 
   it("MultiEdit: payload with {file_path, edits[]} is accepted and reviewed (closes 313→0 MultiEdit fixture gap)", () => {
     // The hook reads payload.tool_input.file_path (singular) at codex-pair-

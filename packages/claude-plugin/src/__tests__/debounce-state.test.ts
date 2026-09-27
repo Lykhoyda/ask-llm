@@ -5,18 +5,21 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   bumpEditRecord,
   clearAllDebounceState,
-  clearReviewing,
+  contentHash,
+  debounceRecordPath,
   decideReview,
   drainPending,
   joinPendingForSurface,
   MAX_SURFACE_VERDICTS,
   markReviewed,
-  markReviewing,
+  pendingPath,
+  pendingRoot,
   readEditRecord,
-  reviewingPath,
-  reviewingRoot,
+  reviewedPath,
+  sweepHorizonMs,
   sweepStaleDebounce,
   writePending,
+  writePendingNotice,
 } from "../../scripts/lib/debounce-state.mjs";
 
 describe("lib/debounce-state.mjs", () => {
@@ -88,8 +91,15 @@ describe("lib/debounce-state.mjs", () => {
     expect(decideReview({ record, myGeneration: 3, now: 0, maxMs: 60000 }).review).toBe(false);
   });
 
+  function seedVerdict(name: string, text: string, message: string) {
+    const file = path.join(dir, name);
+    fs.writeFileSync(file, text);
+    writePending(dir, file, message, contentHash(text));
+    return file;
+  }
+
   it("writePending then drainPending returns the message and clears it", () => {
-    writePending(dir, "/x.ts", "[codex-pair] reviewed x.ts — 1H");
+    seedVerdict("x.ts", "export const x = 1;\n", "[codex-pair] reviewed x.ts — 1H");
     expect(drainPending(dir)).toEqual(["[codex-pair] reviewed x.ts — 1H"]);
     expect(drainPending(dir)).toEqual([]); // drained exactly once
   });
@@ -113,43 +123,96 @@ describe("lib/debounce-state.mjs", () => {
 
   it("clearAllDebounceState removes records and pending", () => {
     bumpEditRecord(dir, "/x.ts", { sessionId: "s", now: 1 });
-    writePending(dir, "/y.ts", "msg");
+    seedVerdict("y.ts", "export const y = 1;\n", "msg");
     clearAllDebounceState(dir);
     expect(readEditRecord(dir, "/x.ts")).toBeNull();
     expect(drainPending(dir)).toEqual([]);
   });
-});
 
-describe("reviewing marker (worker handoff coverage, 2026-07-02)", () => {
-  let dir: string;
-  beforeEach(() => {
-    dir = fs.mkdtempSync(path.join(os.tmpdir(), "reviewing-"));
-  });
-  afterEach(() => {
-    fs.rmSync(dir, { recursive: true, force: true });
+  it("C1: markReviewed never rewrites the edit record", () => {
+    bumpEditRecord(dir, "/x.ts", { sessionId: "s", now: 1000 });
+    const before = fs.readFileSync(debounceRecordPath(dir, "/x.ts"));
+    markReviewed(dir, "/x.ts", 1);
+    expect(fs.readFileSync(debounceRecordPath(dir, "/x.ts"))).toEqual(before);
+    expect(readEditRecord(dir, "/x.ts")?.reviewedGen).toBe(1);
   });
 
-  it("markReviewing writes a marker under state/reviewing; clearReviewing removes it", () => {
-    markReviewing(dir, "/r/a.ts");
-    const p = reviewingPath(dir, "/r/a.ts");
-    expect(fs.existsSync(p)).toBe(true);
-    const body = JSON.parse(fs.readFileSync(p, "utf8"));
-    expect(body.file).toBe("/r/a.ts");
-    expect(typeof body.at).toBe("number");
-    clearReviewing(dir, "/r/a.ts");
-    expect(fs.existsSync(p)).toBe(false);
-    expect(() => clearReviewing(dir, "/r/a.ts")).not.toThrow(); // idempotent
+  it("C2: markReviewed is monotonic", () => {
+    bumpEditRecord(dir, "/x.ts", { sessionId: "s", now: 1000 });
+    markReviewed(dir, "/x.ts", 5);
+    markReviewed(dir, "/x.ts", 3);
+    expect(readEditRecord(dir, "/x.ts")?.reviewedGen).toBe(5);
   });
 
-  it("clearAllDebounceState and sweepStaleDebounce also cover the reviewing dir", () => {
-    markReviewing(dir, "/r/a.ts");
-    clearAllDebounceState(dir);
-    expect(fs.readdirSync(reviewingRoot(dir))).toEqual([]);
-    markReviewing(dir, "/r/b.ts");
-    const p = reviewingPath(dir, "/r/b.ts");
-    const old = new Date(Date.now() - 2 * 3_600_000);
-    fs.utimesSync(p, old, old);
-    sweepStaleDebounce(dir, 60_000);
-    expect(fs.existsSync(p)).toBe(false);
+  it("C3: a swept edit record restarts above the done-marker", () => {
+    bumpEditRecord(dir, "/x.ts", { sessionId: "s", now: 1000 });
+    markReviewed(dir, "/x.ts", 7);
+    fs.unlinkSync(debounceRecordPath(dir, "/x.ts"));
+    const next = bumpEditRecord(dir, "/x.ts", { sessionId: "s", now: 2000 });
+    expect(next.generation).toBe(8);
+    const decision = decideReview({ record: readEditRecord(dir, "/x.ts"), myGeneration: 8, now: 2000, maxMs: 60000 });
+    expect(decision.reason).toBe("settled");
+  });
+
+  it("C5: sweep retains active generations and expires all three state roots after the review horizon", () => {
+    const file = path.join(dir, "active.ts");
+    bumpEditRecord(dir, file, { now: Date.now() });
+    writePending(dir, file, "review", contentHash("review"));
+    markReviewed(dir, file, 1);
+    const paths = [debounceRecordPath(dir, file), pendingPath(dir, file), reviewedPath(dir, file)];
+    const timing = { debounceMaxMs: 60_000, timeoutMs: 800_000, settleMs: 15_000 };
+    const age = (minutes: number) => {
+      const old = new Date(Date.now() - minutes * 60_000);
+      for (const p of paths) fs.utimesSync(p, old, old);
+    };
+
+    age(20);
+    sweepStaleDebounce(dir, timing);
+    expect(paths.every(fs.existsSync)).toBe(true);
+
+    age(31);
+    sweepStaleDebounce(dir, timing);
+    expect(paths.every((p) => !fs.existsSync(p))).toBe(true);
+
+    const floorTiming = { debounceMaxMs: 1_200_000, timeoutMs: 1, settleMs: 0 };
+    expect(sweepHorizonMs(floorTiming)).toBe(1_500_000);
+    bumpEditRecord(dir, file, { now: Date.now() });
+    const record = debounceRecordPath(dir, file);
+    const old = new Date(Date.now() - 24 * 60_000);
+    fs.utimesSync(record, old, old);
+    sweepStaleDebounce(dir, floorTiming);
+    expect(fs.existsSync(record)).toBe(true);
+    const expired = new Date(Date.now() - 26 * 60_000);
+    fs.utimesSync(record, expired, expired);
+    sweepStaleDebounce(dir, floorTiming);
+    expect(fs.existsSync(record)).toBe(false);
+  });
+
+  it("C4: drain surfaces a verdict whose content is still on disk", () => {
+    seedVerdict("a.ts", "export const a = 1;\n", "verdict a");
+    expect(drainPending(dir)).toEqual(["verdict a"]);
+    expect(fs.readdirSync(pendingRoot(dir))).toEqual([]);
+  });
+
+  it("C4: drain drops a verdict for content that has since changed", () => {
+    const file = seedVerdict("b.ts", "export const b = 1;\n", "verdict b");
+    fs.writeFileSync(file, "export const b = 2;\n");
+    expect(drainPending(dir)).toEqual([]);
+    expect(fs.readdirSync(pendingRoot(dir))).toEqual([]);
+  });
+
+  it("C4: drain drops a pre-upgrade entry with no content hash", () => {
+    const file = path.join(dir, "c.ts");
+    fs.writeFileSync(file, "export const c = 1;\n");
+    fs.mkdirSync(pendingRoot(dir), { recursive: true });
+    fs.writeFileSync(path.join(pendingRoot(dir), "legacy.json"), JSON.stringify({ file, message: "legacy" }));
+    expect(drainPending(dir)).toEqual([]);
+    expect(fs.readdirSync(pendingRoot(dir))).toEqual([]);
+  });
+
+  it("C4: drain surfaces notices without checking file content", () => {
+    writePendingNotice(dir, "codex-pair auto-resumed");
+    expect(drainPending(dir)).toEqual(["codex-pair auto-resumed"]);
+    expect(fs.readdirSync(pendingRoot(dir))).toEqual([]);
   });
 });
