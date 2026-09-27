@@ -198,7 +198,7 @@ node packages/claude-plugin/scripts/codex-pair-log.mjs
 # Aggregate stats: verdict breakdown, top 5 files, cache hit rate, fallback frequency
 node packages/claude-plugin/scripts/codex-pair-log.mjs --summary
 
-# Filter to one file's history
+# Filter to one file's history (including reviews logged through another path to the same file)
 node packages/claude-plugin/scripts/codex-pair-log.mjs --file src/billing/charge.ts
 
 # Only the last 24 hours
@@ -208,9 +208,9 @@ node packages/claude-plugin/scripts/codex-pair-log.mjs --since 24h --latest 50
 Output shape (one line per entry):
 
 ```
-2026-05-18T15:11:02.341Z  none          src/billing/charge.ts        0H/0M/0L    6.2s
-2026-05-18T15:11:14.892Z  concerns      src/billing/charge.ts        1H/0M/0L    8.7s
-2026-05-18T15:11:18.001Z  cached        src/billing/charge.ts        1H/0M/0L    3ms
+2026-05-18T15:11:02.341Z  none          /project/src/billing/charge.ts        0H/0M/0L    6.2s
+2026-05-18T15:11:14.892Z  concerns      /project/src/billing/charge.ts        1H/0M/0L    8.7s
+2026-05-18T15:11:18.001Z  cached        /project/src/billing/charge.ts        1H/0M/0L    3ms
 ```
 
 Zero workspace imports; runs on a marketplace install with no `node_modules`.
