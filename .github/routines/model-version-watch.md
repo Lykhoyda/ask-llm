@@ -85,8 +85,8 @@ ADR-137 / ADR-138 / ADR-154 / ADR-155 rules (binding):
 
 - agy slugs are evidence-pinned to agy's live catalog (ADR-137). The gemini and
   antigravity pins are independent even when their values look related: gemini's
-  quota fallback moved to `gemini-3.8-flash` while agy's fallback deliberately
-  stayed `gemini-3.5-flash` (ADR-155; ADR-154 remains the 3.7 adoption record).
+  quota fallback moved to `gemini-3.8-flash` (ADR-155) and agy's fallback later
+  moved to the same value on its own live agy 1.2.12 evidence (ADR-178).
   Never recommend bumping both in sympathy; each needs its own provider-native
   evidence.
 - Catalog presence is not proof of CLI acceptance (ADR-138: a catalog-listed

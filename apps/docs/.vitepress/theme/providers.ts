@@ -71,7 +71,7 @@ export const PROVIDER_DOCS: Record<ProviderId, ProviderDoc> = {
     serverName: "antigravity",
     cliInstall: "# install agy >=1.1.5 from https://antigravity.google, then log in once",
     defaultModel: "gemini-3.1-pro",
-    fallbackModel: "gemini-3.5-flash",
+    fallbackModel: "gemini-3.8-flash",
     defaultEffort: "high",
     status: "experimental",
     tier: "supporting",

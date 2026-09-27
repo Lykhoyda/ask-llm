@@ -24,6 +24,7 @@ import { assertSupportedAgyVersion } from "../agyVersion.js";
 import {
   buildArgs,
   executeAntigravityCLI,
+  findAgyErrorLine,
   isModelUnavailableError,
   isPrintTimeoutTruncation,
   isTruncatedAnswerError,
@@ -403,9 +404,9 @@ describe("executeAntigravityCLI error handling", () => {
 });
 
 describe("executeAntigravityCLI rate-limit fallback", () => {
-  // Keep agy's fallback on its live-catalog-proven slug until fresh `agy models` evidence exists.
-  it("keeps the evidence-based agy fallback slug on gemini-3.5-flash", () => {
-    expect(MODELS.FALLBACK).toBe("gemini-3.5-flash");
+  // agy 1.2.12 dropped gemini-3.5-flash; the base slug is proven live with --effort low|medium|high.
+  it("falls back to the live-proven gemini-3.8-flash base slug", () => {
+    expect(MODELS.FALLBACK).toBe("gemini-3.8-flash");
     expect(MODELS.DEFAULT).toBe("gemini-3.1-pro");
   });
 
@@ -848,4 +849,69 @@ describe("Antigravity isolation guard", () => {
       for (const [, args] of mockExec.mock.calls) expect(args).not.toContain("--dangerously-skip-permissions");
     },
   );
+});
+
+describe("AGY_ERROR stderr line (#335)", () => {
+  const rateLimitLine = 'AGY_ERROR: {"status":"RESOURCE_EXHAUSTED","http_status":429,"retryable":true}\n';
+
+  it("keeps classification fields when short_error is long", () => {
+    const line = findAgyErrorLine(`AGY_ERROR: {"short_error":"${"x".repeat(2000)}","http_status":429}\n`);
+    expect(line).toContain('"http_status":429');
+    expect(line?.length).toBeLessThan(500);
+  });
+
+  it("leaves a process timeout unclassified instead of recovering from a captured AGY_ERROR", async () => {
+    mockExec.mockImplementation(async (_command, _args, _onProgress, onStderr) => {
+      onStderr?.(rateLimitLine);
+      throw new Error("Command timed out after 300s. The LLM provider took too long to respond.");
+    });
+    await expect(executeAntigravityCLI({ prompt: "q" })).rejects.toThrow(/^Command timed out/);
+    expect(mockExec).toHaveBeenCalledOnce();
+  });
+
+  it.each([
+    ["dropped by the sanitizer", "warning: startup notice"],
+    ["kept by the sanitizer", 'AGY_ERROR: {"status":"INTERNAL","http_status":500,"error_id":"3f429ba0"}'],
+  ])("does not fall back to Flash when an opaque error_id contains 429 (raw line %s)", async (_case, sanitized) => {
+    mockExec.mockImplementation(async (_command, _args, _onProgress, onStderr) => {
+      onStderr?.('AGY_ERROR: {"status":"INTERNAL","http_status":500,"error_id":"3f429ba0"}\n');
+      throw new Error(sanitized);
+    });
+    const error = await executeAntigravityCLI({ prompt: "q" }).catch((err: unknown) => err);
+    expect((error as Error).message).toContain('"status":"INTERNAL"');
+    expect((error as Error).message).not.toContain("3f429ba0");
+    expect(mockExec).toHaveBeenCalledOnce();
+  });
+
+  it("treats a malformed AGY_ERROR line as unclassified instead of matching its raw text", async () => {
+    mockExec.mockImplementation(async (_command, _args, _onProgress, onStderr) => {
+      onStderr?.('AGY_ERROR: {"error_id":"3f429ba0",\n');
+      throw new Error('AGY_ERROR: {"error_id":"3f429ba0",');
+    });
+    const error = await executeAntigravityCLI({ prompt: "q" }).catch((err: unknown) => err);
+    expect((error as Error).message).not.toContain("3f429ba0");
+    expect(mockExec).toHaveBeenCalledOnce();
+  });
+
+  it("propagates a cancellation during the /quota probe instead of reporting a rate limit", async () => {
+    mockAssertSupportedAgyVersion.mockResolvedValue("1.2.12");
+    const controller = new AbortController();
+    const cancelled = new Error("Provider command cancelled");
+    mockExec
+      .mockRejectedValueOnce(new Error("RESOURCE_EXHAUSTED: quota"))
+      .mockRejectedValueOnce(new Error("RESOURCE_EXHAUSTED: quota"))
+      .mockImplementationOnce(async () => {
+        controller.abort(cancelled);
+        throw cancelled;
+      });
+    await expect(executeAntigravityCLI({ prompt: "q", signal: controller.signal })).rejects.toBe(cancelled);
+  });
+
+  it("does not recover when a denied-without-answer message names a quota-like action", async () => {
+    mockExec.mockResolvedValue(
+      JSON.stringify({ status: "SUCCESS", response: "", denied_actions: [{ action: "fetch_quota_429" }] }),
+    );
+    await expect(executeAntigravityCLI({ prompt: "q" })).rejects.toThrow(ERROR_MESSAGES.DENIED_WITHOUT_ANSWER);
+    expect(mockExec).toHaveBeenCalledOnce();
+  });
 });

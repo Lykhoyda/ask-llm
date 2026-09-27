@@ -94,6 +94,7 @@ function formatDeniedActions(value: unknown): string | undefined {
   if (!Array.isArray(value) || value.length === 0) return undefined;
   const names = value.map((item) => {
     if (typeof item === "string") return item;
+    if (typeof item?.action === "string") return item.action;
     try {
       return JSON.stringify(item);
     } catch {
@@ -149,6 +150,34 @@ function parseStdoutJson(raw: string): StdoutParse {
   return { kind: "answer", response, usage, ...meta };
 }
 
+// Read-only slash commands answer without an agent turn or quota use (agy >=1.1.11).
+async function describeQuota(signal?: AbortSignal): Promise<string | undefined> {
+  try {
+    const args = [CLI.FLAGS.PRINT, ANTIGRAVITY.QUOTA_COMMAND, CLI.FLAGS.OUTPUT_FORMAT, OUTPUT_FORMATS.JSON];
+    const raw = await executeCommand(
+      CLI.COMMANDS.AGY,
+      args,
+      undefined,
+      undefined,
+      undefined,
+      ANTIGRAVITY.VERSION_CHECK_TIMEOUT_MS,
+      undefined,
+      signal,
+    );
+    const parsed = parseStdoutJson(raw);
+    if (parsed.kind !== "answer") return undefined;
+    const lines = parsed.response
+      .split("\n")
+      .map((line) => line.split("\t"))
+      .filter((cells) => cells.length === 4)
+      .map(([group, bucket, remaining, reset]) => `${group} ${bucket}: ${remaining} (resets ${reset})`);
+    return lines.length > 0 ? lines.join("; ") : undefined;
+  } catch (error) {
+    if (signal?.aborted) throw error;
+    return undefined;
+  }
+}
+
 function fromStdoutPlain(raw: string): string | null {
   const t = raw.trim();
   return t.length > 0 ? t : null;
@@ -173,17 +202,42 @@ function buildUsageStats(
   };
 }
 
+// Our own messages quote agy output (partials, action names), so they must never trigger recovery.
+function isTerminalOwnError(message: string): boolean {
+  return isTruncatedAnswerError(message) || message.startsWith(ERROR_MESSAGES.DENIED_WITHOUT_ANSWER);
+}
+
 function isRateLimitError(message: string): boolean {
-  if (isTruncatedAnswerError(message)) return false;
+  if (isTerminalOwnError(message)) return false;
   const lower = message.toLowerCase();
   return ANTIGRAVITY.RATE_LIMIT_SIGNALS.some((s) => lower.includes(s));
 }
 
 // ADR-117 makes JSON error envelopes visible here without changing recovery matching.
 export function isModelUnavailableError(message: string): boolean {
-  if (isTruncatedAnswerError(message)) return false;
+  if (isTerminalOwnError(message)) return false;
   const lower = message.toLowerCase();
   return ANTIGRAVITY.MODEL_UNAVAILABLE_SIGNALS.some((s) => lower.includes(s));
+}
+
+// Keeps the classification fields whole, bounds short_error, and drops error_id (an opaque id can contain "429").
+export function findAgyErrorLine(stderr: string): string | undefined {
+  const prefix = ANTIGRAVITY.STRUCTURED_ERROR_PREFIX;
+  const line = stderr
+    .split("\n")
+    .reverse()
+    .find((l) => l.startsWith(prefix))
+    ?.trim();
+  if (!line) return undefined;
+  try {
+    const { status, code, http_status, retryable, error_id, short_error } = JSON.parse(line.slice(prefix.length));
+    if (error_id !== undefined)
+      Logger.warn(`antigravity: agy error_id ${JSON.stringify(String(error_id).slice(0, 80))}`);
+    const shortError = typeof short_error === "string" ? short_error.slice(0, 300) : undefined;
+    return `${prefix} ${JSON.stringify({ status, code, http_status, retryable, short_error: shortError })}`;
+  } catch {
+    return `${prefix} (unparseable)`;
+  }
 }
 
 export function isTruncatedAnswerError(message: string): boolean {
@@ -266,6 +320,15 @@ export async function executeAntigravityCLI(options: AntigravityExecutorOptions)
     return undefined;
   };
 
+  const rateLimitedError = async (): Promise<Error> => {
+    const quota = isVersionAtLeast(agyVersion, ANTIGRAVITY.QUOTA_COMMAND_MIN_VERSION)
+      ? await describeQuota(options.signal)
+      : undefined;
+    return new Error(
+      quota ? `${ERROR_MESSAGES.RATE_LIMITED} Current agy quota: ${quota}` : ERROR_MESSAGES.RATE_LIMITED,
+    );
+  };
+
   const runWithModel = async (model: string | undefined, fellBack: boolean): Promise<AntigravityExecutorResult> => {
     const args = buildArgs(
       fullPrompt,
@@ -290,7 +353,23 @@ export async function executeAntigravityCLI(options: AntigravityExecutorOptions)
       timeoutMs,
       commandLogging,
       options.signal,
-    );
+    ).catch((error: unknown) => {
+      // The shared sanitizer keeps only 3 stderr lines, which can drop agy's AGY_ERROR line (#335).
+      // Timeouts and cancellations keep their own error; AGY_ERROR describes only agy's exit.
+      if (!(error instanceof Error) || options.signal?.aborted || error.message.startsWith("Command timed out")) {
+        throw error;
+      }
+      const agyError = findAgyErrorLine(stderrChunks.join(""));
+      if (agyError) {
+        // Drop the raw line the sanitizer may have kept so only the compacted fields are classified.
+        const rest = error.message
+          .split("\n")
+          .filter((line) => !line.trimStart().startsWith(ANTIGRAVITY.STRUCTURED_ERROR_PREFIX))
+          .join("\n");
+        throw new Error(`${agyError}\n${rest}`);
+      }
+      throw error;
+    });
     const durationMs = Date.now() - startedAt;
     const reportedModel = model ?? MODELS.AGY_DEFAULT_LABEL;
     const stderr = stderrChunks.join("");
@@ -326,6 +405,9 @@ export async function executeAntigravityCLI(options: AntigravityExecutorOptions)
         return { response: plain, model: reportedModel, sessionId: undefined, usage: undefined };
       }
     }
+    if (parsed.kind === "envelope-without-answer" && parsed.deniedNotice) {
+      throw new Error(`${ERROR_MESSAGES.DENIED_WITHOUT_ANSWER} ${parsed.deniedNotice}`);
+    }
     // agy exited cleanly but produced no readable answer anywhere.
     throw new Error(ERROR_MESSAGES.NO_OUTPUT);
   };
@@ -346,7 +428,7 @@ export async function executeAntigravityCLI(options: AntigravityExecutorOptions)
       if (isModelUnavailableError(retryMessage)) {
         throw new Error(modelUnavailableMessage(rejectedModel, retryMessage, rejectedSource, explicitEffort));
       }
-      if (isRateLimitError(retryMessage)) throw new Error(ERROR_MESSAGES.RATE_LIMITED);
+      if (isRateLimitError(retryMessage)) throw await rateLimitedError();
       throw retryError;
     }
   };
@@ -370,7 +452,7 @@ export async function executeAntigravityCLI(options: AntigravityExecutorOptions)
     }
     // Retry subscription rate limits once on Flash unless it was already selected.
     if (primaryModel === MODELS.FALLBACK) {
-      throw new Error(ERROR_MESSAGES.RATE_LIMITED);
+      throw await rateLimitedError();
     }
     Logger.warn(`Antigravity rate limited on "${primaryModel}". Falling back to "${MODELS.FALLBACK}".`);
     try {
@@ -379,7 +461,7 @@ export async function executeAntigravityCLI(options: AntigravityExecutorOptions)
       const fbMessage = fallbackError instanceof Error ? fallbackError.message : String(fallbackError);
       if (isTruncatedAnswerError(fbMessage)) throw fallbackError;
       // Preserve non-quota fallback failures instead of masking them.
-      if (isRateLimitError(fbMessage)) throw new Error(ERROR_MESSAGES.RATE_LIMITED);
+      if (isRateLimitError(fbMessage)) throw await rateLimitedError();
       // The executor-selected fallback gets the same bounded recovery.
       if (isModelUnavailableError(fbMessage)) return await retryModelless(MODELS.FALLBACK, "default");
       throw fallbackError;

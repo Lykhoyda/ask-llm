@@ -131,7 +131,7 @@ The unified `@ask-llm/mcp` server is the recommended install: one registration, 
 | **Codex** | Code reasoning, targeted reviews, architecture critique | `gpt-6-astra` → `gpt-5.6-terra` | OpenAI/Codex account |
 | **Claude** | An independent Claude opinion from Codex or another non-Claude host | `opus` (Opus 5.5) → `sonnet` | Claude Code CLI; read-only workspace tools |
 | **Grok** | Grok 4.7 critique via xAI API or the official Grok CLI | `grok-4.7`, reasoning `high` (no fallback) | `XAI_API_KEY` or Grok CLI; one explicit harness per call |
-| **Antigravity** | Subscription-backed second opinion; large-context reads | `gemini-3.1-pro` → `gemini-3.5-flash` (`--effort high`) | Google AI Pro/Ultra; `agy` CLI. Experimental, one-shot; [MCP execution requires unisolated opt-in](https://lykhoyda.github.io/ask-llm/providers/antigravity) |
+| **Antigravity** | Subscription-backed second opinion; large-context reads | `gemini-3.1-pro` → `gemini-3.8-flash` (`--effort high`) | Google AI Pro/Ultra; `agy` CLI. Experimental, one-shot; [MCP execution requires unisolated opt-in](https://lykhoyda.github.io/ask-llm/providers/antigravity) |
 | **Ollama** | Private, offline, zero-cost review | `qwen3.8:27b` (no auto-fallback) | Ollama running locally |
 | **Gemini** | Whole-codebase reads (1M+ tokens) | `gemini-3.1-pro-preview` → `gemini-3.8-flash` | Enterprise Gemini seat (see note) |
 
