@@ -236,7 +236,7 @@ export function findAgyErrorLine(stderr: string): string | undefined {
     const shortError = typeof short_error === "string" ? short_error.slice(0, 300) : undefined;
     return `${prefix} ${JSON.stringify({ status, code, http_status, retryable, short_error: shortError })}`;
   } catch {
-    return line.slice(0, ANTIGRAVITY.PARTIAL_OUTPUT_PREVIEW_CHARS);
+    return `${prefix} (unparseable)`;
   }
 }
 

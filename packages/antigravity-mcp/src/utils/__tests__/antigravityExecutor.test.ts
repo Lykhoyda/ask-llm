@@ -883,6 +883,16 @@ describe("AGY_ERROR stderr line (#335)", () => {
     expect(mockExec).toHaveBeenCalledOnce();
   });
 
+  it("treats a malformed AGY_ERROR line as unclassified instead of matching its raw text", async () => {
+    mockExec.mockImplementation(async (_command, _args, _onProgress, onStderr) => {
+      onStderr?.('AGY_ERROR: {"error_id":"3f429ba0",\n');
+      throw new Error('AGY_ERROR: {"error_id":"3f429ba0",');
+    });
+    const error = await executeAntigravityCLI({ prompt: "q" }).catch((err: unknown) => err);
+    expect((error as Error).message).not.toContain("3f429ba0");
+    expect(mockExec).toHaveBeenCalledOnce();
+  });
+
   it("propagates a cancellation during the /quota probe instead of reporting a rate limit", async () => {
     mockAssertSupportedAgyVersion.mockResolvedValue("1.2.12");
     const controller = new AbortController();
