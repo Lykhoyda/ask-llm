@@ -169,9 +169,9 @@ charge).
 Once enabled, the hook checks at turn-end whether any HIGH findings in `log.jsonl` are unacknowledged and unresolved. It reconciles against present reality before blocking:
 
 - **File deleted or renamed** → finding skipped (no longer relevant)
-- **File clean vs HEAD** (`git status --porcelain=v1 -z --untracked-files=all`) → finding skipped (reverted or branch-switched away); new files inside untracked directories remain eligible to block
+- **File clean vs HEAD** (`git status --porcelain=v1 -z --untracked-files=all`) → finding skipped (reverted or branch-switched away); new files inside untracked directories, including untracked nested git repositories that git reports only as `?? dir/`, remain eligible to block
 - **Latest review of the content on disk is indeterminate** (`error`/`retried`/`broker_fallback`) → fail-open, finding skipped (don't block on a stale HIGH from before a transient error). Skip entries have no content hash and do not displace the last review.
-- **No review matches the content on disk** → finding skipped. A queued settled edit gets its own review; an edit made outside Claude needs a later reviewed edit. The gate uses the latest matching review even if a review of older content finished afterward.
+- **No review matches the content on disk** → finding skipped. A queued settled edit gets its own review; an edit made outside Claude needs a later reviewed edit. The gate uses the latest matching review even if a review of older content finished afterward, including when that review was logged under another path to the same file (such as `/var` and `/private/var` on macOS).
 
 ### In-flight reviews block too
 
@@ -198,7 +198,7 @@ node packages/claude-plugin/scripts/codex-pair-log.mjs
 # Aggregate stats: verdict breakdown, top 5 files, cache hit rate, fallback frequency
 node packages/claude-plugin/scripts/codex-pair-log.mjs --summary
 
-# Filter to one file's history
+# Filter to one file's history (including reviews logged through another path to the same file)
 node packages/claude-plugin/scripts/codex-pair-log.mjs --file src/billing/charge.ts
 
 # Only the last 24 hours
@@ -208,9 +208,9 @@ node packages/claude-plugin/scripts/codex-pair-log.mjs --since 24h --latest 50
 Output shape (one line per entry):
 
 ```
-2026-05-18T15:11:02.341Z  none          src/billing/charge.ts        0H/0M/0L    6.2s
-2026-05-18T15:11:14.892Z  concerns      src/billing/charge.ts        1H/0M/0L    8.7s
-2026-05-18T15:11:18.001Z  cached        src/billing/charge.ts        1H/0M/0L    3ms
+2026-05-18T15:11:02.341Z  none          /project/src/billing/charge.ts        0H/0M/0L    6.2s
+2026-05-18T15:11:14.892Z  concerns      /project/src/billing/charge.ts        1H/0M/0L    8.7s
+2026-05-18T15:11:18.001Z  cached        /project/src/billing/charge.ts        1H/0M/0L    3ms
 ```
 
 Zero workspace imports; runs on a marketplace install with no `node_modules`.

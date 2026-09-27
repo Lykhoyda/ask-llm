@@ -3,7 +3,7 @@
 
 // CLI viewer for the .codex-pair/log.jsonl the hook writes; run with --help for subcommands.
 
-import { readFileSync } from "node:fs";
+import { readFileSync, realpathSync } from "node:fs";
 import { access } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
@@ -149,8 +149,18 @@ function showLatest(entries: LogEntry[], n: number): void {
   }
 }
 
+function canonicalFile(file: string): string {
+  try {
+    return realpathSync(file);
+  } catch {
+    return file;
+  }
+}
+
+// Match any path to the same file; the hook logs canonical paths, older entries may hold aliases.
 function showFile(entries: LogEntry[], filePath: string): void {
-  const filtered = entries.filter((e) => e.file === filePath);
+  const target = canonicalFile(filePath);
+  const filtered = entries.filter((e) => typeof e.file === "string" && canonicalFile(e.file) === target);
   if (filtered.length === 0) {
     process.stdout.write(`codex-pair-log: no entries for file ${filePath}\n`);
     return;
