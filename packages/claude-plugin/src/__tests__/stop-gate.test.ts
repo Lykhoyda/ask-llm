@@ -405,7 +405,12 @@ describe("codex-pair-stop-gate.mjs — runtime (pending drain + in-flight block)
       path.join(dir, ".codex-pair", "log.jsonl"),
       [
         JSON.stringify({ file: clean, verdict: "concerns", concerns: { high: ["H-clean"] } }),
-        JSON.stringify({ file: edited, verdict: "concerns", contentHash: contentHash("export const x = 1;"), concerns: { high: ["H-new-dir"] } }),
+        JSON.stringify({
+          file: edited,
+          verdict: "concerns",
+          contentHash: contentHash("export const x = 1;"),
+          concerns: { high: ["H-new-dir"] },
+        }),
         "",
       ].join("\n"),
     );
