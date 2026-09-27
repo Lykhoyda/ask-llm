@@ -79,6 +79,8 @@ export const ANTIGRAVITY = {
     "timed out",
     "timeout expired",
   ],
+  QUOTA_COMMAND: "/quota",
+  QUOTA_COMMAND_MIN_VERSION: "1.1.11",
   // agy >=1.2.6 prints this stderr line on a failed headless turn and exits 3.
   STRUCTURED_ERROR_PREFIX: "AGY_ERROR:",
   // Lowercased substrings; isRateLimitError() lowercases the message first.

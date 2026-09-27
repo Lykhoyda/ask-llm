@@ -49,9 +49,10 @@ describe("fake agy 1.2.12", { timeout: 30_000 }, () => {
     writeFileSync(join(dir, name, "stderr.txt"), stderr);
     writeFileSync(join(dir, name, "exit.txt"), String(exit));
   };
-  const installFakeAgy = (primary: Scenario, fallback: Scenario = primary) => {
+  const installFakeAgy = (primary: Scenario, fallback: Scenario = primary, quota?: Scenario) => {
     writeScenario("primary", primary);
     writeScenario("fallback", fallback);
+    writeScenario("quota", quota ?? { stdout: "", stderr: "unexpected /quota call", exit: 1 });
   };
 
   // One executable for the file: macOS can stall seconds scanning each newly written binary.
@@ -63,7 +64,7 @@ describe("fake agy 1.2.12", { timeout: 30_000 }, () => {
       "#!/bin/sh",
       'if [ "$1" = "--version" ]; then echo 1.2.12; exit 0; fi',
       `d='${join(dir, "primary")}'`,
-      `for a; do [ "$a" = "${MODELS.FALLBACK}" ] && d='${join(dir, "fallback")}'; done`,
+      `for a; do case "$a" in ${MODELS.FALLBACK}) d='${join(dir, "fallback")}';; /quota) d='${join(dir, "quota")}';; esac; done`,
       'cat "$d/stderr.txt" >&2',
       'cat "$d/stdout.txt"',
       'exit "$(cat "$d/exit.txt")"',
@@ -129,6 +130,42 @@ describe("fake agy 1.2.12", { timeout: 30_000 }, () => {
       const error = await executeAntigravityCLI({ prompt: "q" }).catch((err: unknown) => err);
       expect((error as Error).message).toContain('"status":"INTERNAL"');
       expect((error as Error).message).not.toContain("must not be used");
+    });
+  });
+
+  describe("rate-limit quota diagnostics (#268)", () => {
+    const rateLimited = {
+      stdout: errorEnvelope("Too many requests"),
+      stderr: agyError({ status: "RESOURCE_EXHAUSTED", http_status: 429, retryable: true }),
+      exit: 3,
+    };
+    // Live-captured `agy -p /quota --output-format json` response on agy 1.2.12 (command.data omitted).
+    const quota = {
+      stdout: JSON.stringify({
+        conversation_id: "",
+        status: "SUCCESS",
+        response:
+          "Gemini Models\tWeekly Limit Remaining\t100%\t2026-09-29T12:23:29Z\n" +
+          "Gemini Models\tFive Hour Limit Remaining\t0%\t2026-09-27T20:10:40Z\n",
+        duration_seconds: 0,
+        num_turns: 0,
+        usage: ZERO_USAGE,
+      }),
+      stderr: "",
+    };
+
+    it("appends agy's live quota and reset times when primary and Flash are both rate limited", async () => {
+      installFakeAgy(rateLimited, rateLimited, quota);
+      const error = await executeAntigravityCLI({ prompt: "q" }).catch((err: unknown) => err);
+      expect((error as Error).message.startsWith(ERROR_MESSAGES.RATE_LIMITED)).toBe(true);
+      expect((error as Error).message).toContain(
+        "Gemini Models Five Hour Limit Remaining: 0% (resets 2026-09-27T20:10:40Z)",
+      );
+    });
+
+    it("keeps the plain rate-limit message when the quota probe fails", async () => {
+      installFakeAgy(rateLimited, rateLimited);
+      await expect(executeAntigravityCLI({ prompt: "q" })).rejects.toThrow(ERROR_MESSAGES.RATE_LIMITED);
     });
   });
 });

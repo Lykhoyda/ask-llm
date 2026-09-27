@@ -1,6 +1,6 @@
 # Architectural Decisions
 
-## ADR-178: Antigravity adopts live agy 1.2.12 evidence (fallback model, AGY_ERROR)
+## ADR-178: Antigravity adopts live agy 1.2.12 evidence (fallback model, AGY_ERROR, quota)
 
 **Status:** Accepted (2026-09-27). Supersedes the antigravity half of ADR-125/137/155's `gemini-3.5-flash` fallback pin.
 
@@ -11,6 +11,8 @@
 **Consequences:** Subscription rate limits retry on a model agy 1.2.12 accepts. Current-facing surfaces and the docs drift guard move together; historical ADRs, roadmap entries, bugs, and changelogs keep the pins they recorded.
 
 **AGY_ERROR (#335):** agy ≥1.2.6 ends a failed headless turn with exit 3 and a stderr line `AGY_ERROR: {…}`. The shared `sanitizeErrorForLLM` keeps only the first 3 non-empty lines unless a narrow quota passthrough matches, so the line was dropped whenever agy printed a multi-line startup warning first, and a 429 never reached `isRateLimitError`. The executor now takes the last `AGY_ERROR:` line from its own raw stderr capture and prepends it (bounded to 500 chars) to the rejection, so the existing substring matchers classify it; the shared sanitizer and other providers are unchanged. No version gate: the line cannot appear before 1.2.6. The payload keys (`short_error`, `retryable`, `error_id`, `status`, `code`, `http_status`) come from strings in the agy 1.2.12 binary; two cheap live triggers (unknown `--conversation`, unknown `--agent`) only warned and exited 0, so no failure was live-captured. Classification therefore stays on substrings (`429`, `resource_exhausted`, `too many requests`, `invalid model selection`) rather than parsing specific keys.
+
+**Quota diagnostics (#268, thin slice):** Live on agy 1.2.12, `agy -p /quota --output-format json` exits 0 with no agent turn (`num_turns: 0`, zero usage) and a `response` of tab-separated `group, bucket, remaining %, reset time` lines, plus the same data under `command.data.groups[].buckets[]`. When both the primary and the Flash fallback are rate limited, the executor runs that probe (agy ≥1.1.11, 5s budget, no workspace flags) and appends the lines to `RATE_LIMITED`; any probe failure keeps the plain message. The probe starts no agent turn, so it cannot act on the workspace and is independent of the read-only fix. Deferred under #268: a `doctor` quota probe and inlining `/model`/`/effort` slugs into model-unavailable errors.
 
 ## ADR-177: Refuse unisolated Antigravity executor runs by default
 
