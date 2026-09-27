@@ -38,7 +38,7 @@ Stop hook fires (stdin = Stop payload):
   entriesByFile = group(readLogJsonl(markerDir), by .file, keep latest per file)
 
   # Reconcile against present reality
-  gitDirty = parseGitPorcelain(`git status --porcelain` in repo)   # set of modified+untracked paths; null if not-a-repo/git-missing
+  gitDirty = gitDirtySet(markerDir)  # current command and parsing: see ADR-118 and codex-pair-stop-gate.mts
   blocking = []
   for (file, latest) in entriesByFile:
     if !existsSync(file): continue                       # [A] deleted/renamed → drop
@@ -56,7 +56,7 @@ Stop hook fires (stdin = Stop payload):
 ### Edge cases resolved (from the Antigravity critique)
 
 - **[A] Deletion/rename trap.** A file flagged HIGH then deleted is never re-reviewed, so its latest log entry stays HIGH forever → would block on a non-existent file. **Fix:** skip files where `!existsSync(file)`.
-- **[B] Git revert / branch-switch over-gating.** `git checkout -- <file>` / branch switch doesn't fire `PostToolUse`, and `.codex-pair/` is gitignored so the log persists across branches → blocked on a clean workspace. **Fix:** `git status --porcelain` as a *subtractive filter* — drop files that are clean vs HEAD. This is **not** ADR-048's mistake: porcelain lists untracked files (`??`) too, so there is no untracked blind spot; it is an *additional* filter on log-derived candidates, not the primary scope. If not in a git repo (or git missing), the filter is skipped (the existence + log checks still gate).
+- **[B] Git revert / branch-switch over-gating.** `git checkout -- <file>` / branch switch doesn't fire `PostToolUse`, and `.codex-pair/` is gitignored so the log persists across branches → blocked on a clean workspace. **Fix:** drop files clean vs HEAD using the subtractive filter specified in ADR-118. If not in a git repo (or git missing), the filter is skipped (the existence + log checks still gate).
 - **[C] Transient error blocks the fix.** You edit to fix a HIGH, but the review rate-limits/times-out → a new `error`/`skipped` entry lands. The naïve "latest *real* entry" rule would skip back to the prior HIGH and block despite the fix. **Fix:** if the *latest* entry for a file is indeterminate (`error`/`skipped`/`retried`/`broker_fallback`), treat the file as indeterminate and **fail-open for that file** — do not fall back to historical states.
 - **[E] Global ack collision.** Two files with identical concern text (e.g. `"Unused import 'useState'"`) produce the same `hashConcernBody(text)`; one ack silently suppresses a real HIGH elsewhere. **Fix:** key acks on `hashConcernBody(relPath + ":" + concernText)`.
 - **[D] Cross-file fix + cache staleness (documented).** A HIGH in File A fixed by editing File B leaves A's latest entry `concerns`; touching A hits the 10-min cache → re-logs the same HIGH as `cached`. **MVP:** the block message advises making a real edit to A (or that a future `--no-cache` ack-clear is deferred).
@@ -99,7 +99,7 @@ To defer a finding (stale / pre-existing / out-of-scope):
 | ADR-048 (removed) | This gate |
 |-------------------|-----------|
 | Ran a **fresh `gemini -p` review** every Stop → 5–20 LLM calls/session, 60s/turn latency, quota burn | **Zero LLM calls** — reads already-logged findings + one local `git status` |
-| `git diff HEAD` **silently skipped untracked files** (false coverage) | Log-derived candidates (covers untracked) + `git status --porcelain` (lists `??`) |
+| `git diff HEAD` **silently skipped untracked files** (false coverage) | Log-derived candidates plus ADR-118's dirty-file filter |
 | **Unsolicited** per-turn blocking | **Opt-in** (`blockOn: HIGH`), default OFF |
 | Per-turn firing was a *bug* for "session review" | Per-turn firing is the *desired* semantic for a per-turn gate |
 

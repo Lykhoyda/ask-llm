@@ -58,7 +58,8 @@ function gitDirtySet(markerDir) {
     };
     try {
         const repoRoot = execFileSync("git", ["-C", markerDir, "rev-parse", "--show-toplevel"], opts).trim();
-        const porcelain = execFileSync("git", ["-C", markerDir, "status", "--porcelain=v1", "-z"], opts);
+        // -uall lists files inside untracked dirs; the default collapses them to "?? dir/".
+        const porcelain = execFileSync("git", ["-C", markerDir, "status", "--porcelain=v1", "-z", "--untracked-files=all"], opts);
         return parseGitPorcelain(porcelain, repoRoot);
     }
     catch {
