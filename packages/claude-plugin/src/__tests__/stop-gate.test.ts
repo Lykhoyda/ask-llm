@@ -341,6 +341,34 @@ describe("codex-pair-stop-gate.mjs — runtime (pending drain + in-flight block)
     expect(out.reason).toMatch(/H-finding/);
     expect(out.reason).toMatch(/queued verdict text/);
   });
+
+  it("blockOn HIGH: a new file inside a new untracked directory still blocks", () => {
+    writeMarker("---\nblockOn: HIGH\n---\n");
+    const git = (...args: string[]) =>
+      spawnSync("git", ["-C", dir, "-c", "user.name=t", "-c", "user.email=t@t", ...args]).status;
+    const clean = path.join(dir, "clean.ts");
+    fs.writeFileSync(clean, "export const y = 1;");
+    expect(git("init", "-q")).toBe(0);
+    expect(git("add", "clean.ts")).toBe(0);
+    expect(git("commit", "-qm", "init")).toBe(0);
+    fs.mkdirSync(path.join(dir, "src"));
+    const edited = path.join(dir, "src", "app.ts");
+    fs.writeFileSync(edited, "export const x = 1;");
+    fs.writeFileSync(
+      path.join(dir, ".codex-pair", "log.jsonl"),
+      [
+        JSON.stringify({ file: clean, verdict: "concerns", concerns: { high: ["H-clean"] } }),
+        JSON.stringify({ file: edited, verdict: "concerns", concerns: { high: ["H-new-dir"] } }),
+        "",
+      ].join("\n"),
+    );
+    const result = runGate();
+    expect(result.status).toBe(0);
+    const out = JSON.parse(result.stdout.trim());
+    expect(out.decision).toBe("block");
+    expect(out.reason).toMatch(/H-new-dir/);
+    expect(out.reason).not.toMatch(/H-clean/);
+  });
 });
 
 describe("codex-pair-stop-gate.mjs — cross-repo (#209)", () => {

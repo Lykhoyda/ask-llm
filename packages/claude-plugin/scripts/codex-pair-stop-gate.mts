@@ -78,7 +78,12 @@ function gitDirtySet(markerDir: string) {
   };
   try {
     const repoRoot = execFileSync("git", ["-C", markerDir, "rev-parse", "--show-toplevel"], opts).trim();
-    const porcelain = execFileSync("git", ["-C", markerDir, "status", "--porcelain=v1", "-z"], opts);
+    // -uall lists files inside untracked dirs; the default collapses them to "?? dir/".
+    const porcelain = execFileSync(
+      "git",
+      ["-C", markerDir, "status", "--porcelain=v1", "-z", "--untracked-files=all"],
+      opts,
+    );
     return parseGitPorcelain(porcelain, repoRoot);
   } catch {
     return null; // not a repo / git missing / timeout → skip the [B] filter
