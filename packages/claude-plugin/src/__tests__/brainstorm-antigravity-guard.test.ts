@@ -1,4 +1,4 @@
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
@@ -7,20 +7,12 @@ import { PLUGIN_ROOT, readFile } from "./_helpers.js";
 
 const SKIP_FLAG = "--dangerously-skip-permissions";
 
-function pluginMarkdown(): string[] {
-  const out: string[] = [];
-  const walk = (dir: string) => {
-    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-      const full = path.join(dir, entry.name);
-      if (entry.isDirectory()) walk(full);
-      else if (entry.name.endsWith(".md")) out.push(path.relative(PLUGIN_ROOT, full));
-    }
-  };
-  for (const dir of ["agents", "skills", "commands"]) {
-    if (fs.existsSync(path.join(PLUGIN_ROOT, dir))) walk(path.join(PLUGIN_ROOT, dir));
-  }
-  return out;
-}
+const pluginMarkdown = ["agents", "skills"].flatMap((dir) =>
+  fs
+    .readdirSync(path.join(PLUGIN_ROOT, dir), { recursive: true, encoding: "utf-8" })
+    .filter((f) => f.endsWith(".md"))
+    .map((f) => path.join(dir, f)),
+);
 
 function antigravitySnippet(): string {
   const coordinator = readFile("agents/brainstorm-coordinator.md");
@@ -33,21 +25,14 @@ function antigravitySnippet(): string {
 }
 
 describe("plugin markdown never grants agy unattended permissions", () => {
-  it.each(pluginMarkdown())("%s has no raw agy invocation with the skip-permissions flag", (rel) => {
+  it.each(pluginMarkdown)("%s has no raw agy invocation with the skip-permissions flag", (rel) => {
     const lines = readFile(rel).replace(/\\\n/g, " ").split("\n");
     const invocations = lines.filter((line) => /(^|[\s;&|(`$"'/])agy\s+-/.test(line));
     for (const line of invocations) expect(line).not.toContain(SKIP_FLAG);
   });
 });
 
-const shells = ["bash", "zsh"].filter((shell) => {
-  try {
-    execFileSync(shell, ["-c", "true"]);
-    return true;
-  } catch {
-    return false;
-  }
-});
+const shells = ["bash", "zsh"].filter((shell) => spawnSync(shell, ["-c", "true"]).status === 0);
 
 describe.each(shells)("brainstorm antigravity participant under %s", (shell) => {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "brainstorm-agy-guard-"));
