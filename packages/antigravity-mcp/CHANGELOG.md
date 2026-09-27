@@ -1,5 +1,21 @@
 # @ask-llm/antigravity-mcp
 
+## 0.8.1
+
+### Patch Changes
+
+- [#352](https://github.com/Lykhoyda/ask-llm/pull/352) [`c7bfa2e`](https://github.com/Lykhoyda/ask-llm/commit/c7bfa2e9aad1bf972001d0cb4cce593ae5bfc0c6) Thanks [@Lykhoyda](https://github.com/Lykhoyda)! - Report the tool actions agy refused, instead of a misleading "not logged in" error, when a denial leaves an Antigravity run with no answer.
+
+- [#352](https://github.com/Lykhoyda/ask-llm/pull/352) [`c7bfa2e`](https://github.com/Lykhoyda/ask-llm/commit/c7bfa2e9aad1bf972001d0cb4cce593ae5bfc0c6) Thanks [@Lykhoyda](https://github.com/Lykhoyda)! - Move the Antigravity rate-limit fallback from `gemini-3.5-flash`, which agy 1.2.12 no longer accepts, to `gemini-3.8-flash` at the configured effort.
+
+- [#349](https://github.com/Lykhoyda/ask-llm/pull/349) [`f15c394`](https://github.com/Lykhoyda/ask-llm/commit/f15c394967d5284aa0ea57458f3e5986e05bfbbc) Thanks [@Lykhoyda](https://github.com/Lykhoyda)! - Recognize agy's live `print timeout … returning partial output` stderr note so a timed-out partial answer fails closed instead of being served as complete.
+
+- [#352](https://github.com/Lykhoyda/ask-llm/pull/352) [`c7bfa2e`](https://github.com/Lykhoyda/ask-llm/commit/c7bfa2e9aad1bf972001d0cb4cce593ae5bfc0c6) Thanks [@Lykhoyda](https://github.com/Lykhoyda)! - Append agy's live `/quota` remaining percentages and reset times to the Antigravity rate-limit error when agy is 1.1.11 or newer.
+
+- [#352](https://github.com/Lykhoyda/ask-llm/pull/352) [`c7bfa2e`](https://github.com/Lykhoyda/ask-llm/commit/c7bfa2e9aad1bf972001d0cb4cce593ae5bfc0c6) Thanks [@Lykhoyda](https://github.com/Lykhoyda)! - Keep agy's `AGY_ERROR:` stderr line in Antigravity failures so rate limits after multi-line startup warnings still trigger the Flash fallback.
+
+- [#351](https://github.com/Lykhoyda/ask-llm/pull/351) [`20a4e3c`](https://github.com/Lykhoyda/ask-llm/commit/20a4e3c660f5913dd6e6fe051f94b6768b399adc) Thanks [@Lykhoyda](https://github.com/Lykhoyda)! - Refuse Antigravity review and read-only machine runs unless explicitly opted into unisolated execution, warn about the lack of isolation, and remove the permission bypass.
+
 ## 0.8.0
 
 ### Minor Changes

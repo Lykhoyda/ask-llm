@@ -1,5 +1,13 @@
 # @ask-llm/mcp
 
+## 0.12.1
+
+### Patch Changes
+
+- [#351](https://github.com/Lykhoyda/ask-llm/pull/351) [`20a4e3c`](https://github.com/Lykhoyda/ask-llm/commit/20a4e3c660f5913dd6e6fe051f94b6768b399adc) Thanks [@Lykhoyda](https://github.com/Lykhoyda)! - Refuse Antigravity review and read-only machine runs unless explicitly opted into unisolated execution, warn about the lack of isolation, and remove the permission bypass.
+- Updated dependencies [[`c7bfa2e`](https://github.com/Lykhoyda/ask-llm/commit/c7bfa2e9aad1bf972001d0cb4cce593ae5bfc0c6), [`c7bfa2e`](https://github.com/Lykhoyda/ask-llm/commit/c7bfa2e9aad1bf972001d0cb4cce593ae5bfc0c6), [`f15c394`](https://github.com/Lykhoyda/ask-llm/commit/f15c394967d5284aa0ea57458f3e5986e05bfbbc), [`c7bfa2e`](https://github.com/Lykhoyda/ask-llm/commit/c7bfa2e9aad1bf972001d0cb4cce593ae5bfc0c6), [`c7bfa2e`](https://github.com/Lykhoyda/ask-llm/commit/c7bfa2e9aad1bf972001d0cb4cce593ae5bfc0c6), [`20a4e3c`](https://github.com/Lykhoyda/ask-llm/commit/20a4e3c660f5913dd6e6fe051f94b6768b399adc)]:
+  - @ask-llm/antigravity-mcp@0.8.1
+
 ## 0.12.0
 
 ### Minor Changes
