@@ -1,5 +1,21 @@
 # @ask-llm/mcp
 
+## 0.12.0
+
+### Minor Changes
+
+- [#342](https://github.com/Lykhoyda/ask-llm/pull/342) [`cffd37d`](https://github.com/Lykhoyda/ask-llm/commit/cffd37d4ca75398f1b9f6d6d75dfaaad16ae9ef8) Thanks [@Lykhoyda](https://github.com/Lykhoyda)! - Require Node.js 24 (the current LTS) or newer.
+
+### Patch Changes
+
+- Updated dependencies [[`cffd37d`](https://github.com/Lykhoyda/ask-llm/commit/cffd37d4ca75398f1b9f6d6d75dfaaad16ae9ef8)]:
+  - @ask-llm/gemini-mcp@2.0.0
+  - @ask-llm/grok-mcp@0.3.0
+  - @ask-llm/codex-mcp@0.9.0
+  - @ask-llm/claude-mcp@0.2.0
+  - @ask-llm/ollama-mcp@0.7.0
+  - @ask-llm/antigravity-mcp@0.8.0
+
 ## 0.11.0
 
 ### Minor Changes
