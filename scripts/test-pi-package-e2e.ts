@@ -7,7 +7,7 @@
 
 import { spawn } from "node:child_process";
 import { appendFile, chmod, mkdir, mkdtemp, readFile, realpath, rm, writeFile } from "node:fs/promises";
-import { createServer } from "node:http";
+import { createServer, type ServerResponse } from "node:http";
 import { tmpdir } from "node:os";
 import { delimiter, dirname, join, resolve } from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
@@ -22,22 +22,44 @@ const invocationLog = join(work, "provider-invocations.jsonl");
 const imagePath = join(project, "smoke-image.png");
 const agentDir = process.env.PI_CODING_AGENT_DIR || join(work, "agent");
 
-function invariant(value, message) {
+interface ContentPart {
+  type?: string;
+  text?: unknown;
+}
+
+interface ChatMessage {
+  role?: string;
+  content?: unknown;
+}
+
+interface RpcEvent {
+  type?: string;
+  id?: string;
+  success?: boolean;
+  toolName?: string;
+  isError?: boolean;
+  result?: { content?: ContentPart[]; details?: { provider?: string } };
+  data?: { messages?: unknown[] };
+}
+
+function invariant(value: unknown, message: string): asserts value {
   if (!value) throw new Error(message);
 }
 
-function asText(content) {
+function asText(content: unknown): string {
   if (typeof content === "string") return content;
   if (!Array.isArray(content)) return JSON.stringify(content ?? "");
-  return content.map((part) => (typeof part?.text === "string" ? part.text : JSON.stringify(part))).join("\n");
+  return content
+    .map((part: ContentPart | null) => (typeof part?.text === "string" ? part.text : JSON.stringify(part)))
+    .join("\n");
 }
 
-function scenarioFor(messages) {
+function scenarioFor(messages: ChatMessage[]): string {
   const latestUser = [...messages].reverse().find((message) => message.role === "user");
   return asText(latestUser?.content);
 }
 
-function scriptedTool(scenario) {
+function scriptedTool(scenario: string) {
   if (scenario.includes("SMOKE_PAIR_WRITE")) {
     return { name: "write", arguments: { path: join(project, "paired.ts"), content: "export const paired = 1;\n" } };
   }
@@ -71,7 +93,7 @@ function scriptedTool(scenario) {
   return undefined;
 }
 
-function sendSse(response, payload) {
+function sendSse(response: ServerResponse, payload: unknown): void {
   response.writeHead(200, {
     "content-type": "text/event-stream",
     "cache-control": "no-cache",
@@ -80,7 +102,7 @@ function sendSse(response, payload) {
   response.end(`data: ${JSON.stringify(payload)}\n\ndata: [DONE]\n\n`);
 }
 
-function completionChunk(delta, finishReason = null) {
+function completionChunk(delta: Record<string, unknown>, finishReason: string | null = null) {
   return {
     id: "chatcmpl-hermetic",
     object: "chat.completion.chunk",
@@ -91,7 +113,7 @@ function completionChunk(delta, finishReason = null) {
 }
 
 const server = createServer(async (request, response) => {
-  const chunks = [];
+  const chunks: Buffer[] = [];
   for await (const chunk of request) chunks.push(chunk);
   const body = Buffer.concat(chunks).toString("utf8");
 
@@ -119,7 +141,7 @@ const server = createServer(async (request, response) => {
   }
 
   const parsed = JSON.parse(body);
-  const messages = Array.isArray(parsed.messages) ? parsed.messages : [];
+  const messages: ChatMessage[] = Array.isArray(parsed.messages) ? parsed.messages : [];
   const last = messages.at(-1);
   if (last?.role === "tool") {
     // Intentionally do not echo the tool result. The acceptance contract is the
@@ -208,7 +230,7 @@ for (const [name, body] of [
 // and subscription spend. Node plus baseline OS utilities are sufficient.
 const hermeticPath = [bin, dirname(process.execPath), "/usr/bin", "/bin"].join(delimiter);
 
-await new Promise((resolveListen, rejectListen) => {
+await new Promise<void>((resolveListen, rejectListen) => {
   server.once("error", rejectListen);
   server.listen(0, "127.0.0.1", resolveListen);
 });
@@ -249,8 +271,8 @@ const child = spawn(process.env.PI_BIN || "pi", childArgs, {
 
 let stderr = "";
 let stdoutBuffer = "";
-const events = [];
-const waiters = new Set();
+const events: RpcEvent[] = [];
+const waiters = new Set<() => void>();
 child.stderr.setEncoding("utf8");
 child.stderr.on("data", (chunk) => {
   stderr += chunk;
@@ -272,7 +294,7 @@ child.stdout.on("data", (chunk) => {
   }
 });
 
-function waitFor(predicate, timeoutMs = 15_000) {
+function waitFor(predicate: (event: RpcEvent, index: number) => boolean, timeoutMs = 15_000): Promise<RpcEvent> {
   const existing = events.find(predicate);
   if (existing) return Promise.resolve(existing);
   return new Promise((resolveWait, rejectWait) => {
@@ -294,7 +316,7 @@ function waitFor(predicate, timeoutMs = 15_000) {
 }
 
 let requestId = 0;
-async function request(type, fields = {}) {
+async function request(type: string, fields: Record<string, unknown> = {}): Promise<RpcEvent> {
   const id = `e2e-${++requestId}`;
   child.stdin.write(`${JSON.stringify({ id, type, ...fields })}\n`);
   return waitFor((event) => event.type === "response" && event.id === id);
@@ -305,7 +327,7 @@ async function newSession() {
   invariant(response.success, `new_session failed: ${JSON.stringify(response)}`);
 }
 
-async function runPrompt(message, expectedTool) {
+async function runPrompt(message: string, expectedTool: string) {
   const from = events.length;
   const accepted = await request("prompt", { message });
   invariant(accepted.success, `prompt rejected: ${JSON.stringify(accepted)}`);
@@ -316,14 +338,14 @@ async function runPrompt(message, expectedTool) {
   return { fresh, toolEnd };
 }
 
-function toolResultText(toolEnd) {
+function toolResultText(toolEnd: RpcEvent): string {
   return (toolEnd.result?.content ?? [])
     .filter((part) => part?.type === "text" && typeof part.text === "string")
-    .map((part) => part.text)
+    .map((part) => part.text as string)
     .join("\n");
 }
 
-async function waitForMessage(fragment) {
+async function waitForMessage(fragment: string): Promise<RpcEvent> {
   for (let attempt = 0; attempt < 80; attempt++) {
     const response = await request("get_messages");
     if (JSON.stringify(response.data?.messages ?? []).includes(fragment)) return response;
@@ -397,7 +419,7 @@ try {
   const invocations = (await readFile(invocationLog, "utf8"))
     .trim()
     .split("\n")
-    .map((line) => JSON.parse(line));
+    .map((line) => JSON.parse(line) as { provider?: string });
   for (const provider of ["codex", "gemini", "ollama", "antigravity"]) {
     invariant(
       invocations.some((entry) => entry.provider === provider),

@@ -14,7 +14,7 @@ tracker below, which owns CLI flag/output/auth drift.
 
 **Spec:** `.github/routines/model-version-watch.md` — the scheduled agent reads
 that file from the default branch verbatim as its complete run specification, so
-it must exist at exactly that path (`scripts/check-docs-drift.mjs` enforces this
+it must exist at exactly that path (`scripts/check-docs-drift.ts` enforces this
 and its structural contract). Rolling tracker issue (#272):
 `LLM default model versions - weekly tracker`.
 

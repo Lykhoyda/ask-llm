@@ -1,4 +1,4 @@
-// Hermetic Pi host model used by scripts/test-pi-package-e2e.mjs.
+// Hermetic Pi host model used by scripts/test-pi-package-e2e.ts.
 // It deliberately has no imports so a clean globally-installed Pi can load it.
 type ProviderRegistrar = {
   registerProvider(name: string, config: Record<string, unknown>): void;

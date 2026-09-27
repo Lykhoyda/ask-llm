@@ -6,7 +6,7 @@ Changesets, then the bot's Version Packages PR, then Release. How to add a chang
 
 ## Default and fallback models
 
-Pins live in each provider's `packages/<name>-mcp/src/constants.ts`. `packages/llm-mcp/src/constants.ts` threads those defaults into executors. Docs must quote the same strings in `apps/docs/.vitepress/theme/providers.ts`; `yarn lint` runs `scripts/check-docs-drift.mjs` and fails if they drift. Change both together. Agent-facing summary: [AGENTS.md](../AGENTS.md).
+Pins live in each provider's `packages/<name>-mcp/src/constants.ts`. `packages/llm-mcp/src/constants.ts` threads those defaults into executors. Docs must quote the same strings in `apps/docs/.vitepress/theme/providers.ts`; `yarn lint` runs `scripts/check-docs-drift.ts` and fails if they drift. Change both together. Agent-facing summary: [AGENTS.md](../AGENTS.md).
 
 ## Model-version watch
 
@@ -24,4 +24,4 @@ Harness-facing pin changes still use `yarn prepr:harness` — [HARNESS-SMOKE.md]
 
 ## npm and GitHub Actions
 
-There is no Dependabot (or Renovate) config. Workspace deps move in maintainer PRs. The last repo-wide audit snapshot is [DEPENDENCY-REFRESH.md](DEPENDENCY-REFRESH.md). Compiler/Yarn floors are enforced by `scripts/typescript-contract.test.ts`. GitHub Actions and `mcp-publisher` are SHA/checksum pinned in `.github/workflows/` (`scripts/check-workflow-security.mjs`).
+There is no Dependabot (or Renovate) config. Workspace deps move in maintainer PRs. The last repo-wide audit snapshot is [DEPENDENCY-REFRESH.md](DEPENDENCY-REFRESH.md). Compiler/Yarn floors are enforced by `scripts/typescript-contract.test.ts`. GitHub Actions and `mcp-publisher` are SHA/checksum pinned in `.github/workflows/` (`scripts/check-workflow-security.ts`).

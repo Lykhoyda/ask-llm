@@ -3,7 +3,7 @@
 // NOTE: must NOT be named *.data.ts — VitePress reserves that suffix for
 // build-time data loaders, which strips named exports and breaks importers.
 // Values are drift-checked against packages/*/src/constants.ts by
-// scripts/check-docs-drift.mjs. Update BOTH when a default model changes.
+// scripts/check-docs-drift.ts. Update BOTH when a default model changes.
 
 export type ProviderId = "codex" | "claude" | "grok" | "antigravity" | "ollama" | "gemini" | "unified";
 

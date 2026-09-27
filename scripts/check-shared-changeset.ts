@@ -16,7 +16,7 @@ const REQUIRED = [
 ];
 const base = process.env.GITHUB_BASE_REF ? `origin/${process.env.GITHUB_BASE_REF}` : "origin/main";
 
-let changed;
+let changed: string[];
 try {
   changed = execFileSync("git", ["diff", "--name-only", `${base}...HEAD`], { encoding: "utf8" })
     .split("\n")

@@ -6,7 +6,7 @@ export default defineConfig({
       {
         test: {
           name: "scripts",
-          include: ["scripts/**/*.test.{mjs,ts}"],
+          include: ["scripts/**/*.test.ts"],
         },
       },
       "packages/*",

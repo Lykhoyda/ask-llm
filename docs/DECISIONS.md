@@ -1,5 +1,15 @@
 # Architectural Decisions
 
+## ADR-172: Repository scripts and test fixtures are TypeScript run by Node's type stripping
+
+**Status:** Accepted (2026-09-27). Extends ADR-171 beyond the plugin.
+
+**Context:** ADR-171 converted every plugin script, but the repository-root release, MCP Registry, package-tag, docs-drift, workflow-security, harness-smoke, and test-batch scripts and three `llm-mcp` machine-executor test fixtures were still hand-written `.mjs`. The captain wants TypeScript 7 everywhere. Unlike the plugin, these files never ship through a marketplace or `node_modules`: they run from a repository checkout on Node 24, which strips erasable TypeScript natively.
+
+**Decision:** Every such file is now `.ts` and runs as is with `node scripts/<name>.ts` (the root package is `"type": "module"`), with no generation step or loader. Relative imports name the `.ts` file. `scripts/tsconfig.json` sets `noEmit`, `allowImportingTsExtensions`, and `verbatimModuleSyntax`, and `yarn lint` typechecks it with TypeScript 7 in strict mode. `erasableSyntaxOnly` is left off because the tsx-run benchmarks pull in package sources that use parameter properties. The machine fixtures are loaded as `.ts` file URLs through the executor override, since the test exercises the override and not the file extension. `scripts/typescript-contract.test.ts` fails when any tracked `.js`, `.mjs`, or `.cjs` exists outside the generated plugin scripts.
+
+**Consequences:** Script behavior and CLI flags are unchanged; only the paths in `package.json`, the CI and release workflows, the husky pre-push hook, and the docs moved to `.ts`. Scripts must use only erasable syntax (no enums, namespaces, or parameter properties), which Node enforces at runtime. The harness smoke still launches its adapter through `tsx`.
+
 ## ADR-171: All plugin scripts are TypeScript, and every package requires Node 24
 
 **Status:** Accepted (2026-09-26). Amends ADR-170.

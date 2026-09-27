@@ -1,12 +1,64 @@
+// biome-ignore-all lint/style/noNonNullAssertion: tests mutate optional manifest fields they set just before
 import assert from "node:assert/strict";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, test } from "vitest";
-import { publishMissingRegistryVersions, recordsMatch } from "./publish-mcp-registry.mjs";
+import { publishMissingRegistryVersions, recordsMatch } from "./publish-mcp-registry.ts";
 
-const scratchDirs = [];
+type PackageArgument = {
+  type: string;
+  name?: string;
+  value?: string;
+  isRequired?: boolean;
+  isSecret?: boolean;
+  isRepeated?: boolean;
+};
 
-function manifest(name, version) {
+type EnvironmentVariable = {
+  name: string;
+  description?: string;
+  format?: string;
+  isRequired?: boolean;
+  isSecret?: boolean;
+};
+
+type PackageEntry = {
+  registryType: string;
+  identifier: string;
+  version: string;
+  transport: { type: string };
+  environmentVariables?: EnvironmentVariable[];
+  packageArguments?: PackageArgument[];
+  runtimeArguments?: PackageArgument[];
+};
+
+type PublisherProvidedMeta = {
+  packages?: Array<{ identifier: string }>;
+  environmentVariables?: Array<{ name: string }>;
+  isRequired?: boolean;
+  isRepeated?: boolean;
+  isSecret?: boolean;
+};
+
+type TestManifest = {
+  $schema: string;
+  name: string;
+  description: string;
+  version: string;
+  packages: PackageEntry[];
+  _meta?: {
+    "io.modelcontextprotocol.registry/publisher-provided"?: PublisherProvidedMeta;
+  };
+};
+
+type PublisherCallResult = {
+  code: number;
+  output: string;
+};
+
+const scratchDirs: string[] = [];
+
+function manifest(name: string, version: string): TestManifest {
   return {
     $schema: "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
     name,
@@ -32,7 +84,7 @@ function manifest(name, version) {
   };
 }
 
-function registryRecord(value) {
+function registryRecord(value: TestManifest): TestManifest {
   const copy = structuredClone(value);
   for (const variable of copy.packages[0].environmentVariables ?? []) {
     delete variable.isRequired;
@@ -41,7 +93,7 @@ function registryRecord(value) {
   return copy;
 }
 
-function writeManifests(values) {
+function writeManifests(values: TestManifest[]): string[] {
   const directory = mkdtempSync(join(process.cwd(), ".registry-publish-test-"));
   scratchDirs.push(directory);
   mkdirSync(directory, { recursive: true });
@@ -52,7 +104,7 @@ function writeManifests(values) {
   });
 }
 
-function responseFor(record) {
+function responseFor(record: TestManifest | null): Response {
   return new Response(
     JSON.stringify({ servers: record ? [{ server: record }] : [], metadata: { count: record ? 1 : 0 } }),
     {
@@ -62,18 +114,24 @@ function responseFor(record) {
 }
 
 function createLogger() {
-  const lines = [];
+  const lines: string[] = [];
   return {
     lines,
-    log: { log: (line) => lines.push(line), error: (line) => lines.push(line) },
+    log: { log: (line: string) => lines.push(line), error: (line: string) => lines.push(line) },
   };
 }
 
-function createPublisher({ publishResults = new Map(), validationResults = new Map() } = {}) {
-  const calls = [];
+function createPublisher({
+  publishResults = new Map<string, PublisherCallResult>(),
+  validationResults = new Map<string, PublisherCallResult>(),
+}: {
+  publishResults?: Map<string, PublisherCallResult>;
+  validationResults?: Map<string, PublisherCallResult>;
+} = {}) {
+  const calls: Array<{ operation: string; path: string }> = [];
   return {
     calls,
-    run: async (operation, path) => {
+    run: async (operation: string, path: string): Promise<PublisherCallResult> => {
       calls.push({ operation, path });
       if (operation === "validate") return validationResults.get(path) ?? { code: 0, output: "valid" };
       return publishResults.get(path) ?? { code: 0, output: "published" };
@@ -92,10 +150,10 @@ test("semantic record matching accepts Registry omission of optional false field
   ];
   expected.packages[0].runtimeArguments = [{ type: "positional", value: "optional", isRepeated: false }];
   const registryValue = registryRecord(expected);
-  delete registryValue.packages[0].packageArguments[0].isRequired;
-  delete registryValue.packages[0].packageArguments[0].isSecret;
-  delete registryValue.packages[0].packageArguments[0].isRepeated;
-  delete registryValue.packages[0].runtimeArguments[0].isRepeated;
+  delete registryValue.packages[0].packageArguments![0].isRequired;
+  delete registryValue.packages[0].packageArguments![0].isSecret;
+  delete registryValue.packages[0].packageArguments![0].isRepeated;
+  delete registryValue.packages[0].runtimeArguments![0].isRepeated;
   assert.equal(recordsMatch(expected, registryValue), true);
   const mismatched = registryRecord(expected);
   mismatched.packages[0].identifier = "@other/ask-one";
@@ -104,7 +162,7 @@ test("semantic record matching accepts Registry omission of optional false field
 
 test("semantic record matching accepts reordered packages and environment-variable mappings", () => {
   const expected = manifest("ask-one", "1.0.0");
-  expected.packages[0].environmentVariables.push({
+  expected.packages[0].environmentVariables!.push({
     name: "ANOTHER_VALUE",
     description: "Another optional value",
     isRequired: false,
@@ -128,7 +186,7 @@ test("semantic record matching accepts reordered packages and environment-variab
 
 test("semantic record matching rejects changed set entries and reordered argument arrays", () => {
   const expected = manifest("ask-one", "1.0.0");
-  expected.packages[0].environmentVariables.push({
+  expected.packages[0].environmentVariables!.push({
     name: "ANOTHER_VALUE",
     description: "Another optional value",
     format: "string",
@@ -139,12 +197,12 @@ test("semantic record matching rejects changed set entries and reordered argumen
   ];
 
   const changedMapping = registryRecord(expected);
-  changedMapping.packages[0].environmentVariables.reverse();
-  changedMapping.packages[0].environmentVariables[0].description = "Different description";
+  changedMapping.packages[0].environmentVariables!.reverse();
+  changedMapping.packages[0].environmentVariables![0].description = "Different description";
   assert.equal(recordsMatch(expected, changedMapping), false);
 
   const reorderedArguments = registryRecord(expected);
-  reorderedArguments.packages[0].packageArguments.reverse();
+  reorderedArguments.packages[0].packageArguments!.reverse();
   assert.equal(recordsMatch(expected, reorderedArguments), false);
 });
 
@@ -158,13 +216,13 @@ test("semantic record matching preserves order in publisher-provided metadata ar
   };
 
   const reorderedPackages = registryRecord(expected);
-  reorderedPackages._meta["io.modelcontextprotocol.registry/publisher-provided"].packages.reverse();
+  reorderedPackages._meta!["io.modelcontextprotocol.registry/publisher-provided"]!.packages!.reverse();
   assert.equal(recordsMatch(expected, reorderedPackages), false);
 
   const reorderedEnvironmentVariables = registryRecord(expected);
-  reorderedEnvironmentVariables._meta[
+  reorderedEnvironmentVariables._meta![
     "io.modelcontextprotocol.registry/publisher-provided"
-  ].environmentVariables.reverse();
+  ]!.environmentVariables!.reverse();
   assert.equal(recordsMatch(expected, reorderedEnvironmentVariables), false);
 });
 
@@ -179,15 +237,15 @@ test("semantic record matching preserves schema-like false fields in publisher m
   };
 
   const withoutIsRequired = registryRecord(expected);
-  delete withoutIsRequired._meta["io.modelcontextprotocol.registry/publisher-provided"].isRequired;
+  delete withoutIsRequired._meta!["io.modelcontextprotocol.registry/publisher-provided"]!.isRequired;
   assert.equal(recordsMatch(expected, withoutIsRequired), false);
 
   const withoutIsSecret = registryRecord(expected);
-  delete withoutIsSecret._meta["io.modelcontextprotocol.registry/publisher-provided"].isSecret;
+  delete withoutIsSecret._meta!["io.modelcontextprotocol.registry/publisher-provided"]!.isSecret;
   assert.equal(recordsMatch(expected, withoutIsSecret), false);
 
   const withoutIsRepeated = registryRecord(expected);
-  delete withoutIsRepeated._meta["io.modelcontextprotocol.registry/publisher-provided"].isRepeated;
+  delete withoutIsRepeated._meta!["io.modelcontextprotocol.registry/publisher-provided"]!.isRepeated;
   assert.equal(recordsMatch(expected, withoutIsRepeated), false);
 });
 
@@ -224,7 +282,7 @@ test("all-present state is an explicit verified no-op", async () => {
   const result = await publishMissingRegistryVersions({
     manifestPaths: paths,
     fetchImpl: async (url) =>
-      responseFor(registryRecord(values.find(({ name }) => name === url.searchParams.get("search")))),
+      responseFor(registryRecord(values.find(({ name }) => name === url.searchParams.get("search"))!)),
     runPublisher: publisher.run,
     log: logger.log,
   });

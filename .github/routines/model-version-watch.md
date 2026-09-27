@@ -47,7 +47,7 @@ the `State` section to the tracker body.
 ## Step 3 — Enumerate the repository's current pins
 
 The constants files are the source of truth (docs mirror them; parity is
-CI-enforced by `scripts/check-docs-drift.mjs`). Read the current values from:
+CI-enforced by `scripts/check-docs-drift.ts`). Read the current values from:
 
 | Provider | Pin location | Fields |
 |---|---|---|

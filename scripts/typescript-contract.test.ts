@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { version as typescriptVersion } from "typescript";
 import { describe, expect, it } from "vitest";
@@ -105,6 +106,17 @@ describe("TypeScript 7 toolchain contract", () => {
 
     expect(baseConfig.compilerOptions?.types).toContain("node");
     expect(scriptsConfig.compilerOptions?.types).toContain("node");
+  });
+
+  it("keeps hand-written JavaScript out of the repository", () => {
+    const tracked = execFileSync("git", ["ls-files", "*.js", "*.mjs", "*.cjs"], {
+      cwd: ROOT,
+      encoding: "utf8",
+    })
+      .split("\n")
+      .filter(Boolean);
+    // Only the plugin's tsc-generated hooks may be committed JavaScript (generated-hooks.test.ts).
+    expect(tracked.filter((file) => !file.startsWith("packages/claude-plugin/scripts/"))).toEqual([]);
   });
 });
 

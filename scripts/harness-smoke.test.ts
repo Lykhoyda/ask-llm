@@ -2,30 +2,35 @@ import { access, writeFile } from "node:fs/promises";
 import { describe, expect, it, vi } from "vitest";
 import {
   buildLivePrompt,
+  type CommandResult,
+  type EvaluateInvocationOptions,
   evaluateInvocation,
   hasFallbackDisclosure,
   parseCatalog,
   RESULTS,
+  type RunHarnessSuiteOptions,
   redact,
   runCommand,
   runHarnessSuite,
   SCENARIOS,
+  type Scenario,
+  type Selection,
   smokeMarker,
   validateCursorProviderFamily,
-} from "./harness-smoke-lib.mjs";
+} from "./harness-smoke-lib.ts";
 
 const directCodex = SCENARIOS.find(({ id }) => id === "codex-cli:/brainstorm-route");
 const cursorBrainstorm = SCENARIOS.find(({ id }) => id === "cursor-agent:/brainstorm-route");
 
-function invariant(value, message) {
+function invariant(value: unknown, message: string): asserts value {
   if (!value) throw new Error(message);
 }
 
-function runIsolatedSuite(options) {
+function runIsolatedSuite(options: RunHarnessSuiteOptions) {
   return runHarnessSuite({ ...options, fingerprint: async () => "stable" });
 }
 
-function fakeAdapter({ scenario, selection }) {
+function fakeAdapter({ scenario, selection }: { scenario: Scenario; selection: Selection }): Promise<CommandResult> {
   return Promise.resolve({
     exitCode: 0,
     stdout: JSON.stringify({
@@ -40,7 +45,7 @@ function fakeAdapter({ scenario, selection }) {
   });
 }
 
-function evaluate(overrides = {}) {
+function evaluate(overrides: Partial<EvaluateInvocationOptions> = {}) {
   invariant(directCodex, "direct Codex scenario missing");
   return evaluateInvocation({
     scenario: directCodex,
@@ -52,7 +57,7 @@ function evaluate(overrides = {}) {
     mutated: false,
     args: ["exec", "--sandbox", "read-only", "--model", "gpt-6-sol"],
     ...overrides,
-  });
+  } as EvaluateInvocationOptions);
 }
 
 describe("authoritative local catalog discovery", () => {
@@ -65,9 +70,9 @@ describe("authoritative local catalog discovery", () => {
       parseCatalog("pi", "provider model context\nopenai-codex gpt-6-sol 272K\nanthropic claude-opus-5-5 200K\n"),
     ).toEqual(["openai-codex/gpt-6-sol", "anthropic/claude-opus-5-5"]);
     expect(parseCatalog("grok", "Available models\ngrok-4.7 default\n")).toEqual(["grok-4.7"]);
-    expect(
-      parseCatalog("codex", JSON.stringify({ models: [{ slug: "gpt-6-sol" }, { id: "gpt-5.6-terra" }] })),
-    ).toEqual(["gpt-6-sol", "gpt-5.6-terra"]);
+    expect(parseCatalog("codex", JSON.stringify({ models: [{ slug: "gpt-6-sol" }, { id: "gpt-5.6-terra" }] }))).toEqual(
+      ["gpt-6-sol", "gpt-5.6-terra"],
+    );
   });
 
   it("fails closed when a successful catalog command parses no exact IDs", async () => {
@@ -137,6 +142,7 @@ describe("structured fallback, routing, and attribution", () => {
     '{"type":"result"}\n{"usage":{"fallback":true}}',
     "fallback used",
   ])("detects fallback disclosure %s", (output) => {
+    invariant(directCodex, "direct Codex scenario missing");
     expect(hasFallbackDisclosure(output)).toBe(true);
     expect(evaluate({ output: `${smokeMarker(directCodex, "gpt-6-sol")}\n${output}` })).toMatchObject({
       status: RESULTS.FAIL,
@@ -279,7 +285,14 @@ describe("mutation, timeout, privacy, and cleanup", () => {
     const report = await runIsolatedSuite({
       mode: "dry-run",
       scenarios: [directCodex],
-      deterministicAdapter: async ({ workspace, ...context }) => {
+      deterministicAdapter: async ({
+        workspace,
+        ...context
+      }: {
+        workspace: string;
+        scenario: Scenario;
+        selection: Selection;
+      }) => {
         await writeFile(`${workspace}/README.md`, "silently mutated\n");
         return fakeAdapter(context);
       },

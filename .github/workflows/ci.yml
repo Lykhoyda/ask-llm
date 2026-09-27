@@ -28,7 +28,7 @@ jobs:
       run: yarn lint
     - name: Guard — shared changes must changeset all six MCPs (ADR-119)
       if: github.event_name == 'pull_request'
-      run: node scripts/check-shared-changeset.mjs
+      run: node scripts/check-shared-changeset.ts
     - name: Archive platform setup
       run: tar -czf test-setup.tgz node_modules packages .yarn/install-state.gz
     - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -272,7 +272,7 @@ jobs:
         # Real Pi RPC + installed package + real executor code, backed only by
         # scripted host/provider fixtures. ASK_LLM_PATH is pinned by the harness
         # so a runner's authenticated subscription CLIs can never be selected.
-        node "$GITHUB_WORKSPACE/scripts/test-pi-package-e2e.mjs"
+        node "$GITHUB_WORKSPACE/scripts/test-pi-package-e2e.ts"
         pi update npm:@ask-llm/plugin
         pi remove npm:@ask-llm/plugin
         if pi list | grep -F 'npm:@ask-llm/plugin'; then echo 'FAIL: package remains installed'; exit 1; fi

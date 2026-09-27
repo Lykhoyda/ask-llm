@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { delimiter, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
-import { vitestInvocation } from "./run-test-batch.mjs";
+import { vitestInvocation } from "./run-test-batch.ts";
 
 const REPO_ROOT = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const SMOKE_SCRIPT = join(REPO_ROOT, "scripts/smoke-test.sh");
@@ -14,7 +14,7 @@ const PACKAGES = [
   ["Codex", "packages/codex-mcp/src/__tests__/integration.test.ts", "@ask-llm/codex-mcp"],
   ["Claude", "packages/claude-mcp/src/__tests__/integration.test.ts", "@ask-llm/claude-mcp"],
 ];
-const temporaryDirectories = [];
+const temporaryDirectories: string[] = [];
 const isWindows = process.platform === "win32";
 
 afterEach(() => {

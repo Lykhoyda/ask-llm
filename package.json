@@ -9,9 +9,9 @@
   "scripts": {
     "build": "yarn workspaces foreach -A --topological-dev run build",
     "test": "vitest run",
-    "test:batch": "node scripts/run-test-batch.mjs",
-    "lint": "node scripts/check-workflow-security.mjs && node scripts/check-docs-drift.mjs && node scripts/sync-plugin-manifests.mjs --check && biome lint scripts/ apps/docs/.vitepress/ && tsc --noEmit -p scripts/tsconfig.json && yarn workspaces foreach -A run lint",
-    "smoke:harness": "node scripts/harness-smoke.mjs --dry-run",
+    "test:batch": "node scripts/run-test-batch.ts",
+    "lint": "node scripts/check-workflow-security.ts && node scripts/check-docs-drift.ts && node scripts/sync-plugin-manifests.ts --check && biome lint scripts/ apps/docs/.vitepress/ && tsc --noEmit -p scripts/tsconfig.json && yarn workspaces foreach -A run lint",
+    "smoke:harness": "node scripts/harness-smoke.ts --dry-run",
     "prepr:harness": "bash scripts/pre-pr-harness-smoke.sh",
     "docs:dev": "yarn workspace docs run dev",
     "docs:build": "yarn workspace docs run build",
@@ -19,7 +19,7 @@
     "benchmark": "yarn build && npx tsx scripts/benchmark-overhead.ts",
     "benchmark:toon-doctor": "tsx scripts/benchmark-toon-doctor.ts",
     "changeset": "changeset",
-    "changeset:version": "changeset version && yarn install --mode=update-lockfile && node scripts/sync-plugin-manifests.mjs",
+    "changeset:version": "changeset version && yarn install --mode=update-lockfile && node scripts/sync-plugin-manifests.ts",
     "changeset:status": "changeset status --verbose",
     "changeset:publish": "yarn build && changeset publish",
     "prepare": "husky"

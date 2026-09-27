@@ -7,7 +7,55 @@ import { pathToFileURL } from "node:url";
 
 const COMMIT_PATTERN = /^[0-9a-f]{40}$/;
 
-function commandResult(command, args, { cwd, allowFailure = false } = {}) {
+interface CommandOptions {
+  cwd?: string;
+  allowFailure?: boolean;
+}
+
+interface CommandResult {
+  status: number;
+  stdout: string;
+  stderr: string;
+}
+
+type CommandRunner = (args: string[], options?: CommandOptions) => CommandResult;
+
+interface Logger {
+  log: (message: string) => void;
+  error: (message: string) => void;
+}
+
+interface PackageInfo {
+  name: string;
+  version: string;
+  manifestPath: string;
+}
+
+interface PackageManifestJson {
+  name?: string;
+  version?: string;
+  private?: boolean;
+  publishConfig?: { access?: string };
+}
+
+interface TagPlan extends PackageInfo {
+  tag: string;
+  tagRef: string;
+  target: string;
+  remoteTarget?: string | null;
+}
+
+interface InconsistentEntry extends PackageInfo {
+  tag: string;
+  target: string;
+  reason: string;
+}
+
+function commandResult(
+  command: string,
+  args: string[],
+  { cwd, allowFailure = false }: CommandOptions = {},
+): CommandResult {
   const result = spawnSync(command, args, {
     cwd,
     encoding: "utf8",
@@ -21,34 +69,34 @@ function commandResult(command, args, { cwd, allowFailure = false } = {}) {
   return { status: result.status ?? 1, stdout: result.stdout, stderr: result.stderr };
 }
 
-function defaultGit(args, options = {}) {
+function defaultGit(args: string[], options: CommandOptions = {}): CommandResult {
   return commandResult("git", args, options);
 }
 
-function defaultNpm(args, options = {}) {
+function defaultNpm(args: string[], options: CommandOptions = {}): CommandResult {
   return commandResult("npm", args, options);
 }
 
-function parseJson(source, description) {
+function parseJson<T = unknown>(source: string, description: string): T {
   try {
-    return JSON.parse(source);
+    return JSON.parse(source) as T;
   } catch (error) {
-    throw new Error(`Invalid JSON in ${description}: ${error.message}`);
+    throw new Error(`Invalid JSON in ${description}: ${(error as Error).message}`);
   }
 }
 
-export function discoverPublicPackages(root) {
+export function discoverPublicPackages(root: string): PackageInfo[] {
   const packagesDirectory = join(root, "packages");
-  const packages = [];
+  const packages: PackageInfo[] = [];
 
   for (const directory of readdirSync(packagesDirectory, { withFileTypes: true })) {
     if (!directory.isDirectory()) continue;
     const manifestPath = join(packagesDirectory, directory.name, "package.json");
-    let manifest;
+    let manifest: PackageManifestJson;
     try {
-      manifest = parseJson(readFileSync(manifestPath, "utf8"), relative(root, manifestPath));
+      manifest = parseJson<PackageManifestJson>(readFileSync(manifestPath, "utf8"), relative(root, manifestPath));
     } catch (error) {
-      if (error.code === "ENOENT") continue;
+      if ((error as NodeJS.ErrnoException).code === "ENOENT") continue;
       throw error;
     }
     if (manifest.private === true || !manifest.name?.startsWith("@ask-llm/")) continue;
@@ -59,7 +107,7 @@ export function discoverPublicPackages(root) {
       throw new Error(`${manifest.name} has no package version`);
     }
     packages.push({
-      name: manifest.name,
+      name: manifest.name as string,
       version: manifest.version,
       manifestPath: relative(root, manifestPath).replaceAll("\\", "/"),
     });
@@ -69,20 +117,27 @@ export function discoverPublicPackages(root) {
   return packages.sort((left, right) => left.name.localeCompare(right.name));
 }
 
-function versionAtCommit(commit, manifestPath, { cwd, git }) {
+function versionAtCommit(
+  commit: string,
+  manifestPath: string,
+  { cwd, git }: { cwd?: string; git: CommandRunner },
+): string | null {
   const result = git(["show", `${commit}:${manifestPath}`], { cwd, allowFailure: true });
   if (result.status !== 0) return null;
-  return parseJson(result.stdout, `${manifestPath} at ${commit}`).version ?? null;
+  return parseJson<PackageManifestJson>(result.stdout, `${manifestPath} at ${commit}`).version ?? null;
 }
 
-export function findVersionIntroducingCommit(packageInfo, { cwd, git = defaultGit } = {}) {
+export function findVersionIntroducingCommit(
+  packageInfo: PackageInfo,
+  { cwd, git = defaultGit }: { cwd?: string; git?: CommandRunner } = {},
+): string {
   const history = git(["log", "--first-parent", "--format=%H", "HEAD", "--", packageInfo.manifestPath], {
     cwd,
   })
     .stdout.trim()
     .split(/\r?\n/)
     .filter(Boolean);
-  const candidates = [];
+  const candidates: string[] = [];
 
   for (const commit of history) {
     if (!COMMIT_PATTERN.test(commit)) throw new Error(`Unexpected commit in first-parent history: ${commit}`);
@@ -104,7 +159,12 @@ export function findVersionIntroducingCommit(packageInfo, { cwd, git = defaultGi
 }
 
 export class NpmGitHeadMismatchError extends Error {
-  constructor(identity, expected, found) {
+  declare code: string;
+  declare identity: string;
+  declare expected: string;
+  declare found: string;
+
+  constructor(identity: string, expected: string, found: string) {
     super(`npm gitHead mismatch for ${identity}: expected ${expected}, found ${found}`);
     this.name = "NpmGitHeadMismatchError";
     this.code = "NPM_GITHEAD_MISMATCH";
@@ -114,21 +174,28 @@ export class NpmGitHeadMismatchError extends Error {
   }
 }
 
-export function verifyNpmGitHead(packageInfo, target, { cwd, npm = defaultNpm } = {}) {
+export function verifyNpmGitHead(
+  packageInfo: Pick<PackageInfo, "name" | "version">,
+  target: string,
+  { cwd, npm = defaultNpm }: { cwd?: string; npm?: CommandRunner } = {},
+): void {
   const identity = `${packageInfo.name}@${packageInfo.version}`;
   const result = npm(["view", identity, "gitHead", "--json"], { cwd });
   if (result.status !== 0) {
     const detail = (result.stderr || result.stdout || "").trim();
     throw new Error(`npm view ${identity} gitHead failed${detail ? `: ${detail}` : ""}`);
   }
-  const gitHead = parseJson(result.stdout, `npm gitHead for ${identity}`);
+  const gitHead = parseJson<string>(result.stdout, `npm gitHead for ${identity}`);
   if (!COMMIT_PATTERN.test(gitHead)) throw new Error(`npm ${identity} has no valid gitHead`);
   if (gitHead !== target) throw new NpmGitHeadMismatchError(identity, target, gitHead);
 }
 
-export function lookupRemoteTag(tagRef, { cwd, remote, git = defaultGit } = {}) {
-  const result = git(["ls-remote", remote, tagRef, `${tagRef}^{}`], { cwd });
-  const refs = new Map();
+export function lookupRemoteTag(
+  tagRef: string,
+  { cwd, remote, git = defaultGit }: { cwd?: string; remote?: string; git?: CommandRunner } = {},
+): string | null {
+  const result = git(["ls-remote", remote as string, tagRef, `${tagRef}^{}`], { cwd });
+  const refs = new Map<string, string>();
   for (const line of result.stdout.trim().split(/\r?\n/).filter(Boolean)) {
     const [hash, ref] = line.split(/\s+/, 2);
     if (!COMMIT_PATTERN.test(hash) || !ref) throw new Error(`Malformed ls-remote result for ${tagRef}: ${line}`);
@@ -141,8 +208,23 @@ export function lookupRemoteTag(tagRef, { cwd, remote, git = defaultGit } = {}) 
   return direct ?? null;
 }
 
-export function pushMissingTag(plan, { cwd, remote, git = defaultGit, lookup = lookupRemoteTag, log = console } = {}) {
-  const result = git(["push", remote, `${plan.target}:${plan.tagRef}`], { cwd, allowFailure: true });
+export function pushMissingTag(
+  plan: { tag: string; tagRef: string; target: string },
+  {
+    cwd,
+    remote,
+    git = defaultGit,
+    lookup = lookupRemoteTag,
+    log = console,
+  }: {
+    cwd?: string;
+    remote?: string;
+    git?: CommandRunner;
+    lookup?: typeof lookupRemoteTag;
+    log?: Logger;
+  } = {},
+): "created" | "raced" {
+  const result = git(["push", remote as string, `${plan.target}:${plan.tagRef}`], { cwd, allowFailure: true });
   if (result.status === 0) {
     log.log(`CREATED ${plan.tag} at ${plan.target}`);
     return "created";
@@ -161,14 +243,27 @@ export function pushMissingTag(plan, { cwd, remote, git = defaultGit, lookup = l
   );
 }
 
+interface CreateOrVerifyOptions {
+  cwd?: string;
+  remote?: string;
+  dryRun?: boolean;
+  verifyNpm?: boolean;
+}
+
+interface CreateOrVerifyDeps {
+  git?: CommandRunner;
+  npm?: CommandRunner;
+  log?: Logger;
+}
+
 export function createOrVerifyPackageTags(
-  { cwd = process.cwd(), remote = "origin", dryRun = false, verifyNpm = false } = {},
-  { git = defaultGit, npm = defaultNpm, log = console } = {},
-) {
+  { cwd = process.cwd(), remote = "origin", dryRun = false, verifyNpm = false }: CreateOrVerifyOptions = {},
+  { git = defaultGit, npm = defaultNpm, log = console }: CreateOrVerifyDeps = {},
+): { plans: TagPlan[]; missing: TagPlan[]; inconsistent: InconsistentEntry[]; dryRun: boolean } {
   const root = resolve(cwd);
   const packages = discoverPublicPackages(root);
-  const plans = [];
-  const inconsistent = [];
+  const plans: TagPlan[] = [];
+  const inconsistent: InconsistentEntry[] = [];
   for (const packageInfo of packages) {
     const target = findVersionIntroducingCommit(packageInfo, { cwd: root, git });
     const tag = `${packageInfo.name}@${packageInfo.version}`;
@@ -188,7 +283,7 @@ export function createOrVerifyPackageTags(
   // Inspect every remote ref before creating any missing refs. Report the full
   // mismatch set in one run, then fail before any push can make the state more
   // partial. Dry-runs also report matching and missing refs before that failure.
-  const mismatches = [];
+  const mismatches: TagPlan[] = [];
   for (const plan of plans) {
     plan.remoteTarget = lookupRemoteTag(plan.tagRef, { cwd: root, remote, git });
     if (plan.remoteTarget && plan.remoteTarget !== plan.target) {
@@ -225,8 +320,14 @@ export function createOrVerifyPackageTags(
   return { plans, missing, inconsistent, dryRun };
 }
 
-export function parseArguments(argv) {
-  const options = { remote: "origin", dryRun: false, verifyNpm: false };
+interface ParsedArguments {
+  remote: string;
+  dryRun: boolean;
+  verifyNpm: boolean;
+}
+
+export function parseArguments(argv: string[]): ParsedArguments {
+  const options: ParsedArguments = { remote: "origin", dryRun: false, verifyNpm: false };
   for (let index = 0; index < argv.length; index += 1) {
     const argument = argv[index];
     if (argument === "--dry-run") options.dryRun = true;
@@ -245,7 +346,7 @@ if (invokedPath === import.meta.url) {
   try {
     createOrVerifyPackageTags(parseArguments(process.argv.slice(2)));
   } catch (error) {
-    console.error(error.message);
+    console.error((error as Error).message);
     process.exitCode = 1;
   }
 }
