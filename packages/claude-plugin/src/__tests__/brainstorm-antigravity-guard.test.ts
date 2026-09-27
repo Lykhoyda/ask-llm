@@ -7,12 +7,12 @@ import { PLUGIN_ROOT, readFile } from "./_helpers.js";
 
 const SKIP_FLAG = "--dangerously-skip-permissions";
 
-const pluginMarkdown = ["agents", "skills"].flatMap((dir) =>
-  fs
-    .readdirSync(path.join(PLUGIN_ROOT, dir), { recursive: true, encoding: "utf-8" })
-    .filter((f) => f.endsWith(".md"))
-    .map((f) => path.join(dir, f)),
-);
+const SCAN_EXCLUDED = new Set(["node_modules", "dist", "__tests__"]);
+
+const pluginTextFiles = fs
+  .readdirSync(PLUGIN_ROOT, { recursive: true, encoding: "utf-8" })
+  .filter((rel) => !rel.split(path.sep).some((part) => SCAN_EXCLUDED.has(part)))
+  .filter((rel) => fs.statSync(path.join(PLUGIN_ROOT, rel)).isFile() && !readFile(rel).includes("\0"));
 
 function antigravitySnippet(): string {
   const coordinator = readFile("agents/brainstorm-coordinator.md");
@@ -24,8 +24,8 @@ function antigravitySnippet(): string {
   return coordinator.slice(start, end + endMarker.length);
 }
 
-describe("plugin markdown never grants agy unattended permissions", () => {
-  it.each(pluginMarkdown)("%s has no raw agy invocation with the skip-permissions flag", (rel) => {
+describe("plugin files never grant agy unattended permissions", () => {
+  it.each(pluginTextFiles)("%s has no raw agy invocation with the skip-permissions flag", (rel) => {
     const lines = readFile(rel).replace(/\\\n/g, " ").split("\n");
     const invocations = lines.filter((line) => /(^|[\s;&|(`$"'/])agy\s+-/.test(line));
     for (const line of invocations) expect(line).not.toContain(SKIP_FLAG);
@@ -33,6 +33,10 @@ describe("plugin markdown never grants agy unattended permissions", () => {
 });
 
 const shells = ["bash", "zsh"].filter((shell) => spawnSync(shell, ["-c", "true"]).status === 0);
+
+it("runs every shell leg when required instead of filtering a missing shell out", () => {
+  if (process.env.ASK_LLM_REQUIRE_ALL_SHELLS === "1") expect(shells).toEqual(["bash", "zsh"]);
+});
 
 describe.each(shells)("brainstorm antigravity participant under %s", (shell) => {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "brainstorm-agy-guard-"));
@@ -69,7 +73,7 @@ describe.each(shells)("brainstorm antigravity participant under %s", (shell) => 
     };
   }
 
-  it.each([undefined, "0", "true", "01", " 1", "1 "])(
+  it.each([undefined, "", "0", "true", "01", " 1", "1 "])(
     "skips agy with a disclosed reason when the opt-in is %j",
     (optIn) => {
       const result = run(optIn);

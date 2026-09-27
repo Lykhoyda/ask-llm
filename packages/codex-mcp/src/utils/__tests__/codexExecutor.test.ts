@@ -1,5 +1,9 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CLI, CODEX_EDIT_SCHEMA, DEFAULT_REASONING_EFFORT, ERROR_MESSAGES, MODELS } from "../../constants.js";
+
+// constants.ts reads the effort at import time, so the stub must precede module evaluation.
+vi.hoisted(() => vi.stubEnv("ASK_CODEX_REASONING_EFFORT", undefined));
+afterAll(() => vi.unstubAllEnvs());
 
 vi.mock("@ask-llm/shared", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@ask-llm/shared")>();

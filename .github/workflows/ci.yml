@@ -61,8 +61,12 @@ jobs:
         name: test-setup-24.x-ubuntu-latest
     - name: Restore platform setup
       run: tar -xzf test-setup.tgz
+    - name: Install zsh for the brainstorm shell-guard legs
+      run: sudo apt-get update -qq && sudo apt-get install -y -qq zsh
     - name: Run test batch ${{ matrix.batch }}/5
       run: yarn test:batch "${{ matrix.batch }}/5"
+      env:
+        ASK_LLM_REQUIRE_ALL_SHELLS: "1"
     - name: Record successful batch
       run: node -e "require('node:fs').writeFileSync('batch-${{ matrix.batch }}', '')"
     - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
