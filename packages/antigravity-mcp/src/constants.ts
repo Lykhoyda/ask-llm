@@ -67,8 +67,15 @@ export const ANTIGRAVITY = {
   // agy 1.1.28 exits 0 on --print-timeout with a stderr truncation note.
   PRINT_TIMEOUT_SUCCESS_TRUNCATION_MIN_VERSION: "1.1.28",
   PARTIAL_OUTPUT_PREVIEW_CHARS: 500,
-  // Changelog-shaped substrings (agy 1.1.28). Keep disjoint from quota/model signals.
-  PRINT_TIMEOUT_TRUNCATION_SIGNALS: ["truncated", "truncation", "print-timeout", "timed out", "timeout expired"],
+  // agy 1.2.12 emits "print timeout"; keep other signals disjoint from quota/model errors.
+  PRINT_TIMEOUT_TRUNCATION_SIGNALS: [
+    "print timeout",
+    "truncated",
+    "truncation",
+    "print-timeout",
+    "timed out",
+    "timeout expired",
+  ],
   // Lowercased substrings; isRateLimitError() lowercases the message first.
   RATE_LIMIT_SIGNALS: ["rate limit", "rate_limit", "resource_exhausted", "quota", "429", "too many requests"],
   // Keep model-selection signals disjoint from quota; "Available models:" is too generic.
