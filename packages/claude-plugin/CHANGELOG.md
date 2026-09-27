@@ -1,5 +1,20 @@
 # @ask-llm/plugin
 
+## 0.19.1
+
+### Patch Changes
+
+- [#344](https://github.com/Lykhoyda/ask-llm/pull/344) [`04bf83c`](https://github.com/Lykhoyda/ask-llm/commit/04bf83c43a9f953ddaa01d41d5d7353d4a793d0b) Thanks [@Lykhoyda](https://github.com/Lykhoyda)! - The codex-pair Stop gate now blocks on a HIGH finding in a new file inside a new untracked directory.
+
+- [#342](https://github.com/Lykhoyda/ask-llm/pull/342) [`cffd37d`](https://github.com/Lykhoyda/ask-llm/commit/cffd37d4ca75398f1b9f6d6d75dfaaad16ae9ef8) Thanks [@Lykhoyda](https://github.com/Lykhoyda)! - Author the remaining codex-pair helpers, the codex-pair-log viewer, the Sol review transport, and the prompt benchmark in TypeScript, shipped as generated JavaScript with unchanged behavior on Linux and macOS, while argument quoting on unsupported Windows now preserves backslashes before quotes.
+- Updated dependencies [[`cffd37d`](https://github.com/Lykhoyda/ask-llm/commit/cffd37d4ca75398f1b9f6d6d75dfaaad16ae9ef8)]:
+  - @ask-llm/gemini-mcp@2.0.0
+  - @ask-llm/grok-mcp@0.3.0
+  - @ask-llm/codex-mcp@0.9.0
+  - @ask-llm/ollama-mcp@0.7.0
+  - @ask-llm/antigravity-mcp@0.8.0
+  - @ask-llm/mcp@0.12.0
+
 ## 0.19.0
 
 ### Minor Changes

@@ -1,6 +1,6 @@
 {
   "name": "@ask-llm/plugin",
-  "version": "0.19.0",
+  "version": "0.19.1",
   "description": "Ask LLM review, comparison, brainstorming, image, verification, and pairing workflows for Claude Code, Cursor Agent, and Pi",
   "type": "module",
   "main": "dist/index.js",
@@ -84,12 +84,12 @@
     ]
   },
   "dependencies": {
-    "@ask-llm/antigravity-mcp": "^0.7.7",
-    "@ask-llm/codex-mcp": "^0.8.0",
-    "@ask-llm/gemini-mcp": "^1.9.2",
-    "@ask-llm/grok-mcp": "^0.2.0",
-    "@ask-llm/mcp": "^0.11.0",
-    "@ask-llm/ollama-mcp": "^0.6.3"
+    "@ask-llm/antigravity-mcp": "^0.8.0",
+    "@ask-llm/codex-mcp": "^0.9.0",
+    "@ask-llm/gemini-mcp": "^2.0.0",
+    "@ask-llm/grok-mcp": "^0.3.0",
+    "@ask-llm/mcp": "^0.12.0",
+    "@ask-llm/ollama-mcp": "^0.7.0"
   },
   "peerDependencies": {
     "@earendil-works/pi-ai": "*",

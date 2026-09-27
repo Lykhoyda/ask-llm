@@ -1,5 +1,11 @@
 # @ask-llm/gemini-mcp
 
+## 2.0.0
+
+### Major Changes
+
+- [#342](https://github.com/Lykhoyda/ask-llm/pull/342) [`cffd37d`](https://github.com/Lykhoyda/ask-llm/commit/cffd37d4ca75398f1b9f6d6d75dfaaad16ae9ef8) Thanks [@Lykhoyda](https://github.com/Lykhoyda)! - Require Node.js 24 (the current LTS) or newer.
+
 ## 1.9.2
 
 ### Patch Changes
