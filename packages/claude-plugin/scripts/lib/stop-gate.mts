@@ -40,12 +40,15 @@ export function collectBlockingHighs({
   entries,
   acks,
   existsFn,
+  hashFn,
   gitDirty,
   markerDir,
 }: {
   entries: Iterable<[string, LogEntry]>;
   acks: Record<string, unknown>;
   existsFn: (file: string) => boolean;
+  // Required and injected like existsFn so this module stays I/O-free.
+  hashFn: (file: string) => string | null;
   gitDirty: Set<string> | null;
   markerDir: string;
 }): BlockingHigh[] {
@@ -55,6 +58,8 @@ export function collectBlockingHighs({
     if (INDETERMINATE.has(entry.verdict as string)) continue; // [C] indeterminate latest → fail-open
     if (gitDirty && !gitDirty.has(file)) continue; // [B] clean vs HEAD
     const highs = Array.isArray(entry.concerns?.high) ? entry.concerns.high : [];
+    if (highs.length === 0) continue;
+    if (entry.contentHash !== hashFn(file)) continue; // [D] verdict is for older content
     for (const text of highs) {
       const hash = hashConcernBody(`${relative(markerDir, file)}:${text}`); // [E] file-scoped
       if (!acks[hash]) blocking.push({ file, text, hash });
@@ -132,7 +137,7 @@ export function formatInFlightMessage(
   );
 }
 
-// The log is append-only, so the last entry per file is its latest review.
+// The log is append-only, so the last hashed entry per file is its latest review.
 export function selectLatestEntries(logText: string): Map<string, LogEntry> {
   const latest = new Map<string, LogEntry>();
   for (const line of logText.split("\n")) {
@@ -144,7 +149,7 @@ export function selectLatestEntries(logText: string): Map<string, LogEntry> {
     } catch {
       continue;
     }
-    if (entry && typeof entry.file === "string") latest.set(entry.file, entry);
+    if (entry && typeof entry.file === "string" && typeof entry.contentHash === "string") latest.set(entry.file, entry);
   }
   return latest;
 }

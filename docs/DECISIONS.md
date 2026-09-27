@@ -1,5 +1,15 @@
 # Architectural Decisions
 
+## ADR-173: codex-pair: worker-owned review lock and content-addressed verdicts
+
+**Status:** Accepted (2026-09-27). Amends ADR-112 (the worker now holds the per-file lock and no longer relays hook stdout) and replaces ADR-130's worker `reviewing` marker.
+
+**Context:** Under debounce, the worker marked its generation reviewed before the forced-sync hook took the per-file inflight lock, so a settled edit whose review met a still-running older review was skipped as `coalesced` and never reviewed; 45 of 48 such skips in dogfood logs left a stale latest verdict. Verdicts also carried no record of the content they reviewed, so drains and the Stop gate could surface or block on findings for code that had since changed.
+
+**Decision:** The debounce worker takes the per-file inflight lock itself, holds it across the whole forced review, and only then marks its generation done, in a `finally`, before releasing it. On contention only the newest (settled) generation retries, every 100 ms, bounded by the lock lifetime `max(timeout, 10 min) + 60 s`; a cap-triggered older worker or a lock-acquisition error ends the worker. Forced runs write their verdict to the file's pending slot and notices to separate pending entries, never to stdout. Invariants: (I1) each state file has one kind of writer — hooks write the edit record, the lock holder writes the `reviewed/` done-marker, the verdict slot and forced-run log verdicts; (I2) the lock holder reads the file after acquiring the lock; (I3) completion is the end of a locked run, whatever its outcome; (I4) every stored verdict carries the sha256 of the content it reviewed and is surfaced or gated only while that content is on disk, while notices are never content-filtered. Drains claim each pending entry by rename. This mirrors the Pi extension (`pi/extensions/codex-pair.ts`): lock first, retry on contention, stamp a content hash and re-check it before delivery. A 60 s retry budget was rejected: the 60 s cap bounds an edit burst, not a lock wait, and reviews routinely outlast it, which would recreate the lost review.
+
+**Consequences:** No config knob, worker-to-hook status protocol, or hook-side lock wait is added. Verdicts recorded before this version neither surface nor gate; the next edit re-reviews the file. Continuous editing drops verdicts until the file settles, an edit made outside Claude suppresses the last verdict until the next reviewed edit, and sync mode (`debounceMs: 0`) keeps its coalesced skip.
+
 ## ADR-172: Repository scripts and test fixtures are TypeScript run by Node's type stripping
 
 **Status:** Accepted (2026-09-27). Extends ADR-171 beyond the plugin.

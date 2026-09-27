@@ -3,6 +3,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { contentHash } from "../../scripts/lib/debounce-state.mjs";
 import { clearSession, registerMarker } from "../../scripts/lib/session-registry.mjs";
 import {
   collectBlockingHighs,
@@ -17,16 +18,25 @@ import { PLUGIN_ROOT } from "./_helpers.js";
 describe("selectLatestEntries", () => {
   it("keeps the last entry per file and tolerates blank/garbage lines", () => {
     const log = [
-      '{"file":"/r/a.ts","verdict":"concerns","concerns":{"high":["H1"]}}',
+      '{"file":"/r/a.ts","verdict":"concerns","contentHash":"h1","concerns":{"high":["H1"]}}',
       "",
       "not json",
-      '{"file":"/r/a.ts","verdict":"none","concerns":{"high":[]}}',
-      '{"file":"/r/b.ts","verdict":"concerns","concerns":{"high":["H2"]}}',
+      '{"file":"/r/a.ts","verdict":"none","contentHash":"h2","concerns":{"high":[]}}',
+      '{"file":"/r/b.ts","verdict":"concerns","contentHash":"h3","concerns":{"high":["H2"]}}',
     ].join("\n");
     const map = selectLatestEntries(log);
     expect(map.get("/r/a.ts").verdict).toBe("none");
     expect(map.get("/r/b.ts").concerns.high).toEqual(["H2"]);
     expect(map.size).toBe(2);
+  });
+
+  it("D3: a later entry without a content hash does not replace the latest hashed verdict", () => {
+    const log = [
+      '{"file":"/r/a.ts","verdict":"concerns","contentHash":"h","concerns":{"high":["H1"]}}',
+      '{"file":"/r/a.ts","verdict":"skipped","reason":"coalesced"}',
+      '{"file":"/r/a.ts","level":"info","reason":"over-cap"}',
+    ].join("\n");
+    expect(selectLatestEntries(log).get("/r/a.ts").concerns.high).toEqual(["H1"]);
   });
 });
 
@@ -53,10 +63,12 @@ describe("parseGitPorcelain", () => {
 const m = (obj) => new Map(Object.entries(obj));
 
 describe("collectBlockingHighs", () => {
-  const base = { markerDir: "/r", existsFn: () => true, gitDirty: null };
+  const base = { markerDir: "/r", existsFn: () => true, hashFn: () => "h", gitDirty: null };
 
   it("blocks on a HIGH in the latest real entry", () => {
-    const entries = m({ "/r/a.ts": { file: "/r/a.ts", verdict: "concerns", concerns: { high: ["H1"] } } });
+    const entries = m({
+      "/r/a.ts": { file: "/r/a.ts", contentHash: "h", verdict: "concerns", concerns: { high: ["H1"] } },
+    });
     const out = collectBlockingHighs({ ...base, entries, acks: {} });
     expect(out).toHaveLength(1);
     expect(out[0]).toMatchObject({ file: "/r/a.ts", text: "H1" });
@@ -64,19 +76,23 @@ describe("collectBlockingHighs", () => {
   });
 
   it("[A] drops files that do not exist on disk", () => {
-    const entries = m({ "/r/gone.ts": { file: "/r/gone.ts", verdict: "concerns", concerns: { high: ["H"] } } });
+    const entries = m({
+      "/r/gone.ts": { file: "/r/gone.ts", contentHash: "h", verdict: "concerns", concerns: { high: ["H"] } },
+    });
     const out = collectBlockingHighs({ ...base, entries, acks: {}, existsFn: () => false });
     expect(out).toHaveLength(0);
   });
 
   it("[C] indeterminate latest entry → fail-open (no fallback to stale HIGH)", () => {
-    const entries = m({ "/r/a.ts": { file: "/r/a.ts", verdict: "error", concerns: { high: [] } } });
+    const entries = m({ "/r/a.ts": { file: "/r/a.ts", contentHash: "h", verdict: "error", concerns: { high: [] } } });
     const out = collectBlockingHighs({ ...base, entries, acks: {} });
     expect(out).toHaveLength(0);
   });
 
   it("[B] drops files clean vs HEAD when gitDirty is provided", () => {
-    const entries = m({ "/r/a.ts": { file: "/r/a.ts", verdict: "concerns", concerns: { high: ["H"] } } });
+    const entries = m({
+      "/r/a.ts": { file: "/r/a.ts", contentHash: "h", verdict: "concerns", concerns: { high: ["H"] } },
+    });
     const clean = collectBlockingHighs({ ...base, entries, acks: {}, gitDirty: new Set() });
     expect(clean).toHaveLength(0);
     const dirty = collectBlockingHighs({ ...base, entries, acks: {}, gitDirty: new Set(["/r/a.ts"]) });
@@ -85,8 +101,8 @@ describe("collectBlockingHighs", () => {
 
   it("[E] acks are file-scoped — same text on two files acks independently", () => {
     const entries = m({
-      "/r/a.ts": { file: "/r/a.ts", verdict: "concerns", concerns: { high: ["dup"] } },
-      "/r/b.ts": { file: "/r/b.ts", verdict: "concerns", concerns: { high: ["dup"] } },
+      "/r/a.ts": { file: "/r/a.ts", contentHash: "h", verdict: "concerns", concerns: { high: ["dup"] } },
+      "/r/b.ts": { file: "/r/b.ts", contentHash: "h", verdict: "concerns", concerns: { high: ["dup"] } },
     });
     const all = collectBlockingHighs({ ...base, entries, acks: {} });
     expect(all).toHaveLength(2);
@@ -97,8 +113,33 @@ describe("collectBlockingHighs", () => {
   });
 
   it("a clean `none` latest entry blocks nothing (auto-clear on fix)", () => {
-    const entries = m({ "/r/a.ts": { file: "/r/a.ts", verdict: "none", concerns: { high: [] } } });
+    const entries = m({ "/r/a.ts": { file: "/r/a.ts", contentHash: "h", verdict: "none", concerns: { high: [] } } });
     expect(collectBlockingHighs({ ...base, entries, acks: {} })).toHaveLength(0);
+  });
+
+  it("D1: a HIGH for content that has since changed does not block; the current content's HIGH does", () => {
+    const entries = m({
+      "/r/a.ts": { file: "/r/a.ts", verdict: "concerns", contentHash: "old", concerns: { high: ["H"] } },
+    });
+    expect(collectBlockingHighs({ ...base, entries, acks: {}, hashFn: () => "new" })).toHaveLength(0);
+    expect(collectBlockingHighs({ ...base, entries, acks: {}, hashFn: () => "old" })).toHaveLength(1);
+  });
+
+  it("D2: hashes only dirty files whose latest verdict has a HIGH", () => {
+    let calls = 0;
+    const hashFn = () => {
+      calls++;
+      return "h";
+    };
+    const entries = m({
+      "/r/clean.ts": { file: "/r/clean.ts", verdict: "concerns", contentHash: "h", concerns: { high: ["H"] } },
+      "/r/skip.ts": { file: "/r/skip.ts", verdict: "skipped", contentHash: "h" },
+      "/r/none.ts": { file: "/r/none.ts", verdict: "none", contentHash: "h", concerns: { high: [] } },
+      "/r/dirty.ts": { file: "/r/dirty.ts", verdict: "concerns", contentHash: "h", concerns: { high: ["H"] } },
+    });
+    const gitDirty = new Set(["/r/skip.ts", "/r/none.ts", "/r/dirty.ts"]);
+    expect(collectBlockingHighs({ ...base, entries, acks: {}, gitDirty, hashFn })).toHaveLength(1);
+    expect(calls).toBe(1);
   });
 });
 
@@ -217,7 +258,13 @@ describe("codex-pair-stop-gate.mjs — runtime (pending drain + in-flight block)
   function seedPending(message: string) {
     const pendingDir = path.join(dir, ".codex-pair", "state", "pending");
     fs.mkdirSync(pendingDir, { recursive: true });
-    fs.writeFileSync(path.join(pendingDir, "seed.json"), JSON.stringify({ file: "/x", message }));
+    const file = path.join(dir, "x.ts");
+    const text = "export const x = 1;\n";
+    fs.writeFileSync(file, text);
+    fs.writeFileSync(
+      path.join(pendingDir, "seed.json"),
+      JSON.stringify({ file, message, contentHash: contentHash(text) }),
+    );
   }
   function runGate(payload: object = { hook_event_name: "Stop" }) {
     return spawnSync("node", [GATE_PATH], {
@@ -264,21 +311,6 @@ describe("codex-pair-stop-gate.mjs — runtime (pending drain + in-flight block)
     expect(out.decision).toBe("block");
     expect(out.reason).toMatch(/in flight/i);
     expect(out.reason).toMatch(/src\.ts/);
-  });
-
-  it("blockOn HIGH: a worker `reviewing` marker blocks (handoff-gap coverage)", () => {
-    writeMarker("---\nblockOn: HIGH\n---\n");
-    const reviewingDir = path.join(dir, ".codex-pair", "state", "reviewing");
-    fs.mkdirSync(reviewingDir, { recursive: true });
-    fs.writeFileSync(
-      path.join(reviewingDir, "bbbb.json"),
-      JSON.stringify({ file: path.join(dir, "src.ts"), at: Date.now() }),
-    );
-    const result = runGate();
-    expect(result.status).toBe(0);
-    const out = JSON.parse(result.stdout.trim());
-    expect(out.decision).toBe("block");
-    expect(out.reason).toMatch(/in flight/i);
   });
 
   it("blockOn HIGH: fresh inflight lock blocks; stale lock does not", () => {
@@ -331,7 +363,7 @@ describe("codex-pair-stop-gate.mjs — runtime (pending drain + in-flight block)
     fs.writeFileSync(edited, "export const x = 1;");
     fs.writeFileSync(
       path.join(dir, ".codex-pair", "log.jsonl"),
-      `${JSON.stringify({ file: edited, verdict: "concerns", concerns: { high: ["H-finding"] } })}\n`,
+      `${JSON.stringify({ file: edited, verdict: "concerns", contentHash: contentHash("export const x = 1;"), concerns: { high: ["H-finding"] } })}\n`,
     );
     seedPending("[codex-pair] queued verdict text");
     const result = runGate();
@@ -358,7 +390,7 @@ describe("codex-pair-stop-gate.mjs — runtime (pending drain + in-flight block)
       path.join(dir, ".codex-pair", "log.jsonl"),
       [
         JSON.stringify({ file: clean, verdict: "concerns", concerns: { high: ["H-clean"] } }),
-        JSON.stringify({ file: edited, verdict: "concerns", concerns: { high: ["H-new-dir"] } }),
+        JSON.stringify({ file: edited, verdict: "concerns", contentHash: contentHash("export const x = 1;"), concerns: { high: ["H-new-dir"] } }),
         "",
       ].join("\n"),
     );
@@ -368,6 +400,19 @@ describe("codex-pair-stop-gate.mjs — runtime (pending drain + in-flight block)
     expect(out.decision).toBe("block");
     expect(out.reason).toMatch(/H-new-dir/);
     expect(out.reason).not.toMatch(/H-clean/);
+  });
+
+  it("D4: blockOn HIGH: a HIGH for content that has since changed does not block", () => {
+    writeMarker("---\nblockOn: HIGH\n---\n");
+    const edited = path.join(dir, "src.ts");
+    fs.writeFileSync(
+      path.join(dir, ".codex-pair", "log.jsonl"),
+      `${JSON.stringify({ file: edited, verdict: "concerns", contentHash: contentHash("export const x = 1;"), concerns: { high: ["H-finding"] } })}\n`,
+    );
+    fs.writeFileSync(edited, "export const x = 2;");
+    const result = runGate();
+    expect(result.status).toBe(0);
+    expect(result.stdout.trim()).toBe("");
   });
 });
 
@@ -403,9 +448,15 @@ describe("codex-pair-stop-gate.mjs — cross-repo (#209)", () => {
     fs.writeFileSync(path.join(otherRepo, ".codex-pair", "context.md"), "# ctx"); // no blockOn
     const pend = path.join(otherRepo, ".codex-pair", "state", "pending");
     fs.mkdirSync(pend, { recursive: true });
+    const q = path.join(otherRepo, "q.ts");
+    fs.writeFileSync(q, "export const q = 1;\n");
     fs.writeFileSync(
       path.join(pend, "seed.json"),
-      JSON.stringify({ file: "/x", message: "[codex-pair] reviewed q.ts — 1H/0M/0L" }),
+      JSON.stringify({
+        file: q,
+        message: "[codex-pair] reviewed q.ts — 1H/0M/0L",
+        contentHash: contentHash("export const q = 1;\n"),
+      }),
     );
     registerMarker(SESSION, otherRepo);
 
@@ -423,7 +474,7 @@ describe("codex-pair-stop-gate.mjs — cross-repo (#209)", () => {
     fs.writeFileSync(target, "export const x = 1;\n");
     fs.writeFileSync(
       path.join(otherRepo, ".codex-pair", "log.jsonl"),
-      `${JSON.stringify({ file: target, verdict: "concerns", concerns: { high: ["missing await on mutation"] } })}\n`,
+      `${JSON.stringify({ file: target, verdict: "concerns", contentHash: contentHash("export const x = 1;\n"), concerns: { high: ["missing await on mutation"] } })}\n`,
     );
     registerMarker(SESSION, otherRepo);
 
@@ -441,7 +492,7 @@ describe("codex-pair-stop-gate.mjs — cross-repo (#209)", () => {
     fs.writeFileSync(target, "export const x = 1;\n");
     fs.writeFileSync(
       path.join(otherRepo, ".codex-pair", "log.jsonl"),
-      `${JSON.stringify({ file: target, verdict: "concerns", concerns: { high: ["missing await"] } })}\n`,
+      `${JSON.stringify({ file: target, verdict: "concerns", contentHash: contentHash("export const x = 1;\n"), concerns: { high: ["missing await"] } })}\n`,
     );
     registerMarker(SESSION, otherRepo);
 
@@ -460,9 +511,12 @@ describe("codex-pair-stop-gate.mjs — cross-repo (#209)", () => {
       const pend = path.join(repo, ".codex-pair", "state", "pending");
       fs.mkdirSync(pend, { recursive: true });
       for (let i = 0; i < n; i++) {
+        const file = path.join(repo, `${tag}${i}.ts`);
+        const text = `export const v${i} = 1;\n`;
+        fs.writeFileSync(file, text);
         fs.writeFileSync(
           path.join(pend, `${tag}-${i}.json`),
-          JSON.stringify({ file: `/x/${tag}${i}`, message: `[codex-pair] ${tag} verdict ${i}` }),
+          JSON.stringify({ file, message: `[codex-pair] ${tag} verdict ${i}`, contentHash: contentHash(text) }),
         );
       }
     };

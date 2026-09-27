@@ -171,14 +171,15 @@ Once enabled, the hook checks at turn-end whether any HIGH findings in `log.json
 - **File deleted or renamed** → finding skipped (no longer relevant)
 - **File clean vs HEAD** → finding skipped (reverted or branch-switched away); new files inside untracked directories remain eligible to block
 - **Latest log entry for the file is indeterminate** (`skipped`/`error`/`retried`/`broker_fallback`) → fail-open, finding skipped (don't block on a stale HIGH from before a transient error)
+- **Latest review is for content that has since changed** (its recorded content hash no longer matches the file on disk) → finding skipped; the settled edit's own review follows
 
 ### In-flight reviews block too
 
-With the default 15s debounce plus 13–50s of review latency, a review is often still running when the turn ends; the log alone can't see it. When `blockOn: HIGH` is set, the gate also blocks (once per turn) while any review for a recent edit is still in flight (a settling debounce window, a worker mid-handoff, or a running Codex call), telling Claude to wait for the verdict before finishing. The `stop_hook_active` loop guard means a turn is never blocked twice for the same reason.
+With the default 15s debounce plus 13–50s of review latency, a review is often still running when the turn ends; the log alone can't see it. When `blockOn: HIGH` is set, the gate also blocks (once per turn) while any review for a recent edit is still in flight (a settling debounce window, including a worker waiting for an earlier review of the same file, or a running Codex call), telling Claude to wait for the verdict before finishing. The `stop_hook_active` loop guard means a turn is never blocked twice for the same reason.
 
 ### Queued verdicts drain at turn-end
 
-Debounced verdicts that finished mid-turn used to wait for the *next* edit or user prompt to surface. The Stop hook drains them at turn-end, no `blockOn` opt-in required: as additional context when nothing blocks, or folded into the block message when it does. Like every Stop/prompt-scoped hook, the drain resolves the project from the session's working directory; verdicts queued by cross-repo edits (cwd in repo A, edit in repo B) still wait for the next edit or prompt in that repo, tracked in [#209](https://github.com/Lykhoyda/ask-llm/issues/209).
+Debounced verdicts that finished mid-turn used to wait for the *next* edit or user prompt to surface. The Stop hook drains them at turn-end, no `blockOn` opt-in required: as additional context when nothing blocks, or folded into the block message when it does. A queued verdict surfaces only while the file still holds the content it reviewed; a verdict for content that has since changed is dropped, and the settled edit's own review follows. Like every Stop/prompt-scoped hook, the drain resolves the project from the session's working directory; verdicts queued by cross-repo edits (cwd in repo A, edit in repo B) still wait for the next edit or prompt in that repo, tracked in [#209](https://github.com/Lykhoyda/ask-llm/issues/209).
 
 ### Fail-open behavior
 

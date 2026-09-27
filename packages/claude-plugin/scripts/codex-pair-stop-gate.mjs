@@ -5,7 +5,7 @@ import { execFileSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync, realpathSync, statSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
-import { debounceRoot, drainPending, joinPendingForSurface, reviewingRoot } from "./lib/debounce-state.mjs";
+import { drainPending, fileContentHash, joinPendingForSurface, readDebounceRecords } from "./lib/debounce-state.mjs";
 import { collectSessionMarkers } from "./lib/session-registry.mjs";
 import { CONTEXT_FILENAME, contextPath, INFLIGHT_TTL_MIN_MS, inflightRoot, logPath, PAIR_ROOT_DIR, readAcks, } from "./lib/state.mjs";
 import { collectBlockingHighs, collectInFlight, formatBlockMessage, formatInFlightMessage, parseGitPorcelain, selectLatestEntries, } from "./lib/stop-gate.mjs";
@@ -68,41 +68,22 @@ function gitDirtySet(markerDir) {
 }
 // Use the raw marker path because the watch hook writes in-flight state there.
 function readInFlightInputs(markerDir) {
-    const records = [];
+    const lockMtimes = [];
+    const root = inflightRoot(markerDir);
     try {
-        const root = debounceRoot(markerDir);
         for (const name of readdirSync(root)) {
-            if (!name.endsWith(".json"))
-                continue;
             try {
-                records.push(JSON.parse(readFileSync(join(root, name), "utf8")));
+                lockMtimes.push(statSync(join(root, name)).mtimeMs);
             }
             catch {
-                // malformed record — collectInFlight tolerates junk anyway
+                // entry vanished between readdir and stat
             }
         }
     }
     catch {
-        // no debounce dir yet
+        // dir doesn't exist yet
     }
-    // Reviewing markers cover the gap between debounce consumption and lock acquisition.
-    const lockMtimes = [];
-    for (const root of [inflightRoot(markerDir), reviewingRoot(markerDir)]) {
-        try {
-            for (const name of readdirSync(root)) {
-                try {
-                    lockMtimes.push(statSync(join(root, name)).mtimeMs);
-                }
-                catch {
-                    // entry vanished between readdir and stat
-                }
-            }
-        }
-        catch {
-            // dir doesn't exist yet
-        }
-    }
-    return { records, lockMtimes };
+    return { records: readDebounceRecords(markerDir), lockMtimes };
 }
 // Match the watch hook lock TTL so both agree when a review remains in flight.
 function inflightFreshMs(markerDir) {
@@ -158,6 +139,7 @@ function evaluateMarker(markerDir) {
         entries: canonicalizeEntries(selectLatestEntries(logText)),
         acks: readAcks(canonical),
         existsFn: existsSync,
+        hashFn: fileContentHash,
         gitDirty: gitDirtySet(canonical),
         markerDir: canonical,
     });

@@ -20,7 +20,7 @@ export function parseGitPorcelain(stdout, repoRoot) {
 }
 // Verdicts without a trustworthy final-state review; `retried`/`broker_fallback` carry no `file` today.
 const INDETERMINATE = new Set(["skipped", "error", "retried", "broker_fallback"]);
-export function collectBlockingHighs({ entries, acks, existsFn, gitDirty, markerDir, }) {
+export function collectBlockingHighs({ entries, acks, existsFn, hashFn, gitDirty, markerDir, }) {
     const blocking = [];
     for (const [file, entry] of entries) {
         if (!existsFn(file))
@@ -30,6 +30,10 @@ export function collectBlockingHighs({ entries, acks, existsFn, gitDirty, marker
         if (gitDirty && !gitDirty.has(file))
             continue; // [B] clean vs HEAD
         const highs = Array.isArray(entry.concerns?.high) ? entry.concerns.high : [];
+        if (highs.length === 0)
+            continue;
+        if (entry.contentHash !== hashFn(file))
+            continue; // [D] verdict is for older content
         for (const text of highs) {
             const hash = hashConcernBody(`${relative(markerDir, file)}:${text}`); // [E] file-scoped
             if (!acks[hash])
@@ -83,7 +87,7 @@ export function formatInFlightMessage({ settling, reviewing }, markerDir) {
         `Wait for them (e.g. \`sleep 45\`), read the newest entries for the files you edited, ` +
         `address any HIGH findings, then end the turn.`);
 }
-// The log is append-only, so the last entry per file is its latest review.
+// The log is append-only, so the last hashed entry per file is its latest review.
 export function selectLatestEntries(logText) {
     const latest = new Map();
     for (const line of logText.split("\n")) {
@@ -97,7 +101,7 @@ export function selectLatestEntries(logText) {
         catch {
             continue;
         }
-        if (entry && typeof entry.file === "string")
+        if (entry && typeof entry.file === "string" && typeof entry.contentHash === "string")
             latest.set(entry.file, entry);
     }
     return latest;
