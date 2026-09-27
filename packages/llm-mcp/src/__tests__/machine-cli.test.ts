@@ -71,7 +71,8 @@ function runCli(
 }
 
 async function runCliWithClosedStdout(input: string, executorPath: string): Promise<ClosedStdoutCliResult> {
-  const child = spawn(process.execPath, [cliPath, "machine"], {
+  // Node 24.0-24.2 warn on stderr when stripping the .ts fixture; this test pins exact stderr.
+  const child = spawn(process.execPath, ["--disable-warning=ExperimentalWarning", cliPath, "machine"], {
     env: {
       ...process.env,
       ASK_LLM_LOG_LEVEL: "debug",

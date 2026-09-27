@@ -13,8 +13,8 @@ export const RESULTS = Object.freeze({
   SKIP_NOT_AUTHORIZED: "SKIP_NOT_AUTHORIZED",
 } as const);
 
-export type ResultStatus = (typeof RESULTS)[keyof typeof RESULTS];
-export type Mode = "dry-run" | "live";
+type ResultStatus = (typeof RESULTS)[keyof typeof RESULTS];
+type Mode = "dry-run" | "live";
 
 export interface Scenario {
   id: string;
@@ -389,7 +389,7 @@ function commandExists(command: string, env: NodeJS.ProcessEnv): Promise<boolean
     .catch(() => false);
 }
 
-export interface RunCommandOptions {
+interface RunCommandOptions {
   cwd?: string;
   env?: NodeJS.ProcessEnv;
   stdin?: string;
@@ -642,7 +642,7 @@ function liveInvocation(
   };
 }
 
-export interface Discovery {
+interface Discovery {
   available: boolean;
   reason?: string;
   catalog: string[];
@@ -779,14 +779,14 @@ function routeTool(scenario: Scenario): string {
   return scenario.tool;
 }
 
-export interface ScenarioResult {
+interface ScenarioResult {
   id: string;
   status: ResultStatus;
   reason: string;
   detail?: string;
 }
 
-export interface SuiteReport {
+interface SuiteReport {
   mode: Mode;
   tempRoot: string;
   results: ScenarioResult[];
