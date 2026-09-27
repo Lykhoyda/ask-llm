@@ -1,5 +1,15 @@
 # Architectural Decisions
 
+## ADR-174: The Registry helper waits for npm to show each version before publishing it
+
+**Status:** Accepted (2026-09-27). Amends ADR-139.
+
+**Context:** Four publishing Release runs in a row (35352259072, 35790191359, 36253939050, 36325043416) published to npm and then failed. In three of them the MCP Registry rejected a server with `NPM package ... exists, but version X was not found (status: 404)`, because npm serves a new version about a minute after `changeset publish` returns. A manual no-input dispatch recovered each run (issue #333).
+
+**Decision:** After `scripts/publish-mcp-registry.ts` has picked the servers missing from the Registry and before it logs in, it polls `https://registry.npmjs.org/<identifier>/<version>` for every npm package of those servers. It uses the same URL spelling, `Accept: application/json` header and 10 s request timeout as the Registry's validator. It polls every 15 s against a single 10-minute deadline, logs what is still missing each round, and counts any non-200 response or network error as not yet visible. A server whose npm version is still missing at the deadline fails with phase `npm-visibility` and a message that names each version and the last status seen. The helper still publishes every other server. The helper never writes to npm. A recovery dispatch whose Registry records already exist picks no server, so it neither polls npm nor logs in.
+
+**Consequences:** A normal release now waits about a minute instead of failing. A package that was never published fails after 10 minutes instead of at once. The per-package tag step runs `npm view <pkg>@<ver> gitHead` against the full packument. It still does not wait for npm, so a plugin-only release, which has no Registry server to wait on, can still hit that lag (run 36253939050).
+
 ## ADR-173: codex-pair: worker-owned review lock and content-addressed verdicts
 
 **Status:** Accepted (2026-09-27). Amends ADR-112 (the worker now holds the per-file lock and no longer relays hook stdout) and replaces ADR-130's worker `reviewing` marker.
