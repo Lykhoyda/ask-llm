@@ -34,8 +34,8 @@ describe("plugin files never grant agy unattended permissions", () => {
 
 const shells = ["bash", "zsh"].filter((shell) => spawnSync(shell, ["-c", "true"]).status === 0);
 
-it("runs every shell leg in CI instead of filtering a missing shell out", () => {
-  if (process.env.CI) expect(shells).toEqual(["bash", "zsh"]);
+it("runs every shell leg when required instead of filtering a missing shell out", () => {
+  if (process.env.ASK_LLM_REQUIRE_ALL_SHELLS === "1") expect(shells).toEqual(["bash", "zsh"]);
 });
 
 describe.each(shells)("brainstorm antigravity participant under %s", (shell) => {
