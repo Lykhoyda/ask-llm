@@ -351,7 +351,7 @@ test("duplicate race is accepted only after the exact record appears", async () 
   const result = await publishMissingRegistryVersions({
     manifestPaths: [path],
     fetchImpl: async (url) => {
-      if (url.host === "registry.npmjs.org") return new Response("{}");
+      if (url.hostname === "registry.npmjs.org") return new Response("{}");
       return responseFor(lookups++ === 0 ? null : registryRecord(expected));
     },
     runPublisher: publisher.run,
@@ -467,7 +467,7 @@ function fakeClock() {
 function npmVisibility(pollsUntilVisible: Map<string, number>) {
   const polls = new Map<string, number>();
   const fetchImpl = async (url: URL): Promise<Response> => {
-    if (url.host !== "registry.npmjs.org") return responseFor(null);
+    if (url.hostname !== "registry.npmjs.org") return responseFor(null);
     const key = decodeURIComponent(url.pathname.slice(1));
     const count = (polls.get(key) ?? 0) + 1;
     polls.set(key, count);
@@ -592,13 +592,13 @@ test("Registry publish skips candidates whose npm version never appears but publ
 test("recovery with every Registry record present never polls npm", async () => {
   const values = [manifest("ask-one", "1.0.0")];
   const paths = writeManifests(values);
-  const hosts: string[] = [];
+  const hostnames: string[] = [];
   const publisher = createPublisher();
 
   const result = await publishMissingRegistryVersions({
     manifestPaths: paths,
     fetchImpl: async (url) => {
-      hosts.push(url.host);
+      hostnames.push(url.hostname);
       return responseFor(registryRecord(values[0]));
     },
     runPublisher: publisher.run,
@@ -606,7 +606,7 @@ test("recovery with every Registry record present never polls npm", async () => 
   });
 
   assert.deepEqual(result.failures, []);
-  assert.equal(hosts.includes("registry.npmjs.org"), false);
+  assert.ok(hostnames.every((hostname) => hostname !== "registry.npmjs.org"));
   assert.deepEqual(
     publisher.calls.map(({ operation }) => operation),
     ["validate"],
