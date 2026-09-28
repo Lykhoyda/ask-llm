@@ -4,33 +4,27 @@
       "$schema": "http://json-schema.org/draft-07/schema#",
       "properties": {
         "harness": {
-          "enum": [
-            "xai-api",
-            "grok-cli"
-          ],
+          "description": "Execution harness, kept separate from the Grok model selection: xai-api or grok-cli. Defaults to xai-api; no harness fallback is attempted.",
+          "enum": ["xai-api", "grok-cli"],
           "type": "string"
         },
         "model": {
+          "description": "Exact model ID understood by the selected harness. Do not set unless the user explicitly requests one. Defaults to grok-4.7 on xai-api or grok-4.7 on grok-cli; Ask LLM never rewrites or falls back from the requested model.",
           "type": "string"
         },
         "prompt": {
+          "description": "The question, code review request, or analysis task to send to Grok through the selected harness",
           "maxLength": 100000,
           "minLength": 1,
           "type": "string"
         },
         "reasoningEffort": {
-          "enum": [
-            "low",
-            "medium",
-            "high",
-            "xhigh"
-          ],
+          "description": "Reasoning depth: low, medium, high, xhigh. Defaults to high; this is a request parameter, not a model-name suffix.",
+          "enum": ["low", "medium", "high", "xhigh"],
           "type": "string"
         }
       },
-      "required": [
-        "prompt"
-      ],
+      "required": ["prompt"],
       "type": "object"
     },
     "name": "ask-grok",
@@ -39,25 +33,14 @@
       "additionalProperties": false,
       "properties": {
         "harness": {
-          "enum": [
-            "xai-api",
-            "grok-cli",
-            "cursor-agent"
-          ],
+          "enum": ["xai-api", "grok-cli", "cursor-agent"],
           "type": "string"
         },
         "model": {
           "type": "string"
         },
         "provider": {
-          "enum": [
-            "gemini",
-            "codex",
-            "claude",
-            "grok",
-            "ollama",
-            "antigravity"
-          ],
+          "enum": ["gemini", "codex", "claude", "grok", "ollama", "antigravity"],
           "type": "string"
         },
         "reportedModel": {
@@ -91,34 +74,18 @@
               "type": "number"
             },
             "provider": {
-              "enum": [
-                "gemini",
-                "codex",
-                "claude",
-                "grok",
-                "ollama",
-                "antigravity"
-              ],
+              "enum": ["gemini", "codex", "claude", "grok", "ollama", "antigravity"],
               "type": "string"
             },
             "thinkingTokens": {
               "type": "number"
             }
           },
-          "required": [
-            "provider",
-            "model",
-            "durationMs",
-            "fellBack"
-          ],
+          "required": ["provider", "model", "durationMs", "fellBack"],
           "type": "object"
         }
       },
-      "required": [
-        "provider",
-        "response",
-        "model"
-      ],
+      "required": ["provider", "response", "model"],
       "type": "object"
     }
   },
@@ -258,13 +225,12 @@
       "$schema": "http://json-schema.org/draft-07/schema#",
       "properties": {
         "harness": {
-          "enum": [
-            "xai-api",
-            "grok-cli"
-          ],
+          "description": "Harness whose exact model catalog should be listed",
+          "enum": ["xai-api", "grok-cli"],
           "type": "string"
         },
         "message": {
+          "description": "A message to echo back without contacting a provider",
           "type": "string"
         }
       },

@@ -4,20 +4,20 @@
       "$schema": "http://json-schema.org/draft-07/schema#",
       "properties": {
         "includeDirs": {
+          "description": "Additional directories agy may access alongside the working directory (maps to agy `--add-dir`, repeatable). Must be relative paths (e.g., 'packages/api'). Useful in monorepos where relevant context spans sibling packages. Execution requires ASK_ANTIGRAVITY_ALLOW_UNISOLATED=1; read-only isolation is not guaranteed.",
           "items": {
             "type": "string"
           },
           "type": "array"
         },
         "prompt": {
+          "description": "The question, code review request, or analysis task to send to Antigravity (agy)",
           "maxLength": 100000,
           "minLength": 1,
           "type": "string"
         }
       },
-      "required": [
-        "prompt"
-      ],
+      "required": ["prompt"],
       "type": "object"
     },
     "name": "ask-antigravity",
@@ -26,25 +26,14 @@
       "additionalProperties": false,
       "properties": {
         "harness": {
-          "enum": [
-            "xai-api",
-            "grok-cli",
-            "cursor-agent"
-          ],
+          "enum": ["xai-api", "grok-cli", "cursor-agent"],
           "type": "string"
         },
         "model": {
           "type": "string"
         },
         "provider": {
-          "enum": [
-            "gemini",
-            "codex",
-            "claude",
-            "grok",
-            "ollama",
-            "antigravity"
-          ],
+          "enum": ["gemini", "codex", "claude", "grok", "ollama", "antigravity"],
           "type": "string"
         },
         "reportedModel": {
@@ -78,34 +67,18 @@
               "type": "number"
             },
             "provider": {
-              "enum": [
-                "gemini",
-                "codex",
-                "claude",
-                "grok",
-                "ollama",
-                "antigravity"
-              ],
+              "enum": ["gemini", "codex", "claude", "grok", "ollama", "antigravity"],
               "type": "string"
             },
             "thinkingTokens": {
               "type": "number"
             }
           },
-          "required": [
-            "provider",
-            "model",
-            "durationMs",
-            "fellBack"
-          ],
+          "required": ["provider", "model", "durationMs", "fellBack"],
           "type": "object"
         }
       },
-      "required": [
-        "provider",
-        "response",
-        "model"
-      ],
+      "required": ["provider", "response", "model"],
       "type": "object"
     }
   },
@@ -245,6 +218,7 @@
       "$schema": "http://json-schema.org/draft-07/schema#",
       "properties": {
         "message": {
+          "description": "A message to echo back to test the connection",
           "type": "string"
         }
       },

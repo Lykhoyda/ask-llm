@@ -15,7 +15,6 @@ const ROOT = fileURLToPath(new URL("..", import.meta.url));
 // Keep test fixtures outside shared/src, whose changes require a seven-package release.
 const FIXTURES = join(ROOT, "scripts/fixtures/contract");
 const UPDATE = process.env.ASK_LLM_UPDATE_CONTRACT === "1";
-const SCHEMA_MAPS = new Set(["properties", "patternProperties", "$defs", "definitions"]);
 
 interface PackageManifest {
   name: string;
@@ -43,16 +42,14 @@ const hermeticEnv = { HOME: sandbox, PATH: emptyBin, ASK_LLM_PATH: emptyBin, OLL
 
 afterAll(() => rmSync(sandbox, { recursive: true, force: true }));
 
-// Descriptions are prose (default-model names, wording) and stay out of the contract.
-function contract(value: unknown, isSchemaMap = false): unknown {
+function contract(value: unknown): unknown {
   if (Array.isArray(value)) return value.map((item) => contract(item));
   if (value === null || typeof value !== "object") return value;
   const record = value as Record<string, unknown>;
   return Object.fromEntries(
     Object.keys(record)
-      .filter((key) => isSchemaMap || key !== "description")
       .sort()
-      .map((key) => [key, contract(record[key], !isSchemaMap && SCHEMA_MAPS.has(key))]),
+      .map((key) => [key, contract(record[key])]),
   );
 }
 

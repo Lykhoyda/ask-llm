@@ -4,26 +4,28 @@
       "$schema": "http://json-schema.org/draft-07/schema#",
       "properties": {
         "includeDirs": {
+          "description": "Additional relative directories Claude may read alongside the working directory. Claude remains restricted to Read, Glob, and Grep tools.",
           "items": {
             "type": "string"
           },
           "type": "array"
         },
         "model": {
+          "description": "Do not set this parameter unless the user explicitly requests a Claude model. Defaults to opus, with sonnet as the CLI fallback.",
           "type": "string"
         },
         "prompt": {
+          "description": "The question, code review request, or analysis task to send to Anthropic Claude Code CLI",
           "maxLength": 100000,
           "minLength": 1,
           "type": "string"
         },
         "sessionId": {
+          "description": "Optional Claude conversation ID to resume. Pass the [Session ID: ...] value from a previous response to continue with native Claude session context.",
           "type": "string"
         }
       },
-      "required": [
-        "prompt"
-      ],
+      "required": ["prompt"],
       "type": "object"
     },
     "name": "ask-claude",
@@ -32,25 +34,14 @@
       "additionalProperties": false,
       "properties": {
         "harness": {
-          "enum": [
-            "xai-api",
-            "grok-cli",
-            "cursor-agent"
-          ],
+          "enum": ["xai-api", "grok-cli", "cursor-agent"],
           "type": "string"
         },
         "model": {
           "type": "string"
         },
         "provider": {
-          "enum": [
-            "gemini",
-            "codex",
-            "claude",
-            "grok",
-            "ollama",
-            "antigravity"
-          ],
+          "enum": ["gemini", "codex", "claude", "grok", "ollama", "antigravity"],
           "type": "string"
         },
         "reportedModel": {
@@ -84,34 +75,18 @@
               "type": "number"
             },
             "provider": {
-              "enum": [
-                "gemini",
-                "codex",
-                "claude",
-                "grok",
-                "ollama",
-                "antigravity"
-              ],
+              "enum": ["gemini", "codex", "claude", "grok", "ollama", "antigravity"],
               "type": "string"
             },
             "thinkingTokens": {
               "type": "number"
             }
           },
-          "required": [
-            "provider",
-            "model",
-            "durationMs",
-            "fellBack"
-          ],
+          "required": ["provider", "model", "durationMs", "fellBack"],
           "type": "object"
         }
       },
-      "required": [
-        "provider",
-        "response",
-        "model"
-      ],
+      "required": ["provider", "response", "model"],
       "type": "object"
     }
   },
@@ -251,6 +226,7 @@
       "$schema": "http://json-schema.org/draft-07/schema#",
       "properties": {
         "message": {
+          "description": "A message to echo back while testing Claude CLI availability",
           "type": "string"
         }
       },

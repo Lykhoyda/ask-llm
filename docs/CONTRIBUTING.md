@@ -64,7 +64,7 @@ It runs the immutable install, build, lint, full test suite, and deterministic r
 
 ## Adding a new tool
 
-`scripts/release-contract.test.ts` pins the unified and split MCP tool names and input/output schemas, AskResponse attribution, doctor JSON shape, published bin names, and Pi tool names and schemas. After an intended contract change, run `yarn build && ASK_LLM_UPDATE_CONTRACT=1 yarn vitest run scripts/release-contract.test.ts && yarn biome format --write scripts/fixtures/contract`, then review the fixture diff.
+`scripts/release-contract.test.ts` pins the unified and split MCP tool names and input/output schemas (including schema descriptions), AskResponse attribution, doctor JSON shape, published bin names, and Pi tool names and schemas. After an intended contract change, run `yarn build && ASK_LLM_UPDATE_CONTRACT=1 yarn vitest run scripts/release-contract.test.ts && yarn biome format --write scripts/fixtures/contract`, then review the fixture diff.
 
 1. Define a Zod schema for inputs in `packages/<provider>-mcp/src/tools/`.
 2. Create a `UnifiedTool` object with `name`, `description`, `zodSchema`, `execute`.
