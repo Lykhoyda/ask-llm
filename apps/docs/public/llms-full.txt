@@ -6,7 +6,7 @@ This file contains everything an AI agent needs to integrate with Ask LLM MCP se
 
 ## Architecture
 
-Ask LLM is a monorepo with 8 published npm packages + 1 private shared library. `@ask-llm/plugin` is the canonical Claude Code + Cursor Agent + Pi host package:
+Ask LLM has two publishable npm packages, six private provider workspaces, and one private shared library. `@ask-llm/mcp` owns the Claude Code, Cursor Agent, and Pi host assets; `@ask-llm/plugin` is a dependent compatibility bridge:
 
 ```
 packages/shared/         @ask-llm/shared      Internal shared code (inlined into each MCP at build: registry, executor, sessions, usage)
@@ -16,8 +16,8 @@ packages/grok-mcp/       @ask-llm/grok-mcp         MCP server for Grok through t
 packages/antigravity-mcp @ask-llm/antigravity-mcp  MCP server for Google Antigravity CLI (agy)
 packages/ollama-mcp/     @ask-llm/ollama-mcp       MCP server for local Ollama LLMs
 packages/gemini-mcp/     @ask-llm/gemini-mcp       MCP server for Google Gemini CLI
-packages/llm-mcp/        @ask-llm/mcp          Unified MCP server (auto-detects providers)
-packages/claude-plugin   @ask-llm/plugin      Claude Code + Cursor Agent + Pi host package (one skill corpus; host adapters)
+packages/llm-mcp/        @ask-llm/mcp          Unified MCP server, commands, and Claude Code/Cursor Agent/Pi host assets
+packages/claude-plugin   @ask-llm/plugin      Dependent compatibility bridge for existing runner and Pi installations
 ```
 
 ## Cursor Agent host quick start
