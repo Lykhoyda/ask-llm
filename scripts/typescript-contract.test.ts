@@ -116,7 +116,7 @@ describe("TypeScript 7 toolchain contract", () => {
       .split("\n")
       .filter(Boolean);
     // Only the plugin's tsc-generated hooks may be committed JavaScript (generated-hooks.test.ts).
-    expect(tracked.filter((file) => !file.startsWith("packages/claude-plugin/scripts/"))).toEqual([]);
+    expect(tracked.filter((file) => !file.startsWith("packages/llm-mcp/scripts/"))).toEqual([]);
   });
 });
 

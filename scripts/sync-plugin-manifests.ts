@@ -7,9 +7,9 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const SOURCE = resolve(ROOT, "packages/claude-plugin/package.json");
-const PLUGIN_JSON = resolve(ROOT, "packages/claude-plugin/.claude-plugin/plugin.json");
-const CURSOR_PLUGIN_JSON = resolve(ROOT, "packages/claude-plugin/.cursor-plugin/plugin.json");
+const SOURCE = resolve(ROOT, "packages/llm-mcp/package.json");
+const PLUGIN_JSON = resolve(ROOT, "packages/llm-mcp/.claude-plugin/plugin.json");
+const CURSOR_PLUGIN_JSON = resolve(ROOT, "packages/llm-mcp/.cursor-plugin/plugin.json");
 const MARKETPLACE_JSON = resolve(ROOT, ".claude-plugin/marketplace.json");
 const PLUGIN_NAME = "ask-llm";
 const CHECK_ONLY = process.argv.includes("--check");

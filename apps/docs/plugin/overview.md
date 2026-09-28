@@ -25,7 +25,7 @@ Add the Ask LLM marketplace, then install the plugin:
 git clone https://github.com/Lykhoyda/ask-llm.git
 cd ask-llm
 yarn install && yarn build
-claude --plugin-dir ./packages/claude-plugin
+claude --plugin-dir ./packages/llm-mcp
 ```
 
 ### MCP Servers

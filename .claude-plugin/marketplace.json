@@ -14,10 +14,10 @@
       "source": {
         "source": "git-subdir",
         "url": "https://github.com/Lykhoyda/ask-llm.git",
-        "path": "packages/claude-plugin"
+        "path": "packages/llm-mcp"
       },
       "description": "AI-to-AI collaboration — review code and debate plans across Codex, Grok, Antigravity, Ollama, and Gemini providers",
-      "version": "0.19.2",
+      "version": "0.12.1",
       "author": {
         "name": "Anton Lykhoyda"
       },

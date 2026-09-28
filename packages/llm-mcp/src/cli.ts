@@ -1,21 +1,13 @@
 #!/usr/bin/env node
 
-import { Logger, type MachineProvider, machineRequestSchema, type ProviderSpec, runDiagnostics } from "@ask-llm/shared";
+import { Logger, type MachineProvider, machineRequestSchema } from "@ask-llm/shared";
 import { PROVIDERS } from "./constants.js";
+import { runDoctorCli } from "./doctorCli.js";
 import { type ExecutorFn, startServer } from "./index.js";
 import { machineJsonSchemaBundle, runMachineRequest } from "./machine.js";
 import { readPackageJson } from "./packageMetadata.js";
 import { startRepl } from "./repl.js";
-import {
-  DoctorArgumentError,
-  type DoctorCliOptions,
-  doctorHelp,
-  formatDoctorCliError,
-  formatDoctorOutput,
-  parseDoctorArguments,
-  requestedStructuredFormat,
-} from "./toonDoctor.js";
-import { buildProviderSpecs } from "./utils/providerSpecs.js";
+import { loadProviderModule } from "./utils/providerModules.js";
 
 const MAX_MACHINE_STDIN_BYTES = 2 * 1024 * 1024;
 
@@ -52,8 +44,10 @@ async function loadMachineExecutor(provider: MachineProvider): Promise<ExecutorF
   try {
     const configuredOverride = process.env.ASK_LLM_MACHINE_EXECUTOR_MODULE;
     const allowOverride = process.env.ASK_LLM_MACHINE_ALLOW_EXECUTOR_OVERRIDE === "1";
-    const moduleName = allowOverride && configuredOverride ? configuredOverride : spec.executorModule;
-    const module = await import(moduleName);
+    const module =
+      allowOverride && configuredOverride
+        ? await import(configuredOverride)
+        : await loadProviderModule(spec.executorModule);
     const executor = module[spec.executorFn];
     return typeof executor === "function" ? (executor as ExecutorFn) : undefined;
   } catch {
@@ -132,32 +126,6 @@ async function runMachineCli(): Promise<number> {
     );
     return 2;
   }
-}
-
-async function runDoctor(options: DoctorCliOptions): Promise<number> {
-  if (options.help) {
-    process.stdout.write(doctorHelp());
-    return 0;
-  }
-
-  const specs: ProviderSpec[] = await buildProviderSpecs();
-  const report = await runDiagnostics(specs);
-
-  process.stdout.write(formatDoctorOutput(report, options));
-
-  return report.status === "error" ? 1 : 0;
-}
-
-async function runDoctorCli(args: string[]): Promise<number> {
-  let options: DoctorCliOptions;
-  try {
-    options = parseDoctorArguments(args);
-  } catch (error) {
-    if (!(error instanceof DoctorArgumentError)) throw error;
-    process.stderr.write(formatDoctorCliError(error, requestedStructuredFormat(args)));
-    return 2;
-  }
-  return runDoctor(options);
 }
 
 function cliHelp(): string {

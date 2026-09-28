@@ -74,6 +74,7 @@ interface NpmWaitOptions {
 }
 
 interface PublishOptions {
+  dryRun?: boolean;
   manifestPaths?: string[];
   fetchImpl?: FetchLike;
   registryUrl?: string;
@@ -343,7 +344,8 @@ function failureMessage(result: PublisherResult): string {
 }
 
 export async function publishMissingRegistryVersions({
-  manifestPaths,
+  manifestPaths = ["packages/llm-mcp/server.json"],
+  dryRun = false,
   fetchImpl = fetch,
   registryUrl = DEFAULT_REGISTRY_URL,
   runPublisher = runPublisherCommand,
@@ -382,6 +384,11 @@ export async function publishMissingRegistryVersions({
       continue;
     }
 
+    if (dryRun) {
+      selected.push({ manifest, manifestPath, target });
+      continue;
+    }
+
     try {
       const existing = await lookupExactRecord(manifest, { fetchImpl, registryUrl });
       if (existing === null) {
@@ -400,6 +407,11 @@ export async function publishMissingRegistryVersions({
     } catch (error) {
       failures.push({ manifestPath, target, phase: "lookup", message: (error as Error).message });
     }
+  }
+
+  if (dryRun) {
+    log.log(`Dry-run validated ${selected.length} canonical Registry candidate(s); publication disabled`);
+    return { failures, published, raced, selected: selected.map(({ target }) => target), skipped };
   }
 
   const missingOnNpm = await waitForNpmVersions(
@@ -491,8 +503,11 @@ export async function publishMissingRegistryVersions({
 }
 
 async function main(): Promise<void> {
+  const args = process.argv.slice(2);
+  const paths = args.filter((argument) => argument !== "--dry-run");
   const result = await publishMissingRegistryVersions({
-    manifestPaths: process.argv.slice(2),
+    ...(paths.length > 0 ? { manifestPaths: paths } : {}),
+    dryRun: args.includes("--dry-run"),
     registryUrl: process.env.MCP_REGISTRY_URL ?? DEFAULT_REGISTRY_URL,
     runPublisher: (operation, manifestPath) =>
       runPublisherCommand(operation, manifestPath, {

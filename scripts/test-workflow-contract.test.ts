@@ -6,7 +6,7 @@ import { parse } from "yaml";
 const workflow = readFileSync(resolve(import.meta.dirname, "../.github/workflows/ci.yml"), "utf8");
 const parsedWorkflow = parse(workflow);
 const pluginManifest = JSON.parse(
-  readFileSync(resolve(import.meta.dirname, "../packages/claude-plugin/package.json"), "utf8"),
+  readFileSync(resolve(import.meta.dirname, "../packages/llm-mcp/package.json"), "utf8"),
 );
 const batch = "$" + "{{ matrix.batch }}";
 const piVersion = "$" + "{{ matrix.pi-version }}";
@@ -151,5 +151,21 @@ describe("supported CI platforms", () => {
         expect(job["runs-on"], name).not.toBe("windows-latest");
       }
     }
+  });
+});
+
+describe("canonical release selection", () => {
+  const release = parse(readFileSync(resolve(import.meta.dirname, "../.github/workflows/release.yml"), "utf8"));
+  const steps = release.jobs.release.steps;
+
+  it("routes Registry publication to the canonical manifest and keeps manual dispatch out of npm", () => {
+    const registry = steps.find((step: { name?: string }) => step.name === "Publish missing servers to MCP Registry");
+    const argv = registry.run.trim().split(/\s+/);
+    expect(argv).toEqual(["node", "scripts/publish-mcp-registry.ts", "packages/llm-mcp/server.json"]);
+    const publish = steps.find((step: { id?: string }) => step.id === "changesets");
+    expect(publish.if).toBe("github.event_name != 'workflow_dispatch'");
+    expect(publish.with["create-github-releases"]).toBe(false);
+    expect(publish.with["push-git-tags"]).toBe(false);
+    expect(publish.env.YARN_NPM_AUTH_TOKEN).toBe("$" + "{{ secrets.NODE_AUTH_TOKEN }}");
   });
 });

@@ -3,8 +3,11 @@
   "compilerOptions": {
     "composite": false,
     "noEmit": true,
-    "rootDir": "..",
-    "types": ["node"]
+    "types": [
+      "node"
+    ]
   },
-  "include": ["extensions/**/*.ts"]
+  "include": [
+    "*.ts"
+  ]
 }

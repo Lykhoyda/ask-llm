@@ -48,7 +48,7 @@ For a built source checkout:
 ```bash
 yarn install --immutable
 yarn build
-pi -e ./packages/claude-plugin
+pi -e ./packages/llm-mcp
 ```
 
 After changing resources in a running Pi session, use `/reload`.

@@ -1,5 +1,6 @@
 import type { ProviderSpec } from "@ask-llm/shared";
 import { INSTALL_HINTS, isProviderEligible, PROVIDERS } from "../constants.js";
+import { loadProviderModule } from "./providerModules.js";
 
 interface VersionSupportResult {
   available: boolean;
@@ -19,7 +20,7 @@ export async function buildProviderSpecs(): Promise<ProviderSpec[]> {
       const fnName = config.availabilityFn;
       probeAvailability = async () => {
         try {
-          const mod = (await import(moduleName)) as Record<string, unknown>;
+          const mod = (await loadProviderModule(moduleName)) as Record<string, unknown>;
           const fn = mod[fnName] as (() => Promise<boolean>) | undefined;
           if (typeof fn !== "function") return false;
           return await fn();
@@ -34,7 +35,7 @@ export async function buildProviderSpecs(): Promise<ProviderSpec[]> {
       const fnName = config.versionAssessmentFn;
       assessVersion = async (version, probeError) => {
         try {
-          const mod = (await import(moduleName)) as Record<string, unknown>;
+          const mod = (await loadProviderModule(moduleName)) as Record<string, unknown>;
           const fn = mod[fnName] as
             | ((value: string | undefined, error: string | undefined) => VersionSupportResult)
             | undefined;
@@ -66,7 +67,7 @@ export async function buildProviderSpecs(): Promise<ProviderSpec[]> {
       const fnName = config.enrichFn;
       enrich = async (ctx) => {
         try {
-          const mod = (await import(moduleName)) as Record<string, unknown>;
+          const mod = (await loadProviderModule(moduleName)) as Record<string, unknown>;
           const fn = mod[fnName] as ProviderSpec["enrich"] | undefined;
           if (typeof fn !== "function") return undefined;
           return await fn(ctx);

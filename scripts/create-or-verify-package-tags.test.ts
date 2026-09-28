@@ -408,3 +408,11 @@ test("public-access step does not fail the release when packages are already pub
   // (run 34600240863) and skip Registry/tag/release.
   assert.doesNotMatch(publicStep.run, /npm access set status=public "\$pkg"\n\s+test "\$\(npm access get status/);
 });
+
+test("selects only the canonical package and dependent bridge from the real workspace", async () => {
+  const { discoverPublicPackages } = await import("./create-or-verify-package-tags.ts");
+  assert.deepEqual(
+    discoverPublicPackages(new URL("..", import.meta.url).pathname).map((pkg) => pkg.name),
+    ["@ask-llm/mcp", "@ask-llm/plugin"],
+  );
+});

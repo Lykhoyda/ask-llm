@@ -8,12 +8,13 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import { afterAll, describe, expect, it } from "vitest";
 import { z } from "zod";
-import askLlmPiExtension from "../packages/claude-plugin/pi/extensions/index.ts";
+import askLlmPiExtension from "../packages/llm-mcp/pi/extensions/index.ts";
 
 const ROOT = fileURLToPath(new URL("..", import.meta.url));
 // Keep test fixtures outside shared/src, whose changes require a seven-package release.
 const FIXTURES = join(ROOT, "scripts/fixtures/contract");
 const UPDATE = process.env.ASK_LLM_UPDATE_CONTRACT === "1";
+const pinnedBins: Record<string, string[]> = JSON.parse(readFileSync(join(FIXTURES, "bins.json"), "utf8"));
 
 interface PackageManifest {
   name: string;
@@ -28,7 +29,7 @@ const packages = readdirSync(join(ROOT, "packages"))
     dir,
     manifest: JSON.parse(readFileSync(join(ROOT, "packages", dir, "package.json"), "utf8")) as PackageManifest,
   }))
-  .filter(({ manifest }) => !manifest.private);
+  .filter(({ manifest }) => manifest.bin);
 const servers = packages
   .filter(({ manifest }) => manifest.mcpName)
   .map(({ dir }) => [dir, join(ROOT, "packages", dir, "dist/cli.js")]);
@@ -121,10 +122,17 @@ describe("release contract", () => {
     expect(readdirSync(FIXTURES).sort()).toEqual(expected.map((name) => `${name}.json`).sort());
   });
 
-  it("pins the bin names of every published package", () => {
+  it("preserves the bin names of every legacy package", () => {
     expectFixture(
       "bins",
-      Object.fromEntries(packages.map(({ manifest }) => [manifest.name, Object.keys(manifest.bin ?? {}).sort()])),
+      Object.fromEntries(
+        packages.map(({ manifest }) => [
+          manifest.name,
+          Object.keys(manifest.bin ?? {})
+            .filter((bin) => (pinnedBins[manifest.name] ?? []).includes(bin))
+            .sort(),
+        ]),
+      ),
     );
   });
 

@@ -107,10 +107,10 @@ const geminiFallbackSurfaces = [
   "apps/docs/resources/troubleshooting.md",
   "docs/PROVIDER-PARITY.md",
   "packages/gemini-mcp/README.md",
-  "packages/claude-plugin/README.md",
-  "packages/claude-plugin/agents/gemini-reviewer.md",
-  "packages/claude-plugin/skills/gemini-review/SKILL.md",
-  "packages/claude-plugin/pi/extensions/provider-tools.ts",
+  "packages/llm-mcp/README.md",
+  "packages/llm-mcp/agents/gemini-reviewer.md",
+  "packages/llm-mcp/skills/gemini-review/SKILL.md",
+  "packages/llm-mcp/pi/extensions/provider-tools.ts",
 ];
 if (!geminiFallback) {
   errors.push("packages/gemini-mcp/src/constants.ts no longer exposes the Gemini fallback default");

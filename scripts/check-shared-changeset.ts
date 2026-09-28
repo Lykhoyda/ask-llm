@@ -1,18 +1,17 @@
 #!/usr/bin/env node
-// CI guard (ADR-119 fallback): the publishable MCPs embed @ask-llm/shared
-// at build time (tsdown), so a shared change MUST ship with a changeset
-// covering all six — otherwise the fix silently never reaches npm.
+// Private build inputs need an explicit canonical changeset because devDependency bumps do not cascade.
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 
-const REQUIRED = [
-  "@ask-llm/gemini-mcp",
-  "@ask-llm/grok-mcp",
-  "@ask-llm/codex-mcp",
-  "@ask-llm/claude-mcp",
-  "@ask-llm/ollama-mcp",
-  "@ask-llm/antigravity-mcp",
-  "@ask-llm/mcp",
+const REQUIRED = ["@ask-llm/mcp"];
+const BUNDLED_PACKAGES = [
+  "shared",
+  "gemini-mcp",
+  "codex-mcp",
+  "claude-mcp",
+  "grok-mcp",
+  "ollama-mcp",
+  "antigravity-mcp",
 ];
 const base = process.env.GITHUB_BASE_REF ? `origin/${process.env.GITHUB_BASE_REF}` : "origin/main";
 
@@ -27,8 +26,8 @@ try {
   );
   process.exit(1);
 }
-if (!changed.some((f) => f.startsWith("packages/shared/src/"))) {
-  console.log("[shared-changeset] no shared src changes — OK");
+if (!changed.some((file) => BUNDLED_PACKAGES.some((name) => file.startsWith(`packages/${name}/src/`)))) {
+  console.log("[shared-changeset] no bundled src changes — OK");
   process.exit(0);
 }
 const changesets = changed.filter((f) => f.startsWith(".changeset/") && f.endsWith(".md") && !f.endsWith("README.md"));
@@ -40,10 +39,10 @@ for (const f of changesets) {
 }
 const missing = REQUIRED.filter((n) => !covered.has(n));
 if (missing.length > 0) {
-  console.error(`[shared-changeset] packages/shared/src changed but changeset(s) miss: ${missing.join(", ")}`);
+  console.error(`[shared-changeset] bundled source changed but changeset(s) miss: ${missing.join(", ")}`);
   console.error(
-    "[shared-changeset] shared is INLINED into the MCPs (ADR-119) — without these bumps the fix never publishes.",
+    "[shared-changeset] private sources are INLINED into the canonical MCP (ADR-119) — without these bumps the fix never publishes.",
   );
   process.exit(1);
 }
-console.log(`[shared-changeset] shared change covered by changesets for all ${REQUIRED.length} MCPs — OK`);
+console.log(`[shared-changeset] bundled source change covered by changesets for ${REQUIRED.length} canonical MCP — OK`);

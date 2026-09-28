@@ -26,7 +26,7 @@ jobs:
       run: yarn build
     - name: Lint
       run: yarn lint
-    - name: Guard — shared changes must changeset all six MCPs (ADR-119)
+    - name: Guard — bundled source changes must changeset the canonical MCP (ADR-119)
       if: github.event_name == 'pull_request'
       run: node scripts/check-shared-changeset.ts
     - name: Archive platform setup
@@ -210,7 +210,7 @@ jobs:
     - run: yarn build
     - name: Hermetic Pi pairing and provider cancellation lifecycle
       run: |
-        yarn vitest run packages/claude-plugin/src/__tests__/pi-codex-pair.test.ts --project @ask-llm/plugin
+        yarn vitest run packages/llm-mcp/src/__tests__/pi-codex-pair.test.ts --project @ask-llm/mcp
         yarn vitest run packages/shared/src/__tests__/commandExecutor.abort.test.ts --project @ask-llm/shared
 
   pi-package-smoke:

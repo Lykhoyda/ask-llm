@@ -14,9 +14,8 @@
   },
   "scripts": {
     "build": "tsc",
-    "build:hooks": "tsc -p scripts/tsconfig.json && chmod 755 scripts/benchmark/prompt-ab.mjs scripts/codex-pair-debounce-worker.mjs scripts/codex-pair-log.mjs scripts/codex-pair-prompt-drain.mjs scripts/codex-pair-session.mjs scripts/codex-pair-stop-gate.mjs scripts/codex-pair-watch.mjs",
     "test": "vitest run",
-    "lint": "biome check src/ pi/ && biome lint scripts/ && tsc --noEmit && tsc --noEmit -p pi/tsconfig.json && tsc -p scripts/tsconfig.json --noEmit"
+    "lint": "biome check src/ pi/ && tsc --noEmit && tsc --noEmit -p pi/tsconfig.json"
   },
   "keywords": [
     "pi-package",
@@ -44,52 +43,19 @@
   },
   "homepage": "https://github.com/Lykhoyda/ask-llm#readme",
   "files": [
-    ".claude-plugin/",
-    ".cursor-plugin/",
-    ".mcp.json",
-    "mcp.json",
-    "agents/",
-    "codex-pair-defaults.json",
     "dist/",
-    "hooks/",
-    "LICENSE",
     "pi/",
-    "prompts/",
     "README.md",
-    "scripts/*.mjs",
-    "scripts/lib/*.mjs",
-    "skills/"
+    "LICENSE"
   ],
   "pi": {
     "extensions": [
-      "./pi/extensions/index.ts"
+      "./pi/index.ts"
     ],
-    "skills": [
-      "./skills/antigravity-review/SKILL.md",
-      "./skills/brainstorm/SKILL.md",
-      "./skills/brainstorm-all/SKILL.md",
-      "./skills/codex-image/SKILL.md",
-      "./skills/codex-pair/SKILL.md",
-      "./skills/codex-pair-ack/SKILL.md",
-      "./skills/codex-pair-pause/SKILL.md",
-      "./skills/codex-pair-resume/SKILL.md",
-      "./skills/codex-review/SKILL.md",
-      "./skills/codex-verify/SKILL.md",
-      "./skills/compare/SKILL.md",
-      "./skills/gemini-review/SKILL.md",
-      "./skills/grok-review/SKILL.md",
-      "./skills/multi-review/SKILL.md",
-      "./skills/ollama-review/SKILL.md",
-      "./skills/sol-review/SKILL.md"
-    ]
+    "skills": []
   },
   "dependencies": {
-    "@ask-llm/antigravity-mcp": "^0.8.1",
-    "@ask-llm/codex-mcp": "^0.9.0",
-    "@ask-llm/gemini-mcp": "^2.0.0",
-    "@ask-llm/grok-mcp": "^0.3.0",
-    "@ask-llm/mcp": "^0.12.1",
-    "@ask-llm/ollama-mcp": "^0.7.0"
+    "@ask-llm/mcp": "^0.12.1"
   },
   "peerDependencies": {
     "@earendil-works/pi-ai": "*",

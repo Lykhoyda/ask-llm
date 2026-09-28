@@ -11,10 +11,10 @@ description: Use Ask LLM pairing skills from Cursor Agent through Cursor's nativ
 ```bash
 yarn install --immutable
 yarn build
-agent --plugin-dir ./packages/claude-plugin
+agent --plugin-dir ./packages/llm-mcp
 ```
 
-Installed plugins expose only `/codex-pair` and `/grok-pair` in Cursor's `/` skill menu. The Cursor manifest deliberately omits `/codex-pair-ack`, `/codex-pair-pause`, and `/codex-pair-resume`: those toggle the Claude Code/Pi background per-edit reviewer through `.codex-pair/state` sentinels, and Cursor's on-demand session has no background reviewer for them to act on. If you only want MCP setup, copy the `packages/claude-plugin/mcp.json` entry to project `.cursor/mcp.json` or user `~/.cursor/mcp.json`, then restart/reload Cursor Agent. The adapter bundles exactly one server:
+Installed plugins expose only `/codex-pair` and `/grok-pair` in Cursor's `/` skill menu. The Cursor manifest deliberately omits `/codex-pair-ack`, `/codex-pair-pause`, and `/codex-pair-resume`: those toggle the Claude Code/Pi background per-edit reviewer through `.codex-pair/state` sentinels, and Cursor's on-demand session has no background reviewer for them to act on. If you only want MCP setup, copy the `packages/llm-mcp/mcp.json` entry to project `.cursor/mcp.json` or user `~/.cursor/mcp.json`, then restart/reload Cursor Agent. The adapter bundles exactly one server:
 
 - `ask-llm` → `@ask-llm/mcp` (`ask-cursor-agent` plus the unified `ask-llm` tool, which pair skills call only fully pinned — provider, harness, exact model, effort, include directories, sandbox, session — never as a generic fallback).
 
@@ -71,4 +71,4 @@ Save it in project `.cursor/mcp.json` or user `~/.cursor/mcp.json`. The `xai-api
 | Cancellation | Claude hook/provider process lifecycle | Cursor MCP AbortSignal/interrupt |
 | Pause / resume / ack | `/codex-pair-pause`, `/codex-pair-resume`, `/codex-pair-ack` toggle the background hook | Not exposed — no background reviewer; end or restart the on-demand session |
 
-The portable contract is canonical in `packages/claude-plugin/skills/pairing-contract.md`; host adapters must not claim lifecycle guarantees their host does not provide.
+The portable contract is canonical in `packages/llm-mcp/skills/pairing-contract.md`; host adapters must not claim lifecycle guarantees their host does not provide.

@@ -24,6 +24,7 @@ import { executeCursorAgent } from "./cursorAgent.js";
 import { buildMultiLlmInputSchema, dispatchMultiLlm, formatMultiLlmReport, multiLlmReportSchema } from "./multiLlm.js";
 import { readPackageJson } from "./packageMetadata.js";
 import { isCommandAvailable } from "./utils/availability.js";
+import { loadProviderModule } from "./utils/providerModules.js";
 import { buildProviderSpecs } from "./utils/providerSpecs.js";
 
 const CODEX_REASONING_EFFORTS = ["low", "medium", "high", "xhigh", "max", "ultra"] as const;
@@ -129,7 +130,7 @@ export async function detectProviders(): Promise<ProviderStatus> {
         found = false;
       } else if (provider.supportProbeModule && provider.supportProbeFn) {
         try {
-          const mod = (await import(provider.supportProbeModule)) as Record<string, unknown>;
+          const mod = (await loadProviderModule(provider.supportProbeModule)) as Record<string, unknown>;
           const fn = mod[provider.supportProbeFn] as (() => Promise<ProviderSupportProbe>) | undefined;
           if (typeof fn !== "function") throw new Error("support probe is unavailable");
           support = await fn();
@@ -148,7 +149,7 @@ export async function detectProviders(): Promise<ProviderStatus> {
         }
       } else if (provider.availabilityModule && provider.availabilityFn) {
         try {
-          const mod = await import(provider.availabilityModule);
+          const mod = await loadProviderModule(provider.availabilityModule);
           found = await (mod[provider.availabilityFn] as () => Promise<boolean>)();
         } catch (error) {
           found = false;
@@ -165,7 +166,7 @@ export async function detectProviders(): Promise<ProviderStatus> {
     loadedExecutors.delete(key);
     if (found) {
       try {
-        const mod = await import(provider.executorModule);
+        const mod = await loadProviderModule(provider.executorModule);
         loadedExecutors.set(key, mod[provider.executorFn] as ExecutorFn);
         available.push(key);
         Logger.warn(`Provider ${provider.name} (${provider.command}) — available`);

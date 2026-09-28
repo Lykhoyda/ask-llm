@@ -612,3 +612,22 @@ test("recovery with every Registry record present never polls npm", async () => 
     ["validate"],
   );
 });
+
+test("defaults to the sole canonical Registry manifest in a publication-disabled dry-run", async () => {
+  const operations: string[] = [];
+  const result = await publishMissingRegistryVersions({
+    dryRun: true,
+    runPublisher: async (operation, path) => {
+      operations.push(`${operation}:${path}`);
+      return { code: 0, output: "valid" };
+    },
+    fetchImpl: async () => {
+      throw new Error("dry-run must not access a registry");
+    },
+    log: { log() {}, error() {} },
+  });
+  assert.deepEqual(operations, ["validate:packages/llm-mcp/server.json"]);
+  assert.equal(result.selected.length, 1);
+  assert.deepEqual(result.published, []);
+  assert.deepEqual(result.failures, []);
+});

@@ -164,7 +164,7 @@ Review agents follow a 4-phase pipeline inspired by [Anthropic's code-review plu
 <details>
 <summary>Host support matrix</summary>
 
-`@ask-llm/plugin` is one package, one version, one release lifecycle, and one canonical skill corpus. Claude Code loads its marketplace agents and hooks; Cursor Agent loads the adapted `/codex-pair` and `/grok-pair` skills through Agent Skills plus `mcp.json` (`agent --plugin-dir ./packages/claude-plugin`; see the [Cursor Agent host guide](https://lykhoyda.github.io/ask-llm/plugin/cursor)); Pi loads explicit native tools, portable skill adapters, and a thin lifecycle extension.
+`@ask-llm/mcp` owns the canonical host assets and skill corpus; `@ask-llm/plugin` is a dependent compatibility bridge. Claude Code loads its marketplace agents and hooks; Cursor Agent loads the adapted `/codex-pair` and `/grok-pair` skills through Agent Skills plus `mcp.json` (`agent --plugin-dir ./packages/llm-mcp`; see the [Cursor Agent host guide](https://lykhoyda.github.io/ask-llm/plugin/cursor)); Pi loads explicit native tools, portable skill adapters, and a thin lifecycle extension.
 
 | Capability | Claude Code | Cursor Agent | Codex CLI host | Pi |
 |---|---:|---:|---:|---:|
