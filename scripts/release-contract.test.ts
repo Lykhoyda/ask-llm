@@ -1,0 +1,151 @@
+// Regenerate after an intended contract change: yarn build && ASK_LLM_UPDATE_CONTRACT=1 yarn vitest run scripts/release-contract.test.ts && yarn biome format --write scripts/fixtures/contract
+import { spawnSync } from "node:child_process";
+import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { fileURLToPath } from "node:url";
+import { askResponseSchema } from "@ask-llm/shared";
+import { Client } from "@modelcontextprotocol/sdk/client/index.js";
+import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
+import { afterAll, describe, expect, it } from "vitest";
+import { z } from "zod";
+import { registerProviderTools } from "../packages/claude-plugin/pi/extensions/provider-tools.ts";
+
+const ROOT = fileURLToPath(new URL("..", import.meta.url));
+const FIXTURES = join(ROOT, "scripts/fixtures/contract");
+const UPDATE = process.env.ASK_LLM_UPDATE_CONTRACT === "1";
+const SCHEMA_MAPS = new Set(["properties", "patternProperties", "$defs", "definitions"]);
+
+interface PackageManifest {
+  name: string;
+  private?: boolean;
+  bin?: Record<string, string>;
+}
+
+const packages = readdirSync(join(ROOT, "packages"))
+  .sort()
+  .map((dir) => ({
+    dir,
+    manifest: JSON.parse(readFileSync(join(ROOT, "packages", dir, "package.json"), "utf8")) as PackageManifest,
+  }))
+  .filter(({ manifest }) => !manifest.private);
+const servers = packages.flatMap(({ dir, manifest }) =>
+  Object.entries(manifest.bin ?? {})
+    .filter(([bin]) => bin.endsWith("-mcp"))
+    .map(([, cli]) => [dir, join(ROOT, "packages", dir, cli)]),
+);
+
+// Empty PATH, no keys, unreachable Ollama: nothing is detected and no provider is ever called.
+const sandbox = mkdtempSync(join(tmpdir(), "ask-llm-contract-"));
+const emptyBin = join(sandbox, "bin");
+mkdirSync(emptyBin);
+const hermeticEnv = { HOME: sandbox, PATH: emptyBin, ASK_LLM_PATH: emptyBin, OLLAMA_HOST: "http://127.0.0.1:9" };
+
+afterAll(() => rmSync(sandbox, { recursive: true, force: true }));
+
+// Descriptions are prose (default-model names, wording) and stay out of the contract.
+function contract(value: unknown, isSchemaMap = false): unknown {
+  if (Array.isArray(value)) return value.map((item) => contract(item));
+  if (value === null || typeof value !== "object") return value;
+  const record = value as Record<string, unknown>;
+  return Object.fromEntries(
+    Object.keys(record)
+      .filter((key) => isSchemaMap || key !== "description")
+      .sort()
+      .map((key) => [key, contract(record[key], !isSchemaMap && SCHEMA_MAPS.has(key))]),
+  );
+}
+
+function shapeOf(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    const variants = new Map(value.map((item) => [JSON.stringify(shapeOf(item)), shapeOf(item)]));
+    return [...variants.keys()].sort().map((key) => variants.get(key));
+  }
+  if (value === null) return "null";
+  if (typeof value !== "object") return typeof value;
+  const record = value as Record<string, unknown>;
+  return Object.fromEntries(
+    Object.keys(record)
+      .sort()
+      .map((key) => [key, shapeOf(record[key])]),
+  );
+}
+
+function byName<T extends { name: string }>(items: T[]): T[] {
+  return [...items].sort((a, b) => a.name.localeCompare(b.name, "en"));
+}
+
+function expectFixture(name: string, actual: unknown): void {
+  const path = join(FIXTURES, `${name}.json`);
+  if (UPDATE) {
+    mkdirSync(FIXTURES, { recursive: true });
+    writeFileSync(path, `${JSON.stringify(actual, null, 2)}\n`);
+  }
+  expect(actual, `${name}.json drifted; regenerate only for an intended contract change`).toEqual(
+    JSON.parse(readFileSync(path, "utf8")),
+  );
+}
+
+async function listServer(cli: string) {
+  const transport = new StdioClientTransport({
+    command: process.execPath,
+    args: [cli],
+    env: hermeticEnv,
+    cwd: sandbox,
+    stderr: "ignore",
+  });
+  const client = new Client({ name: "release-contract", version: "1.0.0" });
+  await client.connect(transport);
+  try {
+    const capabilities = client.getServerCapabilities() ?? {};
+    return {
+      tools: byName((await client.listTools()).tools),
+      prompts: capabilities.prompts ? byName((await client.listPrompts()).prompts) : [],
+      resources: capabilities.resources ? byName((await client.listResources()).resources) : [],
+    };
+  } finally {
+    await client.close();
+  }
+}
+
+describe("release contract", () => {
+  it("keeps exactly one fixture per pinned surface", () => {
+    const expected = ["ask-response", "bins", "doctor-json-shape", "pi-tools", ...servers.map(([dir]) => `mcp-${dir}`)];
+    expect(readdirSync(FIXTURES).sort()).toEqual(expected.map((name) => `${name}.json`).sort());
+  });
+
+  it("pins the bin names of every published package", () => {
+    expectFixture("bins", Object.fromEntries(packages.map(({ manifest }) => [manifest.name, manifest.bin ?? {}])));
+  });
+
+  // The unified ask-llm provider enum is the zero-providers-detected startup schema: every eligible provider.
+  it.each(servers)(
+    "pins the MCP surface of %s",
+    async (dir, cli) => {
+      expectFixture(`mcp-${dir}`, contract(await listServer(cli)));
+    },
+    30_000,
+  );
+
+  it("pins the AskResponse shape and its attribution fields", () => {
+    expectFixture("ask-response", contract(z.toJSONSchema(askResponseSchema)));
+  });
+
+  it("pins the doctor --json shape", () => {
+    const result = spawnSync(process.execPath, [join(ROOT, "packages/llm-mcp/dist/cli.js"), "doctor", "--json"], {
+      cwd: sandbox,
+      env: hermeticEnv,
+      encoding: "utf8",
+      timeout: 30_000,
+    });
+    expectFixture("doctor-json-shape", shapeOf(JSON.parse(result.stdout)));
+  });
+
+  it("pins the Pi ask-* tool names and parameters", () => {
+    const tools: Array<{ name: string; parameters: unknown }> = [];
+    registerProviderTools({
+      registerTool: (tool: { name: string; parameters: unknown }) => tools.push(tool),
+    } as unknown as Parameters<typeof registerProviderTools>[0]);
+    expectFixture("pi-tools", contract(byName(tools).map(({ name, parameters }) => ({ name, parameters }))));
+  });
+});

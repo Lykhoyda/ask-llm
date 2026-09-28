@@ -1,0 +1,283 @@
+[
+  {
+    "name": "ask-antigravity",
+    "parameters": {
+      "properties": {
+        "includeDirs": {
+          "items": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 32,
+          "type": "array"
+        },
+        "prompt": {
+          "maxLength": 100000,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": ["prompt"],
+      "type": "object"
+    }
+  },
+  {
+    "name": "ask-codex",
+    "parameters": {
+      "properties": {
+        "includeDirs": {
+          "items": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 32,
+          "type": "array"
+        },
+        "model": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "preferred": {
+          "type": "boolean"
+        },
+        "prompt": {
+          "maxLength": 100000,
+          "minLength": 1,
+          "type": "string"
+        },
+        "reasoningEffort": {
+          "enum": ["low", "medium", "high", "xhigh", "max", "ultra"],
+          "type": "string"
+        },
+        "sandbox": {
+          "enum": ["read-only", "workspace-write"],
+          "type": "string"
+        },
+        "sessionId": {
+          "type": "string"
+        }
+      },
+      "required": ["prompt"],
+      "type": "object"
+    }
+  },
+  {
+    "name": "ask-cursor-agent",
+    "parameters": {
+      "properties": {
+        "includeDirs": {
+          "items": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 32,
+          "type": "array"
+        },
+        "model": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "prompt": {
+          "maxLength": 100000,
+          "minLength": 1,
+          "type": "string"
+        },
+        "provider": {
+          "enum": ["claude", "codex", "gemini", "grok"],
+          "type": "string"
+        },
+        "sessionId": {
+          "type": "string"
+        }
+      },
+      "required": ["prompt", "provider", "model"],
+      "type": "object"
+    }
+  },
+  {
+    "name": "ask-gemini",
+    "parameters": {
+      "properties": {
+        "model": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "prompt": {
+          "maxLength": 100000,
+          "minLength": 1,
+          "type": "string"
+        },
+        "sessionId": {
+          "type": "string"
+        }
+      },
+      "required": ["prompt"],
+      "type": "object"
+    }
+  },
+  {
+    "name": "ask-grok",
+    "parameters": {
+      "properties": {
+        "harness": {
+          "enum": ["xai-api", "grok-cli"],
+          "type": "string"
+        },
+        "model": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "prompt": {
+          "maxLength": 100000,
+          "minLength": 1,
+          "type": "string"
+        },
+        "reasoningEffort": {
+          "enum": ["low", "medium", "high", "xhigh"],
+          "type": "string"
+        }
+      },
+      "required": ["prompt"],
+      "type": "object"
+    }
+  },
+  {
+    "name": "ask-multi",
+    "parameters": {
+      "properties": {
+        "options": {
+          "properties": {
+            "antigravity": {
+              "properties": {
+                "includeDirs": {
+                  "items": {
+                    "maxLength": 4096,
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "maxItems": 32,
+                  "type": "array"
+                }
+              },
+              "type": "object"
+            },
+            "codex": {
+              "properties": {
+                "includeDirs": {
+                  "items": {
+                    "maxLength": 4096,
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "maxItems": 32,
+                  "type": "array"
+                },
+                "model": {
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "preferred": {
+                  "type": "boolean"
+                },
+                "reasoningEffort": {
+                  "enum": ["low", "medium", "high", "xhigh", "max", "ultra"],
+                  "type": "string"
+                },
+                "sandbox": {
+                  "enum": ["read-only", "workspace-write"],
+                  "type": "string"
+                },
+                "sessionId": {
+                  "type": "string"
+                }
+              },
+              "type": "object"
+            },
+            "gemini": {
+              "properties": {
+                "model": {
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "sessionId": {
+                  "type": "string"
+                }
+              },
+              "type": "object"
+            },
+            "grok": {
+              "properties": {
+                "harness": {
+                  "enum": ["xai-api", "grok-cli"],
+                  "type": "string"
+                },
+                "model": {
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "reasoningEffort": {
+                  "enum": ["low", "medium", "high", "xhigh"],
+                  "type": "string"
+                }
+              },
+              "type": "object"
+            },
+            "ollama": {
+              "properties": {
+                "model": {
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "sessionId": {
+                  "type": "string"
+                }
+              },
+              "type": "object"
+            }
+          },
+          "type": "object"
+        },
+        "prompt": {
+          "maxLength": 100000,
+          "minLength": 1,
+          "type": "string"
+        },
+        "providers": {
+          "items": {
+            "enum": ["codex", "gemini", "grok", "ollama", "antigravity"],
+            "type": "string"
+          },
+          "maxItems": 5,
+          "minItems": 2,
+          "type": "array"
+        }
+      },
+      "required": ["prompt", "providers"],
+      "type": "object"
+    }
+  },
+  {
+    "name": "ask-ollama",
+    "parameters": {
+      "properties": {
+        "model": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "prompt": {
+          "maxLength": 100000,
+          "minLength": 1,
+          "type": "string"
+        },
+        "sessionId": {
+          "type": "string"
+        }
+      },
+      "required": ["prompt"],
+      "type": "object"
+    }
+  }
+]

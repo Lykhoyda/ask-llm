@@ -1,0 +1,39 @@
+{
+  "checks": [
+    {
+      "fix": "string",
+      "message": "string",
+      "name": "string",
+      "status": "string"
+    },
+    {
+      "message": "string",
+      "name": "string",
+      "status": "string"
+    }
+  ],
+  "environment": {
+    "arch": "string",
+    "askLlmPath": "string",
+    "claudeTimeoutMs": "number",
+    "codexTimeoutMs": "number",
+    "cursorHarnessTimeoutMs": "number",
+    "geminiTimeoutMs": "number",
+    "grokTimeoutMs": "number",
+    "nodeOk": "boolean",
+    "nodeVersion": "string",
+    "platform": "string",
+    "resolvedPath": "string",
+    "timeoutMs": "number"
+  },
+  "generatedAt": "string",
+  "providers": [
+    {
+      "available": "boolean",
+      "command": "string",
+      "error": "string",
+      "name": "string"
+    }
+  ],
+  "status": "string"
+}
