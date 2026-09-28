@@ -135,4 +135,4 @@ The plugin uses several Claude Code integration points:
 
 - **Pi:** `pi install npm:@ask-llm/plugin` ([guide](/plugin/pi))
 - **Marketplace:** `/plugin marketplace add Lykhoyda/ask-llm` then `/plugin install ask-llm@ask-llm-plugins`
-- **Source:** [packages/claude-plugin](https://github.com/Lykhoyda/ask-llm/tree/main/packages/claude-plugin)
+- **Source:** [packages/llm-mcp](https://github.com/Lykhoyda/ask-llm/tree/main/packages/llm-mcp)

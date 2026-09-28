@@ -226,7 +226,7 @@ The orchestrator (`@ask-llm/mcp`) detects available providers at startup. If a p
 
 This is a known bug class: Claude Code sub-agents can't own background processes that outlive their turn, so `(cmd &) && wait` patterns or `run_in_background: true` on dispatch calls cause processes to be SIGKILLed silently.
 
-The brainstorm-coordinator agent uses the correct pattern (single foreground blocking Bash with direct backgrounding + per-PID wait + `timeout: 600000`). If you're seeing this in custom skills you're writing, follow the same pattern; see the agent prompt in `packages/claude-plugin/agents/brainstorm-coordinator.md` for the canonical template.
+The brainstorm-coordinator agent uses the correct pattern (single foreground blocking Bash with direct backgrounding + per-PID wait + `timeout: 600000`). If you're seeing this in custom skills you're writing, follow the same pattern; see the agent prompt in `packages/llm-mcp/agents/brainstorm-coordinator.md` for the canonical template.
 
 </TroubleshootingModal>
 
