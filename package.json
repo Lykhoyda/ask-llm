@@ -1,5 +1,5 @@
 {
-  "name": "ask-llm-monorepo",
+  "name": "ask-llm",
   "private": true,
   "type": "module",
   "workspaces": [
