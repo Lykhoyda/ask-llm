@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "harness": {
+      "enum": ["xai-api", "grok-cli", "cursor-agent"],
+      "type": "string"
+    },
+    "model": {
+      "type": "string"
+    },
+    "provider": {
+      "enum": ["gemini", "codex", "claude", "grok", "ollama", "antigravity"],
+      "type": "string"
+    },
+    "reportedModel": {
+      "type": "string"
+    },
+    "response": {
+      "type": "string"
+    },
+    "sessionId": {
+      "type": "string"
+    },
+    "usage": {
+      "additionalProperties": false,
+      "properties": {
+        "cachedTokens": {
+          "type": "number"
+        },
+        "durationMs": {
+          "type": "number"
+        },
+        "fellBack": {
+          "type": "boolean"
+        },
+        "inputTokens": {
+          "type": "number"
+        },
+        "model": {
+          "type": "string"
+        },
+        "outputTokens": {
+          "type": "number"
+        },
+        "provider": {
+          "enum": ["gemini", "codex", "claude", "grok", "ollama", "antigravity"],
+          "type": "string"
+        },
+        "thinkingTokens": {
+          "type": "number"
+        }
+      },
+      "required": ["provider", "model", "durationMs", "fellBack"],
+      "type": "object"
+    }
+  },
+  "required": ["provider", "response", "model"],
+  "type": "object"
+}

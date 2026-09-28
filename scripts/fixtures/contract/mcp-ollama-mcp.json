@@ -1,0 +1,230 @@
+[
+  {
+    "inputSchema": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "properties": {
+        "model": {
+          "description": "DO NOT set this parameter unless the user explicitly requests a specific model. The tool uses qwen3.8:27b by default; if the model isn't pulled locally it returns a clear \"ollama pull\" error rather than substituting another model.",
+          "type": "string"
+        },
+        "prompt": {
+          "description": "The question, code review request, or analysis task to send to Ollama",
+          "maxLength": 100000,
+          "minLength": 1,
+          "type": "string"
+        },
+        "sessionId": {
+          "description": "Optional session ID for multi-turn conversations. Pass an empty string to start a new session (the response will include the new ID); pass a previous [Session ID: ...] value to continue the same chat. Conversation history is stored in /tmp/ask-llm-sessions/ for 24h.",
+          "type": "string"
+        }
+      },
+      "required": ["prompt"],
+      "type": "object"
+    },
+    "name": "ask-ollama",
+    "outputSchema": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "additionalProperties": false,
+      "properties": {
+        "harness": {
+          "enum": ["xai-api", "grok-cli", "cursor-agent"],
+          "type": "string"
+        },
+        "model": {
+          "type": "string"
+        },
+        "provider": {
+          "enum": ["gemini", "codex", "claude", "grok", "ollama", "antigravity"],
+          "type": "string"
+        },
+        "reportedModel": {
+          "type": "string"
+        },
+        "response": {
+          "type": "string"
+        },
+        "sessionId": {
+          "type": "string"
+        },
+        "usage": {
+          "additionalProperties": false,
+          "properties": {
+            "cachedTokens": {
+              "type": "number"
+            },
+            "durationMs": {
+              "type": "number"
+            },
+            "fellBack": {
+              "type": "boolean"
+            },
+            "inputTokens": {
+              "type": "number"
+            },
+            "model": {
+              "type": "string"
+            },
+            "outputTokens": {
+              "type": "number"
+            },
+            "provider": {
+              "enum": ["gemini", "codex", "claude", "grok", "ollama", "antigravity"],
+              "type": "string"
+            },
+            "thinkingTokens": {
+              "type": "number"
+            }
+          },
+          "required": ["provider", "model", "durationMs", "fellBack"],
+          "type": "object"
+        }
+      },
+      "required": ["provider", "response", "model"],
+      "type": "object"
+    }
+  },
+  {
+    "inputSchema": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "properties": {},
+      "type": "object"
+    },
+    "name": "get-usage-stats",
+    "outputSchema": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "additionalProperties": false,
+      "properties": {
+        "byModel": {
+          "additionalProperties": {
+            "additionalProperties": false,
+            "properties": {
+              "cachedTokens": {
+                "type": "number"
+              },
+              "calls": {
+                "type": "number"
+              },
+              "durationMs": {
+                "type": "number"
+              },
+              "fellBack": {
+                "type": "number"
+              },
+              "inputTokens": {
+                "type": "number"
+              },
+              "outputTokens": {
+                "type": "number"
+              },
+              "thinkingTokens": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "calls",
+              "inputTokens",
+              "outputTokens",
+              "cachedTokens",
+              "thinkingTokens",
+              "durationMs",
+              "fellBack"
+            ],
+            "type": "object"
+          },
+          "propertyNames": {
+            "type": "string"
+          },
+          "type": "object"
+        },
+        "byProvider": {
+          "additionalProperties": {
+            "additionalProperties": false,
+            "properties": {
+              "cachedTokens": {
+                "type": "number"
+              },
+              "calls": {
+                "type": "number"
+              },
+              "durationMs": {
+                "type": "number"
+              },
+              "fellBack": {
+                "type": "number"
+              },
+              "inputTokens": {
+                "type": "number"
+              },
+              "outputTokens": {
+                "type": "number"
+              },
+              "thinkingTokens": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "calls",
+              "inputTokens",
+              "outputTokens",
+              "cachedTokens",
+              "thinkingTokens",
+              "durationMs",
+              "fellBack"
+            ],
+            "type": "object"
+          },
+          "propertyNames": {
+            "type": "string"
+          },
+          "type": "object"
+        },
+        "fallbackCount": {
+          "type": "number"
+        },
+        "totalCachedTokens": {
+          "type": "number"
+        },
+        "totalCalls": {
+          "type": "number"
+        },
+        "totalDurationMs": {
+          "type": "number"
+        },
+        "totalInputTokens": {
+          "type": "number"
+        },
+        "totalOutputTokens": {
+          "type": "number"
+        },
+        "totalThinkingTokens": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "totalCalls",
+        "totalInputTokens",
+        "totalOutputTokens",
+        "totalCachedTokens",
+        "totalThinkingTokens",
+        "totalDurationMs",
+        "fallbackCount",
+        "byProvider",
+        "byModel"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "inputSchema": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "properties": {
+        "message": {
+          "description": "A message to echo back to test the connection",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "name": "ping"
+  }
+]

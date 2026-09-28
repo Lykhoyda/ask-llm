@@ -1,0 +1,17 @@
+{
+  "@ask-llm/antigravity-mcp": ["ask-antigravity-mcp"],
+  "@ask-llm/claude-mcp": ["ask-claude-mcp"],
+  "@ask-llm/codex-mcp": ["ask-codex-mcp"],
+  "@ask-llm/gemini-mcp": ["ask-gemini-mcp"],
+  "@ask-llm/grok-mcp": ["ask-grok-mcp"],
+  "@ask-llm/mcp": ["ask-llm-mcp"],
+  "@ask-llm/ollama-mcp": ["ask-ollama-mcp"],
+  "@ask-llm/plugin": [
+    "ask-antigravity-run",
+    "ask-brainstorm-run",
+    "ask-codex-run",
+    "ask-gemini-run",
+    "ask-grok-run",
+    "ask-ollama-run"
+  ]
+}

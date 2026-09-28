@@ -1,0 +1,299 @@
+[
+  {
+    "name": "ask-antigravity",
+    "parameters": {
+      "properties": {
+        "includeDirs": {
+          "description": "Relative directories the provider may read in addition to the current workspace.",
+          "items": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 32,
+          "type": "array"
+        },
+        "prompt": {
+          "description": "Prompt sent to the consulted provider.",
+          "maxLength": 100000,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": ["prompt"],
+      "type": "object"
+    }
+  },
+  {
+    "name": "ask-codex",
+    "parameters": {
+      "properties": {
+        "includeDirs": {
+          "description": "Relative directories the provider may read in addition to the current workspace.",
+          "items": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 32,
+          "type": "array"
+        },
+        "model": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "preferred": {
+          "type": "boolean"
+        },
+        "prompt": {
+          "description": "Prompt sent to the consulted provider.",
+          "maxLength": 100000,
+          "minLength": 1,
+          "type": "string"
+        },
+        "reasoningEffort": {
+          "enum": ["low", "medium", "high", "xhigh", "max", "ultra"],
+          "type": "string"
+        },
+        "sandbox": {
+          "enum": ["read-only", "workspace-write"],
+          "type": "string"
+        },
+        "sessionId": {
+          "type": "string"
+        }
+      },
+      "required": ["prompt"],
+      "type": "object"
+    }
+  },
+  {
+    "name": "ask-cursor-agent",
+    "parameters": {
+      "properties": {
+        "includeDirs": {
+          "description": "Relative directories the provider may read in addition to the current workspace.",
+          "items": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 32,
+          "type": "array"
+        },
+        "model": {
+          "description": "Exact ID from agent --list-models; echoed back as `model`, with the CLI display label in `reportedModel`. Auto and other noncanonical IDs are refused.",
+          "minLength": 1,
+          "type": "string"
+        },
+        "prompt": {
+          "description": "Prompt sent to the consulted provider.",
+          "maxLength": 100000,
+          "minLength": 1,
+          "type": "string"
+        },
+        "provider": {
+          "description": "Canonical provider family of the Cursor model (claude, codex, gemini, grok); verified against the requested and CLI-reported model ID.",
+          "enum": ["claude", "codex", "gemini", "grok"],
+          "type": "string"
+        },
+        "sessionId": {
+          "description": "Prior Cursor conversation ID to resume; omit first, then reuse the returned ID.",
+          "type": "string"
+        }
+      },
+      "required": ["prompt", "provider", "model"],
+      "type": "object"
+    }
+  },
+  {
+    "name": "ask-gemini",
+    "parameters": {
+      "properties": {
+        "model": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "prompt": {
+          "description": "Prompt sent to the consulted provider.",
+          "maxLength": 100000,
+          "minLength": 1,
+          "type": "string"
+        },
+        "sessionId": {
+          "type": "string"
+        }
+      },
+      "required": ["prompt"],
+      "type": "object"
+    }
+  },
+  {
+    "name": "ask-grok",
+    "parameters": {
+      "properties": {
+        "harness": {
+          "enum": ["xai-api", "grok-cli"],
+          "type": "string"
+        },
+        "model": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "prompt": {
+          "description": "Prompt sent to the consulted provider.",
+          "maxLength": 100000,
+          "minLength": 1,
+          "type": "string"
+        },
+        "reasoningEffort": {
+          "enum": ["low", "medium", "high", "xhigh"],
+          "type": "string"
+        }
+      },
+      "required": ["prompt"],
+      "type": "object"
+    }
+  },
+  {
+    "name": "ask-multi",
+    "parameters": {
+      "properties": {
+        "options": {
+          "properties": {
+            "antigravity": {
+              "properties": {
+                "includeDirs": {
+                  "description": "Relative directories the provider may read in addition to the current workspace.",
+                  "items": {
+                    "maxLength": 4096,
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "maxItems": 32,
+                  "type": "array"
+                }
+              },
+              "type": "object"
+            },
+            "codex": {
+              "properties": {
+                "includeDirs": {
+                  "description": "Relative directories the provider may read in addition to the current workspace.",
+                  "items": {
+                    "maxLength": 4096,
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "maxItems": 32,
+                  "type": "array"
+                },
+                "model": {
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "preferred": {
+                  "type": "boolean"
+                },
+                "reasoningEffort": {
+                  "enum": ["low", "medium", "high", "xhigh", "max", "ultra"],
+                  "type": "string"
+                },
+                "sandbox": {
+                  "enum": ["read-only", "workspace-write"],
+                  "type": "string"
+                },
+                "sessionId": {
+                  "type": "string"
+                }
+              },
+              "type": "object"
+            },
+            "gemini": {
+              "properties": {
+                "model": {
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "sessionId": {
+                  "type": "string"
+                }
+              },
+              "type": "object"
+            },
+            "grok": {
+              "properties": {
+                "harness": {
+                  "enum": ["xai-api", "grok-cli"],
+                  "type": "string"
+                },
+                "model": {
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "reasoningEffort": {
+                  "enum": ["low", "medium", "high", "xhigh"],
+                  "type": "string"
+                }
+              },
+              "type": "object"
+            },
+            "ollama": {
+              "properties": {
+                "model": {
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "sessionId": {
+                  "type": "string"
+                }
+              },
+              "type": "object"
+            }
+          },
+          "type": "object"
+        },
+        "prompt": {
+          "description": "Prompt sent to the consulted provider.",
+          "maxLength": 100000,
+          "minLength": 1,
+          "type": "string"
+        },
+        "providers": {
+          "description": "Two to five unique providers. Results preserve this input order.",
+          "items": {
+            "enum": ["codex", "gemini", "grok", "ollama", "antigravity"],
+            "type": "string"
+          },
+          "maxItems": 5,
+          "minItems": 2,
+          "type": "array"
+        }
+      },
+      "required": ["prompt", "providers"],
+      "type": "object"
+    }
+  },
+  {
+    "name": "ask-ollama",
+    "parameters": {
+      "properties": {
+        "model": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "prompt": {
+          "description": "Prompt sent to the consulted provider.",
+          "maxLength": 100000,
+          "minLength": 1,
+          "type": "string"
+        },
+        "sessionId": {
+          "type": "string"
+        }
+      },
+      "required": ["prompt"],
+      "type": "object"
+    }
+  }
+]

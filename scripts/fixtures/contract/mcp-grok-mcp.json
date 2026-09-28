@@ -1,0 +1,241 @@
+[
+  {
+    "inputSchema": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "properties": {
+        "harness": {
+          "description": "Execution harness, kept separate from the Grok model selection: xai-api or grok-cli. Defaults to xai-api; no harness fallback is attempted.",
+          "enum": ["xai-api", "grok-cli"],
+          "type": "string"
+        },
+        "model": {
+          "description": "Exact model ID understood by the selected harness. Do not set unless the user explicitly requests one. Defaults to grok-4.7 on xai-api or grok-4.7 on grok-cli; Ask LLM never rewrites or falls back from the requested model.",
+          "type": "string"
+        },
+        "prompt": {
+          "description": "The question, code review request, or analysis task to send to Grok through the selected harness",
+          "maxLength": 100000,
+          "minLength": 1,
+          "type": "string"
+        },
+        "reasoningEffort": {
+          "description": "Reasoning depth: low, medium, high, xhigh. Defaults to high; this is a request parameter, not a model-name suffix.",
+          "enum": ["low", "medium", "high", "xhigh"],
+          "type": "string"
+        }
+      },
+      "required": ["prompt"],
+      "type": "object"
+    },
+    "name": "ask-grok",
+    "outputSchema": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "additionalProperties": false,
+      "properties": {
+        "harness": {
+          "enum": ["xai-api", "grok-cli", "cursor-agent"],
+          "type": "string"
+        },
+        "model": {
+          "type": "string"
+        },
+        "provider": {
+          "enum": ["gemini", "codex", "claude", "grok", "ollama", "antigravity"],
+          "type": "string"
+        },
+        "reportedModel": {
+          "type": "string"
+        },
+        "response": {
+          "type": "string"
+        },
+        "sessionId": {
+          "type": "string"
+        },
+        "usage": {
+          "additionalProperties": false,
+          "properties": {
+            "cachedTokens": {
+              "type": "number"
+            },
+            "durationMs": {
+              "type": "number"
+            },
+            "fellBack": {
+              "type": "boolean"
+            },
+            "inputTokens": {
+              "type": "number"
+            },
+            "model": {
+              "type": "string"
+            },
+            "outputTokens": {
+              "type": "number"
+            },
+            "provider": {
+              "enum": ["gemini", "codex", "claude", "grok", "ollama", "antigravity"],
+              "type": "string"
+            },
+            "thinkingTokens": {
+              "type": "number"
+            }
+          },
+          "required": ["provider", "model", "durationMs", "fellBack"],
+          "type": "object"
+        }
+      },
+      "required": ["provider", "response", "model"],
+      "type": "object"
+    }
+  },
+  {
+    "inputSchema": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "properties": {},
+      "type": "object"
+    },
+    "name": "get-usage-stats",
+    "outputSchema": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "additionalProperties": false,
+      "properties": {
+        "byModel": {
+          "additionalProperties": {
+            "additionalProperties": false,
+            "properties": {
+              "cachedTokens": {
+                "type": "number"
+              },
+              "calls": {
+                "type": "number"
+              },
+              "durationMs": {
+                "type": "number"
+              },
+              "fellBack": {
+                "type": "number"
+              },
+              "inputTokens": {
+                "type": "number"
+              },
+              "outputTokens": {
+                "type": "number"
+              },
+              "thinkingTokens": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "calls",
+              "inputTokens",
+              "outputTokens",
+              "cachedTokens",
+              "thinkingTokens",
+              "durationMs",
+              "fellBack"
+            ],
+            "type": "object"
+          },
+          "propertyNames": {
+            "type": "string"
+          },
+          "type": "object"
+        },
+        "byProvider": {
+          "additionalProperties": {
+            "additionalProperties": false,
+            "properties": {
+              "cachedTokens": {
+                "type": "number"
+              },
+              "calls": {
+                "type": "number"
+              },
+              "durationMs": {
+                "type": "number"
+              },
+              "fellBack": {
+                "type": "number"
+              },
+              "inputTokens": {
+                "type": "number"
+              },
+              "outputTokens": {
+                "type": "number"
+              },
+              "thinkingTokens": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "calls",
+              "inputTokens",
+              "outputTokens",
+              "cachedTokens",
+              "thinkingTokens",
+              "durationMs",
+              "fellBack"
+            ],
+            "type": "object"
+          },
+          "propertyNames": {
+            "type": "string"
+          },
+          "type": "object"
+        },
+        "fallbackCount": {
+          "type": "number"
+        },
+        "totalCachedTokens": {
+          "type": "number"
+        },
+        "totalCalls": {
+          "type": "number"
+        },
+        "totalDurationMs": {
+          "type": "number"
+        },
+        "totalInputTokens": {
+          "type": "number"
+        },
+        "totalOutputTokens": {
+          "type": "number"
+        },
+        "totalThinkingTokens": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "totalCalls",
+        "totalInputTokens",
+        "totalOutputTokens",
+        "totalCachedTokens",
+        "totalThinkingTokens",
+        "totalDurationMs",
+        "fallbackCount",
+        "byProvider",
+        "byModel"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "inputSchema": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "properties": {
+        "harness": {
+          "description": "Harness whose exact model catalog should be listed",
+          "enum": ["xai-api", "grok-cli"],
+          "type": "string"
+        },
+        "message": {
+          "description": "A message to echo back without contacting a provider",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "name": "ping"
+  }
+]

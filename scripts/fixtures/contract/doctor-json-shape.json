@@ -1,0 +1,199 @@
+{
+  "schema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "additionalProperties": false,
+    "properties": {
+      "checks": {
+        "items": {
+          "additionalProperties": false,
+          "properties": {
+            "fix": {
+              "type": "string"
+            },
+            "message": {
+              "type": "string"
+            },
+            "name": {
+              "type": "string"
+            },
+            "status": {
+              "enum": ["pass", "warn", "fail", "skip"],
+              "type": "string"
+            }
+          },
+          "required": ["name", "status", "message"],
+          "type": "object"
+        },
+        "type": "array"
+      },
+      "environment": {
+        "additionalProperties": false,
+        "properties": {
+          "arch": {
+            "type": "string"
+          },
+          "askLlmPath": {
+            "type": "string"
+          },
+          "claudeTimeoutMs": {
+            "type": "number"
+          },
+          "codexTimeoutMs": {
+            "type": "number"
+          },
+          "cursorHarnessTimeoutMs": {
+            "type": "number"
+          },
+          "geminiTimeoutMs": {
+            "type": "number"
+          },
+          "grokTimeoutMs": {
+            "type": "number"
+          },
+          "nodeOk": {
+            "type": "boolean"
+          },
+          "nodeVersion": {
+            "type": "string"
+          },
+          "platform": {
+            "type": "string"
+          },
+          "resolvedPath": {
+            "type": "string"
+          },
+          "timeoutMs": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "nodeVersion",
+          "nodeOk",
+          "platform",
+          "arch",
+          "resolvedPath",
+          "timeoutMs",
+          "codexTimeoutMs",
+          "claudeTimeoutMs",
+          "geminiTimeoutMs",
+          "grokTimeoutMs",
+          "cursorHarnessTimeoutMs"
+        ],
+        "type": "object"
+      },
+      "generatedAt": {
+        "type": "string"
+      },
+      "providers": {
+        "items": {
+          "additionalProperties": false,
+          "properties": {
+            "available": {
+              "type": "boolean"
+            },
+            "cliPath": {
+              "type": "string"
+            },
+            "cliVersion": {
+              "type": "string"
+            },
+            "command": {
+              "type": "string"
+            },
+            "enrichment": {
+              "additionalProperties": false,
+              "properties": {
+                "checks": {
+                  "items": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "name": {
+                        "type": "string"
+                      },
+                      "remediation": {
+                        "type": "string"
+                      },
+                      "status": {
+                        "enum": ["pass", "warn", "fail", "skip"],
+                        "type": "string"
+                      },
+                      "summary": {
+                        "type": "string"
+                      }
+                    },
+                    "required": ["name", "status", "summary"],
+                    "type": "object"
+                  },
+                  "type": "array"
+                },
+                "heading": {
+                  "type": "string"
+                },
+                "overall": {
+                  "enum": ["ok", "warning", "error"],
+                  "type": "string"
+                }
+              },
+              "required": ["heading", "overall", "checks"],
+              "type": "object"
+            },
+            "error": {
+              "type": "string"
+            },
+            "name": {
+              "type": "string"
+            }
+          },
+          "required": ["name", "command", "available"],
+          "type": "object"
+        },
+        "type": "array"
+      },
+      "status": {
+        "enum": ["ok", "warning", "error"],
+        "type": "string"
+      }
+    },
+    "required": ["status", "generatedAt", "environment", "providers", "checks"],
+    "type": "object"
+  },
+  "unavailable": {
+    "checks": [
+      {
+        "fix": "string",
+        "message": "string",
+        "name": "string",
+        "status": "string"
+      },
+      {
+        "message": "string",
+        "name": "string",
+        "status": "string"
+      }
+    ],
+    "environment": {
+      "arch": "string",
+      "askLlmPath": "string",
+      "claudeTimeoutMs": "number",
+      "codexTimeoutMs": "number",
+      "cursorHarnessTimeoutMs": "number",
+      "geminiTimeoutMs": "number",
+      "grokTimeoutMs": "number",
+      "nodeOk": "boolean",
+      "nodeVersion": "string",
+      "platform": "string",
+      "resolvedPath": "string",
+      "timeoutMs": "number"
+    },
+    "generatedAt": "string",
+    "providers": [
+      {
+        "available": "boolean",
+        "command": "string",
+        "error": "string",
+        "name": "string"
+      }
+    ],
+    "status": "string"
+  }
+}

@@ -1,0 +1,276 @@
+[
+  {
+    "inputSchema": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "properties": {
+        "model": {
+          "description": "DO NOT set this parameter. The tool automatically uses gemini-3.1-pro-preview and falls back to gemini-3.8-flash on quota errors. Only set this if the user explicitly requests a specific model.",
+          "type": "string"
+        },
+        "prompt": {
+          "description": "The question, code review request, or analysis task to send to Gemini CLI. Use @ syntax to include files (e.g., '@largefile.js explain this')",
+          "maxLength": 100000,
+          "minLength": 1,
+          "type": "string"
+        },
+        "sessionId": {
+          "description": "Optional Gemini session ID to resume a prior conversation. Use the [Session ID: ...] value from a previous response to continue the same chat with full prior context.",
+          "type": "string"
+        }
+      },
+      "required": ["prompt"],
+      "type": "object"
+    },
+    "name": "ask-gemini",
+    "outputSchema": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "additionalProperties": false,
+      "properties": {
+        "harness": {
+          "enum": ["xai-api", "grok-cli", "cursor-agent"],
+          "type": "string"
+        },
+        "model": {
+          "type": "string"
+        },
+        "provider": {
+          "enum": ["gemini", "codex", "claude", "grok", "ollama", "antigravity"],
+          "type": "string"
+        },
+        "reportedModel": {
+          "type": "string"
+        },
+        "response": {
+          "type": "string"
+        },
+        "sessionId": {
+          "type": "string"
+        },
+        "usage": {
+          "additionalProperties": false,
+          "properties": {
+            "cachedTokens": {
+              "type": "number"
+            },
+            "durationMs": {
+              "type": "number"
+            },
+            "fellBack": {
+              "type": "boolean"
+            },
+            "inputTokens": {
+              "type": "number"
+            },
+            "model": {
+              "type": "string"
+            },
+            "outputTokens": {
+              "type": "number"
+            },
+            "provider": {
+              "enum": ["gemini", "codex", "claude", "grok", "ollama", "antigravity"],
+              "type": "string"
+            },
+            "thinkingTokens": {
+              "type": "number"
+            }
+          },
+          "required": ["provider", "model", "durationMs", "fellBack"],
+          "type": "object"
+        }
+      },
+      "required": ["provider", "response", "model"],
+      "type": "object"
+    }
+  },
+  {
+    "inputSchema": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "properties": {
+        "includeDirs": {
+          "description": "Additional directories to include in Gemini's context. Must be relative paths (e.g., 'packages/api'). Useful for monorepos.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "model": {
+          "description": "DO NOT set this parameter. The tool automatically uses gemini-3.1-pro-preview and falls back to gemini-3.8-flash on quota errors.",
+          "type": "string"
+        },
+        "prompt": {
+          "description": "Describe the code changes you want. Reference files with @ syntax (e.g., '@src/app.ts refactor the error handling'). Gemini will return structured OLD/NEW edit blocks that can be applied directly.",
+          "maxLength": 100000,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": ["prompt"],
+      "type": "object"
+    },
+    "name": "ask-gemini-edit"
+  },
+  {
+    "inputSchema": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "properties": {
+        "cacheKey": {
+          "description": "The cache key provided in the initial changeMode response",
+          "type": "string"
+        },
+        "chunkIndex": {
+          "description": "Which chunk to retrieve (1-based index)",
+          "minimum": 1,
+          "type": "number"
+        }
+      },
+      "required": ["cacheKey", "chunkIndex"],
+      "type": "object"
+    },
+    "name": "fetch-chunk"
+  },
+  {
+    "inputSchema": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "properties": {},
+      "type": "object"
+    },
+    "name": "get-usage-stats",
+    "outputSchema": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "additionalProperties": false,
+      "properties": {
+        "byModel": {
+          "additionalProperties": {
+            "additionalProperties": false,
+            "properties": {
+              "cachedTokens": {
+                "type": "number"
+              },
+              "calls": {
+                "type": "number"
+              },
+              "durationMs": {
+                "type": "number"
+              },
+              "fellBack": {
+                "type": "number"
+              },
+              "inputTokens": {
+                "type": "number"
+              },
+              "outputTokens": {
+                "type": "number"
+              },
+              "thinkingTokens": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "calls",
+              "inputTokens",
+              "outputTokens",
+              "cachedTokens",
+              "thinkingTokens",
+              "durationMs",
+              "fellBack"
+            ],
+            "type": "object"
+          },
+          "propertyNames": {
+            "type": "string"
+          },
+          "type": "object"
+        },
+        "byProvider": {
+          "additionalProperties": {
+            "additionalProperties": false,
+            "properties": {
+              "cachedTokens": {
+                "type": "number"
+              },
+              "calls": {
+                "type": "number"
+              },
+              "durationMs": {
+                "type": "number"
+              },
+              "fellBack": {
+                "type": "number"
+              },
+              "inputTokens": {
+                "type": "number"
+              },
+              "outputTokens": {
+                "type": "number"
+              },
+              "thinkingTokens": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "calls",
+              "inputTokens",
+              "outputTokens",
+              "cachedTokens",
+              "thinkingTokens",
+              "durationMs",
+              "fellBack"
+            ],
+            "type": "object"
+          },
+          "propertyNames": {
+            "type": "string"
+          },
+          "type": "object"
+        },
+        "fallbackCount": {
+          "type": "number"
+        },
+        "totalCachedTokens": {
+          "type": "number"
+        },
+        "totalCalls": {
+          "type": "number"
+        },
+        "totalDurationMs": {
+          "type": "number"
+        },
+        "totalInputTokens": {
+          "type": "number"
+        },
+        "totalOutputTokens": {
+          "type": "number"
+        },
+        "totalThinkingTokens": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "totalCalls",
+        "totalInputTokens",
+        "totalOutputTokens",
+        "totalCachedTokens",
+        "totalThinkingTokens",
+        "totalDurationMs",
+        "fallbackCount",
+        "byProvider",
+        "byModel"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "inputSchema": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "properties": {
+        "message": {
+          "description": "A message to echo back to test the connection",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "name": "ping"
+  }
+]
