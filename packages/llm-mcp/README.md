@@ -179,15 +179,15 @@ Full docs at [lykhoyda.github.io/ask-llm](https://lykhoyda.github.io/ask-llm/)
 
 MIT
 
-# @ask-llm/plugin
+## Host plugins
 
 <div align="center">
 
-**Canonical Claude Code, Cursor Agent, and Pi host package for AI-to-AI collaboration**
+**Claude Code, Cursor Agent, and Pi assets in @ask-llm/mcp**
 
 </div>
 
-One publishable package that adds multi-provider code review, comparison, brainstorming, verification, image, and pairing workflows to [Claude Code](https://code.claude.com/docs/en/plugins), [Cursor Agent](https://cursor.com/docs/skills), and [Pi](https://pi.dev). The hosts consume one skill corpus and package version; host-specific behavior is kept in explicit adapters.
+`@ask-llm/mcp` adds multi-provider code review, comparison, brainstorming, verification, image, and pairing workflows to [Claude Code](https://code.claude.com/docs/en/plugins), [Cursor Agent](https://cursor.com/docs/skills), and [Pi](https://pi.dev). The hosts consume one skill corpus and package version; host-specific behavior is kept in explicit adapters. `@ask-llm/plugin` remains a dependent bridge for existing installations.
 
 Part of the [Ask LLM](https://github.com/Lykhoyda/ask-llm) monorepo.
 
