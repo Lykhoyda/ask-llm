@@ -1,6 +1,6 @@
 # Pi host compatibility inventory
 
-This inventory is the committed disposition for every workflow shipped by the canonical `@ask-llm/plugin` package. Pi is a **host harness**, not a consulted Ask LLM provider. Claude Code and Pi load the same skill files; portable contracts and explicit host adapters are delimited in those files.
+This inventory is the committed disposition for every workflow shipped by the canonical `@ask-llm/mcp` package. Pi is a **host harness**, not a consulted Ask LLM provider. Claude Code and Pi load the same skill files; portable contracts and explicit host adapters are delimited in those files.
 
 Classifications: **host-neutral**, **thin host adapter**, **lifecycle integration**, and **Claude-only**.
 
