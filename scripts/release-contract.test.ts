@@ -4,14 +4,15 @@ import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSyn
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { askResponseSchema } from "@ask-llm/shared";
+import { askResponseSchema, diagnosticReportSchema } from "@ask-llm/shared";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import { afterAll, describe, expect, it } from "vitest";
 import { z } from "zod";
-import { registerProviderTools } from "../packages/claude-plugin/pi/extensions/provider-tools.ts";
+import askLlmPiExtension from "../packages/claude-plugin/pi/extensions/index.ts";
 
 const ROOT = fileURLToPath(new URL("..", import.meta.url));
+// Keep test fixtures outside shared/src, whose changes require a seven-package release.
 const FIXTURES = join(ROOT, "scripts/fixtures/contract");
 const UPDATE = process.env.ASK_LLM_UPDATE_CONTRACT === "1";
 const SCHEMA_MAPS = new Set(["properties", "patternProperties", "$defs", "definitions"]);
@@ -19,6 +20,7 @@ const SCHEMA_MAPS = new Set(["properties", "patternProperties", "$defs", "defini
 interface PackageManifest {
   name: string;
   private?: boolean;
+  mcpName?: string;
   bin?: Record<string, string>;
 }
 
@@ -29,11 +31,9 @@ const packages = readdirSync(join(ROOT, "packages"))
     manifest: JSON.parse(readFileSync(join(ROOT, "packages", dir, "package.json"), "utf8")) as PackageManifest,
   }))
   .filter(({ manifest }) => !manifest.private);
-const servers = packages.flatMap(({ dir, manifest }) =>
-  Object.entries(manifest.bin ?? {})
-    .filter(([bin]) => bin.endsWith("-mcp"))
-    .map(([, cli]) => [dir, join(ROOT, "packages", dir, cli)]),
-);
+const servers = packages
+  .filter(({ manifest }) => manifest.mcpName)
+  .map(({ dir }) => [dir, join(ROOT, "packages", dir, "dist/cli.js")]);
 
 // Empty PATH, no keys, unreachable Ollama: nothing is detected and no provider is ever called.
 const sandbox = mkdtempSync(join(tmpdir(), "ask-llm-contract-"));
@@ -76,6 +76,7 @@ function byName<T extends { name: string }>(items: T[]): T[] {
 }
 
 function expectFixture(name: string, actual: unknown): void {
+  actual = contract(actual);
   const path = join(FIXTURES, `${name}.json`);
   if (UPDATE) {
     mkdirSync(FIXTURES, { recursive: true });
@@ -84,6 +85,17 @@ function expectFixture(name: string, actual: unknown): void {
   expect(actual, `${name}.json drifted; regenerate only for an intended contract change`).toEqual(
     JSON.parse(readFileSync(path, "utf8")),
   );
+}
+
+async function listAll<T>(list: (params: { cursor?: string }) => Promise<{ items: T[]; nextCursor?: string }>) {
+  const items: T[] = [];
+  let cursor: string | undefined;
+  do {
+    const page = await list({ cursor });
+    items.push(...page.items);
+    cursor = page.nextCursor;
+  } while (cursor);
+  return items;
 }
 
 async function listServer(cli: string) {
@@ -99,9 +111,28 @@ async function listServer(cli: string) {
   try {
     const capabilities = client.getServerCapabilities() ?? {};
     return {
-      tools: byName((await client.listTools()).tools),
-      prompts: capabilities.prompts ? byName((await client.listPrompts()).prompts) : [],
-      resources: capabilities.resources ? byName((await client.listResources()).resources) : [],
+      tools: byName(
+        await listAll(async (params) => {
+          const page = await client.listTools(params);
+          return { items: page.tools, nextCursor: page.nextCursor };
+        }),
+      ),
+      prompts: capabilities.prompts
+        ? byName(
+            await listAll(async (params) => {
+              const page = await client.listPrompts(params);
+              return { items: page.prompts, nextCursor: page.nextCursor };
+            }),
+          )
+        : [],
+      resources: capabilities.resources
+        ? byName(
+            await listAll(async (params) => {
+              const page = await client.listResources(params);
+              return { items: page.resources, nextCursor: page.nextCursor };
+            }),
+          )
+        : [],
     };
   } finally {
     await client.close();
@@ -122,13 +153,13 @@ describe("release contract", () => {
   it.each(servers)(
     "pins the MCP surface of %s",
     async (dir, cli) => {
-      expectFixture(`mcp-${dir}`, contract(await listServer(cli)));
+      expectFixture(`mcp-${dir}`, await listServer(cli));
     },
     30_000,
   );
 
   it("pins the AskResponse shape and its attribution fields", () => {
-    expectFixture("ask-response", contract(z.toJSONSchema(askResponseSchema)));
+    expectFixture("ask-response", z.toJSONSchema(askResponseSchema));
   });
 
   it("pins the doctor --json shape", () => {
@@ -138,14 +169,25 @@ describe("release contract", () => {
       encoding: "utf8",
       timeout: 30_000,
     });
-    expectFixture("doctor-json-shape", shapeOf(JSON.parse(result.stdout)));
+    expect(result.error).toBeUndefined();
+    const report: unknown = JSON.parse(result.stdout);
+    expect(diagnosticReportSchema.safeParse(report).success).toBe(true);
+    expectFixture("doctor-json-shape", {
+      schema: z.toJSONSchema(diagnosticReportSchema),
+      unavailable: shapeOf(report),
+    });
   });
 
   it("pins the Pi ask-* tool names and parameters", () => {
     const tools: Array<{ name: string; parameters: unknown }> = [];
-    registerProviderTools({
+    askLlmPiExtension({
       registerTool: (tool: { name: string; parameters: unknown }) => tools.push(tool),
-    } as unknown as Parameters<typeof registerProviderTools>[0]);
-    expectFixture("pi-tools", contract(byName(tools).map(({ name, parameters }) => ({ name, parameters }))));
+      on: () => {},
+      registerCommand: () => {},
+    } as unknown as Parameters<typeof askLlmPiExtension>[0]);
+    expectFixture(
+      "pi-tools",
+      byName(tools).map(({ name, parameters }) => ({ name, parameters })),
+    );
   });
 });
