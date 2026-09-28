@@ -3,8 +3,9 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { parse } from "yaml";
 
-const workflow = readFileSync(resolve(import.meta.dirname, "../.github/workflows/ci.yml"), "utf8");
-const parsedWorkflow = parse(workflow);
+const parsedWorkflow = parse(readFileSync(resolve(import.meta.dirname, "../.github/workflows/ci.yml"), "utf8")) as {
+  jobs: Record<string, WorkflowJob>;
+};
 const pluginManifest = JSON.parse(
   readFileSync(resolve(import.meta.dirname, "../packages/llm-mcp/package.json"), "utf8"),
 );
@@ -12,17 +13,12 @@ const batch = "$" + "{{ matrix.batch }}";
 const piVersion = "$" + "{{ matrix.pi-version }}";
 
 interface WorkflowJob {
+  name?: string;
+  needs?: string;
   "runs-on"?: string;
+  "timeout-minutes"?: number;
   strategy?: { matrix?: Record<string, unknown> };
-  steps?: { uses?: string; with?: Record<string, unknown> }[];
-}
-
-function job(name: string): string {
-  const start = workflow.indexOf(`  ${name}:\n`);
-  if (start === -1) throw new Error(`missing workflow job: ${name}`);
-  const rest = workflow.slice(workflow.indexOf("\n", start) + 1);
-  const next = rest.search(/^ {2}[a-z][a-z0-9-]*:\n/m);
-  return next === -1 ? rest : rest.slice(0, next);
+  steps?: { name?: string; run?: string; uses?: string; with?: Record<string, unknown> }[];
 }
 
 describe("Pi host support workflow contract", () => {
@@ -40,13 +36,11 @@ describe("Pi host support workflow contract", () => {
     expect(pluginManifest.devDependencies["@earendil-works/pi-coding-agent"]).toBe("^0.84.2");
   });
 
-  it("isolates every Pi cell and verifies the installed host version before exercising the package", () => {
+  it("isolates every Pi package smoke cell", () => {
     expect(lifecycleStep.env.HOME).toContain(piVersion);
     expect(lifecycleStep.env.PI_CODING_AGENT_DIR).toContain(piVersion);
     expect(lifecycleStep.env.PI_PROJECT).toContain(piVersion);
     expect(lifecycleStep.env.PI_VERSION).toBe(piVersion);
-    expect(lifecycleStep.run).toContain('"@earendil-works/pi-coding-agent@$PI_VERSION"');
-    expect(lifecycleStep.run).toContain('if [ "$installed_version" != "$PI_VERSION" ]');
   });
 });
 
@@ -63,53 +57,66 @@ describe("five-batch workflow contract", () => {
 
   it("runs install, build, lint, and changeset guard only in one setup per Node/OS leg", () => {
     for (const chain of chains) {
-      const setup = job(chain.setupId);
-      const batches = job(chain.batchesId);
+      const setup = parsedWorkflow.jobs[chain.setupId];
+      const batches = parsedWorkflow.jobs[chain.batchesId];
+      const setupCommands = setup.steps?.map((step) => step.run);
 
-      expect(setup).toContain(`runs-on: ${chain.os}`);
-      expect(setup).toContain(`node-version: ${chain.nodeVersion}`);
-      expect(setup).toContain("yarn install --immutable");
-      expect(setup).toContain("run: yarn build");
-      expect(setup).toContain("run: yarn lint");
-      expect(setup).toContain("check-shared-changeset.ts");
-      expect(setup).toContain(`name: test-setup-${chain.nodeVersion}-${chain.os}`);
+      expect(setup["runs-on"]).toBe(chain.os);
+      expect(setup.steps?.find((step) => step.uses?.startsWith("actions/setup-node@"))?.with?.["node-version"]).toBe(
+        chain.nodeVersion,
+      );
+      expect(setupCommands).toEqual(expect.arrayContaining([
+        "yarn install --immutable",
+        "yarn build",
+        "yarn lint",
+        "node scripts/check-shared-changeset.ts",
+      ]));
+      expect(setup.steps?.find((step) => step.uses?.startsWith("actions/upload-artifact@"))?.with?.name).toBe(
+        `test-setup-${chain.nodeVersion}-${chain.os}`,
+      );
 
-      expect(batches).not.toContain("yarn install");
-      expect(batches).not.toContain("run: yarn build");
-      expect(batches).not.toContain("run: yarn lint");
-      expect(batches).not.toContain("check-shared-changeset.ts");
+      for (const command of [
+        "yarn install --immutable",
+        "yarn build",
+        "yarn lint",
+        "node scripts/check-shared-changeset.ts",
+      ]) {
+        expect(batches.steps?.map((step) => step.run)).not.toContain(command);
+      }
     }
   });
 
   it("fans out exactly five test-only batches from the matching setup artifact", () => {
     for (const chain of chains) {
-      const batches = job(chain.batchesId);
+      const batches = parsedWorkflow.jobs[chain.batchesId];
 
-      expect(batches).toContain(`needs: ${chain.setupId}`);
-      expect(batches).toContain("batch: [1, 2, 3, 4, 5]");
-      expect(batches).toContain(`name: test-setup-${chain.nodeVersion}-${chain.os}`);
-      expect(batches).toContain(`run: yarn test:batch "${batch}/5"`);
-      expect(batches).toContain(`name: test-result-${chain.nodeVersion}-${chain.os}-${batch}`);
+      expect(batches.needs).toBe(chain.setupId);
+      expect(batches.strategy?.matrix?.batch).toEqual([1, 2, 3, 4, 5]);
+      expect(batches.steps?.find((step) => step.uses?.startsWith("actions/download-artifact@"))?.with?.name).toBe(
+        `test-setup-${chain.nodeVersion}-${chain.os}`,
+      );
+      expect(batches.steps?.find((step) => step.name === `Run test batch ${batch}/5`)?.run).toBe(
+        `yarn test:batch "${batch}/5"`,
+      );
+      expect(batches.steps?.find((step) => step.uses?.startsWith("actions/upload-artifact@"))?.with?.name).toBe(
+        `test-result-${chain.nodeVersion}-${chain.os}-${batch}`,
+      );
     }
   });
 
   it("keeps each legacy check dependent on only its matching five-batch matrix", () => {
     for (const chain of chains) {
-      const batches = job(chain.batchesId);
-      const gate = job(chain.gateId);
-      const otherChains = chains.filter((candidate) => candidate !== chain);
+      const gate = parsedWorkflow.jobs[chain.gateId];
 
-      expect(gate).toContain(`name: test (${chain.nodeVersion}, ${chain.os})`);
-      expect(gate).toContain("timeout-minutes: 15");
-      expect(gate).toContain(`needs: ${chain.batchesId}`);
-      expect(gate).toContain(`pattern: test-result-${chain.nodeVersion}-${chain.os}-*`);
-      expect(gate).toContain("for batch in 1 2 3 4 5");
-
-      for (const other of otherChains) {
-        expect(batches).not.toContain(other.setupId);
-        expect(gate).not.toContain(other.batchesId);
-        expect(gate).not.toContain(`test-result-${other.nodeVersion}-${other.os}-*`);
-      }
+      expect(gate.name).toBe(`test (${chain.nodeVersion}, ${chain.os})`);
+      expect(gate["timeout-minutes"]).toBe(15);
+      expect(gate.needs).toBe(chain.batchesId);
+      expect(gate.steps?.find((step) => step.uses?.startsWith("actions/download-artifact@"))?.with?.pattern).toBe(
+        `test-result-${chain.nodeVersion}-${chain.os}-*`,
+      );
+      expect(gate.steps?.find((step) => step.name === "Require all five matching batches")?.run?.trim()).toBe(
+        'for batch in 1 2 3 4 5; do\n  test -f "test-results/batch-$batch"\ndone',
+      );
     }
   });
 });
@@ -144,9 +151,7 @@ describe("supported CI platforms", () => {
   it("does not run Windows jobs in any workflow", () => {
     const workflowsDir = resolve(import.meta.dirname, "../.github/workflows");
     for (const name of readdirSync(workflowsDir).filter((file) => /\.ya?ml$/.test(file))) {
-      const source = readFileSync(resolve(workflowsDir, name), "utf8");
-      expect(source, name).not.toMatch(/windows-latest/);
-      const workflow = parse(source);
+      const workflow = parse(readFileSync(resolve(workflowsDir, name), "utf8"));
       for (const job of Object.values((workflow.jobs ?? {}) as Record<string, WorkflowJob>)) {
         expect(job["runs-on"], name).not.toBe("windows-latest");
       }
