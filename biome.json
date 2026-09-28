@@ -8,9 +8,9 @@
   "files": {
     "includes": [
       "packages/*/src/**",
-      "packages/claude-plugin/scripts/**",
-      "!!packages/claude-plugin/scripts/benchmark/fixtures",
-      "!!packages/claude-plugin/scripts/**/*.mjs",
+      "packages/llm-mcp/scripts/**",
+      "!!packages/llm-mcp/scripts/benchmark/fixtures",
+      "!!packages/llm-mcp/scripts/**/*.mjs",
       "scripts/**",
       "apps/docs/**/*.ts"
     ]

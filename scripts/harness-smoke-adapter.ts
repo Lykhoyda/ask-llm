@@ -98,7 +98,7 @@ console.log(JSON.stringify({ response: marker, stats: { models: { fixture: { tok
 }
 
 async function validateSkillAdapter(): Promise<void> {
-  const plugin = join(config.root, "packages", "claude-plugin");
+  const plugin = join(config.root, "packages", "llm-mcp");
   const skillHost = ["claude", "cursor-agent", "pi"].includes(config.scenario.host);
   const skillName = !skillHost
     ? undefined
@@ -179,7 +179,7 @@ async function runGrok() {
 async function runBrainstorm() {
   invariant(config.secondaryModel, "exact brainstorm panel requires a secondary Sol model");
   const { parseBrainstormParticipant, runBrainstormPanel } = await import(
-    "../packages/claude-plugin/src/brainstorm-panel.js"
+    "../packages/llm-mcp/src/brainstorm-panel.js"
   );
   const report = await runBrainstormPanel({
     prompt: `${config.livePrompt}\nprobe=${Date.now()}`,
@@ -195,7 +195,7 @@ async function runBrainstorm() {
 }
 
 async function runPiAdapter() {
-  const { registerProviderTools } = await import("../packages/claude-plugin/pi/extensions/provider-tools.js");
+  const { registerProviderTools } = await import("../packages/llm-mcp/pi/extensions/provider-tools.js");
   type ToolResult = { content: unknown; details: Record<string, unknown> };
   type RegisteredTool = {
     name: string;

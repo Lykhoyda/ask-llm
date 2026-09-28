@@ -15,7 +15,7 @@ All providers in one MCP server. Detects which provider CLIs/endpoints are avail
 
 <InstallSnippet provider="unified" />
 
-Or install globally: `npm install -g @ask-llm/mcp`. The installed `ask-llm-mcp` binary starts the MCP server only when invoked without arguments; see [CLI argument contract](#cli-argument-contract) for its command-line modes.
+Or install globally: `npm install -g @ask-llm/mcp`. The installed `ask-llm-mcp` binary starts the MCP server only when invoked without arguments; `ask-llm` provides help, version and doctor commands. See [CLI argument contract](#cli-argument-contract) for its command-line modes.
 
 ## Prerequisites
 
@@ -82,4 +82,4 @@ Run `ask-llm-mcp --help` for the canonical list of supported commands and option
 ## npm
 
 - **Package:** [@ask-llm/mcp](https://www.npmjs.com/package/@ask-llm/mcp)
-- **Binary:** `ask-llm-mcp`
+- **Binaries:** `ask-llm-mcp` (server and existing CLI modes), `ask-llm` (help, version and doctor)

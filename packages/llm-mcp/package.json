@@ -18,17 +18,104 @@
     "./cursor": {
       "types": "./dist/cursor.d.ts",
       "default": "./dist/cursor.js"
+    },
+    "./package.json": "./package.json",
+    "./pi": "./pi/extensions/index.ts",
+    "./plugin": {
+      "types": "./dist/plugin.d.ts",
+      "default": "./dist/plugin.js"
+    },
+    "./runners/run": {
+      "types": "./dist/run.d.ts",
+      "default": "./dist/run.js"
+    },
+    "./runners/codex-run": {
+      "types": "./dist/codex-run.d.ts",
+      "default": "./dist/codex-run.js"
+    },
+    "./runners/grok-run": {
+      "types": "./dist/grok-run.d.ts",
+      "default": "./dist/grok-run.js"
+    },
+    "./runners/ollama-run": {
+      "types": "./dist/ollama-run.d.ts",
+      "default": "./dist/ollama-run.js"
+    },
+    "./runners/antigravity-run": {
+      "types": "./dist/antigravity-run.d.ts",
+      "default": "./dist/antigravity-run.js"
+    },
+    "./runners/brainstorm-run": {
+      "types": "./dist/brainstorm-run.d.ts",
+      "default": "./dist/brainstorm-run.js"
+    },
+    "./providers/gemini/executor": {
+      "types": "./dist/gemini-executor.d.ts",
+      "default": "./dist/gemini-executor.js"
+    },
+    "./providers/gemini/register": {
+      "types": "./dist/gemini-register.d.ts",
+      "default": "./dist/gemini-register.js"
+    },
+    "./providers/codex/executor": {
+      "types": "./dist/codex-executor.d.ts",
+      "default": "./dist/codex-executor.js"
+    },
+    "./providers/codex/register": {
+      "types": "./dist/codex-register.d.ts",
+      "default": "./dist/codex-register.js"
+    },
+    "./providers/claude/executor": {
+      "types": "./dist/claude-executor.d.ts",
+      "default": "./dist/claude-executor.js"
+    },
+    "./providers/claude/register": {
+      "types": "./dist/claude-register.d.ts",
+      "default": "./dist/claude-register.js"
+    },
+    "./providers/grok/executor": {
+      "types": "./dist/grok-executor.d.ts",
+      "default": "./dist/grok-executor.js"
+    },
+    "./providers/grok/register": {
+      "types": "./dist/grok-register.d.ts",
+      "default": "./dist/grok-register.js"
+    },
+    "./providers/ollama/executor": {
+      "types": "./dist/ollama-executor.d.ts",
+      "default": "./dist/ollama-executor.js"
+    },
+    "./providers/ollama/register": {
+      "types": "./dist/ollama-register.d.ts",
+      "default": "./dist/ollama-register.js"
+    },
+    "./providers/antigravity/executor": {
+      "types": "./dist/antigravity-executor.d.ts",
+      "default": "./dist/antigravity-executor.js"
+    },
+    "./providers/antigravity/register": {
+      "types": "./dist/antigravity-register.d.ts",
+      "default": "./dist/antigravity-register.js"
     }
   },
   "bin": {
-    "ask-llm-mcp": "dist/cli.js"
+    "ask-antigravity-run": "dist/antigravity-run.js",
+    "ask-brainstorm-run": "dist/brainstorm-run.js",
+    "ask-codex-run": "dist/codex-run.js",
+    "ask-gemini-run": "dist/run.js",
+    "ask-grok-run": "dist/grok-run.js",
+    "ask-llm": "dist/ask-llm.js",
+    "ask-llm-mcp": "dist/cli.js",
+    "ask-ollama-run": "dist/ollama-run.js",
+    "mcp": "dist/cli.js"
   },
   "scripts": {
-    "build": "tsdown",
+    "build": "tsdown && yarn build:hooks",
     "start": "node dist/cli.js",
     "dev": "tsdown && node dist/cli.js",
     "test": "vitest run",
-    "lint": "biome check src/ && tsc --noEmit"
+    "lint": "biome check src/ pi/ && biome lint scripts/ && tsc --noEmit && tsc --noEmit -p pi/tsconfig.json && tsc -p scripts/tsconfig.json --noEmit",
+    "build:hooks": "tsc -p scripts/tsconfig.json && chmod 755 scripts/benchmark/prompt-ab.mjs scripts/codex-pair-debounce-worker.mjs scripts/codex-pair-log.mjs scripts/codex-pair-prompt-drain.mjs scripts/codex-pair-session.mjs scripts/codex-pair-stop-gate.mjs scripts/codex-pair-watch.mjs"
   },
   "keywords": [
     "mcp",
@@ -50,7 +137,10 @@
     "ai",
     "ai-collaboration",
     "code-review",
-    "second-opinion"
+    "second-opinion",
+    "pi-package",
+    "pi-coding-agent",
+    "claude-code-plugin"
   ],
   "author": "Lykhoyda",
   "license": "MIT",
@@ -69,29 +159,83 @@
   "files": [
     "dist/",
     "README.md",
-    "LICENSE"
+    "LICENSE",
+    ".claude-plugin/",
+    ".cursor-plugin/",
+    ".mcp.json",
+    "mcp.json",
+    "agents/",
+    "codex-pair-defaults.json",
+    "hooks/",
+    "pi/",
+    "prompts/",
+    "scripts/*.mjs",
+    "scripts/lib/*.mjs",
+    "skills/"
   ],
   "dependencies": {
-    "@ask-llm/antigravity-mcp": "^0.8.1",
-    "@ask-llm/claude-mcp": "^0.2.0",
-    "@ask-llm/codex-mcp": "^0.9.0",
-    "@ask-llm/gemini-mcp": "^2.0.0",
-    "@ask-llm/grok-mcp": "^0.3.0",
-    "@ask-llm/ollama-mcp": "^0.7.0",
     "@modelcontextprotocol/sdk": "^1.30.0",
     "@toon-format/toon": "^4.1.1",
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@ask-llm/antigravity-mcp": "workspace:*",
+    "@ask-llm/claude-mcp": "workspace:*",
+    "@ask-llm/codex-mcp": "workspace:*",
+    "@ask-llm/gemini-mcp": "workspace:*",
+    "@ask-llm/grok-mcp": "workspace:*",
+    "@ask-llm/ollama-mcp": "workspace:*",
     "@ask-llm/shared": "workspace:*",
     "@biomejs/biome": "^2.5.10",
+    "@earendil-works/pi-ai": "^0.84.2",
+    "@earendil-works/pi-coding-agent": "^0.84.2",
     "@types/node": "^24.13.6",
     "ajv": "8.20.0",
     "tsdown": "^0.22.14",
+    "typebox": "1.3.7",
     "typescript": "^7.0.2",
     "vitest": "^4.1.11"
   },
   "publishConfig": {
     "access": "public"
+  },
+  "pi": {
+    "extensions": [
+      "./pi/extensions/index.ts"
+    ],
+    "skills": [
+      "./skills/antigravity-review/SKILL.md",
+      "./skills/brainstorm/SKILL.md",
+      "./skills/brainstorm-all/SKILL.md",
+      "./skills/codex-image/SKILL.md",
+      "./skills/codex-pair/SKILL.md",
+      "./skills/codex-pair-ack/SKILL.md",
+      "./skills/codex-pair-pause/SKILL.md",
+      "./skills/codex-pair-resume/SKILL.md",
+      "./skills/codex-review/SKILL.md",
+      "./skills/codex-verify/SKILL.md",
+      "./skills/compare/SKILL.md",
+      "./skills/gemini-review/SKILL.md",
+      "./skills/grok-review/SKILL.md",
+      "./skills/multi-review/SKILL.md",
+      "./skills/ollama-review/SKILL.md",
+      "./skills/sol-review/SKILL.md"
+    ]
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-ai": "*",
+    "@earendil-works/pi-coding-agent": "*",
+    "typebox": "*"
+  },
+  "peerDependenciesMeta": {
+    "@earendil-works/pi-ai": {
+      "optional": true
+    },
+    "@earendil-works/pi-coding-agent": {
+      "optional": true
+    },
+    "typebox": {
+      "optional": true
+    }
   }
 }

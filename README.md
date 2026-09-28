@@ -141,7 +141,7 @@ Fallbacks fire only under each provider's documented conditions (quota for Gemin
 
 ## The Ask LLM plugin (Claude Code, Cursor Agent, Pi)
 
-MCP gives your assistant the *tools*. The plugin, [`@ask-llm/plugin`](https://www.npmjs.com/package/@ask-llm/plugin), adds the *workflows*: slash-command reviews with a validation pipeline, multi-model brainstorming, and opt-in continuous pair review.
+MCP gives your assistant the *tools*. The canonical [`@ask-llm/mcp`](https://www.npmjs.com/package/@ask-llm/mcp) package also owns the *workflows*: slash-command reviews with a validation pipeline, multi-model brainstorming, and opt-in continuous pair review. `@ask-llm/plugin` remains a dependent bridge for existing installs.
 
 ```
 /plugin marketplace add Lykhoyda/ask-llm
@@ -164,7 +164,7 @@ Review agents follow a 4-phase pipeline inspired by [Anthropic's code-review plu
 <details>
 <summary>Host support matrix</summary>
 
-`@ask-llm/plugin` is one package, one version, one release lifecycle, and one canonical skill corpus. Claude Code loads its marketplace agents and hooks; Cursor Agent loads the adapted `/codex-pair` and `/grok-pair` skills through Agent Skills plus `mcp.json` (`agent --plugin-dir ./packages/claude-plugin`; see the [Cursor Agent host guide](https://lykhoyda.github.io/ask-llm/plugin/cursor)); Pi loads explicit native tools, portable skill adapters, and a thin lifecycle extension.
+`@ask-llm/mcp` owns the canonical host assets and skill corpus; `@ask-llm/plugin` is a dependent compatibility bridge. Claude Code loads its marketplace agents and hooks; Cursor Agent loads the adapted `/codex-pair` and `/grok-pair` skills through Agent Skills plus `mcp.json` (`agent --plugin-dir ./packages/llm-mcp`; see the [Cursor Agent host guide](https://lykhoyda.github.io/ask-llm/plugin/cursor)); Pi loads explicit native tools, portable skill adapters, and a thin lifecycle extension.
 
 | Capability | Claude Code | Cursor Agent | Codex CLI host | Pi |
 |---|---:|---:|---:|---:|
@@ -251,8 +251,8 @@ Install and authenticate whichever providers you want to consult. The unified se
 
 | Package | What it is | Version | Downloads |
 |---------|------------|---------|-----------|
-| [`@ask-llm/mcp`](https://www.npmjs.com/package/@ask-llm/mcp) | **Unified MCP server** (recommended): all providers, `multi-llm`, `ask-cursor-agent`, `doctor`, REPL | [![npm](https://img.shields.io/npm/v/@ask-llm/mcp)](https://www.npmjs.com/package/@ask-llm/mcp) | [![downloads](https://img.shields.io/npm/dt/@ask-llm/mcp)](https://www.npmjs.com/package/@ask-llm/mcp) |
-| [`@ask-llm/plugin`](https://www.npmjs.com/package/@ask-llm/plugin) | Claude Code + Cursor Agent + Pi host package (skills, agents, hooks) | [![npm](https://img.shields.io/npm/v/@ask-llm/plugin)](https://www.npmjs.com/package/@ask-llm/plugin) | [![downloads](https://img.shields.io/npm/dt/@ask-llm/plugin)](https://www.npmjs.com/package/@ask-llm/plugin) |
+| [`@ask-llm/mcp`](https://www.npmjs.com/package/@ask-llm/mcp) | **Canonical package**: unified MCP server, provider executors, and Claude Code, Cursor Agent, and Pi host assets | [![npm](https://img.shields.io/npm/v/@ask-llm/mcp)](https://www.npmjs.com/package/@ask-llm/mcp) | [![downloads](https://img.shields.io/npm/dt/@ask-llm/mcp)](https://www.npmjs.com/package/@ask-llm/mcp) |
+| [`@ask-llm/plugin`](https://www.npmjs.com/package/@ask-llm/plugin) | Dependent bridge for existing plugin and Pi installations | [![npm](https://img.shields.io/npm/v/@ask-llm/plugin)](https://www.npmjs.com/package/@ask-llm/plugin) | [![downloads](https://img.shields.io/npm/dt/@ask-llm/plugin)](https://www.npmjs.com/package/@ask-llm/plugin) |
 | [`@ask-llm/codex-mcp`](https://www.npmjs.com/package/@ask-llm/codex-mcp) | Codex-only MCP server | [![npm](https://img.shields.io/npm/v/@ask-llm/codex-mcp)](https://www.npmjs.com/package/@ask-llm/codex-mcp) | [![downloads](https://img.shields.io/npm/dt/@ask-llm/codex-mcp)](https://www.npmjs.com/package/@ask-llm/codex-mcp) |
 | [`@ask-llm/claude-mcp`](https://www.npmjs.com/package/@ask-llm/claude-mcp) | Claude-only MCP server | [![npm](https://img.shields.io/npm/v/@ask-llm/claude-mcp)](https://www.npmjs.com/package/@ask-llm/claude-mcp) | [![downloads](https://img.shields.io/npm/dt/@ask-llm/claude-mcp)](https://www.npmjs.com/package/@ask-llm/claude-mcp) |
 | [`@ask-llm/grok-mcp`](https://www.npmjs.com/package/@ask-llm/grok-mcp) | Grok-only MCP server | [![npm](https://img.shields.io/npm/v/@ask-llm/grok-mcp)](https://www.npmjs.com/package/@ask-llm/grok-mcp) | [![downloads](https://img.shields.io/npm/dt/@ask-llm/grok-mcp)](https://www.npmjs.com/package/@ask-llm/grok-mcp) |

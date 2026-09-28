@@ -26,7 +26,7 @@ jobs:
       run: yarn build
     - name: Lint
       run: yarn lint
-    - name: Guard — shared changes must changeset all six MCPs (ADR-119)
+    - name: Guard — bundled source changes must changeset the canonical MCP (ADR-119)
       if: github.event_name == 'pull_request'
       run: node scripts/check-shared-changeset.ts
     - name: Archive platform setup
@@ -187,8 +187,20 @@ jobs:
         npx verdaccio@6.10.0 --config .github/verdaccio/config.yaml --listen 4873 &
         npx wait-on@9.1.0 -t 30000 http://localhost:4873
         npm config set //localhost:4873/:_authToken fake
-        for t in /tmp/tarballs/*.tgz; do npm publish --registry http://localhost:4873 "$t"; done
+        for t in /tmp/tarballs/ask-llm-{mcp,plugin}-*.tgz; do npm publish --registry http://localhost:4873 "$t"; done
+        mkdir -p /tmp/ask-llm-npx
+        cd /tmp/ask-llm-npx
+        printf '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"smoke","version":"0.0.0"}}}\n' \
+          | npm_config_registry=http://localhost:4873 timeout 30 npx --yes @ask-llm/mcp > /tmp/npx-out.json 2> /tmp/npx-err.txt
+        grep -q '"serverInfo"' /tmp/npx-out.json || { cat /tmp/npx-err.txt; exit 1; }
         npm install -g @ask-llm/mcp --registry http://localhost:4873
+        test "$(ask-llm --version)" = "$(node -p "require('$(npm root -g)/@ask-llm/mcp/package.json').version")"
+        ask-llm --help | grep -q 'Usage: ask-llm'
+        ask-llm doctor --json > /tmp/ask-llm-doctor.json || true
+        grep -q '"status"' /tmp/ask-llm-doctor.json
+        printf '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"smoke","version":"0.0.0"}}}\n' \
+          | timeout 20 ask-llm-mcp > /tmp/mcp-out.json 2> /tmp/mcp-err.txt
+        grep -q '"serverInfo"' /tmp/mcp-out.json || { cat /tmp/mcp-err.txt; exit 1; }
         ask-llm-mcp doctor --json > /tmp/doctor.json 2> /tmp/doctor-err.txt || true
         if grep -q 'ERR_MODULE_NOT_FOUND' /tmp/doctor-err.txt; then echo "FAIL: doctor crashed at import"; cat /tmp/doctor-err.txt; exit 1; fi
         grep -q '"status"' /tmp/doctor.json || { echo "FAIL: doctor produced no report"; cat /tmp/doctor-err.txt; cat /tmp/doctor.json; exit 1; }
@@ -210,7 +222,7 @@ jobs:
     - run: yarn build
     - name: Hermetic Pi pairing and provider cancellation lifecycle
       run: |
-        yarn vitest run packages/claude-plugin/src/__tests__/pi-codex-pair.test.ts --project @ask-llm/plugin
+        yarn vitest run packages/llm-mcp/src/__tests__/pi-codex-pair.test.ts --project @ask-llm/mcp
         yarn vitest run packages/shared/src/__tests__/commandExecutor.abort.test.ts --project @ask-llm/shared
 
   pi-package-smoke:
@@ -239,7 +251,7 @@ jobs:
         npx verdaccio@6.10.0 --config .github/verdaccio/config.yaml --listen 4873 &
         npx wait-on@9.1.0 -t 30000 http://localhost:4873
         npm config set //localhost:4873/:_authToken fake
-        for t in /tmp/tarballs/*.tgz; do npm publish --registry http://localhost:4873 "$t"; done
+        for t in /tmp/tarballs/ask-llm-{mcp,plugin}-*.tgz; do npm publish --registry http://localhost:4873 "$t"; done
     - name: Clean Pi install, discovery, update, remove, and temporary evaluation
       env:
         HOME: /tmp/ask-llm-pi-home-${{ matrix.pi-version }}
@@ -284,3 +296,5 @@ jobs:
         printf '{"type":"get_commands"}\n' | pi -e npm:@ask-llm/plugin --mode rpc --no-session --approve > /tmp/pi-temp.jsonl
         grep -q 'skill:codex-review' /tmp/pi-temp.jsonl
         if pi list | grep -F 'npm:@ask-llm/plugin'; then echo 'FAIL: -e persisted package'; exit 1; fi
+        printf '{"type":"get_commands"}\n' | pi -e npm:@ask-llm/mcp --mode rpc --no-session --approve > /tmp/pi-canonical.jsonl
+        grep -q 'skill:codex-review' /tmp/pi-canonical.jsonl

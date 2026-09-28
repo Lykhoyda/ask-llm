@@ -36,7 +36,7 @@ Claude consultations run with `--safe-mode` and an explicit `Read,Glob,Grep` too
 - Command injection via tool arguments (prompt, model, includeDirs, sessionId)
 - Path traversal via `@file` syntax or `--include-directories`
 - Information disclosure — secrets leaking into logs, error responses, or stderr that is propagated back to the MCP client
-- Plugin hooks executing untrusted shell content (PostToolUse, SessionStart/SessionEnd, UserPromptSubmit, and the opt-in Stop gate in `packages/claude-plugin/hooks/hooks.json`)
+- Plugin hooks executing untrusted shell content (PostToolUse, SessionStart/SessionEnd, UserPromptSubmit, and the opt-in Stop gate in `packages/llm-mcp/hooks/hooks.json`)
 - Workspace-protocol bundling bugs that could cause unintended code to be installed at `npm install` time (see ADR-052)
 - Temp file handling — leakage of staged diffs or session content from `/tmp/ask-llm-*` files
 - Insecure defaults in the `commandExecutor` spawn options or the resolved `PATH` (ADR-047)

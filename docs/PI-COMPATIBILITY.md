@@ -1,6 +1,6 @@
 # Pi host compatibility inventory
 
-This inventory is the committed disposition for every workflow shipped by the canonical `@ask-llm/plugin` package. Pi is a **host harness**, not a consulted Ask LLM provider. Claude Code and Pi load the same skill files; portable contracts and explicit host adapters are delimited in those files.
+This inventory is the committed disposition for every workflow shipped by the canonical `@ask-llm/mcp` package. Pi is a **host harness**, not a consulted Ask LLM provider. Claude Code and Pi load the same skill files; portable contracts and explicit host adapters are delimited in those files.
 
 Classifications: **host-neutral**, **thin host adapter**, **lifecycle integration**, and **Claude-only**.
 
@@ -29,7 +29,7 @@ Classifications: **host-neutral**, **thin host adapter**, **lifecycle integratio
 
 ## Agents and hooks
 
-The nine files under `packages/claude-plugin/agents/` are Claude Code subagent execution surfaces. Their delimited **Portable contract** sections are reusable by Pi; their frontmatter and delimited Claude Code adapters are not. Pi does not spawn nested agent processes and does not claim context isolation.
+The nine files under `packages/llm-mcp/agents/` are Claude Code subagent execution surfaces. Their delimited **Portable contract** sections are reusable by Pi; their frontmatter and delimited Claude Code adapters are not. Pi does not spawn nested agent processes and does not claim context isolation.
 
 Claude hooks remain unchanged and Claude-only as execution surfaces. Pi maps only the product behavior that needs lifecycle support:
 

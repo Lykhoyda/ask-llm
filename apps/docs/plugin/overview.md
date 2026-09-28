@@ -4,7 +4,7 @@ description: Claude Code plugin for AI-to-AI collaboration. Multi-provider code 
 
 # Claude Code Host
 
-`@ask-llm/plugin` is the canonical multi-host package. This page covers its Claude Code marketplace adapter. For the Cursor-adapted pair skills (`/codex-pair`, `/grok-pair`) through Cursor Agent Skills/MCP, see [Cursor Agent Host](/plugin/cursor); for native Pi tools and lifecycle events, see [Pi Host Support](/plugin/pi).
+`@ask-llm/mcp` is the canonical multi-host package and owns the Claude Code marketplace assets; `@ask-llm/plugin` remains a dependent bridge. This page covers the Claude Code adapter. For the Cursor-adapted pair skills (`/codex-pair`, `/grok-pair`) through Cursor Agent Skills/MCP, see [Cursor Agent Host](/plugin/cursor); for native Pi tools and lifecycle events, see [Pi Host Support](/plugin/pi).
 
 The **Ask LLM plugin** brings the second opinion into Claude Code itself: slash-command reviews (`/codex-review`, `/multi-review`), multi-model brainstorming (`/brainstorm`), and an opt-in continuous review hook (`codex-pair`) that checks every edit as you make it. Under the hood it adds review skills, brainstorm agents, and automated hooks.
 
@@ -25,7 +25,7 @@ Add the Ask LLM marketplace, then install the plugin:
 git clone https://github.com/Lykhoyda/ask-llm.git
 cd ask-llm
 yarn install && yarn build
-claude --plugin-dir ./packages/claude-plugin
+claude --plugin-dir ./packages/llm-mcp
 ```
 
 ### MCP Servers
@@ -135,4 +135,4 @@ The plugin uses several Claude Code integration points:
 
 - **Pi:** `pi install npm:@ask-llm/plugin` ([guide](/plugin/pi))
 - **Marketplace:** `/plugin marketplace add Lykhoyda/ask-llm` then `/plugin install ask-llm@ask-llm-plugins`
-- **Source:** [packages/claude-plugin](https://github.com/Lykhoyda/ask-llm/tree/main/packages/claude-plugin)
+- **Source:** [packages/llm-mcp](https://github.com/Lykhoyda/ask-llm/tree/main/packages/llm-mcp)

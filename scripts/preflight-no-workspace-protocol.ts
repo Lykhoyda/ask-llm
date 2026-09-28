@@ -21,8 +21,20 @@ import { fileURLToPath } from "node:url";
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const DEPS_FIELDS = ["dependencies", "peerDependencies", "optionalDependencies"];
 const CANONICAL_PACKAGES: Record<string, { name: string; bins: string[] }> = {
-  "antigravity-mcp": { name: "@ask-llm/antigravity-mcp", bins: ["ask-antigravity-mcp"] },
-  "claude-mcp": { name: "@ask-llm/claude-mcp", bins: ["ask-claude-mcp"] },
+  "llm-mcp": {
+    name: "@ask-llm/mcp",
+    bins: [
+      "ask-antigravity-run",
+      "ask-brainstorm-run",
+      "ask-codex-run",
+      "ask-gemini-run",
+      "ask-grok-run",
+      "ask-llm",
+      "ask-llm-mcp",
+      "ask-ollama-run",
+      "mcp",
+    ],
+  },
   "claude-plugin": {
     name: "@ask-llm/plugin",
     bins: [
@@ -34,21 +46,8 @@ const CANONICAL_PACKAGES: Record<string, { name: string; bins: string[] }> = {
       "ask-ollama-run",
     ],
   },
-  "codex-mcp": { name: "@ask-llm/codex-mcp", bins: ["ask-codex-mcp"] },
-  "gemini-mcp": { name: "@ask-llm/gemini-mcp", bins: ["ask-gemini-mcp"] },
-  "grok-mcp": { name: "@ask-llm/grok-mcp", bins: ["ask-grok-mcp"] },
-  "llm-mcp": { name: "@ask-llm/mcp", bins: ["ask-llm-mcp"] },
-  "ollama-mcp": { name: "@ask-llm/ollama-mcp", bins: ["ask-ollama-mcp"] },
 };
-const MCP_REGISTRY_MANIFESTS = [
-  "packages/antigravity-mcp/server.json",
-  "packages/gemini-mcp/server.json",
-  "packages/claude-mcp/server.json",
-  "packages/codex-mcp/server.json",
-  "packages/grok-mcp/server.json",
-  "packages/llm-mcp/server.json",
-  "packages/ollama-mcp/server.json",
-];
+const MCP_REGISTRY_MANIFESTS = ["packages/llm-mcp/server.json"];
 
 function findPublishablePackages() {
   const packagesDir = path.join(REPO_ROOT, "packages");

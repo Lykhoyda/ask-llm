@@ -189,20 +189,20 @@ Any error in the stop-gate hook (missing log, parse error, git unavailable) warn
 
 ### Inspecting log activity: the `codex-pair-log` CLI
 
-Shipped alongside the hook at `packages/claude-plugin/scripts/codex-pair-log.mjs`. Walks up from cwd to find the marker (same gate as the hook), then renders the sibling `.codex-pair/log.jsonl`. Useful for "is the hook actually running" diagnostics and for forensic analysis of what's been reviewed.
+Shipped alongside the hook at `packages/llm-mcp/scripts/codex-pair-log.mjs`. Walks up from cwd to find the marker (same gate as the hook), then renders the sibling `.codex-pair/log.jsonl`. Useful for "is the hook actually running" diagnostics and for forensic analysis of what's been reviewed.
 
 ```bash
 # Default: last 10 entries
-node packages/claude-plugin/scripts/codex-pair-log.mjs
+node packages/llm-mcp/scripts/codex-pair-log.mjs
 
 # Aggregate stats: verdict breakdown, top 5 files, cache hit rate, fallback frequency
-node packages/claude-plugin/scripts/codex-pair-log.mjs --summary
+node packages/llm-mcp/scripts/codex-pair-log.mjs --summary
 
 # Filter to one file's history (including reviews logged through another path to the same file)
-node packages/claude-plugin/scripts/codex-pair-log.mjs --file src/billing/charge.ts
+node packages/llm-mcp/scripts/codex-pair-log.mjs --file src/billing/charge.ts
 
 # Only the last 24 hours
-node packages/claude-plugin/scripts/codex-pair-log.mjs --since 24h --latest 50
+node packages/llm-mcp/scripts/codex-pair-log.mjs --since 24h --latest 50
 ```
 
 Output shape (one line per entry):
@@ -236,7 +236,7 @@ Point at the local repo source via `$PWD` so the path resolves to whatever direc
         "hooks": [
           {
             "type": "command",
-            "command": "sh -c 'node \"$PWD/packages/claude-plugin/scripts/codex-pair-watch.mjs\"'"
+            "command": "sh -c 'node \"$PWD/packages/llm-mcp/scripts/codex-pair-watch.mjs\"'"
           }
         ]
       }
@@ -246,7 +246,7 @@ Point at the local repo source via `$PWD` so the path resolves to whatever direc
 ```
 
 Caveats:
-- Requires launching Claude Code from the repo root (so `$PWD` resolves there). If you launch from a parent directory the hook silently fails; easy to spot via `node packages/claude-plugin/scripts/codex-pair-log.mjs --latest`.
+- Requires launching Claude Code from the repo root (so `$PWD` resolves there). If you launch from a parent directory the hook silently fails; easy to spot via `node packages/llm-mcp/scripts/codex-pair-log.mjs --latest`.
 - Requires a POSIX shell (`sh`) in `PATH`, which macOS and Linux have natively.
 
 #### Form B: Plugin user (you installed via marketplace)

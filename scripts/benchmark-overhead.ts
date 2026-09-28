@@ -142,8 +142,8 @@ async function main() {
   const allMeasurements = [...geminiMeasurements, ...codexMeasurements];
 
   // Step 5: Read markdown files
-  const skillMd = readMarkdownFile("packages/claude-plugin/skills/gemini-review/SKILL.md");
-  const agentMd = readMarkdownFile("packages/claude-plugin/agents/gemini-reviewer.md");
+  const skillMd = readMarkdownFile("packages/llm-mcp/skills/gemini-review/SKILL.md");
+  const agentMd = readMarkdownFile("packages/llm-mcp/agents/gemini-reviewer.md");
 
   // ── Per-tool detail table ──
   const detailHeaders = ["Tool", "Description", "Schema", "Prompt", "Annotations", "Total"];

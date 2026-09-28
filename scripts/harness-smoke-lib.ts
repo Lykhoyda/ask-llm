@@ -537,7 +537,7 @@ export function buildLivePrompt(scenario: Scenario, selection: Selection): strin
 
 function skillPath(root: string, surface: string): string {
   const name = surface.replace("/skill:", "").replace("/", "");
-  return join(root, "packages", "claude-plugin", "skills", name, "SKILL.md");
+  return join(root, "packages", "llm-mcp", "skills", name, "SKILL.md");
 }
 
 interface Invocation {
@@ -554,7 +554,7 @@ function liveInvocation(
   privatePrompt: string,
   effort?: string,
 ): Invocation {
-  const plugin = join(root, "packages", "claude-plugin");
+  const plugin = join(root, "packages", "llm-mcp");
   if (scenario.tool === "claude") {
     return {
       args: [

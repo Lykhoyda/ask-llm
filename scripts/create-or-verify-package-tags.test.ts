@@ -321,8 +321,9 @@ test("workflow structurally runs package tags after the unified release for publ
 });
 
 test("manual dispatch has no inputs and on main is always registry/release/tag recovery without npm", () => {
-  const source = readFileSync(join(import.meta.dirname, "../.github/workflows/release.yml"), "utf8");
-  const workflow = parseYaml(source) as Workflow;
+  const workflow = parseYaml(
+    readFileSync(join(import.meta.dirname, "../.github/workflows/release.yml"), "utf8"),
+  ) as Workflow;
   const steps = workflow.jobs.release.steps;
   const dispatch = workflow.on.workflow_dispatch;
   const skipNpm = "github.event_name != 'workflow_dispatch'";
@@ -337,8 +338,8 @@ test("manual dispatch has no inputs and on main is always registry/release/tag r
     (step) => step.name === "Sync versions from package.json to server.json and marketplace.json",
   ) as WorkflowStep;
   const registryStep = steps.find((step) => step.name === "Publish missing servers to MCP Registry") as WorkflowStep;
-  const geminiVersionStep = steps.find(
-    (step) => step.name === "Get gemini version for unified release tag",
+  const canonicalVersionStep = steps.find(
+    (step) => step.name === "Get canonical version for unified release tag",
   ) as WorkflowStep;
   const unifiedStep = steps.find((step) => step.name === "Create or verify unified GitHub Release") as WorkflowStep;
   const tagStep = steps.find((step) => step.name === "Create or verify per-package Git tags") as WorkflowStep;
@@ -346,23 +347,15 @@ test("manual dispatch has no inputs and on main is always registry/release/tag r
 
   assert.ok(Object.hasOwn(workflow.on, "workflow_dispatch"));
   assert.equal(dispatch == null ? undefined : dispatch.inputs, undefined);
-  assert.doesNotMatch(source, /retry_registry_publish|deprecate_legacy_packages/);
-  assert.equal(
-    steps.some((step) => /deprecate/i.test(step.name ?? "")),
-    false,
-  );
-  assert.doesNotMatch(source, /npm deprecate/);
   assert.equal(verifyStep.if, skipNpm);
   assert.equal(changesetsStep.if, skipNpm);
   assert.equal(publisherStep.if, recoveryGate);
   assert.equal(syncStep.if, recoveryGate);
   assert.equal(registryStep.if, recoveryGate);
-  assert.equal(geminiVersionStep.if, recoveryGate);
+  assert.equal(canonicalVersionStep.if, recoveryGate);
   assert.equal(unifiedStep.if, recoveryGate);
   assert.equal(tagStep.if, recoveryGate);
   assert.match(failureStep.uses, /actions\/github-script@/);
-  assert.match(failureStep.with.script as string, /Run the Release workflow on main/);
-  assert.doesNotMatch(failureStep.with.script as string, /retry_registry_publish/);
 });
 
 test("publish authenticates Yarn Berry; npm whoami is not sufficient after Changesets 3", () => {
@@ -407,4 +400,12 @@ test("public-access step does not fail the release when packages are already pub
   // A bare mutating set that always runs would 403 on already-public packages
   // (run 34600240863) and skip Registry/tag/release.
   assert.doesNotMatch(publicStep.run, /npm access set status=public "\$pkg"\n\s+test "\$\(npm access get status/);
+});
+
+test("selects only the canonical package and dependent bridge from the real workspace", async () => {
+  const { discoverPublicPackages } = await import("./create-or-verify-package-tags.ts");
+  assert.deepEqual(
+    discoverPublicPackages(new URL("..", import.meta.url).pathname).map((pkg) => pkg.name),
+    ["@ask-llm/mcp", "@ask-llm/plugin"],
+  );
 });

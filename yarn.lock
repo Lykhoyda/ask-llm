@@ -228,7 +228,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@ask-llm/antigravity-mcp@npm:^0.8.1, @ask-llm/antigravity-mcp@workspace:packages/antigravity-mcp":
+"@ask-llm/antigravity-mcp@workspace:*, @ask-llm/antigravity-mcp@workspace:packages/antigravity-mcp":
   version: 0.0.0-use.local
   resolution: "@ask-llm/antigravity-mcp@workspace:packages/antigravity-mcp"
   dependencies:
@@ -245,7 +245,7 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@ask-llm/claude-mcp@npm:^0.2.0, @ask-llm/claude-mcp@workspace:packages/claude-mcp":
+"@ask-llm/claude-mcp@workspace:*, @ask-llm/claude-mcp@workspace:packages/claude-mcp":
   version: 0.0.0-use.local
   resolution: "@ask-llm/claude-mcp@workspace:packages/claude-mcp"
   dependencies:
@@ -262,7 +262,7 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@ask-llm/codex-mcp@npm:^0.9.0, @ask-llm/codex-mcp@workspace:packages/codex-mcp":
+"@ask-llm/codex-mcp@workspace:*, @ask-llm/codex-mcp@workspace:packages/codex-mcp":
   version: 0.0.0-use.local
   resolution: "@ask-llm/codex-mcp@workspace:packages/codex-mcp"
   dependencies:
@@ -279,7 +279,7 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@ask-llm/gemini-mcp@npm:^2.0.0, @ask-llm/gemini-mcp@workspace:packages/gemini-mcp":
+"@ask-llm/gemini-mcp@workspace:*, @ask-llm/gemini-mcp@workspace:packages/gemini-mcp":
   version: 0.0.0-use.local
   resolution: "@ask-llm/gemini-mcp@workspace:packages/gemini-mcp"
   dependencies:
@@ -296,7 +296,7 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@ask-llm/grok-mcp@npm:^0.3.0, @ask-llm/grok-mcp@workspace:packages/grok-mcp":
+"@ask-llm/grok-mcp@workspace:*, @ask-llm/grok-mcp@workspace:packages/grok-mcp":
   version: 0.0.0-use.local
   resolution: "@ask-llm/grok-mcp@workspace:packages/grok-mcp"
   dependencies:
@@ -317,28 +317,50 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@ask-llm/mcp@workspace:packages/llm-mcp"
   dependencies:
-    "@ask-llm/antigravity-mcp": "npm:^0.8.1"
-    "@ask-llm/claude-mcp": "npm:^0.2.0"
-    "@ask-llm/codex-mcp": "npm:^0.9.0"
-    "@ask-llm/gemini-mcp": "npm:^2.0.0"
-    "@ask-llm/grok-mcp": "npm:^0.3.0"
-    "@ask-llm/ollama-mcp": "npm:^0.7.0"
+    "@ask-llm/antigravity-mcp": "workspace:*"
+    "@ask-llm/claude-mcp": "workspace:*"
+    "@ask-llm/codex-mcp": "workspace:*"
+    "@ask-llm/gemini-mcp": "workspace:*"
+    "@ask-llm/grok-mcp": "workspace:*"
+    "@ask-llm/ollama-mcp": "workspace:*"
     "@ask-llm/shared": "workspace:*"
     "@biomejs/biome": "npm:^2.5.10"
+    "@earendil-works/pi-ai": "npm:^0.84.2"
+    "@earendil-works/pi-coding-agent": "npm:^0.84.2"
     "@modelcontextprotocol/sdk": "npm:^1.30.0"
     "@toon-format/toon": "npm:^4.1.1"
     "@types/node": "npm:^24.13.6"
     ajv: "npm:8.20.0"
     tsdown: "npm:^0.22.14"
+    typebox: "npm:1.3.7"
     typescript: "npm:^7.0.2"
     vitest: "npm:^4.1.11"
     zod: "npm:^4.4.3"
+  peerDependencies:
+    "@earendil-works/pi-ai": "*"
+    "@earendil-works/pi-coding-agent": "*"
+    typebox: "*"
+  peerDependenciesMeta:
+    "@earendil-works/pi-ai":
+      optional: true
+    "@earendil-works/pi-coding-agent":
+      optional: true
+    typebox:
+      optional: true
   bin:
+    ask-antigravity-run: dist/antigravity-run.js
+    ask-brainstorm-run: dist/brainstorm-run.js
+    ask-codex-run: dist/codex-run.js
+    ask-gemini-run: dist/run.js
+    ask-grok-run: dist/grok-run.js
+    ask-llm: dist/ask-llm.js
     ask-llm-mcp: dist/cli.js
+    ask-ollama-run: dist/ollama-run.js
+    mcp: dist/cli.js
   languageName: unknown
   linkType: soft
 
-"@ask-llm/ollama-mcp@npm:^0.7.0, @ask-llm/ollama-mcp@workspace:packages/ollama-mcp":
+"@ask-llm/ollama-mcp@workspace:*, @ask-llm/ollama-mcp@workspace:packages/ollama-mcp":
   version: 0.0.0-use.local
   resolution: "@ask-llm/ollama-mcp@workspace:packages/ollama-mcp"
   dependencies:
@@ -359,12 +381,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@ask-llm/plugin@workspace:packages/claude-plugin"
   dependencies:
-    "@ask-llm/antigravity-mcp": "npm:^0.8.1"
-    "@ask-llm/codex-mcp": "npm:^0.9.0"
-    "@ask-llm/gemini-mcp": "npm:^2.0.0"
-    "@ask-llm/grok-mcp": "npm:^0.3.0"
     "@ask-llm/mcp": "npm:^0.12.1"
-    "@ask-llm/ollama-mcp": "npm:^0.7.0"
     "@biomejs/biome": "npm:^2.5.10"
     "@earendil-works/pi-ai": "npm:^0.84.2"
     "@earendil-works/pi-coding-agent": "npm:^0.84.2"

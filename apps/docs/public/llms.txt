@@ -12,8 +12,8 @@ Ask LLM provides Model Context Protocol (MCP) servers that let any MCP-compatibl
 - `@ask-llm/antigravity-mcp`: MCP server for Google Antigravity CLI (`agy` ≥1.1.5). Subscription-backed second opinion. Execution refuses by default; see the [provider guide](https://lykhoyda.github.io/ask-llm/providers/antigravity) for opt-in and isolation limits. Default model: `gemini-3.1-pro` → `gemini-3.8-flash` on rate limit, both at high effort.
 - `@ask-llm/ollama-mcp`: MCP server for local Ollama. No API keys, fully private. Default model: qwen3.8:27b (no fallback).
 - `@ask-llm/gemini-mcp`: MCP server for Google Gemini CLI. 1M+ token context. Default model: gemini-3.1-pro-preview → gemini-3.8-flash on quota. (Enterprise-gated since 2026-06-18.)
-- `@ask-llm/mcp`: Unified server: auto-detects installed providers and registers all available tools.
-- `@ask-llm/plugin`: Canonical Claude Code + Cursor Agent + Pi host package. One skill corpus; Claude marketplace agents/hooks; Cursor Plugin Agent Skills + `mcp.json`; Pi native provider tools and consent-gated lifecycle extension.
+- `@ask-llm/mcp`: Canonical package with the unified server, bundled provider executors, and Claude Code, Cursor Agent, and Pi host assets: skills, agents, hooks, plugin manifests, and Pi native tools.
+- `@ask-llm/plugin`: Dependent bridge for existing plugin and Pi installations.
 
 ## Installation
 
@@ -55,7 +55,7 @@ Note: every `includeDirs` parameter accepts **relative paths only**: no `..`, ab
 
 ## Claude Code, Cursor Agent, and Pi Host Package
 
-For Cursor Agent: `agent --plugin-dir ./packages/claude-plugin` from a source checkout loads `.cursor-plugin/plugin.json` (Agent Skills exposing exactly `/codex-pair` and `/grok-pair`; explicit empty `agents`/`commands`/`hooks`; `mcp.json` registering only the unified `ask-llm` server, with `@ask-llm/codex-mcp`/`@ask-llm/grok-mcp` as optional user installs); no Claude hooks, namespaces, or the `-ack`/`-pause`/`-resume` toggles. Guide: https://lykhoyda.github.io/ask-llm/plugin/cursor
+For Cursor Agent: `agent --plugin-dir ./packages/llm-mcp` from a source checkout loads `.cursor-plugin/plugin.json` (Agent Skills exposing exactly `/codex-pair` and `/grok-pair`; explicit empty `agents`/`commands`/`hooks`; `mcp.json` registering only the unified `ask-llm` server, with `@ask-llm/codex-mcp`/`@ask-llm/grok-mcp` as optional user installs); no Claude hooks, namespaces, or the `-ack`/`-pause`/`-resume` toggles. Guide: https://lykhoyda.github.io/ask-llm/plugin/cursor
 
 For Pi: `pi install npm:@ask-llm/plugin`. Invoke `/skill:<name>`; Pi gets native `ask-codex`, `ask-gemini`, `ask-grok`, `ask-ollama`, `ask-antigravity`, model-neutral `ask-cursor-agent`, and deterministic `ask-multi` tools because Pi has no built-in MCP client. `fable-review`, `grok-pair`, blocking Stop-gate parity, and asynchronous one-shot print pairing are intentionally unsupported. Pi codex-pair requires marker + project trust + user-owned allowlist consent.
 
