@@ -190,22 +190,21 @@ jobs:
           node scripts/publish-mcp-registry.ts
           packages/llm-mcp/server.json
 
-      # Unified GitHub Release tagged at gemini's version (legacy convention from when this
-      # was a fork of gemini-mcp-tool). It remains the single human-facing GitHub Release,
+      # Unified GitHub Release tagged at the canonical package version. It remains the single human-facing GitHub Release,
       # alongside remote per-package source tags used for package-level audit/diff links.
-      - name: Get gemini version for unified release tag
+      - name: Get canonical version for unified release tag
         if: steps.changesets.outputs.published == 'true' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')
-        id: gemini_version
-        run: echo "version=$(node -p "require('./packages/gemini-mcp/package.json').version")" >> "$GITHUB_OUTPUT"
+        id: canonical_version
+        run: echo "version=$(node -p "require('./packages/llm-mcp/package.json').version")" >> "$GITHUB_OUTPUT"
 
       - name: Create or verify unified GitHub Release
         if: steps.changesets.outputs.published == 'true' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')
         env:
-          GEMINI_VERSION: ${{ steps.gemini_version.outputs.version }}
+          CANONICAL_VERSION: ${{ steps.canonical_version.outputs.version }}
           GH_TOKEN: ${{ github.token }}
         run: |
-          TAG="v${GEMINI_VERSION}"
-          TAG_TARGET=$(git log -G "^[[:space:]]*\"version\": \"${GEMINI_VERSION}\"" -1 --format=%H -- packages/gemini-mcp/package.json)
+          TAG="v${CANONICAL_VERSION}"
+          TAG_TARGET=$(git log -G "^[[:space:]]*\"version\": \"${CANONICAL_VERSION}\"" -1 --format=%H -- packages/llm-mcp/package.json)
           test -n "$TAG_TARGET"
           # A recovery may follow a partially-created tag or release. Verify the
           # existing tag target, create only the missing object, and never retag.

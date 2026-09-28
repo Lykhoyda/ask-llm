@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { expect, it } from "vitest";
@@ -37,7 +37,11 @@ it("packs the server, command entrypoints, and complete host resources into the 
     ]) {
       expect(files, path).toContain(path);
     }
-    const pkg = JSON.parse(readFileSync(join(root, "packages/llm-mcp/package.json"), "utf8"));
+    const manifest = spawnSync("tar", ["-xOzf", join(temp, archive.filename), "package/package.json"], {
+      encoding: "utf8",
+    });
+    expect(manifest.status, manifest.stderr).toBe(0);
+    const pkg = JSON.parse(manifest.stdout);
     expect(pkg.bin).toMatchObject({ "ask-llm": "dist/ask-llm.js", "ask-llm-mcp": "dist/cli.js", mcp: "dist/cli.js" });
     expect(Object.keys(pkg.dependencies).filter((name) => name.startsWith("@ask-llm/"))).toEqual([]);
   } finally {

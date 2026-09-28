@@ -337,8 +337,8 @@ test("manual dispatch has no inputs and on main is always registry/release/tag r
     (step) => step.name === "Sync versions from package.json to server.json and marketplace.json",
   ) as WorkflowStep;
   const registryStep = steps.find((step) => step.name === "Publish missing servers to MCP Registry") as WorkflowStep;
-  const geminiVersionStep = steps.find(
-    (step) => step.name === "Get gemini version for unified release tag",
+  const canonicalVersionStep = steps.find(
+    (step) => step.name === "Get canonical version for unified release tag",
   ) as WorkflowStep;
   const unifiedStep = steps.find((step) => step.name === "Create or verify unified GitHub Release") as WorkflowStep;
   const tagStep = steps.find((step) => step.name === "Create or verify per-package Git tags") as WorkflowStep;
@@ -357,7 +357,7 @@ test("manual dispatch has no inputs and on main is always registry/release/tag r
   assert.equal(publisherStep.if, recoveryGate);
   assert.equal(syncStep.if, recoveryGate);
   assert.equal(registryStep.if, recoveryGate);
-  assert.equal(geminiVersionStep.if, recoveryGate);
+  assert.equal(canonicalVersionStep.if, recoveryGate);
   assert.equal(unifiedStep.if, recoveryGate);
   assert.equal(tagStep.if, recoveryGate);
   assert.match(failureStep.uses, /actions\/github-script@/);
