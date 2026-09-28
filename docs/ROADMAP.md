@@ -1,6 +1,6 @@
 # Roadmap
 
-## Current priorities (2026-08-23)
+## Current priorities (2026-09-28)
 
 This section is the live roadmap. The dated material below remains owned by this file and is retained as delivery history and decision evidence. Priorities are reconciled to the open GitHub backlog; Kano and effort labels are summarized in [`docs/KANO-TRIAGE.md`](KANO-TRIAGE.md).
 
