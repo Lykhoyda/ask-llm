@@ -1,4 +1,3 @@
-// Regenerate after an intended contract change: yarn build && ASK_LLM_UPDATE_CONTRACT=1 yarn vitest run scripts/release-contract.test.ts && yarn biome format --write scripts/fixtures/contract
 import { spawnSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -123,7 +122,10 @@ describe("release contract", () => {
   });
 
   it("pins the bin names of every published package", () => {
-    expectFixture("bins", Object.fromEntries(packages.map(({ manifest }) => [manifest.name, Object.keys(manifest.bin ?? {}).sort()])));
+    expectFixture(
+      "bins",
+      Object.fromEntries(packages.map(({ manifest }) => [manifest.name, Object.keys(manifest.bin ?? {}).sort()])),
+    );
   });
 
   // The unified ask-llm provider enum is the zero-providers-detected startup schema: every eligible provider.
