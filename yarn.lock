@@ -3571,9 +3571,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"ask-llm@workspace:.":
+"ask-llm-monorepo@workspace:.":
   version: 0.0.0-use.local
-  resolution: "ask-llm@workspace:."
+  resolution: "ask-llm-monorepo@workspace:."
   dependencies:
     "@biomejs/biome": "npm:^2.5.10"
     "@changesets/changelog-github": "npm:^1.0.0"
@@ -3585,6 +3585,12 @@ __metadata:
     typescript: "npm:^7.0.2"
     vitest: "npm:^4.1.11"
     yaml: "npm:^2.9.0"
+  languageName: unknown
+  linkType: soft
+
+"ask-llm@workspace:packages/ask-llm":
+  version: 0.0.0-use.local
+  resolution: "ask-llm@workspace:packages/ask-llm"
   languageName: unknown
   linkType: soft
 

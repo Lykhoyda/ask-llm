@@ -1,0 +1,23 @@
+{
+  "name": "ask-llm",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Get a second opinion on your code or plan, inside your coding assistant, using the model subscriptions you already have.",
+  "author": "Lykhoyda",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Lykhoyda/ask-llm.git",
+    "directory": "packages/ask-llm"
+  },
+  "bugs": {
+    "url": "https://github.com/Lykhoyda/ask-llm/issues"
+  },
+  "homepage": "https://github.com/Lykhoyda/ask-llm#readme",
+  "engines": {
+    "node": ">=24.0.0"
+  },
+  "files": [
+    "README.md"
+  ]
+}
