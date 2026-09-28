@@ -11,6 +11,7 @@ const pluginManifest = JSON.parse(
 );
 const batch = "$" + "{{ matrix.batch }}";
 const piVersion = "$" + "{{ matrix.pi-version }}";
+const nodeVersion = "$" + "{{ matrix.node-version }}";
 
 interface WorkflowJob {
   name?: string;
@@ -18,12 +19,18 @@ interface WorkflowJob {
   "runs-on"?: string;
   "timeout-minutes"?: number;
   strategy?: { matrix?: Record<string, unknown> };
-  steps?: { name?: string; run?: string; uses?: string; with?: Record<string, unknown> }[];
+  steps?: {
+    name?: string;
+    run?: string;
+    uses?: string;
+    with?: Record<string, unknown>;
+    env?: Record<string, string>;
+  }[];
 }
 
 describe("Pi host support workflow contract", () => {
   const piJob = parsedWorkflow.jobs["pi-package-smoke"];
-  const lifecycleStep = piJob.steps.find(
+  const lifecycleStep = piJob.steps?.find(
     (step: { name?: string }) => step.name === "Clean Pi install, discovery, update, remove, and temporary evaluation",
   );
 
@@ -37,10 +44,10 @@ describe("Pi host support workflow contract", () => {
   });
 
   it("isolates every Pi package smoke cell", () => {
-    expect(lifecycleStep.env.HOME).toContain(piVersion);
-    expect(lifecycleStep.env.PI_CODING_AGENT_DIR).toContain(piVersion);
-    expect(lifecycleStep.env.PI_PROJECT).toContain(piVersion);
-    expect(lifecycleStep.env.PI_VERSION).toBe(piVersion);
+    expect(lifecycleStep?.env?.HOME).toContain(piVersion);
+    expect(lifecycleStep?.env?.PI_CODING_AGENT_DIR).toContain(piVersion);
+    expect(lifecycleStep?.env?.PI_PROJECT).toContain(piVersion);
+    expect(lifecycleStep?.env?.PI_VERSION).toBe(piVersion);
   });
 });
 
@@ -65,12 +72,14 @@ describe("five-batch workflow contract", () => {
       expect(setup.steps?.find((step) => step.uses?.startsWith("actions/setup-node@"))?.with?.["node-version"]).toBe(
         chain.nodeVersion,
       );
-      expect(setupCommands).toEqual(expect.arrayContaining([
-        "yarn install --immutable",
-        "yarn build",
-        "yarn lint",
-        "node scripts/check-shared-changeset.ts",
-      ]));
+      expect(setupCommands).toEqual(
+        expect.arrayContaining([
+          "yarn install --immutable",
+          "yarn build",
+          "yarn lint",
+          "node scripts/check-shared-changeset.ts",
+        ]),
+      );
       expect(setup.steps?.find((step) => step.uses?.startsWith("actions/upload-artifact@"))?.with?.name).toBe(
         `test-setup-${chain.nodeVersion}-${chain.os}`,
       );
@@ -128,7 +137,7 @@ describe("supported CI platforms", () => {
       "test-batches-node24-ubuntu",
       "test-node24-ubuntu",
     ]);
-    expect(parsedWorkflow.jobs["global-install-smoke"].strategy.matrix["node-version"]).toEqual(["24.x", "26.x"]);
+    expect(parsedWorkflow.jobs["global-install-smoke"].strategy?.matrix?.["node-version"]).toEqual(["24.x", "26.x"]);
     const workflowsDir = resolve(import.meta.dirname, "../.github/workflows");
     for (const name of readdirSync(workflowsDir).filter((file) => /\.ya?ml$/.test(file))) {
       const workflow = parse(readFileSync(resolve(workflowsDir, name), "utf8"));
@@ -139,7 +148,7 @@ describe("supported CI platforms", () => {
           if (!step.uses?.startsWith("actions/setup-node@")) continue;
           const version = step.with?.["node-version"];
           if (matrixVersions) {
-            expect(version, name).toBe("${{ matrix.node-version }}");
+            expect(version, name).toBe(nodeVersion);
           } else {
             expect([24, "24", "24.x"], name).toContain(version);
           }

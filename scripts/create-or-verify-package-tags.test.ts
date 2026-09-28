@@ -321,7 +321,9 @@ test("workflow structurally runs package tags after the unified release for publ
 });
 
 test("manual dispatch has no inputs and on main is always registry/release/tag recovery without npm", () => {
-  const workflow = parseYaml(readFileSync(join(import.meta.dirname, "../.github/workflows/release.yml"), "utf8")) as Workflow;
+  const workflow = parseYaml(
+    readFileSync(join(import.meta.dirname, "../.github/workflows/release.yml"), "utf8"),
+  ) as Workflow;
   const steps = workflow.jobs.release.steps;
   const dispatch = workflow.on.workflow_dispatch;
   const skipNpm = "github.event_name != 'workflow_dispatch'";
