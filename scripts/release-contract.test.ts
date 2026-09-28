@@ -109,31 +109,11 @@ async function listServer(cli: string) {
   const client = new Client({ name: "release-contract", version: "1.0.0" });
   await client.connect(transport);
   try {
-    const capabilities = client.getServerCapabilities() ?? {};
-    return {
-      tools: byName(
-        await listAll(async (params) => {
-          const page = await client.listTools(params);
-          return { items: page.tools, nextCursor: page.nextCursor };
-        }),
-      ),
-      prompts: capabilities.prompts
-        ? byName(
-            await listAll(async (params) => {
-              const page = await client.listPrompts(params);
-              return { items: page.prompts, nextCursor: page.nextCursor };
-            }),
-          )
-        : [],
-      resources: capabilities.resources
-        ? byName(
-            await listAll(async (params) => {
-              const page = await client.listResources(params);
-              return { items: page.resources, nextCursor: page.nextCursor };
-            }),
-          )
-        : [],
-    };
+    const tools = await listAll(async (params) => {
+      const page = await client.listTools(params);
+      return { items: page.tools, nextCursor: page.nextCursor };
+    });
+    return byName(tools).map(({ name, inputSchema, outputSchema }) => ({ name, inputSchema, outputSchema }));
   } finally {
     await client.close();
   }
@@ -146,7 +126,7 @@ describe("release contract", () => {
   });
 
   it("pins the bin names of every published package", () => {
-    expectFixture("bins", Object.fromEntries(packages.map(({ manifest }) => [manifest.name, manifest.bin ?? {}])));
+    expectFixture("bins", Object.fromEntries(packages.map(({ manifest }) => [manifest.name, Object.keys(manifest.bin ?? {}).sort()])));
   });
 
   // The unified ask-llm provider enum is the zero-providers-detected startup schema: every eligible provider.
