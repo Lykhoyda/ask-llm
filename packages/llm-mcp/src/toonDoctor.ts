@@ -170,7 +170,8 @@ export function doctorHelp(includeHosts = false): string {
           "",
           "Host restart field in text/JSON describes what a registration change requires.",
           "Provider states: installed, authenticated and permitted come from local signals only",
-          "(yes, no, unknown or not-required); exercised stays not-run unless --live is given.",
+          "(yes, no, unknown or not-required); permitted is yes unless Ask LLM gates the provider",
+          "(today only Antigravity); exercised stays not-run unless --live is given.",
         ]
       : []),
     "",
