@@ -368,6 +368,6 @@ MIT
 
 ## Command compatibility
 
-`ask-llm --help`, `ask-llm --version` and `ask-llm doctor` use the canonical package. `ask-llm-mcp` still starts the stdio MCP server without arguments and keeps its existing doctor, machine and REPL commands.
+`ask-llm --help`, `ask-llm --version` and `ask-llm doctor` use the canonical package; `ask-llm doctor` also reports which coding-agent hosts are installed and whether Ask LLM is registered in each. `ask-llm setup --dry-run [--json]` previews the exact command or file each detected host would use for registration and writes nothing; setup without `--dry-run` refuses in this release. `ask-llm-mcp` still starts the stdio MCP server without arguments and keeps its existing doctor, machine and REPL commands.
 
 The package-name alias `mcp` points to the same server entrypoint so `npx -y @ask-llm/mcp` can still select it automatically. A global installation also exposes a generic `mcp` command, which may collide with another installed command; use the namespaced `ask-llm-mcp` command when invoking the server directly.

@@ -5,12 +5,16 @@ import { getSpawnEnv } from "@ask-llm/shared";
 const execFileAsync = promisify(execFile);
 const IS_WINDOWS = process.platform === "win32";
 
-export async function isCommandAvailable(command: string): Promise<boolean> {
+export async function resolveCommand(command: string): Promise<string | undefined> {
   try {
     const which = IS_WINDOWS ? "where" : "which";
-    await execFileAsync(which, [command], { timeout: 5000, env: getSpawnEnv() });
-    return true;
+    const { stdout } = await execFileAsync(which, [command], { timeout: 5000, env: getSpawnEnv() });
+    return stdout.split(/\r?\n/)[0]?.trim() || undefined;
   } catch {
-    return false;
+    return undefined;
   }
+}
+
+export async function isCommandAvailable(command: string): Promise<boolean> {
+  return (await resolveCommand(command)) !== undefined;
 }
