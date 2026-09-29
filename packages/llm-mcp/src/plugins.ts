@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { backupConfig } from "./hosts/apply.js";
+import { backupConfig, firstLine } from "./hosts/apply.js";
 import type { DetectedHost } from "./hosts/detect.js";
 import type { HostId } from "./hosts/registry.js";
 import { runHost } from "./hosts/spawn.js";
@@ -108,8 +108,7 @@ export async function installPlugins(
     for (const argv of plan.commands) {
       const run = await runHost(plan.binary, argv.slice(1), env, PLUGIN_TIMEOUT_MS);
       if (run.code !== 0) {
-        const output = `${run.stderr}\n${run.stdout}`.split(/\r?\n/).find((line) => line.trim()) ?? "no output";
-        failure = `${output.trim().slice(0, 300)} (exit ${run.code ?? "timeout or signal"})`;
+        failure = `${firstLine(`${run.stderr}\n${run.stdout}`) || "no output"} (exit ${run.code ?? "timeout or signal"})`;
         break;
       }
     }

@@ -1,6 +1,7 @@
 import { existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { firstLine } from "./hosts/apply.js";
 import type { DetectedHost } from "./hosts/detect.js";
 import type { HostId } from "./hosts/registry.js";
 import { runHost } from "./hosts/spawn.js";
@@ -74,59 +75,51 @@ export function planSkills(
   }
   if (plan.agents.length > 0) {
     const agents = plan.agents.map(({ agent }) => agent);
-    plan.argv = ["npx", "-y", `skills@${SKILLS_CLI_VERSION}`, "add", SKILLS_SOURCE, "--skill", ...names, "-g"];
-    plan.argv.push("-a", ...agents, "-y");
+    const cli = ["npx", "-y", `skills@${SKILLS_CLI_VERSION}`, "add", SKILLS_SOURCE];
+    plan.argv = [...cli, "--skill", ...names, "-g", "-a", ...agents, "-y"];
     plan.command = `DISABLE_TELEMETRY=1 ${commandText(plan.argv)}`;
   }
   return plan;
 }
 
-function firstLine(text: string): string {
-  return (text.split(/\r?\n/).find((line) => line.trim()) ?? "").trim().slice(0, 300);
-}
+const row = (
+  { id, name }: { id: HostId; name: string },
+  status: WorkflowStatus,
+  extra: Partial<WorkflowResult> = {},
+): WorkflowResult => ({ id, name, label: `${name} skills`, status, ...extra });
 
 export async function installSkills(
   plan: SkillsPlan,
   confirm: Confirm,
   env: NodeJS.ProcessEnv,
 ): Promise<WorkflowResult[]> {
-  const results: WorkflowResult[] = [
-    ...plan.upToDate.map(({ id, name }) => ({ id, name, label: `${name} skills`, status: "up-to-date" as const })),
-    ...plan.manual.map(({ id, name, command }) => ({
-      id,
-      name,
-      label: `${name} skills`,
-      status: "manual" as const,
-      detail: `skills@${SKILLS_CLI_VERSION} has no agent id that writes ${name}'s skills folder`,
-      manual: command,
-    })),
-  ];
   const { argv, command, agents, names } = plan;
+  const results = [
+    ...plan.upToDate.map((host) => row(host, "up-to-date")),
+    ...plan.manual.map((host) =>
+      row(host, "manual", {
+        detail: `skills@${SKILLS_CLI_VERSION} has no agent id that writes ${host.name}'s skills folder`,
+        manual: host.command,
+      }),
+    ),
+  ];
   if (!argv || !command) return results;
   const hostList = agents.map(({ name }) => name).join(", ");
-  const done = (status: WorkflowStatus, extra: Partial<WorkflowResult> = {}) =>
-    agents.map(({ id, name }) => ({ id, name, label: `${name} skills`, status, ...extra }));
   if (!(await confirm(`Install the Ask LLM skills for ${hostList}? Runs: ${command}`))) {
-    return [...results, ...done("declined")];
+    return [...results, ...agents.map((host) => row(host, "declined"))];
   }
   const run = await runHost(argv[0], argv.slice(1), { ...env, DISABLE_TELEMETRY: "1" }, SKILLS_TIMEOUT_MS);
   if (run.code !== 0) {
     const detail = `${firstLine(`${run.stderr}\n${run.stdout}`) || "no output"} (exit ${run.code ?? "timeout or signal"})`;
-    return [...results, ...done("failed", { detail, manual: command })];
+    return [...results, ...agents.map((host) => row(host, "failed", { detail, manual: command }))];
   }
+  const missing = (dir: string) => `the skills CLI exited 0 but ${dir} lacks some Ask LLM skills`;
   return [
     ...results,
-    ...agents.map(({ id, name, dir }) =>
-      hasAll(dir, names)
-        ? { id, name, label: `${name} skills`, status: "installed" as const }
-        : {
-            id,
-            name,
-            label: `${name} skills`,
-            status: "failed" as const,
-            detail: `the skills CLI exited 0 but ${dir} lacks some Ask LLM skills`,
-            manual: command,
-          },
+    ...agents.map((host) =>
+      hasAll(host.dir, names)
+        ? row(host, "installed")
+        : row(host, "failed", { detail: missing(host.dir), manual: command }),
     ),
   ];
 }

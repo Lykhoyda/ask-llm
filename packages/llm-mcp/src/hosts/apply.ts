@@ -52,7 +52,7 @@ const HOST_COMMAND_TIMEOUT_MS = 30_000;
 const ALREADY_EXISTS = /already (exists|configured)/i;
 const NOT_FOUND = /not found|no mcp server named/i;
 
-function firstLine(text: string): string {
+export function firstLine(text: string): string {
   return (text.split(/\r?\n/).find((line) => line.trim()) ?? "").trim().slice(0, 300);
 }
 

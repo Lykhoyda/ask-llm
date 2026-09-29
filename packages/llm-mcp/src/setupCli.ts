@@ -5,7 +5,7 @@ import { buildPlan, genericSnippet, type PlanEntry, resolveServerPath, type Serv
 import { installPlugins, type PluginPlan, planPlugins } from "./plugins.js";
 import { applyRemove } from "./remove.js";
 import { applySetup, type Confirm, type HostResult, type HostStatus, UNSUCCESSFUL } from "./setup.js";
-import { installSkills, planSkills, type SkillsPlan, type WorkflowResult, type WorkflowStatus } from "./skills.js";
+import { installSkills, planSkills, type SkillsPlan, type WorkflowResult } from "./skills.js";
 
 const HOST_IDS = hostSpecs().map(({ id }) => id);
 
@@ -165,16 +165,10 @@ function formatResult(result: HostResult): string[] {
   return lines;
 }
 
-const WORKFLOW_LABELS: Record<WorkflowStatus, string> = {
-  installed: "installed",
-  "up-to-date": "already installed",
-  declined: "declined",
-  manual: "manual",
-  failed: "failed",
-};
-
 function formatWorkflow(result: WorkflowResult): string[] {
-  const lines = [`  ${result.label}: ${WORKFLOW_LABELS[result.status]}${result.detail ? ` (${result.detail})` : ""}`];
+  const lines = [
+    `  ${result.label}: ${result.status === "up-to-date" ? "already installed" : result.status}${result.detail ? ` (${result.detail})` : ""}`,
+  ];
   if (result.backup) lines.push(`      Backup: ${result.backup}`);
   if (result.manual) lines.push(`      Run it manually: ${result.manual}`);
   return lines;
