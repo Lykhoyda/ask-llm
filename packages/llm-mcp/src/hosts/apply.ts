@@ -1,4 +1,14 @@
-import { closeSync, constants, fchmodSync, fstatSync, openSync, readSync, unlinkSync, writeSync } from "node:fs";
+import {
+  closeSync,
+  constants,
+  fchmodSync,
+  fstatSync,
+  openSync,
+  readSync,
+  realpathSync,
+  unlinkSync,
+  writeSync,
+} from "node:fs";
 import { getSpawnEnv } from "@ask-llm/shared";
 import { isOwnRegistration, UNUSABLE_ENTRY } from "../plan.js";
 import { type DetectedHost, type RegistrationState, readRegistration } from "./detect.js";
@@ -55,10 +65,17 @@ function gate(host: DetectedHost, current: RegistrationState, op: HostOp, server
 
 function backupConfig(file: string | undefined): string | undefined {
   if (!file) return undefined;
-  const backup = `${file}.ask-llm-backup-${new Date().toISOString().replace(/[:.]/g, "-")}`;
+  let resolved: string;
+  try {
+    resolved = realpathSync(file);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return undefined;
+    throw error;
+  }
+  const backup = `${resolved}.ask-llm-backup-${new Date().toISOString().replace(/[:.]/g, "-")}`;
   let source: number;
   try {
-    source = openSync(file, constants.O_RDONLY | constants.O_NOFOLLOW);
+    source = openSync(resolved, constants.O_RDONLY | constants.O_NOFOLLOW);
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === "ENOENT") return undefined;
     throw error;

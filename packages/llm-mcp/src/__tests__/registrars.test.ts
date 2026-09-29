@@ -238,16 +238,32 @@ it("does not overwrite an existing backup or run the host", async () => {
   expect(fakeArgv(home, "grok")).toEqual([]);
 });
 
-it("does not follow a symlinked config or run the host", async () => {
-  writeRegistration(home, "grok", SERVER);
+it("backs up beside a symlinked config's real file before registration", async () => {
+  mkdirSync(join(home, ".grok"));
   const file = join(home, FAKE_HOSTS.grok.file);
   const other = join(home, "other-config.toml");
-  writeFileSync(other, readFileSync(file));
-  rmSync(file);
+  const before = '[ui]\ntheme = "dark"\n';
+  writeFileSync(other, before);
+  chmodSync(other, 0o640);
   symlinkSync(other, file);
-  expect(await applyRegistrar(await detected("grok"), "remove", SERVER, env)).toMatchObject({
-    outcome: "failed",
-    detail: expect.stringContaining("cannot back up"),
-  });
-  expect(fakeArgv(home, "grok")).toEqual([]);
+  const applied = await applyRegistrar(await detected("grok"), "add", SERVER, env);
+  expect(applied.outcome).toBe("changed");
+  expect(applied.backup?.startsWith(`${other}.ask-llm-backup-`)).toBe(true);
+  expect(readFileSync(applied.backup as string, "utf8")).toBe(before);
+  expect(statSync(applied.backup as string).mode & 0o7777).toBe(0o640);
+  expect(fakeArgv(home, "grok")).toEqual([["mcp", "add", "--scope", "user", "ask-llm", SERVER]]);
+});
+
+it("backs up beside a symlinked config directory's real file before registration", async () => {
+  const linked = join(home, ".grok");
+  const real = join(home, "grok-config");
+  mkdirSync(real);
+  writeFileSync(join(real, "config.toml"), '[ui]\ntheme = "dark"\n', { mode: 0o640 });
+  symlinkSync(real, linked);
+  const applied = await applyRegistrar(await detected("grok"), "add", SERVER, env);
+  expect(applied.outcome).toBe("changed");
+  expect(applied.backup?.startsWith(`${join(real, "config.toml")}.ask-llm-backup-`)).toBe(true);
+  expect(readFileSync(applied.backup as string, "utf8")).toBe('[ui]\ntheme = "dark"\n');
+  expect(statSync(applied.backup as string).mode & 0o7777).toBe(0o640);
+  expect(fakeArgv(home, "grok")).toEqual([["mcp", "add", "--scope", "user", "ask-llm", SERVER]]);
 });
