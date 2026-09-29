@@ -124,6 +124,13 @@ describe("buildPlan", () => {
     });
   });
 
+  it("never overwrites a disabled or command-less ask-llm entry", () => {
+    expect(entry(detected("codex", { registered: false, present: true }))).toMatchObject({
+      action: "conflict",
+      reason: "an ask-llm entry exists but is disabled or has no usable command; setup will not overwrite it",
+    });
+  });
+
   it("keeps unreadable registrations and unverified hosts manual", () => {
     expect(entry(detected("cursor", { registered: null, error: "cannot read registration: bad" }))).toMatchObject({
       action: "manual",
@@ -155,6 +162,11 @@ describe("resolveServerPath", () => {
   beforeEach(() => {
     rmSync(bin, { recursive: true, force: true });
     mkdirSync(bin, { recursive: true });
+    writeFileSync(
+      join(bin, "npm"),
+      `#!/bin/sh\nif [ "$1" = prefix ]; then echo '${root}'; else echo '${join(root, "lib/node_modules")}'; fi\n`,
+      { mode: 0o755 },
+    );
   });
 
   function packageCli(base: string): string {
@@ -165,15 +177,53 @@ describe("resolveServerPath", () => {
   }
 
   it("prefers the global ask-llm-mcp bin that resolves to this package", async () => {
-    const cli = packageCli("global/lib/node_modules/@ask-llm/mcp");
+    const cli = packageCli("lib/node_modules/@ask-llm/mcp");
     symlinkSync(cli, join(bin, "ask-llm-mcp"));
     await expect(resolveServerPath(cli)).resolves.toEqual({ path: join(bin, "ask-llm-mcp"), source: "global-bin" });
+  });
+
+  it("runs npm with the augmented PATH used to find Node and npm", async () => {
+    const cli = packageCli("lib/node_modules/@ask-llm/mcp");
+    symlinkSync(cli, join(bin, "ask-llm-mcp"));
+    symlinkSync(process.execPath, join(bin, "node"));
+    writeFileSync(
+      join(bin, "npm"),
+      `#!/usr/bin/env node\nprocess.stdout.write(process.argv[2] === "prefix" ? ${JSON.stringify(root)} : ${JSON.stringify(join(root, "lib/node_modules"))});\n`,
+      { mode: 0o755 },
+    );
+    const inheritedPath = process.env.PATH;
+    process.env.PATH = "";
+    try {
+      await expect(resolveServerPath(cli)).resolves.toEqual({ path: join(bin, "ask-llm-mcp"), source: "global-bin" });
+    } finally {
+      if (inheritedPath === undefined) delete process.env.PATH;
+      else process.env.PATH = inheritedPath;
+    }
   });
 
   it("falls back to this package's absolute server path when another ask-llm-mcp is on PATH", async () => {
     const cli = packageCli("checkout/packages/llm-mcp");
     symlinkSync(packageCli("other"), join(bin, "ask-llm-mcp"));
     await expect(resolveServerPath(cli)).resolves.toEqual({ path: cli, source: "package-dist" });
+  });
+
+  it("does not treat a project-local bin as durable", async () => {
+    const cli = packageCli("checkout/packages/llm-mcp");
+    symlinkSync(cli, join(bin, "ask-llm-mcp"));
+    await expect(resolveServerPath(cli)).resolves.toEqual({ path: cli, source: "package-dist" });
+  });
+
+  it("does not treat an npx-cache bin as durable", async () => {
+    const cli = packageCli("lib/node_modules/@ask-llm/mcp");
+    const npxBin = join(root, "npm/_npx/0a1b/bin");
+    mkdirSync(npxBin, { recursive: true });
+    symlinkSync(cli, join(npxBin, "ask-llm-mcp"));
+    process.env.ASK_LLM_PATH = npxBin;
+    try {
+      await expect(resolveServerPath(cli)).resolves.toEqual({ path: cli, source: "package-dist" });
+    } finally {
+      process.env.ASK_LLM_PATH = bin;
+    }
   });
 
   it("refuses an npx cache path", async () => {

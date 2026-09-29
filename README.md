@@ -45,13 +45,11 @@ Your primary AI is confident, but confidence isn't correctness. A second model w
 ### Claude Code
 
 ```bash
-# One install, every provider — auto-detects what you have
-claude mcp add --scope user ask-llm -- npx -y @ask-llm/mcp
-# first-class alternative after `npm install -g @ask-llm/mcp`:
-# claude mcp add --scope user ask-llm -- ask-llm-mcp
+npm install -g @ask-llm/mcp
+ask-llm setup --host claude
 ```
 
-Then try: `ask codex to review my last commit`. Run `npx @ask-llm/mcp doctor` if anything looks off.
+Setup previews the user-scope registration and asks before applying it. Then try: `ask codex to review my last commit`. Run `ask-llm doctor` if anything looks off. See [command compatibility](packages/llm-mcp/README.md#command-compatibility) for `-y`, removal, and other hosts.
 
 <details>
 <summary>Advanced: install split provider packages instead</summary>
@@ -218,7 +216,7 @@ More patterns in [How to Ask](https://lykhoyda.github.io/ask-llm/usage/how-to-as
 
 ## CLI
 
-The `@ask-llm/mcp` binary (`ask-llm-mcp`) starts the MCP server when run with no arguments. With arguments it's a CLI. For host registration previews and host diagnostics, use the separate `ask-llm` command; see [command compatibility](packages/llm-mcp/README.md#command-compatibility).
+The `@ask-llm/mcp` binary (`ask-llm-mcp`) starts the MCP server when run with no arguments. With arguments it's a CLI. For host registration (`ask-llm setup`, `ask-llm remove`) and host diagnostics, use the separate `ask-llm` command; see [command compatibility](packages/llm-mcp/README.md#command-compatibility).
 
 ```bash
 # Diagnose your setup: Node version, PATH, provider CLI versions, env vars

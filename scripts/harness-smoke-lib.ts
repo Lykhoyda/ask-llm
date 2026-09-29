@@ -1,7 +1,7 @@
 import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 import { constants } from "node:fs";
-import { access, mkdir, mkdtemp, readdir, readFile, rm, stat, writeFile } from "node:fs/promises";
+import { access, mkdir, mkdtemp, readdir, readFile, realpath, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { delimiter, join, resolve } from "node:path";
 import type { CursorProviderName } from "@ask-llm/mcp/cursor";
@@ -31,6 +31,7 @@ export interface Scenario {
   liveUnavailableReason?: string;
   supported?: boolean;
   unavailableReason?: string;
+  setupPreview?: boolean;
 }
 
 export const SCENARIOS: readonly Scenario[] = Object.freeze([
@@ -182,6 +183,13 @@ export const SCENARIOS: readonly Scenario[] = Object.freeze([
     provider: "grok",
     harness: "grok-cli",
     effort: "high",
+  },
+  {
+    id: "ask-llm:setup --dry-run",
+    tool: "ask-llm",
+    surface: "ask-llm setup --dry-run",
+    host: "ask-llm",
+    setupPreview: true,
   },
 ]);
 
@@ -461,6 +469,48 @@ async function treeFingerprint(root: string): Promise<string> {
   }
   await visit(root);
   return hash.digest("hex");
+}
+
+// Always deterministic: the built `ask-llm` previews against a fake Claude Code in a private HOME.
+async function runSetupPreview(scenario: Scenario, root: string, tempRoot: string): Promise<ScenarioResult> {
+  const home = join(tempRoot, "setup-home");
+  const bin = join(tempRoot, "setup-bin");
+  await mkdir(home, { recursive: true });
+  await mkdir(bin, { recursive: true });
+  await writeFile(
+    join(bin, "claude"),
+    '#!/bin/sh\nif [ "$1" = "--version" ]; then echo "2.1.284 (Claude Code)"; exit 0; fi\nexit 9\n',
+    { mode: 0o755 },
+  );
+  const before = await treeFingerprint(home);
+  const run = await runCommand(
+    process.execPath,
+    [join(root, "packages/llm-mcp/dist/ask-llm.js"), "setup", "--dry-run", "--json"],
+    { cwd: home, env: { HOME: home, PATH: bin, ASK_LLM_PATH: bin }, timeoutMs: 30_000 },
+  );
+  const mutated = before !== (await treeFingerprint(home));
+  const server = await realpath(join(root, "packages/llm-mcp/dist/cli.js"));
+  let claude: { action?: string; registration?: { argv?: unknown } } | undefined;
+  try {
+    claude = JSON.parse(run.stdout).hosts?.find((host: { id?: string }) => host.id === "claude");
+  } catch {}
+  const previewed =
+    claude?.action === "register" &&
+    JSON.stringify(claude.registration?.argv) ===
+      JSON.stringify(["claude", "mcp", "add", "--scope", "user", "ask-llm", "--", server]);
+  if (run.exitCode === 0 && !mutated && previewed) {
+    return {
+      id: scenario.id,
+      status: RESULTS.PASS,
+      reason: "previewed claude mcp add --scope user in an isolated HOME; nothing written",
+    };
+  }
+  return {
+    id: scenario.id,
+    status: RESULTS.FAIL,
+    reason: `exit=${run.exitCode} timedOut=${run.timedOut} homeChanged=${mutated} claudeArgvPreviewed=${previewed}`,
+    detail: redact(`${run.stderr}`).slice(0, 500),
+  };
 }
 
 async function gitFingerprint(cwd: string, commandRunner: CommandRunner): Promise<string> {
@@ -824,7 +874,9 @@ export async function runHarnessSuite(options: RunHarnessSuiteOptions = {}): Pro
     if (mode === "live") {
       const tools = new Set(
         scenarios
-          .filter((scenario) => scenario.supported !== false && scenario.liveSupported !== false)
+          .filter(
+            (scenario) => scenario.supported !== false && scenario.liveSupported !== false && !scenario.setupPreview,
+          )
           .flatMap((scenario) => [scenario.tool, routeTool(scenario)]),
       );
       for (const tool of tools) {
@@ -836,6 +888,10 @@ export async function runHarnessSuite(options: RunHarnessSuiteOptions = {}): Pro
     }
 
     for (const scenario of scenarios) {
+      if (scenario.setupPreview) {
+        results.push(await runSetupPreview(scenario, root, tempRoot));
+        continue;
+      }
       if (scenario.supported === false) {
         results.push({
           id: scenario.id,

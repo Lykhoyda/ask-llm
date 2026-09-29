@@ -45,7 +45,7 @@ Not sure which? See each provider's page: [Codex](/providers/codex), [Claude](/p
 
 ## 2. Register the MCP server
 
-The recommended package is `@ask-llm/mcp`, the unified orchestrator: it auto-detects every provider CLI you installed and exposes one `ask-llm` tool plus `multi-llm`, `get-usage-stats`, `diagnose`, and `ping`. Keep `npx -y @ask-llm/mcp` as the primary registration; `npm install -g @ask-llm/mcp` is a first-class alternative when you want a pinned global binary.
+The recommended package is `@ask-llm/mcp`, the unified orchestrator: it auto-detects every provider CLI you installed and exposes one `ask-llm` tool plus `multi-llm`, `get-usage-stats`, `diagnose`, and `ping`. For guided user-scope registration, follow the [Quick Start](https://github.com/Lykhoyda/ask-llm#quick-start); the client-specific examples below are manual alternatives.
 
 <SetupTabs provider="unified" />
 

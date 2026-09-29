@@ -1,5 +1,7 @@
+import { execFileSync } from "node:child_process";
 import { realpathSync } from "node:fs";
-import { sep } from "node:path";
+import { join, sep } from "node:path";
+import { getSpawnEnv } from "@ask-llm/shared";
 import type { DetectedHost } from "./hosts/detect.js";
 import { type HostId, SERVER_NAME } from "./hosts/registry.js";
 import { resolveCommand } from "./utils/availability.js";
@@ -28,11 +30,17 @@ export interface ServerPath {
   source: "global-bin" | "package-dist";
 }
 
+export const UNUSABLE_ENTRY = "an ask-llm entry exists but is disabled or has no usable command";
+
 export const DURABLE_SERVER_GUIDANCE =
   "Install globally with `npm i -g @ask-llm/mcp`, then run `ask-llm setup --dry-run` for the exact per-host command.";
 
 function shellQuote(arg: string): string {
   return /^[\w@%+=:,./-]+$/.test(arg) ? arg : `'${arg.replace(/'/g, `'\\''`)}'`;
+}
+
+export function commandText(argv: string[]): string {
+  return argv.map(shellQuote).join(" ");
 }
 
 function sameFile(a: string, b: string): boolean {
@@ -56,7 +64,21 @@ export async function resolveServerPath(ownCli: string): Promise<ServerPath> {
     );
   }
   const onPath = await resolveCommand("ask-llm-mcp");
-  if (onPath && sameFile(onPath, target)) return { path: onPath, source: "global-bin" };
+  if (onPath && sameFile(onPath, target)) {
+    const npm = await resolveCommand("npm");
+    if (npm) {
+      try {
+        const options = { encoding: "utf8" as const, timeout: 5000, env: getSpawnEnv() };
+        const prefix = execFileSync(npm, ["prefix", "-g"], options).trim();
+        const root = execFileSync(npm, ["root", "-g"], options).trim();
+        if (
+          onPath === join(prefix, "bin", "ask-llm-mcp") &&
+          target === join(realpathSync(root), "@ask-llm", "mcp", "dist", "cli.js")
+        )
+          return { path: onPath, source: "global-bin" };
+      } catch {}
+    }
+  }
   return { path: target, source: "package-dist" };
 }
 
@@ -71,10 +93,10 @@ function plannedRegistration(host: DetectedHost, server: string): PlannedRegistr
     return { kind: "json", file, keyPath, entry: registration.entry(server) };
   }
   const argv = registration.argv(server);
-  return { kind: "command", argv, command: argv.map(shellQuote).join(" ") };
+  return { kind: "command", argv, command: commandText(argv) };
 }
 
-function manualText(registration: PlannedRegistration): string {
+export function manualText(registration: PlannedRegistration): string {
   if (registration.kind === "command") return registration.command;
   return `add ${JSON.stringify(registration.entry)} at ${registration.keyPath.join(".")} in ${registration.file}`;
 }
@@ -93,6 +115,7 @@ function decide(host: DetectedHost, server: string): { action: PlanAction; reaso
     const current = host.command ? `\`${host.command.join(" ")}\`` : "an unrecognized command";
     return { action: "conflict", reason: `an ask-llm entry already runs ${current}; setup will not overwrite it` };
   }
+  if (host.present) return { action: "conflict", reason: `${UNUSABLE_ENTRY}; setup will not overwrite it` };
   if (!host.supported) {
     const probe = [host.spec.binaries[0], ...(host.spec.versionProbe?.args ?? [])].join(" ");
     return { action: "manual", reason: `unrecognized \`${probe}\` output; check the syntax and run it manually` };

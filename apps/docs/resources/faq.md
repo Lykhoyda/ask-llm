@@ -62,7 +62,7 @@ Both can coexist; install whatever fits your workflow.
 
 ### Can I use this with Claude Code?
 
-Yes, that's the primary client. Use `claude mcp add --scope user ask-llm -- npx -y @ask-llm/mcp`. The Claude Code plugin (`/plugin marketplace add Lykhoyda/ask-llm`) adds slash commands, subagents, and hooks on top.
+Yes, that's the primary client. Follow the [Quick Start](https://github.com/Lykhoyda/ask-llm#quick-start) to register it. The Claude Code plugin (`/plugin marketplace add Lykhoyda/ask-llm`) adds slash commands, subagents, and hooks on top.
 
 ### Can I use this with Claude Desktop, Cursor, Warp, etc.?
 
