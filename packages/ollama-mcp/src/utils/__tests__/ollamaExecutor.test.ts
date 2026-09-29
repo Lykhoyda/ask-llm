@@ -47,6 +47,11 @@ beforeEach(() => {
 });
 
 describe("request construction", () => {
+  it("bypasses the response cache for a single attempt", async () => {
+    await executeOllamaCLI({ prompt: "doctor" });
+    await executeOllamaCLI({ prompt: "doctor", singleAttempt: true });
+    expect(mockFetch).toHaveBeenCalledTimes(2);
+  });
   it("sends POST to /api/chat with default model", async () => {
     await executeOllamaCLI({ prompt: "hello" });
 

@@ -14,6 +14,7 @@ export interface AntigravityExecutorOptions {
   readOnly?: boolean;
   onProgress?: (newOutput: string) => void;
   signal?: AbortSignal;
+  singleAttempt?: boolean;
 }
 
 export interface AntigravityExecutorResult {
@@ -150,10 +151,16 @@ function parseStdoutJson(raw: string): StdoutParse {
   return { kind: "answer", response, usage, ...meta };
 }
 
-// Read-only slash commands answer without an agent turn or quota use (agy >=1.1.11).
+// /quota answered without an agent turn or quota use on agy 1.2.12 and 1.2.13.
 async function describeQuota(signal?: AbortSignal): Promise<string | undefined> {
   try {
-    const args = [CLI.FLAGS.PRINT, ANTIGRAVITY.QUOTA_COMMAND, CLI.FLAGS.OUTPUT_FORMAT, OUTPUT_FORMATS.JSON];
+    const args = [
+      CLI.FLAGS.PRINT,
+      ANTIGRAVITY.QUOTA_COMMAND,
+      CLI.FLAGS.OUTPUT_FORMAT,
+      OUTPUT_FORMATS.JSON,
+      CLI.FLAGS.SANDBOX,
+    ];
     const raw = await executeCommand(
       CLI.COMMANDS.AGY,
       args,
@@ -436,6 +443,7 @@ export async function executeAntigravityCLI(options: AntigravityExecutorOptions)
   try {
     return await runWithModel(primaryModel, false);
   } catch (error) {
+    if (options.singleAttempt) throw error;
     const message = error instanceof Error ? error.message : String(error);
     // Truncation embeds a bounded preview; classify it before recovery tokens in that preview.
     if (isTruncatedAnswerError(message)) throw error;

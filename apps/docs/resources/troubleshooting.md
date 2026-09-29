@@ -13,6 +13,8 @@ npx @ask-llm/mcp doctor --format toon         # bounded, versioned agent-facing 
 npx @ask-llm/mcp doctor --format toon --full  # full TOON escape hatch
 ```
 
+After a global install, use `ask-llm doctor` for host and provider states. The optional `--live` check may spend provider quota; see [Doctor output formats](https://github.com/Lykhoyda/ask-llm/blob/main/packages/llm-mcp/README.md#doctor-output-formats) for the state meanings and output formats.
+
 <script setup>
 import TroubleshootingModal from '../.vitepress/components/TroubleshootingModal.vue'
 </script>

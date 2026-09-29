@@ -1,5 +1,13 @@
 # @ask-llm/plugin
 
+## 0.19.3
+
+### Patch Changes
+
+- [#358](https://github.com/Lykhoyda/ask-llm/pull/358) [`cf9620c`](https://github.com/Lykhoyda/ask-llm/commit/cf9620c8b4f61bfa426cdc53129b23f9b96c1941) Thanks [@Lykhoyda](https://github.com/Lykhoyda)! - Make @ask-llm/mcp the self-contained package with the ask-llm command, bundled providers and host assets while preserving existing server and plugin bridge entrypoints.
+- Updated dependencies [[`cf9620c`](https://github.com/Lykhoyda/ask-llm/commit/cf9620c8b4f61bfa426cdc53129b23f9b96c1941), [`4c46aeb`](https://github.com/Lykhoyda/ask-llm/commit/4c46aeb079150e90a43b9f1e27accc5fa81d04b3)]:
+  - @ask-llm/mcp@1.0.0
+
 ## 0.19.2
 
 ### Patch Changes

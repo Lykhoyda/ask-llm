@@ -411,3 +411,62 @@ describe("runDiagnostics — provider enrichment", () => {
     expect(report.providers.find((p) => p.name === "MissingEnrich")?.enrichment).toBeUndefined();
   });
 });
+
+describe("runDiagnostics — provider states", () => {
+  it("attaches local states with exercised not-run when the spec has a localStates hook", async () => {
+    const localStates = vi.fn(async () => ({
+      installed: "yes" as const,
+      authenticated: "unknown" as const,
+      permitted: "no" as const,
+    }));
+    const report = await runDiagnostics([{ key: "node", name: "NodeStates", command: "node", localStates }]);
+    const probe = report.providers.find((p) => p.name === "NodeStates");
+    expect(probe?.states).toEqual({
+      installed: "yes",
+      authenticated: "unknown",
+      permitted: "no",
+      exercised: "not-run",
+    });
+    expect(localStates).toHaveBeenCalledWith(expect.objectContaining({ available: true }));
+  });
+
+  it("reports every local state unknown when the hook throws", async () => {
+    const report = await runDiagnostics([
+      {
+        key: "node",
+        name: "NodeStatesThrow",
+        command: "node",
+        localStates: async () => {
+          throw new Error("probe failed");
+        },
+      },
+    ]);
+    expect(report.providers[0].states).toEqual({
+      installed: "unknown",
+      authenticated: "unknown",
+      permitted: "unknown",
+      exercised: "not-run",
+    });
+  });
+
+  it("omits states for specs without the hook", async () => {
+    const report = await runDiagnostics([{ key: "node", name: "NodePlain", command: "node" }]);
+    expect(report.providers[0]).not.toHaveProperty("states");
+  });
+
+  it("renders a states line in the text report", () => {
+    const out = formatDiagnosticReport(
+      makeReport({
+        providers: [
+          {
+            name: "Codex",
+            command: "codex",
+            available: true,
+            states: { installed: "yes", authenticated: "yes", permitted: "yes", exercised: "not-run" },
+          },
+        ],
+      }),
+    );
+    expect(out).toContain("states: installed=yes authenticated=yes permitted=yes exercised=not-run");
+  });
+});

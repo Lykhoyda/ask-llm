@@ -51,6 +51,23 @@ describe("selectReviewEntries", () => {
     expect([...map.keys()]).toEqual(["/r/a.ts"]);
     expect(map.get("/r/a.ts")?.map((entry) => entry.contentHash)).toEqual(["h3", "h2", "h1"]);
   });
+
+  it("canonicalizes each distinct logged path once, however many lines name it", () => {
+    const calls: string[] = [];
+    const canonicalize = (file: string) => {
+      calls.push(file);
+      return file.replace(/^\/private/, "");
+    };
+    const log = [
+      '{"file":"/private/r/a.ts","verdict":"concerns","contentHash":"h1"}',
+      '{"file":"/r/a.ts","verdict":"none","contentHash":"h2"}',
+      '{"file":"/private/r/a.ts","verdict":"cached","contentHash":"h3"}',
+      '{"file":"/r/a.ts","verdict":"none","contentHash":"h4"}',
+    ].join("\n");
+    const map = selectReviewEntries(log, canonicalize);
+    expect(calls).toEqual(["/private/r/a.ts", "/r/a.ts"]);
+    expect(map.get("/r/a.ts")?.map((entry) => entry.contentHash)).toEqual(["h4", "h3", "h2", "h1"]);
+  });
 });
 
 describe("parseGitPorcelain", () => {
@@ -483,6 +500,35 @@ describe("codex-pair-stop-gate.mjs — runtime (pending drain + in-flight block)
     const out = JSON.parse(result.stdout.trim());
     expect(out.decision).toBe("block");
     expect(out.reason).toMatch(/H-nested/);
+  });
+
+  it("blockOn HIGH: a file the outer .gitignore ignores inside an untracked nested repo does not block", () => {
+    writeMarker("---\nblockOn: HIGH\n---\n");
+    const git = (cwd: string, ...args: string[]) =>
+      spawnSync("git", ["-C", cwd, "-c", "user.name=t", "-c", "user.email=t@t", ...args]).status;
+    expect(git(dir, "init", "-q")).toBe(0);
+    fs.writeFileSync(path.join(dir, ".gitignore"), "*.log\n");
+    expect(git(dir, "add", ".gitignore")).toBe(0);
+    expect(git(dir, "commit", "-qm", "init")).toBe(0);
+    const nested = path.join(fs.realpathSync(dir), "vendor", "lib");
+    fs.mkdirSync(nested, { recursive: true });
+    expect(git(nested, "init", "-q")).toBe(0);
+    const review = (file: string, high: string) => {
+      fs.writeFileSync(file, high);
+      return JSON.stringify({ file, verdict: "concerns", contentHash: contentHash(high), concerns: { high: [high] } });
+    };
+    fs.writeFileSync(
+      path.join(dir, ".codex-pair", "log.jsonl"),
+      `${[
+        review(path.join(nested, "debug.log"), "H-ignored"),
+        review(path.join(fs.realpathSync(dir), "top.log"), "H-top-ignored"),
+        review(path.join(nested, "new.ts"), "H-nested"),
+      ].join("\n")}\n`,
+    );
+    const out = JSON.parse(runGate().stdout.trim());
+    expect(out.decision).toBe("block");
+    expect(out.reason).toMatch(/H-nested/);
+    expect(out.reason).not.toMatch(/H-ignored|H-top-ignored/);
   });
 
   it("blockOn HIGH: a current-content HIGH under the real path blocks despite a later review under a symlink alias", () => {

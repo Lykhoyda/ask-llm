@@ -35,6 +35,7 @@ interface OllamaTagsResponse {
 }
 
 export interface OllamaExecutorOptions {
+  singleAttempt?: boolean;
   prompt: string;
   model?: string;
   sessionId?: string;
@@ -191,7 +192,7 @@ export async function executeOllamaCLI(options: OllamaExecutorOptions): Promise<
   const messages: SessionMessage[] = [...priorMessages, { role: "user", content: prompt }];
 
   const wantsSession = sessionId !== undefined;
-  const cacheKey = wantsSession ? null : ResponseCache.buildKey("ollama", prompt, model);
+  const cacheKey = wantsSession || options.singleAttempt ? null : ResponseCache.buildKey("ollama", prompt, model);
   if (cacheKey) {
     const cached = responseCache.get(cacheKey);
     if (cached) {

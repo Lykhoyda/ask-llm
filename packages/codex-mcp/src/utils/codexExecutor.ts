@@ -104,6 +104,7 @@ export interface CodexExecutorOptions {
   // (no sessionId), non-edit calls with no explicit model. See ADR-132.
   preferred?: boolean;
   signal?: AbortSignal;
+  singleAttempt?: boolean;
 }
 
 export interface CodexExecutorResult {
@@ -427,7 +428,12 @@ export async function executeCodexCLI(options: CodexExecutorOptions): Promise<Co
   // the response cache (keyed on MODELS.DEFAULT) cannot short-circuit and serve a
   // stale base-model answer before the preferred attempt runs. See ADR-132.
   const preferredEligible =
-    options.preferred === true && !options.model && !wantsSession && !editMode && MODELS.PREFERRED !== MODELS.DEFAULT;
+    options.preferred === true &&
+    !options.singleAttempt &&
+    !options.model &&
+    !wantsSession &&
+    !editMode &&
+    MODELS.PREFERRED !== MODELS.DEFAULT;
   // includeDirs, editMode, and sandbox mode change what codex sees/returns, so
   // they must distinguish cache entries (includeDirs sorted for order-independence).
   const dirsPart = options.includeDirs?.length ? [...options.includeDirs].sort().join(":") : "";
@@ -435,7 +441,7 @@ export async function executeCodexCLI(options: CodexExecutorOptions): Promise<Co
   // must never collide with edit-mode's cache partition.
   const extraContext = `effort=${reasoningEffort};edit=${editMode ? 1 : 0};sandbox=${sandboxMode};dirs=${dirsPart}`;
   const cacheKey =
-    wantsSession || preferredEligible || outputSchema
+    wantsSession || preferredEligible || outputSchema || options.singleAttempt
       ? null
       : ResponseCache.buildKey("codex", options.prompt, model, extraContext);
 
@@ -531,7 +537,7 @@ export async function executeCodexCLI(options: CodexExecutorOptions): Promise<Co
     } catch (error) {
       const continuityError = translateSessionContinuityError(error, sessionId);
       if (continuityError) throw continuityError;
-      if (isQuotaError(error) && model !== MODELS.FALLBACK) {
+      if (!options.singleAttempt && isQuotaError(error) && model !== MODELS.FALLBACK) {
         Logger.warn(`${STATUS_MESSAGES.QUOTA_SWITCHING} Falling back to ${MODELS.FALLBACK}.`);
         Logger.debug(`Status: ${STATUS_MESSAGES.FALLBACK_RETRY}`);
         const fallbackArgs = buildArgs(

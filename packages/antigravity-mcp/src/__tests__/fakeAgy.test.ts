@@ -208,7 +208,8 @@ describe("fake agy 1.2.12", { timeout: 30_000 }, () => {
       expect((error as Error).message).toContain(
         "Gemini Models Five Hour Limit Remaining: 0% (resets 2026-09-27T20:10:40Z)",
       );
-      expect(argvOf("quota")).toEqual(["-p", "/quota", "--output-format", "json"]);
+      // Live on agy 1.2.13: --sandbox still answers /quota with num_turns 0.
+      expect(argvOf("quota")).toEqual(["-p", "/quota", "--output-format", "json", "--sandbox"]);
     });
 
     it("keeps the plain rate-limit message when the quota probe fails", async () => {

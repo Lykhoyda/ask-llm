@@ -706,7 +706,7 @@ async function runFallbackModel(err, { prompt, timeoutMs, model, fallbackModel, 
     throw err;
 }
 // If worker spawn fails, the caller reviews synchronously.
-function spawnDebounceWorker({ markerDir, filePath, toolName, generation, settleMs, maxMs, sessionId, }) {
+function spawnDebounceWorker({ markerDir, filePath, toolName, generation, settleMs, maxMs, timeoutMs, sessionId, }) {
     try {
         const worker = spawn(process.execPath, [join(SCRIPT_DIR, "codex-pair-debounce-worker.mjs")], {
             detached: true,
@@ -719,6 +719,7 @@ function spawnDebounceWorker({ markerDir, filePath, toolName, generation, settle
                 CP_GENERATION: String(generation),
                 CP_SETTLE_MS: String(settleMs),
                 CP_MAX_MS: String(maxMs),
+                CP_TIMEOUT_MS: String(timeoutMs),
                 CP_SESSION_ID: sessionId ?? "",
             },
         });
@@ -889,6 +890,7 @@ async function main() {
             generation: record.generation,
             settleMs: effectiveDebounceMs,
             maxMs: config.debounceMaxMs,
+            timeoutMs: config.timeoutMs,
             sessionId: payload?.session_id,
         });
         if (spawned) {

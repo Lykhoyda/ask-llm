@@ -147,6 +147,7 @@ export function selectReviewEntries(
   canonicalize: (file: string) => string = (file) => file,
 ): Map<string, LogEntry[]> {
   const reviews = new Map<string, LogEntry[]>();
+  const canonicalByRaw = new Map<string, string>();
   for (const line of logText.split("\n")) {
     const t = line.trim();
     if (!t) continue;
@@ -162,7 +163,11 @@ export function selectReviewEntries(
       typeof entry.contentHash === "string" &&
       entry.verdict !== "skipped"
     ) {
-      const file = canonicalize(entry.file);
+      let file = canonicalByRaw.get(entry.file);
+      if (file === undefined) {
+        file = canonicalize(entry.file);
+        canonicalByRaw.set(entry.file, file);
+      }
       const list = reviews.get(file) ?? [];
       list.unshift(entry);
       reviews.set(file, list);

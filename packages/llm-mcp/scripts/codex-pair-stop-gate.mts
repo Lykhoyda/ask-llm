@@ -90,6 +90,26 @@ function gitDirtySet(markerDir: string) {
   }
 }
 
+// A collapsed `?? dir/` record hides which nested files the outer .gitignore ignores; any git failure keeps them.
+function dropIgnoredUnderDirtyDirs(entries: Map<string, unknown>, gitDirty: Set<string> | null, repoDir: string) {
+  if (!gitDirty) return;
+  const dirs = [...gitDirty].filter((path) => path.endsWith("/"));
+  const viaDir = [...entries.keys()].filter((file) => !gitDirty.has(file) && dirs.some((dir) => file.startsWith(dir)));
+  if (viaDir.length === 0) return;
+  let ignored: string;
+  try {
+    ignored = execFileSync("git", ["-C", repoDir, "check-ignore", "-z", "--stdin"], {
+      encoding: "utf8",
+      input: viaDir.join("\0"),
+      stdio: ["pipe", "pipe", "ignore"],
+      timeout: 5000,
+    });
+  } catch {
+    return; // exit 1 = nothing ignored; other failures stay conservative
+  }
+  for (const file of ignored.split("\0")) entries.delete(file);
+}
+
 // Use the raw marker path because the watch hook writes in-flight state there.
 function readInFlightInputs(markerDir: string) {
   const lockMtimes = [];
@@ -158,12 +178,15 @@ function evaluateMarker(markerDir: string) {
     // no log yet — an in-flight first-ever review can still block below
   }
 
+  const entries = selectReviewEntries(logText, canonicalFile);
+  const gitDirty = gitDirtySet(canonical);
+  dropIgnoredUnderDirtyDirs(entries, gitDirty, canonical);
   const blocking = collectBlockingHighs({
-    entries: selectReviewEntries(logText, canonicalFile),
+    entries,
     acks: readAcks(canonical),
     existsFn: existsSync,
     hashFn: fileContentHash,
-    gitDirty: gitDirtySet(canonical),
+    gitDirty,
     markerDir: canonical,
   });
 

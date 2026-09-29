@@ -1,3 +1,6 @@
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { delimiter, join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 let resolveShellPath: typeof import("../shellPath.js").resolveShellPath;
@@ -32,6 +35,31 @@ describe("shellPath", () => {
     vi.resetModules();
     const mod = await import("../shellPath.js");
     expect(mod.resolveShellPath()).toBe("/custom/path:/another/path");
+  });
+
+  async function resolveWithFakeShell(script: string): Promise<string> {
+    const dir = mkdtempSync(join(tmpdir(), "shellpath-"));
+    try {
+      const shell = join(dir, "login-sh");
+      writeFileSync(shell, `#!/bin/sh\n${script}\n`, { mode: 0o755 });
+      vi.stubEnv("SHELL", shell);
+      vi.stubEnv("ASK_LLM_PATH", "");
+      vi.resetModules();
+      const mod = await import("../shellPath.js");
+      return mod.resolveShellPath();
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  }
+
+  it("reads PATH from the login shell", async () => {
+    const path = await resolveWithFakeShell('PATH="/login/only:$PATH" exec /bin/sh -c "$2"');
+    expect(path.split(delimiter)[0]).toBe("/login/only");
+  });
+
+  it("falls back to the heuristic PATH when the login shell prints no marker", async () => {
+    const path = await resolveWithFakeShell("exit 0");
+    expect(path.split(delimiter)).toEqual(expect.arrayContaining((process.env.PATH ?? "").split(delimiter)));
   });
 
   it("getSpawnEnv returns env with PATH set", () => {
