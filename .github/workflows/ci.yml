@@ -255,7 +255,7 @@ jobs:
     - name: Clean Pi install, discovery, update, remove, and temporary evaluation
       env:
         HOME: /tmp/ask-llm-pi-home-${{ matrix.pi-version }}
-        PI_CODING_AGENT_DIR: /tmp/ask-llm-pi-agent-${{ matrix.pi-version }}
+        PI_CODING_AGENT_DIR: /tmp/ask-llm-pi-home-${{ matrix.pi-version }}/.pi/agent
         PI_PROJECT: /tmp/ask-llm-pi-project-${{ matrix.pi-version }}
         PI_VERSION: ${{ matrix.pi-version }}
         PI_SKIP_VERSION_CHECK: "1"
@@ -275,11 +275,18 @@ jobs:
         cd "$PI_PROJECT"
         pi install npm:@ask-llm/plugin
         pi list | grep -F 'npm:@ask-llm/plugin'
+        printf '{"type":"get_commands"}\n' | pi --mode rpc --no-session --approve > /tmp/pi-package-only.jsonl
+        if grep -q 'skill:ask-llm-' /tmp/pi-package-only.jsonl; then
+          echo 'FAIL: the Pi package ships skills; they belong in the shared skills folder'; exit 1
+        fi
+        # Skills reach Pi the way setup installs them: the pinned skills CLI, from this checkout.
+        skills=$(cd "$GITHUB_WORKSPACE/packages/llm-mcp/skills" && ls -d ask-llm-* | grep -vx ask-llm-fable-review)
+        DISABLE_TELEMETRY=1 npx -y skills@1.7.0 add "$GITHUB_WORKSPACE/packages/llm-mcp" --skill $skills -g -a pi -y
         printf '{"type":"get_commands"}\n' | pi --mode rpc --no-session --approve > /tmp/pi-commands.jsonl
-        for skill in codex-review multi-review compare brainstorm codex-pair; do
-          grep -q "skill:$skill" /tmp/pi-commands.jsonl
+        for skill in review multi-review compare brainstorm codex-pair; do
+          grep -q "skill:ask-llm-$skill" /tmp/pi-commands.jsonl
         done
-        if grep -q 'skill:fable-review' /tmp/pi-commands.jsonl; then
+        if grep -q 'skill:ask-llm-fable-review' /tmp/pi-commands.jsonl; then
           echo 'FAIL: Claude-only fable-review was discovered by Pi'; exit 1
         fi
         for command in codex-pair codex-pair-ack codex-pair-pause codex-pair-resume; do
@@ -294,7 +301,7 @@ jobs:
         if pi list | grep -F 'npm:@ask-llm/plugin'; then echo 'FAIL: package remains installed'; exit 1; fi
         # Temporary -e install must discover without adding a settings entry.
         printf '{"type":"get_commands"}\n' | pi -e npm:@ask-llm/plugin --mode rpc --no-session --approve > /tmp/pi-temp.jsonl
-        grep -q 'skill:codex-review' /tmp/pi-temp.jsonl
+        grep -q '"name":"codex-pair"' /tmp/pi-temp.jsonl
         if pi list | grep -F 'npm:@ask-llm/plugin'; then echo 'FAIL: -e persisted package'; exit 1; fi
         printf '{"type":"get_commands"}\n' | pi -e npm:@ask-llm/mcp --mode rpc --no-session --approve > /tmp/pi-canonical.jsonl
-        grep -q 'skill:codex-review' /tmp/pi-canonical.jsonl
+        grep -q '"name":"codex-pair"' /tmp/pi-canonical.jsonl

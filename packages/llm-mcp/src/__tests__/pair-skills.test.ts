@@ -120,14 +120,13 @@ describe("pair skill structure", () => {
     });
   }
 
-  it("codex-pair keeps its Pi adapter while grok-pair stays Claude + Cursor only", () => {
+  it("codex-pair keeps its Pi adapter while grok-pair refuses on Pi", () => {
     const codex = parsePairSkill("ask-llm-codex-pair");
     const grok = parsePairSkill("ask-llm-grok-pair");
     expect(adapterSections(codex.body)).toEqual(["Pi", "Cursor Agent", "Claude Code"]);
-    expect(adapterSections(grok.body)).toEqual(["Cursor Agent", "Claude Code"]);
-    const piSkills = readJson<{ pi: { skills: string[] } }>("package.json").pi.skills;
-    expect(piSkills).toContain("./skills/ask-llm-codex-pair/SKILL.md");
-    expect(piSkills).not.toContain("./skills/ask-llm-grok-pair/SKILL.md");
+    expect(adapterSections(grok.body)).toEqual(["Pi", "Cursor Agent", "Claude Code"]);
+    expect(adapterBody(grok.body, "Pi")).toMatch(/Unsupported on Pi/);
+    expect(readJson<{ pi: Record<string, unknown> }>("package.json").pi).not.toHaveProperty("skills");
   });
 
   it.each(PAIR_SKILLS)("%s publishes a valid Cursor-native unified MCP setup", (name) => {

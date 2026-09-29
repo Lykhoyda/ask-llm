@@ -11,6 +11,10 @@ Apply `../ask-llm-codex-pair/pairing-contract.md`. The host is the editor and Gr
 
 ## Host adapters
 
+### Pi adapter
+
+Unsupported on Pi: Grok pairing needs a dedicated Pi consent and lifecycle adapter that does not exist yet. Say so and stop before collecting context or calling any provider.
+
 ### Cursor Agent adapter
 
 When Cursor itself hosts this skill, do not recursively launch `ask-cursor-agent`. Offer only the explicit direct routes (`xai-api` or `grok-cli`) through an exact `ask-grok` leaf or a fully pinned unified `ask-llm` leaf, and follow the same consent and no-fallback contract. The Cursor plugin bundle registers only the unified `ask-llm` server; a separately user-installed `grok` entry (`@ask-llm/grok-mcp`) exposes the deterministic `ask-grok` leaf and is preferred when exposed. A unified call must specify `provider: "grok"`, exact `harness`, exact `model`, and `reasoningEffort`; direct Grok is one-shot and does not accept include directories or sessions.

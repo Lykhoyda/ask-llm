@@ -274,7 +274,7 @@ describe("dual-host package manifest", () => {
     files: string[];
     dependencies: Record<string, string>;
     peerDependencies: Record<string, string>;
-    pi: { extensions: string[]; skills: string[] };
+    pi: { extensions: string[] };
     publishConfig: { access: string };
   }>("package.json");
 
@@ -286,14 +286,8 @@ describe("dual-host package manifest", () => {
     expect(pkg.dependencies).not.toHaveProperty("@ask-llm/shared");
   });
 
-  it("declares one thin Pi extension and the canonical skills with Fable excluded", () => {
-    expect(pkg.pi.extensions).toEqual(["./pi/extensions/index.ts"]);
-    expect(pkg.pi.skills).toHaveLength(32);
-    expect(pkg.pi.skills).toContain("./skills/codex-review/SKILL.md");
-    expect(pkg.pi.skills).toContain("./skills/ask-llm-review/SKILL.md");
-    expect(pkg.pi.skills).toContain("./skills/ask-llm-grok-review/SKILL.md");
-    expect(pkg.pi.skills).not.toContain("./skills/ask-llm-fable-review/SKILL.md");
-    expect(pkg.pi.skills).not.toContain("./skills/fable-review/SKILL.md");
+  it("declares one thin Pi extension and leaves skills to the shared skills folder", () => {
+    expect(pkg.pi).toEqual({ extensions: ["./pi/extensions/index.ts"] });
     expect(fs.existsSync(path.join(PLUGIN_ROOT, "pi", "extensions", "index.ts"))).toBe(true);
   });
 

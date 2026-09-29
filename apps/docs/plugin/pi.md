@@ -29,7 +29,10 @@ Recommended user-scoped install:
 ```bash
 pi install npm:@ask-llm/plugin
 pi list
+ask-llm setup --host pi
 ```
+
+The package provides the native tools and the codex-pair commands. The skills come from `ask-llm setup --host pi`, which installs them into Pi's skills folder with the pinned `skills` CLI; until then Pi prints a one-line notice naming that command. Skills are now named `/skill:ask-llm-*`: `/skill:codex-review`, `/skill:compare` and `/skill:brainstorm` are replaced by `/skill:ask-llm-review`, `/skill:ask-llm-compare` and `/skill:ask-llm-brainstorm`.
 
 Project-local install (loaded only after Pi project trust):
 
@@ -60,17 +63,17 @@ Invoke a skill explicitly with `/skill:<name>` or describe the workflow naturall
 Representative commands:
 
 ```text
-/skill:codex-review
-/skill:multi-review
-/skill:compare gemini,codex explain this API design
-/skill:brainstorm antigravity,codex review this architecture
-/skill:brainstorm grok@cursor-agent:grok-4.7-high,codex@cursor-agent:gpt-6-sol-high review this architecture
-/skill:codex-image create a monochrome architecture diagram
-/skill:codex-verify
-/skill:codex-pair
+/skill:ask-llm-review
+/skill:ask-llm-multi-review
+/skill:ask-llm-compare gemini,codex explain this API design
+/skill:ask-llm-brainstorm antigravity,codex review this architecture
+/skill:ask-llm-brainstorm grok@cursor-agent:grok-4.7-high,codex@cursor-agent:gpt-6-sol-high review this architecture
+/skill:ask-llm-codex-image create a monochrome architecture diagram
+/skill:ask-llm-codex-verify
+/skill:ask-llm-codex-pair
 ```
 
-Pi loads 16 skills. `fable-review` and `grok-pair` are intentionally excluded and are neither loaded nor advertised: independent Fable review would require a nested Pi session or provider bridge, while Grok pairing still needs a dedicated Pi consent/lifecycle adapter.
+Pi reads these skills from the shared skills folder that `ask-llm setup --host pi` fills; the package itself ships only the extension. `ask-llm-fable-review` is not installed: independent Fable review would require a nested Pi session or provider bridge. `ask-llm-grok-pair` is installed for other hosts and refuses on Pi, because Grok pairing still needs a dedicated Pi consent/lifecycle adapter.
 
 Native tools:
 
@@ -147,7 +150,7 @@ Pi 0.83 removes its managed npm tree/settings entry. User-owned `.codex-pair/` l
 ## Troubleshooting
 
 - **Package absent:** run `pi list`; reinstall with `pi install npm:@ask-llm/plugin`.
-- **Skills absent:** confirm `enableSkillCommands` is true, run `/reload`, and check `/skill:codex-review`. `fable-review` should remain absent.
+- **Skills absent:** confirm `enableSkillCommands` is true, run `/reload`, and check `/skill:ask-llm-review`; if it is missing, run `ask-llm setup --host pi`. `ask-llm-fable-review` should remain absent.
 - **Project package absent:** trust the project (`/trust`, then restart) or use `--approve` for a one-run check.
 - **Pairing refuses a marker:** project trust and user-owned consent are both required; run `/codex-pair` in interactive Pi.
 - **Provider unavailable:** run the named CLI directly once to install/authenticate it (`codex`, `gemini`, `agy`) or start Ollama and pull the configured model. The native tool returns the provider package's actionable error.
