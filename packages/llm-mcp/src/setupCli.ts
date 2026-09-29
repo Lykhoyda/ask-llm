@@ -165,6 +165,10 @@ export async function runSetupCli(args: string[], ownCli: string): Promise<numbe
 
   const server = await serverPath(ownCli);
   if (!server) return 1;
+  if (!options.dryRun && server.source !== "global-bin") {
+    process.stderr.write("Error: setup requires a durable ask-llm-mcp bin. Install with `npm i -g @ask-llm/mcp`, then rerun `ask-llm setup`.\n");
+    return 1;
+  }
   const hosts = await detectHosts();
   const shown = buildPlan(hosts, server.path).filter(({ id }) => !options.hosts || options.hosts.includes(id));
   if (options.dryRun) {

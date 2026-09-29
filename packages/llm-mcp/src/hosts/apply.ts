@@ -42,7 +42,9 @@ function gate(host: DetectedHost, current: RegistrationState, op: HostOp, server
     if (current.present) return { outcome: "conflict", detail: `${UNUSABLE_ENTRY}; not overwritten` };
     if (current.registered) return owned ? { outcome: "unchanged" } : conflict(current.command);
   } else if (!owned) {
-    return current.registered ? conflict(current.command) : { outcome: "unchanged" };
+    return current.present
+      ? { outcome: "conflict", detail: `${UNUSABLE_ENTRY}; left in place` }
+      : current.registered ? conflict(current.command) : { outcome: "unchanged" };
   }
   return undefined;
 }
@@ -74,7 +76,7 @@ export async function applyRegistrar(
   const after = await read();
   if (after.registered === null) return { outcome: "failed", detail: after.error };
   if (op === "remove") {
-    if (after.registered)
+    if (after.registered || after.present)
       return { outcome: "failed", detail: `ask-llm is still registered after \`${argv.join(" ")}\`` };
     return { outcome: benign ? "unchanged" : "changed" };
   }

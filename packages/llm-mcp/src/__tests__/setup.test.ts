@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, unlinkSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -21,6 +21,7 @@ const server = realpathSync(fileURLToPath(new URL("../../dist/cli.js", import.me
 const root = realpathSync(mkdtempSync(join(tmpdir(), "ask-llm-setup-")));
 const bin = join(root, "bin");
 const home = join(root, "home");
+const installedServer = join(bin, "ask-llm-mcp");
 const path = `${bin}:/usr/bin:/bin`;
 const env = { HOME: home, PATH: path, ASK_LLM_PATH: path };
 const FOREIGN = "/opt/other/ask-llm-mcp";
@@ -29,11 +30,11 @@ const previousPath = process.env.ASK_LLM_PATH;
 process.env.ASK_LLM_PATH = path;
 
 const ADD: Record<string, string[]> = {
-  claude: ["mcp", "add", "--scope", "user", "ask-llm", "--", server],
-  codex: ["mcp", "add", "ask-llm", "--", server],
-  agy: ["mcp", "add", "ask-llm", server],
-  grok: ["mcp", "add", "--scope", "user", "ask-llm", server],
-  gemini: ["mcp", "add", "--scope", "user", "ask-llm", server],
+  claude: ["mcp", "add", "--scope", "user", "ask-llm", "--", installedServer],
+  codex: ["mcp", "add", "ask-llm", "--", installedServer],
+  agy: ["mcp", "add", "ask-llm", installedServer],
+  grok: ["mcp", "add", "--scope", "user", "ask-llm", installedServer],
+  gemini: ["mcp", "add", "--scope", "user", "ask-llm", installedServer],
 };
 
 afterAll(() => {
@@ -46,6 +47,7 @@ beforeEach(() => {
   for (const dir of [bin, home]) rmSync(dir, { recursive: true, force: true });
   mkdirSync(bin, { recursive: true });
   mkdirSync(home, { recursive: true });
+  symlinkSync(server, installedServer);
   for (const name of HOSTS) installFakeHost(bin, name);
 });
 
@@ -98,7 +100,7 @@ describe("ask-llm setup", () => {
     expect(result.stdout).toContain("Grok Build 1.0.40: failed");
     expect(result.stdout).toContain("unexpected argument --scope");
     expect(result.stdout).toContain(
-      `Run it manually: ${commandText(["grok", "mcp", "add", "--scope", "user", "ask-llm", server])}`,
+      `Run it manually: ${commandText(["grok", "mcp", "add", "--scope", "user", "ask-llm", installedServer])}`,
     );
     expect(result.stdout).toContain("Codex CLI 0.158.0: registered");
   });
@@ -163,6 +165,19 @@ describe("ask-llm setup", () => {
     expect(calls()).toEqual(Object.fromEntries(HOSTS.map((name) => [name, []])));
   });
 
+  it("refuses to apply from package-dist while keeping its dry-run preview", () => {
+    unlinkSync(installedServer);
+    const preview = ask("setup", "--dry-run", "--json");
+    expect(preview.status).toBe(0);
+    expect(JSON.parse(preview.stdout).server).toEqual({ path: server, source: "package-dist" });
+
+    const result = ask("setup", "-y", "--host", "claude");
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("npm i -g @ask-llm/mcp");
+    expect(result.stderr).toContain("rerun `ask-llm setup`");
+    expect(calls()).toEqual(Object.fromEntries(HOSTS.map((name) => [name, []])));
+  });
+
   it("asks once per host and leaves declined hosts untouched", async () => {
     const asked: string[] = [];
     const isolated = { HOME: home };
@@ -173,7 +188,13 @@ describe("ask-llm setup", () => {
     const results = await applySetup(await detectHosts(isolated), server, undefined, confirm, isolated);
     expect(asked).toHaveLength(5);
     expect(asked[0]).toContain(commandText(["claude", "mcp", "add", "--scope", "user", "ask-llm", "--", server]));
-    expect(calls()).toEqual({ claude: [ADD.claude], codex: [], agy: [], grok: [], gemini: [] });
+    expect(calls()).toEqual({
+      claude: [["mcp", "add", "--scope", "user", "ask-llm", "--", server]],
+      codex: [],
+      agy: [],
+      grok: [],
+      gemini: [],
+    });
     expect(results.find(({ id }) => id === "codex")).toMatchObject({ status: "declined" });
   });
 });

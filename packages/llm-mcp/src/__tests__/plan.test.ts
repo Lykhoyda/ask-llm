@@ -183,6 +183,19 @@ describe("resolveServerPath", () => {
     await expect(resolveServerPath(cli)).resolves.toEqual({ path: cli, source: "package-dist" });
   });
 
+  it("does not treat an npx-cache bin as durable", async () => {
+    const cli = packageCli("global/lib/node_modules/@ask-llm/mcp");
+    const npxBin = join(root, "npm/_npx/0a1b/bin");
+    mkdirSync(npxBin, { recursive: true });
+    symlinkSync(cli, join(npxBin, "ask-llm-mcp"));
+    process.env.ASK_LLM_PATH = npxBin;
+    try {
+      await expect(resolveServerPath(cli)).resolves.toEqual({ path: cli, source: "package-dist" });
+    } finally {
+      process.env.ASK_LLM_PATH = bin;
+    }
+  });
+
   it("refuses an npx cache path", async () => {
     const cli = packageCli("npm/_npx/0a1b/node_modules/@ask-llm/mcp");
     await expect(resolveServerPath(cli)).rejects.toThrow(/npm i -g @ask-llm\/mcp/);

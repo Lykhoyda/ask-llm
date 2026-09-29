@@ -62,7 +62,8 @@ export async function resolveServerPath(ownCli: string): Promise<ServerPath> {
     );
   }
   const onPath = await resolveCommand("ask-llm-mcp");
-  if (onPath && sameFile(onPath, target)) return { path: onPath, source: "global-bin" };
+  if (onPath && !onPath.split(sep).includes("_npx") && sameFile(onPath, target))
+    return { path: onPath, source: "global-bin" };
   return { path: target, source: "package-dist" };
 }
 

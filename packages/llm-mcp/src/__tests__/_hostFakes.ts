@@ -1,7 +1,7 @@
 import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
-export type FakeMode = "ok" | "fail" | "silent" | "exists" | "exists-foreign" | "gone";
+export type FakeMode = "ok" | "fail" | "silent" | "exists" | "exists-foreign" | "gone" | "unusable-after-remove";
 
 export const FOREIGN = "/opt/other/ask-llm-mcp";
 const RACE_EXISTS = "MCP server ask-llm already exists in user config";
@@ -84,6 +84,7 @@ export function installFakeHost(bin: string, name: string): void {
     `if [ "$mode" = exists ]; then printf '${host.entry}' "$last" > ${file}; echo '${RACE_EXISTS}' >&2; exit 1; fi`,
     `if [ "$mode" = exists-foreign ]; then printf '${host.entry}' "${FOREIGN}" > ${file}; echo '${RACE_EXISTS}' >&2; exit 1; fi`,
     `if [ "$mode" = gone ]; then printf '${host.empty}' > ${file}; echo '${host.notFound.message}' >&2; exit ${host.notFound.code}; fi`,
+    `if [ "$mode" = unusable-after-remove ] && [ "$2" = remove ]; then printf '${host.unusable}' > ${file}; exit 0; fi`,
     'if [ "$2" = add ]; then',
     host.refuseExisting
       ? `  if [ $present = yes ]; then echo '${host.refuseExisting.message}' >&2; exit ${host.refuseExisting.code}; fi`

@@ -161,4 +161,24 @@ describe.each(Object.keys(ARGV) as Array<keyof typeof ARGV>)("%s registrar", (id
       detail: expect.stringContaining("still registered"),
     });
   });
+
+  it("fails when remove leaves an unusable entry", async () => {
+    writeRegistration(home, id, SERVER);
+    setFakeMode(home, id, "unusable-after-remove");
+    expect(await applyRegistrar(await detected(id), "remove", SERVER, env)).toEqual({
+      outcome: "failed",
+      detail: expect.stringContaining("still registered"),
+    });
+    expect(await detected(id)).toMatchObject({ registered: false, present: true });
+  });
+
+  it("refuses removal if a formerly owned entry becomes unusable", async () => {
+    const host = await detected(id);
+    writeUnusableRegistration(home, id);
+    expect(await applyRegistrar(host, "remove", SERVER, env)).toEqual({
+      outcome: "conflict",
+      detail: expect.stringContaining("left in place"),
+    });
+    expect(fakeArgv(home, id)).toEqual([]);
+  });
 });
