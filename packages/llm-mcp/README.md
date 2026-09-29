@@ -18,11 +18,7 @@ Part of the [Ask LLM](https://github.com/Lykhoyda/ask-llm) monorepo.
 
 ### Claude Code
 
-```bash
-claude mcp add ask-llm -- npx -y @ask-llm/mcp
-# first-class alternative after `npm install -g @ask-llm/mcp`:
-# claude mcp add ask-llm -- ask-llm-mcp
-```
+Follow the [Quick Start](https://github.com/Lykhoyda/ask-llm#quick-start) for the guided user-scope setup. [Command compatibility](#command-compatibility) covers scripts and removal.
 
 Split provider packages (`@ask-llm/codex-mcp` and the others) remain an advanced optimization for a richer per-provider tool surface.
 
