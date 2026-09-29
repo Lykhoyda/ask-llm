@@ -46,7 +46,8 @@ describe("scripts/codex-pair-debounce-worker.mjs — runtime behavior", () => {
       sleep(10_000),
     ]);
     for (const c of children.splice(0)) if (c.exitCode === null) c.kill("SIGKILL");
-    fs.rmSync(dir, { recursive: true, force: true });
+    // A worker detached by the hook can still be writing here; retry through that race.
+    fs.rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
   });
 
   function seedRecord(file: string, rec: object) {
