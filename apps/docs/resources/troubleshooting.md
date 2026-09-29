@@ -13,7 +13,7 @@ npx @ask-llm/mcp doctor --format toon         # bounded, versioned agent-facing 
 npx @ask-llm/mcp doctor --format toon --full  # full TOON escape hatch
 ```
 
-After a global install (`npm install -g @ask-llm/mcp`), `ask-llm doctor` also shows hosts and, per provider, `installed`, `authenticated` and `permitted` from local signals (`unknown` when there is none). It never calls a model unless you opt in with `ask-llm doctor --live` (text or `--json`; not TOON), which spends provider quota: one minimal prompt per ready provider, reported as `exercised`.
+After a global install (`npm install -g @ask-llm/mcp`), `ask-llm doctor` (text and JSON; TOON stays provider-only) also shows hosts and, per provider, `installed`, `authenticated` and `permitted` from local signals (`unknown` when there is none). It never calls a model unless you opt in with `ask-llm doctor --live` (text or `--json`; not TOON), which spends provider quota: one minimal prompt per ready provider, reported as `exercised`.
 
 <script setup>
 import TroubleshootingModal from '../.vitepress/components/TroubleshootingModal.vue'

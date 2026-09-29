@@ -57,6 +57,7 @@ describe("localProviderStates", () => {
 
   it("reads Gemini and Grok API keys as authenticated, otherwise unknown", async () => {
     const run = runner({ code: 0 });
+    vi.stubEnv("ASK_GROK_HARNESS", "");
     vi.stubEnv("GEMINI_API_KEY", "");
     vi.stubEnv("GOOGLE_API_KEY", "");
     vi.stubEnv("XAI_API_KEY", "");
@@ -72,6 +73,12 @@ describe("localProviderStates", () => {
     expect(await localProviderStates("grok", { ...missing, available: true }, run)).toEqual({
       installed: "not-required",
       authenticated: "yes",
+      permitted: "yes",
+    });
+    vi.stubEnv("ASK_GROK_HARNESS", "grok-cli");
+    expect(await localProviderStates("grok", { ...missing, available: true }, run)).toEqual({
+      installed: "no",
+      authenticated: "unknown",
       permitted: "yes",
     });
     expect(run).not.toHaveBeenCalled();

@@ -68,7 +68,7 @@ export async function localProviderStates(
         permitted: "yes",
       };
     case "grok": {
-      const apiKey = hasEnv("XAI_API_KEY");
+      const apiKey = process.env.ASK_GROK_HARNESS !== "grok-cli" && hasEnv("XAI_API_KEY");
       return {
         installed: onPath("grok") ? "yes" : apiKey ? "not-required" : "no",
         authenticated: apiKey ? "yes" : "unknown",
