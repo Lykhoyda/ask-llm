@@ -12,5 +12,5 @@
     "verbatimModuleSyntax": true,
     "types": ["node"]
   },
-  "include": ["*.ts"]
+  "include": ["*.ts", "fixtures/*.ts", "../packages/llm-mcp/src/__tests__/fixtures/*.ts"]
 }
