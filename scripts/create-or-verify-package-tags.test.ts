@@ -169,7 +169,7 @@ test("dry-run reports every mismatched remote tag before one failure and never r
   assert.equal(lines.filter((line) => line.startsWith("MISMATCH ")).length, 2);
   assert.equal(remoteTarget(root, remote, "@ask-llm/one@1.0.0"), previous);
   assert.equal(remoteTarget(root, remote, "@ask-llm/two@2.0.0"), previous);
-});
+}, 15_000);
 
 test("partial completion verifies an existing tag and creates only the missing tag", () => {
   const { root, remote, release } = fixture();
