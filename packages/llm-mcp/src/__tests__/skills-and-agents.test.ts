@@ -159,6 +159,16 @@ describe("portable skills on skills-folder hosts (issue #266)", () => {
     },
   );
 
+  it("keeps the CLI rung's directories and quota fallback, and never drops a field on any route", () => {
+    expect(transport).toContain("one `--add-dir` per requested directory");
+    expect(transport).toContain("run it once more with `-m gpt-5.6-terra` and disclose that fallback");
+    expect(transport).toContain("The CLI cannot express `preferred`, so a call that needs it stops here instead");
+    expect(transport).toContain("a tool that lacks a needed field is skipped, never called with fewer fields");
+    expect(transport).toContain(
+      "when the provider's own tool lacks one (for example `ask-antigravity` has no `model`), use `ask-llm` instead",
+    );
+  });
+
   it("names setup as the remedy when no Ask LLM tool is exposed", () => {
     expect(transport).toContain("stop and tell the user to run `ask-llm setup`");
   });

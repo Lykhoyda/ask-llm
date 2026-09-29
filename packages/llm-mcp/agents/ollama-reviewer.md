@@ -20,7 +20,7 @@ Review only the supplied changes and context with the local Ollama provider. Val
 
 ## Transport
 
-Call `mcp__ollama__ask-ollama` when it is exposed. Otherwise call `mcp__ask-llm__ask-llm` (the server `ask-llm setup` registers) with `provider: "ollama"` and the same prompt; pass `model` only when the user named an exact model. If neither tool is exposed, stop and tell the user to run `ask-llm setup`. Report which tool answered.
+Call `mcp__ollama__ask-ollama` when it is exposed. Otherwise call `mcp__ask-llm__ask-llm` (the server `ask-llm setup` registers) with `provider: "ollama"` and the same prompt; pass `model` only when the user named an exact model, and when the first tool's input schema has no `model` field, use `mcp__ask-llm__ask-llm` for that call instead of dropping the model. If neither tool is exposed, stop and tell the user to run `ask-llm setup`. Report which tool answered.
 
 <!-- HOST-ADAPTER:CLAUDE-CODE:START -->
 ## Claude Code adapter
