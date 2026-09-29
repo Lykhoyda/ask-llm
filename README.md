@@ -52,7 +52,7 @@ npm install -g @ask-llm/mcp
 ask-llm setup --host claude
 ```
 
-Setup previews the user-scope registration and asks before applying it. Then try: `ask codex to review my last commit`. Run `ask-llm doctor` if anything looks off. See [command compatibility](packages/llm-mcp/README.md#command-compatibility) for `-y`, removal, and other hosts.
+Setup previews the user-scope registration and the workflows it installs (the Claude Code plugin, or the `ask-llm-*` skills on other hosts) and asks before applying them. Then try: `ask codex to review my last commit`. Run `ask-llm doctor` if anything looks off. See [command compatibility](packages/llm-mcp/README.md#command-compatibility) for `-y`, removal, and other hosts.
 
 <details>
 <summary>Advanced: install split provider packages instead</summary>
@@ -131,6 +131,8 @@ Fallbacks fire only under each provider's documented conditions (quota for Gemin
 ## The Ask LLM plugin (Claude Code, Cursor Agent, Pi)
 
 MCP gives your assistant the *tools*. The canonical [`@ask-llm/mcp`](https://www.npmjs.com/package/@ask-llm/mcp) package also owns the *workflows*: slash-command reviews with a validation pipeline, multi-model brainstorming, and opt-in continuous pair review. `@ask-llm/plugin` remains a dependent bridge for existing installs.
+
+`ask-llm setup` installs these workflows for you: the plugin in Claude Code, and the same skills, named `ask-llm-*`, in Codex, Cursor Agent, Grok Build, Gemini CLI, OpenCode and Pi through the pinned `skills` CLI. In Claude Code the earlier names such as `/codex-review` keep working. To install only the Claude Code plugin by hand:
 
 ```
 /plugin marketplace add Lykhoyda/ask-llm

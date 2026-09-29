@@ -10,9 +10,9 @@ The **Ask LLM plugin** brings the second opinion into Claude Code itself: slash-
 
 ## Installation
 
-### From Marketplace (recommended)
+### Through setup (recommended)
 
-Add the Ask LLM marketplace, then install the plugin:
+`ask-llm setup` installs these workflows for you: the plugin in Claude Code, and the same skills, named `ask-llm-*`, in Codex, Cursor Agent, Grok Build, Gemini CLI, OpenCode and Pi through the pinned `skills` CLI. In Claude Code the earlier names such as `/codex-review` keep working. To install only the Claude Code plugin by hand:
 
 ```bash
 /plugin marketplace add Lykhoyda/ask-llm
