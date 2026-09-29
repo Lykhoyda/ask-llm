@@ -10,8 +10,9 @@ import {
   writeSync,
 } from "node:fs";
 import { getSpawnEnv } from "@ask-llm/shared";
-import { isOwnRegistration, UNUSABLE_ENTRY } from "../plan.js";
-import { type DetectedHost, type RegistrationState, readRegistration } from "./detect.js";
+import { commandText, isOwnCommand, isOwnRegistration, UNUSABLE_ENTRY } from "../plan.js";
+import { type DetectedHost, entryCommand, type RegistrationState, readRegistration } from "./detect.js";
+import { type JsonEdit, writeJsonKey } from "./json-merge.js";
 import { antigravity } from "./registrars/antigravity.js";
 import { claude } from "./registrars/claude.js";
 import { codex } from "./registrars/codex.js";
@@ -24,6 +25,22 @@ export type HostOp = "add" | "remove";
 export type Registrar = (op: HostOp, server: string) => string[];
 
 export const REGISTRARS: Partial<Record<HostId, Registrar>> = { claude, codex, agy: antigravity, grok, gemini };
+
+export function canApply(host: DetectedHost): boolean {
+  return host.spec.registration.kind === "json" || REGISTRARS[host.id] !== undefined;
+}
+
+// What setup or remove will do, in the words the confirmation and the manual step use.
+export function changeText(host: DetectedHost, op: HostOp, server: string): string | undefined {
+  const { registration } = host.spec;
+  if (registration.kind === "json") {
+    const { keyPath, value } = registration.edit(op, server);
+    const at = `${keyPath.join(".")} in ${registration.file}`;
+    return op === "add" ? `add ${JSON.stringify(value)} at ${at}` : `remove ${at}`;
+  }
+  const registrar = REGISTRARS[host.id];
+  return registrar && commandText(registrar(op, server));
+}
 
 export interface Applied {
   outcome: "changed" | "unchanged" | "conflict" | "failed";
@@ -122,32 +139,48 @@ export async function applyRegistrar(
   server: string,
   env: NodeJS.ProcessEnv,
 ): Promise<Applied> {
+  const { registration } = host.spec;
   const registrar = REGISTRARS[host.id];
-  if (!registrar || !host.binary) return { outcome: "failed", detail: `${host.name} has no command registrar` };
+  if (registration.kind === "command" && (!registrar || !host.binary))
+    return { outcome: "failed", detail: `${host.name} has no command registrar` };
   const spawnEnv = { ...env, PATH: getSpawnEnv().PATH };
   const read = () => readRegistration(host.spec.registrationState, host.binary, spawnEnv);
   const refused = gate(host, await read(), op, server);
   if (refused) return refused;
 
   let backup: string | undefined;
-  try {
-    backup = backupConfig(host.spec.configFile);
-  } catch (error) {
-    const detail = error instanceof Error ? error.message : String(error);
-    return { outcome: "failed", detail: `cannot back up ${host.spec.configFile}: ${firstLine(detail)}` };
+  const backUp = (): string | undefined => {
+    try {
+      backup = backupConfig(host.spec.configFile);
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : String(error);
+      return `cannot back up ${host.spec.configFile}: ${firstLine(detail)}`;
+    }
+    return undefined;
+  };
+  let change: Changed | Applied;
+  if (registration.kind === "json") {
+    change = writeRegistrar(registration.file, registration.edit(op, server), op, server, backUp);
+  } else {
+    const unsaved = backUp();
+    if (unsaved) return { outcome: "failed", detail: unsaved };
+    change = await runRegistrar(host, (registrar as Registrar)(op, server), op, spawnEnv);
   }
-  const applied = await runRegistrar(host, registrar(op, server), op, server, spawnEnv, read);
+  const applied = "outcome" in change ? change : verify(host, op, server, change, await read());
   return backup ? { ...applied, backup } : applied;
+}
+
+interface Changed {
+  benign: boolean;
+  action: string;
 }
 
 async function runRegistrar(
   host: DetectedHost,
   argv: string[],
   op: HostOp,
-  server: string,
   spawnEnv: NodeJS.ProcessEnv,
-  read: () => Promise<RegistrationState>,
-): Promise<Applied> {
+): Promise<Changed | Applied> {
   const run = await runHost(host.binary as string, argv.slice(1), spawnEnv, HOST_COMMAND_TIMEOUT_MS);
   const output = `${run.stderr}\n${run.stdout}`;
   const benign = (op === "add" ? ALREADY_EXISTS : NOT_FOUND).test(output);
@@ -157,17 +190,46 @@ async function runRegistrar(
       detail: `${firstLine(output) || "no output"} (exit ${run.code ?? "timeout or signal"})`,
     };
   }
+  return { benign, action: `\`${argv.join(" ")}\`` };
+}
 
-  const after = await read();
+// Ownership is checked again on the exact content being rewritten, and the backup is taken only once the file passed every check.
+function writeRegistrar(
+  file: string,
+  edit: JsonEdit,
+  op: HostOp,
+  server: string,
+  backUp: () => string | undefined,
+): Changed | Applied {
+  try {
+    writeJsonKey(file, edit.keyPath, edit.value, (current) => {
+      if (op === "add" && current !== undefined) return "an ask-llm entry appeared; not overwritten";
+      if (op === "remove" && !isOwnCommand(entryCommand(current), server))
+        return "the ask-llm entry no longer runs this ask-llm-mcp; left in place";
+      return backUp();
+    });
+  } catch (error) {
+    return { outcome: "failed", detail: firstLine(error instanceof Error ? error.message : String(error)) };
+  }
+  return { benign: false, action: `writing ${file}` };
+}
+
+function verify(
+  host: DetectedHost,
+  op: HostOp,
+  server: string,
+  { benign, action }: Changed,
+  after: RegistrationState,
+): Applied {
   if (after.registered === null) return { outcome: "failed", detail: after.error };
   if (op === "remove") {
     if (after.registered || after.present)
-      return { outcome: "failed", detail: `ask-llm is still registered after \`${argv.join(" ")}\`` };
+      return { outcome: "failed", detail: `ask-llm is still registered after ${action}` };
     return { outcome: benign ? "unchanged" : "changed" };
   }
   if (isOwnRegistration({ ...host, ...after, command: after.command }, server)) {
     return { outcome: benign ? "unchanged" : "changed" };
   }
   if (after.registered) return conflict(after.command);
-  return { outcome: "failed", detail: `the ask-llm entry was not found after \`${argv.join(" ")}\`` };
+  return { outcome: "failed", detail: `the ask-llm entry was not found after ${action}` };
 }

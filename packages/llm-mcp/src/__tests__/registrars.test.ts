@@ -2,6 +2,7 @@ import {
   chmodSync,
   mkdirSync,
   mkdtempSync,
+  readdirSync,
   readFileSync,
   realpathSync,
   rmSync,
@@ -14,6 +15,7 @@ import { join } from "node:path";
 import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { applyRegistrar } from "../hosts/apply.js";
 import { type DetectedHost, detectHosts } from "../hosts/detect.js";
+import { hostSpecs } from "../hosts/registry.js";
 import {
   FAKE_HOSTS,
   FOREIGN,
@@ -266,4 +268,122 @@ it("backs up beside a symlinked config directory's real file before registration
   expect(readFileSync(applied.backup as string, "utf8")).toBe('[ui]\ntheme = "dark"\n');
   expect(statSync(applied.backup as string).mode & 0o7777).toBe(0o640);
   expect(fakeArgv(home, "grok")).toEqual([["mcp", "add", "--scope", "user", "ask-llm", SERVER]]);
+});
+
+const FILE_HOSTS = {
+  cursor: { parent: "mcpServers", own: { command: SERVER, args: [] }, other: { command: "npx", args: ["-y", "x"] } },
+  "claude-desktop": {
+    parent: "mcpServers",
+    own: { command: SERVER, args: [] },
+    other: { command: "uvx", args: ["y"], env: { TOKEN: "t" } },
+  },
+  opencode: {
+    parent: "mcp",
+    own: { type: "local", command: [SERVER], enabled: true },
+    other: { type: "remote", url: "https://example.com/mcp" },
+  },
+} as const;
+
+describe.each(Object.keys(FILE_HOSTS) as Array<keyof typeof FILE_HOSTS>)("%s file registrar", (id) => {
+  const { parent, own, other } = FILE_HOSTS[id];
+  const fixture = (entries: Record<string, unknown>) =>
+    `${JSON.stringify({ theme: "dark", [parent]: { other, ...entries } }, null, 2)}\n`;
+
+  async function host(): Promise<DetectedHost> {
+    const found = (await detectHosts(env)).find((candidate) => candidate.id === id);
+    if (!found) throw new Error(id);
+    return found;
+  }
+
+  function config(content?: string): string {
+    const file = hostSpecsFile(id) as string;
+    if (content !== undefined) {
+      mkdirSync(join(file, ".."), { recursive: true });
+      writeFileSync(file, content);
+    }
+    return file;
+  }
+
+  it("creates the file with only its entry when it is absent", async () => {
+    expect(await applyRegistrar(await host(), "add", SERVER, env)).toEqual({ outcome: "changed" });
+    expect(JSON.parse(readFileSync(config(), "utf8"))).toEqual({ [parent]: { "ask-llm": own } });
+    expect(await host()).toMatchObject({ registered: true, command: [SERVER] });
+  });
+
+  it("adds beside unrelated servers, backs up first, and a second add changes nothing", async () => {
+    const file = config(fixture({}));
+    const applied = await applyRegistrar(await host(), "add", SERVER, env);
+    expect(applied.outcome).toBe("changed");
+    expect(readFileSync(applied.backup as string, "utf8")).toBe(fixture({}));
+    expect(readFileSync(file, "utf8")).toBe(fixture({ "ask-llm": own }));
+
+    expect(await applyRegistrar(await host(), "add", SERVER, env)).toEqual({ outcome: "unchanged" });
+    expect(readFileSync(file, "utf8")).toBe(fixture({ "ask-llm": own }));
+  });
+
+  it("removes only its own entry and a second remove changes nothing", async () => {
+    const file = config(fixture({ "ask-llm": own }));
+    const applied = await applyRegistrar(await host(), "remove", SERVER, env);
+    expect(applied.outcome).toBe("changed");
+    expect(readFileSync(applied.backup as string, "utf8")).toBe(fixture({ "ask-llm": own }));
+    expect(readFileSync(file, "utf8")).toBe(fixture({}));
+    expect(await applyRegistrar(await host(), "remove", SERVER, env)).toEqual({ outcome: "unchanged" });
+  });
+
+  it.each(["add", "remove"] as const)("never %ss over a foreign entry", async (op) => {
+    const foreign = parent === "mcp" ? { type: "local", command: ["npx", "-y", "ask-llm-mcp"] } : { command: FOREIGN };
+    const file = config(fixture({ "ask-llm": foreign }));
+    expect(await applyRegistrar(await host(), op, SERVER, env)).toMatchObject({ outcome: "conflict" });
+    expect(readFileSync(file, "utf8")).toBe(fixture({ "ask-llm": foreign }));
+  });
+
+  it.each([
+    ["malformed JSON", "{ not json"],
+    ["JSON with comments", `{\n  // mine\n  "${parent}": {}\n}\n`],
+  ])("refuses %s and keeps the file", async (_, content) => {
+    const file = config(content);
+    expect(await applyRegistrar(await host(), "add", SERVER, env)).toMatchObject({
+      outcome: "failed",
+      detail: expect.stringContaining("cannot read registration"),
+    });
+    expect(readFileSync(file, "utf8")).toBe(content);
+  });
+
+  it("refuses a non-object parent without leaving a backup behind", async () => {
+    const file = config(`{"${parent}":[]}`);
+    expect(await applyRegistrar(await host(), "add", SERVER, env)).toEqual({
+      outcome: "failed",
+      detail: expect.stringContaining("is not a JSON object"),
+    });
+    expect(readFileSync(file, "utf8")).toBe(`{"${parent}":[]}`);
+    expect(readdirSync(join(file, "..")).filter((name) => name.includes("ask-llm-backup"))).toEqual([]);
+  });
+
+  it("fails without touching the file when an interrupted write left its temp file", async () => {
+    const file = config(fixture({}));
+    writeFileSync(`${file}.ask-llm-tmp`, "partial");
+    expect(await applyRegistrar(await host(), "add", SERVER, env)).toMatchObject({
+      outcome: "failed",
+      detail: expect.stringContaining("interrupted write"),
+    });
+    expect(readFileSync(file, "utf8")).toBe(fixture({}));
+    expect(readFileSync(`${file}.ask-llm-tmp`, "utf8")).toBe("partial");
+    expect(readdirSync(join(file, "..")).filter((name) => name.includes("ask-llm-backup"))).toEqual([]);
+  });
+});
+
+function hostSpecsFile(id: string): string | undefined {
+  return hostSpecs(env).find((spec) => spec.id === id)?.configFile;
+}
+
+it("refuses OpenCode while an opencode.jsonc sits beside opencode.json", async () => {
+  const file = hostSpecsFile("opencode") as string;
+  mkdirSync(join(file, ".."), { recursive: true });
+  writeFileSync(join(file, "..", "opencode.jsonc"), "{ // mine\n}\n");
+  const host = (await detectHosts(env)).find(({ id }) => id === "opencode") as DetectedHost;
+  expect(await applyRegistrar(host, "add", SERVER, env)).toMatchObject({
+    outcome: "failed",
+    detail: expect.stringContaining("does not rewrite JSONC"),
+  });
+  expect(() => readFileSync(file)).toThrow();
 });

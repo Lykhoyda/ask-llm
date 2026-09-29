@@ -14,7 +14,7 @@ yarn build
 agent --plugin-dir ./packages/llm-mcp
 ```
 
-Installed plugins expose only `/codex-pair` and `/grok-pair` in Cursor's `/` skill menu. The Cursor manifest deliberately omits `/codex-pair-ack`, `/codex-pair-pause`, and `/codex-pair-resume`: those toggle the Claude Code/Pi background per-edit reviewer through `.codex-pair/state` sentinels, and Cursor's on-demand session has no background reviewer for them to act on. If you only want MCP setup, copy the `packages/llm-mcp/mcp.json` entry to project `.cursor/mcp.json` or user `~/.cursor/mcp.json`, then restart/reload Cursor Agent. The adapter bundles exactly one server:
+Installed plugins expose only `/codex-pair` and `/grok-pair` in Cursor's `/` skill menu. The Cursor manifest deliberately omits `/codex-pair-ack`, `/codex-pair-pause`, and `/codex-pair-resume`: those toggle the Claude Code/Pi background per-edit reviewer through `.codex-pair/state` sentinels, and Cursor's on-demand session has no background reviewer for them to act on. For user-scope MCP setup, follow the [Quick Start](https://github.com/Lykhoyda/ask-llm#quick-start); for project-scoped configuration, copy the `packages/llm-mcp/mcp.json` entry to `.cursor/mcp.json`, then restart/reload Cursor Agent. The adapter bundles exactly one server:
 
 - `ask-llm` → `@ask-llm/mcp` (`ask-cursor-agent` plus the unified `ask-llm` tool, which pair skills call only fully pinned — provider, harness, exact model, effort, include directories, sandbox, session — never as a generic fallback).
 

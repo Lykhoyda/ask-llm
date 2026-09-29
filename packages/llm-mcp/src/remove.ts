@@ -1,7 +1,7 @@
-import { type Applied, applyRegistrar, REGISTRARS } from "./hosts/apply.js";
+import { type Applied, applyRegistrar, canApply, changeText } from "./hosts/apply.js";
 import type { DetectedHost } from "./hosts/detect.js";
 import type { HostId } from "./hosts/registry.js";
-import { commandText, isOwnRegistration, UNUSABLE_ENTRY } from "./plan.js";
+import { isOwnRegistration, UNUSABLE_ENTRY } from "./plan.js";
 import { type Confirm, type HostResult, type HostStatus, inScope, nextStep, result } from "./setup.js";
 
 const REMOVED: Record<Applied["outcome"], HostStatus> = {
@@ -24,9 +24,8 @@ export async function applyRemove(
 ): Promise<HostResult[]> {
   const results: HostResult[] = [];
   for (const host of hosts.filter((candidate) => inScope(candidate, selected))) {
-    const registrar = REGISTRARS[host.id];
-    const manual = registrar ? commandText(registrar("remove", server)) : undefined;
-    if (!registrar) {
+    const manual = changeText(host, "remove", server);
+    if (!canApply(host)) {
       results.push(
         result(host, selected ? "manual" : "unsupported", { detail: `remove does not handle ${host.name} yet` }),
       );
@@ -38,7 +37,11 @@ export async function applyRemove(
       results.push(result(host, "not-owned", { detail: `${UNUSABLE_ENTRY}; left in place` }));
     } else if (!host.registered) results.push(result(host, "not-registered"));
     else if (!isOwnRegistration(host, server)) results.push(result(host, "not-owned", { detail: foreign(host) }));
-    else if (!(await confirm(`Remove Ask LLM from ${host.name}? Runs: ${manual}`))) {
+    else if (
+      !(await confirm(
+        `Remove Ask LLM from ${host.name}? ${host.spec.registration.kind === "command" ? "Runs" : "Writes"}: ${manual}`,
+      ))
+    ) {
       results.push(result(host, "declined"));
     } else {
       const applied = await applyRegistrar(host, "remove", server, env);

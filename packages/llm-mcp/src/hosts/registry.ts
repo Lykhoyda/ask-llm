@@ -1,18 +1,24 @@
 import { join } from "node:path";
+import type { HostOp } from "./apply.js";
+import type { JsonEdit } from "./json-merge.js";
 import { antigravity } from "./registrars/antigravity.js";
 import { claude } from "./registrars/claude.js";
+import { claudeDesktop } from "./registrars/claude-desktop.js";
 import { codex } from "./registrars/codex.js";
+import { cursor } from "./registrars/cursor.js";
 import { gemini } from "./registrars/gemini.js";
 import { grok } from "./registrars/grok.js";
+import { opencode } from "./registrars/opencode.js";
 
 export type HostId = "claude" | "codex" | "agy" | "grok" | "gemini" | "cursor" | "claude-desktop" | "pi" | "opencode";
 
 export type Registration =
   | { kind: "command"; argv: (server: string) => string[] }
-  | { kind: "json"; file: string; keyPath: string[]; entry: (server: string) => unknown };
+  | { kind: "json"; file: string; edit: (op: HostOp, server: string) => JsonEdit };
 
 export type RegistrationSource =
-  | { kind: "json"; file: string; keyPath: string[] }
+  // A `jsonc` sibling the host also loads makes the registration unknown, since setup never rewrites JSONC.
+  | { kind: "json"; file: string; keyPath: string[]; jsonc?: string }
   | { kind: "toml"; file: string; table: string }
   | { kind: "list"; args: string[] }
   | { kind: "packages"; file: string; source: string };
@@ -23,7 +29,7 @@ export interface HostSpec {
   binaries: string[];
   apps?: string[];
   configHome: string;
-  // The file the host's own mcp add/remove rewrites; backed up before each write.
+  // The file setup or the host's own mcp add/remove rewrites; backed up before each write.
   configFile?: string;
   versionProbe?: { args: string[]; pattern: RegExp };
   registration: Registration;
@@ -32,7 +38,6 @@ export interface HostSpec {
   pluginInstall?: string[][];
   restart: "new-session" | "app-restart";
   notice?: string;
-  unverified?: boolean;
 }
 
 export const SERVER_NAME = "ask-llm";
@@ -59,7 +64,6 @@ export function hostSpecs(env: NodeJS.ProcessEnv = process.env, platform = proce
   const opencodeHome = join(env.XDG_CONFIG_HOME ?? join(home, ".config"), "opencode");
   const opencodeConfig = join(opencodeHome, "opencode.json");
   const serverKey = ["mcpServers", SERVER_NAME];
-  const stdioEntry = (server: string) => ({ command: server, args: [] });
 
   return [
     {
@@ -136,7 +140,8 @@ export function hostSpecs(env: NodeJS.ProcessEnv = process.env, platform = proce
       binaries: ["agent", "cursor-agent"],
       apps: platform === "darwin" ? ["/Applications/Cursor.app", join(home, "Applications", "Cursor.app")] : [],
       configHome: join(home, ".cursor"),
-      registration: { kind: "json", file: cursorConfig, keyPath: serverKey, entry: stdioEntry },
+      configFile: cursorConfig,
+      registration: { kind: "json", file: cursorConfig, edit: cursor },
       registrationState: { kind: "json", file: cursorConfig, keyPath: serverKey },
       skillsDir: join(home, ".cursor", "skills"),
       restart: "app-restart",
@@ -147,7 +152,8 @@ export function hostSpecs(env: NodeJS.ProcessEnv = process.env, platform = proce
       binaries: ["claude-desktop"],
       apps: platform === "darwin" ? ["/Applications/Claude.app", join(home, "Applications", "Claude.app")] : [],
       configHome: desktopHome,
-      registration: { kind: "json", file: desktopConfig, keyPath: serverKey, entry: stdioEntry },
+      configFile: desktopConfig,
+      registration: { kind: "json", file: desktopConfig, edit: claudeDesktop },
       registrationState: { kind: "json", file: desktopConfig, keyPath: serverKey },
       restart: "app-restart",
     },
@@ -166,17 +172,18 @@ export function hostSpecs(env: NodeJS.ProcessEnv = process.env, platform = proce
       name: "OpenCode",
       binaries: ["opencode"],
       configHome: opencodeHome,
+      configFile: opencodeConfig,
       versionProbe: plainVersion,
-      registration: {
+      registration: { kind: "json", file: opencodeConfig, edit: opencode },
+      registrationState: {
         kind: "json",
         file: opencodeConfig,
         keyPath: ["mcp", SERVER_NAME],
-        entry: (server) => ({ type: "local", command: [server], enabled: true }),
+        jsonc: join(opencodeHome, "opencode.jsonc"),
       },
-      registrationState: { kind: "json", file: opencodeConfig, keyPath: ["mcp", SERVER_NAME] },
       skillsDir: join(opencodeHome, "skills"),
       restart: "new-session",
-      unverified: true,
+      notice: "OpenCode registration is verified against fixture files only, not yet on a real OpenCode install.",
     },
   ];
 }

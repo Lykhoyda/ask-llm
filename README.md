@@ -42,10 +42,13 @@ Your primary AI is confident, but confidence isn't correctness. A second model w
 
 **Prerequisites:** [Node.js](https://nodejs.org/) 24+ (the current LTS), on Linux or macOS, and at least one provider CLI installed and authenticated (see [Provider setup](#provider-setup)).
 
+```bash
+npm install -g @ask-llm/mcp
+```
+
 ### Claude Code
 
 ```bash
-npm install -g @ask-llm/mcp
 ask-llm setup --host claude
 ```
 
@@ -66,15 +69,7 @@ claude mcp add --scope user gemini -- npx -y @ask-llm/gemini-mcp
 
 ### Cursor
 
-Add to `.cursor/mcp.json` (project) or `~/.cursor/mcp.json` (user):
-
-```json
-{
-  "mcpServers": {
-    "ask-llm": { "command": "npx", "args": ["-y", "@ask-llm/mcp"] }
-  }
-}
-```
+After the global install above, run `ask-llm setup --host cursor`. It previews the user-scope change to `~/.cursor/mcp.json` and asks before writing. Restart Cursor Agent to load the server. For a project-scoped or manual install, see the [Cursor host guide](https://lykhoyda.github.io/ask-llm/plugin/cursor).
 
 ### Codex CLI
 
@@ -89,15 +84,11 @@ Want Codex to consult Claude specifically? `codex mcp add claude -- npx -y @ask-
 
 ### Claude Desktop
 
-Add to `claude_desktop_config.json`:
+After the global install above, run `ask-llm setup --host claude-desktop`. It previews the user-scope change to `claude_desktop_config.json` and asks before writing. Restart Claude Desktop to load the server. See [command compatibility](packages/llm-mcp/README.md#command-compatibility) for removal, backups, and formats that require manual setup.
 
-```json
-{
-  "mcpServers": {
-    "ask-llm": { "command": "npx", "args": ["-y", "@ask-llm/mcp"] }
-  }
-}
-```
+### OpenCode
+
+After the global install above, run `ask-llm setup --host opencode`. Setup changes only a plain JSON `opencode.json`; for JSONC it prints the entry to add manually. OpenCode registration has fixture coverage and awaits verification on an installed host.
 
 ### Pi
 

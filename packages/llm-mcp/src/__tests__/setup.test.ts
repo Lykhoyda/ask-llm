@@ -17,6 +17,7 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { detectHosts } from "../hosts/detect.js";
+import { type HostId, hostSpecs } from "../hosts/registry.js";
 import { commandText } from "../plan.js";
 import { applySetup } from "../setup.js";
 import {
@@ -207,23 +208,24 @@ describe("ask-llm setup", () => {
     const removed = ask("remove", "-y");
     expect(removed.stdout).toContain("Pi 0.87.1: not handled by this release (remove does not handle Pi yet)");
     expect(removed.stdout).not.toContain("trusted folders");
+    expect(ask("setup", "-y", "--host", "pi").stdout).toContain("Pi 0.87.1: manual (setup does not register Pi yet)");
   });
 
-  it("never offers a manual step that would overwrite a foreign entry on a host it does not register", () => {
+  it("reports a foreign file-host entry with the entry it would use and leaves the file alone", () => {
     writeFileSync(join(bin, "cursor-agent"), "#!/bin/sh\nexit 0\n", { mode: 0o755 });
     mkdirSync(join(home, ".cursor"), { recursive: true });
-    writeFileSync(join(home, ".cursor/mcp.json"), JSON.stringify({ mcpServers: { "ask-llm": { command: FOREIGN } } }));
-    const result = ask("setup", "-y", "--host", "cursor");
-    expect(result.stdout).toContain(
-      `Cursor: manual (setup does not register Cursor yet; an ask-llm entry already runs \`${FOREIGN}\``,
-    );
-    expect(result.stdout).not.toContain("Run it manually");
-  });
-
-  it("prints the manual step for a requested host this release does not register", () => {
+    const content = JSON.stringify({ mcpServers: { "ask-llm": { command: FOREIGN } } });
+    writeFileSync(join(home, ".cursor/mcp.json"), content);
     const result = ask("setup", "-y", "--host", "cursor");
     expect(result.status).toBe(1);
-    expect(result.stdout).toMatch(/Cursor: manual/);
+    expect(result.stdout).toContain(`Cursor: conflict (an ask-llm entry already runs \`${FOREIGN}\``);
+    expect(result.stdout).toContain(
+      `Entry for this install (not written): add {"command":"${installedServer}","args":[]} at mcpServers.ask-llm in ${join(home, ".cursor/mcp.json")}`,
+    );
+    expect(result.stdout).not.toContain("Run it manually");
+    expect(readFileSync(join(home, ".cursor/mcp.json"), "utf8")).toBe(content);
+    expect(ask("remove", "-y", "--host", "cursor").stdout).toContain("Cursor: not removed");
+    expect(readFileSync(join(home, ".cursor/mcp.json"), "utf8")).toBe(content);
   });
 
   it("refuses without a terminal or -y before touching any host", () => {
@@ -322,7 +324,7 @@ describe("ask-llm setup", () => {
       asked.push(question);
       return question.includes("Claude Code");
     };
-    const results = await applySetup(await detectHosts(isolated), server, undefined, confirm, isolated);
+    const results = await applySetup(await detectHosts(isolated), server, HOSTS as HostId[], confirm, isolated);
     expect(asked).toHaveLength(5);
     expect(asked[0]).toContain(commandText(["claude", "mcp", "add", "--scope", "user", "ask-llm", "--", server]));
     expect(calls()).toEqual({
@@ -333,6 +335,99 @@ describe("ask-llm setup", () => {
       gemini: [],
     });
     expect(results.find(({ id }) => id === "codex")).toMatchObject({ status: "declined" });
+  });
+});
+
+describe("ask-llm setup and remove for file hosts", () => {
+  const specs = hostSpecs({ HOME: home });
+  const configOf = (id: HostId) => specs.find((spec) => spec.id === id)?.configFile as string;
+  const OTHER = { command: "uvx", args: ["mcp-server-time"], env: { TZ: "UTC" } };
+
+  function install(name: string, version = "1.0.0"): void {
+    writeFileSync(join(bin, name), `#!/bin/sh\necho "${version}"\n`, { mode: 0o755 });
+  }
+
+  function fixture(id: HostId, content: string): string {
+    const file = configOf(id);
+    mkdirSync(join(file, ".."), { recursive: true });
+    writeFileSync(file, content);
+    return file;
+  }
+
+  it("merges Cursor's entry beside unrelated servers, tells the user to restart, and removes it again", () => {
+    install("cursor-agent", "2026.09.26-dd393fe");
+    const original = `${JSON.stringify({ mcpServers: { time: OTHER } }, null, 2)}\n`;
+    const file = fixture("cursor", original);
+
+    const first = ask("setup", "-y", "--host", "cursor");
+    expect(first.status).toBe(0);
+    expect(first.stdout).toContain(`merge {"command":"${installedServer}","args":[]} at mcpServers.ask-llm in ${file}`);
+    expect(first.stdout).toContain("Cursor: registered");
+    expect(first.stdout).toContain("Next: restart the app to load the change");
+    expect(JSON.parse(readFileSync(file, "utf8")).mcpServers).toEqual({
+      time: OTHER,
+      "ask-llm": { command: installedServer, args: [] },
+    });
+    const [backup] = backups();
+    expect(first.stdout).toContain(`Backup: ${join(home, backup)}`);
+    expect(readFileSync(join(home, backup), "utf8")).toBe(original);
+
+    const second = ask("setup", "-y", "--host", "cursor");
+    expect(second.stdout).toContain("Cursor: already registered");
+    expect(second.stdout).toContain("No changes.");
+    expect(backups()).toEqual([backup]);
+
+    const removed = ask("remove", "-y", "--host", "cursor");
+    expect(removed.status).toBe(0);
+    expect(removed.stdout).toContain("Cursor: removed");
+    expect(removed.stdout).toContain("restart the app");
+    expect(readFileSync(file, "utf8")).toBe(original);
+  });
+
+  it("round-trips a Claude Desktop config byte for byte", () => {
+    install("claude-desktop");
+    const original = `${JSON.stringify(
+      { mcpServers: { time: OTHER }, preferences: { menuBarEnabled: false } },
+      null,
+      2,
+    )}\n`;
+    const file = fixture("claude-desktop", original);
+    expect(ask("setup", "-y", "--host", "claude-desktop").stdout).toContain("Claude Desktop: registered");
+    expect(JSON.parse(readFileSync(file, "utf8")).mcpServers["ask-llm"]).toEqual({
+      command: installedServer,
+      args: [],
+    });
+    expect(ask("remove", "-y", "--host", "claude-desktop").stdout).toContain("Claude Desktop: removed");
+    expect(readFileSync(file, "utf8")).toBe(original);
+  });
+
+  it("registers OpenCode in an absent config and says it is fixture-verified only", () => {
+    install("opencode", "1.14.3");
+    const result = ask("setup", "-y", "--host", "opencode");
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain("OpenCode 1.14.3: registered");
+    expect(result.stdout).toContain("verified against fixture files only");
+    expect(JSON.parse(readFileSync(configOf("opencode"), "utf8"))).toEqual({
+      mcp: { "ask-llm": { type: "local", command: [installedServer], enabled: true } },
+    });
+  });
+
+  it.each([
+    ["an opencode.jsonc beside it", "opencode.jsonc", '{\n  // mine\n  "mcp": {}\n}\n'],
+    ["comments in opencode.json", "opencode.json", '{\n  // mine\n  "mcp": {}\n}\n'],
+  ])("prints OpenCode's exact entry instead of writing with %s", (_, name, content) => {
+    install("opencode", "1.14.3");
+    const file = join(configOf("opencode"), "..", name);
+    fixture("opencode", "{}\n");
+    writeFileSync(file, content);
+    const result = ask("setup", "-y", "--host", "opencode");
+    expect(result.status).toBe(1);
+    expect(result.stdout).toContain("OpenCode 1.14.3: manual (cannot read registration");
+    expect(result.stdout).toContain(
+      `Run it manually: add {"type":"local","command":["${installedServer}"],"enabled":true} at mcp.ask-llm in ${configOf("opencode")}`,
+    );
+    expect(readFileSync(file, "utf8")).toBe(content);
+    expect(backups()).toEqual([]);
   });
 });
 

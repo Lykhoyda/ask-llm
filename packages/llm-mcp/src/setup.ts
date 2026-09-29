@@ -1,4 +1,4 @@
-import { type Applied, applyRegistrar, REGISTRARS } from "./hosts/apply.js";
+import { type Applied, applyRegistrar, canApply } from "./hosts/apply.js";
 import type { DetectedHost } from "./hosts/detect.js";
 import type { HostId } from "./hosts/registry.js";
 import { buildPlan, manualText } from "./plan.js";
@@ -64,7 +64,7 @@ export async function applySetup(
     if (!inScope(host, selected)) continue;
     const { action, reason, registration } = plan[index];
     const manual = manualText(registration);
-    if (!REGISTRARS[host.id]) {
+    if (!canApply(host)) {
       const detail = [`setup does not register ${host.name} yet`, action === "register" ? undefined : reason];
       results.push(
         action === "up-to-date"
@@ -75,7 +75,8 @@ export async function applySetup(
             }),
       );
     } else if (action === "register") {
-      if (!(await confirm(`Register Ask LLM with ${host.name}? Runs: ${manual}`))) {
+      const verb = registration.kind === "command" ? "Runs" : "Writes";
+      if (!(await confirm(`Register Ask LLM with ${host.name}? ${verb}: ${manual}`))) {
         results.push(result(host, "declined"));
         continue;
       }
@@ -91,10 +92,12 @@ export async function applySetup(
       );
     } else {
       const status = action === "skip" ? "skipped" : action;
+      // A file host's foreign entry is reported with the exact entry this install would use; it is never written.
+      const snippet = action === "manual" || (action === "conflict" && registration.kind === "json");
       results.push(
         result(host, status, {
           detail: action === "up-to-date" ? undefined : reason,
-          manual: action === "manual" ? manual : undefined,
+          manual: snippet ? manual : undefined,
         }),
       );
     }

@@ -56,7 +56,7 @@ async function probeVersion(spec: HostSpec, binary: string, env: NodeJS.ProcessE
   }
 }
 
-function entryCommand(entry: unknown): string[] | undefined {
+export function entryCommand(entry: unknown): string[] | undefined {
   if (entry === null || typeof entry !== "object") return undefined;
   const { command, args, enabled } = entry as { command?: unknown; args?: unknown; enabled?: unknown };
   if (
@@ -80,7 +80,8 @@ function readText(file: string): string | undefined {
   }
 }
 
-function readJsonKey(file: string, keyPath: string[]): RegistrationState {
+function readJsonKey(file: string, keyPath: string[], jsonc?: string): RegistrationState {
+  if (jsonc && existsSync(jsonc)) throw new Error(`${jsonc} exists and setup does not rewrite JSONC`);
   const text = readText(file);
   if (text === undefined) return { registered: false };
   let value: unknown = JSON.parse(text);
@@ -175,7 +176,7 @@ export async function readRegistration(
   env: NodeJS.ProcessEnv,
 ): Promise<RegistrationState> {
   try {
-    if (state.kind === "json") return readJsonKey(state.file, state.keyPath);
+    if (state.kind === "json") return readJsonKey(state.file, state.keyPath, state.jsonc);
     if (state.kind === "toml") return readTomlTable(state.file, state.table);
     if (state.kind === "packages") return readPackages(state.file, state.source);
     return binary ? await readList(binary, state.args, env) : { registered: false };
