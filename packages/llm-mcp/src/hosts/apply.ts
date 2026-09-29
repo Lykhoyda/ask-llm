@@ -97,10 +97,11 @@ function backupConfig(file: string | undefined): string | undefined {
     );
     try {
       const buffer = Buffer.alloc(64 * 1024);
-      let length: number;
-      while ((length = readSync(source, buffer, 0, buffer.length, null)) > 0) {
+      let length = readSync(source, buffer, 0, buffer.length, null);
+      while (length > 0) {
         let offset = 0;
         while (offset < length) offset += writeSync(target, buffer, offset, length - offset);
+        length = readSync(source, buffer, 0, buffer.length, null);
       }
       fchmodSync(target, mode);
     } catch (error) {
