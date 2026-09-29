@@ -247,6 +247,17 @@ describe("detectHosts", () => {
   });
 
   it.each([
+    '[mcp_servers."ask\\u002dllm"]\ncommand = "/opt/foreign"\n',
+    '[[mcp_servers.ask-llm]]\ncommand = "/opt/foreign"\n',
+  ])("reports an unrecognized Grok header as unknown", async (content) => {
+    write(".grok/config.toml", content);
+    expect(host(await detectHosts(env), "grok")).toMatchObject({
+      registered: null,
+      error: expect.stringContaining("unsupported Grok TOML table header"),
+    });
+  });
+
+  it.each([
     ["inline table", 'mcp_servers.ask-llm = { command = "/opt/ask-llm-mcp", args = [] }\n'],
     ["dotted key", 'mcp_servers.ask-llm.command = "/opt/ask-llm-mcp"\n'],
     ["single-quoted value", "[mcp_servers.ask-llm]\ncommand = '/opt/ask-llm-mcp'\n"],

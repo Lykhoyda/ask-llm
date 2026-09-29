@@ -103,17 +103,19 @@ function readTomlTable(file: string, table: string): RegistrationState {
   for (const line of text.split(/\r?\n/)) {
     const trimmed = line.trim();
     if (trimmed.startsWith("[")) {
-      const header = /^\s*\[\s*([^\]]+?)\s*\]\s*(#.*)?$/.exec(line);
+      const header = /^\s*\[\s*(.*?)\s*\]\s*$/.exec(line);
       if (!header) throw new Error("unsupported Grok TOML table header");
-      currentTable = header[1].trim();
-      const key = /^(?:mcp_servers|"mcp_servers"|'mcp_servers')\s*\.\s*(?:"([^"]*)"|'([^']*)'|([\w-]+))$/.exec(currentTable);
-      inTable = key !== null && `mcp_servers.${key[1] ?? key[2] ?? key[3]}` === table;
-      if (inTable && header[2]) throw new Error("unsupported Grok TOML trailing comment on ask-llm table");
+      const path = header[1];
+      const bare = /^[A-Za-z0-9_-]+(?:\s*\.\s*[A-Za-z0-9_-]+)*$/.test(path);
+      const quoted = /^mcp_servers\s*\.\s*(?:"([^\\'"\[\]]*)"|'([^\\'"\[\]]*)')$/.exec(path);
+      if (!bare && !quoted) throw new Error("unsupported Grok TOML table header");
+      currentTable = bare ? path.replace(/\s*\.\s*/g, ".") : `mcp_servers.${quoted?.[1] ?? quoted?.[2]}`;
+      inTable = currentTable === table;
       found ||= inTable;
       continue;
     }
     if (!trimmed || trimmed.startsWith("#")) continue;
-    if (!inTable && (currentTable === "" || /^(?:mcp_servers|"mcp_servers"|'mcp_servers')$/.test(currentTable))) {
+    if (!inTable && (currentTable === "" || currentTable === "mcp_servers")) {
       const alternate = /^(?:mcp_servers\s*\.\s*)?["']?ask-llm["']?\s*(=|\.)/.exec(trimmed);
       if (alternate) {
         const form = alternate[1] === "." ? "dotted key" : "inline table";
