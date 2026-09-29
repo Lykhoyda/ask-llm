@@ -255,7 +255,7 @@ describe("authorization and availability accounting", () => {
     const report = await runIsolatedSuite({ mode: "dry-run", deterministicAdapter: fakeAdapter });
     expect(report.results.find(({ id }) => id === "pi:/grok-pair")).toMatchObject({
       status: RESULTS.SKIP_UNAVAILABLE,
-      reason: expect.stringContaining("deliberately excludes"),
+      reason: expect.stringContaining("grok-pair refuses on Pi"),
     });
     expect(report.results.some(({ status }) => status === RESULTS.FAIL)).toBe(false);
   });

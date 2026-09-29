@@ -142,7 +142,7 @@ export const SCENARIOS: readonly Scenario[] = Object.freeze([
     surface: "/skill:ask-llm-grok-pair",
     host: "pi",
     supported: false,
-    unavailableReason: "the Pi manifest deliberately excludes grok-pair (ADR-147)",
+    unavailableReason: "grok-pair refuses on Pi until a Pi consent and lifecycle adapter exists (ADR-147, ADR-183)",
   },
   {
     id: "codex-cli:/brainstorm-route",

@@ -122,11 +122,10 @@ async function validateSkillAdapter(): Promise<void> {
       `Cursor manifest does not expose ${skillName}`,
     );
   } else if (config.scenario.host === "pi") {
+    // Pi reads the skills from the shared skills folder that setup fills, never from the package manifest.
     const manifest = JSON.parse(await readFile(join(plugin, "package.json"), "utf8")) as { pi?: { skills?: string[] } };
-    invariant(
-      manifest.pi?.skills?.some((entry) => entry.includes(`/skills/${folder}/`)),
-      `Pi manifest excludes ${skillName}`,
-    );
+    invariant(!manifest.pi?.skills, "the Pi package manifest must not declare skills");
+    invariant(skill.includes("### Pi adapter"), `${folder} has no Pi adapter`);
   }
   if (skillName === "brainstorm") {
     invariant(skill.includes("provider@harness:exact-model-id"), "brainstorm adapter lost routed participant syntax");
