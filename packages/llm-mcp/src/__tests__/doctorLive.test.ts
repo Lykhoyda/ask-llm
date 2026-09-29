@@ -73,8 +73,8 @@ describe("exerciseProviders", () => {
     expect(new Set(seen.map((call) => call.cwd)).size).toBe(1);
     expect(seen[0].cwd).not.toBe(realpathSync(cwd));
     const request = { prompt: "Reply with exactly: OK", sandbox: "read-only", readOnly: true };
-    expect(seen[0].options).toMatchObject({ ...request, reasoningEffort: "low" });
-    expect(seen[1].options).toMatchObject(request);
+    expect(seen[0].options).toMatchObject({ ...request, reasoningEffort: "low", singleAttempt: true });
+    expect(seen[1].options).toMatchObject({ ...request, singleAttempt: true });
     expect(seen[1].options).not.toHaveProperty("reasoningEffort");
     expect(result.providers.map((p) => p.states?.exercised)).toEqual(["yes", "no", "no", "no"]);
     expect(result.checks).toEqual([
@@ -103,6 +103,23 @@ describe("exerciseProviders", () => {
     const result = await exerciseProviders(report([provider("Ollama", { available: false })]), specs, loadExecutor);
     expect(loadExecutor).not.toHaveBeenCalled();
     expect(result.status).toBe("ok");
+  });
+
+  it("pins a ready Grok CLI when the API key is absent", async () => {
+    const priorKey = process.env.XAI_API_KEY;
+    const priorHarness = process.env.ASK_GROK_HARNESS;
+    delete process.env.XAI_API_KEY;
+    delete process.env.ASK_GROK_HARNESS;
+    const executor = vi.fn<ExecutorFn>().mockResolvedValue({ response: "OK", model: "grok" });
+    try {
+      await exerciseProviders(report([provider("Grok")]), [{ key: "grok", name: "Grok", command: "grok" }], async () => executor);
+      expect(executor).toHaveBeenCalledWith(expect.objectContaining({ harness: "grok-cli", singleAttempt: true }));
+    } finally {
+      if (priorKey === undefined) delete process.env.XAI_API_KEY;
+      else process.env.XAI_API_KEY = priorKey;
+      if (priorHarness === undefined) delete process.env.ASK_GROK_HARNESS;
+      else process.env.ASK_GROK_HARNESS = priorHarness;
+    }
   });
 });
 

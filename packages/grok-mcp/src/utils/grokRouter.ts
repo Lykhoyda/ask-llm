@@ -19,6 +19,7 @@ export interface GrokRouterOptions {
   harness?: GrokHarness;
   onProgress?: (newOutput: string) => void;
   signal?: AbortSignal;
+  singleAttempt?: boolean;
 }
 
 function isGrokHarness(value: string): value is GrokHarness {

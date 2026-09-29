@@ -14,6 +14,7 @@ export interface AntigravityExecutorOptions {
   readOnly?: boolean;
   onProgress?: (newOutput: string) => void;
   signal?: AbortSignal;
+  singleAttempt?: boolean;
 }
 
 export interface AntigravityExecutorResult {
@@ -436,6 +437,7 @@ export async function executeAntigravityCLI(options: AntigravityExecutorOptions)
   try {
     return await runWithModel(primaryModel, false);
   } catch (error) {
+    if (options.singleAttempt) throw error;
     const message = error instanceof Error ? error.message : String(error);
     // Truncation embeds a bounded preview; classify it before recovery tokens in that preview.
     if (isTruncatedAnswerError(message)) throw error;

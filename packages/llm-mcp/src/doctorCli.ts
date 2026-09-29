@@ -54,6 +54,11 @@ export async function exerciseProviders(
   }
 
   const executors = new Map<string, ExecutorFn>();
+  const grokHarness =
+    process.env.ASK_GROK_HARNESS === "grok-cli" ||
+    (!process.env.ASK_GROK_HARNESS && !process.env.XAI_API_KEY?.trim())
+      ? "grok-cli"
+      : "xai-api";
   for (const key of ready) {
     const executor = await load(key).catch(() => undefined);
     if (executor) {
@@ -62,6 +67,8 @@ export async function exerciseProviders(
           ...options,
           sandbox: "read-only",
           readOnly: true,
+          singleAttempt: true,
+          ...(key === "grok" ? { harness: grokHarness } : {}),
           ...(key === "codex" ? { reasoningEffort: "low" as const } : {}),
         }),
       );

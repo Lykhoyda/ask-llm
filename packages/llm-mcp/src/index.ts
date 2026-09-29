@@ -73,6 +73,7 @@ export type ExecutorFn = (options: {
   reasoningEffort?: CodexReasoningEffort;
   onProgress?: (output: string) => void;
   signal?: AbortSignal;
+  singleAttempt?: boolean;
 }) => Promise<{
   response: string;
   // Actual model that produced the answer. Gemini/Codex report it via

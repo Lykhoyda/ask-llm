@@ -65,6 +65,7 @@ interface XaiModelsPayload {
 }
 
 export interface GrokExecutorOptions {
+  singleAttempt?: boolean;
   prompt: string;
   model?: string;
   reasoningEffort?: GrokReasoningEffort;
@@ -357,7 +358,7 @@ export async function executeGrokAPI(options: GrokExecutorOptions): Promise<Grok
   const model = options.model?.trim() || MODELS.DEFAULT;
   const effort = reasoningEffort(options.reasoningEffort);
   const outputTokenLimit = maxOutputTokens();
-  const cacheKey = options.outputSchema
+  const cacheKey = options.outputSchema || options.singleAttempt
     ? null
     : ResponseCache.buildKey("grok", options.prompt, `${model}:${effort}:${outputTokenLimit}`);
   if (cacheKey) {

@@ -58,6 +58,7 @@ export interface GeminiExecutorOptions {
   includeDirs?: string[];
   onProgress?: (newOutput: string) => void;
   signal?: AbortSignal;
+  singleAttempt?: boolean;
 }
 
 export interface GeminiExecutorResult {
@@ -546,7 +547,7 @@ ${promptProcessed}
   // string included ("start a fresh session") — must bypass the cache, or the
   // caller gets a cached body with sessionId: undefined instead of a session.
   const wantsSession = sessionId !== undefined;
-  const isCacheable = !wantsSession && !sandbox && !changeMode;
+  const isCacheable = !wantsSession && !sandbox && !changeMode && !options.singleAttempt;
   const extraContext = includeDirs?.length ? [...includeDirs].sort().join(":") : undefined;
   const cacheKey = isCacheable ? ResponseCache.buildKey("gemini", options.prompt, resolvedModel, extraContext) : null;
 
@@ -588,7 +589,7 @@ ${promptProcessed}
       throw new Error(ERROR_MESSAGES.WORKSPACE_TRUST_REQUIRED);
     }
     const isQuotaError = QUOTA_PATTERNS.some((pattern) => errorMessage.toLowerCase().includes(pattern.toLowerCase()));
-    if (isQuotaError && model !== MODELS.FLASH) {
+    if (!options.singleAttempt && isQuotaError && model !== MODELS.FLASH) {
       Logger.warn(`Gemini quota exceeded. Falling back to ${MODELS.FLASH}.`);
       Logger.debug(`Status: ${STATUS_MESSAGES.FLASH_RETRY}`);
       const fallbackArgs = buildArgs(promptProcessed, MODELS.FLASH, sandbox, sessionId, includeDirs, useStdin);

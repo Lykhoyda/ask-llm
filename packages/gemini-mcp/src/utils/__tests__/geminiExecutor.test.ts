@@ -148,6 +148,11 @@ describe("model pinning (#75)", () => {
 });
 
 describe("executeGeminiCLI quota fallback", () => {
+  it("makes one request with singleAttempt on quota failure", async () => {
+    mockExecuteCommand.mockRejectedValue(new Error("RESOURCE_EXHAUSTED"));
+    await expect(executeGeminiCLI({ prompt: "doctor", singleAttempt: true })).rejects.toThrow("RESOURCE_EXHAUSTED");
+    expect(mockExecuteCommand).toHaveBeenCalledOnce();
+  });
   it("retries with Flash model on RESOURCE_EXHAUSTED error", async () => {
     mockExecuteCommand
       .mockRejectedValueOnce(new Error("RESOURCE_EXHAUSTED"))

@@ -22,6 +22,12 @@ beforeEach(() => {
 });
 
 describe("buildArgs", () => {
+  it("omits the fallback model for a single attempt", async () => {
+    mockExecuteCommand.mockRejectedValue(new Error("quota"));
+    await expect(executeClaudeCLI({ prompt: "doctor", singleAttempt: true })).rejects.toThrow("quota");
+    expect(mockExecuteCommand).toHaveBeenCalledOnce();
+    expect(mockExecuteCommand.mock.calls[0][1]).not.toContain(CLI.FLAGS.FALLBACK_MODEL);
+  });
   it("enforces safe mode and a read-only tool allow-list", () => {
     const args = buildArgs("opus", "sonnet");
     expect(args).toEqual([

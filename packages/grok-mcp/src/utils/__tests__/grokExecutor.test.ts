@@ -64,6 +64,11 @@ beforeEach(() => {
 });
 
 describe("xAI Responses API request", () => {
+  it("bypasses the response cache for a single attempt", async () => {
+    await executeGrokAPI({ prompt: "doctor" });
+    await executeGrokAPI({ prompt: "doctor", singleAttempt: true });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
   it("uses the documented endpoint, exact default model, disabled storage, and high reasoning", async () => {
     await executeGrokAPI({ prompt: "review this" });
 

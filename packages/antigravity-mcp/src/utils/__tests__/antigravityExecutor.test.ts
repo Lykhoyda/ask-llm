@@ -86,6 +86,11 @@ afterEach(() => {
 });
 
 describe("buildArgs", () => {
+  it("does not retry a rejected model in singleAttempt mode", async () => {
+    mockExec.mockRejectedValue(new Error("invalid model selection"));
+    await expect(executeAntigravityCLI({ prompt: "doctor", singleAttempt: true })).rejects.toThrow("invalid model selection");
+    expect(mockExec).toHaveBeenCalledOnce();
+  });
   it("builds -p, prompt, model, print-timeout, output-format json and sandbox without permission bypass", () => {
     const args = buildArgs("hello", undefined, 295, true, "Gemini 3.5 Flash (High)");
     expect(args).toEqual([
