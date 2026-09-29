@@ -38,6 +38,7 @@ export interface ClaudeExecutorOptions {
   includeDirs?: string[];
   onProgress?: (newOutput: string) => void;
   signal?: AbortSignal;
+  singleAttempt?: boolean;
 }
 
 export interface ClaudeExecutorResult {
@@ -158,7 +159,7 @@ export function isNestedSessionBlocked(env: NodeJS.ProcessEnv = process.env): bo
 export async function executeClaudeCLI(options: ClaudeExecutorOptions): Promise<ClaudeExecutorResult> {
   if (isNestedSessionBlocked()) throw new Error(ERROR_MESSAGES.NESTED_SESSION);
   const model = options.model?.trim() || MODELS.DEFAULT;
-  const fallbackModel = MODELS.FALLBACK;
+  const fallbackModel = options.singleAttempt ? model : MODELS.FALLBACK;
   const args = buildArgs(model, fallbackModel, options.sessionId, options.includeDirs);
   const timeoutMs = resolveTimeoutMs(EXECUTION.CLAUDE_TIMEOUT_ENV_VAR, EXECUTION.DEFAULT_CLAUDE_TIMEOUT_MS);
   const startedAt = Date.now();

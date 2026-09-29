@@ -45,6 +45,18 @@ export interface ProviderVersionAssessment {
   fix?: string;
 }
 
+export const localStateSchema = z.enum(["yes", "no", "unknown", "not-required"]);
+export type LocalState = z.infer<typeof localStateSchema>;
+
+export const providerStatesSchema = z.object({
+  installed: localStateSchema,
+  authenticated: localStateSchema,
+  permitted: localStateSchema,
+  exercised: z.enum(["yes", "no", "not-run"]),
+});
+export type ProviderStates = z.infer<typeof providerStatesSchema>;
+export type LocalProviderStates = Omit<ProviderStates, "exercised">;
+
 export const diagnosticProviderSchema = z.object({
   name: z.string(),
   command: z.string(),
@@ -53,6 +65,7 @@ export const diagnosticProviderSchema = z.object({
   cliVersion: z.string().optional(),
   error: z.string().optional(),
   enrichment: providerEnrichmentSchema.optional(),
+  states: providerStatesSchema.optional(),
 });
 export type ProviderProbe = z.infer<typeof diagnosticProviderSchema>;
 
@@ -92,6 +105,22 @@ export interface ProviderSpec {
     probeError: string | undefined,
   ) => ProviderVersionAssessment | Promise<ProviderVersionAssessment>;
   enrich?: (ctx: { command: string; pathEnv: string }) => Promise<ProviderEnrichment | undefined>;
+  localStates?: (ctx: { cliPath?: string; available: boolean; pathEnv: string }) => Promise<LocalProviderStates>;
+}
+
+const UNKNOWN_LOCAL_STATES: LocalProviderStates = {
+  installed: "unknown",
+  authenticated: "unknown",
+  permitted: "unknown",
+};
+
+async function probeStates(
+  spec: ProviderSpec,
+  ctx: { cliPath?: string; available: boolean; pathEnv: string },
+): Promise<{ states?: ProviderStates }> {
+  if (!spec.localStates) return {};
+  const local = await spec.localStates(ctx).catch(() => UNKNOWN_LOCAL_STATES);
+  return { states: { ...local, exercised: "not-run" } };
 }
 
 const NODE_MIN_MAJOR = 24;
@@ -181,6 +210,7 @@ export async function runDiagnostics(providers: ProviderSpec[]): Promise<Diagnos
         cliPath: undefined,
         cliVersion: undefined,
         error: available ? undefined : failureMessage,
+        ...(await probeStates(spec, { available, pathEnv: resolvedPath })),
       });
       checks.push(
         available
@@ -228,6 +258,7 @@ export async function runDiagnostics(providers: ProviderSpec[]): Promise<Diagnos
       cliVersion: probe.version,
       error: providerError,
       enrichment,
+      ...(await probeStates(spec, { cliPath: probe.cliPath, available, pathEnv: resolvedPath })),
     });
 
     if (probe.cliPath === undefined) {
@@ -342,6 +373,12 @@ export function formatDiagnosticReport(report: DiagnosticReport): string {
       lines.push(`  - ${provider.name}: ${status}${detail}`);
       if (provider.cliPath) lines.push(`      path: ${provider.cliPath}`);
       if (provider.error) lines.push(`      ${provider.error}`);
+      if (provider.states) {
+        const { installed, authenticated, permitted, exercised } = provider.states;
+        lines.push(
+          `      states: installed=${installed} authenticated=${authenticated} permitted=${permitted} exercised=${exercised}`,
+        );
+      }
       if (provider.enrichment) {
         const { heading, overall, checks } = provider.enrichment;
         lines.push(`      ${heading}: ${overall.toUpperCase()}`);

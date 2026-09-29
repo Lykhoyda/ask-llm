@@ -438,6 +438,13 @@ describe("JSONL output parsing", () => {
 });
 
 describe("quota fallback", () => {
+  it("makes one uncached request with singleAttempt on quota failure", async () => {
+    mockExecuteCommand.mockRejectedValue(new Error("insufficient_quota"));
+    await expect(executeCodexCLI({ prompt: "doctor", singleAttempt: true, preferred: true })).rejects.toThrow(
+      "insufficient_quota",
+    );
+    expect(mockExecuteCommand).toHaveBeenCalledOnce();
+  });
   it("retries with fallback model on rate_limit_exceeded error", async () => {
     mockExecuteCommand
       .mockRejectedValueOnce(new Error("rate_limit_exceeded"))

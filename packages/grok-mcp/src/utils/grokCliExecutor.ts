@@ -27,6 +27,7 @@ interface GrokCliEnvelope {
 }
 
 export interface GrokCliExecutorOptions {
+  singleAttempt?: boolean;
   prompt: string;
   model?: string;
   reasoningEffort?: GrokReasoningEffort;

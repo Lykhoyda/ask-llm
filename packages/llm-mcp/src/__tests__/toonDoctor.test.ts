@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import {
   DOCTOR_TOON_MAX_TEXT_BYTES,
   type DoctorArgumentError,
+  doctorHelp,
   doctorToonDocument,
   formatDoctorCliError,
   formatDoctorOutput,
@@ -77,8 +78,8 @@ function makeReport(overrides: Partial<DiagnosticReport> = {}): DiagnosticReport
 
 describe("doctor format negotiation", () => {
   it("keeps text as default and the existing --json alias", () => {
-    expect(parseDoctorArguments([])).toEqual({ format: "text", full: false, help: false });
-    expect(parseDoctorArguments(["--json"])).toEqual({ format: "json", full: false, help: false });
+    expect(parseDoctorArguments([])).toEqual({ format: "text", full: false, help: false, live: false });
+    expect(parseDoctorArguments(["--json"])).toEqual({ format: "json", full: false, help: false, live: false });
   });
 
   it("preserves established text and pretty JSON bytes", () => {
@@ -93,18 +94,29 @@ describe("doctor format negotiation", () => {
   it("supports explicit text, JSON, bounded TOON, and full TOON", () => {
     expect(parseDoctorArguments(["--format", "text"]).format).toBe("text");
     expect(parseDoctorArguments(["--format", "json"]).format).toBe("json");
-    expect(parseDoctorArguments(["--format", "toon"])).toEqual({ format: "toon", full: false, help: false });
+    expect(parseDoctorArguments(["--format", "toon"])).toEqual({
+      format: "toon",
+      full: false,
+      help: false,
+      live: false,
+    });
     expect(parseDoctorArguments(["--format", "toon", "--full"])).toEqual({
       format: "toon",
       full: true,
       help: false,
+      live: false,
     });
   });
 
   it("accepts --full as a no-op for text and JSON because they are already complete", () => {
     const report = makeReport();
-    expect(parseDoctorArguments(["--full"])).toEqual({ format: "text", full: true, help: false });
-    expect(parseDoctorArguments(["--json", "--full"])).toEqual({ format: "json", full: true, help: false });
+    expect(parseDoctorArguments(["--full"])).toEqual({ format: "text", full: true, help: false, live: false });
+    expect(parseDoctorArguments(["--json", "--full"])).toEqual({
+      format: "json",
+      full: true,
+      help: false,
+      live: false,
+    });
     expect(formatDoctorOutput(report, parseDoctorArguments(["--full"]))).toBe(formatDiagnosticReport(report));
     expect(formatDoctorOutput(report, parseDoctorArguments(["--json", "--full"]))).toBe(
       `${JSON.stringify(report, null, 2)}\n`,
@@ -122,6 +134,36 @@ describe("doctor format negotiation", () => {
     expect(() => parseDoctorArguments([...args])).toThrowError(
       expect.objectContaining<Partial<DoctorArgumentError>>({ code }),
     );
+  });
+
+  it("accepts --live only when the caller allows it and never with TOON", () => {
+    expect(() => parseDoctorArguments(["--live"])).toThrowError(
+      expect.objectContaining<Partial<DoctorArgumentError>>({ code: "unknown_argument" }),
+    );
+    expect(parseDoctorArguments(["--live", "--json"], true)).toEqual({
+      format: "json",
+      full: false,
+      help: false,
+      live: true,
+    });
+    expect(() => parseDoctorArguments(["--live", "--live"], true)).toThrowError(
+      expect.objectContaining<Partial<DoctorArgumentError>>({ code: "duplicate_flag" }),
+    );
+    expect(() => parseDoctorArguments(["--format", "toon", "--live"], true)).toThrowError(
+      expect.objectContaining<Partial<DoctorArgumentError>>({ code: "conflicting_options" }),
+    );
+  });
+
+  it("documents --live as quota-spending only in the host-aware help", () => {
+    expect(doctorHelp(true)).toContain("--live");
+    expect(doctorHelp(true)).toContain("spends provider quota");
+    expect(doctorHelp(false)).not.toContain("--live");
+  });
+
+  it("keeps provider states out of the versioned TOON rows", () => {
+    const report = makeReport();
+    report.providers[0].states = { installed: "yes", authenticated: "yes", permitted: "yes", exercised: "not-run" };
+    expect(doctorToonDocument(report).providers[0]).not.toHaveProperty("states");
   });
 
   it("renders parser-readable structured TOON errors when TOON was requested", () => {

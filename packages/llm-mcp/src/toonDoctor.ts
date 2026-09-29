@@ -13,6 +13,7 @@ export interface DoctorCliOptions {
   format: DoctorOutputFormat;
   full: boolean;
   help: boolean;
+  live: boolean;
 }
 
 export interface DoctorCliErrorShape {
@@ -80,11 +81,12 @@ function error(code: string, message: string, hint: string): never {
   throw new DoctorArgumentError(code, message, hint);
 }
 
-export function parseDoctorArguments(args: string[]): DoctorCliOptions {
+export function parseDoctorArguments(args: string[], allowLive = false): DoctorCliOptions {
   let format: DoctorOutputFormat = "text";
   let formatSelected = false;
   let full = false;
   let help = false;
+  let live = false;
 
   for (let index = 0; index < args.length; index += 1) {
     const argument = args[index];
@@ -125,6 +127,11 @@ export function parseDoctorArguments(args: string[]): DoctorCliOptions {
       full = true;
       continue;
     }
+    if (argument === "--live" && allowLive) {
+      if (live) error("duplicate_flag", "--live was provided more than once", "Provide --live once.");
+      live = true;
+      continue;
+    }
     if (argument === "--help" || argument === "-h") {
       help = true;
       continue;
@@ -132,7 +139,14 @@ export function parseDoctorArguments(args: string[]): DoctorCliOptions {
     error("unknown_argument", "Unknown doctor argument", "Run ask-llm-mcp doctor --help.");
   }
 
-  return { format, full, help };
+  if (live && format === "toon") {
+    error(
+      "conflicting_options",
+      "--live is not supported with --format toon",
+      "Use --live with the text or JSON format; TOON stays provider-only and never exercises providers.",
+    );
+  }
+  return { format, full, help, live };
 }
 
 export function requestedStructuredFormat(args: string[]): "json" | "toon" {
@@ -143,17 +157,33 @@ export function requestedStructuredFormat(args: string[]): "json" | "toon" {
 
 export function doctorHelp(includeHosts = false): string {
   return [
-    "Usage: ask-llm-mcp doctor [--json | --format <text|json|toon>] [--full]",
+    includeHosts
+      ? "Usage: ask-llm doctor [--json | --format <text|json|toon>] [--full] [--live]"
+      : "Usage: ask-llm-mcp doctor [--json | --format <text|json|toon>] [--full]",
     "",
     "Formats:",
     `  text          Human-readable provider${includeHosts ? " and host" : ""} diagnostics (default)`,
     `  json          Provider report${includeHosts ? " and hosts" : ""} (--json remains supported)`,
     "  toon          Versioned, bounded provider-only diagnostics (no hosts)",
-    ...(includeHosts ? ["", "Host restart field in text/JSON describes what a registration change requires."] : []),
+    ...(includeHosts
+      ? [
+          "",
+          "Host restart field in text/JSON describes what a registration change requires.",
+          "Provider states: installed, authenticated and permitted come from local signals only",
+          "(yes, no, unknown or not-required); permitted is yes unless Ask LLM gates the provider",
+          "(today only Antigravity); exercised stays not-run unless --live is given.",
+        ]
+      : []),
     "",
     "Options:",
     "  --full        TOON: include paths, passing checks, and unbounded text;",
     "                text/json are always complete, so --full is accepted as a no-op",
+    ...(includeHosts
+      ? [
+          "  --live        Opt-in, never the default: spends provider quota by sending one",
+          "                minimal real prompt to each ready provider (text/JSON only)",
+        ]
+      : []),
     "  -h, --help    Show this help",
     "",
   ].join("\n");

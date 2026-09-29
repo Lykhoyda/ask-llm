@@ -1,6 +1,7 @@
 import type { ProviderSpec } from "@ask-llm/shared";
 import { INSTALL_HINTS, isProviderEligible, PROVIDERS } from "../constants.js";
 import { loadProviderModule } from "./providerModules.js";
+import { localProviderStates } from "./providerStates.js";
 
 interface VersionSupportResult {
   available: boolean;
@@ -87,6 +88,7 @@ export async function buildProviderSpecs(): Promise<ProviderSpec[]> {
       availabilityFailure: config.availabilityFailure,
       assessVersion,
       enrich,
+      localStates: (ctx) => localProviderStates(key, ctx),
     });
   }
   return specs;
