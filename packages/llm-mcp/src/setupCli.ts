@@ -5,7 +5,7 @@ import { buildPlan, commandText, genericSnippet, type PlanEntry, resolveServerPa
 import { installPlugins, type PluginPlan, planPlugins } from "./plugins.js";
 import { applyRemove } from "./remove.js";
 import { applySetup, type Confirm, type HostResult, type HostStatus, UNSUCCESSFUL } from "./setup.js";
-import { installSkills, planSkills, type SkillsPlan, type WorkflowResult } from "./skills.js";
+import { installSkills, planSkills, SKILLS_CLI_VERSION, type SkillsPlan, type WorkflowResult } from "./skills.js";
 
 const HOST_IDS = hostSpecs().map(({ id }) => id);
 
@@ -131,8 +131,7 @@ function formatPreview(heading: string, server: ServerPath, plan: PlanEntry[], w
   ].join("\n");
 }
 
-const REMOVE_WORKFLOWS_NOTE =
-  "Workflows are left installed. To remove them: `claude plugin uninstall ask-llm@ask-llm-plugins` and `npx -y skills remove -g -y <ask-llm-* skill names>`.";
+const REMOVE_WORKFLOWS_NOTE = `Workflows are left installed. To remove them: \`claude plugin uninstall ask-llm@ask-llm-plugins\` and \`npx -y skills@${SKILLS_CLI_VERSION} remove -g -y <ask-llm-* skill names>\`.`;
 
 const REFORMAT_NOTICE =
   "The host's own command may reformat its config file, and a JSON file setup edits is rewritten with its indentation kept; unrelated entries keep their meaning. Each backup may contain credentials, stays next to the original with the same permissions, and remains until you delete it.";

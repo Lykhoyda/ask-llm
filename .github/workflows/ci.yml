@@ -276,7 +276,8 @@ jobs:
         pi install npm:@ask-llm/plugin
         pi list | grep -F 'npm:@ask-llm/plugin'
         printf '{"type":"get_commands"}\n' | pi --mode rpc --no-session --approve > /tmp/pi-package-only.jsonl
-        if grep -q 'skill:ask-llm-' /tmp/pi-package-only.jsonl; then
+        # Match command names only: Pi's missing-skills notice also mentions /skill:ask-llm-*.
+        if grep -q '"name":"skill:ask-llm-' /tmp/pi-package-only.jsonl; then
           echo 'FAIL: the Pi package ships skills; they belong in the shared skills folder'; exit 1
         fi
         # Skills reach Pi the way setup installs them: the pinned skills CLI, from this checkout.
