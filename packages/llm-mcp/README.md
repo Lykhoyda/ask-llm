@@ -24,18 +24,7 @@ Split provider packages (`@ask-llm/codex-mcp` and the others) remain an advanced
 
 ### Claude Desktop
 
-Add to `claude_desktop_config.json`:
-
-```json
-{
-  "mcpServers": {
-    "ask-llm": {
-      "command": "npx",
-      "args": ["-y", "@ask-llm/mcp"]
-    }
-  }
-}
-```
+Follow the [Quick Start](https://github.com/Lykhoyda/ask-llm#quick-start) for guided user-scope setup. [Command compatibility](#command-compatibility) covers backups, formats that require manual setup, and removal.
 
 ## Prerequisites
 
@@ -231,7 +220,7 @@ Cursor's supported Agent Skills surface exposes exactly `/codex-pair` and `/grok
 agent --plugin-dir ./packages/llm-mcp
 ```
 
-`/codex-pair` requires explicit `model=` and `effort=` values before consent, then uses a separately user-installed `ask-codex` leaf when exposed, otherwise the bundled unified `ask-llm` fully pinned (`provider: "codex"`, model, effort, include directories, sandbox, session), with resumable Thread ID, cancellation, and result relay. It never guesses MCP-process environment defaults and does not pretend Claude-only hooks are active. `/grok-pair` gives Cursor-native `.cursor/mcp.json` and Tools & MCP reload guidance; it never sends Cursor users to `claude mcp add`. If installing only MCP configuration, the recommended minimal entry is `ask-llm` → `npx -y @ask-llm/mcp` in project `.cursor/mcp.json` or user `~/.cursor/mcp.json` (keep one registration per server — do not duplicate it when the plugin is loaded); add `codex` → `@ask-llm/codex-mcp` or `grok` → `@ask-llm/grok-mcp` only when you specifically want their `ask-codex`/`ask-grok` leaves, then reload MCP/restart Cursor Agent. When Cursor hosts `/grok-pair`, it never recursively invokes Cursor Agent.
+`/codex-pair` requires explicit `model=` and `effort=` values before consent, then uses a separately user-installed `ask-codex` leaf when exposed, otherwise the bundled unified `ask-llm` fully pinned (`provider: "codex"`, model, effort, include directories, sandbox, session), with resumable Thread ID, cancellation, and result relay. It never guesses MCP-process environment defaults and does not pretend Claude-only hooks are active. `/grok-pair` gives Cursor-native `.cursor/mcp.json` and Tools & MCP reload guidance; it never sends Cursor users to `claude mcp add`. For user-scope MCP registration, follow the [Quick Start](https://github.com/Lykhoyda/ask-llm#quick-start); for a project-scoped manual entry, use `ask-llm` → `npx -y @ask-llm/mcp` in `.cursor/mcp.json` (keep one registration per server — do not duplicate it when the plugin is loaded). Add `codex` → `@ask-llm/codex-mcp` or `grok` → `@ask-llm/grok-mcp` only when you specifically want their `ask-codex`/`ask-grok` leaves, then reload MCP/restart Cursor Agent. When Cursor hosts `/grok-pair`, it never recursively invokes Cursor Agent.
 
 ### Pi
 
