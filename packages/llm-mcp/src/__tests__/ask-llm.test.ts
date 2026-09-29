@@ -131,7 +131,45 @@ describe("host discovery commands", () => {
     const result = ask("setup", "--dry-run");
     expect(result.status).toBe(0);
     expect(result.stdout).toContain(`gemini mcp add --scope user ask-llm ${server}`);
+    expect(result.stdout).toContain(`claude mcp add --scope user ask-llm -- ${server}`);
+    expect(result.stdout).toContain(
+      `merge ${JSON.stringify({ command: server, args: [] })} at mcpServers.ask-llm in ${join(home, ".cursor/mcp.json")}`,
+    );
     expect(result.stdout).toContain("nothing was changed");
+  });
+
+  it("keeps unreadable host errors and exact manual registration in setup and doctor", () => {
+    const file = join(home, ".cursor/mcp.json");
+    const original = readFileSync(file);
+    writeFileSync(file, "{");
+    try {
+      const manual = `add ${JSON.stringify({ command: server, args: [] })} at mcpServers.ask-llm in ${file}`;
+      const setup = ask("setup", "--dry-run", "--json");
+      const setupHost = JSON.parse(setup.stdout).hosts.find((host: { id: string }) => host.id === "cursor");
+      expect(setup.status).toBe(0);
+      expect(setupHost).toMatchObject({ action: "manual", manual, reason: expect.stringContaining("cannot read registration") });
+      const setupText = ask("setup", "--dry-run").stdout;
+      expect(setupText).toContain("cannot read registration");
+      expect(setupText).toContain(`merge ${JSON.stringify({ command: server, args: [] })} at mcpServers.ask-llm in ${file}`);
+
+      const doctorHost = JSON.parse(ask("doctor", "--json").stdout).hosts.find(
+        (host: { id: string }) => host.id === "cursor",
+      );
+      expect(doctorHost).toMatchObject({ registered: null, manual, error: expect.stringContaining("cannot read registration") });
+      const doctorText = ask("doctor").stdout;
+      expect(doctorText).toContain("cannot read registration");
+      expect(doctorText).toContain(`exact manual command: ${manual}`);
+    } finally {
+      writeFileSync(file, original);
+    }
+  });
+
+  it("explains doctor host output and the provider-only TOON format", () => {
+    const help = ask("doctor", "--help").stdout;
+    expect(help).toContain("provider and host diagnostics");
+    expect(help).toContain("Provider report and hosts");
+    expect(help).toContain("provider-only diagnostics (no hosts)");
+    expect(help).toContain("registration change requires");
   });
 
   it.each([[[]], [["--json"]], [["--dry-run", "--yes"]]])("refuses setup %j without writing", (args) => {

@@ -1,6 +1,6 @@
 import { type DiagnosticReport, formatDiagnosticReport, type ProviderSpec, runDiagnostics } from "@ask-llm/shared";
 import { type DetectedHost, detectHosts } from "./hosts/detect.js";
-import { isOwnRegistration, resolveServerPath } from "./plan.js";
+import { buildPlan, isOwnRegistration, resolveServerPath } from "./plan.js";
 import {
   DoctorArgumentError,
   type DoctorCliOptions,
@@ -12,7 +12,7 @@ import {
 } from "./toonDoctor.js";
 import { buildProviderSpecs } from "./utils/providerSpecs.js";
 
-type DoctorHost = Omit<DetectedHost, "spec"> & { ownServer?: boolean; restart: string };
+type DoctorHost = Omit<DetectedHost, "spec"> & { ownServer?: boolean; restart: string; manual?: string };
 
 async function doctorHosts(ownCli: string): Promise<DoctorHost[]> {
   const server = await resolveServerPath(ownCli).then(
@@ -20,15 +20,21 @@ async function doctorHosts(ownCli: string): Promise<DoctorHost[]> {
     () => undefined,
   );
   const hosts = await detectHosts();
-  return hosts.map(({ spec, ...host }) => ({
+  const plan = server ? buildPlan(hosts, server) : undefined;
+  return hosts.map(({ spec, ...host }, index) => ({
     ...host,
     ownServer: host.registered && server ? isOwnRegistration({ ...host, spec }, server) : undefined,
     restart: spec.restart,
+    manual: host.registered === null ? plan?.[index].manual : undefined,
   }));
 }
 
 function formatHost(host: DoctorHost): string[] {
-  if (!host.installed) return [`  - ${host.name}: not installed${host.leftoverConfig ? " (leftover config)" : ""}`];
+  if (!host.installed) {
+    const lines = [`  - ${host.name}: not installed${host.leftoverConfig ? " (leftover config)" : ""}${host.error ? `, ${host.error}` : ""}`];
+    if (host.manual) lines.push(`      exact manual command: ${host.manual}`);
+    return lines;
+  }
   const version = host.version ? ` (${host.version})` : host.supported ? "" : " (unrecognized version)";
   let registration = "not registered";
   if (host.registered === null) registration = host.error ?? "registration unknown";
@@ -41,7 +47,8 @@ function formatHost(host: DoctorHost): string[] {
     `  - ${host.name}: installed${version}, ${registration}`,
     `      after a registration change: ${restart}`,
   ];
-  if (!host.supported || host.registered === null) lines.push("      exact manual command: ask-llm setup --dry-run");
+  if (host.manual) lines.push(`      exact manual command: ${host.manual}`);
+  else if (!host.supported) lines.push("      exact manual command: ask-llm setup --dry-run");
   return lines;
 }
 

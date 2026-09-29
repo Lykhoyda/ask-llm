@@ -77,13 +77,13 @@ function manualText(registration: PlannedRegistration): string {
 }
 
 function decide(host: DetectedHost, server: string): { action: PlanAction; reason?: string } {
+  if (host.registered === null) return { action: "manual", reason: host.error };
   if (!host.installed) {
     return {
       action: "skip",
       reason: host.leftoverConfig ? `not installed; leftover config at ${host.spec.configHome}` : "not installed",
     };
   }
-  if (host.registered === null) return { action: "manual", reason: host.error };
   if (host.registered) {
     if (isOwnRegistration(host, server))
       return { action: "up-to-date", reason: "already registered to this ask-llm-mcp" };

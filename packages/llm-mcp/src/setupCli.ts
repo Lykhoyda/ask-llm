@@ -24,7 +24,6 @@ function refuse(message: string): number {
 function formatEntry(entry: PlanEntry): string[] {
   const version = entry.version ? ` ${entry.version}` : "";
   const lines = [`  ${entry.name}${version}: ${entry.action}${entry.reason ? ` (${entry.reason})` : ""}`];
-  if (entry.action !== "register" && entry.action !== "manual") return lines;
   const { registration } = entry;
   lines.push(
     registration.kind === "command"
