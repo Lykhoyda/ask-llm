@@ -248,6 +248,7 @@ interface CreateOrVerifyOptions {
   remote?: string;
   dryRun?: boolean;
   verifyNpm?: boolean;
+  packageName?: string;
 }
 
 interface CreateOrVerifyDeps {
@@ -257,11 +258,15 @@ interface CreateOrVerifyDeps {
 }
 
 export function createOrVerifyPackageTags(
-  { cwd = process.cwd(), remote = "origin", dryRun = false, verifyNpm = false }: CreateOrVerifyOptions = {},
+  { cwd = process.cwd(), remote = "origin", dryRun = false, verifyNpm = false, packageName }: CreateOrVerifyOptions = {},
   { git = defaultGit, npm = defaultNpm, log = console }: CreateOrVerifyDeps = {},
 ): { plans: TagPlan[]; missing: TagPlan[]; inconsistent: InconsistentEntry[]; dryRun: boolean } {
   const root = resolve(cwd);
-  const packages = discoverPublicPackages(root);
+  let packages = discoverPublicPackages(root);
+  if (packageName !== undefined) {
+    packages = packages.filter((packageInfo) => packageInfo.name === packageName);
+    if (packages.length === 0) throw new Error(`${packageName} is not a public @ask-llm package`);
+  }
   const plans: TagPlan[] = [];
   const inconsistent: InconsistentEntry[] = [];
   for (const packageInfo of packages) {
@@ -324,6 +329,7 @@ interface ParsedArguments {
   remote: string;
   dryRun: boolean;
   verifyNpm: boolean;
+  packageName?: string;
 }
 
 export function parseArguments(argv: string[]): ParsedArguments {
@@ -336,6 +342,10 @@ export function parseArguments(argv: string[]): ParsedArguments {
       options.remote = argv[index + 1];
       index += 1;
       if (!options.remote) throw new Error("--remote requires a value");
+    } else if (argument === "--package") {
+      options.packageName = argv[index + 1];
+      index += 1;
+      if (!options.packageName) throw new Error("--package requires a value");
     } else throw new Error(`Unknown argument: ${argument}`);
   }
   return options;

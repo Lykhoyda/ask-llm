@@ -1,5 +1,15 @@
 # Architectural Decisions
 
+## ADR-181: The unified GitHub Release uses the `@ask-llm/mcp@<version>` package tag
+
+**Status:** Accepted (2026-09-29). Supersedes the `v<version>` unified tag of ADR-151.
+
+**Context:** Issue #363: the 1.0.0 release run published npm and the MCP Registry, then failed at the unified GitHub Release. The step tagged `v<canonical version>`, and once the canonical version became `@ask-llm/mcp`'s, 1.0.0 computed `v1.0.0`. That tag already exists from an unrelated February 2026 release at a different commit, so the create-or-verify check refused. A `v1.0.0` release would also sort below the existing `v2.0.0`. The step also judged tag presence from runner-local tags, and `changeset publish` creates `<name>@<version>` tags locally, so a package-scoped tag would have skipped the push and let `gh release create` tag the default-branch head.
+
+**Decision:** Create the unified GitHub Release on `@ask-llm/mcp@<version>`, the same remote source tag ADR-151 maintains. The release step first runs `scripts/create-or-verify-package-tags.ts --verify-npm-git-head --package @ask-llm/mcp`, so the tag uses the helper's first-parent target, remote `ls-remote` check, race handling and npm `gitHead` cross-check, and is never retagged. It then verifies an existing release or runs `gh release create --verify-tag`. The later all-package helper run verifies that tag instead of conflicting with it. No old `v*` tag is moved and no new `v*` series starts.
+
+**Consequences:** Recovery dispatch on `main` creates the missing 1.0.0 release without npm publication. An npm `gitHead` mismatch for `@ask-llm/mcp` now blocks the unified release, because that release is the package's source tag. Another package's tag failure still cannot block it. Structural tests pin the tag name and forbid a `v`-prefixed or hand-pushed tag in the step.
+
 ## ADR-179: One package with an `ask-llm` command sets itself up in every host
 
 **Status:** Accepted (2026-09-28). Supersedes issue #266's "split packages remain an advanced optimization" wording and ADR-161's documentation direction; ADR-161's unified-transport mechanics stand as groundwork. Keeps ADR-147's portable-contract direction.

@@ -9,6 +9,7 @@ import {
   createOrVerifyPackageTags,
   findVersionIntroducingCommit,
   lookupRemoteTag,
+  parseArguments,
   pushMissingTag,
   verifyNpmGitHead,
 } from "./create-or-verify-package-tags.ts";
@@ -183,6 +184,48 @@ test("partial completion verifies an existing tag and creates only the missing t
   assert.equal(remoteTarget(root, remote, "@ask-llm/two@2.0.0"), release);
 });
 
+test("the unified release's single-package run creates its tag and the full run then verifies it", () => {
+  const { root, remote, release } = fixture();
+  // changeset publish leaves a runner-local tag; only the remote ref may decide create vs verify.
+  git(root, "tag", "@ask-llm/one@1.0.0", "HEAD");
+
+  const unified = silentLog();
+  const single = createOrVerifyPackageTags({ cwd: root, remote, packageName: "@ask-llm/one" }, { log: unified.logger });
+  assert.deepEqual(
+    single.plans.map((plan) => plan.tag),
+    ["@ask-llm/one@1.0.0"],
+  );
+  assert.ok(unified.lines.includes(`CREATED @ask-llm/one@1.0.0 at ${release}`));
+  assert.equal(remoteTarget(root, remote, "@ask-llm/two@2.0.0"), null);
+
+  const perPackage = silentLog();
+  const full = createOrVerifyPackageTags({ cwd: root, remote }, { log: perPackage.logger });
+  assert.ok(perPackage.lines.includes(`VERIFIED @ask-llm/one@1.0.0 at ${release}`));
+  assert.deepEqual(
+    full.missing.map((plan) => plan.tag),
+    ["@ask-llm/two@2.0.0"],
+  );
+  assert.equal(remoteTarget(root, remote, "@ask-llm/one@1.0.0"), release);
+
+  const rerun = silentLog();
+  createOrVerifyPackageTags({ cwd: root, remote, packageName: "@ask-llm/one" }, { log: rerun.logger });
+  assert.ok(rerun.lines.includes(`VERIFIED @ask-llm/one@1.0.0 at ${release}`));
+});
+
+test("a single-package run rejects a name that is not a public package", () => {
+  const { root, remote } = fixture();
+  assert.throws(
+    () => createOrVerifyPackageTags({ cwd: root, remote, packageName: "@ask-llm/shared" }, { log: silentLog().logger }),
+    /@ask-llm\/shared is not a public @ask-llm package/,
+  );
+});
+
+test("parses --package and rejects it without a value", () => {
+  assert.equal(parseArguments(["--package", "@ask-llm/mcp", "--verify-npm-git-head"]).packageName, "@ask-llm/mcp");
+  assert.equal(parseArguments([]).packageName, undefined);
+  assert.throws(() => parseArguments(["--package"]), /--package requires a value/);
+});
+
 test("a duplicate push race is accepted only when the remote winner has the expected target", () => {
   const target = "a".repeat(40);
   const plan = { tag: "@ask-llm/one@1.0.0", tagRef: "refs/tags/@ask-llm/one@1.0.0", target };
@@ -318,6 +361,24 @@ test("workflow structurally runs package tags after the unified release for publ
   assert.equal(changesetsStep.with["push-git-tags"], false);
   assert.ok(steps.indexOf(unifiedSteps[0]) < steps.indexOf(tagSteps[0]));
   assert.ok(steps.indexOf(tagSteps[0]) < steps.indexOf(failureStep));
+});
+
+test("unified release uses the @ask-llm/mcp package tag through the create-or-verify helper", () => {
+  const workflow = parseYaml(
+    readFileSync(join(import.meta.dirname, "../.github/workflows/release.yml"), "utf8"),
+  ) as Workflow;
+  const unifiedStep = workflow.jobs.release.steps.find(
+    (step) => step.name === "Create or verify unified GitHub Release",
+  ) as WorkflowStep;
+
+  // A v<version> tag collided with the historic v1.0.0 and sorted below v2.0.0 (issue #363).
+  assert.match(unifiedStep.run, /^TAG="@ask-llm\/mcp@\$\{CANONICAL_VERSION\}"$/m);
+  assert.match(
+    unifiedStep.run,
+    /^node scripts\/create-or-verify-package-tags\.ts --verify-npm-git-head --package @ask-llm\/mcp$/m,
+  );
+  assert.match(unifiedStep.run, /gh release create "\$TAG" --verify-tag /);
+  assert.doesNotMatch(unifiedStep.run, /TAG="v|git tag |git push /);
 });
 
 test("manual dispatch has no inputs and on main is always registry/release/tag recovery without npm", () => {
