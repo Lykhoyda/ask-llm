@@ -42,15 +42,20 @@ async function probeVersion(spec: HostSpec, binary: string, env: NodeJS.ProcessE
 
 function entryCommand(entry: unknown): string[] | undefined {
   if (entry === null || typeof entry !== "object") return undefined;
-  const { command, args } = entry as { command?: unknown; args?: unknown };
-  const rest = Array.isArray(args) ? args.map(String) : [];
-  if (typeof command === "string") return [command, ...rest];
-  if (Array.isArray(command)) return command.map(String);
+  const { command, args, enabled } = entry as { command?: unknown; args?: unknown; enabled?: unknown };
+  if (enabled === false || (args !== undefined && (!Array.isArray(args) || !args.every((arg) => typeof arg === "string")))) return undefined;
+  if (typeof command === "string" && command.trim()) return [command, ...((args as string[] | undefined) ?? [])];
+  if (Array.isArray(command) && command.length > 0 && command.every((part) => typeof part === "string" && part.trim())) return command;
   return undefined;
 }
 
 function readText(file: string): string | undefined {
-  return existsSync(file) ? readFileSync(file, "utf8") : undefined;
+  try {
+    return readFileSync(file, "utf8");
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return undefined;
+    throw error;
+  }
 }
 
 function readJsonKey(file: string, keyPath: string[]): RegistrationState {
@@ -61,7 +66,8 @@ function readJsonKey(file: string, keyPath: string[]): RegistrationState {
     if (value === null || typeof value !== "object") return { registered: false };
     value = (value as Record<string, unknown>)[key];
   }
-  return value === undefined ? { registered: false } : { registered: true, command: entryCommand(value) };
+  const command = entryCommand(value);
+  return command ? { registered: true, command } : { registered: false };
 }
 
 // ponytail: reads only the `[mcp_servers.<name>]` table shape the host's own add command writes;
@@ -72,7 +78,7 @@ function readTomlTable(file: string, table: string): RegistrationState {
   let inTable = false;
   let found = false;
   let command: string | undefined;
-  let args: string[] = [];
+  let args: unknown = [];
   for (const line of text.split(/\r?\n/)) {
     const header = /^\s*\[\s*([^\]]+?)\s*\]\s*$/.exec(line);
     if (header) {
@@ -83,11 +89,10 @@ function readTomlTable(file: string, table: string): RegistrationState {
     if (!inTable) continue;
     const pair = /^\s*(command|args)\s*=\s*(.+?)\s*$/.exec(line);
     if (pair?.[1] === "command") command = JSON.parse(pair[2]) as string;
-    if (pair?.[1] === "args") args = (JSON.parse(pair[2]) as unknown[]).map(String);
+    if (pair?.[1] === "args") args = JSON.parse(pair[2]);
   }
-  return found
-    ? { registered: true, command: command === undefined ? undefined : [command, ...args] }
-    : { registered: false };
+  const entry = found ? entryCommand({ command, args }) : undefined;
+  return entry ? { registered: true, command: entry } : { registered: false };
 }
 
 async function readList(binary: string, args: string[], env: NodeJS.ProcessEnv): Promise<RegistrationState> {
@@ -96,7 +101,8 @@ async function readList(binary: string, args: string[], env: NodeJS.ProcessEnv):
     transport?: { command?: unknown; args?: unknown };
   }>;
   const entry = servers.find((server) => server.name === SERVER_NAME);
-  return entry ? { registered: true, command: entryCommand(entry.transport) } : { registered: false };
+  const command = entryCommand(entry?.transport);
+  return command ? { registered: true, command } : { registered: false };
 }
 
 function readPackages(file: string, source: string): RegistrationState {

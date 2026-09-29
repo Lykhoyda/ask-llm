@@ -1,6 +1,6 @@
 import { type DiagnosticReport, formatDiagnosticReport, type ProviderSpec, runDiagnostics } from "@ask-llm/shared";
 import { type DetectedHost, detectHosts } from "./hosts/detect.js";
-import { buildPlan, isOwnRegistration, resolveServerPath } from "./plan.js";
+import { buildPlan, DURABLE_SERVER_GUIDANCE, isOwnRegistration, resolveServerPath } from "./plan.js";
 import {
   DoctorArgumentError,
   type DoctorCliOptions,
@@ -21,12 +21,15 @@ async function doctorHosts(ownCli: string): Promise<DoctorHost[]> {
   );
   const hosts = await detectHosts();
   const plan = server ? buildPlan(hosts, server) : undefined;
-  return hosts.map(({ spec, ...host }, index) => ({
-    ...host,
-    ownServer: host.registered && server ? isOwnRegistration({ ...host, spec }, server) : undefined,
-    restart: spec.restart,
-    manual: plan?.[index].manual,
-  }));
+  return hosts.map(({ spec, ...host }, index) => {
+    const needsManual = host.registered === null || (host.installed && (!host.supported || (spec.unverified && !host.registered)));
+    return {
+      ...host,
+      ownServer: host.registered && server ? isOwnRegistration({ ...host, spec }, server) : undefined,
+      restart: spec.restart,
+      manual: plan?.[index].manual ?? (!server && needsManual ? DURABLE_SERVER_GUIDANCE : undefined),
+    };
+  });
 }
 
 function formatHost(host: DoctorHost): string[] {
@@ -57,7 +60,7 @@ function formatHosts(hosts: DoctorHost[]): string {
 
 async function runDoctor(options: DoctorCliOptions, ownCli?: string): Promise<number> {
   if (options.help) {
-    process.stdout.write(doctorHelp());
+    process.stdout.write(doctorHelp(Boolean(ownCli)));
     return 0;
   }
 

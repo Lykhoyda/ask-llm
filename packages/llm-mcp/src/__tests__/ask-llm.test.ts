@@ -8,14 +8,13 @@ import {
   readFileSync,
   realpathSync,
   rmSync,
-  symlinkSync,
   unlinkSync,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { afterAll, describe, expect, it } from "vitest";
+import { afterAll, describe, expect, it, vi } from "vitest";
 
 const command = fileURLToPath(new URL("../../dist/ask-llm.js", import.meta.url));
 const version = JSON.parse(readFileSync(new URL("../../package.json", import.meta.url), "utf8")).version;
@@ -65,7 +64,6 @@ describe("host discovery commands", () => {
   const path = bin;
   const env = { HOME: home, PATH: path, ASK_LLM_PATH: path, OLLAMA_HOST: "http://127.0.0.1:9" };
   mkdirSync(bin, { recursive: true });
-  symlinkSync("/usr/bin/which", join(bin, "which"));
   mkdirSync(join(home, ".cursor"), { recursive: true });
   mkdirSync(join(home, ".codex"), { recursive: true });
   writeFileSync(
@@ -184,6 +182,46 @@ describe("host discovery commands", () => {
     }
   });
 
+  it("uses installation guidance when doctor has no durable server path", async () => {
+    const cachedCli = join(root, "npm/_npx/cache/cli.js");
+    const cursorFile = join(home, ".cursor/mcp.json");
+    const original = readFileSync(cursorFile);
+    mkdirSync(join(cachedCli, ".."), { recursive: true });
+    writeFileSync(cachedCli, "");
+    writeFileSync(cursorFile, "{");
+    writeFileSync(join(bin, "agy"), "#!/bin/sh\necho changed-version\n", { mode: 0o755 });
+    vi.stubEnv("HOME", home);
+    vi.stubEnv("PATH", bin);
+    vi.stubEnv("ASK_LLM_PATH", bin);
+    vi.resetModules();
+    let output = "";
+    vi.spyOn(process.stdout, "write").mockImplementation((chunk) => {
+      output += String(chunk);
+      return true;
+    });
+    try {
+      const { runDoctorCli } = await import("../doctorCli.js");
+      await runDoctorCli(["--json"], cachedCli);
+      const hosts = JSON.parse(output).hosts;
+      const guidance = "npm i -g @ask-llm/mcp";
+      for (const id of ["agy", "cursor"]) {
+        const found = hosts.find((host: { id: string }) => host.id === id);
+        expect(found.manual).toContain(guidance);
+        expect(found.manual).toContain("ask-llm setup --dry-run");
+        expect(found.manual).not.toContain("_npx");
+      }
+      output = "";
+      await runDoctorCli([], cachedCli);
+      expect(output).toContain(guidance);
+      expect(output).not.toContain("_npx");
+    } finally {
+      vi.restoreAllMocks();
+      vi.unstubAllEnvs();
+      writeFileSync(cursorFile, original);
+      unlinkSync(join(bin, "agy"));
+    }
+  });
+
   it("explains doctor host output and the provider-only TOON format", () => {
     const help = ask("doctor", "--help").stdout;
     expect(help).toContain("provider and host diagnostics");
@@ -225,6 +263,9 @@ describe("host discovery commands", () => {
       timeout: 30_000,
     });
     expect(JSON.parse(legacy.stdout)).not.toHaveProperty("hosts");
+    const legacyHelp = spawnSync(process.execPath, [server, "doctor", "--help"], { env, encoding: "utf8" });
+    expect(legacyHelp.stdout).toContain("Human-readable provider diagnostics");
+    expect(legacyHelp.stdout).not.toContain("Host restart field");
   });
 
   it("prints a Hosts section in the text doctor", () => {

@@ -141,16 +141,15 @@ export function requestedStructuredFormat(args: string[]): "json" | "toon" {
   return "json";
 }
 
-export function doctorHelp(): string {
+export function doctorHelp(includeHosts = false): string {
   return [
     "Usage: ask-llm-mcp doctor [--json | --format <text|json|toon>] [--full]",
     "",
     "Formats:",
-    "  text          Human-readable provider and host diagnostics (default)",
-    "  json          Provider report and hosts (--json remains supported)",
+    `  text          Human-readable provider${includeHosts ? " and host" : ""} diagnostics (default)`,
+    `  json          Provider report${includeHosts ? " and hosts" : ""} (--json remains supported)`,
     "  toon          Versioned, bounded provider-only diagnostics (no hosts)",
-    "",
-    "Host restart field in text/JSON describes what a registration change requires.",
+    ...(includeHosts ? ["", "Host restart field in text/JSON describes what a registration change requires."] : []),
     "",
     "Options:",
     "  --full        TOON: include paths, passing checks, and unbounded text;",

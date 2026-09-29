@@ -3,7 +3,7 @@ import { promisify } from "node:util";
 import { z } from "zod";
 import { resolveTimeoutMs } from "./commandExecutor.js";
 import { EXECUTION } from "./constants.js";
-import { resolveShellPath } from "./shellPath.js";
+import { resolveShellPath, resolveSpawnCommand } from "./shellPath.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -105,14 +105,8 @@ async function probeCommand(
   pathEnv: string,
 ): Promise<{ cliPath: string | undefined; version: string | undefined; error: string | undefined }> {
   const env = { ...process.env, PATH: pathEnv };
-  let cliPath: string | undefined;
-  try {
-    const which = process.platform === "win32" ? "where" : "which";
-    const { stdout } = await execFileAsync(which, [command], { env, timeout: VERSION_PROBE_TIMEOUT_MS });
-    cliPath = stdout.split(/\r?\n/)[0]?.trim() || undefined;
-  } catch {
-    return { cliPath: undefined, version: undefined, error: "not found on PATH" };
-  }
+  const cliPath = resolveSpawnCommand(command, env);
+  if (!cliPath) return { cliPath: undefined, version: undefined, error: "not found on PATH" };
 
   try {
     const { stdout, stderr } = await execFileAsync(command, versionArgs, {

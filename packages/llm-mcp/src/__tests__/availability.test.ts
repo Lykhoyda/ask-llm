@@ -1,15 +1,8 @@
+import { chmodSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
-
-vi.mock("node:child_process", () => {
-  const mockExecFile = vi.fn();
-  return { execFile: mockExecFile };
-});
-
-import { execFile } from "node:child_process";
 import { PROVIDERS } from "../constants.js";
-import { isCommandAvailable } from "../utils/availability.js";
-
-const mockExecFile = vi.mocked(execFile);
 
 describe("PROVIDERS registry", () => {
   it("registers antigravity as an agy-backed provider", () => {
@@ -40,37 +33,21 @@ describe("PROVIDERS registry", () => {
 });
 
 describe("isCommandAvailable", () => {
-  it("returns true when command is found on PATH", async () => {
-    mockExecFile.mockImplementation((_cmd: unknown, _args: unknown, _opts: unknown, cb: unknown) => {
-      (cb as (err: null, result: { stdout: string }) => void)(null, { stdout: "/usr/bin/gemini" });
-      return undefined as never;
-    });
-
-    expect(await isCommandAvailable("gemini")).toBe(true);
-  });
-
-  it("returns false when command is not found", async () => {
-    mockExecFile.mockImplementation((_cmd: unknown, _args: unknown, _opts: unknown, cb: unknown) => {
-      (cb as (err: Error) => void)(new Error("not found"));
-      return undefined as never;
-    });
-
-    expect(await isCommandAvailable("nonexistent")).toBe(false);
-  });
-
-  it("passes command to which/where with timeout", async () => {
-    mockExecFile.mockImplementation((_cmd: unknown, _args: unknown, _opts: unknown, cb: unknown) => {
-      (cb as (err: null, result: { stdout: string }) => void)(null, { stdout: "/usr/bin/test" });
-      return undefined as never;
-    });
-
-    await isCommandAvailable("test-cmd");
-
-    expect(mockExecFile).toHaveBeenCalledWith(
-      expect.stringMatching(/which|where/),
-      ["test-cmd"],
-      expect.objectContaining({ timeout: 5000 }),
-      expect.any(Function),
-    );
+  it("finds executable files on the shared spawn PATH without which", async () => {
+    const bin = mkdtempSync(join(tmpdir(), "ask-llm-availability-"));
+    const executable = join(bin, "gemini");
+    writeFileSync(executable, "#!/bin/sh\nexit 0\n");
+    chmodSync(executable, 0o755);
+    vi.stubEnv("ASK_LLM_PATH", bin);
+    vi.resetModules();
+    try {
+      const { isCommandAvailable, resolveCommand } = await import("../utils/availability.js");
+      expect(await resolveCommand("gemini")).toBe(executable);
+      expect(await isCommandAvailable("gemini")).toBe(true);
+      expect(await isCommandAvailable("missing")).toBe(false);
+    } finally {
+      vi.unstubAllEnvs();
+      rmSync(bin, { recursive: true, force: true });
+    }
   });
 });

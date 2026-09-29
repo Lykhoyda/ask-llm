@@ -146,7 +146,6 @@ describe("resolveServerPath", () => {
   beforeEach(() => {
     rmSync(bin, { recursive: true, force: true });
     mkdirSync(bin, { recursive: true });
-    symlinkSync("/usr/bin/which", join(bin, "which"));
   });
 
   function packageCli(base: string): string {

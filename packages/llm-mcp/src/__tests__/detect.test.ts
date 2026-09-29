@@ -1,4 +1,4 @@
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
@@ -23,7 +23,6 @@ beforeEach(() => {
   rmSync(home, { recursive: true, force: true });
   mkdirSync(bin, { recursive: true });
   mkdirSync(home, { recursive: true });
-  symlinkSync("/usr/bin/which", join(bin, "which"));
 });
 
 function fake(name: string, script: string): string {
@@ -179,6 +178,28 @@ describe("detectHosts", () => {
     const cursor = host(await detectHosts(env), "cursor");
     expect(cursor.registered).toBeNull();
     expect(cursor.error).toMatch(/^cannot read registration/);
+  });
+
+  it("does not count entries without a usable command as registered", async () => {
+    write(".claude.json", JSON.stringify({ mcpServers: { "ask-llm": {} } }));
+    write(".gemini/settings.json", JSON.stringify({ mcpServers: { "ask-llm": { command: "ask", args: [4] } } }));
+    write(".grok/config.toml", "[mcp_servers.ask-llm]\nargs = []\n");
+    write(".config/opencode/opencode.json", JSON.stringify({ mcp: { "ask-llm": { command: ["ask"], enabled: false } } }));
+    fake("codex", 'case "$1" in --version) echo "codex-cli 0.158.0";; *) echo \'[{"name":"ask-llm","transport":{}}]\';; esac');
+    const hosts = await detectHosts(env);
+    for (const id of ["claude", "gemini", "grok", "opencode", "codex"]) {
+      expect(host(hosts, id).registered, id).toBe(false);
+    }
+  });
+
+  it("reports non-file registration surfaces as unreadable", async () => {
+    for (const path of [".cursor/mcp.json", ".grok/config.toml", ".pi/agent/settings.json"]) {
+      mkdirSync(join(home, path), { recursive: true });
+    }
+    const hosts = await detectHosts(env);
+    for (const id of ["cursor", "grok", "pi"]) {
+      expect(host(hosts, id)).toMatchObject({ registered: null, error: expect.stringContaining("cannot read registration") });
+    }
   });
 
   it("marks an unrecognized or failing version probe as unsupported", async () => {
