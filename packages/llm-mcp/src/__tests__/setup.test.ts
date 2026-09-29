@@ -103,10 +103,15 @@ describe("ask-llm setup", () => {
     expect(readFileSync(file, "utf8")).toBe(before);
   });
 
-  it("does not remove a Grok entry after an unreadable table header", () => {
+  it.each([
+    ["quoted bracket", `[mcp_servers.ask-llm]\ncommand = "${FOREIGN}"\n[mcp_servers."team]tools"]\ncommand = "${server}"\n`],
+    ["root inline table", `mcp_servers = { ask-llm = { command = "${FOREIGN}" } }\n`],
+    ["single-quoted key", `[mcp_servers.'ask-llm']\ncommand = "${FOREIGN}"\n`],
+    ["escaped header key", `[mcp_servers."ask\\u002dllm"]\ncommand = "${FOREIGN}"\n`],
+    ["escaped nested key", `[mcp_servers]\n"ask\\u002dllm" = { command = "${FOREIGN}" }\n`],
+  ])("does not mutate an uncertain Grok registration written with %s", (_form, content) => {
     const file = join(home, FAKE_HOSTS.grok.file);
     mkdirSync(join(file, ".."), { recursive: true });
-    const content = `[mcp_servers.ask-llm]\ncommand = "${FOREIGN}"\n[mcp_servers."team]tools"]\ncommand = "${server}"\n`;
     writeFileSync(file, content);
 
     const setup = ask("setup", "-y", "--host", "grok");
@@ -114,6 +119,9 @@ describe("ask-llm setup", () => {
     expect(setup.status).toBe(1);
     expect(remove.status).toBe(1);
     expect(setup.stdout).toContain("cannot read registration");
+    expect(setup.stdout).toContain(
+      `Run it manually: ${commandText(["grok", "mcp", "add", "--scope", "user", "ask-llm", installedServer])}`,
+    );
     expect(remove.stdout).toContain("cannot read registration");
     expect(calls().grok).toEqual([]);
     expect(readFileSync(file, "utf8")).toBe(content);

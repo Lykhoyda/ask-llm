@@ -103,29 +103,25 @@ function readTomlTable(file: string, table: string): RegistrationState {
   for (const line of text.split(/\r?\n/)) {
     const trimmed = line.trim();
     if (trimmed.startsWith("[")) {
-      const header = /^\s*\[\s*(.*?)\s*\]\s*$/.exec(line);
-      if (!header) throw new Error("unsupported Grok TOML table header");
-      const path = header[1];
-      const bare = /^[A-Za-z0-9_-]+(?:\s*\.\s*[A-Za-z0-9_-]+)*$/.test(path);
-      const quoted = /^mcp_servers\s*\.\s*(?:"([^\\'"\[\]]*)"|'([^\\'"\[\]]*)')$/.exec(path);
-      if (!bare && !quoted) throw new Error("unsupported Grok TOML table header");
-      currentTable = bare ? path.replace(/\s*\.\s*/g, ".") : `mcp_servers.${quoted?.[1] ?? quoted?.[2]}`;
-      inTable = currentTable === table;
-      found ||= inTable;
+      inTable = trimmed === `[${table}]` || trimmed === `[mcp_servers."${SERVER_NAME}"]`;
+      if (inTable) {
+        if (found) throw new Error("unsupported Grok TOML duplicate ask-llm table");
+        found = true;
+        currentTable = table;
+      } else if (/^\[[A-Za-z0-9_-]+(?:\.[A-Za-z0-9_-]+)*\]$/.test(trimmed) && trimmed !== "[mcp_servers]") {
+        currentTable = trimmed.slice(1, -1);
+        if (currentTable.startsWith(`${table}.`)) throw new Error("unsupported Grok TOML nested ask-llm table");
+      } else throw new Error("unsupported Grok TOML table header");
       continue;
     }
     if (!trimmed || trimmed.startsWith("#")) continue;
-    if (!inTable && (currentTable === "" || currentTable === "mcp_servers")) {
-      const alternate = /^(?:mcp_servers\s*\.\s*)?["']?ask-llm["']?\s*(=|\.)/.exec(trimmed);
-      if (alternate) {
-        const form = alternate[1] === "." ? "dotted key" : "inline table";
-        throw new Error(`unsupported Grok TOML ${form} for ask-llm`);
-      }
+    if (currentTable === "") {
+      const rootKey = /^([A-Za-z0-9_-]+)\s*=/.exec(trimmed);
+      if (!rootKey || rootKey[1] === "mcp_servers") throw new Error("unsupported Grok TOML root key");
     }
     if (!inTable) continue;
-    if (/^["']?(command|args|enabled)["']?\s*\./.test(trimmed))
-      throw new Error("unsupported Grok TOML dotted key for ask-llm");
-    const pair = /^\s*["']?(command|args|enabled)["']?\s*=\s*(.+?)\s*$/.exec(line);
+    if (trimmed.includes("\\")) throw new Error("unsupported Grok TOML escape for ask-llm");
+    const pair = /^(command|args|enabled)\s*=\s*(.+)$/.exec(trimmed);
     if (!pair) throw new Error("unsupported Grok TOML key syntax for ask-llm");
     let value: unknown;
     try {

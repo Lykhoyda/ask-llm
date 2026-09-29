@@ -210,17 +210,8 @@ describe("detectHosts", () => {
   });
 
   it.each([
-    [
-      "a single-quoted header",
-      "[mcp_servers.'ask-llm']\ncommand = \"/opt/x\"\n",
-      { registered: true, command: ["/opt/x"] },
-    ],
-    ["a spaced header", '[ mcp_servers . ask-llm ]\ncommand = "/opt/x"\n', { registered: true, command: ["/opt/x"] }],
-    [
-      "quoted keys",
-      '[mcp_servers.ask-llm]\n"command" = "/opt/x"\n"args" = ["--custom"]\n',
-      { registered: true, command: ["/opt/x", "--custom"] },
-    ],
+    ["a bare header", '[mcp_servers.ask-llm]\ncommand = "/opt/x"\nargs = ["--custom"]\n', { registered: true, command: ["/opt/x", "--custom"] }],
+    ["a basic-quoted header", '[mcp_servers."ask-llm"]\ncommand = "/opt/x"\n', { registered: true, command: ["/opt/x"] }],
     ["a disabled entry", '[mcp_servers.ask-llm]\ncommand = "/opt/x"\nenabled = false\n', { present: true }],
   ])("reads a Grok TOML entry written with %s", async (_, content, expected) => {
     write(".grok/config.toml", content);
@@ -230,9 +221,9 @@ describe("detectHosts", () => {
   it.each([
     '[mcp_servers."ask - llm"]\ncommand = "/opt/x"\n',
     "[mcp_servers.'ask - llm']\ncommand = \"/opt/x\"\n",
-  ])("does not confuse another quoted Grok key with ask-llm", async (content) => {
+  ])("reports a noncanonical quoted Grok key as unknown", async (content) => {
     write(".grok/config.toml", content);
-    expect(host(await detectHosts(env), "grok")).toMatchObject({ registered: false });
+    expect(host(await detectHosts(env), "grok")).toMatchObject({ registered: null });
   });
 
   it("fails closed when a later Grok header contains a quoted bracket", async () => {
@@ -259,16 +250,22 @@ describe("detectHosts", () => {
 
   it.each([
     ["inline table", 'mcp_servers.ask-llm = { command = "/opt/ask-llm-mcp", args = [] }\n'],
+    ["root inline table", 'mcp_servers = { ask-llm = { command = "/opt/ask-llm-mcp" } }\n'],
+    ["nested escaped key", '[mcp_servers]\n"ask\\u002dllm" = { command = "/opt/ask-llm-mcp" }\n'],
     ["dotted key", 'mcp_servers.ask-llm.command = "/opt/ask-llm-mcp"\n'],
+    ["single-quoted header", "[mcp_servers.'ask-llm']\ncommand = \"/opt/ask-llm-mcp\"\n"],
+    ["spaced header", '[ mcp_servers . ask-llm ]\ncommand = "/opt/ask-llm-mcp"\n'],
+    ["nested ask-llm table", '[mcp_servers.ask-llm.command]\nvalue = "/opt/ask-llm-mcp"\n'],
+    ["quoted field", '[mcp_servers.ask-llm]\n"command" = "/opt/ask-llm-mcp"\n'],
     ["single-quoted value", "[mcp_servers.ask-llm]\ncommand = '/opt/ask-llm-mcp'\n"],
     ["trailing comment", '[mcp_servers.ask-llm]\ncommand = "/opt/ask-llm-mcp" # active\n'],
     ["multiline array", '[mcp_servers.ask-llm]\ncommand = "/opt/ask-llm-mcp"\nargs = [\n  "--extra",\n]\n'],
     ["key syntax", '[mcp_servers.ask-llm]\ncommand = "/opt/ask-llm-mcp"\n"unparsed key" = true\n'],
-  ])("reports unsupported Grok TOML %s as unknown", async (form, content) => {
+  ])("reports unsupported Grok TOML %s as unknown", async (_form, content) => {
     write(".grok/config.toml", content);
     expect(host(await detectHosts(env), "grok")).toMatchObject({
       registered: null,
-      error: expect.stringContaining(`unsupported Grok TOML ${form}`),
+      error: expect.stringContaining("unsupported Grok TOML"),
     });
   });
 
