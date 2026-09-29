@@ -358,9 +358,10 @@ export async function executeGrokAPI(options: GrokExecutorOptions): Promise<Grok
   const model = options.model?.trim() || MODELS.DEFAULT;
   const effort = reasoningEffort(options.reasoningEffort);
   const outputTokenLimit = maxOutputTokens();
-  const cacheKey = options.outputSchema || options.singleAttempt
-    ? null
-    : ResponseCache.buildKey("grok", options.prompt, `${model}:${effort}:${outputTokenLimit}`);
+  const cacheKey =
+    options.outputSchema || options.singleAttempt
+      ? null
+      : ResponseCache.buildKey("grok", options.prompt, `${model}:${effort}:${outputTokenLimit}`);
   if (cacheKey) {
     const cached = responseCache.get(cacheKey);
     if (cached) {

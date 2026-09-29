@@ -55,8 +55,7 @@ export async function exerciseProviders(
 
   const executors = new Map<string, ExecutorFn>();
   const grokHarness =
-    process.env.ASK_GROK_HARNESS === "grok-cli" ||
-    (!process.env.ASK_GROK_HARNESS && !process.env.XAI_API_KEY?.trim())
+    process.env.ASK_GROK_HARNESS === "grok-cli" || (!process.env.ASK_GROK_HARNESS && !process.env.XAI_API_KEY?.trim())
       ? "grok-cli"
       : "xai-api";
   for (const key of ready) {
