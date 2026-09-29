@@ -200,6 +200,20 @@ describe("detectHosts", () => {
     });
   });
 
+  it.each([
+    ["inline table", 'mcp_servers.ask-llm = { command = "/opt/ask-llm-mcp", args = [] }\n'],
+    ["dotted key", 'mcp_servers.ask-llm.command = "/opt/ask-llm-mcp"\n'],
+    ["single-quoted value", "[mcp_servers.ask-llm]\ncommand = '/opt/ask-llm-mcp'\n"],
+    ["trailing comment", '[mcp_servers.ask-llm]\ncommand = "/opt/ask-llm-mcp" # active\n'],
+    ["multiline array", '[mcp_servers.ask-llm]\ncommand = "/opt/ask-llm-mcp"\nargs = [\n  "--extra",\n]\n'],
+  ])("reports unsupported Grok TOML %s as unknown", async (form, content) => {
+    write(".grok/config.toml", content);
+    expect(host(await detectHosts(env), "grok")).toMatchObject({
+      registered: null,
+      error: expect.stringContaining(`unsupported Grok TOML ${form}`),
+    });
+  });
+
   it("reports non-file registration surfaces as unreadable", async () => {
     for (const path of [".cursor/mcp.json", ".grok/config.toml", ".pi/agent/settings.json"]) {
       mkdirSync(join(home, path), { recursive: true });

@@ -71,26 +71,51 @@ function readJsonKey(file: string, keyPath: string[]): RegistrationState {
   return command ? { registered: true, command } : { registered: false };
 }
 
-// ponytail: reads only the `[mcp_servers.<name>]` table shape the host's own add command writes;
-// inline tables or dotted keys read as unregistered. Add a TOML parser if hosts start writing those.
 function readTomlTable(file: string, table: string): RegistrationState {
   const text = readText(file);
   if (text === undefined) return { registered: false };
+  let currentTable = "";
   let inTable = false;
   let found = false;
   let command: string | undefined;
   let args: unknown = [];
   for (const line of text.split(/\r?\n/)) {
-    const header = /^\s*\[\s*([^\]]+?)\s*\]\s*$/.exec(line);
+    const header = /^\s*\[\s*([^\]]+?)\s*\]\s*(#.*)?$/.exec(line);
     if (header) {
-      inTable = header[1].replace(/"/g, "") === table;
+      currentTable = header[1].replace(/"/g, "");
+      inTable = currentTable === table;
+      if (inTable && header[2]) throw new Error("unsupported Grok TOML trailing comment on ask-llm table");
       found ||= inTable;
       continue;
     }
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith("#")) continue;
+    if (!inTable && (currentTable === "" || currentTable === "mcp_servers")) {
+      const alternate = /^(?:mcp_servers\.)?"?ask-llm"?\s*(=|\.)/.exec(trimmed);
+      if (alternate) {
+        const form = alternate[1] === "." ? "dotted key" : "inline table";
+        throw new Error(`unsupported Grok TOML ${form} for ask-llm`);
+      }
+    }
     if (!inTable) continue;
+    if (/^(command|args)\s*\./.test(trimmed)) throw new Error("unsupported Grok TOML dotted key for ask-llm");
     const pair = /^\s*(command|args)\s*=\s*(.+?)\s*$/.exec(line);
-    if (pair?.[1] === "command") command = JSON.parse(pair[2]) as string;
-    if (pair?.[1] === "args") args = JSON.parse(pair[2]);
+    if (!pair) continue;
+    let value: unknown;
+    try {
+      value = JSON.parse(pair[2]);
+    } catch {
+      const form = pair[2].startsWith("'")
+        ? "single-quoted value"
+        : pair[2].startsWith("[") && !pair[2].includes("]")
+          ? "multiline array"
+          : pair[2].includes("#")
+            ? "trailing comment"
+            : "value syntax";
+      throw new Error(`unsupported Grok TOML ${form} for ask-llm`);
+    }
+    if (pair[1] === "command") command = value as string;
+    if (pair[1] === "args") args = value;
   }
   const entry = found ? entryCommand({ command, args }) : undefined;
   return entry ? { registered: true, command: entry } : { registered: false };
