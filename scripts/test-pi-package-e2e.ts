@@ -357,13 +357,13 @@ async function waitForMessage(fragment: string): Promise<RpcEvent> {
 
 try {
   // Representative canonical skills through a real scripted Pi host model.
-  let result = await runPrompt("/skill:codex-review SMOKE_SINGLE", "ask-codex");
+  let result = await runPrompt("/skill:ask-llm-review SMOKE_SINGLE", "ask-codex");
   invariant(!result.toolEnd.isError, "codex-review tool failed");
   invariant(toolResultText(result.toolEnd).includes("FAKE_CODEX_RESPONSE"), "codex executor response missing");
   invariant(result.toolEnd.result?.details?.provider === "codex", "codex structured details missing provider");
 
   await newSession();
-  result = await runPrompt("/skill:compare SMOKE_MULTI", "ask-multi");
+  result = await runPrompt("/skill:ask-llm-compare SMOKE_MULTI", "ask-multi");
   invariant(!result.toolEnd.isError, "compare ask-multi failed");
   const multiText = toolResultText(result.toolEnd);
   invariant(
@@ -372,7 +372,7 @@ try {
   );
 
   await newSession();
-  result = await runPrompt("/skill:brainstorm SMOKE_BRAINSTORM", "ask-multi");
+  result = await runPrompt("/skill:ask-llm-brainstorm SMOKE_BRAINSTORM", "ask-multi");
   const brainstorm = toolResultText(result.toolEnd);
   for (const evidence of [
     "FAKE_CODEX_RESPONSE",
@@ -384,7 +384,7 @@ try {
   }
 
   await newSession();
-  result = await runPrompt("/skill:codex-image SMOKE_IMAGE", "ask-codex");
+  result = await runPrompt("/skill:ask-llm-codex-image SMOKE_IMAGE", "ask-codex");
   invariant(!result.toolEnd.isError, "codex-image tool failed");
   invariant(
     (await readFile(imagePath)).subarray(0, 8).toString("hex") === "89504e470d0a1a0a",

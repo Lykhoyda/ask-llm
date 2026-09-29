@@ -26,7 +26,7 @@ it("packs the server, command entrypoints, and complete host resources into the 
       ".cursor-plugin/plugin.json",
       ".mcp.json",
       "mcp.json",
-      "skills/codex-review/SKILL.md",
+      "skills/ask-llm-review/SKILL.md",
       "agents/codex-reviewer.md",
       "hooks/hooks.json",
       "pi/extensions/index.ts",

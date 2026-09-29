@@ -821,7 +821,7 @@ export function registerCodexPair(pi: ExtensionAPI): void {
     handler: async (args, ctx) => {
       const markerDir = await findMarkerUp(ctx.cwd);
       if (!markerDir) {
-        notifyRefusal(ctx, "No .codex-pair/context.md marker found. Run /skill:codex-pair for setup instructions.");
+        notifyRefusal(ctx, "No .codex-pair/context.md marker found. Run /skill:ask-llm-codex-pair for setup instructions.");
         return;
       }
       if (args.trim() === "revoke") {

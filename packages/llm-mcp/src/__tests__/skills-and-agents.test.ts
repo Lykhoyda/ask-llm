@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { listFiles, listSubdirs, parseMarkdownFrontmatter, readFile } from "./_helpers.js";
 
-const expectedSkills = [
+const oldSkillNames = [
   "antigravity-review",
   "brainstorm",
   "brainstorm-all",
@@ -21,7 +21,11 @@ const expectedSkills = [
   "ollama-review",
   "sol-review",
 ];
-const expectedPiSkills = expectedSkills.filter((skill) => skill !== "fable-review" && skill !== "grok-pair");
+const namespaced = (old: string) => (old === "codex-review" ? "ask-llm-review" : `ask-llm-${old}`);
+const expectedSkills = oldSkillNames.map(namespaced);
+const expectedPiSkills = expectedSkills.filter(
+  (skill) => skill !== "ask-llm-fable-review" && skill !== "ask-llm-grok-pair",
+);
 const allowedAgentSkillFields = new Set([
   "name",
   "description",
@@ -45,9 +49,17 @@ const expectedAgents = [
 ];
 
 describe("skills/", () => {
-  it("contains the expected set of skill directories", () => {
+  it("contains the namespaced skills and one old-name pointer for each", () => {
     const dirs = listSubdirs("skills").sort();
-    expect(dirs).toEqual(expectedSkills.sort());
+    expect(dirs).toEqual([...expectedSkills, ...oldSkillNames].sort());
+  });
+
+  it.each(oldSkillNames)("%s is a one-paragraph pointer to its namespaced twin", (old) => {
+    const { frontmatter, body } = parseMarkdownFrontmatter(readFile(`skills/${old}/SKILL.md`));
+    expect(frontmatter.name).toBe(old);
+    expect(frontmatter.description).toContain(namespaced(old));
+    expect(body.trim().split("\n")).toHaveLength(1);
+    expect(body).toContain(`../${namespaced(old)}/SKILL.md`);
   });
 
   it.each(expectedSkills)("%s skill has SKILL.md with required frontmatter", (skillName) => {
@@ -197,8 +209,8 @@ describe("agents/", () => {
 
 describe("native model review skills", () => {
   it.each([
-    ["fable-review", "fable-reviewer", "model: fable"],
-    ["sol-review", "sol-reviewer", 'model: "gpt-6-sol"'],
+    ["ask-llm-fable-review", "fable-reviewer", "model: fable"],
+    ["ask-llm-sol-review", "sol-reviewer", 'model: "gpt-6-sol"'],
   ])("%s delegates to its model-pinned reviewer path", (skill, reviewer, modelPin) => {
     const content = readFile(`skills/${skill}/SKILL.md`);
     expect(content).toContain(reviewer);
@@ -207,7 +219,7 @@ describe("native model review skills", () => {
   });
 
   it("sol-review preflights split, unified, and CLI transports without stripping Codex options", () => {
-    const content = readFile("skills/sol-review/SKILL.md");
+    const content = readFile("skills/ask-llm-sol-review/SKILL.md");
     expect(content).toContain("mcp__ask-llm__ask-llm");
     expect(content).toMatch(/provider:\s*"codex"/);
     expect(content).toContain("reasoningEffort");
@@ -216,7 +228,7 @@ describe("native model review skills", () => {
   });
 
   it("codex-image keeps workspace-write sandbox on the unified transport", () => {
-    const content = readFile("skills/codex-image/SKILL.md");
+    const content = readFile("skills/ask-llm-codex-image/SKILL.md");
     expect(content).toContain("mcp__ask-llm__ask-llm");
     expect(content).toMatch(/provider:\s*"codex"/);
     expect(content).toContain('sandbox: "workspace-write"');
@@ -224,7 +236,7 @@ describe("native model review skills", () => {
   });
 
   it("guards explicit Fable overrides without claiming inaccessible runtime verification", () => {
-    const content = readFile("skills/fable-review/SKILL.md");
+    const content = readFile("skills/ask-llm-fable-review/SKILL.md");
     expect(content).toContain('model: "fable"');
     expect(content).toContain("CLAUDE_CODE_SUBAGENT_MODEL");
     expect(content).toContain("inherit");
@@ -237,7 +249,7 @@ describe("native model review skills", () => {
 });
 
 describe("multi-review skill — load-bearing polish (ADR-064)", () => {
-  const content = readFile("skills/multi-review/SKILL.md");
+  const content = readFile("skills/ask-llm-multi-review/SKILL.md");
   const { body } = parseMarkdownFrontmatter(content);
 
   it("documents diff preprocessing (intent-to-add for new files)", () => {
@@ -301,7 +313,7 @@ describe("multi-review skill — load-bearing polish (ADR-064)", () => {
 });
 
 describe("brainstorm skill — polish (ADR-064)", () => {
-  const content = readFile("skills/brainstorm/SKILL.md");
+  const content = readFile("skills/ask-llm-brainstorm/SKILL.md");
   const { body } = parseMarkdownFrontmatter(content);
   const piAdapter = body.slice(body.indexOf("### Pi adapter"), body.indexOf("<!-- HOST-ADAPTER:CLAUDE-CODE:START -->"));
 
@@ -383,11 +395,11 @@ describe("brainstorm-coordinator agent — Phase 4 cross-check polish (ADR-064)"
 });
 
 describe("compare skill — load-bearing structure", () => {
-  const content = readFile("skills/compare/SKILL.md");
+  const content = readFile("skills/ask-llm-compare/SKILL.md");
   const { frontmatter, body } = parseMarkdownFrontmatter(content);
 
   it("is discoverable as a standard skill", () => {
-    expect(frontmatter.name).toBe("compare");
+    expect(frontmatter.name).toBe("ask-llm-compare");
   });
 
   it("description differentiates from /brainstorm and /multi-review", () => {
@@ -520,11 +532,11 @@ describe("codex-verifier agent — claim verification contract (ADR-073)", () =>
 });
 
 describe("/codex-verify skill — load-bearing structure (ADR-073)", () => {
-  const content = readFile("skills/codex-verify/SKILL.md");
+  const content = readFile("skills/ask-llm-codex-verify/SKILL.md");
   const { frontmatter, body } = parseMarkdownFrontmatter(content);
 
   it("is discoverable as a standard skill", () => {
-    expect(frontmatter.name).toBe("codex-verify");
+    expect(frontmatter.name).toBe("ask-llm-codex-verify");
   });
 
   it("description distinguishes from /codex-review (issue hunt vs trust check)", () => {
@@ -561,7 +573,7 @@ describe("/codex-verify skill — load-bearing structure (ADR-073)", () => {
 });
 
 describe("multi-review skill — claim-vs-finding redirect (ADR-073)", () => {
-  const content = readFile("skills/multi-review/SKILL.md");
+  const content = readFile("skills/ask-llm-multi-review/SKILL.md");
   const { body } = parseMarkdownFrontmatter(content);
 
   it("points users at /codex-verify when they want claim verification rather than finding verification", () => {
@@ -625,6 +637,6 @@ describe("agents/ — no removed codex CLI flags (#37/#38/#52)", () => {
   });
 
   it("accepts Codex ultra effort in /codex-pair without changing the required-pin contract", () => {
-    expect(readFile("skills/codex-pair/SKILL.md")).toContain("effort=low|medium|high|xhigh|max|ultra");
+    expect(readFile("skills/ask-llm-codex-pair/SKILL.md")).toContain("effort=low|medium|high|xhigh|max|ultra");
   });
 });

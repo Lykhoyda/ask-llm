@@ -110,20 +110,21 @@ async function validateSkillAdapter(): Promise<void> {
           ? "grok-pair"
           : undefined;
   if (!skillName) return;
-  const skill = await readFile(join(plugin, "skills", skillName, "SKILL.md"), "utf8");
-  invariant(skill.includes(`name: ${skillName}`), `${skillName} skill adapter is not discoverable`);
+  const folder = `ask-llm-${skillName}`;
+  const skill = await readFile(join(plugin, "skills", folder, "SKILL.md"), "utf8");
+  invariant(skill.includes(`name: ${folder}`), `${folder} skill adapter is not discoverable`);
   if (config.scenario.host === "cursor-agent" && skillName !== "brainstorm") {
     const manifest = JSON.parse(await readFile(join(plugin, ".cursor-plugin", "plugin.json"), "utf8")) as {
       skills?: string[];
     };
     invariant(
-      manifest.skills?.some((entry) => entry.endsWith(`/skills/${skillName}`) || entry.endsWith(`skills/${skillName}`)),
+      manifest.skills?.some((entry) => entry.endsWith(`skills/${folder}`)),
       `Cursor manifest does not expose ${skillName}`,
     );
   } else if (config.scenario.host === "pi") {
     const manifest = JSON.parse(await readFile(join(plugin, "package.json"), "utf8")) as { pi?: { skills?: string[] } };
     invariant(
-      manifest.pi?.skills?.some((entry) => entry.includes(`/skills/${skillName}/`)),
+      manifest.pi?.skills?.some((entry) => entry.includes(`/skills/${folder}/`)),
       `Pi manifest excludes ${skillName}`,
     );
   }

@@ -122,7 +122,12 @@ function resolveCursorComponents(manifest: CursorManifest) {
 describe("Cursor plugin adapter", () => {
   const manifest = readJson<CursorManifest>(".cursor-plugin/plugin.json");
   const mcp = readJson<{ mcpServers: Record<string, { command: string; args: string[] }> }>("mcp.json");
-  const CURSOR_PAIR_SKILLS = ["./skills/codex-pair", "./skills/grok-pair"];
+  const CURSOR_PAIR_SKILLS = [
+    "./skills/ask-llm-codex-pair",
+    "./skills/ask-llm-grok-pair",
+    "./skills/codex-pair",
+    "./skills/grok-pair",
+  ];
 
   it("uses Cursor's native skill and MCP plugin surfaces rather than Claude hook registration", () => {
     expect(manifest.name).toBe("ask-llm");
@@ -130,7 +135,7 @@ describe("Cursor plugin adapter", () => {
     expect(manifest.mcpServers).toBe("./mcp.json");
   });
 
-  it("resolves on Cursor to exactly the two pair skills and no agents, commands, rules, or hooks", () => {
+  it("resolves on Cursor to exactly the two pair skills and their old-name pointers, and no agents, commands, rules, or hooks", () => {
     expect(resolveCursorComponents(manifest)).toEqual({
       skills: CURSOR_PAIR_SKILLS,
       agents: [],
@@ -140,7 +145,7 @@ describe("Cursor plugin adapter", () => {
     });
   });
 
-  it("exposes exactly the two Cursor-adapted pair skills", () => {
+  it("exposes exactly the two Cursor-adapted pair skills and their old-name pointers", () => {
     expect(manifest.skills).toEqual(CURSOR_PAIR_SKILLS);
     for (const skill of manifest.skills) {
       expect(fs.existsSync(path.join(PLUGIN_ROOT, skill, "SKILL.md"))).toBe(true);
@@ -151,7 +156,11 @@ describe("Cursor plugin adapter", () => {
     const shipped = listSubdirs("skills").map((name) => `./skills/${name}`);
     const excluded = shipped.filter((skill) => !CURSOR_PAIR_SKILLS.includes(skill));
     expect(excluded.length).toBeGreaterThan(0);
-    for (const hookOnly of ["./skills/codex-pair-ack", "./skills/codex-pair-pause", "./skills/codex-pair-resume"]) {
+    for (const hookOnly of [
+      "./skills/ask-llm-codex-pair-ack",
+      "./skills/ask-llm-codex-pair-pause",
+      "./skills/ask-llm-codex-pair-resume",
+    ]) {
       expect(excluded).toContain(hookOnly);
     }
     for (const skill of excluded) {
@@ -279,9 +288,11 @@ describe("dual-host package manifest", () => {
 
   it("declares one thin Pi extension and the canonical skills with Fable excluded", () => {
     expect(pkg.pi.extensions).toEqual(["./pi/extensions/index.ts"]);
-    expect(pkg.pi.skills).toHaveLength(16);
+    expect(pkg.pi.skills).toHaveLength(32);
     expect(pkg.pi.skills).toContain("./skills/codex-review/SKILL.md");
-    expect(pkg.pi.skills).toContain("./skills/grok-review/SKILL.md");
+    expect(pkg.pi.skills).toContain("./skills/ask-llm-review/SKILL.md");
+    expect(pkg.pi.skills).toContain("./skills/ask-llm-grok-review/SKILL.md");
+    expect(pkg.pi.skills).not.toContain("./skills/ask-llm-fable-review/SKILL.md");
     expect(pkg.pi.skills).not.toContain("./skills/fable-review/SKILL.md");
     expect(fs.existsSync(path.join(PLUGIN_ROOT, "pi", "extensions", "index.ts"))).toBe(true);
   });

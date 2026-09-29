@@ -109,7 +109,7 @@ const geminiFallbackSurfaces = [
   "packages/gemini-mcp/README.md",
   "packages/llm-mcp/README.md",
   "packages/llm-mcp/agents/gemini-reviewer.md",
-  "packages/llm-mcp/skills/gemini-review/SKILL.md",
+  "packages/llm-mcp/skills/ask-llm-gemini-review/SKILL.md",
   "packages/llm-mcp/pi/extensions/provider-tools.ts",
 ];
 if (!geminiFallback) {

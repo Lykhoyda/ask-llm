@@ -7,7 +7,7 @@ const PORTABLE_START = "<!-- PORTABLE-CONTRACT:START -->";
 const PORTABLE_END = "<!-- PORTABLE-CONTRACT:END -->";
 const CLAUDE_START = "<!-- HOST-ADAPTER:CLAUDE-CODE:START -->";
 const CLAUDE_END = "<!-- HOST-ADAPTER:CLAUDE-CODE:END -->";
-const PAIR_SKILLS = ["codex-pair", "grok-pair"] as const;
+const PAIR_SKILLS = ["ask-llm-codex-pair", "ask-llm-grok-pair"] as const;
 
 interface Heading {
   level: number;
@@ -100,11 +100,13 @@ describe("pair skill structure", () => {
 
       it("references the shipped shared pairing contract from the portable block", () => {
         const contractBody = skill.body.slice(skill.portable[0], skill.portableEnd[0]);
-        const ref = contractBody.match(/`(\.\.\/pairing-contract\.md)`/);
+        const ref = contractBody.match(/`((?:\.\.\/ask-llm-codex-pair\/)?pairing-contract\.md)`/);
         expect(ref).not.toBeNull();
         const resolved = path.resolve(PLUGIN_ROOT, "skills", name, ref?.[1] ?? "");
         expect(fs.existsSync(resolved)).toBe(true);
-        expect(path.relative(PLUGIN_ROOT, resolved)).toBe(path.join("skills", "pairing-contract.md"));
+        expect(path.relative(PLUGIN_ROOT, resolved)).toBe(
+          path.join("skills", "ask-llm-codex-pair", "pairing-contract.md"),
+        );
         const shipped = readJson<{ files: string[] }>("package.json").files;
         expect(shipped).toContain("skills/");
       });
@@ -119,13 +121,13 @@ describe("pair skill structure", () => {
   }
 
   it("codex-pair keeps its Pi adapter while grok-pair stays Claude + Cursor only", () => {
-    const codex = parsePairSkill("codex-pair");
-    const grok = parsePairSkill("grok-pair");
+    const codex = parsePairSkill("ask-llm-codex-pair");
+    const grok = parsePairSkill("ask-llm-grok-pair");
     expect(adapterSections(codex.body)).toEqual(["Pi", "Cursor Agent", "Claude Code"]);
     expect(adapterSections(grok.body)).toEqual(["Cursor Agent", "Claude Code"]);
     const piSkills = readJson<{ pi: { skills: string[] } }>("package.json").pi.skills;
-    expect(piSkills).toContain("./skills/codex-pair/SKILL.md");
-    expect(piSkills).not.toContain("./skills/grok-pair/SKILL.md");
+    expect(piSkills).toContain("./skills/ask-llm-codex-pair/SKILL.md");
+    expect(piSkills).not.toContain("./skills/ask-llm-grok-pair/SKILL.md");
   });
 
   it.each(PAIR_SKILLS)("%s publishes a valid Cursor-native unified MCP setup", (name) => {
@@ -140,7 +142,7 @@ describe("pair skill structure", () => {
   });
 
   it("codex-pair publishes fully pinned first-call protocol shapes for Cursor", () => {
-    const cursor = adapterBody(parsePairSkill("codex-pair").body, "Cursor Agent");
+    const cursor = adapterBody(parsePairSkill("ask-llm-codex-pair").body, "Cursor Agent");
     const calls = jsonCodeBlocks(cursor).find(Array.isArray) as
       | Array<{ tool: string; arguments: Record<string, unknown> }>
       | undefined;
@@ -166,7 +168,7 @@ describe("pair skill structure", () => {
 });
 
 describe("shared pairing contract", () => {
-  const contract = readFile("skills/pairing-contract.md");
+  const contract = readFile("skills/ask-llm-codex-pair/pairing-contract.md");
 
   it("is a plain shared document, not a discoverable skill", () => {
     expect(parseMarkdownFrontmatter(contract).frontmatter).toEqual({});

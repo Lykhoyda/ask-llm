@@ -104,7 +104,7 @@ export const SCENARIOS: readonly Scenario[] = Object.freeze([
   {
     id: "pi:/brainstorm",
     tool: "pi",
-    surface: "/skill:brainstorm",
+    surface: "/skill:ask-llm-brainstorm",
     host: "pi",
     hostModelKey: "PI",
     modelKey: "CURSOR_GROK",
@@ -115,7 +115,7 @@ export const SCENARIOS: readonly Scenario[] = Object.freeze([
   {
     id: "pi:/codex-pair",
     tool: "pi",
-    surface: "/skill:codex-pair",
+    surface: "/skill:ask-llm-codex-pair",
     host: "pi",
     hostModelKey: "PI",
     modelKey: "CODEX_PAIR",
@@ -139,7 +139,7 @@ export const SCENARIOS: readonly Scenario[] = Object.freeze([
   {
     id: "pi:/grok-pair",
     tool: "pi",
-    surface: "/skill:grok-pair",
+    surface: "/skill:ask-llm-grok-pair",
     host: "pi",
     supported: false,
     unavailableReason: "the Pi manifest deliberately excludes grok-pair (ADR-147)",
@@ -570,9 +570,9 @@ export function buildLivePrompt(scenario: Scenario, selection: Selection): strin
   const task = `task="Return only ${marker}" consent=confirmed`;
   let command: string;
   if (scenario.surface.includes("brainstorm") && selection.secondaryModel) {
-    command = `${scenario.host === "pi" ? "/skill:brainstorm" : "/brainstorm"} grok@cursor-agent:${selection.model},codex@cursor-agent:${selection.secondaryModel} ${task}`;
+    command = `${scenario.host === "pi" ? "/skill:ask-llm-brainstorm" : "/brainstorm"} grok@cursor-agent:${selection.model},codex@cursor-agent:${selection.secondaryModel} ${task}`;
   } else if (scenario.surface.includes("codex-pair")) {
-    command = `${scenario.host === "pi" ? "/skill:codex-pair" : "/codex-pair"} model=${selection.model} effort=${selection.effort} ${task}`;
+    command = `${scenario.host === "pi" ? "/skill:ask-llm-codex-pair" : "/codex-pair"} model=${selection.model} effort=${selection.effort} ${task}`;
   } else if (scenario.surface.includes("grok-pair")) {
     command = `/grok-pair route=${scenario.harness} model=${selection.model} effort=${selection.effort} ${task}`;
   } else {
