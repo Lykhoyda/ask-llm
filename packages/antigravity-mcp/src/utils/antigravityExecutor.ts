@@ -150,7 +150,7 @@ function parseStdoutJson(raw: string): StdoutParse {
   return { kind: "answer", response, usage, ...meta };
 }
 
-// Read-only slash commands answer without an agent turn or quota use (agy >=1.1.11).
+// /quota answered without an agent turn or quota use on agy 1.2.12 and 1.2.13.
 async function describeQuota(signal?: AbortSignal): Promise<string | undefined> {
   try {
     const args = [
