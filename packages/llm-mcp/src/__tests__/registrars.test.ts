@@ -368,6 +368,7 @@ describe.each(Object.keys(FILE_HOSTS) as Array<keyof typeof FILE_HOSTS>)("%s fil
     });
     expect(readFileSync(file, "utf8")).toBe(fixture({}));
     expect(readFileSync(`${file}.ask-llm-tmp`, "utf8")).toBe("partial");
+    expect(readdirSync(join(file, "..")).filter((name) => name.includes("ask-llm-backup"))).toEqual([]);
   });
 });
 

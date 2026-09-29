@@ -208,6 +208,7 @@ describe("ask-llm setup", () => {
     const removed = ask("remove", "-y");
     expect(removed.stdout).toContain("Pi 0.87.1: not handled by this release (remove does not handle Pi yet)");
     expect(removed.stdout).not.toContain("trusted folders");
+    expect(ask("setup", "-y", "--host", "pi").stdout).toContain("Pi 0.87.1: manual (setup does not register Pi yet)");
   });
 
   it("reports a foreign file-host entry with the entry it would use and leaves the file alone", () => {

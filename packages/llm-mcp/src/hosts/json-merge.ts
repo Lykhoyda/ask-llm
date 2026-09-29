@@ -1,6 +1,7 @@
 import {
   closeSync,
   constants,
+  existsSync,
   fchmodSync,
   fsyncSync,
   lstatSync,
@@ -82,15 +83,19 @@ function serialize(root: JsonObject, before: string | undefined): string {
   return before.includes("\r\n") ? text.replaceAll("\n", "\r\n") : text;
 }
 
+const tempPath = (target: string) => `${target}.ask-llm-tmp`;
+
+const interrupted = (target: string) =>
+  new Error(`${tempPath(target)} exists from an interrupted write; inspect and delete it, then retry`);
+
 // A crash between write and rename leaves the fixed-name temp file; the next run then stops instead of guessing.
 function replaceAtomically(target: string, text: string, mode: number, before: string | undefined): void {
-  const temp = `${target}.ask-llm-tmp`;
+  const temp = tempPath(target);
   let fd: number;
   try {
     fd = openSync(temp, constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | constants.O_NOFOLLOW, 0o600);
   } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === "EEXIST")
-      throw new Error(`${temp} exists from an interrupted write; inspect and delete it, then retry`);
+    if ((error as NodeJS.ErrnoException).code === "EEXIST") throw interrupted(target);
     throw error;
   }
   try {
@@ -135,6 +140,7 @@ export function writeJsonKey(
     parent = next;
   }
   const key = keyPath[keyPath.length - 1];
+  if (existsSync(tempPath(target))) throw interrupted(target);
   const refused = check(parent[key]);
   if (refused) throw new Error(refused);
   if (value === undefined) delete parent[key];
