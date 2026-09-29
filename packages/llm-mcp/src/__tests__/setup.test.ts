@@ -172,6 +172,7 @@ describe("ask-llm setup", () => {
   });
 
   it("never offers a manual step that would overwrite a foreign entry on a host it does not register", () => {
+    writeFileSync(join(bin, "cursor-agent"), "#!/bin/sh\nexit 0\n", { mode: 0o755 });
     mkdirSync(join(home, ".cursor"), { recursive: true });
     writeFileSync(join(home, ".cursor/mcp.json"), JSON.stringify({ mcpServers: { "ask-llm": { command: FOREIGN } } }));
     const result = ask("setup", "-y", "--host", "cursor");
