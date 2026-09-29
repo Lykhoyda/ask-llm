@@ -153,7 +153,13 @@ function parseStdoutJson(raw: string): StdoutParse {
 // Read-only slash commands answer without an agent turn or quota use (agy >=1.1.11).
 async function describeQuota(signal?: AbortSignal): Promise<string | undefined> {
   try {
-    const args = [CLI.FLAGS.PRINT, ANTIGRAVITY.QUOTA_COMMAND, CLI.FLAGS.OUTPUT_FORMAT, OUTPUT_FORMATS.JSON];
+    const args = [
+      CLI.FLAGS.PRINT,
+      ANTIGRAVITY.QUOTA_COMMAND,
+      CLI.FLAGS.OUTPUT_FORMAT,
+      OUTPUT_FORMATS.JSON,
+      CLI.FLAGS.SANDBOX,
+    ];
     const raw = await executeCommand(
       CLI.COMMANDS.AGY,
       args,
