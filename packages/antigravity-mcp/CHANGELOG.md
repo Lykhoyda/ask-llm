@@ -1,5 +1,11 @@
 # @ask-llm/antigravity-mcp
 
+## 0.8.2
+
+### Patch Changes
+
+- [#366](https://github.com/Lykhoyda/ask-llm/pull/366) [`2333ce5`](https://github.com/Lykhoyda/ask-llm/commit/2333ce53f75ec7135e57d28168cd57c50bf97a54) Thanks [@Lykhoyda](https://github.com/Lykhoyda)! - Run the Antigravity rate-limit `/quota` probe with `--sandbox`.
+
 ## 0.8.1
 
 ### Patch Changes

@@ -1,5 +1,25 @@
 # @ask-llm/mcp
 
+## 1.1.0
+
+### Minor Changes
+
+- [#372](https://github.com/Lykhoyda/ask-llm/pull/372) [`48fd3be`](https://github.com/Lykhoyda/ask-llm/commit/48fd3be1e2960489904fd4d580fe1297f615c960) Thanks [@Lykhoyda](https://github.com/Lykhoyda)! - Report per-provider installed, authenticated and permitted states from local signals in `ask-llm doctor`, and add an explicit `--live` flag that exercises each ready provider with one minimal real call.
+
+- [#374](https://github.com/Lykhoyda/ask-llm/pull/374) [`6011ecd`](https://github.com/Lykhoyda/ask-llm/commit/6011ecd77db58ebebcdab4f0125a92c2c665c6e3) Thanks [@Lykhoyda](https://github.com/Lykhoyda)! - `ask-llm setup` and `ask-llm remove` now register and unregister Ask LLM in Cursor, Claude Desktop and OpenCode by merging one entry into their JSON config files, keeping unrelated entries and refusing anything that is not plain JSON.
+
+- [#371](https://github.com/Lykhoyda/ask-llm/pull/371) [`ac0efe3`](https://github.com/Lykhoyda/ask-llm/commit/ac0efe3fdae64c12d7f02b01545a83d3a4b79043) Thanks [@Lykhoyda](https://github.com/Lykhoyda)! - Add `ask-llm setup` and `ask-llm remove` to register and unregister Ask LLM at user scope in Claude Code, Codex, Antigravity, Grok Build and Gemini CLI through each host's own command, with per-host confirmation, `-y` and `--host` for scripts, and no overwrite of entries Ask LLM does not own.
+
+### Patch Changes
+
+- [#366](https://github.com/Lykhoyda/ask-llm/pull/366) [`2333ce5`](https://github.com/Lykhoyda/ask-llm/commit/2333ce53f75ec7135e57d28168cd57c50bf97a54) Thanks [@Lykhoyda](https://github.com/Lykhoyda)! - Run the Antigravity rate-limit `/quota` probe with `--sandbox`.
+
+- [#365](https://github.com/Lykhoyda/ask-llm/pull/365) [`7af58c7`](https://github.com/Lykhoyda/ask-llm/commit/7af58c74d6a1eb692289d205a3704cc8a42c2620) Thanks [@Lykhoyda](https://github.com/Lykhoyda)! - The codex-pair Stop gate no longer blocks on files that the repository's `.gitignore` ignores inside untracked nested git repositories, and resolves each logged path only once.
+
+- [#370](https://github.com/Lykhoyda/ask-llm/pull/370) [`aa836f2`](https://github.com/Lykhoyda/ask-llm/commit/aa836f26584a38b10c4cd9ba8bcbdbc050908809) Thanks [@Lykhoyda](https://github.com/Lykhoyda)! - The codex-pair debounce worker now uses the project's frontmatter `timeoutMs` for its review spawn timeout and lock lifetime, falling back to `ASK_CODEX_TIMEOUT_MS`.
+
+- [#368](https://github.com/Lykhoyda/ask-llm/pull/368) [`4ce4b0c`](https://github.com/Lykhoyda/ask-llm/commit/4ce4b0cc9f5ba2cfb1bc547c460df94023790cae) Thanks [@Lykhoyda](https://github.com/Lykhoyda)! - Read the real login-shell PATH so installed provider CLIs remain discoverable from desktop apps.
+
 ## 1.0.0
 
 ### Major Changes
