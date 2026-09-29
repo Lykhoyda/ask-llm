@@ -228,6 +228,14 @@ describe("detectHosts", () => {
   });
 
   it.each([
+    '[mcp_servers."ask - llm"]\ncommand = "/opt/x"\n',
+    "[mcp_servers.'ask - llm']\ncommand = \"/opt/x\"\n",
+  ])("does not confuse another quoted Grok key with ask-llm", async (content) => {
+    write(".grok/config.toml", content);
+    expect(host(await detectHosts(env), "grok")).toMatchObject({ registered: false });
+  });
+
+  it.each([
     ["inline table", 'mcp_servers.ask-llm = { command = "/opt/ask-llm-mcp", args = [] }\n'],
     ["dotted key", 'mcp_servers.ask-llm.command = "/opt/ask-llm-mcp"\n'],
     ["single-quoted value", "[mcp_servers.ask-llm]\ncommand = '/opt/ask-llm-mcp'\n"],

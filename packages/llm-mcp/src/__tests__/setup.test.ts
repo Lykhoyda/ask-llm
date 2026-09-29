@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from "node:fs";
+import { copyFileSync, cpSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -16,9 +16,14 @@ import {
   writeUnusableRegistration,
 } from "./_hostFakes.js";
 
-const command = fileURLToPath(new URL("../../dist/ask-llm.js", import.meta.url));
-const server = realpathSync(fileURLToPath(new URL("../../dist/cli.js", import.meta.url)));
 const root = realpathSync(mkdtempSync(join(tmpdir(), "ask-llm-setup-")));
+const packageRoot = join(root, "lib/node_modules/@ask-llm/mcp");
+mkdirSync(packageRoot, { recursive: true });
+cpSync(fileURLToPath(new URL("../../dist", import.meta.url)), join(packageRoot, "dist"), { recursive: true });
+copyFileSync(fileURLToPath(new URL("../../package.json", import.meta.url)), join(packageRoot, "package.json"));
+symlinkSync(fileURLToPath(new URL("../../../../node_modules", import.meta.url)), join(packageRoot, "node_modules"));
+const command = join(packageRoot, "dist/ask-llm.js");
+const server = join(packageRoot, "dist/cli.js");
 const bin = join(root, "bin");
 const home = join(root, "home");
 const installedServer = join(bin, "ask-llm-mcp");
@@ -48,6 +53,11 @@ beforeEach(() => {
   mkdirSync(bin, { recursive: true });
   mkdirSync(home, { recursive: true });
   symlinkSync(server, installedServer);
+  writeFileSync(
+    join(bin, "npm"),
+    `#!/bin/sh\nif [ "$1" = prefix ]; then echo '${root}'; else echo '${join(root, "lib/node_modules")}'; fi\n`,
+    { mode: 0o755 },
+  );
   for (const name of HOSTS) installFakeHost(bin, name);
 });
 
@@ -176,6 +186,25 @@ describe("ask-llm setup", () => {
     expect(result.stderr).toContain("npm i -g @ask-llm/mcp");
     expect(result.stderr).toContain("rerun `ask-llm setup`");
     expect(calls()).toEqual(Object.fromEntries(HOSTS.map((name) => [name, []])));
+  });
+
+  it("refuses a project-local bin even when it points to the running package", () => {
+    const checkoutCommand = fileURLToPath(new URL("../../dist/ask-llm.js", import.meta.url));
+    const checkoutServer = realpathSync(fileURLToPath(new URL("../../dist/cli.js", import.meta.url)));
+    unlinkSync(installedServer);
+    symlinkSync(checkoutServer, installedServer);
+
+    const preview = spawnSync(process.execPath, [checkoutCommand, "setup", "--dry-run", "--json"], {
+      cwd: root, env, encoding: "utf8", timeout: 60_000,
+    });
+    expect(JSON.parse(preview.stdout).server).toEqual({ path: checkoutServer, source: "package-dist" });
+
+    const result = spawnSync(process.execPath, [checkoutCommand, "setup", "-y", "--host", "claude"], {
+      cwd: root, env, encoding: "utf8", timeout: 60_000,
+    });
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("npm i -g @ask-llm/mcp");
+    expect(calls().claude).toEqual([]);
   });
 
   it("asks once per host and leaves declined hosts untouched", async () => {

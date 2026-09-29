@@ -162,6 +162,11 @@ describe("resolveServerPath", () => {
   beforeEach(() => {
     rmSync(bin, { recursive: true, force: true });
     mkdirSync(bin, { recursive: true });
+    writeFileSync(
+      join(bin, "npm"),
+      `#!/bin/sh\nif [ "$1" = prefix ]; then echo '${root}'; else echo '${join(root, "lib/node_modules")}'; fi\n`,
+      { mode: 0o755 },
+    );
   });
 
   function packageCli(base: string): string {
@@ -172,7 +177,7 @@ describe("resolveServerPath", () => {
   }
 
   it("prefers the global ask-llm-mcp bin that resolves to this package", async () => {
-    const cli = packageCli("global/lib/node_modules/@ask-llm/mcp");
+    const cli = packageCli("lib/node_modules/@ask-llm/mcp");
     symlinkSync(cli, join(bin, "ask-llm-mcp"));
     await expect(resolveServerPath(cli)).resolves.toEqual({ path: join(bin, "ask-llm-mcp"), source: "global-bin" });
   });
@@ -183,8 +188,14 @@ describe("resolveServerPath", () => {
     await expect(resolveServerPath(cli)).resolves.toEqual({ path: cli, source: "package-dist" });
   });
 
+  it("does not treat a project-local bin as durable", async () => {
+    const cli = packageCli("checkout/packages/llm-mcp");
+    symlinkSync(cli, join(bin, "ask-llm-mcp"));
+    await expect(resolveServerPath(cli)).resolves.toEqual({ path: cli, source: "package-dist" });
+  });
+
   it("does not treat an npx-cache bin as durable", async () => {
-    const cli = packageCli("global/lib/node_modules/@ask-llm/mcp");
+    const cli = packageCli("lib/node_modules/@ask-llm/mcp");
     const npxBin = join(root, "npm/_npx/0a1b/bin");
     mkdirSync(npxBin, { recursive: true });
     symlinkSync(cli, join(npxBin, "ask-llm-mcp"));

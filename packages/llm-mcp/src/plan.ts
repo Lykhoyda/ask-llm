@@ -1,5 +1,6 @@
+import { execFileSync } from "node:child_process";
 import { realpathSync } from "node:fs";
-import { sep } from "node:path";
+import { join, sep } from "node:path";
 import type { DetectedHost } from "./hosts/detect.js";
 import { type HostId, SERVER_NAME } from "./hosts/registry.js";
 import { resolveCommand } from "./utils/availability.js";
@@ -62,8 +63,20 @@ export async function resolveServerPath(ownCli: string): Promise<ServerPath> {
     );
   }
   const onPath = await resolveCommand("ask-llm-mcp");
-  if (onPath && !onPath.split(sep).includes("_npx") && sameFile(onPath, target))
-    return { path: onPath, source: "global-bin" };
+  if (onPath && sameFile(onPath, target)) {
+    const npm = await resolveCommand("npm");
+    if (npm) {
+      try {
+        const prefix = execFileSync(npm, ["prefix", "-g"], { encoding: "utf8", timeout: 5000 }).trim();
+        const root = execFileSync(npm, ["root", "-g"], { encoding: "utf8", timeout: 5000 }).trim();
+        if (
+          onPath === join(prefix, "bin", "ask-llm-mcp") &&
+          target === join(realpathSync(root), "@ask-llm", "mcp", "dist", "cli.js")
+        )
+          return { path: onPath, source: "global-bin" };
+      } catch {}
+    }
+  }
   return { path: target, source: "package-dist" };
 }
 

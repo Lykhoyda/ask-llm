@@ -103,15 +103,16 @@ function readTomlTable(file: string, table: string): RegistrationState {
   for (const line of text.split(/\r?\n/)) {
     const header = /^\s*\[\s*([^\]]+?)\s*\]\s*(#.*)?$/.exec(line);
     if (header) {
-      currentTable = header[1].replace(/["'\s]/g, "");
-      inTable = currentTable === table;
+      currentTable = header[1].trim();
+      const key = /^(?:mcp_servers|"mcp_servers"|'mcp_servers')\s*\.\s*(?:"([^"]*)"|'([^']*)'|([\w-]+))$/.exec(currentTable);
+      inTable = key !== null && `mcp_servers.${key[1] ?? key[2] ?? key[3]}` === table;
       if (inTable && header[2]) throw new Error("unsupported Grok TOML trailing comment on ask-llm table");
       found ||= inTable;
       continue;
     }
     const trimmed = line.trim();
     if (!trimmed || trimmed.startsWith("#")) continue;
-    if (!inTable && (currentTable === "" || currentTable === "mcp_servers")) {
+    if (!inTable && (currentTable === "" || /^(?:mcp_servers|"mcp_servers"|'mcp_servers')$/.test(currentTable))) {
       const alternate = /^(?:mcp_servers\s*\.\s*)?["']?ask-llm["']?\s*(=|\.)/.exec(trimmed);
       if (alternate) {
         const form = alternate[1] === "." ? "dotted key" : "inline table";
