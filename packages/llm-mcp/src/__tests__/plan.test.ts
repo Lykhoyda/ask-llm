@@ -129,7 +129,16 @@ describe("buildPlan", () => {
       action: "manual",
       reason: "cannot read registration: bad",
     });
-    expect(entry(detected("cursor", { installed: false, binary: undefined, registered: null, error: "cannot read registration: bad" }))).toMatchObject({
+    expect(
+      entry(
+        detected("cursor", {
+          installed: false,
+          binary: undefined,
+          registered: null,
+          error: "cannot read registration: bad",
+        }),
+      ),
+    ).toMatchObject({
       action: "manual",
       reason: "cannot read registration: bad",
       manual: `add {"command":"${SERVER}","args":[]} at mcpServers.ask-llm in /home/u/.cursor/mcp.json`,

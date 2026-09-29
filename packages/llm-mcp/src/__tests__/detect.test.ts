@@ -184,8 +184,14 @@ describe("detectHosts", () => {
     write(".claude.json", JSON.stringify({ mcpServers: { "ask-llm": {} } }));
     write(".gemini/settings.json", JSON.stringify({ mcpServers: { "ask-llm": { command: "ask", args: [4] } } }));
     write(".grok/config.toml", "[mcp_servers.ask-llm]\nargs = []\n");
-    write(".config/opencode/opencode.json", JSON.stringify({ mcp: { "ask-llm": { command: ["ask"], enabled: false } } }));
-    fake("codex", 'case "$1" in --version) echo "codex-cli 0.158.0";; *) echo \'[{"name":"ask-llm","transport":{}}]\';; esac');
+    write(
+      ".config/opencode/opencode.json",
+      JSON.stringify({ mcp: { "ask-llm": { command: ["ask"], enabled: false } } }),
+    );
+    fake(
+      "codex",
+      'case "$1" in --version) echo "codex-cli 0.158.0";; *) echo \'[{"name":"ask-llm","transport":{}}]\';; esac',
+    );
     const hosts = await detectHosts(env);
     for (const id of ["claude", "gemini", "grok", "opencode", "codex"]) {
       expect(host(hosts, id).registered, id).toBe(false);
@@ -193,7 +199,10 @@ describe("detectHosts", () => {
   });
 
   it("retains separate arguments after an array command", async () => {
-    write(".config/opencode/opencode.json", JSON.stringify({ mcp: { "ask-llm": { command: ["/opt/ask-llm-mcp"], args: ["--extra"] } } }));
+    write(
+      ".config/opencode/opencode.json",
+      JSON.stringify({ mcp: { "ask-llm": { command: ["/opt/ask-llm-mcp"], args: ["--extra"] } } }),
+    );
     expect(host(await detectHosts(env), "opencode")).toMatchObject({
       registered: true,
       command: ["/opt/ask-llm-mcp", "--extra"],
@@ -220,7 +229,10 @@ describe("detectHosts", () => {
     }
     const hosts = await detectHosts(env);
     for (const id of ["cursor", "grok", "pi"]) {
-      expect(host(hosts, id)).toMatchObject({ registered: null, error: expect.stringContaining("cannot read registration") });
+      expect(host(hosts, id)).toMatchObject({
+        registered: null,
+        error: expect.stringContaining("cannot read registration"),
+      });
     }
   });
 

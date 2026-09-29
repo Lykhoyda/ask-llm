@@ -73,9 +73,18 @@ describe("host discovery commands", () => {
   writeFileSync(join(home, ".claude.json"), JSON.stringify({ mcpServers: { "ask-llm": { command: server } } }));
   for (const [name, script] of [
     ["claude", 'case "$1" in --version) echo "2.1.284 (Claude Code)";; *) exit 9;; esac'],
-    ["agent", 'case "$1" in --version) echo "2026.09.26-dd393fe" > "$HOME/.cursor/cli-config.json"; echo "2026.09.26-dd393fe";; *) exit 9;; esac'],
-    ["gemini", 'case "$1" in --version) echo "probe ran" > "$HOME/gemini-version-write"; echo "0.46.0";; *) exit 9;; esac'],
-    ["grok", 'case "$1" in --version) echo "probe ran" > "$HOME/grok-version-write"; echo "grok 1.0.40";; *) exit 9;; esac'],
+    [
+      "agent",
+      'case "$1" in --version) echo "2026.09.26-dd393fe" > "$HOME/.cursor/cli-config.json"; echo "2026.09.26-dd393fe";; *) exit 9;; esac',
+    ],
+    [
+      "gemini",
+      'case "$1" in --version) echo "probe ran" > "$HOME/gemini-version-write"; echo "0.46.0";; *) exit 9;; esac',
+    ],
+    [
+      "grok",
+      'case "$1" in --version) echo "probe ran" > "$HOME/grok-version-write"; echo "grok 1.0.40";; *) exit 9;; esac',
+    ],
   ]) {
     writeFileSync(join(bin, name), `#!/bin/sh\n${script}\n`);
     chmodSync(join(bin, name), 0o755);
@@ -165,15 +174,25 @@ describe("host discovery commands", () => {
       const setup = ask("setup", "--dry-run", "--json");
       const setupHost = JSON.parse(setup.stdout).hosts.find((host: { id: string }) => host.id === "cursor");
       expect(setup.status).toBe(0);
-      expect(setupHost).toMatchObject({ action: "manual", manual, reason: expect.stringContaining("cannot read registration") });
+      expect(setupHost).toMatchObject({
+        action: "manual",
+        manual,
+        reason: expect.stringContaining("cannot read registration"),
+      });
       const setupText = ask("setup", "--dry-run").stdout;
       expect(setupText).toContain("cannot read registration");
-      expect(setupText).toContain(`merge ${JSON.stringify({ command: server, args: [] })} at mcpServers.ask-llm in ${file}`);
+      expect(setupText).toContain(
+        `merge ${JSON.stringify({ command: server, args: [] })} at mcpServers.ask-llm in ${file}`,
+      );
 
       const doctorHost = JSON.parse(ask("doctor", "--json").stdout).hosts.find(
         (host: { id: string }) => host.id === "cursor",
       );
-      expect(doctorHost).toMatchObject({ registered: null, manual, error: expect.stringContaining("cannot read registration") });
+      expect(doctorHost).toMatchObject({
+        registered: null,
+        manual,
+        error: expect.stringContaining("cannot read registration"),
+      });
       const doctorText = ask("doctor").stdout;
       expect(doctorText).toContain("cannot read registration");
       expect(doctorText).toContain(`exact manual command: ${manual}`);
