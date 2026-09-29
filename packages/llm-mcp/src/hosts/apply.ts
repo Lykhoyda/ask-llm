@@ -44,7 +44,9 @@ function gate(host: DetectedHost, current: RegistrationState, op: HostOp, server
   } else if (!owned) {
     return current.present
       ? { outcome: "conflict", detail: `${UNUSABLE_ENTRY}; left in place` }
-      : current.registered ? conflict(current.command) : { outcome: "unchanged" };
+      : current.registered
+        ? conflict(current.command)
+        : { outcome: "unchanged" };
   }
   return undefined;
 }
