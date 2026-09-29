@@ -259,6 +259,49 @@ describe("scripts/codex-pair-debounce-worker.mjs — runtime behavior", () => {
     expect(messages[0]).not.toContain("REVIEW_TOKEN");
   });
 
+  it.each([
+    { label: "frontmatter timeoutMs keeps a 20-minute lock fresh", frontmatter: "timeoutMs: 1800000\n", stolen: false },
+    { label: "the ASK_CODEX_TIMEOUT_MS default lets it go stale", frontmatter: "", stolen: true },
+  ])("B7: the worker lock TTL follows the project timeout: $label", async ({ frontmatter, stolen }) => {
+    fs.writeFileSync(path.join(dir, ".codex-pair/context.md"), `---\ndebounceMs: 50\n${frontmatter}---\n# ctx`);
+    const file = path.join(dir, "x.ts");
+    fs.writeFileSync(file, "export const a = 1;\n");
+    const lock = holdLock(file);
+    const twentyMinutesAgo = (Date.now() - 20 * 60_000) / 1000;
+    fs.utimesSync(lock, twentyMinutesAgo, twentyMinutesAgo);
+    fs.writeFileSync(release, "");
+    const { ASK_CODEX_TIMEOUT_MS: _unset, ...env } = workerEnv(file, 0, "gated");
+    const hook = spawnSync(process.execPath, [path.join(PLUGIN_ROOT, "scripts", "codex-pair-watch.mjs")], {
+      input: JSON.stringify({ hook_event_name: "PostToolUse", tool_name: "Edit", tool_input: { file_path: file } }),
+      cwd: dir,
+      encoding: "utf-8",
+      timeout: 10_000,
+      env,
+    });
+    expect(hook.status).toBe(0);
+    if (stolen) {
+      await waitFor(() => startedLines().length === 1, 10_000);
+    } else {
+      await sleep(1_500);
+      expect(startedLines()).toEqual([]);
+    }
+  });
+
+  it("B8: an invalid ASK_CODEX_TIMEOUT_MS still runs the forced review", () => {
+    const file = path.join(dir, "x.ts");
+    fs.writeFileSync(file, "export const a = 1;\n");
+    seedRecord(file, { file, generation: 1, burstStartedAt: Date.now() });
+    fs.writeFileSync(release, "");
+    const res = spawnSync("node", [WORKER_PATH], {
+      cwd: dir,
+      encoding: "utf-8",
+      timeout: 15_000,
+      env: { ...workerEnv(file, 1, "gated"), ASK_CODEX_TIMEOUT_MS: "not-a-number" },
+    });
+    expect(res.status).toBe(0);
+    expect(fs.readFileSync(path.join(dir, ".codex-pair/log.jsonl"), "utf8")).toContain(file);
+  });
+
   it("B6: an older worker triggered by the burst cap does not wait", async () => {
     const file = path.join(dir, "x.ts");
     fs.writeFileSync(file, "export const a = 1;\n");

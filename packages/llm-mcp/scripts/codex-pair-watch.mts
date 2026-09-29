@@ -843,6 +843,7 @@ function spawnDebounceWorker({
   generation,
   settleMs,
   maxMs,
+  timeoutMs,
   sessionId,
 }: {
   markerDir: string;
@@ -851,6 +852,7 @@ function spawnDebounceWorker({
   generation: number;
   settleMs: number;
   maxMs: number;
+  timeoutMs: number;
   sessionId: string | undefined;
 }): boolean {
   try {
@@ -865,6 +867,7 @@ function spawnDebounceWorker({
         CP_GENERATION: String(generation),
         CP_SETTLE_MS: String(settleMs),
         CP_MAX_MS: String(maxMs),
+        CP_TIMEOUT_MS: String(timeoutMs),
         CP_SESSION_ID: sessionId ?? "",
       },
     });
@@ -1039,6 +1042,7 @@ async function main() {
       generation: record.generation,
       settleMs: effectiveDebounceMs,
       maxMs: config.debounceMaxMs,
+      timeoutMs: config.timeoutMs,
       sessionId: payload?.session_id,
     });
     if (spawned) {
