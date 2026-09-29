@@ -131,7 +131,6 @@ export function hostSpecs(env: NodeJS.ProcessEnv = process.env, platform = proce
       binaries: ["agent", "cursor-agent"],
       apps: platform === "darwin" ? ["/Applications/Cursor.app", join(home, "Applications", "Cursor.app")] : [],
       configHome: join(home, ".cursor"),
-      versionProbe: { args: ["--version"], pattern: /^(\d{4}\.\d{2}\.\d{2}-[0-9a-f]+)\s*$/ },
       registration: { kind: "json", file: cursorConfig, keyPath: serverKey, entry: stdioEntry },
       registrationState: { kind: "json", file: cursorConfig, keyPath: serverKey },
       skillsDir: join(home, ".cursor", "skills"),

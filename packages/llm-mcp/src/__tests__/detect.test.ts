@@ -97,7 +97,7 @@ describe("detectHosts", () => {
       expect(host(hosts, id), id).toMatchObject({
         installed: true,
         binary: join(bin, name),
-        version,
+        version: name === "agent" ? undefined : version,
         supported: true,
       });
     }
