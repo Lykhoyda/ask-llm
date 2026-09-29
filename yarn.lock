@@ -313,7 +313,7 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@ask-llm/mcp@npm:^0.12.1, @ask-llm/mcp@workspace:packages/llm-mcp":
+"@ask-llm/mcp@npm:^1.0.0, @ask-llm/mcp@workspace:packages/llm-mcp":
   version: 0.0.0-use.local
   resolution: "@ask-llm/mcp@workspace:packages/llm-mcp"
   dependencies:
@@ -381,7 +381,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@ask-llm/plugin@workspace:packages/claude-plugin"
   dependencies:
-    "@ask-llm/mcp": "npm:^0.12.1"
+    "@ask-llm/mcp": "npm:^1.0.0"
     "@biomejs/biome": "npm:^2.5.10"
     "@earendil-works/pi-ai": "npm:^0.84.2"
     "@earendil-works/pi-coding-agent": "npm:^0.84.2"

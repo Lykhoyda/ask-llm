@@ -1,7 +1,7 @@
 {
   "name": "ask-llm",
   "displayName": "Ask LLM",
-  "version": "0.12.1",
+  "version": "1.0.0",
   "description": "Portable AI-to-AI review and pairing workflows for Cursor Agent with explicit provider transports.",
   "author": {
     "name": "Anton Lykhoyda"
