@@ -248,7 +248,7 @@ interface CreateOrVerifyOptions {
   remote?: string;
   dryRun?: boolean;
   verifyNpm?: boolean;
-  packageName?: string;
+  canonicalOnly?: boolean;
 }
 
 interface CreateOrVerifyDeps {
@@ -258,14 +258,14 @@ interface CreateOrVerifyDeps {
 }
 
 export function createOrVerifyPackageTags(
-  { cwd = process.cwd(), remote = "origin", dryRun = false, verifyNpm = false, packageName }: CreateOrVerifyOptions = {},
+  { cwd = process.cwd(), remote = "origin", dryRun = false, verifyNpm = false, canonicalOnly = false }: CreateOrVerifyOptions = {},
   { git = defaultGit, npm = defaultNpm, log = console }: CreateOrVerifyDeps = {},
 ): { plans: TagPlan[]; missing: TagPlan[]; inconsistent: InconsistentEntry[]; dryRun: boolean } {
   const root = resolve(cwd);
   let packages = discoverPublicPackages(root);
-  if (packageName !== undefined) {
-    packages = packages.filter((packageInfo) => packageInfo.name === packageName);
-    if (packages.length === 0) throw new Error(`${packageName} is not a public @ask-llm package`);
+  if (canonicalOnly) {
+    packages = packages.filter((packageInfo) => packageInfo.name === "@ask-llm/mcp");
+    if (packages.length === 0) throw new Error("@ask-llm/mcp is not a public @ask-llm package");
   }
   const plans: TagPlan[] = [];
   const inconsistent: InconsistentEntry[] = [];
@@ -329,11 +329,11 @@ interface ParsedArguments {
   remote: string;
   dryRun: boolean;
   verifyNpm: boolean;
-  packageName?: string;
+  canonicalOnly: boolean;
 }
 
 export function parseArguments(argv: string[]): ParsedArguments {
-  const options: ParsedArguments = { remote: "origin", dryRun: false, verifyNpm: false };
+  const options: ParsedArguments = { remote: "origin", dryRun: false, verifyNpm: false, canonicalOnly: false };
   for (let index = 0; index < argv.length; index += 1) {
     const argument = argv[index];
     if (argument === "--dry-run") options.dryRun = true;
@@ -342,11 +342,8 @@ export function parseArguments(argv: string[]): ParsedArguments {
       options.remote = argv[index + 1];
       index += 1;
       if (!options.remote) throw new Error("--remote requires a value");
-    } else if (argument === "--package") {
-      options.packageName = argv[index + 1];
-      index += 1;
-      if (!options.packageName) throw new Error("--package requires a value");
-    } else throw new Error(`Unknown argument: ${argument}`);
+    } else if (argument === "--canonical-only") options.canonicalOnly = true;
+    else throw new Error(`Unknown argument: ${argument}`);
   }
   return options;
 }

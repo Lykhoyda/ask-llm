@@ -206,7 +206,7 @@ jobs:
           TAG="@ask-llm/mcp@${CANONICAL_VERSION}"
           # Same helper as the per-package step: verify the remote tag target,
           # create only a missing tag, and never retag.
-          node scripts/create-or-verify-package-tags.ts --verify-npm-git-head --package @ask-llm/mcp
+          node scripts/create-or-verify-package-tags.ts --verify-npm-git-head --canonical-only
           if gh release view "$TAG" >/dev/null 2>&1; then
             echo "Verified existing unified release $TAG"
           else
