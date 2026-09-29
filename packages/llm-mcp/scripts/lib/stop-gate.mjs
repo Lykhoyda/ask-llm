@@ -94,6 +94,7 @@ export function formatInFlightMessage({ settling, reviewing }, markerDir) {
 // Pre-canonical log entries may name one file by several aliases, so group them by canonical path in log order.
 export function selectReviewEntries(logText, canonicalize = (file) => file) {
     const reviews = new Map();
+    const canonicalByRaw = new Map();
     for (const line of logText.split("\n")) {
         const t = line.trim();
         if (!t)
@@ -109,7 +110,11 @@ export function selectReviewEntries(logText, canonicalize = (file) => file) {
             typeof entry.file === "string" &&
             typeof entry.contentHash === "string" &&
             entry.verdict !== "skipped") {
-            const file = canonicalize(entry.file);
+            let file = canonicalByRaw.get(entry.file);
+            if (file === undefined) {
+                file = canonicalize(entry.file);
+                canonicalByRaw.set(entry.file, file);
+            }
             const list = reviews.get(file) ?? [];
             list.unshift(entry);
             reviews.set(file, list);
