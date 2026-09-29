@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
@@ -97,7 +97,11 @@ describe.each(Object.keys(ARGV) as Array<keyof typeof ARGV>)("%s registrar", (id
 
   it("removes with the fixed argv and verifies the entry is gone", async () => {
     writeRegistration(home, id, SERVER);
-    expect(await applyRegistrar(await detected(id), "remove", SERVER, env)).toEqual({ outcome: "changed" });
+    const before = readFileSync(join(home, FAKE_HOSTS[id].file), "utf8");
+    const applied = await applyRegistrar(await detected(id), "remove", SERVER, env);
+    expect(applied).toMatchObject({ outcome: "changed" });
+    if (id === "codex") expect(applied.backup).toBeUndefined();
+    else expect(readFileSync(applied.backup as string, "utf8")).toBe(before);
     expect(fakeArgv(home, id)).toEqual([ARGV[id].remove]);
     expect(await detected(id)).toMatchObject({ registered: false });
   });
@@ -105,7 +109,7 @@ describe.each(Object.keys(ARGV) as Array<keyof typeof ARGV>)("%s registrar", (id
   it("treats the host's not-found reply as nothing to remove", async () => {
     writeRegistration(home, id, SERVER);
     setFakeMode(home, id, "gone");
-    expect(await applyRegistrar(await detected(id), "remove", SERVER, env)).toEqual({ outcome: "unchanged" });
+    expect(await applyRegistrar(await detected(id), "remove", SERVER, env)).toMatchObject({ outcome: "unchanged" });
     expect(fakeArgv(home, id)).toEqual([ARGV[id].remove]);
   });
 
@@ -156,7 +160,7 @@ describe.each(Object.keys(ARGV) as Array<keyof typeof ARGV>)("%s registrar", (id
   it("fails when remove exits 0 but the entry is still there", async () => {
     writeRegistration(home, id, SERVER);
     setFakeMode(home, id, "silent");
-    expect(await applyRegistrar(await detected(id), "remove", SERVER, env)).toEqual({
+    expect(await applyRegistrar(await detected(id), "remove", SERVER, env)).toMatchObject({
       outcome: "failed",
       detail: expect.stringContaining("still registered"),
     });
@@ -165,7 +169,7 @@ describe.each(Object.keys(ARGV) as Array<keyof typeof ARGV>)("%s registrar", (id
   it("fails when remove leaves an unusable entry", async () => {
     writeRegistration(home, id, SERVER);
     setFakeMode(home, id, "unusable-after-remove");
-    expect(await applyRegistrar(await detected(id), "remove", SERVER, env)).toEqual({
+    expect(await applyRegistrar(await detected(id), "remove", SERVER, env)).toMatchObject({
       outcome: "failed",
       detail: expect.stringContaining("still registered"),
     });
@@ -181,4 +185,19 @@ describe.each(Object.keys(ARGV) as Array<keyof typeof ARGV>)("%s registrar", (id
     });
     expect(fakeArgv(home, id)).toEqual([]);
   });
+});
+
+it("fails closed without running the host when the config backup cannot be written", async () => {
+  writeRegistration(home, "grok", SERVER);
+  const dir = join(home, ".grok");
+  chmodSync(dir, 0o555);
+  try {
+    expect(await applyRegistrar(await detected("grok"), "remove", SERVER, env)).toEqual({
+      outcome: "failed",
+      detail: expect.stringContaining("cannot back up"),
+    });
+  } finally {
+    chmodSync(dir, 0o755);
+  }
+  expect(fakeArgv(home, "grok")).toEqual([]);
 });

@@ -24,6 +24,7 @@ export interface HostResult {
   detail?: string;
   manual?: string;
   next?: string;
+  backup?: string;
 }
 
 export type Confirm = (question: string) => Promise<boolean>;
@@ -83,6 +84,7 @@ export async function applySetup(
       results.push(
         result(host, status, {
           detail: applied.detail,
+          backup: applied.backup,
           manual: status === "failed" ? manual : undefined,
           next: status === "registered" ? nextStep(host, true) : undefined,
         }),

@@ -46,6 +46,7 @@ export async function applyRemove(
       results.push(
         result(host, status, {
           detail: applied.detail,
+          backup: applied.backup,
           manual: status === "failed" ? manual : undefined,
           next: status === "removed" ? nextStep(host, false) : undefined,
         }),

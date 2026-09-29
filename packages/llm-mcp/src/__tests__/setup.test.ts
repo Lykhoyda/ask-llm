@@ -4,6 +4,7 @@ import {
   cpSync,
   mkdirSync,
   mkdtempSync,
+  readdirSync,
   readFileSync,
   realpathSync,
   rmSync,
@@ -76,6 +77,27 @@ function ask(...args: string[]) {
   return spawnSync(process.execPath, [command, ...args], { cwd: root, env, encoding: "utf8", timeout: 60_000 });
 }
 
+const CONFIG_FILES: Record<string, [string, string]> = {
+  claude: [".claude.json", '{"projects":{}}'],
+  codex: [".codex/config.toml", 'model = "gpt"\n'],
+  agy: [".gemini/config/mcp_config.json", '{"mcpServers":{"other":{"command":"x"}}}'],
+  grok: [".grok/config.toml", '[ui]\ntheme = "dark"\n'],
+  gemini: [".gemini/settings.json", '{"theme":"dark"}'],
+};
+
+function writeConfigFiles(): void {
+  for (const [file, content] of Object.values(CONFIG_FILES)) {
+    mkdirSync(join(home, file, ".."), { recursive: true });
+    writeFileSync(join(home, file), content);
+  }
+}
+
+function backups(): string[] {
+  return (readdirSync(home, { recursive: true }) as string[])
+    .filter((file) => file.includes(".ask-llm-backup-"))
+    .sort();
+}
+
 function calls(): Record<string, string[][]> {
   return Object.fromEntries(HOSTS.map((name) => [name, fakeArgv(home, name)]));
 }
@@ -89,6 +111,8 @@ describe("ask-llm setup", () => {
     expect(first.stdout).toContain("Claude Code 2.1.284: registered");
     expect(first.stdout).toContain("start a new session");
     expect(first.stdout).toContain("trusted folders");
+    expect(first.stdout).toContain("may reformat its config file");
+    expect(backups()).toEqual([]);
 
     const second = ask("setup", "-y");
     expect(second.status).toBe(0);
@@ -221,6 +245,29 @@ describe("ask-llm setup", () => {
     expect(calls()).toEqual(Object.fromEntries(HOSTS.map((name) => [name, []])));
   });
 
+  it("backs up each host's config file before its command writes it", () => {
+    writeConfigFiles();
+    const result = ask("setup", "-y");
+    expect(result.status).toBe(0);
+    const saved = backups();
+    expect(saved).toHaveLength(HOSTS.length);
+    for (const [file, content] of Object.values(CONFIG_FILES)) {
+      const backup = saved.find((path) => path.startsWith(`${file}.ask-llm-backup-`));
+      expect(backup).toBeDefined();
+      expect(readFileSync(join(home, backup as string), "utf8")).toBe(content);
+      expect(result.stdout).toContain(`Backup: ${join(home, backup as string)}`);
+    }
+
+    expect(ask("setup", "-y").stdout).not.toContain("Backup:");
+    expect(backups()).toEqual(saved);
+  });
+
+  it("makes no backup on --dry-run", () => {
+    writeConfigFiles();
+    expect(ask("setup", "--dry-run").status).toBe(0);
+    expect(backups()).toEqual([]);
+  });
+
   it("keeps --dry-run a preview even with -y", () => {
     const result = ask("setup", "--dry-run", "-y", "--json");
     expect(result.status).toBe(0);
@@ -304,6 +351,14 @@ describe("ask-llm remove", () => {
     expect(result.stdout).toContain("Claude Code 2.1.284: removed");
     expect(result.stdout).toContain(`Codex CLI 0.158.0: not removed (an ask-llm entry runs \`${FOREIGN}\``);
     expect(readFileSync(join(home, FAKE_HOSTS.codex.file), "utf8")).toBe(codexFile);
+    expect(result.stdout).toContain("may reformat its config file");
+    const saved = backups();
+    expect(saved.map((file) => file.replace(/\.ask-llm-backup-.*$/, ""))).toEqual(
+      ["claude", "agy", "grok", "gemini"].map((name) => FAKE_HOSTS[name].file).sort(),
+    );
+    for (const file of saved) {
+      expect(readFileSync(join(home, file), "utf8")).toContain(server);
+    }
 
     const before = calls();
     const again = ask("remove", "-y");

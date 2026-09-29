@@ -98,6 +98,9 @@ function formatPreview(heading: string, server: ServerPath, plan: PlanEntry[]): 
   ].join("\n");
 }
 
+const REFORMAT_NOTICE =
+  "The host's own command may reformat its config file; unrelated entries keep their meaning. Each file is backed up next to itself first.";
+
 const LABELS: Record<HostStatus, string> = {
   registered: "registered",
   "up-to-date": "already registered",
@@ -116,6 +119,7 @@ function formatResult(result: HostResult): string[] {
   const version = result.version ? ` ${result.version}` : "";
   const lines = [`  ${result.name}${version}: ${LABELS[result.status]}${result.detail ? ` (${result.detail})` : ""}`];
   if (result.next) lines.push(`      Next: ${result.next}`);
+  if (result.backup) lines.push(`      Backup: ${result.backup}`);
   if (result.manual) lines.push(`      Run it manually: ${result.manual}`);
   return lines;
 }
@@ -193,7 +197,9 @@ export async function runSetupCli(args: string[], ownCli: string): Promise<numbe
     return 0;
   }
 
-  process.stdout.write(formatPreview("ask-llm setup: each change runs the host's own command.", server, shown));
+  process.stdout.write(
+    formatPreview(`ask-llm setup: each change runs the host's own command.\n${REFORMAT_NOTICE}`, server, shown),
+  );
   const results = await withConfirm(options.yes, (confirm) =>
     applySetup(hosts, server.path, options.hosts, confirm, process.env),
   );
@@ -213,7 +219,9 @@ export async function runRemoveCli(args: string[], ownCli: string): Promise<numb
 
   const server = await serverPath(ownCli);
   if (!server) return 1;
-  process.stdout.write(`ask-llm remove: only ask-llm entries that run ${server.path} are removed.\n`);
+  process.stdout.write(
+    `ask-llm remove: only ask-llm entries that run ${server.path} are removed.\n${REFORMAT_NOTICE}\n`,
+  );
   const hosts = await detectHosts();
   const results = await withConfirm(options.yes, (confirm) =>
     applyRemove(hosts, server.path, options.hosts, confirm, process.env),

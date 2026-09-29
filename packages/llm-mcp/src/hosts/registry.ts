@@ -23,6 +23,8 @@ export interface HostSpec {
   binaries: string[];
   apps?: string[];
   configHome: string;
+  // The file the host's own mcp add/remove rewrites; backed up before each write.
+  configFile?: string;
   versionProbe?: { args: string[]; pattern: RegExp };
   registration: Registration;
   registrationState: RegistrationSource;
@@ -65,6 +67,7 @@ export function hostSpecs(env: NodeJS.ProcessEnv = process.env, platform = proce
       name: "Claude Code",
       binaries: ["claude"],
       configHome: claudeHome,
+      configFile: claudeFile,
       versionProbe: { args: ["--version"], pattern: /^(\d+\.\d+\.\d+) \(Claude Code\)/ },
       registration: { kind: "command", argv: (server) => claude("add", server) },
       // `claude mcp list` health-checks (spawns) every server, so read the user-scope file instead.
@@ -81,6 +84,7 @@ export function hostSpecs(env: NodeJS.ProcessEnv = process.env, platform = proce
       name: "Codex CLI",
       binaries: ["codex"],
       configHome: codexHome,
+      configFile: join(codexHome, "config.toml"),
       versionProbe: { args: ["--version"], pattern: /^codex-cli (\d+\.\d+\.\d+)/ },
       registration: { kind: "command", argv: (server) => codex("add", server) },
       registrationState: { kind: "list", args: ["mcp", "list", "--json"] },
@@ -92,6 +96,7 @@ export function hostSpecs(env: NodeJS.ProcessEnv = process.env, platform = proce
       name: "Antigravity",
       binaries: ["agy"],
       configHome: join(home, ".gemini", "config"),
+      configFile: agyConfig,
       versionProbe: plainVersion,
       registration: { kind: "command", argv: (server) => antigravity("add", server) },
       registrationState: { kind: "json", file: agyConfig, keyPath: serverKey },
@@ -103,6 +108,7 @@ export function hostSpecs(env: NodeJS.ProcessEnv = process.env, platform = proce
       name: "Grok Build",
       binaries: ["grok"],
       configHome: grokHome,
+      configFile: grokConfig,
       versionProbe: { args: ["--version"], pattern: /^grok (\d+\.\d+\.\d+)/ },
       registration: { kind: "command", argv: (server) => grok("add", server) },
       // `grok mcp list` writes logs and docs under ~/.grok, so read the file its add command owns.
@@ -115,6 +121,7 @@ export function hostSpecs(env: NodeJS.ProcessEnv = process.env, platform = proce
       name: "Gemini CLI",
       binaries: ["gemini"],
       configHome: geminiSettings,
+      configFile: geminiSettings,
       versionProbe: plainVersion,
       registration: { kind: "command", argv: (server) => gemini("add", server) },
       registrationState: { kind: "json", file: geminiSettings, keyPath: serverKey },

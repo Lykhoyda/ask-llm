@@ -1,3 +1,4 @@
+import { constants, copyFileSync } from "node:fs";
 import { getSpawnEnv } from "@ask-llm/shared";
 import { isOwnRegistration, UNUSABLE_ENTRY } from "../plan.js";
 import { type DetectedHost, type RegistrationState, readRegistration } from "./detect.js";
@@ -17,6 +18,7 @@ export const REGISTRARS: Partial<Record<HostId, Registrar>> = { claude, codex, a
 export interface Applied {
   outcome: "changed" | "unchanged" | "conflict" | "failed";
   detail?: string;
+  backup?: string;
 }
 
 const HOST_COMMAND_TIMEOUT_MS = 30_000;
@@ -51,6 +53,18 @@ function gate(host: DetectedHost, current: RegistrationState, op: HostOp, server
   return undefined;
 }
 
+function backupConfig(file: string | undefined): string | undefined {
+  if (!file) return undefined;
+  const backup = `${file}.ask-llm-backup-${new Date().toISOString().replace(/[:.]/g, "-")}`;
+  try {
+    copyFileSync(file, backup, constants.COPYFILE_EXCL);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return undefined;
+    throw error;
+  }
+  return backup;
+}
+
 export async function applyRegistrar(
   host: DetectedHost,
   op: HostOp,
@@ -64,8 +78,26 @@ export async function applyRegistrar(
   const refused = gate(host, await read(), op, server);
   if (refused) return refused;
 
-  const argv = registrar(op, server);
-  const run = await runHost(host.binary, argv.slice(1), spawnEnv, HOST_COMMAND_TIMEOUT_MS);
+  let backup: string | undefined;
+  try {
+    backup = backupConfig(host.spec.configFile);
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : String(error);
+    return { outcome: "failed", detail: `cannot back up ${host.spec.configFile}: ${firstLine(detail)}` };
+  }
+  const applied = await runRegistrar(host, registrar(op, server), op, server, spawnEnv, read);
+  return backup ? { ...applied, backup } : applied;
+}
+
+async function runRegistrar(
+  host: DetectedHost,
+  argv: string[],
+  op: HostOp,
+  server: string,
+  spawnEnv: NodeJS.ProcessEnv,
+  read: () => Promise<RegistrationState>,
+): Promise<Applied> {
+  const run = await runHost(host.binary as string, argv.slice(1), spawnEnv, HOST_COMMAND_TIMEOUT_MS);
   const output = `${run.stderr}\n${run.stdout}`;
   const benign = (op === "add" ? ALREADY_EXISTS : NOT_FOUND).test(output);
   if (run.code !== 0 && !benign) {
