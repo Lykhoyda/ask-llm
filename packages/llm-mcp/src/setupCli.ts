@@ -99,7 +99,7 @@ function formatPreview(heading: string, server: ServerPath, plan: PlanEntry[]): 
 }
 
 const REFORMAT_NOTICE =
-  "The host's own command may reformat its config file; unrelated entries keep their meaning. Each file is backed up next to itself first.";
+  "The host's own command may reformat its config file; unrelated entries keep their meaning. Each backup may contain credentials, stays next to the original with the same permissions, and remains until you delete it.";
 
 const LABELS: Record<HostStatus, string> = {
   registered: "registered",

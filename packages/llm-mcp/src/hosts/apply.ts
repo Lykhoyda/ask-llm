@@ -1,4 +1,4 @@
-import { constants, copyFileSync } from "node:fs";
+import { closeSync, constants, fchmodSync, fstatSync, openSync, readSync, unlinkSync, writeSync } from "node:fs";
 import { getSpawnEnv } from "@ask-llm/shared";
 import { isOwnRegistration, UNUSABLE_ENTRY } from "../plan.js";
 import { type DetectedHost, type RegistrationState, readRegistration } from "./detect.js";
@@ -56,13 +56,46 @@ function gate(host: DetectedHost, current: RegistrationState, op: HostOp, server
 function backupConfig(file: string | undefined): string | undefined {
   if (!file) return undefined;
   const backup = `${file}.ask-llm-backup-${new Date().toISOString().replace(/[:.]/g, "-")}`;
+  let source: number;
   try {
-    copyFileSync(file, backup, constants.COPYFILE_EXCL);
+    source = openSync(file, constants.O_RDONLY | constants.O_NOFOLLOW);
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === "ENOENT") return undefined;
     throw error;
   }
-  return backup;
+  try {
+    let mode = 0o600;
+    let stat: ReturnType<typeof fstatSync> | undefined;
+    try {
+      stat = fstatSync(source);
+    } catch {
+      stat = undefined;
+    }
+    if (stat && !stat.isFile()) throw new Error("config is not a regular file");
+    if (stat) mode = stat.mode & 0o7777;
+    const target = openSync(
+      backup,
+      constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | constants.O_NOFOLLOW,
+      0o600,
+    );
+    try {
+      const buffer = Buffer.alloc(64 * 1024);
+      let length: number;
+      while ((length = readSync(source, buffer, 0, buffer.length, null)) > 0) {
+        let offset = 0;
+        while (offset < length) offset += writeSync(target, buffer, offset, length - offset);
+      }
+      fchmodSync(target, mode);
+    } catch (error) {
+      closeSync(target);
+      unlinkSync(backup);
+      throw error;
+    }
+    closeSync(target);
+    return backup;
+  } finally {
+    closeSync(source);
+  }
 }
 
 export async function applyRegistrar(

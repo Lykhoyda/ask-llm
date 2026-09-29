@@ -249,6 +249,8 @@ describe("ask-llm setup", () => {
     writeConfigFiles();
     const result = ask("setup", "-y");
     expect(result.status).toBe(0);
+    expect(result.stdout).toContain("Each backup may contain credentials");
+    expect(result.stdout).toContain("remains until you delete it");
     const saved = backups();
     expect(saved).toHaveLength(HOSTS.length);
     for (const [file, content] of Object.values(CONFIG_FILES)) {

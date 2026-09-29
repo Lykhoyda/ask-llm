@@ -1,7 +1,17 @@
-import { chmodSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
+import {
+  chmodSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  realpathSync,
+  rmSync,
+  statSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { applyRegistrar } from "../hosts/apply.js";
 import { type DetectedHost, detectHosts } from "../hosts/detect.js";
 import {
@@ -199,5 +209,45 @@ it("fails closed without running the host when the config backup cannot be writt
   } finally {
     chmodSync(dir, 0o755);
   }
+  expect(fakeArgv(home, "grok")).toEqual([]);
+});
+
+it("keeps the config mode on the backup", async () => {
+  writeRegistration(home, "grok", SERVER);
+  const file = join(home, FAKE_HOSTS.grok.file);
+  chmodSync(file, 0o640);
+  const applied = await applyRegistrar(await detected("grok"), "remove", SERVER, env);
+  expect(applied.outcome).toBe("changed");
+  expect(statSync(applied.backup as string).mode & 0o7777).toBe(0o640);
+});
+
+it("does not overwrite an existing backup or run the host", async () => {
+  writeRegistration(home, "grok", SERVER);
+  const backup = `${join(home, FAKE_HOSTS.grok.file)}.ask-llm-backup-2026-09-29T12-00-00-000Z`;
+  writeFileSync(backup, "keep this backup", { mode: 0o600 });
+  const clock = vi.spyOn(Date.prototype, "toISOString").mockReturnValue("2026-09-29T12:00:00.000Z");
+  try {
+    expect(await applyRegistrar(await detected("grok"), "remove", SERVER, env)).toMatchObject({
+      outcome: "failed",
+      detail: expect.stringContaining("cannot back up"),
+    });
+  } finally {
+    clock.mockRestore();
+  }
+  expect(readFileSync(backup, "utf8")).toBe("keep this backup");
+  expect(fakeArgv(home, "grok")).toEqual([]);
+});
+
+it("does not follow a symlinked config or run the host", async () => {
+  writeRegistration(home, "grok", SERVER);
+  const file = join(home, FAKE_HOSTS.grok.file);
+  const other = join(home, "other-config.toml");
+  writeFileSync(other, readFileSync(file));
+  rmSync(file);
+  symlinkSync(other, file);
+  expect(await applyRegistrar(await detected("grok"), "remove", SERVER, env)).toMatchObject({
+    outcome: "failed",
+    detail: expect.stringContaining("cannot back up"),
+  });
   expect(fakeArgv(home, "grok")).toEqual([]);
 });
