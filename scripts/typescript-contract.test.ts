@@ -1,5 +1,7 @@
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
+import { relative } from "node:path";
+import { fileURLToPath } from "node:url";
 import { version as typescriptVersion } from "typescript";
 import { describe, expect, it } from "vitest";
 import antigravityConfig from "../packages/antigravity-mcp/tsdown.config.js";
@@ -117,6 +119,32 @@ describe("TypeScript 7 toolchain contract", () => {
       .filter(Boolean);
     // Only the plugin's tsc-generated hooks may be committed JavaScript (generated-hooks.test.ts).
     expect(tracked.filter((file) => !file.startsWith("packages/llm-mcp/scripts/"))).toEqual([]);
+  });
+
+  it("typechecks every TypeScript test fixture in the lint-checked scripts project", () => {
+    const fixtures = execFileSync(
+      "git",
+      ["ls-files", "scripts/fixtures/*.ts", "packages/llm-mcp/src/__tests__/fixtures/*.ts"],
+      { cwd: ROOT, encoding: "utf8" },
+    )
+      .split("\n")
+      .filter(Boolean);
+    const checked = execFileSync(
+      process.execPath,
+      [
+        fileURLToPath(new URL("node_modules/typescript/bin/tsc", ROOT)),
+        "-p",
+        fileURLToPath(new URL("scripts/tsconfig.json", ROOT)),
+        "--listFilesOnly",
+      ],
+      { encoding: "utf8" },
+    )
+      .split("\n")
+      .filter(Boolean)
+      .map((file) => relative(fileURLToPath(ROOT), file.trim()));
+
+    expect(fixtures.length).toBeGreaterThan(0);
+    expect(fixtures.filter((fixture) => !checked.includes(fixture))).toEqual([]);
   });
 });
 
