@@ -1,7 +1,7 @@
 import { createInterface } from "node:readline/promises";
 import { detectHosts } from "./hosts/detect.js";
 import { type HostId, hostSpecs } from "./hosts/registry.js";
-import { buildPlan, genericSnippet, type PlanEntry, resolveServerPath, type ServerPath } from "./plan.js";
+import { buildPlan, commandText, genericSnippet, type PlanEntry, resolveServerPath, type ServerPath } from "./plan.js";
 import { installPlugins, type PluginPlan, planPlugins } from "./plugins.js";
 import { applyRemove } from "./remove.js";
 import { applySetup, type Confirm, type HostResult, type HostStatus, UNSUCCESSFUL } from "./setup.js";
@@ -101,7 +101,7 @@ interface Workflows {
 function formatWorkflows({ plugins, skills }: Workflows): string[] {
   const lines = ["Workflows:"];
   for (const plugin of plugins) {
-    const runs = plugin.commands.map((argv) => argv.join(" ")).join(" && ");
+    const runs = plugin.commands.map(commandText).join(" && ");
     lines.push(
       `  ${plugin.name} plugin: ${plugin.error ?? (plugin.installed ? "already installed" : "install")}`,
       ...(plugin.installed || plugin.error ? [] : [`      ${runs}`]),

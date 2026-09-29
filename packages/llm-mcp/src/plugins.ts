@@ -38,7 +38,9 @@ function pluginState(configHome: string): { installed: boolean; marketplace: boo
   const known = readJson(join(plugins, "known_marketplaces.json")) ?? {};
   const list = (readJson(join(plugins, "installed_plugins.json"))?.plugins ?? {}) as Record<string, unknown>;
   const entries = list[CLAUDE_PLUGIN];
-  return { installed: Array.isArray(entries) && entries.length > 0, marketplace: CLAUDE_MARKETPLACE in known };
+  // A project-scoped install elsewhere does not cover this user's other projects.
+  const user = Array.isArray(entries) && entries.some((entry) => entry?.scope === "user");
+  return { installed: user, marketplace: CLAUDE_MARKETPLACE in known };
 }
 
 function unreadable(name: string, error: unknown): string {

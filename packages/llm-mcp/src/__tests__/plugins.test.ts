@@ -88,6 +88,19 @@ describe("Claude Code plugin install", () => {
     expect(argv()).toHaveLength(2);
   });
 
+  it("installs at user scope when the plugin is only installed for one project", async () => {
+    mkdirSync(join(home, ".claude", "plugins"), { recursive: true });
+    writeFileSync(
+      join(home, ".claude", "plugins", "installed_plugins.json"),
+      '{"version":2,"plugins":{"ask-llm@ask-llm-plugins":[{"scope":"project","projectPath":"/other/repo"}]}}',
+    );
+    const [plan] = planPlugins(hosts(["claude"]), undefined);
+    expect(plan.installed).toBe(false);
+    const [result] = await installPlugins([plan], yes, env);
+    expect(result.status).toBe("installed");
+    expect(argv()).toContain("plugin install ask-llm@ask-llm-plugins");
+  });
+
   it("skips the marketplace add when the marketplace is already known", async () => {
     mkdirSync(join(home, ".claude", "plugins"), { recursive: true });
     writeFileSync(join(home, ".claude", "plugins", "known_marketplaces.json"), '{"ask-llm-plugins":{}}');
