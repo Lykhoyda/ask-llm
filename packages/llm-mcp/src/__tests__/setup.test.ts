@@ -1,5 +1,16 @@
 import { spawnSync } from "node:child_process";
-import { copyFileSync, cpSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from "node:fs";
+import {
+  copyFileSync,
+  cpSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  realpathSync,
+  rmSync,
+  symlinkSync,
+  unlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -104,7 +115,10 @@ describe("ask-llm setup", () => {
   });
 
   it.each([
-    ["quoted bracket", `[mcp_servers.ask-llm]\ncommand = "${FOREIGN}"\n[mcp_servers."team]tools"]\ncommand = "${server}"\n`],
+    [
+      "quoted bracket",
+      `[mcp_servers.ask-llm]\ncommand = "${FOREIGN}"\n[mcp_servers."team]tools"]\ncommand = "${server}"\n`,
+    ],
     ["root inline table", `mcp_servers = { ask-llm = { command = "${FOREIGN}" } }\n`],
     ["single-quoted key", `[mcp_servers.'ask-llm']\ncommand = "${FOREIGN}"\n`],
     ["escaped header key", `[mcp_servers."ask\\u002dllm"]\ncommand = "${FOREIGN}"\n`],
@@ -219,12 +233,18 @@ describe("ask-llm setup", () => {
     symlinkSync(checkoutServer, installedServer);
 
     const preview = spawnSync(process.execPath, [checkoutCommand, "setup", "--dry-run", "--json"], {
-      cwd: root, env, encoding: "utf8", timeout: 60_000,
+      cwd: root,
+      env,
+      encoding: "utf8",
+      timeout: 60_000,
     });
     expect(JSON.parse(preview.stdout).server).toEqual({ path: checkoutServer, source: "package-dist" });
 
     const result = spawnSync(process.execPath, [checkoutCommand, "setup", "-y", "--host", "claude"], {
-      cwd: root, env, encoding: "utf8", timeout: 60_000,
+      cwd: root,
+      env,
+      encoding: "utf8",
+      timeout: 60_000,
     });
     expect(result.status).toBe(1);
     expect(result.stderr).toContain("npm i -g @ask-llm/mcp");

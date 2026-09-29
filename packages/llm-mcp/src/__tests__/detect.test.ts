@@ -210,21 +210,29 @@ describe("detectHosts", () => {
   });
 
   it.each([
-    ["a bare header", '[mcp_servers.ask-llm]\ncommand = "/opt/x"\nargs = ["--custom"]\n', { registered: true, command: ["/opt/x", "--custom"] }],
-    ["a basic-quoted header", '[mcp_servers."ask-llm"]\ncommand = "/opt/x"\n', { registered: true, command: ["/opt/x"] }],
+    [
+      "a bare header",
+      '[mcp_servers.ask-llm]\ncommand = "/opt/x"\nargs = ["--custom"]\n',
+      { registered: true, command: ["/opt/x", "--custom"] },
+    ],
+    [
+      "a basic-quoted header",
+      '[mcp_servers."ask-llm"]\ncommand = "/opt/x"\n',
+      { registered: true, command: ["/opt/x"] },
+    ],
     ["a disabled entry", '[mcp_servers.ask-llm]\ncommand = "/opt/x"\nenabled = false\n', { present: true }],
   ])("reads a Grok TOML entry written with %s", async (_, content, expected) => {
     write(".grok/config.toml", content);
     expect(host(await detectHosts(env), "grok")).toMatchObject(expected);
   });
 
-  it.each([
-    '[mcp_servers."ask - llm"]\ncommand = "/opt/x"\n',
-    "[mcp_servers.'ask - llm']\ncommand = \"/opt/x\"\n",
-  ])("reports a noncanonical quoted Grok key as unknown", async (content) => {
-    write(".grok/config.toml", content);
-    expect(host(await detectHosts(env), "grok")).toMatchObject({ registered: null });
-  });
+  it.each(['[mcp_servers."ask - llm"]\ncommand = "/opt/x"\n', "[mcp_servers.'ask - llm']\ncommand = \"/opt/x\"\n"])(
+    "reports a noncanonical quoted Grok key as unknown",
+    async (content) => {
+      write(".grok/config.toml", content);
+      expect(host(await detectHosts(env), "grok")).toMatchObject({ registered: null });
+    },
+  );
 
   it("fails closed when a later Grok header contains a quoted bracket", async () => {
     write(
