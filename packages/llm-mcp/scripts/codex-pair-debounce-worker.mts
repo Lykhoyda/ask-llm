@@ -37,7 +37,10 @@ async function main() {
     tool_input: { file_path: file },
     session_id: process.env.CP_SESSION_ID || "",
   });
-  const codexTimeout = Number(process.env.ASK_CODEX_TIMEOUT_MS ?? 800_000);
+  const codexTimeout =
+    [process.env.CP_TIMEOUT_MS, process.env.ASK_CODEX_TIMEOUT_MS]
+      .map(Number)
+      .find((ms) => Number.isFinite(ms) && ms > 0) ?? 800_000;
   const lockTtlMs = Math.max(codexTimeout, INFLIGHT_TTL_MIN_MS) + 60_000;
   const giveUpAt = Date.now() + lockTtlMs;
   for (;;) {
