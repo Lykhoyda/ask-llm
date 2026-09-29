@@ -103,6 +103,22 @@ describe("ask-llm setup", () => {
     expect(readFileSync(file, "utf8")).toBe(before);
   });
 
+  it("does not remove a Grok entry after an unreadable table header", () => {
+    const file = join(home, FAKE_HOSTS.grok.file);
+    mkdirSync(join(file, ".."), { recursive: true });
+    const content = `[mcp_servers.ask-llm]\ncommand = "${FOREIGN}"\n[mcp_servers."team]tools"]\ncommand = "${server}"\n`;
+    writeFileSync(file, content);
+
+    const setup = ask("setup", "-y", "--host", "grok");
+    const remove = ask("remove", "-y", "--host", "grok");
+    expect(setup.status).toBe(1);
+    expect(remove.status).toBe(1);
+    expect(setup.stdout).toContain("cannot read registration");
+    expect(remove.stdout).toContain("cannot read registration");
+    expect(calls().grok).toEqual([]);
+    expect(readFileSync(file, "utf8")).toBe(content);
+  });
+
   it("stops a host that rejects the fixed argv with its version and the exact manual command", () => {
     setFakeMode(home, "grok", "fail");
     const result = ask("setup", "-y", "--host", "grok,codex");

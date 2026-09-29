@@ -101,8 +101,10 @@ function readTomlTable(file: string, table: string): RegistrationState {
   let args: unknown = [];
   let enabled: unknown;
   for (const line of text.split(/\r?\n/)) {
-    const header = /^\s*\[\s*([^\]]+?)\s*\]\s*(#.*)?$/.exec(line);
-    if (header) {
+    const trimmed = line.trim();
+    if (trimmed.startsWith("[")) {
+      const header = /^\s*\[\s*([^\]]+?)\s*\]\s*(#.*)?$/.exec(line);
+      if (!header) throw new Error("unsupported Grok TOML table header");
       currentTable = header[1].trim();
       const key = /^(?:mcp_servers|"mcp_servers"|'mcp_servers')\s*\.\s*(?:"([^"]*)"|'([^']*)'|([\w-]+))$/.exec(currentTable);
       inTable = key !== null && `mcp_servers.${key[1] ?? key[2] ?? key[3]}` === table;
@@ -110,7 +112,6 @@ function readTomlTable(file: string, table: string): RegistrationState {
       found ||= inTable;
       continue;
     }
-    const trimmed = line.trim();
     if (!trimmed || trimmed.startsWith("#")) continue;
     if (!inTable && (currentTable === "" || /^(?:mcp_servers|"mcp_servers"|'mcp_servers')$/.test(currentTable))) {
       const alternate = /^(?:mcp_servers\s*\.\s*)?["']?ask-llm["']?\s*(=|\.)/.exec(trimmed);
@@ -123,7 +124,7 @@ function readTomlTable(file: string, table: string): RegistrationState {
     if (/^["']?(command|args|enabled)["']?\s*\./.test(trimmed))
       throw new Error("unsupported Grok TOML dotted key for ask-llm");
     const pair = /^\s*["']?(command|args|enabled)["']?\s*=\s*(.+?)\s*$/.exec(line);
-    if (!pair) continue;
+    if (!pair) throw new Error("unsupported Grok TOML key syntax for ask-llm");
     let value: unknown;
     try {
       value = JSON.parse(pair[2]);
