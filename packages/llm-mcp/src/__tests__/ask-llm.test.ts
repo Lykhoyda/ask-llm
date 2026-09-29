@@ -306,6 +306,28 @@ describe("host discovery commands", () => {
     expect(legacyHelp.stdout).not.toContain("Host restart field");
   });
 
+  it("reports local provider states and exercises nothing without --live", () => {
+    const report = JSON.parse(ask("doctor", "--json").stdout);
+    const claude = report.providers.find((provider: { name: string }) => provider.name === "Claude");
+    expect(claude.states).toEqual({
+      installed: "yes",
+      authenticated: "unknown",
+      permitted: "yes",
+      exercised: "not-run",
+    });
+    expect(report.checks.filter((check: { name: string }) => check.name.startsWith("Live:"))).toEqual([]);
+    expect(ask("doctor").stdout).toContain("exercised=not-run");
+  });
+
+  it("rejects --live with the versioned TOON format and on the legacy server", () => {
+    const toon = ask("doctor", "--live", "--format", "toon");
+    expect(toon.status).toBe(2);
+    expect(toon.stderr).toContain("conflicting_options");
+    const legacy = spawnSync(process.execPath, [server, "doctor", "--live"], { env, encoding: "utf8" });
+    expect(legacy.status).toBe(2);
+    expect(JSON.parse(legacy.stderr).error.code).toBe("unknown_argument");
+  });
+
   it("prints a Hosts section in the text doctor", () => {
     const result = ask("doctor");
     expect(result.stdout).toContain("Hosts:");

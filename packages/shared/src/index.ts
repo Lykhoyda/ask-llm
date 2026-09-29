@@ -17,11 +17,14 @@ export type {
   CheckStatus,
   DiagnosticCheck,
   DiagnosticReport,
+  LocalProviderStates,
+  LocalState,
   OverallStatus,
   ProviderEnrichment,
   ProviderEnrichmentCheck,
   ProviderProbe,
   ProviderSpec,
+  ProviderStates,
   ProviderVersionAssessment,
 } from "./doctor.js";
 export {

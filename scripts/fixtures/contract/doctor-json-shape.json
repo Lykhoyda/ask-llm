@@ -142,6 +142,29 @@
             },
             "name": {
               "type": "string"
+            },
+            "states": {
+              "additionalProperties": false,
+              "properties": {
+                "authenticated": {
+                  "enum": ["yes", "no", "unknown", "not-required"],
+                  "type": "string"
+                },
+                "exercised": {
+                  "enum": ["yes", "no", "not-run"],
+                  "type": "string"
+                },
+                "installed": {
+                  "enum": ["yes", "no", "unknown", "not-required"],
+                  "type": "string"
+                },
+                "permitted": {
+                  "enum": ["yes", "no", "unknown", "not-required"],
+                  "type": "string"
+                }
+              },
+              "required": ["installed", "authenticated", "permitted", "exercised"],
+              "type": "object"
             }
           },
           "required": ["name", "command", "available"],
@@ -191,7 +214,13 @@
         "available": "boolean",
         "command": "string",
         "error": "string",
-        "name": "string"
+        "name": "string",
+        "states": {
+          "authenticated": "string",
+          "exercised": "string",
+          "installed": "string",
+          "permitted": "string"
+        }
       }
     ],
     "status": "string"
