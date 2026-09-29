@@ -1,9 +1,12 @@
 import { execFile } from "node:child_process";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { promisify } from "node:util";
 import { z } from "zod";
 import { resolveTimeoutMs } from "./commandExecutor.js";
 import { EXECUTION } from "./constants.js";
-import { resolveShellPath } from "./shellPath.js";
+import { resolveShellPath, resolveSpawnCommand } from "./shellPath.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -105,18 +108,13 @@ async function probeCommand(
   pathEnv: string,
 ): Promise<{ cliPath: string | undefined; version: string | undefined; error: string | undefined }> {
   const env = { ...process.env, PATH: pathEnv };
-  let cliPath: string | undefined;
-  try {
-    const which = process.platform === "win32" ? "where" : "which";
-    const { stdout } = await execFileAsync(which, [command], { env, timeout: VERSION_PROBE_TIMEOUT_MS });
-    cliPath = stdout.split(/\r?\n/)[0]?.trim() || undefined;
-  } catch {
-    return { cliPath: undefined, version: undefined, error: "not found on PATH" };
-  }
+  const cliPath = resolveSpawnCommand(command, env);
+  if (!cliPath) return { cliPath: undefined, version: undefined, error: "not found on PATH" };
 
+  const probeHome = command === "gemini" ? mkdtempSync(join(tmpdir(), "ask-llm-gemini-probe-")) : undefined;
   try {
     const { stdout, stderr } = await execFileAsync(command, versionArgs, {
-      env,
+      env: probeHome ? { ...env, HOME: probeHome, XDG_CONFIG_HOME: probeHome, XDG_CACHE_HOME: probeHome } : env,
       timeout: VERSION_PROBE_TIMEOUT_MS,
     });
     const versionLine = (stdout || stderr).split(/\r?\n/)[0]?.trim();
@@ -124,6 +122,8 @@ async function probeCommand(
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     return { cliPath, version: undefined, error: `version probe failed: ${msg.slice(0, 200)}` };
+  } finally {
+    if (probeHome) rmSync(probeHome, { recursive: true, force: true });
   }
 }
 

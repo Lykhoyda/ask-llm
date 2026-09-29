@@ -1,7 +1,7 @@
 import { execFileSync } from "node:child_process";
-import { existsSync, readdirSync } from "node:fs";
+import { accessSync, constants, existsSync, readdirSync, statSync } from "node:fs";
 import { homedir } from "node:os";
-import { delimiter, join } from "node:path";
+import { delimiter, join, resolve } from "node:path";
 import { Logger } from "./logger.js";
 
 const IS_WINDOWS = process.platform === "win32";
@@ -101,4 +101,17 @@ export function resolveShellPath(): string {
 
 export function getSpawnEnv(): NodeJS.ProcessEnv {
   return { ...process.env, PATH: resolveShellPath() };
+}
+
+export function resolveSpawnCommand(command: string, env: NodeJS.ProcessEnv = getSpawnEnv()): string | undefined {
+  const candidates = command.includes("/")
+    ? [resolve(command)]
+    : (env.PATH ?? "").split(delimiter).map((dir) => resolve(dir || ".", command));
+  for (const candidate of candidates) {
+    try {
+      accessSync(candidate, constants.X_OK);
+      if (statSync(candidate).isFile()) return candidate;
+    } catch {}
+  }
+  return undefined;
 }

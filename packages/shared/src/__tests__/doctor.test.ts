@@ -1,4 +1,7 @@
-import { describe, expect, it } from "vitest";
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { describe, expect, it, vi } from "vitest";
 import { type DiagnosticReport, formatDiagnosticReport, type ProviderSpec, runDiagnostics } from "../doctor.js";
 
 function makeReport(overrides: Partial<DiagnosticReport> = {}): DiagnosticReport {
@@ -134,6 +137,29 @@ describe("formatDiagnosticReport", () => {
 });
 
 describe("runDiagnostics", () => {
+  it("keeps Gemini version-probe files out of the user's home", async () => {
+    const root = mkdtempSync(join(tmpdir(), "ask-llm-doctor-probe-"));
+    const home = join(root, "home");
+    const bin = join(root, "bin");
+    mkdirSync(home);
+    mkdirSync(bin);
+    const gemini = join(bin, "gemini");
+    writeFileSync(gemini, '#!/bin/sh\necho touched > "$HOME/gemini-probe-file"\necho 0.46.0\n');
+    chmodSync(gemini, 0o755);
+    vi.stubEnv("HOME", home);
+    vi.stubEnv("ASK_LLM_PATH", bin);
+    vi.resetModules();
+    try {
+      const { runDiagnostics } = await import("../doctor.js");
+      const report = await runDiagnostics([{ key: "gemini", name: "Gemini", command: "gemini" }]);
+      expect(report.providers[0]).toMatchObject({ available: true, cliVersion: "0.46.0" });
+      expect(existsSync(join(home, "gemini-probe-file"))).toBe(false);
+    } finally {
+      vi.unstubAllEnvs();
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
   it("returns ok status with empty providers when env is clean", async () => {
     const report = await runDiagnostics([]);
     expect(report.environment.nodeVersion).toBe(process.version);

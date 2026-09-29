@@ -218,7 +218,7 @@ More patterns in [How to Ask](https://lykhoyda.github.io/ask-llm/usage/how-to-as
 
 ## CLI
 
-The `@ask-llm/mcp` binary (`ask-llm-mcp`) starts the MCP server when run with no arguments. With arguments it's a CLI; `ask-llm-mcp --help` is the canonical reference.
+The `@ask-llm/mcp` binary (`ask-llm-mcp`) starts the MCP server when run with no arguments. With arguments it's a CLI. For host registration previews and host diagnostics, use the separate `ask-llm` command; see [command compatibility](packages/llm-mcp/README.md#command-compatibility).
 
 ```bash
 # Diagnose your setup: Node version, PATH, provider CLI versions, env vars
