@@ -13,7 +13,11 @@ Gather the relevant staged, unstaged, and untracked changes; build a bounded con
 
 ### Pi adapter
 
-Call the native `ask-grok` tool and apply only the `Portable contract` section of `../../agents/grok-reviewer.md`; ignore that file's frontmatter and Claude Code adapter.
+Call the native `ask-grok` tool and apply the portable contract above.
+
+### Other hosts adapter
+
+Codex, Cursor Agent, Antigravity, Grok Build, Gemini CLI and OpenCode get this skill from their skills folder, not from a plugin. Apply the portable contract above inline with a Grok call as described in `../ask-llm-review/transport.md` (`provider: "grok"`, `reasoningEffort: "high"`).
 
 <!-- HOST-ADAPTER:CLAUDE-CODE:START -->
 ### Claude Code adapter

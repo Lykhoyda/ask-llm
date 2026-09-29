@@ -15,6 +15,10 @@ Remove the project-local pause sentinel and clear the consecutive-failure counte
 
 Run `/codex-pair-resume` or remove the sentinel and failure counter exactly as described by the portable contract.
 
+### Other hosts adapter
+
+Apply the portable contract above: remove the sentinel and failure counter exactly as described. It resumes the codex-pair reviewer that Claude Code or Pi runs for this project.
+
 <!-- HOST-ADAPTER:CLAUDE-CODE:START -->
 ### Claude Code adapter
 

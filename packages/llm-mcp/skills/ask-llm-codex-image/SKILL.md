@@ -15,6 +15,10 @@ Refine the requested image prompt without changing intent, select an explicit ou
 
 Call native `ask-codex` with `sandbox: "workspace-write"`. After it returns, use Pi's read-only filesystem tools to verify the output file. Do not claim automatic inline rendering in print mode.
 
+### Other hosts adapter
+
+Codex, Cursor Agent, Antigravity, Grok Build, Gemini CLI and OpenCode get this skill from their skills folder, not from a plugin. Use the Codex call from `../ask-llm-review/transport.md` with `sandbox: "workspace-write"` and the exact model the user named (`gpt-6-astra` otherwise), then read the output file to confirm it exists.
+
 <!-- HOST-ADAPTER:CLAUDE-CODE:START -->
 ### Claude Code adapter
 

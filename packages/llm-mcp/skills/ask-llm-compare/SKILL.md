@@ -15,6 +15,10 @@ Send the exact same bounded prompt to two to five selected providers concurrentl
 
 Use one native `ask-multi` call. Put the common prompt in `prompt` and two to five unique names in `providers`; its implementation, not model-emitted sibling calls, guarantees concurrent bounded dispatch and stable ordering.
 
+### Other hosts adapter
+
+Codex, Cursor Agent, Antigravity, Grok Build, Gemini CLI and OpenCode get this skill from their skills folder, not from a plugin. Use one `multi-llm` call as described in `../ask-llm-review/transport.md`: the common prompt in `prompt` and two to five unique names in `providers`. Present each response verbatim in that order.
+
 <!-- HOST-ADAPTER:CLAUDE-CODE:START -->
 ### Claude Code adapter
 

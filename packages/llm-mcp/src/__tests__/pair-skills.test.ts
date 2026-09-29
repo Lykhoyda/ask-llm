@@ -123,8 +123,8 @@ describe("pair skill structure", () => {
   it("codex-pair keeps its Pi adapter while grok-pair refuses on Pi", () => {
     const codex = parsePairSkill("ask-llm-codex-pair");
     const grok = parsePairSkill("ask-llm-grok-pair");
-    expect(adapterSections(codex.body)).toEqual(["Pi", "Cursor Agent", "Claude Code"]);
-    expect(adapterSections(grok.body)).toEqual(["Pi", "Cursor Agent", "Claude Code"]);
+    expect(adapterSections(codex.body)).toEqual(["Pi", "Cursor Agent", "Other hosts", "Claude Code"]);
+    expect(adapterSections(grok.body)).toEqual(["Pi", "Cursor Agent", "Other hosts", "Claude Code"]);
     expect(adapterBody(grok.body, "Pi")).toMatch(/Unsupported on Pi/);
     expect(readJson<{ pi: Record<string, unknown> }>("package.json").pi).not.toHaveProperty("skills");
   });

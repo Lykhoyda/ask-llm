@@ -58,6 +58,10 @@ Cursor discovers this `SKILL.md` through its supported Agent Skills surface; `/c
 5. At meaningful checkpoints, call the same tool with the captured `sessionId`, same model/effort, and bounded delta. Keep `sandbox: "read-only"` on both `ask-codex` and unified `ask-llm`. If the unified schema lacks `sandbox`, stop and upgrade `@ask-llm/mcp` rather than omitting it. Omit `includeDirs` on resumed calls because `codex exec resume` does not support them (every Codex transport — split `ask-codex`, unified `ask-llm`, and Pi — rejects that combination at the shared executor instead of dropping the directories); never silently strip them from the first call. If no session ID was returned, stop with a session diagnostic instead of pretending continuity.
 6. A Cursor interrupt cancels the MCP request. Report `cancelled` and never retry another tool/model/provider. Preserve earlier feedback on later failure and report `failed (partial)`. On success report `completed` with host, provider, requested/actual model, effort, session reuse count, context/include directories, accepted/rejected/deferred actions, and any reported Codex quota fallback. Never conceal fallback or rewrite a model.
 
+### Other hosts adapter
+
+Codex, Antigravity, Grok Build, Gemini CLI and OpenCode follow the Cursor Agent adapter above: it needs only the Ask LLM MCP tools and a conversational confirmation. `ask-llm setup` registers the server there, so skip the Cursor `mcp.json` snippet and point to `ask-llm setup` instead.
+
 <!-- HOST-ADAPTER:CLAUDE-CODE:START -->
 ### Claude Code adapter
 

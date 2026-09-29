@@ -105,6 +105,65 @@ describe("skills/", () => {
   });
 });
 
+describe("portable skills on skills-folder hosts (issue #266)", () => {
+  const portable = expectedSkills.filter((skill) => skill !== "ask-llm-fable-review");
+  const outsideClaude = (skill: string) =>
+    readFile(`skills/${skill}/SKILL.md`).split("<!-- HOST-ADAPTER:CLAUDE-CODE:START -->")[0];
+  const transport = readFile("skills/ask-llm-review/transport.md");
+
+  it.each(portable)("%s has an Other hosts adapter that needs nothing outside its skills folder", (skill) => {
+    const text = outsideClaude(skill);
+    expect(text).toContain("### Other hosts adapter");
+    expect(text).not.toMatch(/\$\{CLAUDE_PLUGIN_ROOT\}|\.\.\/\.\.\/agents\/|dist\/[a-z-]+\.js/);
+  });
+
+  it("orders the Codex ladder split, then fully pinned unified, then disclosed CLI, with no retry across rungs", () => {
+    const split = transport.indexOf("1. An exposed `ask-codex` tool");
+    const unified = transport.indexOf('2. Otherwise the `ask-llm` server\'s `ask-llm` tool with `provider: "codex"`');
+    const cli = transport.indexOf("3. Otherwise, only when neither tool is exposed, run the Codex CLI");
+    expect(split).toBeGreaterThan(-1);
+    expect(unified).toBeGreaterThan(split);
+    expect(cli).toBeGreaterThan(unified);
+    expect(transport).toContain("it is never retried on a later rung");
+    expect(transport).toContain("Say in the result that it ran through the Codex CLI");
+  });
+
+  it("fails loudly on an older unified server instead of stripping Codex options", () => {
+    expect(transport).toMatch(
+      /If any of `reasoningEffort`, `includeDirs`, `preferred` or `sandbox` is missing, stop .*never call it with fewer fields/,
+    );
+  });
+
+  it("routes review, compare and brainstorm through the unified server with exact pins", () => {
+    expect(outsideClaude("ask-llm-review")).toMatch(
+      /`model: "gpt-6-astra"`, `reasoningEffort: "high"`, `sandbox: "read-only"`/,
+    );
+    expect(outsideClaude("ask-llm-sol-review")).toMatch(/`model: "gpt-6-sol"`/);
+    expect(outsideClaude("ask-llm-compare")).toContain("one `multi-llm` call");
+    const brainstorm = outsideClaude("ask-llm-brainstorm");
+    expect(brainstorm).toContain("independent evidence memo first");
+    expect(brainstorm).toContain("`ask-cursor-agent` tool with separate `provider` and exact `model`");
+    expect(brainstorm).toContain("A list mixing routed and bare entries is refused before any call");
+  });
+
+  it.each(["gemini", "grok", "ollama", "antigravity"])(
+    "%s-reviewer falls back to the unified server that setup registers",
+    (provider) => {
+      const agent = readFile(`agents/${provider}-reviewer.md`);
+      expect(parseMarkdownFrontmatter(agent).frontmatter.tools).toEqual(
+        expect.arrayContaining([`mcp__${provider}__ask-${provider}`, "mcp__ask-llm__ask-llm"]),
+      );
+      expect(agent).toContain(
+        `Otherwise call \`mcp__ask-llm__ask-llm\` (the server \`ask-llm setup\` registers) with \`provider: "${provider}"\``,
+      );
+    },
+  );
+
+  it("names setup as the remedy when no Ask LLM tool is exposed", () => {
+    expect(transport).toContain("stop and tell the user to run `ask-llm setup`");
+  });
+});
+
 describe("agents/", () => {
   it("contains the expected set of agent files", () => {
     const files = listFiles("agents", ".md").sort();

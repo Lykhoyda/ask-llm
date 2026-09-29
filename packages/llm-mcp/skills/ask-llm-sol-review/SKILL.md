@@ -13,7 +13,11 @@ Gather a bounded diff and context brief, request a read-only Codex review explic
 
 ### Pi adapter
 
-Call `ask-codex` with `model: "gpt-6-sol"`, `reasoningEffort: "high"`, and `sandbox: "read-only"`; apply only the portable contract in `../../agents/sol-reviewer.md` and disclose fallback metadata.
+Call `ask-codex` with `model: "gpt-6-sol"`, `reasoningEffort: "high"`, and `sandbox: "read-only"`; apply the portable contract above and disclose fallback metadata.
+
+### Other hosts adapter
+
+Codex, Cursor Agent, Antigravity, Grok Build, Gemini CLI and OpenCode get this skill from their skills folder, not from a plugin. Apply the portable contract above inline, with the Codex call from `../ask-llm-review/transport.md`: `model: "gpt-6-sol"`, `reasoningEffort: "high"`, `sandbox: "read-only"`. Disclose a Terra quota fallback and any transport fallback.
 
 <!-- HOST-ADAPTER:CLAUDE-CODE:START -->
 ### Claude Code adapter

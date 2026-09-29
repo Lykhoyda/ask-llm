@@ -15,6 +15,10 @@ Acknowledge one finding by its 16-character concern hash with a non-empty user r
 
 Run `/codex-pair-ack <hash> <reason>`. On Pi this dismisses the matching reminder; there is no blocking Stop gate.
 
+### Other hosts adapter
+
+The codex-pair background reviewer runs only in Claude Code and Pi. On any other host, say there is no active codex-pair reminder to acknowledge here.
+
 <!-- HOST-ADAPTER:CLAUDE-CODE:START -->
 ### Claude Code adapter
 

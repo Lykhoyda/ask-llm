@@ -13,7 +13,11 @@ Capture the prior assistant message verbatim, decompose it into atomic claims, a
 
 ### Pi adapter
 
-Apply only the portable contract in `../../agents/codex-verifier.md` inline and call native `ask-codex` for focused claim checks. Do not claim an isolated verifier context.
+Apply the portable contract above inline and call native `ask-codex` for focused claim checks. Do not claim an isolated verifier context.
+
+### Other hosts adapter
+
+Codex, Cursor Agent, Antigravity, Grok Build, Gemini CLI and OpenCode get this skill from their skills folder, not from a plugin. Apply the portable contract above inline and use the Codex call from `../ask-llm-review/transport.md` for focused claim checks: `model: "gpt-6-astra"`, `reasoningEffort: "high"`, `sandbox: "read-only"`. Do not claim an isolated verifier context.
 
 <!-- HOST-ADAPTER:CLAUDE-CODE:START -->
 ### Claude Code adapter

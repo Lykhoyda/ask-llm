@@ -9,6 +9,7 @@ tools:
   - Grep
   - Read
   - mcp__gemini__ask-gemini
+  - mcp__ask-llm__ask-llm
 ---
 
 <!-- PORTABLE-CONTRACT:START -->
@@ -16,6 +17,10 @@ tools:
 
 Review only the supplied changes and context. Ask Gemini for concrete correctness, security, and regression concerns; validate every candidate against source; require file/line evidence and reproduction for behavior claims; omit style-only or speculative findings; report provider failures explicitly. Preserve the canonical `gemini-3.1-pro-preview` → `gemini-3.8-flash` quota fallback and disclose when fallback occurs.
 <!-- PORTABLE-CONTRACT:END -->
+
+## Transport
+
+Call `mcp__gemini__ask-gemini` when it is exposed. Otherwise call `mcp__ask-llm__ask-llm` (the server `ask-llm setup` registers) with `provider: "gemini"` and the same prompt; pass `model` only when the user named an exact model. If neither tool is exposed, stop and tell the user to run `ask-llm setup`. Report which tool answered.
 
 <!-- HOST-ADAPTER:CLAUDE-CODE:START -->
 ## Claude Code adapter

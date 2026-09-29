@@ -20,6 +20,10 @@ The current Pi host model completes its independent evidence memo first. Standar
 
 Do not call `ask-multi` for that panel because it cannot express Cursor harness identity, and do not call Gemini. Treat the host memo as non-voting verification evidence, not a third panel answer. If either participant fails, label the run partial and do not claim two-model consensus.
 
+### Other hosts adapter
+
+Codex, Cursor Agent, Antigravity, Grok Build, Gemini CLI and OpenCode get this skill from their skills folder, not from a plugin. The current host model completes its independent evidence memo first. Standard provider lists use one `multi-llm` call as described in `../ask-llm-review/transport.md`. A routed participant uses its matching tool instead: `provider@cursor-agent:model` calls the `ask-cursor-agent` tool with separate `provider` and exact `model`; `grok@grok-cli:model` and `grok@xai-api:model` call `ask-llm` with `provider: "grok"`, that `harness` and the exact model; `codex@codex-cli:model` uses the Codex call from `../ask-llm-review/transport.md` with that exact model. A list mixing routed and bare entries is refused before any call. For the exact Grok + Sol panel, make only the two `ask-cursor-agent` calls named in the Pi adapter above; the host memo is non-voting evidence, and a failed participant makes the run partial.
+
 <!-- HOST-ADAPTER:CLAUDE-CODE:START -->
 ### Claude Code adapter
 

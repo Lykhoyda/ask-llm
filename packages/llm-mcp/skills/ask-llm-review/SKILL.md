@@ -13,7 +13,11 @@ Gather the relevant staged, unstaged, and untracked code changes; build a bounde
 
 ### Pi adapter
 
-Call the native `ask-codex` tool with `reasoningEffort: "high"` and apply only the `Portable contract` section of `../../agents/codex-reviewer.md`. The review runs inline in the current host context; do not claim subagent isolation.
+Call the native `ask-codex` tool with `reasoningEffort: "high"` and apply the portable contract above. The review runs inline in the current host context; do not claim subagent isolation.
+
+### Other hosts adapter
+
+Codex, Cursor Agent, Antigravity, Grok Build, Gemini CLI and OpenCode get this skill from their skills folder, not from a plugin. Apply the portable contract above inline, with the Codex call from `transport.md` (next to this file): `model: "gpt-6-astra"`, `reasoningEffort: "high"`, `sandbox: "read-only"`. There is no isolated reviewer subagent on these hosts; do not claim one.
 
 <!-- HOST-ADAPTER:CLAUDE-CODE:START -->
 ### Claude Code adapter

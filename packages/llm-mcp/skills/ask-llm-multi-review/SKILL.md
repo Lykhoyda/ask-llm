@@ -15,6 +15,10 @@ Build one Context Brief and bounded diff, dispatch the same review contract conc
 
 Use one native `ask-multi` call for concurrent provider dispatch, then perform source verification in the current host context. Do not use the Claude runner binaries or raw provider CLIs.
 
+### Other hosts adapter
+
+Codex, Cursor Agent, Antigravity, Grok Build, Gemini CLI and OpenCode get this skill from their skills folder, not from a plugin. Use one `multi-llm` call as described in `../ask-llm-review/transport.md` for concurrent provider dispatch, then verify every finding against source in the current host context. Do not run raw provider CLIs.
+
 <!-- HOST-ADAPTER:CLAUDE-CODE:START -->
 ### Claude Code adapter
 

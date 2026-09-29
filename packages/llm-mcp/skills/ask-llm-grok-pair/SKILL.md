@@ -27,6 +27,10 @@ If neither leaf is exposed, stop and give this Cursor-native setup (never `claud
 
 Save it as project `.cursor/mcp.json` or user `~/.cursor/mcp.json`. For `xai-api`, ensure `XAI_API_KEY` is present in the MCP server process environment; keep any literal secret in the user-level config and never commit it. For `grok-cli`, install/authenticate Grok Build and verify `grok --help` advertises headless JSON support. Reload the server from **Cursor Settings → Tools & MCP** or restart Cursor Agent, verify that `ask-llm` is exposed, then invoke `/grok-pair` again. The split alternative is the same entry named `grok` with package `@ask-llm/grok-mcp`, which exposes `ask-grok`; keep one registration per server and do not configure both merely to create fallback.
 
+### Other hosts adapter
+
+Codex, Antigravity, Gemini CLI and OpenCode follow the Cursor Agent adapter above; `ask-llm setup` registers the server there, so point to it instead of the Cursor `mcp.json` snippet. When Grok Build hosts this skill, do not route through `grok-cli`, which would launch Grok Build from inside itself; offer only `xai-api` or Cursor Agent.
+
 <!-- HOST-ADAPTER:CLAUDE-CODE:START -->
 ### Claude Code adapter
 

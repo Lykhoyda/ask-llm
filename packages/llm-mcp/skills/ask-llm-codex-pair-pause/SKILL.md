@@ -15,6 +15,10 @@ Create the project-local `.codex-pair/state/paused` sentinel without removing th
 
 Run `/codex-pair-pause` or create the sentinel exactly as described by the portable contract.
 
+### Other hosts adapter
+
+Apply the portable contract above: create the sentinel file exactly as described. It pauses the codex-pair reviewer that Claude Code or Pi runs for this project.
+
 <!-- HOST-ADAPTER:CLAUDE-CODE:START -->
 ### Claude Code adapter
 

@@ -13,7 +13,11 @@ Apply the brainstorm contract with all five external providers: Gemini, Codex, G
 
 ### Pi adapter
 
-Follow `/skill:brainstorm` semantics with `ask-multi` providers `gemini,codex,grok,ollama,antigravity`, after the current Pi host model has committed its independent view.
+Follow `/skill:ask-llm-brainstorm` semantics with `ask-multi` providers `gemini,codex,grok,ollama,antigravity`, after the current Pi host model has committed its independent view.
+
+### Other hosts adapter
+
+Codex, Cursor Agent, Antigravity, Grok Build, Gemini CLI and OpenCode get this skill from their skills folder, not from a plugin. Follow the ask-llm-brainstorm skill with one `multi-llm` call to `gemini,codex,grok,ollama,antigravity` as described in `../ask-llm-review/transport.md`, after the current host model has committed its independent view. Report every unavailable provider.
 
 <!-- HOST-ADAPTER:CLAUDE-CODE:START -->
 ### Claude Code adapter
