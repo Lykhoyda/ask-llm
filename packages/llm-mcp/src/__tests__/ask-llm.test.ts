@@ -74,7 +74,8 @@ describe("host discovery commands", () => {
   for (const [name, script] of [
     ["claude", 'case "$1" in --version) echo "2.1.284 (Claude Code)";; *) exit 9;; esac'],
     ["agent", 'case "$1" in --version) echo "2026.09.26-dd393fe" > "$HOME/.cursor/cli-config.json"; echo "2026.09.26-dd393fe";; *) exit 9;; esac'],
-    ["gemini", 'case "$1" in --version) echo "0.46.0";; *) exit 9;; esac'],
+    ["gemini", 'case "$1" in --version) echo "probe ran" > "$HOME/gemini-version-write"; echo "0.46.0";; *) exit 9;; esac'],
+    ["grok", 'case "$1" in --version) echo "probe ran" > "$HOME/grok-version-write"; echo "grok 1.0.40";; *) exit 9;; esac'],
   ]) {
     writeFileSync(join(bin, name), `#!/bin/sh\n${script}\n`);
     chmodSync(join(bin, name), 0o755);

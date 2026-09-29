@@ -1,4 +1,7 @@
 import { execFile } from "node:child_process";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { promisify } from "node:util";
 import { z } from "zod";
 import { resolveTimeoutMs } from "./commandExecutor.js";
@@ -108,9 +111,10 @@ async function probeCommand(
   const cliPath = resolveSpawnCommand(command, env);
   if (!cliPath) return { cliPath: undefined, version: undefined, error: "not found on PATH" };
 
+  const probeHome = command === "gemini" ? mkdtempSync(join(tmpdir(), "ask-llm-gemini-probe-")) : undefined;
   try {
     const { stdout, stderr } = await execFileAsync(command, versionArgs, {
-      env,
+      env: probeHome ? { ...env, HOME: probeHome, XDG_CONFIG_HOME: probeHome, XDG_CACHE_HOME: probeHome } : env,
       timeout: VERSION_PROBE_TIMEOUT_MS,
     });
     const versionLine = (stdout || stderr).split(/\r?\n/)[0]?.trim();
@@ -118,6 +122,8 @@ async function probeCommand(
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     return { cliPath, version: undefined, error: `version probe failed: ${msg.slice(0, 200)}` };
+  } finally {
+    if (probeHome) rmSync(probeHome, { recursive: true, force: true });
   }
 }
 

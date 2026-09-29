@@ -28,7 +28,8 @@ export interface ServerPath {
   source: "global-bin" | "package-dist";
 }
 
-export const DURABLE_SERVER_GUIDANCE = "Install globally with `npm i -g @ask-llm/mcp`, then run `ask-llm setup --dry-run` for the exact per-host command.";
+export const DURABLE_SERVER_GUIDANCE =
+  "Install globally with `npm i -g @ask-llm/mcp`, then run `ask-llm setup --dry-run` for the exact per-host command.";
 
 function shellQuote(arg: string): string {
   return /^[\w@%+=:,./-]+$/.test(arg) ? arg : `'${arg.replace(/'/g, `'\\''`)}'`;
@@ -50,7 +51,9 @@ export function isOwnRegistration(host: DetectedHost, server: string): boolean {
 export async function resolveServerPath(ownCli: string): Promise<ServerPath> {
   const target = realpathSync(ownCli);
   if (target.split(sep).includes("_npx")) {
-    throw new Error(`ask-llm is running from an npx cache, which is not a durable server path. ${DURABLE_SERVER_GUIDANCE}`);
+    throw new Error(
+      `ask-llm is running from an npx cache, which is not a durable server path. ${DURABLE_SERVER_GUIDANCE}`,
+    );
   }
   const onPath = await resolveCommand("ask-llm-mcp");
   if (onPath && sameFile(onPath, target)) return { path: onPath, source: "global-bin" };

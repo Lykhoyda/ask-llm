@@ -1,5 +1,7 @@
 import { execFile } from "node:child_process";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { promisify } from "node:util";
 import { getSpawnEnv } from "@ask-llm/shared";
 import { resolveCommand } from "../utils/availability.js";
@@ -32,21 +34,34 @@ async function run(binary: string, args: string[], env: NodeJS.ProcessEnv): Prom
 
 async function probeVersion(spec: HostSpec, binary: string, env: NodeJS.ProcessEnv): Promise<string | undefined> {
   if (!spec.versionProbe) return undefined;
+  const probeHome = ["gemini", "grok"].includes(spec.id)
+    ? mkdtempSync(join(tmpdir(), "ask-llm-host-probe-"))
+    : undefined;
   try {
-    const firstLine = (await run(binary, spec.versionProbe.args, env)).split(/\r?\n/)[0]?.trim() ?? "";
+    const probeEnv = probeHome
+      ? { ...env, HOME: probeHome, XDG_CONFIG_HOME: probeHome, XDG_CACHE_HOME: probeHome, GROK_HOME: probeHome }
+      : env;
+    const firstLine = (await run(binary, spec.versionProbe.args, probeEnv)).split(/\r?\n/)[0]?.trim() ?? "";
     return spec.versionProbe.pattern.exec(firstLine)?.[1];
   } catch {
     return undefined;
+  } finally {
+    if (probeHome) rmSync(probeHome, { recursive: true, force: true });
   }
 }
 
 function entryCommand(entry: unknown): string[] | undefined {
   if (entry === null || typeof entry !== "object") return undefined;
   const { command, args, enabled } = entry as { command?: unknown; args?: unknown; enabled?: unknown };
-  if (enabled === false || (args !== undefined && (!Array.isArray(args) || !args.every((arg) => typeof arg === "string")))) return undefined;
+  if (
+    enabled === false ||
+    (args !== undefined && (!Array.isArray(args) || !args.every((arg) => typeof arg === "string")))
+  )
+    return undefined;
   const rest = (args as string[] | undefined) ?? [];
   if (typeof command === "string" && command.trim()) return [command, ...rest];
-  if (Array.isArray(command) && command.length > 0 && command.every((part) => typeof part === "string" && part.trim())) return [...command, ...rest];
+  if (Array.isArray(command) && command.length > 0 && command.every((part) => typeof part === "string" && part.trim()))
+    return [...command, ...rest];
   return undefined;
 }
 

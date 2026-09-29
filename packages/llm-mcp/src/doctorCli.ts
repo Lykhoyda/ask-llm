@@ -22,7 +22,8 @@ async function doctorHosts(ownCli: string): Promise<DoctorHost[]> {
   const hosts = await detectHosts();
   const plan = server ? buildPlan(hosts, server) : undefined;
   return hosts.map(({ spec, ...host }, index) => {
-    const needsManual = host.registered === null || (host.installed && (!host.supported || (spec.unverified && !host.registered)));
+    const needsManual =
+      host.registered === null || (host.installed && (!host.supported || (spec.unverified && !host.registered)));
     return {
       ...host,
       ownServer: host.registered && server ? isOwnRegistration({ ...host, spec }, server) : undefined,
@@ -34,7 +35,9 @@ async function doctorHosts(ownCli: string): Promise<DoctorHost[]> {
 
 function formatHost(host: DoctorHost): string[] {
   if (!host.installed) {
-    const lines = [`  - ${host.name}: not installed${host.leftoverConfig ? " (leftover config)" : ""}${host.error ? `, ${host.error}` : ""}`];
+    const lines = [
+      `  - ${host.name}: not installed${host.leftoverConfig ? " (leftover config)" : ""}${host.error ? `, ${host.error}` : ""}`,
+    ];
     if (host.manual) lines.push(`      exact manual command: ${host.manual}`);
     return lines;
   }
