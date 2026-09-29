@@ -1,19 +1,23 @@
-import { execFile } from "node:child_process";
 import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { promisify } from "node:util";
 import { getSpawnEnv } from "@ask-llm/shared";
 import { resolveCommand } from "../utils/availability.js";
 import { type HostId, type HostSpec, hostSpecs, type RegistrationSource, SERVER_NAME } from "./registry.js";
+import { runHost } from "./spawn.js";
 
-const execFileAsync = promisify(execFile);
 const PROBE_TIMEOUT_MS = 5000;
 
 export interface RegistrationState {
   registered: boolean | null;
   command?: string[];
+  present?: boolean;
   error?: string;
+}
+
+function state(found: boolean, command: string[] | undefined): RegistrationState {
+  if (command) return { registered: true, command };
+  return found ? { registered: false, present: true } : { registered: false };
 }
 
 export interface DetectedHost extends RegistrationState {
@@ -28,7 +32,9 @@ export interface DetectedHost extends RegistrationState {
 }
 
 async function run(binary: string, args: string[], env: NodeJS.ProcessEnv): Promise<string> {
-  const { stdout, stderr } = await execFileAsync(binary, args, { env, timeout: PROBE_TIMEOUT_MS });
+  const { code, stdout, stderr } = await runHost(binary, args, env, PROBE_TIMEOUT_MS);
+  if (code !== 0)
+    throw new Error(`\`${[binary, ...args].join(" ")}\` exited ${code ?? "on timeout or signal"}: ${stderr}`);
   return stdout || stderr;
 }
 
@@ -82,8 +88,7 @@ function readJsonKey(file: string, keyPath: string[]): RegistrationState {
     if (value === null || typeof value !== "object") return { registered: false };
     value = (value as Record<string, unknown>)[key];
   }
-  const command = entryCommand(value);
-  return command ? { registered: true, command } : { registered: false };
+  return state(value !== undefined, entryCommand(value));
 }
 
 function readTomlTable(file: string, table: string): RegistrationState {
@@ -94,10 +99,11 @@ function readTomlTable(file: string, table: string): RegistrationState {
   let found = false;
   let command: string | undefined;
   let args: unknown = [];
+  let enabled: unknown;
   for (const line of text.split(/\r?\n/)) {
     const header = /^\s*\[\s*([^\]]+?)\s*\]\s*(#.*)?$/.exec(line);
     if (header) {
-      currentTable = header[1].replace(/"/g, "");
+      currentTable = header[1].replace(/["'\s]/g, "");
       inTable = currentTable === table;
       if (inTable && header[2]) throw new Error("unsupported Grok TOML trailing comment on ask-llm table");
       found ||= inTable;
@@ -106,15 +112,16 @@ function readTomlTable(file: string, table: string): RegistrationState {
     const trimmed = line.trim();
     if (!trimmed || trimmed.startsWith("#")) continue;
     if (!inTable && (currentTable === "" || currentTable === "mcp_servers")) {
-      const alternate = /^(?:mcp_servers\.)?"?ask-llm"?\s*(=|\.)/.exec(trimmed);
+      const alternate = /^(?:mcp_servers\s*\.\s*)?["']?ask-llm["']?\s*(=|\.)/.exec(trimmed);
       if (alternate) {
         const form = alternate[1] === "." ? "dotted key" : "inline table";
         throw new Error(`unsupported Grok TOML ${form} for ask-llm`);
       }
     }
     if (!inTable) continue;
-    if (/^(command|args)\s*\./.test(trimmed)) throw new Error("unsupported Grok TOML dotted key for ask-llm");
-    const pair = /^\s*(command|args)\s*=\s*(.+?)\s*$/.exec(line);
+    if (/^["']?(command|args|enabled)["']?\s*\./.test(trimmed))
+      throw new Error("unsupported Grok TOML dotted key for ask-llm");
+    const pair = /^\s*["']?(command|args|enabled)["']?\s*=\s*(.+?)\s*$/.exec(line);
     if (!pair) continue;
     let value: unknown;
     try {
@@ -131,9 +138,9 @@ function readTomlTable(file: string, table: string): RegistrationState {
     }
     if (pair[1] === "command") command = value as string;
     if (pair[1] === "args") args = value;
+    if (pair[1] === "enabled") enabled = value;
   }
-  const entry = found ? entryCommand({ command, args }) : undefined;
-  return entry ? { registered: true, command: entry } : { registered: false };
+  return state(found, found ? entryCommand({ command, args, enabled }) : undefined);
 }
 
 async function readList(binary: string, args: string[], env: NodeJS.ProcessEnv): Promise<RegistrationState> {
@@ -142,8 +149,7 @@ async function readList(binary: string, args: string[], env: NodeJS.ProcessEnv):
     transport?: { command?: unknown; args?: unknown };
   }>;
   const entry = servers.find((server) => server.name === SERVER_NAME);
-  const command = entryCommand(entry?.transport);
-  return command ? { registered: true, command } : { registered: false };
+  return state(entry !== undefined, entryCommand(entry?.transport));
 }
 
 function readPackages(file: string, source: string): RegistrationState {
@@ -159,7 +165,7 @@ function readPackages(file: string, source: string): RegistrationState {
   return { registered: listed };
 }
 
-async function readRegistration(
+export async function readRegistration(
   state: RegistrationSource,
   binary: string | undefined,
   env: NodeJS.ProcessEnv,

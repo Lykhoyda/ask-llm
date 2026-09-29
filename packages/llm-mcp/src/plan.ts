@@ -28,11 +28,17 @@ export interface ServerPath {
   source: "global-bin" | "package-dist";
 }
 
+export const UNUSABLE_ENTRY = "an ask-llm entry exists but is disabled or has no usable command";
+
 export const DURABLE_SERVER_GUIDANCE =
   "Install globally with `npm i -g @ask-llm/mcp`, then run `ask-llm setup --dry-run` for the exact per-host command.";
 
 function shellQuote(arg: string): string {
   return /^[\w@%+=:,./-]+$/.test(arg) ? arg : `'${arg.replace(/'/g, `'\\''`)}'`;
+}
+
+export function commandText(argv: string[]): string {
+  return argv.map(shellQuote).join(" ");
 }
 
 function sameFile(a: string, b: string): boolean {
@@ -71,10 +77,10 @@ function plannedRegistration(host: DetectedHost, server: string): PlannedRegistr
     return { kind: "json", file, keyPath, entry: registration.entry(server) };
   }
   const argv = registration.argv(server);
-  return { kind: "command", argv, command: argv.map(shellQuote).join(" ") };
+  return { kind: "command", argv, command: commandText(argv) };
 }
 
-function manualText(registration: PlannedRegistration): string {
+export function manualText(registration: PlannedRegistration): string {
   if (registration.kind === "command") return registration.command;
   return `add ${JSON.stringify(registration.entry)} at ${registration.keyPath.join(".")} in ${registration.file}`;
 }
@@ -93,6 +99,7 @@ function decide(host: DetectedHost, server: string): { action: PlanAction; reaso
     const current = host.command ? `\`${host.command.join(" ")}\`` : "an unrecognized command";
     return { action: "conflict", reason: `an ask-llm entry already runs ${current}; setup will not overwrite it` };
   }
+  if (host.present) return { action: "conflict", reason: `${UNUSABLE_ENTRY}; setup will not overwrite it` };
   if (!host.supported) {
     const probe = [host.spec.binaries[0], ...(host.spec.versionProbe?.args ?? [])].join(" ");
     return { action: "manual", reason: `unrecognized \`${probe}\` output; check the syntax and run it manually` };

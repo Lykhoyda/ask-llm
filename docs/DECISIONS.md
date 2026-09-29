@@ -1,5 +1,15 @@
 # Architectural Decisions
 
+## ADR-180: `ask-llm setup` checks ownership before every host command because four hosts overwrite
+
+**Status:** Accepted (2026-09-29). Implements ADR-179's setup rules for the command hosts (slice S4).
+
+**Context:** Probed with the real CLIs under a temporary HOME (Claude Code 2.1.284, Codex 0.158.0, agy 1.2.13, Grok Build 1.0.40, Gemini CLI 0.46.0): `codex`, `agy`, `grok` and `gemini mcp add` silently replace an existing `ask-llm` entry and exit 0; only `claude mcp add` refuses with exit 1 "already exists in user config". Removing an absent entry exits 0 on Codex and Gemini and 1 on Claude, agy and Grok. `gemini mcp add` and `remove` default to project scope, and `claude`/`grok mcp remove` without a scope search every scope. Gemini loads user servers only in trusted folders. `claude mcp list` health-checks every server and `grok mcp list` writes under `~/.grok` (ADR-179's S3 note).
+
+**Decision:** One registrar per command host (`src/hosts/registrars/`) returns the fixed add or remove argv; the registry's preview argv delegates to it, so the preview and the apply path cannot drift. Before spawning, `applyRegistrar` re-reads the host's registration and refuses an add over any existing `ask-llm` entry (including a disabled or command-less one) and a remove of any entry whose command is not exactly this install's `ask-llm-mcp` by realpath. After spawning, it verifies by reading the same registration surface `ask-llm doctor` reads (Codex's `mcp list --json`; the files the other hosts' add commands write), so "already exists" and "not found" count as success only when the re-read agrees. Because that read now guards an overwriting command, the Grok TOML reader also recognizes quoted or spaced table headers, quoted keys and `enabled = false`, and still reports any other form as unknown. Remove always passes `--scope user` where the host has scopes. Setup never passes `--trust`; it reports Gemini's trusted-folder rule instead. Installed hosts without a registrar are listed with their manual step, never skipped silently.
+
+**Consequences:** Re-running setup or remove changes nothing, and a foreign entry that exists when the pre-spawn read runs (including one that appeared while a confirmation prompt waited) is neither overwritten nor deleted. An entry written in the narrow interval between that read and the host command can still be overwritten on the four overwriting hosts; their CLIs offer no conditional add to close it, and the post-command read then reports whatever the host holds. A changed CLI syntax surfaces as a per-host failure with the host version and the exact manual command.
+
 ## ADR-179: One package with an `ask-llm` command sets itself up in every host
 
 **Status:** Accepted (2026-09-28). Supersedes issue #266's "split packages remain an advanced optimization" wording and ADR-161's documentation direction; ADR-161's unified-transport mechanics stand as groundwork. Keeps ADR-147's portable-contract direction.

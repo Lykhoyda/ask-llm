@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 import { Logger } from "@ask-llm/shared";
 import { runDoctorCli } from "./doctorCli.js";
 import { readPackageJson } from "./packageMetadata.js";
-import { runSetupCli } from "./setupCli.js";
+import { runRemoveCli, runSetupCli } from "./setupCli.js";
 
 const serverCli = fileURLToPath(new URL("./cli.js", import.meta.url));
 
@@ -13,7 +13,8 @@ function help(): string {
     "Usage: ask-llm <command> [options]",
     "",
     "Commands:",
-    "  setup           Preview host registration (ask-llm setup --dry-run [--json])",
+    "  setup           Register Ask LLM with detected hosts (preview: ask-llm setup --dry-run)",
+    "  remove          Remove the host registrations that run this ask-llm-mcp",
     "  doctor          Report provider, host, and environment diagnostics",
     "",
     "Options:",
@@ -36,6 +37,14 @@ if (args.length === 0 || (args.length === 1 && (command === "--help" || command 
     (code) => process.exit(code),
     (error) => {
       Logger.error("setup failed:", error);
+      process.exit(1);
+    },
+  );
+} else if (command === "remove") {
+  runRemoveCli(args.slice(1), serverCli).then(
+    (code) => process.exit(code),
+    (error) => {
+      Logger.error("remove failed:", error);
       process.exit(1);
     },
   );

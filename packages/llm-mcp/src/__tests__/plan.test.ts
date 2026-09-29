@@ -124,6 +124,13 @@ describe("buildPlan", () => {
     });
   });
 
+  it("never overwrites a disabled or command-less ask-llm entry", () => {
+    expect(entry(detected("codex", { registered: false, present: true }))).toMatchObject({
+      action: "conflict",
+      reason: "an ask-llm entry exists but is disabled or has no usable command; setup will not overwrite it",
+    });
+  });
+
   it("keeps unreadable registrations and unverified hosts manual", () => {
     expect(entry(detected("cursor", { registered: null, error: "cannot read registration: bad" }))).toMatchObject({
       action: "manual",

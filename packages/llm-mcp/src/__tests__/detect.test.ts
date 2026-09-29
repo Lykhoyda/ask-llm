@@ -210,6 +210,24 @@ describe("detectHosts", () => {
   });
 
   it.each([
+    [
+      "a single-quoted header",
+      "[mcp_servers.'ask-llm']\ncommand = \"/opt/x\"\n",
+      { registered: true, command: ["/opt/x"] },
+    ],
+    ["a spaced header", '[ mcp_servers . ask-llm ]\ncommand = "/opt/x"\n', { registered: true, command: ["/opt/x"] }],
+    [
+      "quoted keys",
+      '[mcp_servers.ask-llm]\n"command" = "/opt/x"\n"args" = ["--custom"]\n',
+      { registered: true, command: ["/opt/x", "--custom"] },
+    ],
+    ["a disabled entry", '[mcp_servers.ask-llm]\ncommand = "/opt/x"\nenabled = false\n', { present: true }],
+  ])("reads a Grok TOML entry written with %s", async (_, content, expected) => {
+    write(".grok/config.toml", content);
+    expect(host(await detectHosts(env), "grok")).toMatchObject(expected);
+  });
+
+  it.each([
     ["inline table", 'mcp_servers.ask-llm = { command = "/opt/ask-llm-mcp", args = [] }\n'],
     ["dotted key", 'mcp_servers.ask-llm.command = "/opt/ask-llm-mcp"\n'],
     ["single-quoted value", "[mcp_servers.ask-llm]\ncommand = '/opt/ask-llm-mcp'\n"],

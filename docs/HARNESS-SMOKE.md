@@ -17,7 +17,7 @@ Every surface receives exactly one result:
 - `SKIP_UNAVAILABLE` — the optional executable/surface is absent. This is never printed as green. Pi's `/grok-pair` is an intentional unavailable surface under ADR-147.
 - `SKIP_NOT_AUTHORIZED` — the executable exists, but the contributor did not authorize that live surface/model or its local catalog requires authentication.
 
-The matrix covers Claude Code `/brainstorm`, `/codex-pair`, and `/grok-pair`; Cursor Agent's pair skills and exact `/brainstorm` participant route; Pi's `/skill:brainstorm`, `/skill:codex-pair`, native provider adapter, and explicit `/grok-pair` exclusion; direct Codex CLI brainstorm/pair routes; and direct Grok Build brainstorm/pair routes. Pi codex-pair is covered deterministically through its real extension/provider boundary, but live one-shot print mode reports `SKIP_UNAVAILABLE`: the lifecycle requires TUI/RPC/long-lived JSON, project trust, a marker, and a user-owned allowlist.
+The matrix covers Claude Code `/brainstorm`, `/codex-pair`, and `/grok-pair`; Cursor Agent's pair skills and exact `/brainstorm` participant route; Pi's `/skill:brainstorm`, `/skill:codex-pair`, native provider adapter, and explicit `/grok-pair` exclusion; direct Codex CLI brainstorm/pair routes; direct Grok Build brainstorm/pair routes; and `ask-llm setup --dry-run`, which previews the exact `claude mcp add` against a fake Claude Code in a private HOME, writes nothing, and runs deterministically in both modes. Pi codex-pair is covered deterministically through its real extension/provider boundary, but live one-shot print mode reports `SKIP_UNAVAILABLE`: the lifecycle requires TUI/RPC/long-lived JSON, project trust, a marker, and a user-owned allowlist.
 
 ## Optional live mode and cost boundary
 

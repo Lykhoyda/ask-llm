@@ -39,15 +39,12 @@ it.each([[], ["--help"], ["-h"]].map((args) => ({ args })))(
   },
 );
 
-it.each([["remove"], ["--version", "extra"], ["unknown"]].map((args) => ({ args })))(
-  "rejects unsupported argv %j",
-  ({ args }) => {
-    const result = spawnSync(process.execPath, [command, ...args], { encoding: "utf8", timeout: 10_000 });
-    expect(result.status).toBe(2);
-    expect(result.stdout).toBe("");
-    expect(result.stderr).toContain("Usage: ask-llm");
-  },
-);
+it.each([["--version", "extra"], ["unknown"]].map((args) => ({ args })))("rejects unsupported argv %j", ({ args }) => {
+  const result = spawnSync(process.execPath, [command, ...args], { encoding: "utf8", timeout: 10_000 });
+  expect(result.status).toBe(2);
+  expect(result.stdout).toBe("");
+  expect(result.stderr).toContain("Usage: ask-llm");
+});
 
 it("delegates doctor argument errors to the existing diagnostics dispatcher", () => {
   const result = spawnSync(process.execPath, [command, "doctor", "--unknown"], { encoding: "utf8", timeout: 10_000 });
@@ -268,13 +265,13 @@ describe("host discovery commands", () => {
     expect(help).toContain("registration change requires");
   });
 
-  it.each([[[]], [["--json"]], [["--dry-run", "--yes"]]])("refuses setup %j without writing", (args) => {
+  it.each([[["setup"]], [["setup", "--json"]], [["remove"]]])("refuses %j without a terminal or -y", (args) => {
     const before = snapshot(home);
-    const result = ask("setup", ...args);
+    const result = ask(...args);
     expect(snapshot(home)).toEqual(before);
     expect(result.status).toBe(2);
     expect(result.stdout).toBe("");
-    expect(result.stderr).toContain("ask-llm setup --dry-run");
+    expect(result.stderr).toContain(`Usage: ask-llm ${args[0]}`);
   });
 
   it("adds a hosts section to ask-llm doctor --json without changing the provider report", () => {
