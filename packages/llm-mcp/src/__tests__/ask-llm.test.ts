@@ -9,6 +9,7 @@ import {
   realpathSync,
   rmSync,
   symlinkSync,
+  unlinkSync,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
@@ -161,6 +162,25 @@ describe("host discovery commands", () => {
       expect(doctorText).toContain(`exact manual command: ${manual}`);
     } finally {
       writeFileSync(file, original);
+    }
+  });
+
+  it("prints the planned command for an unrecognized host version in doctor", () => {
+    const agy = join(bin, "agy");
+    writeFileSync(agy, "#!/bin/sh\necho changed-version\n", { mode: 0o755 });
+    try {
+      const manual = `agy mcp add ask-llm ${server}`;
+      const setupHost = JSON.parse(ask("setup", "--dry-run", "--json").stdout).hosts.find(
+        (host: { id: string }) => host.id === "agy",
+      );
+      expect(setupHost).toMatchObject({ installed: true, action: "manual", manual });
+      const doctorHost = JSON.parse(ask("doctor", "--json").stdout).hosts.find(
+        (host: { id: string }) => host.id === "agy",
+      );
+      expect(doctorHost).toMatchObject({ installed: true, supported: false, registered: false, manual });
+      expect(ask("doctor").stdout).toContain(`exact manual command: ${manual}`);
+    } finally {
+      unlinkSync(agy);
     }
   });
 

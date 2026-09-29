@@ -111,7 +111,7 @@ export function buildPlan(hosts: DetectedHost[], server: string): PlanEntry[] {
       version: host.version,
       action,
       reason,
-      manual: action === "manual" ? manualText(registration) : undefined,
+      manual: action === "manual" || (host.installed && !host.supported) ? manualText(registration) : undefined,
       registration,
       skillsDir: host.spec.skillsDir,
       restart: host.spec.restart,

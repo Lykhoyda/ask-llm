@@ -25,7 +25,7 @@ async function doctorHosts(ownCli: string): Promise<DoctorHost[]> {
     ...host,
     ownServer: host.registered && server ? isOwnRegistration({ ...host, spec }, server) : undefined,
     restart: spec.restart,
-    manual: host.registered === null ? plan?.[index].manual : undefined,
+    manual: plan?.[index].manual,
   }));
 }
 
@@ -48,7 +48,6 @@ function formatHost(host: DoctorHost): string[] {
     `      after a registration change: ${restart}`,
   ];
   if (host.manual) lines.push(`      exact manual command: ${host.manual}`);
-  else if (!host.supported) lines.push("      exact manual command: ask-llm setup --dry-run");
   return lines;
 }
 
