@@ -14,7 +14,7 @@ function extractShellPath(): string | null {
 
   try {
     const shell = process.env.SHELL || "/bin/zsh";
-    const output = execFileSync(shell, ["-ilc", 'echo "___PATH___$PATH___END___"'], {
+    const output = execFileSync(shell, ["-ilc", `printf '___PATH___%s___END___\\n' "$PATH"`], {
       encoding: "utf8",
       stdio: ["ignore", "pipe", "ignore"],
       timeout: 5000,

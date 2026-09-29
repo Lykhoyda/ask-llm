@@ -221,7 +221,7 @@ describe("ask-llm-mcp machine", () => {
     const marker = markerPath();
     const result = runCli(["machine"], JSON.stringify(request), {
       allowExecutorOverride: false,
-      env: { PATH: "" },
+      env: { PATH: "", ASK_LLM_PATH: join(tmpdir(), "ask-llm-no-provider-cli") },
       executorPath: successExecutorPath,
       marker,
     });
