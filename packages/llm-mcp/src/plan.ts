@@ -1,6 +1,7 @@
 import { execFileSync } from "node:child_process";
 import { realpathSync } from "node:fs";
 import { join, sep } from "node:path";
+import { getSpawnEnv } from "@ask-llm/shared";
 import type { DetectedHost } from "./hosts/detect.js";
 import { type HostId, SERVER_NAME } from "./hosts/registry.js";
 import { resolveCommand } from "./utils/availability.js";
@@ -67,8 +68,9 @@ export async function resolveServerPath(ownCli: string): Promise<ServerPath> {
     const npm = await resolveCommand("npm");
     if (npm) {
       try {
-        const prefix = execFileSync(npm, ["prefix", "-g"], { encoding: "utf8", timeout: 5000 }).trim();
-        const root = execFileSync(npm, ["root", "-g"], { encoding: "utf8", timeout: 5000 }).trim();
+        const options = { encoding: "utf8" as const, timeout: 5000, env: getSpawnEnv() };
+        const prefix = execFileSync(npm, ["prefix", "-g"], options).trim();
+        const root = execFileSync(npm, ["root", "-g"], options).trim();
         if (
           onPath === join(prefix, "bin", "ask-llm-mcp") &&
           target === join(realpathSync(root), "@ask-llm", "mcp", "dist", "cli.js")
