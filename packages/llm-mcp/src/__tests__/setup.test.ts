@@ -2,6 +2,7 @@ import { spawnSync } from "node:child_process";
 import {
   copyFileSync,
   cpSync,
+  existsSync,
   mkdirSync,
   mkdtempSync,
   readdirSync,
@@ -24,6 +25,7 @@ import {
   FAKE_HOSTS,
   fakeArgv,
   installFakeHost,
+  installFakeNpx,
   setFakeMode,
   writeRegistration,
   writeUnusableRegistration,
@@ -33,6 +35,7 @@ const root = realpathSync(mkdtempSync(join(tmpdir(), "ask-llm-setup-")));
 const packageRoot = join(root, "lib/node_modules/@ask-llm/mcp");
 mkdirSync(packageRoot, { recursive: true });
 cpSync(fileURLToPath(new URL("../../dist", import.meta.url)), join(packageRoot, "dist"), { recursive: true });
+cpSync(fileURLToPath(new URL("../../skills", import.meta.url)), join(packageRoot, "skills"), { recursive: true });
 copyFileSync(fileURLToPath(new URL("../../package.json", import.meta.url)), join(packageRoot, "package.json"));
 symlinkSync(fileURLToPath(new URL("../../../../node_modules", import.meta.url)), join(packageRoot, "node_modules"));
 const command = join(packageRoot, "dist/ask-llm.js");
@@ -72,6 +75,7 @@ beforeEach(() => {
     { mode: 0o755 },
   );
   for (const name of HOSTS) installFakeHost(bin, name);
+  installFakeNpx(bin);
 });
 
 function ask(...args: string[]) {
@@ -107,7 +111,9 @@ describe("ask-llm setup", () => {
   it("registers every detected command host with -y, and a second run changes nothing", () => {
     const first = ask("setup", "-y");
     expect(first.stderr).toBe("");
-    expect(first.status).toBe(0);
+    // The only unsuccessful row is agy's skills folder, which no skills@1.7.0 agent id reaches (ADR-183).
+    expect(first.status).toBe(1);
+    expect(first.stdout).toContain("Antigravity skills: manual");
     expect(calls()).toEqual(Object.fromEntries(HOSTS.map((name) => [name, [ADD[name]]])));
     expect(first.stdout).toContain("Claude Code 2.1.284: registered");
     expect(first.stdout).toContain("start a new session");
@@ -116,10 +122,48 @@ describe("ask-llm setup", () => {
     expect(backups()).toEqual([]);
 
     const second = ask("setup", "-y");
-    expect(second.status).toBe(0);
+    expect(second.status).toBe(1);
     expect(second.stdout).toContain("Codex CLI 0.158.0: already registered");
+    expect(second.stdout).toContain("Claude Code plugin: already installed");
+    expect(second.stdout).toContain("Codex CLI skills: already installed");
     expect(second.stdout).toContain("No changes.");
     expect(calls()).toEqual(Object.fromEntries(HOSTS.map((name) => [name, [ADD[name]]])));
+    expect(readFileSync(join(home, "npx-argv"), "utf8").trim().split("\n")).toHaveLength(1);
+    expect(readFileSync(join(home, ".fake-claude-plugin-argv"), "utf8").trim().split("\n")).toHaveLength(2);
+  });
+
+  it("installs the Claude plugin in Claude Code and the skills everywhere else, previewed on --dry-run", () => {
+    const preview = ask("setup", "--dry-run", "--json", "--host", "claude,codex,grok");
+    const { workflows } = JSON.parse(preview.stdout);
+    expect(workflows.plugins.map(({ id }: { id: string }) => id)).toEqual(["claude"]);
+    expect(workflows.skills.agents.map(({ agent }: { agent: string }) => agent)).toEqual(["codex", "grok"]);
+    expect(workflows.skills.command).toMatch(
+      /^DISABLE_TELEMETRY=1 npx -y skills@1\.7\.0 add Lykhoyda\/ask-llm --skill /,
+    );
+    expect(ask("setup", "--dry-run", "--host", "claude,codex").stdout).toContain(
+      "claude plugin marketplace add Lykhoyda/ask-llm && claude plugin install ask-llm@ask-llm-plugins",
+    );
+    expect(existsSync(join(home, "npx-argv"))).toBe(false);
+
+    const result = ask("setup", "-y", "--host", "claude,codex,grok");
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain("Claude Code plugin: installed");
+    expect(result.stdout).toContain("Codex CLI skills: installed");
+    expect(result.stdout).toContain("Grok Build skills: installed");
+    const npx = readFileSync(join(home, "npx-argv"), "utf8");
+    expect(npx).toContain("-g -a codex grok -y");
+    expect(npx).not.toContain("claude-code");
+    expect(readFileSync(join(home, ".fake-claude-plugin-argv"), "utf8")).toBe(
+      "plugin marketplace add Lykhoyda/ask-llm\nplugin install ask-llm@ask-llm-plugins\n",
+    );
+  });
+
+  it("reports a failed skills install with the manual command", () => {
+    writeFileSync(join(home, "npx-mode"), "fail");
+    const result = ask("setup", "-y", "--host", "codex");
+    expect(result.status).toBe(1);
+    expect(result.stdout).toContain("Codex CLI skills: failed (network error (exit 1))");
+    expect(result.stdout).toContain("Run it manually: DISABLE_TELEMETRY=1 npx -y skills@1.7.0 add Lykhoyda/ask-llm");
   });
 
   it("changes only the hosts named with --host", () => {
@@ -202,7 +246,7 @@ describe("ask-llm setup", () => {
   it("lists an installed host it does not register with its manual step instead of dropping it", () => {
     writeFileSync(join(bin, "pi"), '#!/bin/sh\necho "0.87.1"\n', { mode: 0o755 });
     const result = ask("setup", "-y");
-    expect(result.status).toBe(0);
+    expect(result.status).toBe(1);
     expect(result.stdout).toContain("Pi 0.87.1: not handled by this release (setup does not register Pi yet)");
     expect(result.stdout).toContain("Run it manually: pi install npm:@ask-llm/mcp");
     const removed = ask("remove", "-y");
@@ -250,7 +294,7 @@ describe("ask-llm setup", () => {
   it("backs up each host's config file before its command writes it", () => {
     writeConfigFiles();
     const result = ask("setup", "-y");
-    expect(result.status).toBe(0);
+    expect(result.status).toBe(1);
     expect(result.stdout).toContain("Each backup may contain credentials");
     expect(result.stdout).toContain("remains until you delete it");
     const saved = backups();
@@ -465,7 +509,7 @@ describe("ask-llm remove", () => {
   });
 
   it("round-trips setup and remove", () => {
-    expect(ask("setup", "-y").status).toBe(0);
+    expect(ask("setup", "-y").stdout).toContain("Antigravity skills: manual");
     expect(ask("remove", "-y", "--host", "codex").status).toBe(0);
     expect(fakeArgv(home, "codex")).toEqual([ADD.codex, ["mcp", "remove", "ask-llm"]]);
     expect(ask("setup", "-y").stdout).toContain("Codex CLI 0.158.0: registered");

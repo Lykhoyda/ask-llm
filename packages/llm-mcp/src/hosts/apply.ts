@@ -80,7 +80,7 @@ function gate(host: DetectedHost, current: RegistrationState, op: HostOp, server
   return undefined;
 }
 
-function backupConfig(file: string | undefined): string | undefined {
+export function backupConfig(file: string | undefined): string | undefined {
   if (!file) return undefined;
   let resolved: string;
   try {

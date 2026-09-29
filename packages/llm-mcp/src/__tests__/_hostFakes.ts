@@ -73,6 +73,11 @@ export function installFakeHost(bin: string, name: string): void {
     "#!/bin/sh",
     `if [ "$1" = "--version" ]; then echo "${host.version}"; exit 0; fi`,
     `if [ "$*" = "mcp list --json" ]; then cat ${file} 2>/dev/null || echo "[]"; exit 0; fi`,
+    // Plugin commands answer like Claude Code 2.1.284 did in the temp-HOME probes; logged apart from MCP argv.
+    `if [ "$1" = plugin ]; then echo "$*" >> "$HOME/.fake-${name}-plugin-argv"; p="$HOME/.claude/plugins"; mkdir -p "$p"`,
+    `  [ "$2" = marketplace ] && echo '{"ask-llm-plugins":{}}' > "$p/known_marketplaces.json"`,
+    `  [ "$2" = install ] && echo '{"version":2,"plugins":{"ask-llm@ask-llm-plugins":[{"scope":"user"}]}}' > "$p/installed_plugins.json"`,
+    "  exit 0; fi",
     `printf '%s\\t' "$@" >> "$HOME/.fake-${name}-argv"; echo >> "$HOME/.fake-${name}-argv"`,
     `mode=$(cat "$HOME/.fake-${name}-mode" 2>/dev/null)`,
     `if [ "$mode" = fail ]; then echo "error: unexpected argument --scope found" >&2; exit 2; fi`,
@@ -126,4 +131,25 @@ export function writeUnusableRegistration(home: string, name: string): void {
   const path = join(home, host.file);
   mkdirSync(join(path, ".."), { recursive: true });
   writeFileSync(path, host.unusable.replaceAll("\\n", "\n"));
+}
+
+// Mirrors skills@1.7.0 from the temp-HOME probes: writes where the real CLI writes, "Invalid agents" exits 1.
+export const FAKE_NPX = `#!/bin/sh
+printf '%s\\n' "$*" >> "$HOME/npx-argv"
+mode=$(cat "$HOME/npx-mode" 2>/dev/null || echo ok)
+[ "$mode" = fail ] && { echo "network error" >&2; exit 1; }
+agents=$(printf '%s\\n' "$@" | sed -n '/^-a$/,/^-y$/p' | sed '1d;$d')
+for agent in $agents; do
+  case $agent in codex|cursor|gemini-cli|opencode|grok|pi) ;; *) echo "Invalid agents: $agent" >&2; exit 1 ;; esac
+done
+skills=$(printf '%s\\n' "$@" | sed -n '/^--skill$/,/^-g$/p' | sed '1d;$d')
+for agent in $agents; do
+  case $agent in grok) dir="$HOME/.grok/skills" ;; pi) dir="$HOME/.pi/agent/skills" ;; *) dir="$HOME/.agents/skills" ;; esac
+  for skill in $skills; do mkdir -p "$dir/$skill" && echo x > "$dir/$skill/SKILL.md"; done
+done
+`;
+
+export function installFakeNpx(bin: string): void {
+  writeFileSync(join(bin, "npx"), FAKE_NPX);
+  chmodSync(join(bin, "npx"), 0o755);
 }

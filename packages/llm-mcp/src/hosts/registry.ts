@@ -34,7 +34,9 @@ export interface HostSpec {
   versionProbe?: { args: string[]; pattern: RegExp };
   registration: Registration;
   registrationState: RegistrationSource;
+  // Where the skills land for this host; `skillsAgent` is its id in the pinned skills CLI.
   skillsDir?: string;
+  skillsAgent?: string;
   pluginInstall?: string[][];
   restart: "new-session" | "app-restart";
   notice?: string;
@@ -63,6 +65,8 @@ export function hostSpecs(env: NodeJS.ProcessEnv = process.env, platform = proce
   const piSettings = join(home, ".pi", "agent", "settings.json");
   const opencodeHome = join(env.XDG_CONFIG_HOME ?? join(home, ".config"), "opencode");
   const opencodeConfig = join(opencodeHome, "opencode.json");
+  // skills@1.7.0 installs every "universal" agent (Codex, Cursor, Gemini CLI, OpenCode) into this one folder.
+  const sharedSkills = join(home, ".agents", "skills");
   const serverKey = ["mcpServers", SERVER_NAME];
 
   return [
@@ -92,7 +96,8 @@ export function hostSpecs(env: NodeJS.ProcessEnv = process.env, platform = proce
       versionProbe: { args: ["--version"], pattern: /^codex-cli (\d+\.\d+\.\d+)/ },
       registration: { kind: "command", argv: (server) => codex("add", server) },
       registrationState: { kind: "list", args: ["mcp", "list", "--json"] },
-      skillsDir: join(codexHome, "skills"),
+      skillsDir: sharedSkills,
+      skillsAgent: "codex",
       restart: "new-session",
     },
     {
@@ -104,6 +109,7 @@ export function hostSpecs(env: NodeJS.ProcessEnv = process.env, platform = proce
       versionProbe: plainVersion,
       registration: { kind: "command", argv: (server) => antigravity("add", server) },
       registrationState: { kind: "json", file: agyConfig, keyPath: serverKey },
+      // agy reads global skills only from here, which no skills@1.7.0 agent id writes.
       skillsDir: join(home, ".gemini", "config", "skills"),
       restart: "new-session",
     },
@@ -118,6 +124,7 @@ export function hostSpecs(env: NodeJS.ProcessEnv = process.env, platform = proce
       // `grok mcp list` writes logs and docs under ~/.grok, so read the file its add command owns.
       registrationState: { kind: "toml", file: grokConfig, table: `mcp_servers.${SERVER_NAME}` },
       skillsDir: join(grokHome, "skills"),
+      skillsAgent: "grok",
       restart: "new-session",
     },
     {
@@ -129,7 +136,8 @@ export function hostSpecs(env: NodeJS.ProcessEnv = process.env, platform = proce
       versionProbe: plainVersion,
       registration: { kind: "command", argv: (server) => gemini("add", server) },
       registrationState: { kind: "json", file: geminiSettings, keyPath: serverKey },
-      skillsDir: join(home, ".gemini", "skills"),
+      skillsDir: sharedSkills,
+      skillsAgent: "gemini-cli",
       restart: "new-session",
       notice:
         "Gemini CLI loads user MCP servers only in trusted folders; trust the folder in Gemini CLI to use Ask LLM there.",
@@ -143,7 +151,8 @@ export function hostSpecs(env: NodeJS.ProcessEnv = process.env, platform = proce
       configFile: cursorConfig,
       registration: { kind: "json", file: cursorConfig, edit: cursor },
       registrationState: { kind: "json", file: cursorConfig, keyPath: serverKey },
-      skillsDir: join(home, ".cursor", "skills"),
+      skillsDir: sharedSkills,
+      skillsAgent: "cursor",
       restart: "app-restart",
     },
     {
@@ -165,6 +174,8 @@ export function hostSpecs(env: NodeJS.ProcessEnv = process.env, platform = proce
       versionProbe: plainVersion,
       registration: { kind: "command", argv: () => ["pi", "install", PI_PACKAGE_SOURCE] },
       registrationState: { kind: "packages", file: piSettings, source: PI_PACKAGE_SOURCE },
+      skillsDir: join(home, ".pi", "agent", "skills"),
+      skillsAgent: "pi",
       restart: "new-session",
     },
     {
@@ -181,7 +192,8 @@ export function hostSpecs(env: NodeJS.ProcessEnv = process.env, platform = proce
         keyPath: ["mcp", SERVER_NAME],
         jsonc: join(opencodeHome, "opencode.jsonc"),
       },
-      skillsDir: join(opencodeHome, "skills"),
+      skillsDir: sharedSkills,
+      skillsAgent: "opencode",
       restart: "new-session",
       notice: "OpenCode registration is verified against fixture files only, not yet on a real OpenCode install.",
     },
