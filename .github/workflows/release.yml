@@ -190,8 +190,8 @@ jobs:
           node scripts/publish-mcp-registry.ts
           packages/llm-mcp/server.json
 
-      # Unified GitHub Release tagged at the canonical package version. It remains the single human-facing GitHub Release,
-      # alongside remote per-package source tags used for package-level audit/diff links.
+      # Unified GitHub Release on the canonical @ask-llm/mcp@<version> package tag (ADR-181). It remains the single
+      # human-facing GitHub Release, alongside remote per-package source tags used for package-level audit/diff links.
       - name: Get canonical version for unified release tag
         if: steps.changesets.outputs.published == 'true' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')
         id: canonical_version
@@ -203,28 +203,21 @@ jobs:
           CANONICAL_VERSION: ${{ steps.canonical_version.outputs.version }}
           GH_TOKEN: ${{ github.token }}
         run: |
-          TAG="v${CANONICAL_VERSION}"
-          TAG_TARGET=$(git log -G "^[[:space:]]*\"version\": \"${CANONICAL_VERSION}\"" -1 --format=%H -- packages/llm-mcp/package.json)
-          test -n "$TAG_TARGET"
-          # A recovery may follow a partially-created tag or release. Verify the
-          # existing tag target, create only the missing object, and never retag.
-          if git rev-parse --verify --quiet "refs/tags/$TAG" >/dev/null; then
-            test "$(git rev-list -n 1 "$TAG")" = "$TAG_TARGET"
-          else
-            git tag "$TAG" "$TAG_TARGET"
-            git push origin "$TAG"
-          fi
+          TAG="@ask-llm/mcp@${CANONICAL_VERSION}"
+          # Same helper as the per-package step: verify the remote tag target,
+          # create only a missing tag, and never retag.
+          node scripts/create-or-verify-package-tags.ts --verify-npm-git-head --canonical-only
           if gh release view "$TAG" >/dev/null 2>&1; then
-            echo "Verified existing unified release $TAG at $TAG_TARGET"
+            echo "Verified existing unified release $TAG"
           else
-            gh release create "$TAG" --generate-notes --title "$TAG"
+            gh release create "$TAG" --verify-tag --generate-notes --title "$TAG"
           fi
 
       # changesets/action v2 has push-git-tags: false, so package tags stay
       # runner-local (ADR-152). Preserve the intended remote tag contract
       # explicitly, including on main-branch dispatch recovery (ADR-151).
-      # Runs after the unified release so a tag failure cannot block unified
-      # release creation or verification; the helper is idempotent on rerun.
+      # Runs after the unified release so another package's tag failure cannot
+      # block it; it verifies the @ask-llm/mcp tag that step already created.
       - name: Create or verify per-package Git tags
         if: steps.changesets.outputs.published == 'true' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')
         run: node scripts/create-or-verify-package-tags.ts --verify-npm-git-head

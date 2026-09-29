@@ -9,6 +9,7 @@ import {
   createOrVerifyPackageTags,
   findVersionIntroducingCommit,
   lookupRemoteTag,
+  parseArguments,
   pushMissingTag,
   verifyNpmGitHead,
 } from "./create-or-verify-package-tags.ts";
@@ -68,7 +69,7 @@ function commitAll(root: string, message: string): string {
   return git(root, "rev-parse", "HEAD");
 }
 
-function fixture() {
+function fixture(canonical = false) {
   const directory = mkdtempSync(join(tmpdir(), "ask-llm-package-tags-"));
   scratchDirectories.push(directory);
   const root = join(directory, "work");
@@ -81,11 +82,12 @@ function fixture() {
   git(root, "config", "commit.gpgsign", "false");
   git(root, "config", "tag.gpgSign", "false");
 
-  writePackage(root, "one", "@ask-llm/one", "0.9.0");
+  const firstPackage = canonical ? "@ask-llm/mcp" : "@ask-llm/one";
+  writePackage(root, "one", firstPackage, "0.9.0");
   writePackage(root, "two", "@ask-llm/two", "0.8.0");
   writePackage(root, "shared", "@ask-llm/shared", "0.5.0", { private: true, publishConfig: undefined });
   const previous = commitAll(root, "initial versions");
-  writePackage(root, "one", "@ask-llm/one", "1.0.0");
+  writePackage(root, "one", firstPackage, "1.0.0");
   writePackage(root, "two", "@ask-llm/two", "2.0.0");
   const release = commitAll(root, "version packages");
   git(root, "remote", "add", "origin", remote);
@@ -167,7 +169,7 @@ test("dry-run reports every mismatched remote tag before one failure and never r
   assert.equal(lines.filter((line) => line.startsWith("MISMATCH ")).length, 2);
   assert.equal(remoteTarget(root, remote, "@ask-llm/one@1.0.0"), previous);
   assert.equal(remoteTarget(root, remote, "@ask-llm/two@2.0.0"), previous);
-});
+}, 15_000);
 
 test("partial completion verifies an existing tag and creates only the missing tag", () => {
   const { root, remote, release } = fixture();
@@ -181,6 +183,48 @@ test("partial completion verifies an existing tag and creates only the missing t
   );
   assert.equal(remoteTarget(root, remote, "@ask-llm/one@1.0.0"), release);
   assert.equal(remoteTarget(root, remote, "@ask-llm/two@2.0.0"), release);
+});
+
+test("the unified release's single-package run creates its tag and the full run then verifies it", () => {
+  const { root, remote, release } = fixture(true);
+  // changeset publish leaves a runner-local tag; only the remote ref may decide create vs verify.
+  git(root, "tag", "@ask-llm/mcp@1.0.0", "HEAD");
+
+  const unified = silentLog();
+  const single = createOrVerifyPackageTags({ cwd: root, remote, canonicalOnly: true }, { log: unified.logger });
+  assert.deepEqual(
+    single.plans.map((plan) => plan.tag),
+    ["@ask-llm/mcp@1.0.0"],
+  );
+  assert.ok(unified.lines.includes(`CREATED @ask-llm/mcp@1.0.0 at ${release}`));
+  assert.equal(remoteTarget(root, remote, "@ask-llm/two@2.0.0"), null);
+
+  const perPackage = silentLog();
+  const full = createOrVerifyPackageTags({ cwd: root, remote }, { log: perPackage.logger });
+  assert.ok(perPackage.lines.includes(`VERIFIED @ask-llm/mcp@1.0.0 at ${release}`));
+  assert.deepEqual(
+    full.missing.map((plan) => plan.tag),
+    ["@ask-llm/two@2.0.0"],
+  );
+  assert.equal(remoteTarget(root, remote, "@ask-llm/mcp@1.0.0"), release);
+
+  const rerun = silentLog();
+  createOrVerifyPackageTags({ cwd: root, remote, canonicalOnly: true }, { log: rerun.logger });
+  assert.ok(rerun.lines.includes(`VERIFIED @ask-llm/mcp@1.0.0 at ${release}`));
+});
+
+test("a canonical-only run requires the public canonical package", () => {
+  const { root, remote } = fixture();
+  assert.throws(
+    () => createOrVerifyPackageTags({ cwd: root, remote, canonicalOnly: true }, { log: silentLog().logger }),
+    /@ask-llm\/mcp is not a public @ask-llm package/,
+  );
+});
+
+test("parses only the canonical selector", () => {
+  assert.equal(parseArguments(["--canonical-only", "--verify-npm-git-head"]).canonicalOnly, true);
+  assert.equal(parseArguments([]).canonicalOnly, false);
+  assert.throws(() => parseArguments(["--package", "@ask-llm/two"]), /Unknown argument: --package/);
 });
 
 test("a duplicate push race is accepted only when the remote winner has the expected target", () => {
@@ -318,6 +362,75 @@ test("workflow structurally runs package tags after the unified release for publ
   assert.equal(changesetsStep.with["push-git-tags"], false);
   assert.ok(steps.indexOf(unifiedSteps[0]) < steps.indexOf(tagSteps[0]));
   assert.ok(steps.indexOf(tagSteps[0]) < steps.indexOf(failureStep));
+});
+
+test("unified release creates and verifies the canonical tag despite the historic v1.0.0 tag", () => {
+  const workflow = parseYaml(
+    readFileSync(join(import.meta.dirname, "../.github/workflows/release.yml"), "utf8"),
+  ) as Workflow;
+  const unifiedStep = workflow.jobs.release.steps.find(
+    (step) => step.name === "Create or verify unified GitHub Release",
+  ) as WorkflowStep;
+  const { root, remote, previous, release } = fixture(true);
+  git(root, "push", remote, `${previous}:refs/tags/v1.0.0`);
+  const scripts = join(root, "scripts");
+  const bin = join(root, "bin");
+  mkdirSync(scripts);
+  mkdirSync(bin);
+  writeFileSync(
+    join(scripts, "create-or-verify-package-tags.ts"),
+    readFileSync(join(import.meta.dirname, "create-or-verify-package-tags.ts")),
+  );
+  writeFileSync(
+    join(bin, "npm"),
+    String.raw`#!/bin/sh
+test "$1" = view && test "$2" = '@ask-llm/mcp@1.0.0' && test "$3" = gitHead || exit 1
+printf '"%s"\n' "$EXPECTED_HEAD"
+`,
+    { mode: 0o755 },
+  );
+  writeFileSync(
+    join(bin, "gh"),
+    String.raw`#!/bin/sh
+case "$1 $2" in
+  'release view')
+    test -f "$GH_RELEASE" && test "$(cat "$GH_RELEASE")" = "$3"
+    ;;
+  'release create')
+    test "$4" = --verify-tag && test "$5" = --generate-notes && test "$6" = --title && test "$7" = "$3" || exit 1
+    test -n "$(git ls-remote origin "refs/tags/$3")" || exit 1
+    printf '%s\n' "$3" > "$GH_RELEASE"
+    printf 'created\n' >> "$GH_EVENTS"
+    ;;
+  *) exit 1 ;;
+esac
+`,
+    { mode: 0o755 },
+  );
+  const releaseRecord = join(root, "release-record");
+  const events = join(root, "release-events");
+  const run = () =>
+    execFileSync("bash", ["-e", "-c", unifiedStep.run], {
+      cwd: root,
+      encoding: "utf8",
+      env: {
+        ...process.env,
+        PATH: `${bin}:${process.env.PATH}`,
+        CANONICAL_VERSION: "1.0.0",
+        EXPECTED_HEAD: release,
+        GH_RELEASE: releaseRecord,
+        GH_EVENTS: events,
+      },
+    });
+
+  run();
+  assert.equal(remoteTarget(root, remote, "@ask-llm/mcp@1.0.0"), release);
+  assert.equal(remoteTarget(root, remote, "@ask-llm/two@2.0.0"), null);
+  assert.equal(remoteTarget(root, remote, "v1.0.0"), previous);
+  assert.equal(readFileSync(releaseRecord, "utf8"), "@ask-llm/mcp@1.0.0\n");
+  run();
+  assert.equal(remoteTarget(root, remote, "@ask-llm/mcp@1.0.0"), release);
+  assert.equal(readFileSync(events, "utf8"), "created\n");
 });
 
 test("manual dispatch has no inputs and on main is always registry/release/tag recovery without npm", () => {
