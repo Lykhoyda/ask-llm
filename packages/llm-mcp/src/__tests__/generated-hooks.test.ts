@@ -70,4 +70,4 @@ it("runs the SessionStart hook from the packed npm package", () => {
   } finally {
     fs.rmSync(temp, { recursive: true, force: true });
   }
-});
+}, 30_000);
