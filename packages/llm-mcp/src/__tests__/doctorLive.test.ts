@@ -112,7 +112,11 @@ describe("exerciseProviders", () => {
     delete process.env.ASK_GROK_HARNESS;
     const executor = vi.fn<ExecutorFn>().mockResolvedValue({ response: "OK", model: "grok" });
     try {
-      await exerciseProviders(report([provider("Grok")]), [{ key: "grok", name: "Grok", command: "grok" }], async () => executor);
+      await exerciseProviders(
+        report([provider("Grok")]),
+        [{ key: "grok", name: "Grok", command: "grok" }],
+        async () => executor,
+      );
       expect(executor).toHaveBeenCalledWith(expect.objectContaining({ harness: "grok-cli", singleAttempt: true }));
     } finally {
       if (priorKey === undefined) delete process.env.XAI_API_KEY;
