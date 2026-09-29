@@ -192,6 +192,14 @@ describe("detectHosts", () => {
     }
   });
 
+  it("retains separate arguments after an array command", async () => {
+    write(".config/opencode/opencode.json", JSON.stringify({ mcp: { "ask-llm": { command: ["/opt/ask-llm-mcp"], args: ["--extra"] } } }));
+    expect(host(await detectHosts(env), "opencode")).toMatchObject({
+      registered: true,
+      command: ["/opt/ask-llm-mcp", "--extra"],
+    });
+  });
+
   it("reports non-file registration surfaces as unreadable", async () => {
     for (const path of [".cursor/mcp.json", ".grok/config.toml", ".pi/agent/settings.json"]) {
       mkdirSync(join(home, path), { recursive: true });

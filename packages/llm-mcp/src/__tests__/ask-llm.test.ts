@@ -137,6 +137,24 @@ describe("host discovery commands", () => {
     expect(result.stdout).toContain("nothing was changed");
   });
 
+  it("treats a registered server with extra arguments as a conflict", () => {
+    const file = join(home, ".claude.json");
+    const original = readFileSync(file);
+    writeFileSync(file, JSON.stringify({ mcpServers: { "ask-llm": { command: server, args: ["--extra"] } } }));
+    try {
+      const plan = JSON.parse(ask("setup", "--dry-run", "--json").stdout);
+      expect(plan.hosts.find((host: { id: string }) => host.id === "claude")).toMatchObject({ action: "conflict" });
+      const report = JSON.parse(ask("doctor", "--json").stdout);
+      expect(report.hosts.find((host: { id: string }) => host.id === "claude")).toMatchObject({
+        registered: true,
+        command: [server, "--extra"],
+        ownServer: false,
+      });
+    } finally {
+      writeFileSync(file, original);
+    }
+  });
+
   it("keeps unreadable host errors and exact manual registration in setup and doctor", () => {
     const file = join(home, ".cursor/mcp.json");
     const original = readFileSync(file);

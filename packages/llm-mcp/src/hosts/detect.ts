@@ -44,8 +44,9 @@ function entryCommand(entry: unknown): string[] | undefined {
   if (entry === null || typeof entry !== "object") return undefined;
   const { command, args, enabled } = entry as { command?: unknown; args?: unknown; enabled?: unknown };
   if (enabled === false || (args !== undefined && (!Array.isArray(args) || !args.every((arg) => typeof arg === "string")))) return undefined;
-  if (typeof command === "string" && command.trim()) return [command, ...((args as string[] | undefined) ?? [])];
-  if (Array.isArray(command) && command.length > 0 && command.every((part) => typeof part === "string" && part.trim())) return command;
+  const rest = (args as string[] | undefined) ?? [];
+  if (typeof command === "string" && command.trim()) return [command, ...rest];
+  if (Array.isArray(command) && command.length > 0 && command.every((part) => typeof part === "string" && part.trim())) return [...command, ...rest];
   return undefined;
 }
 
