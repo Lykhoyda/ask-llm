@@ -42,19 +42,34 @@ function realTarget(file: string): string {
 }
 
 function readExisting(file: string): string | undefined {
+  let bytes: Buffer;
   try {
-    return readFileSync(file, "utf8");
+    bytes = readFileSync(file);
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === "ENOENT") return undefined;
     throw error;
   }
+  const text = bytes.toString("utf8");
+  if (!Buffer.from(text, "utf8").equals(bytes)) throw new Error(`${file} is not valid UTF-8; not changed`);
+  return text;
+}
+
+// Digits and exponent with no insignificant zeros, so 1.0, 1 and 10e-1 compare equal.
+function decimal(number: string): string {
+  const [, sign = "", int = "", fraction = "", exponent = "0"] =
+    /^(-?)(\d+)(?:\.(\d+))?(?:[eE]([+-]?\d+))?$/.exec(number) ?? [];
+  const digits = `${int}${fraction}`.replace(/^0+/, "");
+  const significant = digits.replace(/0+$/, "");
+  if (!significant) return "0";
+  return `${sign}${significant}e${Number(exponent) - fraction.length + digits.length - significant.length}`;
 }
 
 // JSON.parse would silently round these, so rewriting the file would change an unrelated setting.
 function lossless(_key: string, value: unknown, context?: { source?: string }): unknown {
   if (
     typeof value === "number" &&
-    (!Number.isFinite(value) || (/^-?\d+$/.test(context?.source ?? "") && !Number.isSafeInteger(value)))
+    (!Number.isFinite(value) ||
+      (context?.source !== undefined && decimal(context.source) !== decimal(JSON.stringify(value))))
   )
     throw new RangeError("holds a number that would change when rewritten");
   return value;
@@ -63,7 +78,8 @@ function lossless(_key: string, value: unknown, context?: { source?: string }): 
 function serialize(root: JsonObject, before: string | undefined): string {
   if (before === undefined) return `${JSON.stringify(root, null, 2)}\n`;
   const indent = /\n([ \t]+)\S/.exec(before)?.[1] ?? (before.trim().includes("\n") ? 2 : 0);
-  return `${JSON.stringify(root, null, indent)}${before.endsWith("\n") ? "\n" : ""}`;
+  const text = `${JSON.stringify(root, null, indent)}${before.endsWith("\n") ? "\n" : ""}`;
+  return before.includes("\r\n") ? text.replaceAll("\n", "\r\n") : text;
 }
 
 // A crash between write and rename leaves the fixed-name temp file; the next run then stops instead of guessing.

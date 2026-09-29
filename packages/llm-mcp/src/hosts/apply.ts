@@ -149,16 +149,23 @@ export async function applyRegistrar(
   if (refused) return refused;
 
   let backup: string | undefined;
-  try {
-    backup = backupConfig(host.spec.configFile);
-  } catch (error) {
-    const detail = error instanceof Error ? error.message : String(error);
-    return { outcome: "failed", detail: `cannot back up ${host.spec.configFile}: ${firstLine(detail)}` };
+  const backUp = (): string | undefined => {
+    try {
+      backup = backupConfig(host.spec.configFile);
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : String(error);
+      return `cannot back up ${host.spec.configFile}: ${firstLine(detail)}`;
+    }
+    return undefined;
+  };
+  let change: Changed | Applied;
+  if (registration.kind === "json") {
+    change = writeRegistrar(registration.file, registration.edit(op, server), op, server, backUp);
+  } else {
+    const unsaved = backUp();
+    if (unsaved) return { outcome: "failed", detail: unsaved };
+    change = await runRegistrar(host, (registrar as Registrar)(op, server), op, spawnEnv);
   }
-  const change =
-    registration.kind === "json"
-      ? writeRegistrar(registration.file, registration.edit(op, server), op, server)
-      : await runRegistrar(host, (registrar as Registrar)(op, server), op, spawnEnv);
   const applied = "outcome" in change ? change : verify(host, op, server, change, await read());
   return backup ? { ...applied, backup } : applied;
 }
@@ -186,14 +193,20 @@ async function runRegistrar(
   return { benign, action: `\`${argv.join(" ")}\`` };
 }
 
-// Ownership is checked again on the exact content being rewritten, closing the window after the gate's read.
-function writeRegistrar(file: string, edit: JsonEdit, op: HostOp, server: string): Changed | Applied {
+// Ownership is checked again on the exact content being rewritten, and the backup is taken only once the file passed every check.
+function writeRegistrar(
+  file: string,
+  edit: JsonEdit,
+  op: HostOp,
+  server: string,
+  backUp: () => string | undefined,
+): Changed | Applied {
   try {
     writeJsonKey(file, edit.keyPath, edit.value, (current) => {
       if (op === "add" && current !== undefined) return "an ask-llm entry appeared; not overwritten";
       if (op === "remove" && !isOwnCommand(entryCommand(current), server))
         return "the ask-llm entry no longer runs this ask-llm-mcp; left in place";
-      return undefined;
+      return backUp();
     });
   } catch (error) {
     return { outcome: "failed", detail: firstLine(error instanceof Error ? error.message : String(error)) };

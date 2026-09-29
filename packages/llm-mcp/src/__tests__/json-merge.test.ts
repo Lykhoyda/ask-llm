@@ -60,6 +60,27 @@ describe("writeJsonKey", () => {
     expect(readFileSync(file, "utf8")).toBe(`${JSON.stringify(before, null, indent)}${ending}`);
   });
 
+  it("rewrites numbers whose value survives, such as 1.0 and 1.5e3", () => {
+    writeFileSync(file, '{"a":1.0,"b":1.5e3,"c":0.1}');
+    writeJsonKey(file, KEY, ENTRY, allow);
+    expect(JSON.parse(readFileSync(file, "utf8"))).toMatchObject({ a: 1, b: 1500, c: 0.1 });
+  });
+
+  it("keeps CRLF line endings", () => {
+    writeFileSync(file, '{\r\n  "theme": "dark"\r\n}\r\n');
+    writeJsonKey(file, KEY, ENTRY, allow);
+    const text = readFileSync(file, "utf8");
+    expect(text.replaceAll("\r\n", "")).not.toContain("\n");
+    expect(JSON.parse(text)).toEqual({ theme: "dark", mcpServers: { "ask-llm": ENTRY } });
+  });
+
+  it("refuses bytes that are not valid UTF-8 and leaves them byte-identical", () => {
+    const content = Buffer.from([...Buffer.from('{"name":"caf'), 0xe9, ...Buffer.from('"}')]);
+    writeFileSync(file, content);
+    expect(() => writeJsonKey(file, KEY, ENTRY, allow)).toThrow("not valid UTF-8");
+    expect(readFileSync(file).equals(content)).toBe(true);
+  });
+
   it("keeps a single-line file on one line", () => {
     writeFileSync(file, '{"mcpServers":{}}');
     writeJsonKey(file, KEY, ENTRY, allow);
@@ -74,6 +95,8 @@ describe("writeJsonKey", () => {
     ["a null parent", '{"mcpServers":null}', "mcpServers"],
     ["an integer beyond double precision", '{"limit":9007199254740993}', "number that would change"],
     ["a number beyond double range", '{"limit":1e400}', "number that would change"],
+    ["a decimal beyond double precision", '{"limit":9007199254740993.0}', "number that would change"],
+    ["a number that underflows", '{"limit":1e-400}', "number that would change"],
   ])("refuses %s and leaves the file byte-identical", (_, content, message) => {
     writeFileSync(file, content);
     expect(() => writeJsonKey(file, KEY, ENTRY, allow)).toThrow(message);

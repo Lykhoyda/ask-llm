@@ -2,6 +2,7 @@ import {
   chmodSync,
   mkdirSync,
   mkdtempSync,
+  readdirSync,
   readFileSync,
   realpathSync,
   rmSync,
@@ -346,6 +347,16 @@ describe.each(Object.keys(FILE_HOSTS) as Array<keyof typeof FILE_HOSTS>)("%s fil
       detail: expect.stringContaining("cannot read registration"),
     });
     expect(readFileSync(file, "utf8")).toBe(content);
+  });
+
+  it("refuses a non-object parent without leaving a backup behind", async () => {
+    const file = config(`{"${parent}":[]}`);
+    expect(await applyRegistrar(await host(), "add", SERVER, env)).toEqual({
+      outcome: "failed",
+      detail: expect.stringContaining("is not a JSON object"),
+    });
+    expect(readFileSync(file, "utf8")).toBe(`{"${parent}":[]}`);
+    expect(readdirSync(join(file, "..")).filter((name) => name.includes("ask-llm-backup"))).toEqual([]);
   });
 
   it("fails without touching the file when an interrupted write left its temp file", async () => {
