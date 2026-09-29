@@ -258,7 +258,13 @@ interface CreateOrVerifyDeps {
 }
 
 export function createOrVerifyPackageTags(
-  { cwd = process.cwd(), remote = "origin", dryRun = false, verifyNpm = false, canonicalOnly = false }: CreateOrVerifyOptions = {},
+  {
+    cwd = process.cwd(),
+    remote = "origin",
+    dryRun = false,
+    verifyNpm = false,
+    canonicalOnly = false,
+  }: CreateOrVerifyOptions = {},
   { git = defaultGit, npm = defaultNpm, log = console }: CreateOrVerifyDeps = {},
 ): { plans: TagPlan[]; missing: TagPlan[]; inconsistent: InconsistentEntry[]; dryRun: boolean } {
   const root = resolve(cwd);
