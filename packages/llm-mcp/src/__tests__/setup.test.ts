@@ -114,6 +114,20 @@ describe("ask-llm setup", () => {
     expect(readFileSync(file, "utf8")).toBe(before);
   });
 
+  it("registers Grok over a TUI-written config with an array of tables", () => {
+    const file = join(home, FAKE_HOSTS.grok.file);
+    mkdirSync(join(file, ".."), { recursive: true });
+    writeFileSync(
+      file,
+      '[marketplace]\nofficial_marketplace_auto_installed = true\n\n[[marketplace.sources]]\nname = "official"\n',
+    );
+
+    const result = ask("setup", "-y", "--host", "grok");
+    expect(result.status).toBe(0);
+    expect(calls().grok).toEqual([ADD.grok]);
+    expect(result.stdout).toContain("Grok Build 1.0.40: registered");
+  });
+
   it.each([
     [
       "quoted bracket",

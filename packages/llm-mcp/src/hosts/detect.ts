@@ -108,10 +108,14 @@ function readTomlTable(file: string, table: string): RegistrationState {
         if (found) throw new Error("unsupported Grok TOML duplicate ask-llm table");
         found = true;
         currentTable = table;
-      } else if (/^\[[A-Za-z0-9_-]+(?:\.[A-Za-z0-9_-]+)*\]$/.test(trimmed) && trimmed !== "[mcp_servers]") {
-        currentTable = trimmed.slice(1, -1);
+      } else {
+        const header =
+          /^\[([A-Za-z0-9_-]+(?:\.[A-Za-z0-9_-]+)*)\]$|^\[\[([A-Za-z0-9_-]+(?:\.[A-Za-z0-9_-]+)*)\]\]$/.exec(trimmed);
+        currentTable = header?.[1] ?? header?.[2] ?? "";
+        if (!header || currentTable === "mcp_servers" || currentTable === table)
+          throw new Error("unsupported Grok TOML table header");
         if (currentTable.startsWith(`${table}.`)) throw new Error("unsupported Grok TOML nested ask-llm table");
-      } else throw new Error("unsupported Grok TOML table header");
+      }
       continue;
     }
     if (!trimmed || trimmed.startsWith("#")) continue;
