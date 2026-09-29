@@ -131,7 +131,7 @@ describe("buildPlan", () => {
     });
   });
 
-  it("keeps unreadable registrations and unverified hosts manual", () => {
+  it("keeps unreadable registrations manual", () => {
     expect(entry(detected("cursor", { registered: null, error: "cannot read registration: bad" }))).toMatchObject({
       action: "manual",
       reason: "cannot read registration: bad",
@@ -150,7 +150,18 @@ describe("buildPlan", () => {
       reason: "cannot read registration: bad",
       manual: `add {"command":"${SERVER}","args":[]} at mcpServers.ask-llm in /home/u/.cursor/mcp.json`,
     });
-    expect(entry(detected("opencode")).action).toBe("manual");
+  });
+
+  it("registers OpenCode by merging its documented local entry", () => {
+    expect(entry(detected("opencode"))).toMatchObject({
+      action: "register",
+      registration: {
+        kind: "json",
+        file: "/home/u/.config/opencode/opencode.json",
+        keyPath: ["mcp", "ask-llm"],
+        entry: { type: "local", command: [SERVER], enabled: true },
+      },
+    });
   });
 
   it("prints a stdio snippet for any other MCP client", () => {

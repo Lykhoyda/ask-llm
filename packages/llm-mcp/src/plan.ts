@@ -51,9 +51,13 @@ function sameFile(a: string, b: string): boolean {
   }
 }
 
+export function isOwnCommand(command: string[] | undefined, server: string): boolean {
+  return command?.length === 1 && sameFile(command[0], server);
+}
+
 export function isOwnRegistration(host: DetectedHost, server: string): boolean {
   if (host.spec.registrationState.kind === "packages") return host.registered === true;
-  return host.command?.length === 1 && sameFile(host.command[0], server);
+  return isOwnCommand(host.command, server);
 }
 
 export async function resolveServerPath(ownCli: string): Promise<ServerPath> {
@@ -89,8 +93,8 @@ export function genericSnippet(server: string) {
 function plannedRegistration(host: DetectedHost, server: string): PlannedRegistration {
   const { registration } = host.spec;
   if (registration.kind === "json") {
-    const { file, keyPath } = registration;
-    return { kind: "json", file, keyPath, entry: registration.entry(server) };
+    const { keyPath, value } = registration.edit("add", server);
+    return { kind: "json", file: registration.file, keyPath, entry: value };
   }
   const argv = registration.argv(server);
   return { kind: "command", argv, command: commandText(argv) };
@@ -119,9 +123,6 @@ function decide(host: DetectedHost, server: string): { action: PlanAction; reaso
   if (!host.supported) {
     const probe = [host.spec.binaries[0], ...(host.spec.versionProbe?.args ?? [])].join(" ");
     return { action: "manual", reason: `unrecognized \`${probe}\` output; check the syntax and run it manually` };
-  }
-  if (host.spec.unverified) {
-    return { action: "manual", reason: `${host.name} registration is unverified; add the entry manually` };
   }
   return { action: "register" };
 }

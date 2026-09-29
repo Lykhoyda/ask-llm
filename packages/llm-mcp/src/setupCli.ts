@@ -11,10 +11,12 @@ export function setupHelp(): string {
   return [
     "Usage: ask-llm setup [-y] [--host <ids>] | ask-llm setup --dry-run [--json] [--host <ids>]",
     "",
-    "Detect coding-agent hosts, preview the exact command each would use, and register",
-    "Ask LLM at user scope through each confirmed host's own command. Claude Code, Codex,",
-    "Antigravity, Grok Build and Gemini CLI are registered; other hosts get the manual step.",
-    "Existing ask-llm entries are never overwritten; re-running changes nothing.",
+    "Detect coding-agent hosts, preview the exact command or file change for each, and",
+    "register Ask LLM at user scope in each confirmed host: through the host's own command",
+    "for Claude Code, Codex, Antigravity, Grok Build and Gemini CLI, and by merging one entry",
+    "into the config file of Cursor, Claude Desktop and OpenCode (plain JSON only). Other",
+    "hosts get the manual step. Existing ask-llm entries are never overwritten; re-running",
+    "changes nothing.",
     "",
     "Options:",
     "  --dry-run      Preview only; nothing is written",
@@ -30,7 +32,8 @@ export function removeHelp(): string {
   return [
     "Usage: ask-llm remove [-y] [--host <ids>]",
     "",
-    "Remove the ask-llm entries that run this ask-llm-mcp, through each host's own command.",
+    "Remove the ask-llm entries that run this ask-llm-mcp, through each host's own command",
+    "or from its config file.",
     "Entries that run anything else are left in place.",
     "",
     "Options:",
@@ -99,7 +102,7 @@ function formatPreview(heading: string, server: ServerPath, plan: PlanEntry[]): 
 }
 
 const REFORMAT_NOTICE =
-  "The host's own command may reformat its config file; unrelated entries keep their meaning. Each backup may contain credentials, stays next to the original with the same permissions, and remains until you delete it.";
+  "The host's own command may reformat its config file, and a JSON file setup edits is rewritten with its indentation kept; unrelated entries keep their meaning. Each backup may contain credentials, stays next to the original with the same permissions, and remains until you delete it.";
 
 const LABELS: Record<HostStatus, string> = {
   registered: "registered",
@@ -120,7 +123,12 @@ function formatResult(result: HostResult): string[] {
   const lines = [`  ${result.name}${version}: ${LABELS[result.status]}${result.detail ? ` (${result.detail})` : ""}`];
   if (result.next) lines.push(`      Next: ${result.next}`);
   if (result.backup) lines.push(`      Backup: ${result.backup}`);
-  if (result.manual) lines.push(`      Run it manually: ${result.manual}`);
+  if (result.manual)
+    lines.push(
+      result.status === "conflict"
+        ? `      Entry for this install (not written): ${result.manual}`
+        : `      Run it manually: ${result.manual}`,
+    );
   return lines;
 }
 
@@ -198,7 +206,11 @@ export async function runSetupCli(args: string[], ownCli: string): Promise<numbe
   }
 
   process.stdout.write(
-    formatPreview(`ask-llm setup: each change runs the host's own command.\n${REFORMAT_NOTICE}`, server, shown),
+    formatPreview(
+      `ask-llm setup: each change runs the host's own command or merges one entry into its file.\n${REFORMAT_NOTICE}`,
+      server,
+      shown,
+    ),
   );
   const results = await withConfirm(options.yes, (confirm) =>
     applySetup(hosts, server.path, options.hosts, confirm, process.env),

@@ -132,8 +132,7 @@ async function doctorHosts(ownCli: string): Promise<DoctorHost[]> {
   const hosts = await detectHosts();
   const plan = server ? buildPlan(hosts, server) : undefined;
   return hosts.map(({ spec, ...host }, index) => {
-    const needsManual =
-      host.registered === null || (host.installed && (!host.supported || (spec.unverified && !host.registered)));
+    const needsManual = host.registered === null || (host.installed && !host.supported);
     return {
       ...host,
       ownServer: host.registered && server ? isOwnRegistration({ ...host, spec }, server) : undefined,
