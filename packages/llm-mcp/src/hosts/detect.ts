@@ -157,14 +157,17 @@ async function readList(binary: string, args: string[], env: NodeJS.ProcessEnv):
   return state(entry !== undefined, entryCommand(entry?.transport));
 }
 
-function readPackages(file: string, source: string): RegistrationState {
+function readPackages(file: string, sources: string[]): RegistrationState {
   const text = readText(file);
   if (text === undefined) return { registered: false };
   const packages = (JSON.parse(text) as { packages?: unknown }).packages;
   const listed = Array.isArray(packages)
     ? packages.some((entry) => {
         const listed = typeof entry === "string" ? entry : (entry as { source?: unknown })?.source;
-        return listed === source || (typeof listed === "string" && listed.startsWith(`${source}@`));
+        return (
+          typeof listed === "string" &&
+          sources.some((source) => listed === source || listed.startsWith(`${source}@`))
+        );
       })
     : false;
   return { registered: listed };
@@ -178,7 +181,7 @@ export async function readRegistration(
   try {
     if (state.kind === "json") return readJsonKey(state.file, state.keyPath, state.jsonc);
     if (state.kind === "toml") return readTomlTable(state.file, state.table);
-    if (state.kind === "packages") return readPackages(state.file, state.source);
+    if (state.kind === "packages") return readPackages(state.file, state.sources);
     return binary ? await readList(binary, state.args, env) : { registered: false };
   } catch (error) {
     const detail = error instanceof Error ? error.message : String(error);

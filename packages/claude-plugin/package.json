@@ -51,8 +51,7 @@
   "pi": {
     "extensions": [
       "./pi/index.ts"
-    ],
-    "skills": []
+    ]
   },
   "dependencies": {
     "@ask-llm/mcp": "^1.1.0"

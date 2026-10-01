@@ -255,6 +255,32 @@ describe("ask-llm setup", () => {
     expect(ask("setup", "-y", "--host", "pi").stdout).toContain("Pi 0.87.1: manual (setup does not register Pi yet)");
   });
 
+  it("installs Pi skills after a bridge install and leaves the package registration unchanged", () => {
+    writeFileSync(join(bin, "pi"), '#!/bin/sh\n[ "$1" = "--version" ] && { echo "0.87.1"; exit 0; }\nexit 9\n', {
+      mode: 0o755,
+    });
+    const settings = join(home, ".pi/agent/settings.json");
+    const content = JSON.stringify({ packages: ["npm:@ask-llm/plugin"] });
+    mkdirSync(join(home, ".pi/agent"), { recursive: true });
+    writeFileSync(settings, content);
+
+    const preview = ask("setup", "--dry-run", "--json", "--host", "pi");
+    expect(preview.status).toBe(0);
+    expect(JSON.parse(preview.stdout).hosts).toEqual([expect.objectContaining({ id: "pi", action: "up-to-date" })]);
+
+    const first = ask("setup", "-y", "--host", "pi");
+    expect(first.status, first.stderr).toBe(0);
+    expect(first.stdout).toContain("Pi 0.87.1: already registered");
+    expect(first.stdout).toContain("Pi skills: installed");
+    expect(existsSync(join(home, ".pi/agent/skills/ask-llm-review/SKILL.md"))).toBe(true);
+    expect(readFileSync(settings, "utf8")).toBe(content);
+
+    const second = ask("setup", "-y", "--host", "pi");
+    expect(second.status, second.stderr).toBe(0);
+    expect(second.stdout).toContain("Pi skills: already installed");
+    expect(readFileSync(settings, "utf8")).toBe(content);
+  });
+
   it("reports a foreign file-host entry with the entry it would use and leaves the file alone", () => {
     writeFileSync(join(bin, "cursor-agent"), "#!/bin/sh\nexit 0\n", { mode: 0o755 });
     mkdirSync(join(home, ".cursor"), { recursive: true });

@@ -21,7 +21,7 @@ export type RegistrationSource =
   | { kind: "json"; file: string; keyPath: string[]; jsonc?: string }
   | { kind: "toml"; file: string; table: string }
   | { kind: "list"; args: string[] }
-  | { kind: "packages"; file: string; source: string };
+  | { kind: "packages"; file: string; sources: string[] };
 
 export interface HostSpec {
   id: HostId;
@@ -173,7 +173,11 @@ export function hostSpecs(env: NodeJS.ProcessEnv = process.env, platform = proce
       configHome: join(home, ".pi"),
       versionProbe: plainVersion,
       registration: { kind: "command", argv: () => ["pi", "install", PI_PACKAGE_SOURCE] },
-      registrationState: { kind: "packages", file: piSettings, source: PI_PACKAGE_SOURCE },
+      registrationState: {
+        kind: "packages",
+        file: piSettings,
+        sources: [PI_PACKAGE_SOURCE, "npm:@ask-llm/plugin"],
+      },
       skillsDir: join(home, ".pi", "agent", "skills"),
       skillsAgent: "pi",
       restart: "new-session",
