@@ -69,6 +69,6 @@ Save it in project `.cursor/mcp.json` or user `~/.cursor/mcp.json`. The `xai-api
 | Include directories | Per-edit context from marker/project | Explicit safe relative `includeDirs` on first Codex call |
 | Completion gate | Optional Claude Stop hook | Explicit completed/cancelled/failed session report |
 | Cancellation | Claude hook/provider process lifecycle | Cursor MCP AbortSignal/interrupt |
-| Pause / resume / ack | `/codex-pair-pause`, `/codex-pair-resume`, `/codex-pair-ack` toggle the background hook | Not exposed — no background reviewer; end or restart the on-demand session |
+| Pause / resume / ack | `/codex-pair-pause`, `/codex-pair-resume`, `/codex-pair-ack` toggle the background hook | Setup installs the portable skills, but they do not control Cursor's on-demand session; end or restart that session instead |
 
 The portable contract is canonical in `packages/llm-mcp/skills/ask-llm-codex-pair/pairing-contract.md`; host adapters must not claim lifecycle guarantees their host does not provide.

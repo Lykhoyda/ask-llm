@@ -335,7 +335,7 @@ To disable:
 
 ## Requirements
 
-- **Claude Code, Cursor Agent, or Pi 0.83.0+** installed
+- **A coding host supported by [workflow setup](#command-compatibility)** installed; see the [host feature matrix](https://lykhoyda.github.io/ask-llm/plugin/pi#host-feature-matrix) for workflow availability and the [Pi guide](https://lykhoyda.github.io/ask-llm/plugin/pi) for its supported version
 - **Claude Code** installed for marketplace agents, hooks, independent Fable review, and the blocking Stop gate
 - **Gemini CLI** authenticated — required for hooks and Gemini features
 - **Codex CLI** — required for `/codex-review` and direct-Codex brainstorm routes
