@@ -128,7 +128,7 @@ The xAI API and API-key-backed Grok CLI can incur xAI charges. Browser-authentic
 
 ## Errors and refusals
 
-The API and CLI harnesses return stable Grok-specific diagnostics for missing/invalid `XAI_API_KEY`, unsupported model IDs, rejected reasoning effort, HTTP 402/429 credits or rate limits, transport/5xx failures, malformed or incomplete responses, safety refusals, and (CLI) an unsupported `--prompt-file` flag. None of these paths falls back. Error details are bounded and the configured key is redacted before any diagnostic is created.
+The API and CLI harnesses return stable Grok-specific diagnostics for missing/invalid `XAI_API_KEY`, unsupported model IDs, rejected reasoning effort, HTTP 402/429 credits or rate limits, transport/5xx failures, malformed or incomplete responses, safety refusals, (CLI) an unsupported `--prompt-file` flag, and (CLI) a read-only sandbox that cannot start, which is reported as a local harness failure rather than a safety refusal. None of these paths falls back. Error details are bounded and the configured key is redacted before any diagnostic is created.
 
 ## Live tests
 
