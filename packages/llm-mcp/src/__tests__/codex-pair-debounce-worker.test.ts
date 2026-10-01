@@ -299,8 +299,30 @@ describe("scripts/codex-pair-debounce-worker.mjs — runtime behavior", () => {
       env: { ...workerEnv(file, 1, "gated"), ASK_CODEX_TIMEOUT_MS: "not-a-number" },
     });
     expect(res.status).toBe(0);
-    expect(fs.readFileSync(path.join(dir, ".codex-pair/log.jsonl"), "utf8")).toContain(file);
+    const log = fs.readFileSync(path.join(dir, ".codex-pair/log.jsonl"), "utf8");
+    expect(log).toContain(file);
+    expect(log).not.toContain('"verdict":"timeout"');
   });
+
+  it("B9: the forced review keeps the worker's timeout when frontmatter changes during the settle window", async () => {
+    // The hook spawned this worker while timeoutMs was 1500; the user has since raised it.
+    fs.writeFileSync(path.join(dir, ".codex-pair/context.md"), "---\ntimeoutMs: 600000\n---\n# ctx");
+    const file = path.join(dir, "x.ts");
+    fs.writeFileSync(file, "export const a = 1;\n");
+    seedRecord(file, { file, generation: 1, burstStartedAt: Date.now() });
+    const child = spawn(process.execPath, [WORKER_PATH], {
+      cwd: dir,
+      stdio: "ignore",
+      env: { ...workerEnv(file, 1, "timeout"), CP_TIMEOUT_MS: "1500" },
+    });
+    children.push(child);
+    const logPath = path.join(dir, ".codex-pair/log.jsonl");
+    await waitFor(
+      () => fs.existsSync(logPath) && fs.readFileSync(logPath, "utf8").includes('"verdict":"timeout"'),
+      10_000,
+    );
+    expect(fs.readFileSync(logPath, "utf8")).toMatch(/timed out after 2s/);
+  }, 15_000);
 
   it("B6: an older worker triggered by the burst cap does not wait", async () => {
     const file = path.join(dir, "x.ts");

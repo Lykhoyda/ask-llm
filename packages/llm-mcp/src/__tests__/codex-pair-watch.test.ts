@@ -2176,6 +2176,26 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
     expect(timeoutEntry.reason).toMatch(/timed out/i);
   });
 
+  it.each(["", "not-a-number", "-5", "0", "Infinity"])(
+    "an invalid ASK_CODEX_TIMEOUT_MS (%j) falls back to the default instead of timing out at once",
+    (value) => {
+      setupMarker(tempDir, "# ctx");
+      const filePath = path.join(tempDir, "src.ts");
+      fs.writeFileSync(filePath, "export const x = 1;");
+      const payload = JSON.stringify({ tool_name: "Edit", tool_input: { file_path: filePath } });
+      const result = runHookWithFakeCodex(payload, tempDir, "none", { ASK_CODEX_TIMEOUT_MS: value });
+      expect(result.status).toBe(0);
+      expect(result.stderr).not.toMatch(/Timeout(NaN|Negative|Overflow)Warning/);
+      const lines = fs
+        .readFileSync(path.join(tempDir, ".codex-pair/log.jsonl"), "utf-8")
+        .trim()
+        .split("\n")
+        .map((l) => JSON.parse(l));
+      expect(lines.some((l) => l.verdict === "timeout")).toBe(false);
+      expect(lines.some((l) => l.verdict === "none")).toBe(true);
+    },
+  );
+
   // ADR-085: Pause/resume sentinel.
   //
   // /codex-pair-pause writes <markerDir>/.codex-pair/state/paused. The hook
