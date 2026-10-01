@@ -17,7 +17,7 @@ Follow `/skill:ask-llm-brainstorm` semantics with `ask-multi` providers `gemini,
 
 ### Other hosts adapter
 
-Codex, Cursor Agent, Antigravity, Grok Build, Gemini CLI and OpenCode get this skill from their skills folder, not from a plugin. Follow the ask-llm-brainstorm skill with one `multi-llm` call to `gemini,codex,grok,ollama,antigravity` as described in `../ask-llm-review/transport.md`, after the current host model has committed its independent view. Report every unavailable provider.
+Codex, Cursor Agent, Antigravity, Grok Build, Gemini CLI and OpenCode get this skill from their skills folder, not from a plugin. Follow the ask-llm-brainstorm skill with the requested panel `gemini,codex,grok,ollama,antigravity`, after the current host model has committed its independent view. Apply the availability filtering, dispatch, and reporting steps in `../ask-llm-review/transport.md`.
 
 <!-- HOST-ADAPTER:CLAUDE-CODE:START -->
 ### Claude Code adapter

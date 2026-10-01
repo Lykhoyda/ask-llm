@@ -18,4 +18,6 @@ Call the provider's own tool when exposed (`ask-gemini`, `ask-grok`, `ask-ollama
 
 ## Several providers at once
 
-Use one `multi-llm` call with `prompt` and the explicit `providers` list. It dispatches in parallel and returns every provider's result, including failures, in the order given.
+Read the exposed `multi-llm` tool's input schema before dispatch. Compare the requested provider list with its `providers` item enum. Report each unsupported selection as unavailable, and retain the supported subset in the requested order. If the tool is absent or the subset is empty, report that no selected provider can be dispatched, tell the user to run `ask-llm setup`, and stop without a tool call.
+
+Otherwise make one `multi-llm` call with the common `prompt` and the explicit supported `providers` subset, even when only one provider remains. It dispatches in parallel and returns each dispatched provider's result, including failures. Present those results together with the unavailable selections in the original requested order. Label a panel with missing or failed participants as partial; a single successful answer is not multi-provider consensus. If no provider succeeds, report failure without a panel synthesis.

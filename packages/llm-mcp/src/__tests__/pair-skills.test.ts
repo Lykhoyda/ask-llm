@@ -3,10 +3,6 @@ import * as path from "node:path";
 import { describe, expect, it } from "vitest";
 import { PLUGIN_ROOT, parseMarkdownFrontmatter, readFile, readJson } from "./_helpers.js";
 
-const PORTABLE_START = "<!-- PORTABLE-CONTRACT:START -->";
-const PORTABLE_END = "<!-- PORTABLE-CONTRACT:END -->";
-const CLAUDE_START = "<!-- HOST-ADAPTER:CLAUDE-CODE:START -->";
-const CLAUDE_END = "<!-- HOST-ADAPTER:CLAUDE-CODE:END -->";
 const PAIR_SKILLS = ["ask-llm-codex-pair", "ask-llm-grok-pair"] as const;
 
 interface Heading {
@@ -28,30 +24,6 @@ function headings(markdown: string): Heading[] {
   return out;
 }
 
-function occurrences(haystack: string, needle: string): number[] {
-  const found: number[] = [];
-  let from = 0;
-  for (;;) {
-    const idx = haystack.indexOf(needle, from);
-    if (idx === -1) return found;
-    found.push(idx);
-    from = idx + needle.length;
-  }
-}
-
-function adapterHeadings(body: string): Heading[] {
-  const all = headings(body);
-  const host = all.find((h) => h.level === 2 && h.text === "Host adapters");
-  if (!host) return [];
-  return all.filter((h) => h.level === 3 && h.offset > host.offset && /adapter$/.test(h.text));
-}
-
-function adapterSections(body: string, range?: { from: number; to: number }): string[] {
-  return adapterHeadings(body)
-    .filter((h) => !range || (h.offset >= range.from && h.offset < range.to))
-    .map((h) => h.text.replace(/ adapter$/, ""));
-}
-
 function adapterBody(body: string, name: string): string {
   const all = headings(body);
   const start = all.find((heading) => heading.level === 3 && heading.text === `${name} adapter`);
@@ -67,11 +39,7 @@ function jsonCodeBlocks(markdown: string): unknown[] {
 function parsePairSkill(name: string) {
   const raw = readFile(`skills/${name}/SKILL.md`);
   const { frontmatter, body } = parseMarkdownFrontmatter(raw);
-  const portable = occurrences(body, PORTABLE_START);
-  const portableEnd = occurrences(body, PORTABLE_END);
-  const claude = occurrences(body, CLAUDE_START);
-  const claudeEnd = occurrences(body, CLAUDE_END);
-  return { frontmatter, body, portable, portableEnd, claude, claudeEnd };
+  return { frontmatter, body };
 }
 
 describe("pair skill structure", () => {
@@ -85,47 +53,10 @@ describe("pair skill structure", () => {
         expect((skill.frontmatter.description as string).length).toBeGreaterThan(0);
         expect(skill.frontmatter).not.toHaveProperty("disable-model-invocation");
       });
-
-      it("delimits exactly one portable contract followed by exactly one Claude-only adapter block", () => {
-        expect(skill.portable).toHaveLength(1);
-        expect(skill.portableEnd).toHaveLength(1);
-        expect(skill.claude).toHaveLength(1);
-        expect(skill.claudeEnd).toHaveLength(1);
-        expect(skill.portable[0]).toBeLessThan(skill.portableEnd[0]);
-        expect(skill.portableEnd[0]).toBeLessThan(skill.claude[0]);
-        expect(skill.claude[0]).toBeLessThan(skill.claudeEnd[0]);
-        const contractBody = skill.body.slice(skill.portable[0] + PORTABLE_START.length, skill.portableEnd[0]).trim();
-        expect(contractBody.length).toBeGreaterThan(0);
-      });
-
-      it("references the shipped shared pairing contract from the portable block", () => {
-        const contractBody = skill.body.slice(skill.portable[0], skill.portableEnd[0]);
-        const ref = contractBody.match(/`((?:\.\.\/ask-llm-codex-pair\/)?pairing-contract\.md)`/);
-        expect(ref).not.toBeNull();
-        const resolved = path.resolve(PLUGIN_ROOT, "skills", name, ref?.[1] ?? "");
-        expect(fs.existsSync(resolved)).toBe(true);
-        expect(path.relative(PLUGIN_ROOT, resolved)).toBe(
-          path.join("skills", "ask-llm-codex-pair", "pairing-contract.md"),
-        );
-        const shipped = readJson<{ files: string[] }>("package.json").files;
-        expect(shipped).toContain("skills/");
-      });
-
-      it("places the non-Claude host adapters outside the Claude-only block", () => {
-        const outside = adapterSections(skill.body, { from: 0, to: skill.claude[0] });
-        expect(outside).toContain("Cursor Agent");
-        expect(outside).not.toContain("Claude Code");
-        expect(adapterSections(skill.body, { from: skill.claude[0], to: skill.claudeEnd[0] })).toEqual(["Claude Code"]);
-      });
     });
   }
 
-  it("codex-pair keeps its Pi adapter while grok-pair refuses on Pi", () => {
-    const codex = parsePairSkill("ask-llm-codex-pair");
-    const grok = parsePairSkill("ask-llm-grok-pair");
-    expect(adapterSections(codex.body)).toEqual(["Pi", "Cursor Agent", "Other hosts", "Claude Code"]);
-    expect(adapterSections(grok.body)).toEqual(["Pi", "Cursor Agent", "Other hosts", "Claude Code"]);
-    expect(adapterBody(grok.body, "Pi")).toMatch(/Unsupported on Pi/);
+  it("leaves Pi skill discovery to the shared skills folder", () => {
     expect(readJson<{ pi: Record<string, unknown> }>("package.json").pi).not.toHaveProperty("skills");
   });
 

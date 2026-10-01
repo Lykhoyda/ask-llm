@@ -17,7 +17,7 @@ Use one native `ask-multi` call for concurrent provider dispatch, then perform s
 
 ### Other hosts adapter
 
-Codex, Cursor Agent, Antigravity, Grok Build, Gemini CLI and OpenCode get this skill from their skills folder, not from a plugin. Use one `multi-llm` call as described in `../ask-llm-review/transport.md` for concurrent provider dispatch, then verify every finding against source in the current host context. Do not run raw provider CLIs.
+Codex, Cursor Agent, Antigravity, Grok Build, Gemini CLI and OpenCode get this skill from their skills folder, not from a plugin. Apply the availability filtering, dispatch, and reporting steps in `../ask-llm-review/transport.md`, then verify every returned finding against source in the current host context. Do not run raw provider CLIs.
 
 <!-- HOST-ADAPTER:CLAUDE-CODE:START -->
 ### Claude Code adapter

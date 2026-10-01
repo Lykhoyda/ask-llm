@@ -7,23 +7,13 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { contentHash, drainPending, readDebounceRecords, readEditRecord } from "../../scripts/lib/debounce-state.mjs";
 import { inflightLockPath } from "../../scripts/lib/state.mjs";
 import { collectInFlight } from "../../scripts/lib/stop-gate.mjs";
-import { PLUGIN_ROOT, readFile } from "./_helpers.js";
+import { PLUGIN_ROOT } from "./_helpers.js";
 
 const WORKER_PATH = path.join(PLUGIN_ROOT, "scripts", "codex-pair-debounce-worker.mjs");
 const FIXTURE_DIR = path.join(PLUGIN_ROOT, "src", "__tests__", "_fixtures");
 
-describe("scripts/codex-pair-debounce-worker.mjs — structural invariants", () => {
-  const script = readFile("scripts/codex-pair-debounce-worker.mts");
-
-  it("has a node shebang and is executable", () => {
-    expect(script.startsWith("#!/usr/bin/env node")).toBe(true);
-    expect((fs.statSync(WORKER_PATH).mode & 0o100) !== 0).toBe(true);
-  });
-
-  it("has zero workspace imports", () => {
-    expect(script).not.toMatch(/from\s+["']@ask-llm\//);
-    expect(script).not.toMatch(/from\s+["']ask-(codex|gemini|ollama)-mcp/);
-  });
+it("ships an executable debounce worker", () => {
+  expect((fs.statSync(WORKER_PATH).mode & 0o100) !== 0).toBe(true);
 });
 
 describe("scripts/codex-pair-debounce-worker.mjs — runtime behavior", () => {

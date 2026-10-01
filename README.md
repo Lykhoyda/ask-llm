@@ -92,13 +92,14 @@ After the global install above, run `ask-llm setup --host opencode`. Setup chang
 
 ### Pi
 
-Pi has no built-in MCP client, so it installs the host package instead, which registers native `ask-*` tools plus the shared skills:
+Pi has no built-in MCP client, so it installs the host package instead, which registers native `ask-*` tools. After the global Ask LLM install above, install the package and shared skills:
 
 ```bash
 pi install npm:@ask-llm/plugin
+ask-llm setup --host pi
 ```
 
-Then use `/skill:codex-review`, `/skill:multi-review`, `/skill:compare`, `/skill:brainstorm`, or just describe what you want. See the [Pi host guide](https://lykhoyda.github.io/ask-llm/plugin/pi) for trust, data-transfer, and compatibility details.
+Then use `/skill:ask-llm-review`, `/skill:ask-llm-multi-review`, `/skill:ask-llm-compare`, `/skill:ask-llm-brainstorm`, or just describe what you want. See the [Pi host guide](https://lykhoyda.github.io/ask-llm/plugin/pi) for trust, data-transfer, and compatibility details.
 
 <details>
 <summary>Any other MCP client (STDIO)</summary>

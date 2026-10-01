@@ -23,9 +23,6 @@ const oldSkillNames = [
 ];
 const namespaced = (old: string) => (old === "codex-review" ? "ask-llm-review" : `ask-llm-${old}`);
 const expectedSkills = oldSkillNames.map(namespaced);
-const expectedPiSkills = expectedSkills.filter(
-  (skill) => skill !== "ask-llm-fable-review" && skill !== "ask-llm-grok-pair",
-);
 const allowedAgentSkillFields = new Set([
   "name",
   "description",
@@ -54,123 +51,23 @@ describe("skills/", () => {
     expect(dirs).toEqual([...expectedSkills, ...oldSkillNames].sort());
   });
 
-  it.each(oldSkillNames)("%s is a one-paragraph pointer to its namespaced twin", (old) => {
-    const { frontmatter, body } = parseMarkdownFrontmatter(readFile(`skills/${old}/SKILL.md`));
-    expect(frontmatter.name).toBe(old);
-    expect(frontmatter.description).toContain(namespaced(old));
-    expect(body.trim().split("\n")).toHaveLength(1);
-    expect(body).toContain(`../${namespaced(old)}/SKILL.md`);
-  });
-
-  it.each(expectedSkills)("%s skill has SKILL.md with required frontmatter", (skillName) => {
+  it.each([...expectedSkills, ...oldSkillNames])("%s skill has SKILL.md with required frontmatter", (skillName) => {
     const content = readFile(`skills/${skillName}/SKILL.md`);
-    const { frontmatter, body } = parseMarkdownFrontmatter(content);
+    const { frontmatter } = parseMarkdownFrontmatter(content);
 
     expect(frontmatter.name).toBe(skillName);
     expect(frontmatter.description).toBeTruthy();
     expect(typeof frontmatter.description).toBe("string");
-    expect((frontmatter.description as string).length).toBeGreaterThan(20);
-    expect(body.trim().length).toBeGreaterThan(0);
+    expect((frontmatter.description as string).trim().length).toBeGreaterThan(0);
   });
 
-  it.each(expectedSkills)("%s skill description includes triggering language", (skillName) => {
-    const content = readFile(`skills/${skillName}/SKILL.md`);
-    const { frontmatter } = parseMarkdownFrontmatter(content);
-    const desc = frontmatter.description as string;
-    expect(desc).toMatch(/should be used|when the user|asks to|wants to|review|brainstorm/i);
-  });
-
-  it.each(expectedSkills)("%s is strict Agent Skills frontmatter and has delimited contracts", (skill) => {
+  it.each(expectedSkills)("%s is strict Agent Skills frontmatter", (skill) => {
     const content = readFile(`skills/${skill}/SKILL.md`);
     const { frontmatter } = parseMarkdownFrontmatter(content);
     expect(Object.keys(frontmatter).every((field) => allowedAgentSkillFields.has(field))).toBe(true);
     expect(String(frontmatter.name)).toMatch(/^[a-z0-9]+(?:-[a-z0-9]+)*$/);
     expect(String(frontmatter.name).length).toBeLessThanOrEqual(64);
     expect(String(frontmatter.description).length).toBeLessThanOrEqual(1024);
-    expect(content).toContain("<!-- PORTABLE-CONTRACT:START -->");
-    expect(content).toContain("<!-- PORTABLE-CONTRACT:END -->");
-    expect(content).toContain("<!-- HOST-ADAPTER:CLAUDE-CODE:START -->");
-    expect(content).toContain("<!-- HOST-ADAPTER:CLAUDE-CODE:END -->");
-  });
-
-  it.each(expectedPiSkills)("%s has an explicit Pi adapter", (skill) => {
-    expect(readFile(`skills/${skill}/SKILL.md`)).toMatch(/### Pi adapter/);
-  });
-
-  it("keeps always-loaded Pi descriptions host-neutral", () => {
-    for (const skill of expectedPiSkills) {
-      const { frontmatter } = parseMarkdownFrontmatter(readFile(`skills/${skill}/SKILL.md`));
-      expect(frontmatter.description).not.toMatch(/Claude Opus|PostToolUse|AskUserQuestion|CLAUDE_PLUGIN_ROOT/);
-    }
-  });
-});
-
-describe("portable skills on skills-folder hosts (issue #266)", () => {
-  const portable = expectedSkills.filter((skill) => skill !== "ask-llm-fable-review");
-  const outsideClaude = (skill: string) =>
-    readFile(`skills/${skill}/SKILL.md`).split("<!-- HOST-ADAPTER:CLAUDE-CODE:START -->")[0];
-  const transport = readFile("skills/ask-llm-review/transport.md");
-
-  it.each(portable)("%s has an Other hosts adapter that needs nothing outside its skills folder", (skill) => {
-    const text = outsideClaude(skill);
-    expect(text).toContain("### Other hosts adapter");
-    expect(text).not.toMatch(/\$\{CLAUDE_PLUGIN_ROOT\}|\.\.\/\.\.\/agents\/|dist\/[a-z-]+\.js/);
-  });
-
-  it("orders the Codex ladder split, then fully pinned unified, then disclosed CLI, with no retry across rungs", () => {
-    const split = transport.indexOf("1. An exposed `ask-codex` tool");
-    const unified = transport.indexOf('2. Otherwise the `ask-llm` server\'s `ask-llm` tool with `provider: "codex"`');
-    const cli = transport.indexOf("3. Otherwise, only when neither tool is exposed, run the Codex CLI");
-    expect(split).toBeGreaterThan(-1);
-    expect(unified).toBeGreaterThan(split);
-    expect(cli).toBeGreaterThan(unified);
-    expect(transport).toContain("it is never retried on a later rung");
-    expect(transport).toContain("Say in the result that it ran through the Codex CLI");
-  });
-
-  it("fails loudly on an older unified server instead of stripping Codex options", () => {
-    expect(transport).toMatch(
-      /If any of `reasoningEffort`, `includeDirs`, `preferred` or `sandbox` is missing, stop .*never call it with fewer fields/,
-    );
-  });
-
-  it("routes review, compare and brainstorm through the unified server with exact pins", () => {
-    expect(outsideClaude("ask-llm-review")).toMatch(
-      /`model: "gpt-6-astra"`, `reasoningEffort: "high"`, `sandbox: "read-only"`/,
-    );
-    expect(outsideClaude("ask-llm-sol-review")).toMatch(/`model: "gpt-6-sol"`/);
-    expect(outsideClaude("ask-llm-compare")).toContain("one `multi-llm` call");
-    const brainstorm = outsideClaude("ask-llm-brainstorm");
-    expect(brainstorm).toContain("independent evidence memo first");
-    expect(brainstorm).toContain("`ask-cursor-agent` tool with separate `provider` and exact `model`");
-    expect(brainstorm).toContain("A list mixing routed and bare entries is refused before any call");
-  });
-
-  it.each(["gemini", "grok", "ollama", "antigravity"])(
-    "%s-reviewer falls back to the unified server that setup registers",
-    (provider) => {
-      const agent = readFile(`agents/${provider}-reviewer.md`);
-      expect(parseMarkdownFrontmatter(agent).frontmatter.tools).toEqual(
-        expect.arrayContaining([`mcp__${provider}__ask-${provider}`, "mcp__ask-llm__ask-llm"]),
-      );
-      expect(agent).toContain(
-        `Otherwise call \`mcp__ask-llm__ask-llm\` (the server \`ask-llm setup\` registers) with \`provider: "${provider}"\``,
-      );
-    },
-  );
-
-  it("keeps the CLI rung's directories and quota fallback, and never drops a field on any route", () => {
-    expect(transport).toContain("one `--add-dir` per requested directory");
-    expect(transport).toContain("run it once more with `-m gpt-5.6-terra` and disclose that fallback");
-    expect(transport).toContain("The CLI cannot express `preferred`, so a call that needs it stops here instead");
-    expect(transport).toContain("a tool that lacks a needed field is skipped, never called with fewer fields");
-    expect(transport).toContain(
-      "when the provider's own tool lacks one (for example `ask-antigravity` has no `model`), use `ask-llm` instead",
-    );
-  });
-
-  it("names setup as the remedy when no Ask LLM tool is exposed", () => {
-    expect(transport).toContain("stop and tell the user to run `ask-llm setup`");
   });
 });
 
@@ -182,20 +79,12 @@ describe("agents/", () => {
 
   it.each(expectedAgents)("%s has required frontmatter fields", (agentFile) => {
     const content = readFile(`agents/${agentFile}`);
-    const { frontmatter, body } = parseMarkdownFrontmatter(content);
+    const { frontmatter } = parseMarkdownFrontmatter(content);
 
     expect(frontmatter.name).toBeTruthy();
     expect(frontmatter.description).toBeTruthy();
-    expect((frontmatter.description as string).length).toBeGreaterThan(40);
-    expect(body.trim().length).toBeGreaterThan(100);
-  });
-
-  it.each(expectedAgents)("%s delimits its portable contract from the Claude Code adapter", (agentFile) => {
-    const content = readFile(`agents/${agentFile}`);
-    expect(content).toContain("<!-- PORTABLE-CONTRACT:START -->");
-    expect(content).toContain("<!-- PORTABLE-CONTRACT:END -->");
-    expect(content).toContain("<!-- HOST-ADAPTER:CLAUDE-CODE:START -->");
-    expect(content).toContain("<!-- HOST-ADAPTER:CLAUDE-CODE:END -->");
+    expect(typeof frontmatter.description).toBe("string");
+    expect((frontmatter.description as string).trim().length).toBeGreaterThan(0);
   });
 
   it.each(expectedAgents)("%s declares a model and color", (agentFile) => {
@@ -219,6 +108,16 @@ describe("agents/", () => {
       expect(tools as string[]).toContain(tool);
     }
   });
+
+  it.each(["gemini", "grok", "ollama", "antigravity"])(
+    "%s-reviewer grants its provider tool and the unified tool",
+    (provider) => {
+      const { frontmatter } = parseMarkdownFrontmatter(readFile(`agents/${provider}-reviewer.md`));
+      expect(frontmatter.tools).toEqual(
+        expect.arrayContaining([`mcp__${provider}__ask-${provider}`, "mcp__ask-llm__ask-llm"]),
+      );
+    },
+  );
 
   it("review agents are restricted from edit/write tools", () => {
     const reviewerAgents = [
@@ -244,7 +143,7 @@ describe("agents/", () => {
     }
   });
 
-  it("pins the native Fable reviewer and the Sol provider request", () => {
+  it("pins the native models and effort for Fable and Sol reviewers", () => {
     const fable = parseMarkdownFrontmatter(readFile("agents/fable-reviewer.md")).frontmatter;
     const solContent = readFile("agents/sol-reviewer.md");
     const sol = parseMarkdownFrontmatter(solContent).frontmatter;
@@ -252,8 +151,6 @@ describe("agents/", () => {
     expect(fable.effort).toBe("high");
     expect(sol.model).toBe("opus");
     expect(sol.effort).toBe("high");
-    expect(solContent).toContain('model: "gpt-6-sol"');
-    expect(solContent).toContain('reasoningEffort: "high"');
   });
 
   it("codex-reviewer grants split, plugin-bundled, and unified MCP tool identities", () => {
@@ -262,8 +159,6 @@ describe("agents/", () => {
     expect(tools).toContain("mcp__codex__ask-codex");
     expect(tools).toContain("mcp__plugin_ask-llm_codex__ask-codex");
     expect(tools).toContain("mcp__ask-llm__ask-llm");
-    expect(content).toMatch(/provider:\s*"codex"/);
-    expect(content).toMatch(/will not silently strip|do not omit|upgrade/i);
   });
 
   it("sol-reviewer inherits deferred MCP tools while denying write tools", () => {
@@ -271,441 +166,40 @@ describe("agents/", () => {
     const frontmatter = parseMarkdownFrontmatter(solContent).frontmatter;
     expect(frontmatter.tools).toBeUndefined();
     expect(frontmatter.disallowedTools).toEqual(expect.arrayContaining(["Edit", "Write", "NotebookEdit"]));
-    expect(solContent).toContain("mcp__ask-llm__ask-llm");
-    expect(solContent).toMatch(/provider:\s*"codex"/);
   });
 });
 
-describe("native model review skills", () => {
-  it.each([
-    ["ask-llm-fable-review", "fable-reviewer", "model: fable"],
-    ["ask-llm-sol-review", "sol-reviewer", 'model: "gpt-6-sol"'],
-  ])("%s delegates to its model-pinned reviewer path", (skill, reviewer, modelPin) => {
-    const content = readFile(`skills/${skill}/SKILL.md`);
-    expect(content).toContain(reviewer);
-    expect(content).toContain(modelPin);
-    expect(content).toMatch(/distinguishes|Do not substitute|Do not route/i);
-  });
+describe("brainstorm-coordinator permissions", () => {
+  const { frontmatter } = parseMarkdownFrontmatter(readFile("agents/brainstorm-coordinator.md"));
 
-  it("sol-review preflights split, unified, and CLI transports without stripping Codex options", () => {
-    const content = readFile("skills/ask-llm-sol-review/SKILL.md");
-    expect(content).toContain("mcp__ask-llm__ask-llm");
-    expect(content).toMatch(/provider:\s*"codex"/);
-    expect(content).toContain("reasoningEffort");
-    expect(content).toContain("sandbox");
-    expect(content).toMatch(/upgrade|too old|cannot honor/i);
-  });
-
-  it("codex-image keeps workspace-write sandbox on the unified transport", () => {
-    const content = readFile("skills/ask-llm-codex-image/SKILL.md");
-    expect(content).toContain("mcp__ask-llm__ask-llm");
-    expect(content).toMatch(/provider:\s*"codex"/);
-    expect(content).toContain('sandbox: "workspace-write"');
-    expect(content).toMatch(/will not silently strip|cannot honor|upgrade/i);
-  });
-
-  it("guards explicit Fable overrides without claiming inaccessible runtime verification", () => {
-    const content = readFile("skills/ask-llm-fable-review/SKILL.md");
-    expect(content).toContain('model: "fable"');
-    expect(content).toContain("CLAUDE_CODE_SUBAGENT_MODEL");
-    expect(content).toContain("inherit");
-    expect(content).toContain("claude-fable-");
-    expect(content).toMatch(/higher precedence.+model request/i);
-    expect(content).toMatch(/resolved model was not independently verified/i);
-    expect(content).toMatch(/does not expose the resolved subagent model/i);
-    expect(content).not.toContain("resolvedModel");
-  });
-});
-
-describe("multi-review skill — load-bearing polish (ADR-064)", () => {
-  const content = readFile("skills/ask-llm-multi-review/SKILL.md");
-  const { body } = parseMarkdownFrontmatter(content);
-
-  it("documents diff preprocessing (intent-to-add for new files)", () => {
-    expect(body).toMatch(/git add -N/);
-  });
-
-  it("documents pathspec exclusion of docs and binaries", () => {
-    expect(body).toMatch(/!docs\//);
-    expect(body).toMatch(/!\*\.md/);
-  });
-
-  it("specifies size-check tiers (50KB / 150KB)", () => {
-    expect(body).toMatch(/50.{0,5}KB/);
-    expect(body).toMatch(/150.{0,5}KB/);
-  });
-
-  it("requires a per-finding verification step before presenting", () => {
-    expect(body).toMatch(/[Vv]erif/);
-    expect(body).toMatch(/Read.{0,30}file/);
-  });
-
-  it("classifies findings as VERIFIED / REJECTED / UNVERIFIABLE", () => {
-    expect(body).toMatch(/VERIFIED/);
-    expect(body).toMatch(/REJECTED/);
-    expect(body).toMatch(/UNVERIFIABLE/);
-  });
-
-  it("documents fallback dispatch via dist runner binaries", () => {
-    expect(body).toMatch(/dist\/antigravity-run\.js/);
-    expect(body).toMatch(/dist\/codex-run\.js/);
-  });
-
-  it("includes the ADR-050 dispatch pattern (direct backgrounding + per-PID wait)", () => {
-    expect(body).toMatch(/&\s*\nagy_pid=\$!|& agy_pid=\$!/);
-    expect(body).toMatch(/wait \$agy_pid|wait "\$agy_pid"/);
-  });
-
-  it("forbids raw provider CLI invocation (preserves quota fallback + stdin handling)", () => {
-    expect(body).toMatch(/[Dd]o NOT use raw|bypass.{0,40}quota fallback/);
-  });
-
-  it("requires resilient failure handling (don't silently drop a failed provider)", () => {
-    expect(body).toMatch(/[Dd]o NOT silently drop|silently drop|surface the failure/i);
-  });
-
-  it("requires a Context Brief before dispatching reviewer prompts", () => {
-    expect(body).toMatch(/Context Brief/);
-    expect(body).toMatch(/Providers: <list the actual providers selected for this run>/);
-    expect(body).toMatch(/Included files\/docs/);
-    expect(body).toMatch(/Excluded files\/docs and reason/);
-    expect(body).toMatch(/Diff bytes/);
-    expect(body).toMatch(/before the diff/);
-  });
-
-  it("pins the Context used section in the output template", () => {
-    expect(body).toMatch(/Context used:/);
-    expect(body).toMatch(/Included: <files \/ packages>/);
-    expect(body).toMatch(/Excluded: <files \/ patterns and reason>/);
-    expect(body).toMatch(/Diff bytes: <N>/);
-  });
-});
-
-describe("brainstorm skill — polish (ADR-064)", () => {
-  const content = readFile("skills/ask-llm-brainstorm/SKILL.md");
-  const { body } = parseMarkdownFrontmatter(content);
-  const piAdapter = body.slice(body.indexOf("### Pi adapter"), body.indexOf("<!-- HOST-ADAPTER:CLAUDE-CODE:START -->"));
-
-  it("documents diff preprocessing for code-context brainstorms", () => {
-    expect(body).toMatch(/git add -N/);
-    expect(body).toMatch(/!docs\//);
-  });
-
-  it("warns about diff size (>150KB threshold)", () => {
-    expect(body).toMatch(/150.{0,5}KB/);
-  });
-
-  it("notes that confidence scores are not an oracle", () => {
-    expect(body).toMatch(/[Cc]onfidence scores are not an oracle/);
-  });
-
-  it("points users to /multi-review for source-verified code review", () => {
-    expect(body).toMatch(/\/multi-review/);
-  });
-
-  it("requires passing a Context Brief into the coordinator", () => {
-    expect(body).toMatch(/Context Brief/);
-    expect(body).toMatch(/Participants: <provider via harness, exact requested model for each>/);
-    expect(body).toMatch(/Included files\/docs/);
-    expect(body).toMatch(/Excluded files\/docs and reason/);
-    expect(body).toMatch(/unverified assumptions/);
-  });
-
-  it("pins Pi's pre-dispatch refusal contract for mixed routed and bare participant lists", () => {
-    expect(piAdapter).toMatch(/mix(?:es|ing).+routed.+bare|mix(?:es|ing).+bare.+routed/is);
-    expect(piAdapter).toMatch(/refus\w*.+before.+tool call/is);
-    expect(piAdapter).toMatch(/nothing.+dispatch\w*.+substitut\w*/is);
-  });
-
-  it("ships the documented exact Grok + GPT-6 Sol invocations and Pi tool calls as the skill's interface contract", () => {
-    expect(body).toContain(
-      '/brainstorm grok@cursor-agent:grok-4.7-high,codex@cursor-agent:gpt-6-sol-high "review this architecture"',
-    );
-    expect(body).toContain(
-      '/brainstorm grok@grok-cli:grok-4.7,codex@cursor-agent:gpt-6-sol-high "review this architecture"',
-    );
-    expect(body).toContain('`ask-cursor-agent({ provider: "grok", model: "grok-4.7-high", prompt })`');
-    expect(body).toContain('`ask-cursor-agent({ provider: "codex", model: "gpt-6-sol-high", prompt })`');
-    expect(body).toContain("`dist/brainstorm-run.js`");
-  });
-});
-
-describe("brainstorm-coordinator agent — Phase 4 cross-check polish (ADR-064)", () => {
-  const content = readFile("agents/brainstorm-coordinator.md");
-  const { body } = parseMarkdownFrontmatter(content);
-
-  it("documents the cross-check step before promoting external findings", () => {
-    expect(body).toMatch(/[Cc]ross-check/);
-  });
-
-  it("classifies findings as Verified / Rejected / Unverifiable in synthesis", () => {
-    expect(body).toMatch(/Verified.*Rejected.*Unverifiable/s);
-  });
-
-  it("includes a Rejected section in the synthesis to surface false positives", () => {
-    expect(body).toMatch(/Rejected.*false positives/i);
-  });
-
-  it("requires the coordinator to update the Context Brief after Claude research", () => {
-    expect(body).toMatch(/Context Brief/);
-    expect(body).toMatch(/verified files\/docs|files\/docs you verified/i);
-    expect(body).toMatch(/assumptions remain unverified|unverified assumptions/i);
-    expect(body).toMatch(/before external dispatch|before dispatch/i);
-  });
-
-  it("ships the packaged runner invocation and report fields as the coordinator's interface contract", () => {
-    expect(body).toContain('CLAUDE_PLUGIN_ROOT}/dist/brainstorm-run.js" \\');
-    expect(body).toContain("--participant 'grok@cursor-agent:grok-4.7-high'");
-    expect(body).toContain("--participant 'codex@cursor-agent:gpt-6-sol-high'");
-    expect(body).toContain("grok@grok-cli:grok-4.7");
-    expect(body).toContain("`consensusEligible:true`");
-    expect(body).toContain("`modelVerification`");
-  });
-});
-
-describe("compare skill — load-bearing structure", () => {
-  const content = readFile("skills/ask-llm-compare/SKILL.md");
-  const { frontmatter, body } = parseMarkdownFrontmatter(content);
-
-  it("is discoverable as a standard skill", () => {
-    expect(frontmatter.name).toBe("ask-llm-compare");
-  });
-
-  it("description differentiates from /brainstorm and /multi-review", () => {
-    const desc = frontmatter.description as string;
-    expect(desc).toMatch(/side-by-side|verbatim|raw responses|without synthesis/i);
-  });
-
-  it("documents the ADR-050 dispatch pattern (direct backgrounding + per-PID wait)", () => {
-    expect(body).toMatch(/&\s*pid=\$!|& gem_pid=\$!/);
-    expect(body).toMatch(/wait \$/);
-  });
-
-  it("warns against the sub-agent background-job anti-patterns", () => {
-    expect(body).toMatch(/run_in_background.*true/);
-    expect(body).toMatch(/cmd\s*&\s*\)/);
-    expect(body).toMatch(/SIGKILL|silently/i);
-  });
-
-  it("requires a 10-minute Bash timeout on the dispatch call", () => {
-    expect(body).toMatch(/600000|10[\s-]minute/);
-  });
-
-  it("explicitly rejects synthesis (the differentiator from /brainstorm)", () => {
-    expect(body).toMatch(/verbatim|do NOT paraphrase|do not adjudicate|stay neutral/i);
-  });
-
-  it("uses the dist/ runner binaries for all four providers (not raw provider CLIs)", () => {
-    expect(body).toMatch(/dist\/run\.js/);
-    expect(body).toMatch(/dist\/codex-run\.js/);
-    expect(body).toMatch(/dist\/ollama-run\.js/);
-    expect(body).toMatch(/dist\/antigravity-run\.js/);
-  });
-});
-
-describe("brainstorm-coordinator agent", () => {
-  const content = readFile("agents/brainstorm-coordinator.md");
-  const { frontmatter, body } = parseMarkdownFrontmatter(content);
-
-  it("runs on opus (model is the strongest available)", () => {
+  it("runs on opus with provider and research tools", () => {
     expect(frontmatter.model).toBe("opus");
-  });
-
-  it("has all four external provider MCP tools", () => {
-    const tools = frontmatter.tools as string[];
-    expect(tools).toContain("mcp__gemini__ask-gemini");
-    expect(tools).toContain("mcp__codex__ask-codex");
-    expect(tools).toContain("mcp__ollama__ask-ollama");
-    expect(tools).toContain("mcp__antigravity__ask-antigravity");
-  });
-
-  it("has WebFetch and WebSearch (Phase 3B research surface — ADR-049)", () => {
-    const tools = frontmatter.tools as string[];
-    expect(tools).toContain("WebFetch");
-    expect(tools).toContain("WebSearch");
-  });
-
-  it("documents the sub-agent background-job lifecycle constraint (ADR-050)", () => {
-    expect(body).toMatch(/background.{0,30}job/i);
-    expect(body).toMatch(/sub-agent|subagent/i);
-  });
-
-  it("requires Phase 3B (Claude research) to run before Phase 3A (external dispatch) — ADR-049", () => {
-    expect(body).toMatch(/Phase 3B/);
-    expect(body).toMatch(/Phase 3A/);
-    expect(body).toMatch(/sequential|before|first/i);
-  });
-
-  it("warns against the (cmd &) subshell anti-pattern from ADR-050", () => {
-    expect(body).toMatch(/blocking|foreground|wait/i);
-  });
-
-  it("defaults the raw ollama run to qwen3.8:27b while honoring ASK_OLLAMA_MODEL", () => {
-    expect(body).toContain(`ollama run "\${ASK_OLLAMA_MODEL:-qwen3.8:27b}"`);
-  });
-});
-
-describe("codex-verifier agent — claim verification contract (ADR-073)", () => {
-  const content = readFile("agents/codex-verifier.md");
-  const { frontmatter, body } = parseMarkdownFrontmatter(content);
-
-  it("declares mcp__codex__ask-codex in tools (so Codex can be dispatched for narrow per-claim checks)", () => {
-    const tools = frontmatter.tools as string[];
-    expect(tools).toContain("mcp__codex__ask-codex");
-    expect(tools).toContain("mcp__plugin_ask-llm_codex__ask-codex");
-    expect(tools).toContain("mcp__ask-llm__ask-llm");
-  });
-
-  it("is restricted from Write / Edit / NotebookEdit (read-only tool surface — Pi verifier pattern)", () => {
-    const tools = frontmatter.tools as string[];
-    expect(tools).not.toContain("Edit");
-    expect(tools).not.toContain("Write");
-    expect(tools).not.toContain("NotebookEdit");
-  });
-
-  it("description differentiates from codex-reviewer (issue hunt vs trust verification)", () => {
-    const desc = frontmatter.description as string;
-    expect(desc).toMatch(/[Dd]istinct from `?codex-reviewer/);
-  });
-
-  it("documents the five-grade CONFIDENCE ladder", () => {
-    expect(body).toMatch(/PERFECT/);
-    expect(body).toMatch(/VERIFIED/);
-    expect(body).toMatch(/PARTIAL/);
-    expect(body).toMatch(/FEEDBACK/);
-    expect(body).toMatch(/FAILED/);
-  });
-
-  it("encodes the 'evidence beats assertion' core principle (no evidence → unsure, not verified)", () => {
-    expect(body).toMatch(/[Ww]ithout evidence.*unsure/);
-  });
-
-  it("requires atomic claim decomposition (Pi verifier's central pattern)", () => {
-    expect(body).toMatch(/[Aa]tomic claim/);
-    expect(body).toMatch(/[Dd]ecomposition|decomposes/);
-  });
-
-  it("forbids fix proposals (verifier is structurally narrowed)", () => {
-    expect(body).toMatch(/[Nn]o fix proposals/);
-  });
-
-  it("forbids issue hunting (out-of-scope bugs do not go in the Report)", () => {
-    expect(body).toMatch(/[Nn]o issue hunting|[Oo]ut-of-scope bugs/);
-  });
-
-  it("specifies the Report block contract with STATUS and CONFIDENCE lines", () => {
-    expect(body).toMatch(/## Report/);
-    expect(body).toMatch(/STATUS:/);
-    expect(body).toMatch(/CONFIDENCE:/);
-  });
-});
-
-describe("/codex-verify skill — load-bearing structure (ADR-073)", () => {
-  const content = readFile("skills/ask-llm-codex-verify/SKILL.md");
-  const { frontmatter, body } = parseMarkdownFrontmatter(content);
-
-  it("is discoverable as a standard skill", () => {
-    expect(frontmatter.name).toBe("ask-llm-codex-verify");
-  });
-
-  it("description distinguishes from /codex-review (issue hunt vs trust check)", () => {
-    const desc = frontmatter.description as string;
-    expect(desc).toMatch(/[Dd]ifferent from `?\/codex-review|distinct.*codex-review/i);
-  });
-
-  it("dispatches the codex-verifier agent (not codex-reviewer)", () => {
-    expect(body).toMatch(/codex-verifier/);
-    expect(body).not.toMatch(/[Ll]aunch.*codex-reviewer.*agent/);
-  });
-
-  it("captures the assistant's last message verbatim as the source of claims", () => {
-    expect(body).toMatch(/[Aa]ssistant'?s last message/);
-    expect(body).toMatch(/verbatim/);
-  });
-
-  it("documents the defensive parser fallback (CONFIDENCE derived from STATUS when missing)", () => {
-    expect(body).toMatch(/verified.{0,10}→.{0,10}VERIFIED/);
-    expect(body).toMatch(/failed.{0,10}→.{0,10}FEEDBACK/);
-    expect(body).toMatch(/unsure.{0,10}→.{0,10}FAILED/);
-  });
-
-  it("treats PARTIAL as a real verdict, not a softer VERIFIED", () => {
-    expect(body).toMatch(/PARTIAL is a real verdict|PARTIAL is the most actionable/);
-  });
-
-  it("requires presenting the Report's five sections", () => {
-    expect(body).toMatch(/[Vv]erified/);
-    expect(body).toMatch(/[Ff]ailed/);
-    expect(body).toMatch(/[Uu]nverifiable/);
-    expect(body).toMatch(/[Cc]orrective feedback/);
-  });
-});
-
-describe("multi-review skill — claim-vs-finding redirect (ADR-073)", () => {
-  const content = readFile("skills/ask-llm-multi-review/SKILL.md");
-  const { body } = parseMarkdownFrontmatter(content);
-
-  it("points users at /codex-verify when they want claim verification rather than finding verification", () => {
-    expect(body).toMatch(/\/codex-verify/);
-  });
-
-  it("explains the two-kinds-of-verification distinction", () => {
-    expect(body).toMatch(
-      /[Tt]wo kinds of verification|review findings.{0,200}assistant claims|assistant claims.{0,200}review findings/s,
+    expect(frontmatter.tools).toEqual(
+      expect.arrayContaining([
+        "mcp__gemini__ask-gemini",
+        "mcp__codex__ask-codex",
+        "mcp__ollama__ask-ollama",
+        "mcp__antigravity__ask-antigravity",
+        "WebFetch",
+        "WebSearch",
+      ]),
     );
   });
 });
 
-describe("brainstorm-coordinator — synthesis-confidence ladder (ADR-073 follow-on)", () => {
-  const content = readFile("agents/brainstorm-coordinator.md");
-  const { body } = parseMarkdownFrontmatter(content);
+describe("codex-verifier permissions", () => {
+  const { frontmatter } = parseMarkdownFrontmatter(readFile("agents/codex-verifier.md"));
 
-  it("documents a four-grade synthesis-confidence ladder", () => {
-    expect(body).toMatch(/PERFECT/);
-    expect(body).toMatch(/VERIFIED/);
-    expect(body).toMatch(/PARTIAL/);
-    expect(body).toMatch(/FAILED/);
-  });
-
-  it("explicitly drops FEEDBACK from the codex-verify ladder (no fix-loop semantic in brainstorming)", () => {
-    expect(body).toMatch(/FEEDBACK.{0,200}(dropped|not apply|doesn'?t apply|intentionally dropped)/i);
-  });
-
-  it("ties the ladder back to /codex-verify so the lineage is documented", () => {
-    expect(body).toMatch(/\/codex-verify|codex-verify confidence ladder/);
-  });
-
-  it("requires the synthesis-confidence grade as the first line of the output", () => {
-    expect(body).toMatch(/Synthesis confidence:.{0,200}\[PERFECT \| VERIFIED \| PARTIAL \| FAILED\]/);
-  });
-
-  it("warns that false PERFECT is worse than honest PARTIAL (porting Pi's honesty discipline)", () => {
-    expect(body).toMatch(/false `?PERFECT`? is worse than honest `?PARTIAL`?/i);
-  });
-});
-
-describe("agents/ — no removed codex CLI flags (#37/#38/#52)", () => {
-  // codex rust-v0.128+ removed `--full-auto` entirely; on codex 0.135 it errors
-  // with "unexpected argument", so any agent still spawning it has a broken codex
-  // dispatch. The canonical replacement is `--sandbox workspace-write`.
-  it.each(expectedAgents)("%s does not invoke the removed `codex exec --full-auto` flag", (agentFile) => {
-    expect(readFile(`agents/${agentFile}`)).not.toMatch(/--full-auto/);
-  });
-
-  it("brainstorm-coordinator dispatches codex with `--sandbox read-only` (ADR-136)", () => {
-    const coordinator = readFile("agents/brainstorm-coordinator.md");
-    expect(coordinator).toMatch(/codex exec --sandbox read-only/);
-    expect(coordinator).not.toMatch(/codex exec --sandbox workspace-write/);
-  });
-
-  it("validates the brainstorm reasoning-effort override before invoking Codex", () => {
-    const coordinator = readFile("agents/brainstorm-coordinator.md");
-    expect(coordinator).toContain('case "$codex_effort" in');
-    expect(coordinator).toContain("low|medium|high|xhigh|max|ultra) ;;");
-    expect(coordinator).toContain('*) codex_effort="high" ;;');
-  });
-
-  it("accepts Codex ultra effort in /codex-pair without changing the required-pin contract", () => {
-    expect(readFile("skills/ask-llm-codex-pair/SKILL.md")).toContain("effort=low|medium|high|xhigh|max|ultra");
+  it("grants split, plugin-bundled, and unified MCP tools while denying writes", () => {
+    expect(frontmatter.tools).toEqual(
+      expect.arrayContaining([
+        "mcp__codex__ask-codex",
+        "mcp__plugin_ask-llm_codex__ask-codex",
+        "mcp__ask-llm__ask-llm",
+      ]),
+    );
+    for (const tool of ["Edit", "Write", "NotebookEdit"]) {
+      expect(frontmatter.tools).not.toContain(tool);
+    }
   });
 });

@@ -17,7 +17,7 @@ Use one native `ask-multi` call. Put the common prompt in `prompt` and two to fi
 
 ### Other hosts adapter
 
-Codex, Cursor Agent, Antigravity, Grok Build, Gemini CLI and OpenCode get this skill from their skills folder, not from a plugin. Use one `multi-llm` call as described in `../ask-llm-review/transport.md`: the common prompt in `prompt` and two to five unique names in `providers`. Present each response verbatim in that order.
+Codex, Cursor Agent, Antigravity, Grok Build, Gemini CLI and OpenCode get this skill from their skills folder, not from a plugin. Select two to five unique provider names, then apply the availability filtering, dispatch, and reporting steps in `../ask-llm-review/transport.md` with the common prompt. Present each response verbatim and each unavailable selection or failure in the original requested order.
 
 <!-- HOST-ADAPTER:CLAUDE-CODE:START -->
 ### Claude Code adapter

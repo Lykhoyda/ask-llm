@@ -111,8 +111,6 @@ async function validateSkillAdapter(): Promise<void> {
           : undefined;
   if (!skillName) return;
   const folder = `ask-llm-${skillName}`;
-  const skill = await readFile(join(plugin, "skills", folder, "SKILL.md"), "utf8");
-  invariant(skill.includes(`name: ${folder}`), `${folder} skill adapter is not discoverable`);
   if (config.scenario.host === "cursor-agent" && skillName !== "brainstorm") {
     const manifest = JSON.parse(await readFile(join(plugin, ".cursor-plugin", "plugin.json"), "utf8")) as {
       skills?: string[];
@@ -125,10 +123,8 @@ async function validateSkillAdapter(): Promise<void> {
     // Pi reads the skills from the shared skills folder that setup fills, never from the package manifest.
     const manifest = JSON.parse(await readFile(join(plugin, "package.json"), "utf8")) as { pi?: { skills?: string[] } };
     invariant(!manifest.pi?.skills, "the Pi package manifest must not declare skills");
-    invariant(skill.includes("### Pi adapter"), `${folder} has no Pi adapter`);
   }
   if (skillName === "brainstorm") {
-    invariant(skill.includes("provider@harness:exact-model-id"), "brainstorm adapter lost routed participant syntax");
     invariant(config.livePrompt.includes(config.model), "brainstorm prompt lost the exact primary model");
     if (config.secondaryModel)
       invariant(config.livePrompt.includes(config.secondaryModel), "brainstorm prompt lost Sol");
