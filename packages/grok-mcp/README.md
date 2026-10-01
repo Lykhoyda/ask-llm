@@ -8,7 +8,7 @@ MCP server for one-shot Grok consultations through either the supported xAI Resp
 - No model rewriting, substitution, or fallback
 - Strict JSON Schema support for machine-mode callers
 - Cancellation and timeout abort the underlying HTTP request or terminate the CLI process
-- Stable, redacted diagnostics for credentials, models, quota/rate limits, transport, malformed output, and safety refusals
+- Stable, redacted diagnostics; see [Errors and refusals](https://lykhoyda.github.io/ask-llm/providers/grok#errors-and-refusals)
 
 ## Setup
 
