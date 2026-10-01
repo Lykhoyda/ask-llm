@@ -119,9 +119,7 @@ describe("installSkills through the pinned skills CLI", () => {
 
   it.each(["codex", "cursor"] as const)("reuses Pi's shared skills when adding %s", async (nextHost) => {
     const first = planSkills(hosts(["pi"]), ["pi"], PACKAGE_SKILLS);
-    expect(await installSkills(first, yes, env)).toEqual([
-      expect.objectContaining({ id: "pi", status: "installed" }),
-    ]);
+    expect(await installSkills(first, yes, env)).toEqual([expect.objectContaining({ id: "pi", status: "installed" })]);
     const next = planSkills(hosts(["pi", nextHost]), [nextHost], PACKAGE_SKILLS);
     expect(await installSkills(next, yes, env)).toEqual([
       expect.objectContaining({ id: nextHost, status: "up-to-date" }),
