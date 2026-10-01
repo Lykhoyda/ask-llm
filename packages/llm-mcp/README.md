@@ -182,7 +182,7 @@ Part of the [Ask LLM](https://github.com/Lykhoyda/ask-llm) monorepo.
 
 ### From Marketplace
 
-`ask-llm setup` installs these workflows for you: the plugin in Claude Code, and the same skills, named `ask-llm-*`, in Codex, Cursor Agent, Grok Build, Gemini CLI, OpenCode and Pi through the pinned `skills` CLI. In Claude Code the earlier names such as `/codex-review` keep working. To install only the Claude Code plugin by hand:
+Use the [Quick Start](https://github.com/Lykhoyda/ask-llm#quick-start) for setup; [Command compatibility](#command-compatibility) covers workflow installation and removal. To install only the Claude Code plugin by hand:
 
 ```
 /plugin marketplace add Lykhoyda/ask-llm
@@ -216,7 +216,7 @@ If Codex is missing entirely, provision the unified server first (`ask-llm setup
 
 ### Cursor Agent
 
-Cursor's supported Agent Skills surface exposes exactly `/codex-pair` and `/grok-pair` (the manifest sets `agents: []`, `commands: []`, and `hooks: {}` so Claude agents and the Claude-format hooks file are never auto-discovered, and the other skills stay Claude/Pi-only until they get Cursor adapters); its MCP surface is `mcp.json`, which bundles only the unified `ask-llm` server. For a source checkout:
+See the [Cursor host guide](https://lykhoyda.github.io/ask-llm/plugin/cursor) for the plugin skill surface and setup-installed portable workflows. For a source checkout:
 
 ```bash
 agent --plugin-dir ./packages/llm-mcp
@@ -226,12 +226,7 @@ agent --plugin-dir ./packages/llm-mcp
 
 ### Pi
 
-```bash
-pi install npm:@ask-llm/plugin
-pi list
-```
-
-Pi discovers the portable skills as `/skill:<name>` commands and registers native `ask-codex`, `ask-gemini`, `ask-grok`, `ask-ollama`, `ask-antigravity`, model-neutral `ask-cursor-agent`, and bounded concurrent `ask-multi` tools. Pi intentionally has no built-in MCP client; do not configure these as MCP servers in Pi. `fable-review` and `grok-pair` are excluded from Pi discovery; Grok pairing currently has Claude/Cursor adapters, while Pi retains its dedicated Codex pairing lifecycle.
+Follow the [Pi installation guide](https://lykhoyda.github.io/ask-llm/plugin/pi#install) for both the native extension and the separately installed skills, and its [skills and tools reference](https://lykhoyda.github.io/ask-llm/plugin/pi#skills-and-tools) for command names and unsupported workflows.
 
 The plugin's `ask-gemini-run`, Gemini reviewer agent/skill, and Pi `ask-gemini` tool all delegate to the canonical Gemini executor: `gemini-3.1-pro-preview` remains primary and quota errors fall back to `gemini-3.8-flash` unless `ASK_GEMINI_FALLBACK_MODEL` overrides it.
 
@@ -246,9 +241,11 @@ See the [Pi host guide](https://lykhoyda.github.io/ask-llm/plugin/pi) for securi
 
 ## Skills
 
+These are Claude Code compatibility aliases; see the [skill naming reference](https://lykhoyda.github.io/ask-llm/plugin/skills) for portable commands.
+
 | Command | Description |
 |---------|-------------|
-| `/multi-review` | Parallel Gemini + Codex review with 4-phase validation pipeline and consensus highlighting |
+| `/multi-review` | Parallel review with source verification; see the [workflow reference](https://lykhoyda.github.io/ask-llm/plugin/skills#multi-review) |
 | `/gemini-review` | Gemini-only code review with confidence filtering |
 | `/codex-review` | Codex-only code review (precision-first, ≥80 confidence — default for routine PR review) |
 | `/fable-review` | Isolated, read-only review requesting native Fable, with runtime verification limits disclosed |
@@ -355,6 +352,10 @@ MIT
 
 ## Command compatibility
 
-`ask-llm --help` and `ask-llm --version` use the canonical package. After a global install (`npm i -g @ask-llm/mcp`), `ask-llm setup --dry-run [--json]` previews the exact command or file for every listed host, including hosts that are not installed, and writes nothing. `ask-llm setup` shows the same preview, asks once per host, and registers the absolute `ask-llm-mcp` path at user scope through the host's own command for Claude Code (`claude mcp add`), Codex (`codex mcp add`), Antigravity (`agy mcp add`), Grok Build (`grok mcp add`) and Gemini CLI (`gemini mcp add`). Cursor (`~/.cursor/mcp.json`), Claude Desktop (`claude_desktop_config.json`) and OpenCode (`~/.config/opencode/opencode.json`) have no add command, so setup merges the one `ask-llm` entry into that file itself: unrelated entries and the file's indentation are kept, and the file is replaced atomically, so a failed or interrupted write leaves the original intact. A file that is not plain JSON (comments, invalid UTF-8, a sibling `opencode.jsonc`, or numbers that would change when rewritten) is left untouched and the exact entry is printed instead. OpenCode is verified against fixture files only, not yet on a real OpenCode install. Other hosts get the exact manual step. `-y` skips the questions and `--host claude,codex` limits the hosts. An existing `ask-llm` entry is never overwritten, a second run changes nothing, and each change is verified by reading the host's registration back. `ask-llm remove` deletes only entries that run this `ask-llm-mcp`. A host's own command may reformat its config file, while unrelated entries keep their meaning, so before a host's first change in a run the file is copied to `<file>.ask-llm-backup-<UTC timestamp>` next to it and the path is printed. Each backup may contain credentials, keeps the original file's permissions, and remains beside the resolved config file until you delete it. Symlinked config files and directories resolve to their real location; existing backups are never overwritten. Grok configurations whose `ask-llm` entry or `mcp_servers` table uses syntax other than what `grok mcp add` writes require manual setup and removal; the commands leave them untouched. Gemini CLI loads user servers only in trusted folders. `ask-llm setup` requires a global install, because an npx cache is not a durable server path. For the host and provider diagnostics, see [Doctor output formats](#doctor-output-formats). The existing `ask-llm-mcp doctor` remains provider-only, and `ask-llm-mcp` still starts the stdio MCP server without arguments and keeps its machine and REPL commands.
+`ask-llm --help` and `ask-llm --version` use the canonical package. After a global install (`npm i -g @ask-llm/mcp`), `ask-llm setup --dry-run [--json]` previews the exact command or file for every listed host, including hosts that are not installed, and writes nothing. `ask-llm setup` shows the same preview, asks before each registration and workflow installation, and registers the absolute `ask-llm-mcp` path at user scope through the host's own command for Claude Code (`claude mcp add`), Codex (`codex mcp add`), Antigravity (`agy mcp add`), Grok Build (`grok mcp add`) and Gemini CLI (`gemini mcp add`). Cursor (`~/.cursor/mcp.json`), Claude Desktop (`claude_desktop_config.json`) and OpenCode (`~/.config/opencode/opencode.json`) have no add command, so setup merges the one `ask-llm` entry into that file itself: unrelated entries and the file's indentation are kept, and the file is replaced atomically, so a failed or interrupted write leaves the original intact. A file that is not plain JSON (comments, invalid UTF-8, a sibling `opencode.jsonc`, or numbers that would change when rewritten) is left untouched and the exact entry is printed instead. OpenCode is verified against fixture files only, not yet on a real OpenCode install. Other hosts get the exact manual step. `-y` skips the questions and `--host claude,codex` limits the hosts. An existing `ask-llm` entry is never overwritten, a second run changes nothing, and each change is verified by reading the host's registration back. `ask-llm remove` deletes only entries that run this `ask-llm-mcp`. A host's own command may reformat its config file, while unrelated entries keep their meaning, so before a host's first change in a run the file is copied to `<file>.ask-llm-backup-<UTC timestamp>` next to it and the path is printed. Each backup may contain credentials, keeps the original file's permissions, and remains beside the resolved config file until you delete it. Symlinked config files and directories resolve to their real location; existing backups are never overwritten. Grok configurations whose `ask-llm` entry or `mcp_servers` table uses syntax other than what `grok mcp add` writes require manual setup and removal; the commands leave them untouched. Gemini CLI loads user servers only in trusted folders. `ask-llm setup` requires a global install, because an npx cache is not a durable server path. For the host and provider diagnostics, see [Doctor output formats](#doctor-output-formats). The existing `ask-llm-mcp doctor` remains provider-only, and `ask-llm-mcp` still starts the stdio MCP server without arguments and keeps its machine and REPL commands.
+
+Setup also previews and installs workflows for selected, installed hosts: the Claude Code marketplace plugin, or portable skills through the pinned skills CLI for Codex, Cursor Agent, Grok Build, Gemini CLI, OpenCode and Pi. Claude Desktop has no skills installation. The plugin installation has its own confirmation; all missing skills share one CLI invocation and confirmation. Existing user-scoped Claude plugins and complete skill folders are left as installed; setup does not refresh their contents. The skills CLI fetches the repository default branch, so its workflows can be newer than the installed npm package. Antigravity gets a manual copy command because the pinned CLI cannot write its skills directory. A failed installation or outstanding manual step makes setup exit 1, including with `-y`; a dry run only previews these steps. Non-Claude marketplaces are not installed by setup because they would also import Claude hooks and a second Codex server.
+
+`ask-llm remove` leaves the plugin and skills installed and prints their separate removal commands. Use `claude plugin uninstall ask-llm@ask-llm-plugins` for the Claude plugin, or the pinned `skills remove` command printed by `ask-llm remove` with the desired `ask-llm-*` names. Shared skill removal can affect other hosts that read the same folder.
 
 The package-name alias `mcp` points to the same server entrypoint so `npx -y @ask-llm/mcp` can still select it automatically. A global installation also exposes a generic `mcp` command, which may collide with another installed command; use the namespaced `ask-llm-mcp` command when invoking the server directly.

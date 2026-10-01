@@ -158,15 +158,7 @@ Review agents follow a 4-phase pipeline inspired by [Anthropic's code-review plu
 
 `@ask-llm/mcp` owns the canonical host assets and skill corpus; `@ask-llm/plugin` is a dependent compatibility bridge. Claude Code loads its marketplace agents and hooks; Cursor Agent loads the adapted `/codex-pair` and `/grok-pair` skills through Agent Skills plus `mcp.json` (`agent --plugin-dir ./packages/llm-mcp`; see the [Cursor Agent host guide](https://lykhoyda.github.io/ask-llm/plugin/cursor)); Pi loads explicit native tools, portable skill adapters, and a thin lifecycle extension.
 
-| Capability | Claude Code | Cursor Agent | Codex CLI host | Pi |
-|---|---:|---:|---:|---:|
-| Provider transport | MCP | MCP (`mcp.json`, unified `ask-llm` only) | MCP | native Ask LLM tools (no built-in MCP) |
-| Review/compare/brainstorm skills | yes | Agent Skills | tools only | `/skill:<name>` + natural language |
-| Isolated reviewer contexts / Fable | yes | no; `fable-review` excluded | no | no; `fable-review` excluded |
-| codex-pair | hooks | on-demand persisted session | no | lifecycle extension |
-| `/grok-pair` | yes (explicit Cursor/xAI/CLI route) | direct xAI/CLI routes via pinned unified `ask-llm` (or user-installed `ask-grok`) | no | excluded |
-| Blocking HIGH Stop gate | opt-in | no | no | no; surfaced non-blockingly |
-| Async pairing in one-shot print | n/a | on-demand skill | no | unsupported |
+See the [host feature matrix](https://lykhoyda.github.io/ask-llm/plugin/pi#host-feature-matrix) for workflow availability, pairing modes, and lifecycle limits.
 
 Pi specifics: codex-pair requires the repository marker, Pi project trust, **and** interactive user-owned consent via `/codex-pair`; a committed marker alone never authorizes source transfer or cost. Pi surfaces findings non-blockingly and does not claim Claude's blocking Stop gate or one-shot print parity. `fable-review` is Claude Code-only. Provider CLI authentication is separate from Pi's host-model login. Update or remove with `pi update npm:@ask-llm/plugin` / `pi remove npm:@ask-llm/plugin`.
 

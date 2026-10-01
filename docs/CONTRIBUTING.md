@@ -79,7 +79,7 @@ The architecture is designed for new providers — see ADR-026, 028, 029, 032 fo
 2. Implement `src/utils/<provider>Executor.ts` (HTTP) or shell out to a CLI (Gemini/Codex pattern).
 3. Add `isProviderAvailable()` (HTTP) or rely on `isCommandAvailable()` (CLI) so `llm-mcp` can auto-detect it.
 4. Wire the provider into `packages/llm-mcp/src/constants.ts`.
-5. Add a corresponding `<provider>-reviewer.md` agent and `<provider>-review` skill in `packages/llm-mcp/`.
+5. Add a corresponding `<provider>-reviewer.md` agent and `ask-llm-<provider>-review` skill in `packages/llm-mcp/`.
 6. Update the marketplace manifest and root `README.md` provider table.
 
 ## Versioning your change

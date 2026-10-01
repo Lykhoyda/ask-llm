@@ -165,8 +165,7 @@ function readPackages(file: string, sources: string[]): RegistrationState {
     ? packages.some((entry) => {
         const listed = typeof entry === "string" ? entry : (entry as { source?: unknown })?.source;
         return (
-          typeof listed === "string" &&
-          sources.some((source) => listed === source || listed.startsWith(`${source}@`))
+          typeof listed === "string" && sources.some((source) => listed === source || listed.startsWith(`${source}@`))
         );
       })
     : false;

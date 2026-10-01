@@ -12,7 +12,7 @@ The **Ask LLM plugin** brings the second opinion into Claude Code itself: slash-
 
 ### Through setup (recommended)
 
-`ask-llm setup` installs these workflows for you: the plugin in Claude Code, and the same skills, named `ask-llm-*`, in Codex, Cursor Agent, Grok Build, Gemini CLI, OpenCode and Pi through the pinned `skills` CLI. In Claude Code the earlier names such as `/codex-review` keep working. To install only the Claude Code plugin by hand:
+Follow the [Quick Start](https://github.com/Lykhoyda/ask-llm#quick-start) to install through setup. See [Command compatibility](https://github.com/Lykhoyda/ask-llm/blob/main/packages/llm-mcp/README.md#command-compatibility) for workflow installation and removal, and [Skills](/plugin/skills) for portable names and compatibility aliases. To install only the Claude Code plugin by hand:
 
 ```bash
 /plugin marketplace add Lykhoyda/ask-llm

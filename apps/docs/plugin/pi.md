@@ -24,7 +24,7 @@ The extension reads provider credentials only indirectly by invoking the provide
 
 ## Install
 
-Recommended user-scoped install:
+After the global Ask LLM install in the [Quick Start](https://github.com/Lykhoyda/ask-llm#quick-start), use this user-scoped install:
 
 ```bash
 pi install npm:@ask-llm/plugin
@@ -32,7 +32,7 @@ pi list
 ask-llm setup --host pi
 ```
 
-The package provides the native tools and the codex-pair commands. The skills come from `ask-llm setup --host pi`, which installs them into Pi's skills folder with the pinned `skills` CLI; until then Pi prints a one-line notice naming that command. Skills are now named `/skill:ask-llm-*`: `/skill:codex-review`, `/skill:compare` and `/skill:brainstorm` are replaced by `/skill:ask-llm-review`, `/skill:ask-llm-compare` and `/skill:ask-llm-brainstorm`.
+The package provides the native tools and the codex-pair commands. The skills come from `ask-llm setup --host pi`, which installs them into Pi's skills folder with the pinned `skills` CLI; an interactive session prints a one-line notice naming that command when no `ask-llm-*` skill is discovered. Skills are now named `/skill:ask-llm-*`: `/skill:codex-review`, `/skill:compare` and `/skill:brainstorm` are replaced by `/skill:ask-llm-review`, `/skill:ask-llm-compare` and `/skill:ask-llm-brainstorm`.
 
 Project-local install (loaded only after Pi project trust):
 
@@ -130,13 +130,14 @@ Pi pairing works in TUI, RPC, and a long-lived JSON process. It is unsupported i
 | Capability | Claude Code | Cursor Agent | Codex CLI host | Pi |
 |---|---:|---:|---:|---:|
 | Provider MCP servers | Yes | Yes | Yes | No; native tools instead |
-| Review/compare/brainstorm skills | Yes | Agent Skills | MCP tools only | Yes, `/skill:<name>` + natural language; exact Grok + Sol mode calls native `ask-cursor-agent` twice and never `ask-multi`/Gemini |
+| Review/compare/brainstorm skills | Yes | Agent Skills | Portable skills through setup | Yes, `/skill:<name>` + natural language; exact Grok + Sol mode calls native `ask-cursor-agent` twice and never `ask-multi`/Gemini |
 | Isolated reviewer subagents | Yes | Host-dependent | No | No; portable contracts run inline |
 | Independent `fable-review` | Yes | No; excluded | No | No; excluded |
 | `codex-image` | Yes | provider-dependent | provider-dependent | Yes, explicit workspace-write opt-in |
-| codex-pair | Claude per-edit hooks | On-demand persisted session | No | Pi lifecycle extension |
+| codex-pair | Claude per-edit hooks | On-demand persisted session | On-demand persisted session | Pi lifecycle extension |
+| Grok pairing | Explicit Cursor/xAI/CLI routes | Direct xAI/CLI routes | Direct xAI/CLI routes | Skill is installed but refuses; no consent/lifecycle adapter |
 | Blocking `blockOn: HIGH` Stop gate | Yes | No claim | No | **No**; findings are non-blocking |
-| Pairing in one-shot print mode | Hook-dependent | On-demand skill | No | **No** |
+| Pairing in one-shot print mode | Hook-dependent | On-demand skill | On-demand skill | **No** |
 
 ## Update and remove
 
@@ -145,7 +146,7 @@ pi update npm:@ask-llm/plugin
 pi remove npm:@ask-llm/plugin
 ```
 
-Pi 0.83 removes its managed npm tree/settings entry. User-owned `.codex-pair/` logs/cache/state and the consent allowlist remain until you delete or revoke them explicitly.
+Pi 0.83 removes its managed npm tree/settings entry. Separately installed skills remain; see [workflow removal](https://github.com/Lykhoyda/ask-llm/blob/main/packages/llm-mcp/README.md#command-compatibility). User-owned `.codex-pair/` logs/cache/state and the consent allowlist remain until you delete or revoke them explicitly.
 
 ## Troubleshooting
 
