@@ -47,7 +47,8 @@ async function main() {
                     input: payload,
                     cwd: markerDir,
                     encoding: "utf-8",
-                    env: { ...process.env, CODEX_PAIR_FORCE_SYNC: "1" },
+                    // The hook reuses this timeout so its review fits the lock TTL and the kill deadline below.
+                    env: { ...process.env, CODEX_PAIR_FORCE_SYNC: "1", CP_TIMEOUT_MS: String(codexTimeout) },
                     timeout: codexTimeout + 60_000,
                 });
             }

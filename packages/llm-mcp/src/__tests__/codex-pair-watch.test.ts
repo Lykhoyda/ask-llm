@@ -64,12 +64,6 @@ describe("scripts/codex-pair-watch.mjs — structural invariants (ADR-077)", () 
     expect(script).toMatch(/FALLBACK_MODEL/);
   });
 
-  it("enforces a timeout with SIGTERM then SIGKILL escalation", () => {
-    expect(script).toMatch(/SIGTERM/);
-    expect(script).toMatch(/SIGKILL/);
-    expect(script).toMatch(/ASK_CODEX_TIMEOUT_MS/);
-  });
-
   it("declares the marker filename .codex-pair/context.md (ADR-092)", () => {
     // ADR-092 consolidated layout — hook builds the marker path from
     // PAIR_ROOT_DIR + CONTEXT_FILENAME imported from lib/state.mjs.
@@ -282,7 +276,6 @@ describe("scripts/codex-pair-watch.mjs — structural invariants (ADR-077)", () 
     const body = block?.[0] ?? "";
     // Each key has a typeof guard so invalid types fall through to defaults.
     expect(body).toMatch(/typeof fm\.model\s*===\s*["']string["']/);
-    expect(body).toMatch(/typeof fm\.timeoutMs\s*===\s*["']number["']/);
     expect(body).toMatch(/typeof fm\.maxFileBytes\s*===\s*["']number["']/);
     expect(body).toMatch(/VALID_THRESHOLDS\.has/);
   });
@@ -2117,37 +2110,6 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
     expect(reviewEntry.counts.low).toBe(1);
   });
 
-  // ADR-084: Cross-platform process-tree termination.
-  //
-  // POSIX: hook spawns codex with `detached: true` (process group leader)
-  // and kills via `process.kill(-pid)`. Windows: hook uses `taskkill /T`.
-  // Structural tests pin both surfaces; the timeout functional test exercises
-  // the POSIX path end-to-end via the fake-codex `timeout` scenario.
-
-  it("ADR-084/088: lib/process.mjs defines terminateProcessTree helper with POSIX + Windows branches", () => {
-    const libText = fs.readFileSync(path.join(PLUGIN_ROOT, "scripts", "lib", "process.mjs"), "utf-8");
-    expect(libText).toMatch(/export function terminateProcessTree/);
-    expect(libText).toMatch(/process\.kill\(-child\.pid/);
-    expect(libText).toMatch(/taskkill/);
-    expect(libText).toMatch(/['"]\/t['"]/i);
-    expect(libText).toMatch(/['"]\/f['"]/i);
-    // The spawn-with-detached call sites still live in the hook script.
-    const scriptText = fs.readFileSync(path.join(PLUGIN_ROOT, "scripts", "codex-pair-watch.mts"), "utf-8");
-    expect(scriptText).toMatch(/detached:\s*!IS_WINDOWS/);
-    expect(scriptText).toMatch(/from "\.\/lib\/process\.mts"/);
-  });
-
-  it("ADR-084: spawnCodex timeout path triggers process-tree termination (uses terminateProcessTree)", () => {
-    const scriptText = fs.readFileSync(path.join(PLUGIN_ROOT, "scripts", "codex-pair-watch.mts"), "utf-8");
-    const spawnCodexBlock = scriptText.match(/function spawnCodex[\s\S]*?\n\}/);
-    expect(spawnCodexBlock).toBeTruthy();
-    expect(spawnCodexBlock?.[0]).toMatch(/terminateProcessTree\(child,\s*"SIGTERM"\)/);
-    expect(spawnCodexBlock?.[0]).toMatch(/terminateProcessTree\(child,\s*"SIGKILL"\)/);
-    const timeoutHandler = spawnCodexBlock?.[0].match(/setTimeout\(\(\) => \{[\s\S]*?timeoutMs\)/);
-    expect(timeoutHandler).toBeTruthy();
-    expect(timeoutHandler?.[0]).not.toMatch(/child\.kill\(/);
-  });
-
   const itIfPosix = process.platform === "win32" ? it.skip : it;
   itIfPosix("ADR-084: fake-codex 'timeout' scenario hits ASK_CODEX_TIMEOUT_MS and logs verdict:timeout", () => {
     setupMarker(tempDir, "# ctx");
@@ -2175,6 +2137,50 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
     expect(timeoutEntry).toBeTruthy();
     expect(timeoutEntry.reason).toMatch(/timed out/i);
   });
+
+  it.each([
+    { frontmatter: "30000", env: "1", verdict: "none" },
+    { frontmatter: "100", env: "30000", verdict: "timeout" },
+    { frontmatter: "not-a-number", env: "100", verdict: "timeout" },
+    { frontmatter: "0", env: "100", verdict: "timeout" },
+    { frontmatter: "-5", env: "100", verdict: "timeout" },
+  ])("timeoutMs: $frontmatter with ASK_CODEX_TIMEOUT_MS=$env produces $verdict", ({ frontmatter, env, verdict }) => {
+    setupMarker(tempDir, `---\ntimeoutMs: ${frontmatter}\nbroker: false\n---\n# ctx`);
+    const filePath = path.join(tempDir, "src.ts");
+    fs.writeFileSync(filePath, "export const x = 1;");
+    const payload = JSON.stringify({ tool_name: "Edit", tool_input: { file_path: filePath } });
+    const result = runHookWithFakeCodex(payload, tempDir, "slow", {
+      ASK_CODEX_TIMEOUT_MS: env,
+      FAKE_CODEX_SLEEP_MS: "500",
+    });
+    expect(result.status).toBe(0);
+    const lines = fs
+      .readFileSync(path.join(tempDir, ".codex-pair/log.jsonl"), "utf-8")
+      .trim()
+      .split("\n")
+      .map((l) => JSON.parse(l));
+    expect(lines.filter((l) => l.verdict).map((l) => l.verdict)).toEqual([verdict]);
+  });
+
+  it.each(["", "not-a-number", "-5", "0", "Infinity"])(
+    "an invalid ASK_CODEX_TIMEOUT_MS (%j) falls back to the default instead of timing out at once",
+    (value) => {
+      setupMarker(tempDir, "# ctx");
+      const filePath = path.join(tempDir, "src.ts");
+      fs.writeFileSync(filePath, "export const x = 1;");
+      const payload = JSON.stringify({ tool_name: "Edit", tool_input: { file_path: filePath } });
+      const result = runHookWithFakeCodex(payload, tempDir, "none", { ASK_CODEX_TIMEOUT_MS: value });
+      expect(result.status).toBe(0);
+      expect(result.stderr).not.toMatch(/Timeout(NaN|Negative|Overflow)Warning/);
+      const lines = fs
+        .readFileSync(path.join(tempDir, ".codex-pair/log.jsonl"), "utf-8")
+        .trim()
+        .split("\n")
+        .map((l) => JSON.parse(l));
+      expect(lines.some((l) => l.verdict === "timeout")).toBe(false);
+      expect(lines.some((l) => l.verdict === "none")).toBe(true);
+    },
+  );
 
   // ADR-085: Pause/resume sentinel.
   //

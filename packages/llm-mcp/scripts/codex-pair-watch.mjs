@@ -34,7 +34,7 @@ const configuredReasoningEffort = process.env.ASK_CODEX_REASONING_EFFORT;
 const DEFAULT_REASONING_EFFORT = configuredReasoningEffort && CODEX_REASONING_EFFORTS.has(configuredReasoningEffort)
     ? configuredReasoningEffort
     : "medium";
-const DEFAULT_TIMEOUT_MS = Number(process.env.ASK_CODEX_TIMEOUT_MS ?? 800_000);
+const DEFAULT_TIMEOUT_MS = positiveMs(process.env.ASK_CODEX_TIMEOUT_MS) ?? 800_000;
 const MAX_FILE_BYTES = Number(process.env.CODEX_PAIR_MAX_FILE_BYTES ?? 20_000);
 const DEBOUNCE_MS = Number(process.env.ASK_CODEX_DEBOUNCE_MS ?? DEFAULT_DEBOUNCE_MS);
 const DEBOUNCE_MAX_MS = Number(process.env.ASK_CODEX_DEBOUNCE_MAX_MS ?? DEFAULT_DEBOUNCE_MAX_MS);
@@ -320,6 +320,11 @@ function matchesIgnoreRule(filePath, markerDir, rules) {
     if (lastMatch?.negate)
         return null;
     return lastMatch;
+}
+// Empty, non-numeric, non-positive, and infinite timeouts would make setTimeout fire at once.
+function positiveMs(raw) {
+    const ms = Number(raw);
+    return Number.isFinite(ms) && ms > 0 ? ms : undefined;
 }
 // Invalid frontmatter values fall through to environment and defaults.
 function resolveConfig(frontmatter) {
@@ -870,6 +875,10 @@ async function main() {
         });
     }
     const config = resolveConfig(frontmatter);
+    // A forced review keeps the worker's timeout, so a settle-window frontmatter edit cannot outlast its kill deadline.
+    const workerTimeoutMs = forcedTarget ? positiveMs(process.env.CP_TIMEOUT_MS) : undefined;
+    if (workerTimeoutMs !== undefined)
+        config.timeoutMs = workerTimeoutMs;
     // The worker re-invokes forced-sync so the review uses the normal synchronous path.
     const effectiveDebounceMs = process.env.CODEX_PAIR_FORCE_SYNC === "1" ? 0 : config.debounceMs;
     if (effectiveDebounceMs > 0) {
