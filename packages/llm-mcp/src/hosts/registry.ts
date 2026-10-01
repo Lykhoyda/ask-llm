@@ -178,8 +178,10 @@ export function hostSpecs(env: NodeJS.ProcessEnv = process.env, platform = proce
         file: piSettings,
         sources: [PI_PACKAGE_SOURCE, "npm:@ask-llm/plugin"],
       },
-      skillsDir: join(home, ".pi", "agent", "skills"),
-      skillsAgent: "pi",
+      // Pi discovers shared skills directly. The pinned CLI's pi-only target creates private copies;
+      // its universal codex target writes the shared folder without requiring Codex to be installed.
+      skillsDir: sharedSkills,
+      skillsAgent: "codex",
       restart: "new-session",
     },
     {

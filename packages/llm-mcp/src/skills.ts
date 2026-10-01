@@ -74,7 +74,7 @@ export function planSkills(
     }
   }
   if (plan.agents.length > 0) {
-    const agents = plan.agents.map(({ agent }) => agent);
+    const agents = [...new Set(plan.agents.map(({ agent }) => agent))];
     const cli = ["npx", "-y", `skills@${SKILLS_CLI_VERSION}`, "add", SKILLS_SOURCE];
     plan.argv = [...cli, "--skill", ...names, "-g", "-a", ...agents, "-y"];
     plan.command = `DISABLE_TELEMETRY=1 ${commandText(plan.argv)}`;

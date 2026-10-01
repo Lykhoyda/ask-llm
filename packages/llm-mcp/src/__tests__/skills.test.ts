@@ -53,7 +53,7 @@ describe("installSkills through the pinned skills CLI", () => {
     const results = await installSkills(plan, yes, env);
     expect(argv()).toEqual([
       ["-y", `skills@${SKILLS_CLI_VERSION}`, "add", "Lykhoyda/ask-llm", "--skill", ...NAMES, "-g", "-a"]
-        .concat(["codex", "grok", "cursor", "pi", "-y"])
+        .concat(["codex", "grok", "cursor", "-y"])
         .join(" "),
     ]);
     expect(results.map(({ id, status }) => [id, status])).toEqual([
@@ -113,6 +113,18 @@ describe("installSkills through the pinned skills CLI", () => {
     expect(again.upToDate.map(({ id }) => id)).toEqual(["codex"]);
     expect(await installSkills(again, yes, env)).toEqual([
       expect.objectContaining({ id: "codex", status: "up-to-date" }),
+    ]);
+    expect(argv()).toHaveLength(1);
+  });
+
+  it.each(["codex", "cursor"] as const)("reuses Pi's shared skills when adding %s", async (nextHost) => {
+    const first = planSkills(hosts(["pi"]), ["pi"], PACKAGE_SKILLS);
+    expect(await installSkills(first, yes, env)).toEqual([
+      expect.objectContaining({ id: "pi", status: "installed" }),
+    ]);
+    const next = planSkills(hosts(["pi", nextHost]), [nextHost], PACKAGE_SKILLS);
+    expect(await installSkills(next, yes, env)).toEqual([
+      expect.objectContaining({ id: nextHost, status: "up-to-date" }),
     ]);
     expect(argv()).toHaveLength(1);
   });

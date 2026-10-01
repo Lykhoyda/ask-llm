@@ -272,7 +272,7 @@ describe("ask-llm setup", () => {
     expect(first.status, first.stderr).toBe(0);
     expect(first.stdout).toContain("Pi 0.87.1: already registered");
     expect(first.stdout).toContain("Pi skills: installed");
-    expect(existsSync(join(home, ".pi/agent/skills/ask-llm-review/SKILL.md"))).toBe(true);
+    expect(existsSync(join(home, ".agents/skills/ask-llm-review/SKILL.md"))).toBe(true);
     expect(readFileSync(settings, "utf8")).toBe(content);
 
     const second = ask("setup", "-y", "--host", "pi");
