@@ -238,6 +238,9 @@ describe("classifyProviderFailure", () => {
   it.each([
     ["You have hit your usage limit", "rate_limited"],
     ["401 authentication required", "auth_failed"],
+    ["403 forbidden", "auth_failed"],
+    ["Other provider: read-only sandbox could not start, 403 forbidden", "auth_failed"],
+    ["Grok CLI harness failed: sandbox unavailable: connection refused (403)", "auth_failed"],
     ["spawn agy ENOENT", "tool_unavailable"],
     ["request timed out after 300000ms", "timeout"],
     ["Antigravity invocation lock remained busy", "unavailable"],
@@ -249,6 +252,21 @@ describe("classifyProviderFailure", () => {
 
   it("applies auth classification before quota classification", () => {
     expect(classifyProviderFailure(new Error("401 authentication failed: quota unavailable"))).toBe("auth_failed");
+  });
+
+  it.each([
+    "sandbox unavailable: connection refused (403)",
+    "sandbox backend quota exceeded (429)",
+    "sandbox backend connection timed out",
+    "sandbox backend executable not found",
+  ])("preserves the normalized Grok sandbox diagnosis despite detail: %s", (detail) => {
+    const message =
+      "Grok CLI harness failed: the read-only sandbox could not start, so no request reached Grok " +
+      `and this is not a safety refusal: ${detail}. Check the sandbox backend Grok Build uses on this machine ` +
+      "(for example its Docker socket) and retry. No fallback was attempted.";
+
+    expect(classifyProviderFailure(new Error(message))).toBe("unavailable");
+    expect(classifyProviderFailure(message)).toBe("unavailable");
   });
 });
 

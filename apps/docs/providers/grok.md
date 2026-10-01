@@ -128,7 +128,9 @@ The xAI API and API-key-backed Grok CLI can incur xAI charges. Browser-authentic
 
 ## Errors and refusals
 
-The API and CLI harnesses return stable Grok-specific diagnostics for missing/invalid `XAI_API_KEY`, unsupported model IDs, rejected reasoning effort, HTTP 402/429 credits or rate limits, transport/5xx failures, malformed or incomplete responses, safety refusals, and (CLI) an unsupported `--prompt-file` flag. None of these paths falls back. Error details are bounded and the configured key is redacted before any diagnostic is created.
+The API and CLI harnesses return stable Grok-specific diagnostics for missing/invalid `XAI_API_KEY`, unsupported model IDs, rejected reasoning effort, HTTP 402/429 credits or rate limits, transport/5xx failures, malformed or incomplete responses, safety refusals, (CLI) an unsupported `--prompt-file` flag, and (CLI) a read-only sandbox that cannot start. None of these paths falls back. Error details are bounded and the configured key is redacted before any diagnostic is created.
+
+A read-only sandbox startup failure is reported as a local harness environment failure. Check the sandbox backend Grok Build uses on the machine (for example, its Docker socket), then retry. In machine mode, the normalized Grok CLI sandbox-startup diagnostic maps to `failure.kind: "unavailable"` for `review`, `verify`, and `brainstorm`, even when its details contain an authentication status such as `403`, quota, timeout, or missing-executable text. Plain `401`/`403` authentication errors still map to `auth_failed`.
 
 ## Live tests
 

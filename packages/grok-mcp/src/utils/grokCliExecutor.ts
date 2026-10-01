@@ -48,6 +48,8 @@ export interface GrokCliExecutorResult {
 export const GROK_CLI_PROMPT_FILE_THRESHOLD_BYTES = EXECUTION.STDIN_THRESHOLD_BYTES;
 const GROK_CLI_PROMPT_FILE_FLAG = "--prompt-file";
 const CAPABILITY_PROBE_TIMEOUT_MS = 5000;
+const SANDBOX_STARTUP_FAILURE =
+  /sandbox.*\b(fail|could not|couldn't|cannot|can't|unable|unavailable|not available|error)|\b(fail|could not|couldn't|cannot|can't|unable|error).*sandbox/;
 
 function isPresent(value: string | undefined): value is string {
   return value !== undefined && value.length > 0;
@@ -113,6 +115,12 @@ function classifyCliError(error: unknown, model: string, promptFile = false): Er
   if (promptFile && lower.includes("prompt-file")) {
     return new Error(
       `Grok CLI rejected --prompt-file, which Ask LLM uses for prompts larger than ${GROK_CLI_PROMPT_FILE_THRESHOLD_BYTES} bytes: ${detail}. Update Grok Build to a version that supports --prompt-file, or shorten the prompt. No fallback was attempted.`,
+    );
+  }
+  // Before auth/quota/safety: a sandbox backend error such as "connection refused" names no model outcome.
+  if (SANDBOX_STARTUP_FAILURE.test(lower) || lower.includes("docker.sock") || lower.includes("docker daemon")) {
+    return new Error(
+      `Grok CLI harness failed: the read-only sandbox could not start, so no request reached Grok and this is not a safety refusal: ${detail}. Check the sandbox backend Grok Build uses on this machine (for example its Docker socket) and retry. No fallback was attempted.`,
     );
   }
   if (["unauthorized", "authentication", "login", "api key", "401", "403"].some((part) => lower.includes(part))) {

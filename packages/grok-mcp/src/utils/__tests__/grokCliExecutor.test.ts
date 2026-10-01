@@ -111,6 +111,19 @@ describe("Grok CLI harness", () => {
     expect(executeCommandMock).toHaveBeenCalledTimes(5);
   });
 
+  it("classifies sandbox startup failures as harness failures before auth, quota, or safety matching", async () => {
+    for (const raw of [
+      "Error: failed to start read-only sandbox: sandbox policy could not be applied",
+      "Cannot connect to the Docker daemon at unix:///var/run/docker.sock. Is the docker daemon running?",
+      "sandbox unavailable: connection refused (403)",
+    ]) {
+      executeCommandMock.mockRejectedValueOnce(new Error(raw));
+      await expect(executeGrokCLI({ prompt: "review" })).rejects.toThrow(
+        /^Grok CLI harness failed: the read-only sandbox could not start/,
+      );
+    }
+  });
+
   it("constrains the prompt to the requested JSON Schema and returns the raw structured reply unchanged", async () => {
     const outputSchema = {
       type: "object",
