@@ -278,6 +278,7 @@ function matchesAny(message: string, signals: RegExp[]): boolean {
 export function classifyProviderFailure(error: unknown): ProviderFailureKind {
   const message = (error instanceof Error ? error.message : String(error)).toLowerCase();
 
+  if (message.startsWith("grok cli harness failed: the read-only sandbox could not start,")) return "unavailable";
   if (matchesAny(message, AUTH_FAILURE_SIGNALS)) return "auth_failed";
   if (matchesAny(message, QUOTA_FAILURE_SIGNALS)) return "rate_limited";
   if (matchesAny(message, TIMEOUT_FAILURE_SIGNALS)) return "timeout";

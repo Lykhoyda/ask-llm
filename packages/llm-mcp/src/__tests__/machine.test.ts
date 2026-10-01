@@ -584,6 +584,39 @@ describe("runMachineRequest", () => {
     expect(JSON.stringify(result)).not.toContain("sk-secret");
   });
 
+  it.each(["brainstorm", "review", "verify"])("preserves Grok sandbox unavailability for %s", async (role) => {
+    const message =
+      "Grok CLI harness failed: the read-only sandbox could not start, so no request reached Grok " +
+      "and this is not a safety refusal: sandbox unavailable: connection refused (403). " +
+      "Check the sandbox backend Grok Build uses on this machine (for example its Docker socket) and retry. " +
+      "No fallback was attempted.";
+    const executor: ExecutorFn = vi.fn().mockRejectedValue(new Error(message));
+
+    const result = await runMachineRequest(request({ provider: "grok", model: "grok-4.7", role }), deps(executor));
+
+    expect(result).toMatchObject({
+      status: "failed",
+      provider: "grok",
+      role,
+      payload: null,
+      failure: { kind: "unavailable", message: "Provider execution failed" },
+    });
+    expect(executor).toHaveBeenCalledOnce();
+    expect(machineFailureResultSchema.safeParse(result).success).toBe(true);
+  });
+
+  it.each(["401", "403"])("preserves Grok authentication failure for a plain %s error", async (status) => {
+    const executor: ExecutorFn = vi.fn().mockRejectedValue(new Error(status));
+
+    const result = await runMachineRequest(request({ provider: "grok", model: "grok-4.7" }), deps(executor));
+
+    expect(result).toMatchObject({
+      status: "failed",
+      provider: "grok",
+      failure: { kind: "auth_failed", message: "Provider authentication failed" },
+    });
+  });
+
   it("returns tool_unavailable when no executor is loaded", async () => {
     const result = await runMachineRequest(request(), deps(undefined));
 
