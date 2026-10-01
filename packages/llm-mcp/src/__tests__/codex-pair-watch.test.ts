@@ -2144,26 +2144,23 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
     { frontmatter: "not-a-number", env: "100", verdict: "timeout" },
     { frontmatter: "0", env: "100", verdict: "timeout" },
     { frontmatter: "-5", env: "100", verdict: "timeout" },
-  ])(
-    "timeoutMs: $frontmatter with ASK_CODEX_TIMEOUT_MS=$env produces $verdict",
-    ({ frontmatter, env, verdict }) => {
-      setupMarker(tempDir, `---\ntimeoutMs: ${frontmatter}\nbroker: false\n---\n# ctx`);
-      const filePath = path.join(tempDir, "src.ts");
-      fs.writeFileSync(filePath, "export const x = 1;");
-      const payload = JSON.stringify({ tool_name: "Edit", tool_input: { file_path: filePath } });
-      const result = runHookWithFakeCodex(payload, tempDir, "slow", {
-        ASK_CODEX_TIMEOUT_MS: env,
-        FAKE_CODEX_SLEEP_MS: "500",
-      });
-      expect(result.status).toBe(0);
-      const lines = fs
-        .readFileSync(path.join(tempDir, ".codex-pair/log.jsonl"), "utf-8")
-        .trim()
-        .split("\n")
-        .map((l) => JSON.parse(l));
-      expect(lines.filter((l) => l.verdict).map((l) => l.verdict)).toEqual([verdict]);
-    },
-  );
+  ])("timeoutMs: $frontmatter with ASK_CODEX_TIMEOUT_MS=$env produces $verdict", ({ frontmatter, env, verdict }) => {
+    setupMarker(tempDir, `---\ntimeoutMs: ${frontmatter}\nbroker: false\n---\n# ctx`);
+    const filePath = path.join(tempDir, "src.ts");
+    fs.writeFileSync(filePath, "export const x = 1;");
+    const payload = JSON.stringify({ tool_name: "Edit", tool_input: { file_path: filePath } });
+    const result = runHookWithFakeCodex(payload, tempDir, "slow", {
+      ASK_CODEX_TIMEOUT_MS: env,
+      FAKE_CODEX_SLEEP_MS: "500",
+    });
+    expect(result.status).toBe(0);
+    const lines = fs
+      .readFileSync(path.join(tempDir, ".codex-pair/log.jsonl"), "utf-8")
+      .trim()
+      .split("\n")
+      .map((l) => JSON.parse(l));
+    expect(lines.filter((l) => l.verdict).map((l) => l.verdict)).toEqual([verdict]);
+  });
 
   it.each(["", "not-a-number", "-5", "0", "Infinity"])(
     "an invalid ASK_CODEX_TIMEOUT_MS (%j) falls back to the default instead of timing out at once",
