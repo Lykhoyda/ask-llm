@@ -1,6 +1,6 @@
 import { chmodSync, existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, relative } from "node:path";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { type DetectedHost, detectHosts } from "../hosts/detect.js";
 
@@ -176,6 +176,24 @@ describe("detectHosts", () => {
         expect(host(await detectHosts(env), "pi")).toMatchObject({ registered: true });
       },
     );
+  });
+
+  describe("Pi local install of this package", () => {
+    const PACKAGE_ROOT = join(__dirname, "..", "..");
+    const agentDir = () => join(home, ".pi", "agent");
+    it.each([
+      ["an absolute path", () => PACKAGE_ROOT],
+      ["a path relative to Pi's agent folder", () => relative(agentDir(), PACKAGE_ROOT)],
+      ["a source object", () => ({ source: relative(agentDir(), PACKAGE_ROOT) })],
+    ])("recognizes registration from %s", async (_label, entry) => {
+      write(".pi/agent/settings.json", JSON.stringify({ packages: [entry()] }));
+      expect(host(await detectHosts(env), "pi")).toMatchObject({ registered: true });
+    });
+
+    it("does not treat another local package as this package's registration", async () => {
+      write(".pi/agent/settings.json", JSON.stringify({ packages: [join(PACKAGE_ROOT, "skills"), "../other"] }));
+      expect(host(await detectHosts(env), "pi")).toMatchObject({ registered: false });
+    });
   });
 
   it.each(["npm:@ask-llm/mcp-extra", "npm:@ask-llm/plugin-extra", "npm:pi-lens", null, {}])(

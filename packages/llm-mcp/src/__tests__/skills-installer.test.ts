@@ -5,9 +5,9 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { DetectedHost } from "../hosts/detect.js";
 import { type HostId, hostSpecs } from "../hosts/registry.js";
-import { installSkills, planSkills, SKILLS_SOURCE } from "../skills.js";
+import { installSkills, planSkills } from "../skills.js";
 
-const PACKAGE_SKILLS = join(__dirname, "..", "..", "skills");
+const PACKAGE_ROOT = join(__dirname, "..", "..");
 
 // Opt in to the real npm installer; ordinary unit tests use the offline host fakes.
 describe.skipIf(process.env.ASK_LLM_TEST_SKILLS_INSTALLER !== "1")("pinned skills installer", () => {
@@ -38,10 +38,7 @@ describe.skipIf(process.env.ASK_LLM_TEST_SKILLS_INSTALLER !== "1")("pinned skill
       registered: false,
       spec,
     }));
-    const result = planSkills(hosts, [id], PACKAGE_SKILLS);
-    // Exercise the candidate corpus, which has not been merged to the remote source yet.
-    result.argv = result.argv?.map((arg) => (arg === SKILLS_SOURCE ? PACKAGE_SKILLS : arg));
-    return result;
+    return planSkills(hosts, [id], PACKAGE_ROOT);
   }
 
   function discover() {

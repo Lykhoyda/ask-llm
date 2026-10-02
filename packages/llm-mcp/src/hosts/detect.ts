@@ -1,6 +1,6 @@
-import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, realpathSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { getSpawnEnv } from "@ask-llm/shared";
 import { resolveCommand } from "../utils/availability.js";
 import { type HostId, type HostSpec, hostSpecs, type RegistrationSource, SERVER_NAME } from "./registry.js";
@@ -157,16 +157,27 @@ async function readList(binary: string, args: string[], env: NodeJS.ProcessEnv):
   return state(entry !== undefined, entryCommand(entry?.transport));
 }
 
-function readPackages(file: string, sources: string[]): RegistrationState {
+// Pi's own test for a local package source: anything without a remote prefix.
+const REMOTE_PI_SOURCE = /^(npm|git|github|http|https|ssh):/;
+
+function samePath(left: string, right: string): boolean {
+  const real = (path: string) => (existsSync(path) ? realpathSync(path) : resolve(path));
+  return real(left) === real(right);
+}
+
+function readPackages(file: string, sources: string[], localDir: string | undefined): RegistrationState {
   const text = readText(file);
   if (text === undefined) return { registered: false };
   const packages = (JSON.parse(text) as { packages?: unknown }).packages;
+  const matches = (listed: string) =>
+    sources.some((source) => listed === source || listed.startsWith(`${source}@`)) ||
+    (localDir !== undefined &&
+      !REMOTE_PI_SOURCE.test(listed.trim()) &&
+      samePath(resolve(dirname(file), listed.trim()), localDir));
   const listed = Array.isArray(packages)
     ? packages.some((entry) => {
         const listed = typeof entry === "string" ? entry : (entry as { source?: unknown })?.source;
-        return (
-          typeof listed === "string" && sources.some((source) => listed === source || listed.startsWith(`${source}@`))
-        );
+        return typeof listed === "string" && matches(listed);
       })
     : false;
   return { registered: listed };
@@ -180,7 +191,7 @@ export async function readRegistration(
   try {
     if (state.kind === "json") return readJsonKey(state.file, state.keyPath, state.jsonc);
     if (state.kind === "toml") return readTomlTable(state.file, state.table);
-    if (state.kind === "packages") return readPackages(state.file, state.sources);
+    if (state.kind === "packages") return readPackages(state.file, state.sources, state.localDir);
     return binary ? await readList(binary, state.args, env) : { registered: false };
   } catch (error) {
     const detail = error instanceof Error ? error.message : String(error);

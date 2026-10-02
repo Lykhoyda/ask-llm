@@ -22,7 +22,7 @@ export function setupHelp(): string {
     "",
     "Setup also installs the workflows: the Ask LLM plugin in Claude Code through its",
     "marketplace, and the ask-llm-* skills for every other selected host through the pinned",
-    "skills CLI (npx), one mechanism per host.",
+    "skills CLI (npx) from this installed package, one mechanism per host.",
     "",
     "Options:",
     "  --dry-run      Preview only; nothing is written",
@@ -108,7 +108,11 @@ function formatWorkflows({ plugins, skills }: Workflows): string[] {
     );
   }
   if (skills.command) {
-    lines.push(`  Skills for ${skills.agents.map(({ name }) => name).join(", ")}: install`, `      ${skills.command}`);
+    const hostList = skills.agents.map(({ name }) => name).join(", ");
+    lines.push(
+      `  Skills for ${hostList}: install from @ask-llm/mcp ${skills.source.version}`,
+      `      ${skills.command}`,
+    );
   }
   for (const { name } of skills.upToDate) lines.push(`  ${name} skills: already installed`);
   for (const { name, command } of skills.manual) lines.push(`  ${name} skills: manual`, `      ${command}`);

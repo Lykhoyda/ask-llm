@@ -133,7 +133,8 @@ export function writeUnusableRegistration(home: string, name: string): void {
   writeFileSync(path, host.unusable.replaceAll("\\n", "\n"));
 }
 
-// Mirrors skills@1.7.0 from the temp-HOME probes: writes where the real CLI writes, "Invalid agents" exits 1.
+// Mirrors skills@1.7.0 from the temp-HOME probes: copies from the local source into where the real CLI writes,
+// and exits 1 on "Invalid agents" or a skill the source lacks.
 export const FAKE_NPX = `#!/bin/sh
 printf '%s\\n' "$*" >> "$HOME/npx-argv"
 mode=$(cat "$HOME/npx-mode" 2>/dev/null || echo ok)
@@ -143,9 +144,13 @@ for agent in $agents; do
   case $agent in codex|cursor|gemini-cli|opencode|grok|pi) ;; *) echo "Invalid agents: $agent" >&2; exit 1 ;; esac
 done
 skills=$(printf '%s\\n' "$@" | sed -n '/^--skill$/,/^-g$/p' | sed '1d;$d')
+source=$(printf '%s\\n' "$@" | sed -n '/^add$/{n;p;}')
+for skill in $skills; do
+  [ -f "$source/skills/$skill/SKILL.md" ] || { echo "No matching skills found: $skill" >&2; exit 1; }
+done
 for agent in $agents; do
   case $agent in grok) dir="$HOME/.grok/skills" ;; pi) dir="$HOME/.pi/agent/skills" ;; *) dir="$HOME/.agents/skills" ;; esac
-  for skill in $skills; do mkdir -p "$dir/$skill" && echo x > "$dir/$skill/SKILL.md"; done
+  for skill in $skills; do mkdir -p "$dir/$skill" && cp "$source/skills/$skill/SKILL.md" "$dir/$skill/SKILL.md"; done
 done
 `;
 

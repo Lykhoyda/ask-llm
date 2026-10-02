@@ -11,6 +11,8 @@ const bin = join(root, "bin");
 const previousPath = process.env.ASK_LLM_PATH;
 process.env.ASK_LLM_PATH = bin;
 const SERVER = "/usr/local/bin/ask-llm-mcp";
+// Pi installs the package setup runs from; under test that is this workspace package.
+const PACKAGE_ROOT = join(__dirname, "..", "..");
 const specs = hostSpecs({ HOME: "/home/u" }, "linux");
 
 afterAll(() => {
@@ -48,7 +50,7 @@ describe("buildPlan", () => {
     ["agy", ["agy", "mcp", "add", "ask-llm", SERVER]],
     ["grok", ["grok", "mcp", "add", "--scope", "user", "ask-llm", SERVER]],
     ["gemini", ["gemini", "mcp", "add", "--scope", "user", "ask-llm", SERVER]],
-    ["pi", ["pi", "install", "npm:@ask-llm/mcp"]],
+    ["pi", ["pi", "install", PACKAGE_ROOT]],
   ] as const)("registers %s through its own command with the exact argv", (id, argv) => {
     expect(entry(detected(id))).toMatchObject({
       id,

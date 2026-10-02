@@ -1,4 +1,5 @@
 import { join } from "node:path";
+import { PACKAGE_DIR } from "../packageMetadata.js";
 import type { HostOp } from "./apply.js";
 import type { JsonEdit } from "./json-merge.js";
 import { antigravity } from "./registrars/antigravity.js";
@@ -21,7 +22,8 @@ export type RegistrationSource =
   | { kind: "json"; file: string; keyPath: string[]; jsonc?: string }
   | { kind: "toml"; file: string; table: string }
   | { kind: "list"; args: string[] }
-  | { kind: "packages"; file: string; sources: string[] };
+  // `localDir` matches the local package entry `pi install <dir>` records relative to the settings folder.
+  | { kind: "packages"; file: string; sources: string[]; localDir?: string };
 
 export interface HostSpec {
   id: HostId;
@@ -43,7 +45,6 @@ export interface HostSpec {
 }
 
 export const SERVER_NAME = "ask-llm";
-export const PI_PACKAGE_SOURCE = "npm:@ask-llm/mcp";
 
 const plainVersion = { args: ["--version"], pattern: /^v?(\d+\.\d+\.\d+)\s*$/ };
 
@@ -172,11 +173,13 @@ export function hostSpecs(env: NodeJS.ProcessEnv = process.env, platform = proce
       binaries: ["pi"],
       configHome: join(home, ".pi"),
       versionProbe: plainVersion,
-      registration: { kind: "command", argv: () => ["pi", "install", PI_PACKAGE_SOURCE] },
+      // Pi loads the installed package in place, so its extension always matches this setup's version.
+      registration: { kind: "command", argv: () => ["pi", "install", PACKAGE_DIR] },
       registrationState: {
         kind: "packages",
         file: piSettings,
-        sources: [PI_PACKAGE_SOURCE, "npm:@ask-llm/plugin"],
+        sources: ["npm:@ask-llm/mcp", "npm:@ask-llm/plugin"],
+        localDir: PACKAGE_DIR,
       },
       // Pi discovers shared skills directly. The pinned CLI's pi-only target creates private copies;
       // its universal codex target writes the shared folder without requiring Codex to be installed.

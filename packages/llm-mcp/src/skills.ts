@@ -1,17 +1,15 @@
 import { existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
-import { fileURLToPath } from "node:url";
 import { firstLine } from "./hosts/apply.js";
 import type { DetectedHost } from "./hosts/detect.js";
 import type { HostId } from "./hosts/registry.js";
 import { runHost } from "./hosts/spawn.js";
+import { PACKAGE_DIR, packageVersion } from "./packageMetadata.js";
 import { commandText } from "./plan.js";
 import type { Confirm } from "./setup.js";
 
 // Bump only together with a smoke run of the new version (ADR-183).
 export const SKILLS_CLI_VERSION = "1.7.0";
-export const SKILLS_SOURCE = "Lykhoyda/ask-llm";
-export const PACKAGE_SKILLS_DIR = fileURLToPath(new URL("../skills", import.meta.url));
 
 const SKILLS_TIMEOUT_MS = 300_000;
 // Claude Code gets fable-review through its plugin; no other host can run the native Fable reviewer.
@@ -37,6 +35,8 @@ interface PlannedHost {
 }
 
 export interface SkillsPlan {
+  // The installed package the skills come from, so they always match the version the user runs.
+  source: { dir: string; version: string };
   names: string[];
   agents: PlannedHost[];
   upToDate: Array<{ id: HostId; name: string }>;
@@ -46,7 +46,7 @@ export interface SkillsPlan {
 }
 
 // Old-name pointer folders stay out so no host gets a skill twice.
-export function portableSkills(dir = PACKAGE_SKILLS_DIR): string[] {
+export function portableSkills(dir = join(PACKAGE_DIR, "skills")): string[] {
   return readdirSync(dir)
     .filter((name) => name.startsWith("ask-llm-") && !CLAUDE_ONLY.has(name))
     .sort();
@@ -59,23 +59,25 @@ function hasAll(dir: string, names: string[]): boolean {
 export function planSkills(
   hosts: DetectedHost[],
   selected: HostId[] | undefined,
-  packageDir = PACKAGE_SKILLS_DIR,
+  packageDir = PACKAGE_DIR,
 ): SkillsPlan {
-  const names = portableSkills(packageDir);
-  const plan: SkillsPlan = { names, agents: [], upToDate: [], manual: [] };
+  const skillsDir = join(packageDir, "skills");
+  const names = portableSkills(skillsDir);
+  const source = { dir: packageDir, version: packageVersion(packageDir) };
+  const plan: SkillsPlan = { source, names, agents: [], upToDate: [], manual: [] };
   for (const { id, name, installed, spec } of hosts) {
     const dir = spec.skillsDir;
     if (!installed || (selected && !selected.includes(id)) || spec.pluginInstall || !dir) continue;
     if (hasAll(dir, names)) plan.upToDate.push({ id, name });
     else if (spec.skillsAgent) plan.agents.push({ id, name, agent: spec.skillsAgent, dir });
     else {
-      const copy = ["cp", "-R", ...names.map((skill) => join(packageDir, skill)), `${dir}/`];
+      const copy = ["cp", "-R", ...names.map((skill) => join(skillsDir, skill)), `${dir}/`];
       plan.manual.push({ id, name, command: `${commandText(["mkdir", "-p", dir])} && ${commandText(copy)}` });
     }
   }
   if (plan.agents.length > 0) {
     const agents = [...new Set(plan.agents.map(({ agent }) => agent))];
-    const cli = ["npx", "-y", `skills@${SKILLS_CLI_VERSION}`, "add", SKILLS_SOURCE];
+    const cli = ["npx", "-y", `skills@${SKILLS_CLI_VERSION}`, "add", packageDir];
     plan.argv = [...cli, "--skill", ...names, "-g", "-a", ...agents, "-y"];
     plan.command = `DISABLE_TELEMETRY=1 ${commandText(plan.argv)}`;
   }

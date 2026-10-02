@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { cpSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -7,7 +7,9 @@ import { type HostId, hostSpecs } from "../hosts/registry.js";
 import { installSkills, planSkills, portableSkills, SKILLS_CLI_VERSION } from "../skills.js";
 import { installFakeNpx } from "./_hostFakes.js";
 
-const PACKAGE_SKILLS = join(__dirname, "..", "..", "skills");
+const PACKAGE_ROOT = join(__dirname, "..", "..");
+const PACKAGE_SKILLS = join(PACKAGE_ROOT, "skills");
+const VERSION = (JSON.parse(readFileSync(join(PACKAGE_ROOT, "package.json"), "utf8")) as { version: string }).version;
 const NAMES = portableSkills(PACKAGE_SKILLS);
 
 let home: string;
@@ -47,12 +49,40 @@ describe("portable skill list", () => {
   });
 });
 
+describe("skills source", () => {
+  it("is the running package's own directory and version, never a remote repository", () => {
+    const plan = planSkills(hosts(["codex"]), undefined);
+    expect(plan.source).toEqual({ dir: PACKAGE_ROOT, version: VERSION });
+    expect(plan.argv?.slice(0, 5)).toEqual(["npx", "-y", `skills@${SKILLS_CLI_VERSION}`, "add", PACKAGE_ROOT]);
+    expect(plan.argv).not.toContain("Lykhoyda/ask-llm");
+  });
+
+  it("follows the installed package it is given, with that package's version", async () => {
+    const installed = join(home, "lib", "node_modules", "@ask-llm", "mcp");
+    cpSync(PACKAGE_SKILLS, join(installed, "skills"), { recursive: true });
+    writeFileSync(
+      join(installed, "package.json"),
+      JSON.stringify({ name: "@ask-llm/mcp", version: "9.9.9-installed" }),
+    );
+    const plan = planSkills(hosts(["codex"]), undefined, installed);
+    expect(plan.source).toEqual({ dir: installed, version: "9.9.9-installed" });
+    expect(plan.argv?.[4]).toBe(installed);
+    expect(await installSkills(plan, yes, env)).toEqual([
+      expect.objectContaining({ id: "codex", status: "installed" }),
+    ]);
+    const copied = join(home, ".agents", "skills", "ask-llm-review", "SKILL.md");
+    expect(readFileSync(copied, "utf8")).toBe(
+      readFileSync(join(installed, "skills", "ask-llm-review", "SKILL.md"), "utf8"),
+    );
+  });
+});
+
 describe("installSkills through the pinned skills CLI", () => {
   it("runs one npx call with the pinned version, the --skill list, -g, the agent ids and -y", async () => {
-    const plan = planSkills(hosts(["codex", "cursor", "grok", "pi"]), undefined, PACKAGE_SKILLS);
+    const plan = planSkills(hosts(["codex", "cursor", "grok", "pi"]), undefined, PACKAGE_ROOT);
     const results = await installSkills(plan, yes, env);
     expect(argv()).toEqual([
-      ["-y", `skills@${SKILLS_CLI_VERSION}`, "add", "Lykhoyda/ask-llm", "--skill", ...NAMES, "-g", "-a"]
+      ["-y", `skills@${SKILLS_CLI_VERSION}`, "add", PACKAGE_ROOT, "--skill", ...NAMES, "-g", "-a"]
         .concat(["codex", "grok", "cursor", "-y"])
         .join(" "),
     ]);
@@ -66,19 +96,19 @@ describe("installSkills through the pinned skills CLI", () => {
   });
 
   it("keeps a host that takes the Claude plugin, or has no skills, out of -a", () => {
-    const plan = planSkills(hosts(["claude", "claude-desktop", "codex"]), undefined, PACKAGE_SKILLS);
+    const plan = planSkills(hosts(["claude", "claude-desktop", "codex"]), undefined, PACKAGE_ROOT);
     expect(plan.agents.map(({ agent }) => agent)).toEqual(["codex"]);
     expect(plan.argv).toContain("codex");
     expect(plan.argv).not.toContain("claude-code");
   });
 
   it("filters -a by --host and skips hosts that are not installed", () => {
-    const plan = planSkills(hosts(["codex", "cursor", "grok"]), ["cursor", "gemini"], PACKAGE_SKILLS);
+    const plan = planSkills(hosts(["codex", "cursor", "grok"]), ["cursor", "gemini"], PACKAGE_ROOT);
     expect(plan.agents.map(({ id }) => id)).toEqual(["cursor"]);
   });
 
   it("prints an exact copy command for a host the skills CLI cannot reach, and never adds it to -a", () => {
-    const plan = planSkills(hosts(["agy"]), undefined, PACKAGE_SKILLS);
+    const plan = planSkills(hosts(["agy"]), undefined, PACKAGE_ROOT);
     expect(plan.argv).toBeUndefined();
     expect(plan.manual).toHaveLength(1);
     const { command } = plan.manual[0];
@@ -90,16 +120,16 @@ describe("installSkills through the pinned skills CLI", () => {
 
   it("reports a non-zero exit per host with the manual command", async () => {
     writeFileSync(join(home, "npx-mode"), "fail");
-    const plan = planSkills(hosts(["codex", "grok"]), undefined, PACKAGE_SKILLS);
+    const plan = planSkills(hosts(["codex", "grok"]), undefined, PACKAGE_ROOT);
     const results = await installSkills(plan, yes, env);
     expect(results.map(({ status }) => status)).toEqual(["failed", "failed"]);
     expect(results[0].detail).toContain("network error (exit 1)");
     expect(results[0].manual).toBe(plan.command);
-    expect(plan.command).toMatch(/^DISABLE_TELEMETRY=1 npx -y skills@1\.7\.0 add Lykhoyda\/ask-llm --skill /);
+    expect(plan.command?.startsWith(`DISABLE_TELEMETRY=1 npx -y skills@1.7.0 add ${PACKAGE_ROOT} --skill `)).toBe(true);
   });
 
   it("fails with the manual command when the CLI rejects an agent id", async () => {
-    const plan = planSkills(hosts(["codex"]), undefined, PACKAGE_SKILLS);
+    const plan = planSkills(hosts(["codex"]), undefined, PACKAGE_ROOT);
     const rejected = { ...plan, argv: plan.argv?.map((arg) => (arg === "codex" ? "unknown-agent" : arg)) };
     const [result] = await installSkills(rejected, yes, env);
     expect(result).toMatchObject({ id: "codex", status: "failed", manual: plan.command });
@@ -107,8 +137,8 @@ describe("installSkills through the pinned skills CLI", () => {
   });
 
   it("changes nothing when every portable skill is already present", async () => {
-    await installSkills(planSkills(hosts(["codex"]), undefined, PACKAGE_SKILLS), yes, env);
-    const again = planSkills(hosts(["codex"]), undefined, PACKAGE_SKILLS);
+    await installSkills(planSkills(hosts(["codex"]), undefined, PACKAGE_ROOT), yes, env);
+    const again = planSkills(hosts(["codex"]), undefined, PACKAGE_ROOT);
     expect(again.argv).toBeUndefined();
     expect(again.upToDate.map(({ id }) => id)).toEqual(["codex"]);
     expect(await installSkills(again, yes, env)).toEqual([
@@ -118,9 +148,9 @@ describe("installSkills through the pinned skills CLI", () => {
   });
 
   it.each(["codex", "cursor"] as const)("reuses Pi's shared skills when adding %s", async (nextHost) => {
-    const first = planSkills(hosts(["pi"]), ["pi"], PACKAGE_SKILLS);
+    const first = planSkills(hosts(["pi"]), ["pi"], PACKAGE_ROOT);
     expect(await installSkills(first, yes, env)).toEqual([expect.objectContaining({ id: "pi", status: "installed" })]);
-    const next = planSkills(hosts(["pi", nextHost]), [nextHost], PACKAGE_SKILLS);
+    const next = planSkills(hosts(["pi", nextHost]), [nextHost], PACKAGE_ROOT);
     expect(await installSkills(next, yes, env)).toEqual([
       expect.objectContaining({ id: nextHost, status: "up-to-date" }),
     ]);
@@ -128,7 +158,7 @@ describe("installSkills through the pinned skills CLI", () => {
   });
 
   it("runs nothing when the user declines", async () => {
-    const plan = planSkills(hosts(["codex"]), undefined, PACKAGE_SKILLS);
+    const plan = planSkills(hosts(["codex"]), undefined, PACKAGE_ROOT);
     const [result] = await installSkills(plan, async () => false, env);
     expect(result.status).toBe("declined");
     expect(() => argv()).toThrow();

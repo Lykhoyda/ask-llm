@@ -1,6 +1,5 @@
 import { spawnSync } from "node:child_process";
 import {
-  copyFileSync,
   cpSync,
   existsSync,
   mkdirSync,
@@ -14,7 +13,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { detectHosts } from "../hosts/detect.js";
@@ -36,7 +35,10 @@ const packageRoot = join(root, "lib/node_modules/@ask-llm/mcp");
 mkdirSync(packageRoot, { recursive: true });
 cpSync(fileURLToPath(new URL("../../dist", import.meta.url)), join(packageRoot, "dist"), { recursive: true });
 cpSync(fileURLToPath(new URL("../../skills", import.meta.url)), join(packageRoot, "skills"), { recursive: true });
-copyFileSync(fileURLToPath(new URL("../../package.json", import.meta.url)), join(packageRoot, "package.json"));
+// A version no repository checkout carries proves setup reads the installed package it runs from.
+const INSTALLED_VERSION = "9.9.9-installed";
+const manifest = JSON.parse(readFileSync(fileURLToPath(new URL("../../package.json", import.meta.url)), "utf8"));
+writeFileSync(join(packageRoot, "package.json"), JSON.stringify({ ...manifest, version: INSTALLED_VERSION }));
 symlinkSync(fileURLToPath(new URL("../../../../node_modules", import.meta.url)), join(packageRoot, "node_modules"));
 const command = join(packageRoot, "dist/ask-llm.js");
 const server = join(packageRoot, "dist/cli.js");
@@ -137,8 +139,11 @@ describe("ask-llm setup", () => {
     const { workflows } = JSON.parse(preview.stdout);
     expect(workflows.plugins.map(({ id }: { id: string }) => id)).toEqual(["claude"]);
     expect(workflows.skills.agents.map(({ agent }: { agent: string }) => agent)).toEqual(["codex", "grok"]);
-    expect(workflows.skills.command).toMatch(
-      /^DISABLE_TELEMETRY=1 npx -y skills@1\.7\.0 add Lykhoyda\/ask-llm --skill /,
+    expect(workflows.skills.source).toEqual({ dir: packageRoot, version: INSTALLED_VERSION });
+    expect(workflows.skills.command).toMatch(/^DISABLE_TELEMETRY=1 npx -y skills@1\.7\.0 add \S+ --skill /);
+    expect(workflows.skills.command).toContain(` add ${packageRoot} --skill `);
+    expect(ask("setup", "--dry-run", "--host", "codex").stdout).toContain(
+      `Skills for Codex CLI: install from @ask-llm/mcp ${INSTALLED_VERSION}`,
     );
     expect(ask("setup", "--dry-run", "--host", "claude,codex").stdout).toContain(
       "claude plugin marketplace add Lykhoyda/ask-llm && claude plugin install ask-llm@ask-llm-plugins",
@@ -151,7 +156,11 @@ describe("ask-llm setup", () => {
     expect(result.stdout).toContain("Codex CLI skills: installed");
     expect(result.stdout).toContain("Grok Build skills: installed");
     const npx = readFileSync(join(home, "npx-argv"), "utf8");
+    expect(npx).toContain(`add ${packageRoot} --skill `);
     expect(npx).toContain("-g -a codex grok -y");
+    expect(readFileSync(join(home, ".agents/skills/ask-llm-review/SKILL.md"), "utf8")).toBe(
+      readFileSync(join(packageRoot, "skills/ask-llm-review/SKILL.md"), "utf8"),
+    );
     expect(npx).not.toContain("claude-code");
     expect(readFileSync(join(home, ".fake-claude-plugin-argv"), "utf8")).toBe(
       "plugin marketplace add Lykhoyda/ask-llm\nplugin install ask-llm@ask-llm-plugins\n",
@@ -163,7 +172,9 @@ describe("ask-llm setup", () => {
     const result = ask("setup", "-y", "--host", "codex");
     expect(result.status).toBe(1);
     expect(result.stdout).toContain("Codex CLI skills: failed (network error (exit 1))");
-    expect(result.stdout).toContain("Run it manually: DISABLE_TELEMETRY=1 npx -y skills@1.7.0 add Lykhoyda/ask-llm");
+    expect(result.stdout).toContain(
+      `Run it manually: DISABLE_TELEMETRY=1 npx -y skills@1.7.0 add ${packageRoot} --skill `,
+    );
   });
 
   it("changes only the hosts named with --host", () => {
@@ -248,11 +259,23 @@ describe("ask-llm setup", () => {
     const result = ask("setup", "-y");
     expect(result.status).toBe(1);
     expect(result.stdout).toContain("Pi 0.87.1: not handled by this release (setup does not register Pi yet)");
-    expect(result.stdout).toContain("Run it manually: pi install npm:@ask-llm/mcp");
+    expect(result.stdout).toContain(`Run it manually: pi install ${packageRoot}\n`);
     const removed = ask("remove", "-y");
     expect(removed.stdout).toContain("Pi 0.87.1: not handled by this release (remove does not handle Pi yet)");
     expect(removed.stdout).not.toContain("trusted folders");
     expect(ask("setup", "-y", "--host", "pi").stdout).toContain("Pi 0.87.1: manual (setup does not register Pi yet)");
+  });
+
+  it("recognizes Pi's record of the printed local install as this package's registration", () => {
+    writeFileSync(join(bin, "pi"), '#!/bin/sh\n[ "$1" = "--version" ] && { echo "0.87.1"; exit 0; }\nexit 9\n', {
+      mode: 0o755,
+    });
+    const agentDir = join(home, ".pi/agent");
+    mkdirSync(agentDir, { recursive: true });
+    // `pi install <dir>` stores a user-scope local package relative to Pi's agent folder.
+    writeFileSync(join(agentDir, "settings.json"), JSON.stringify({ packages: [relative(agentDir, packageRoot)] }));
+    const preview = ask("setup", "--dry-run", "--json", "--host", "pi");
+    expect(JSON.parse(preview.stdout).hosts).toEqual([expect.objectContaining({ id: "pi", action: "up-to-date" })]);
   });
 
   it("installs Pi skills after a bridge install and leaves the package registration unchanged", () => {

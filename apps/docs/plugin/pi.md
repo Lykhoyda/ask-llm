@@ -32,7 +32,7 @@ pi list
 ask-llm setup --host pi
 ```
 
-The package provides the native tools and the codex-pair commands. The skills come from `ask-llm setup --host pi`, which installs them into Pi's skills folder with the pinned `skills` CLI; an interactive session prints a one-line notice naming that command when no `ask-llm-*` skill is discovered. Skills are now named `/skill:ask-llm-*`: `/skill:codex-review`, `/skill:compare` and `/skill:brainstorm` are replaced by `/skill:ask-llm-review`, `/skill:ask-llm-compare` and `/skill:ask-llm-brainstorm`.
+The package provides the native tools and the codex-pair commands. The skills come from `ask-llm setup --host pi`, which installs them into Pi's skills folder with the pinned `skills` CLI from the installed Ask LLM package's own folder, so they match its version; an interactive session prints a one-line notice naming that command when no `ask-llm-*` skill is discovered. Skills are now named `/skill:ask-llm-*`: `/skill:codex-review`, `/skill:compare` and `/skill:brainstorm` are replaced by `/skill:ask-llm-review`, `/skill:ask-llm-compare` and `/skill:ask-llm-brainstorm`.
 
 Project-local install (loaded only after Pi project trust):
 
