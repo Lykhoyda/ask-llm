@@ -1,4 +1,4 @@
-import { type Applied, applyRegistrar, canApply } from "./hosts/apply.js";
+import { type Applied, applyRegistrar } from "./hosts/apply.js";
 import type { DetectedHost } from "./hosts/detect.js";
 import type { HostId } from "./hosts/registry.js";
 import { buildPlan, manualText } from "./plan.js";
@@ -64,17 +64,7 @@ export async function applySetup(
     if (!inScope(host, selected)) continue;
     const { action, reason, registration } = plan[index];
     const manual = manualText(registration);
-    if (!canApply(host)) {
-      const detail = [`setup does not register ${host.name} yet`, action === "register" ? undefined : reason];
-      results.push(
-        action === "up-to-date"
-          ? result(host, "up-to-date")
-          : result(host, selected ? "manual" : "unsupported", {
-              detail: detail.filter(Boolean).join("; "),
-              manual: action === "register" ? manual : undefined,
-            }),
-      );
-    } else if (action === "register") {
+    if (action === "register") {
       const verb = registration.kind === "command" ? "Runs" : "Writes";
       if (!(await confirm(`Register Ask LLM with ${host.name}? ${verb}: ${manual}`))) {
         results.push(result(host, "declined"));

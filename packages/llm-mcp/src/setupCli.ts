@@ -1,9 +1,11 @@
 import { createInterface } from "node:readline/promises";
 import { detectHosts } from "./hosts/detect.js";
 import { type HostId, hostSpecs } from "./hosts/registry.js";
-import { buildPlan, genericSnippet, type PlanEntry, resolveServerPath, type ServerPath } from "./plan.js";
+import { buildPlan, commandText, genericSnippet, type PlanEntry, resolveServerPath, type ServerPath } from "./plan.js";
+import { installPlugins, type PluginPlan, planPlugins } from "./plugins.js";
 import { applyRemove } from "./remove.js";
 import { applySetup, type Confirm, type HostResult, type HostStatus, UNSUCCESSFUL } from "./setup.js";
+import { installSkills, planSkills, SKILLS_CLI_VERSION, type SkillsPlan, type WorkflowResult } from "./skills.js";
 
 const HOST_IDS = hostSpecs().map(({ id }) => id);
 
@@ -14,9 +16,17 @@ export function setupHelp(): string {
     "Detect coding-agent hosts, preview the exact command or file change for each, and",
     "register Ask LLM at user scope in each confirmed host: through the host's own command",
     "for Claude Code, Codex, Antigravity, Grok Build and Gemini CLI, and by merging one entry",
-    "into the config file of Cursor, Claude Desktop and OpenCode (plain JSON only). Other",
-    "hosts get the manual step. Existing ask-llm entries are never overwritten; re-running",
-    "changes nothing.",
+    "into the config file of Cursor, Claude Desktop and OpenCode (plain JSON only). For Pi,",
+    "setup runs pi install with this installed package's directory when registration is",
+    "missing, verifies the package list, and prints a manual fallback if installation fails.",
+    "Existing ask-llm registrations are never overwritten.",
+    "",
+    "Setup also installs the workflows: the Ask LLM plugin in Claude Code through its",
+    "marketplace, and portable ask-llm-* skills through the pinned skills CLI (npx) from this",
+    "installed package. Missing or changed packaged skills are installed or refreshed;",
+    "identical copies and unrelated skills are left untouched. Antigravity gets a manual",
+    "copy step; Claude Desktop has no skills installation. See the package README's",
+    "Command compatibility section for setup details.",
     "",
     "Options:",
     "  --dry-run      Preview only; nothing is written",
@@ -87,7 +97,34 @@ function formatEntry(entry: PlanEntry): string[] {
   return lines;
 }
 
-function formatPreview(heading: string, server: ServerPath, plan: PlanEntry[]): string {
+interface Workflows {
+  plugins: PluginPlan[];
+  skills: SkillsPlan;
+}
+
+function formatWorkflows({ plugins, skills }: Workflows): string[] {
+  const lines = ["Workflows:"];
+  for (const plugin of plugins) {
+    const runs = plugin.commands.map(commandText).join(" && ");
+    lines.push(
+      `  ${plugin.name} plugin: ${plugin.error ?? (plugin.installed ? "already installed" : "install")}`,
+      ...(plugin.installed || plugin.error ? [] : [`      ${runs}`]),
+    );
+  }
+  if (skills.command) {
+    const hostList = skills.agents.map(({ name }) => name).join(", ");
+    lines.push(
+      `  Skills for ${hostList}: install from @ask-llm/mcp ${skills.source.version}`,
+      `      ${skills.command}`,
+    );
+  }
+  for (const { name } of skills.upToDate) lines.push(`  ${name} skills: already installed`);
+  for (const { name, command } of skills.manual) lines.push(`  ${name} skills: manual`, `      ${command}`);
+  if (lines.length === 1) lines.push("  none for the selected hosts");
+  return [...lines, ""];
+}
+
+function formatPreview(heading: string, server: ServerPath, plan: PlanEntry[], workflows: Workflows): string {
   return [
     heading,
     `Server: ${server.path} (${server.source})`,
@@ -95,11 +132,14 @@ function formatPreview(heading: string, server: ServerPath, plan: PlanEntry[]): 
     "Hosts:",
     ...plan.flatMap(formatEntry),
     "",
+    ...formatWorkflows(workflows),
     "Any other MCP client (stdio):",
     `  ${JSON.stringify(genericSnippet(server.path))}`,
     "",
   ].join("\n");
 }
+
+const REMOVE_WORKFLOWS_NOTE = `Workflows are left installed. To remove them: \`claude plugin uninstall ask-llm@ask-llm-plugins\` and \`npx -y skills@${SKILLS_CLI_VERSION} remove -g -y <ask-llm-* skill names>\`.`;
 
 const REFORMAT_NOTICE =
   "The host's own command may reformat its config file, and a JSON file setup edits is rewritten with its indentation kept; unrelated entries keep their meaning. Each backup may contain credentials, stays next to the original with the same permissions, and remains until you delete it.";
@@ -132,12 +172,24 @@ function formatResult(result: HostResult): string[] {
   return lines;
 }
 
-function report(results: HostResult[], changed: HostStatus): number {
+function formatWorkflow(result: WorkflowResult): string[] {
+  const lines = [
+    `  ${result.label}: ${result.status === "up-to-date" ? "already installed" : result.status}${result.detail ? ` (${result.detail})` : ""}`,
+  ];
+  if (result.backup) lines.push(`      Backup: ${result.backup}`);
+  if (result.manual) lines.push(`      Run it manually: ${result.manual}`);
+  return lines;
+}
+
+function report(results: HostResult[], changed: HostStatus, workflows: WorkflowResult[] = []): number {
   const lines = ["Results:", ...results.flatMap(formatResult)];
   if (results.length === 0) lines.push("  No supported host is installed; pass --host to name one.");
-  if (!results.some(({ status }) => status === changed)) lines.push("No changes.");
+  if (workflows.length > 0) lines.push("", "Workflows:", ...workflows.flatMap(formatWorkflow));
+  const workflowChanged = workflows.some(({ status }) => status === "installed");
+  if (!results.some(({ status }) => status === changed) && !workflowChanged) lines.push("No changes.");
   process.stdout.write(`${lines.join("\n")}\n`);
-  return results.some(({ status }) => UNSUCCESSFUL.has(status)) ? 1 : 0;
+  const workflowFailed = workflows.some(({ status }) => status === "manual" || status === "failed");
+  return results.some(({ status }) => UNSUCCESSFUL.has(status)) || workflowFailed ? 1 : 0;
 }
 
 async function withConfirm<T>(yes: boolean, run: (confirm: Confirm) => Promise<T>): Promise<T> {
@@ -185,6 +237,7 @@ export async function runSetupCli(args: string[], ownCli: string): Promise<numbe
   }
   const hosts = await detectHosts();
   const shown = buildPlan(hosts, server.path).filter(({ id }) => !options.hosts || options.hosts.includes(id));
+  const workflows: Workflows = { plugins: planPlugins(hosts, options.hosts), skills: planSkills(hosts, options.hosts) };
   if (options.dryRun) {
     process.stdout.write(
       options.json
@@ -195,12 +248,16 @@ export async function runSetupCli(args: string[], ownCli: string): Promise<numbe
               dryRun: true,
               server,
               hosts: shown,
+              workflows: {
+                plugins: workflows.plugins.map(({ binary: _binary, ...plugin }) => plugin),
+                skills: workflows.skills,
+              },
               otherClients: { snippet: genericSnippet(server.path) },
             },
             null,
             2,
           )}\n`
-        : formatPreview("ask-llm setup --dry-run: preview only, nothing was changed.", server, shown),
+        : formatPreview("ask-llm setup --dry-run: preview only, nothing was changed.", server, shown, workflows),
     );
     return 0;
   }
@@ -210,12 +267,17 @@ export async function runSetupCli(args: string[], ownCli: string): Promise<numbe
       `ask-llm setup: each change runs the host's own command or merges one entry into its file.\n${REFORMAT_NOTICE}`,
       server,
       shown,
+      workflows,
     ),
   );
-  const results = await withConfirm(options.yes, (confirm) =>
-    applySetup(hosts, server.path, options.hosts, confirm, process.env),
-  );
-  return report(results, "registered");
+  const [results, installed] = await withConfirm(options.yes, async (confirm) => [
+    await applySetup(hosts, server.path, options.hosts, confirm, process.env),
+    [
+      ...(await installPlugins(workflows.plugins, confirm, process.env)),
+      ...(await installSkills(workflows.skills, confirm, process.env)),
+    ],
+  ]);
+  return report(results, "registered", installed);
 }
 
 export async function runRemoveCli(args: string[], ownCli: string): Promise<number> {
@@ -238,5 +300,6 @@ export async function runRemoveCli(args: string[], ownCli: string): Promise<numb
   const results = await withConfirm(options.yes, (confirm) =>
     applyRemove(hosts, server.path, options.hosts, confirm, process.env),
   );
+  process.stdout.write(`${REMOVE_WORKFLOWS_NOTE}\n`);
   return report(results, "removed");
 }

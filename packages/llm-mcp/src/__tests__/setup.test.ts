@@ -1,7 +1,7 @@
 import { spawnSync } from "node:child_process";
 import {
-  copyFileSync,
   cpSync,
+  existsSync,
   mkdirSync,
   mkdtempSync,
   readdirSync,
@@ -13,8 +13,8 @@ import {
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { join, relative } from "node:path";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { detectHosts } from "../hosts/detect.js";
 import { type HostId, hostSpecs } from "../hosts/registry.js";
@@ -24,6 +24,7 @@ import {
   FAKE_HOSTS,
   fakeArgv,
   installFakeHost,
+  installFakeNpx,
   setFakeMode,
   writeRegistration,
   writeUnusableRegistration,
@@ -33,7 +34,11 @@ const root = realpathSync(mkdtempSync(join(tmpdir(), "ask-llm-setup-")));
 const packageRoot = join(root, "lib/node_modules/@ask-llm/mcp");
 mkdirSync(packageRoot, { recursive: true });
 cpSync(fileURLToPath(new URL("../../dist", import.meta.url)), join(packageRoot, "dist"), { recursive: true });
-copyFileSync(fileURLToPath(new URL("../../package.json", import.meta.url)), join(packageRoot, "package.json"));
+cpSync(fileURLToPath(new URL("../../skills", import.meta.url)), join(packageRoot, "skills"), { recursive: true });
+// A version no repository checkout carries proves setup reads the installed package it runs from.
+const INSTALLED_VERSION = "9.9.9-installed";
+const manifest = JSON.parse(readFileSync(fileURLToPath(new URL("../../package.json", import.meta.url)), "utf8"));
+writeFileSync(join(packageRoot, "package.json"), JSON.stringify({ ...manifest, version: INSTALLED_VERSION }));
 symlinkSync(fileURLToPath(new URL("../../../../node_modules", import.meta.url)), join(packageRoot, "node_modules"));
 const command = join(packageRoot, "dist/ask-llm.js");
 const server = join(packageRoot, "dist/cli.js");
@@ -72,6 +77,7 @@ beforeEach(() => {
     { mode: 0o755 },
   );
   for (const name of HOSTS) installFakeHost(bin, name);
+  installFakeNpx(bin);
 });
 
 function ask(...args: string[]) {
@@ -103,11 +109,40 @@ function calls(): Record<string, string[][]> {
   return Object.fromEntries(HOSTS.map((name) => [name, fakeArgv(home, name)]));
 }
 
+function installPi(mode = "ok"): void {
+  writeFileSync(
+    join(bin, "pi"),
+    `#!${process.execPath}
+import { appendFileSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { join, relative } from "node:path";
+const args = process.argv.slice(2);
+if (args[0] === "--version") { console.log("0.87.1"); process.exit(0); }
+appendFileSync(join(process.env.HOME, ".fake-pi-argv"), args.join("\\t") + "\\t\\n");
+if (${JSON.stringify(mode)} === "fail") { console.error("install failed"); process.exit(2); }
+if (${JSON.stringify(mode)} === "silent") process.exit(0);
+if (args.length !== 2 || args[0] !== "install") process.exit(9);
+const pkg = JSON.parse(readFileSync(join(args[1], "package.json"), "utf8"));
+writeFileSync(join(process.env.HOME, ".fake-pi-version"), pkg.version);
+const dir = process.env.PI_CODING_AGENT_DIR || join(process.env.HOME, ".pi/agent");
+writeFileSync(join(process.env.HOME, ".fake-pi-profile"), dir);
+mkdirSync(dir, { recursive: true });
+const file = join(dir, "settings.json");
+let settings = {};
+try { settings = JSON.parse(readFileSync(file, "utf8")); } catch (error) { if (error.code !== "ENOENT") throw error; }
+settings.packages = [...(settings.packages ?? []), relative(dir, args[1])];
+writeFileSync(file, JSON.stringify(settings));
+`,
+    { mode: 0o755 },
+  );
+}
+
 describe("ask-llm setup", () => {
   it("registers every detected command host with -y, and a second run changes nothing", () => {
     const first = ask("setup", "-y");
     expect(first.stderr).toBe("");
-    expect(first.status).toBe(0);
+    // The only unsuccessful row is agy's skills folder, which no skills@1.7.0 agent id reaches (ADR-183).
+    expect(first.status).toBe(1);
+    expect(first.stdout).toContain("Antigravity skills: manual");
     expect(calls()).toEqual(Object.fromEntries(HOSTS.map((name) => [name, [ADD[name]]])));
     expect(first.stdout).toContain("Claude Code 2.1.284: registered");
     expect(first.stdout).toContain("start a new session");
@@ -116,10 +151,57 @@ describe("ask-llm setup", () => {
     expect(backups()).toEqual([]);
 
     const second = ask("setup", "-y");
-    expect(second.status).toBe(0);
+    expect(second.status).toBe(1);
     expect(second.stdout).toContain("Codex CLI 0.158.0: already registered");
+    expect(second.stdout).toContain("Claude Code plugin: already installed");
+    expect(second.stdout).toContain("Codex CLI skills: already installed");
     expect(second.stdout).toContain("No changes.");
     expect(calls()).toEqual(Object.fromEntries(HOSTS.map((name) => [name, [ADD[name]]])));
+    expect(readFileSync(join(home, "npx-argv"), "utf8").trim().split("\n")).toHaveLength(1);
+    expect(readFileSync(join(home, ".fake-claude-plugin-argv"), "utf8").trim().split("\n")).toHaveLength(2);
+  });
+
+  it("installs the Claude plugin in Claude Code and the skills everywhere else, previewed on --dry-run", () => {
+    const preview = ask("setup", "--dry-run", "--json", "--host", "claude,codex,grok");
+    const { workflows } = JSON.parse(preview.stdout);
+    expect(workflows.plugins.map(({ id }: { id: string }) => id)).toEqual(["claude"]);
+    expect(workflows.skills.agents.map(({ agent }: { agent: string }) => agent)).toEqual(["codex", "grok"]);
+    expect(workflows.skills.source).toEqual({ dir: packageRoot, version: INSTALLED_VERSION });
+    expect(workflows.skills.command).toMatch(/^DISABLE_TELEMETRY=1 npx -y skills@1\.7\.0 add \S+ --skill /);
+    expect(workflows.skills.command).toContain(` add ${packageRoot} --skill `);
+    expect(ask("setup", "--dry-run", "--host", "codex").stdout).toContain(
+      `Skills for Codex CLI: install from @ask-llm/mcp ${INSTALLED_VERSION}`,
+    );
+    expect(ask("setup", "--dry-run", "--host", "claude,codex").stdout).toContain(
+      "claude plugin marketplace add Lykhoyda/ask-llm && claude plugin install ask-llm@ask-llm-plugins",
+    );
+    expect(existsSync(join(home, "npx-argv"))).toBe(false);
+
+    const result = ask("setup", "-y", "--host", "claude,codex,grok");
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain("Claude Code plugin: installed");
+    expect(result.stdout).toContain("Codex CLI skills: installed");
+    expect(result.stdout).toContain("Grok Build skills: installed");
+    const npx = readFileSync(join(home, "npx-argv"), "utf8");
+    expect(npx).toContain(`add ${packageRoot} --skill `);
+    expect(npx).toContain("-g -a codex grok -y");
+    expect(readFileSync(join(home, ".agents/skills/ask-llm-review/SKILL.md"), "utf8")).toBe(
+      readFileSync(join(packageRoot, "skills/ask-llm-review/SKILL.md"), "utf8"),
+    );
+    expect(npx).not.toContain("claude-code");
+    expect(readFileSync(join(home, ".fake-claude-plugin-argv"), "utf8")).toBe(
+      "plugin marketplace add Lykhoyda/ask-llm\nplugin install ask-llm@ask-llm-plugins\n",
+    );
+  });
+
+  it("reports a failed skills install with the manual command", () => {
+    writeFileSync(join(home, "npx-mode"), "fail");
+    const result = ask("setup", "-y", "--host", "codex");
+    expect(result.status).toBe(1);
+    expect(result.stdout).toContain("Codex CLI skills: failed (network error (exit 1))");
+    expect(result.stdout).toContain(
+      `Run it manually: DISABLE_TELEMETRY=1 npx -y skills@1.7.0 add ${packageRoot} --skill `,
+    );
   });
 
   it("changes only the hosts named with --host", () => {
@@ -199,16 +281,164 @@ describe("ask-llm setup", () => {
     expect(result.stdout).toContain("Gemini CLI: skipped (not installed)");
   });
 
-  it("lists an installed host it does not register with its manual step instead of dropping it", () => {
-    writeFileSync(join(bin, "pi"), '#!/bin/sh\necho "0.87.1"\n', { mode: 0o755 });
-    const result = ask("setup", "-y");
-    expect(result.status).toBe(0);
-    expect(result.stdout).toContain("Pi 0.87.1: not handled by this release (setup does not register Pi yet)");
-    expect(result.stdout).toContain("Run it manually: pi install npm:@ask-llm/mcp");
-    const removed = ask("remove", "-y");
-    expect(removed.stdout).toContain("Pi 0.87.1: not handled by this release (remove does not handle Pi yet)");
-    expect(removed.stdout).not.toContain("trusted folders");
-    expect(ask("setup", "-y", "--host", "pi").stdout).toContain("Pi 0.87.1: manual (setup does not register Pi yet)");
+  it.each([{ selection: [] }, { selection: ["--host", "pi"] }])(
+    "installs Pi from this package with setup -y $selection",
+    ({ selection }) => {
+      installPi();
+      const settings = join(home, ".pi/agent/settings.json");
+      const original = JSON.stringify({ theme: "dark", packages: ["npm:other"] });
+      mkdirSync(join(settings, ".."), { recursive: true });
+      writeFileSync(settings, original);
+
+      const preview = ask("setup", "--dry-run", "--json", "--host", "pi");
+      const plan = JSON.parse(preview.stdout);
+      expect(plan.hosts[0].registration.argv).toEqual(["pi", "install", packageRoot]);
+      expect(plan.workflows.skills.source).toEqual({ dir: packageRoot, version: INSTALLED_VERSION });
+      expect(fakeArgv(home, "pi")).toEqual([]);
+      expect(readFileSync(settings, "utf8")).toBe(original);
+
+      const result = ask("setup", "-y", ...selection);
+      expect(result.status, result.stderr).toBe(selection.length ? 0 : 1);
+      expect(result.stdout).toContain("Pi 0.87.1: registered");
+      expect(result.stdout).toContain("Pi skills: installed");
+      expect(result.stdout).not.toContain("Run it manually: pi install");
+      expect(fakeArgv(home, "pi")).toEqual([["install", packageRoot]]);
+      expect(readFileSync(join(home, ".fake-pi-version"), "utf8")).toBe(INSTALLED_VERSION);
+      const installed = readFileSync(settings, "utf8");
+      expect(JSON.parse(installed)).toEqual({
+        theme: "dark",
+        packages: ["npm:other", relative(join(home, ".pi/agent"), packageRoot)],
+      });
+      const backup = backups().find((file) => file.startsWith(".pi/agent/settings.json.ask-llm-backup-"));
+      expect(backup).toBeDefined();
+      expect(readFileSync(join(home, backup as string), "utf8")).toBe(original);
+
+      const second = ask("setup", "-y", "--host", "pi");
+      expect(second.status).toBe(0);
+      expect(second.stdout).toContain("Pi 0.87.1: already registered");
+      expect(second.stdout).toContain("Pi skills: already installed");
+      const removed = ask("remove", "-y", "--host", "pi");
+      expect(removed.stdout).toContain("remove does not handle Pi yet");
+      expect(fakeArgv(home, "pi")).toEqual([["install", packageRoot]]);
+      expect(readFileSync(settings, "utf8")).toBe(installed);
+    },
+  );
+
+  it.each(["fail", "silent"])("reports Pi install mode %s as failed with the local manual command", (mode) => {
+    installPi(mode);
+    const result = ask("setup", "-y", "--host", "pi");
+    expect(result.status).toBe(1);
+    expect(result.stdout).toContain("Pi 0.87.1: failed");
+    expect(result.stdout).toContain(mode === "fail" ? "install failed (exit 2)" : "entry was not found after");
+    expect(result.stdout).toContain(`Run it manually: pi install ${packageRoot}`);
+    expect(fakeArgv(home, "pi")).toEqual([["install", packageRoot]]);
+    expect(existsSync(join(home, ".pi/agent/settings.json"))).toBe(false);
+  });
+
+  it.each(["absolute", "relative", "tilde", "url"] as const)("uses the %s Pi profile for setup and backup", (form) => {
+    installPi();
+    const profile = join(home, "alternate pi");
+    const override = {
+      absolute: profile,
+      relative: relative(root, profile),
+      tilde: "~/alternate pi",
+      url: pathToFileURL(profile).href,
+    }[form];
+    mkdirSync(profile);
+    const settings = join(profile, "settings.json");
+    const original = JSON.stringify({ theme: "dark", packages: ["npm:other"] });
+    writeFileSync(settings, original);
+    const run = (...args: string[]) =>
+      spawnSync(process.execPath, [command, "setup", ...args, "--host", "pi"], {
+        cwd: root,
+        env: { ...env, PI_CODING_AGENT_DIR: override },
+        encoding: "utf8",
+        timeout: 60_000,
+      });
+    expect(run("--dry-run").status).toBe(0);
+    expect(fakeArgv(home, "pi")).toEqual([]);
+    const first = run("-y");
+    expect(first.status, first.stderr).toBe(0);
+    expect(first.stdout).toContain("Pi 0.87.1: registered");
+    expect(readFileSync(join(home, ".fake-pi-profile"), "utf8")).toBe(profile);
+    expect(JSON.parse(readFileSync(settings, "utf8"))).toEqual({
+      theme: "dark",
+      packages: ["npm:other", relative(profile, packageRoot)],
+    });
+    const saved = backups();
+    expect(saved).toHaveLength(1);
+    expect(saved[0]).toMatch(/^alternate pi\/settings.json.ask-llm-backup-/);
+    expect(readFileSync(join(home, saved[0]), "utf8")).toBe(original);
+    expect(first.stdout).toContain(`Backup: ${join(home, saved[0])}`);
+    expect(existsSync(join(home, ".pi"))).toBe(false);
+    const second = run("-y");
+    expect(second.status).toBe(0);
+    expect(second.stdout).toContain("Pi 0.87.1: already registered");
+    expect(fakeArgv(home, "pi")).toEqual([["install", packageRoot]]);
+    expect(backups()).toEqual(saved);
+  });
+
+  it("leaves Pi untouched when its registration is declined", async () => {
+    installPi();
+    const questions: string[] = [];
+    const hosts = await detectHosts(env);
+    const pi = hosts.find(({ id }) => id === "pi");
+    const registration = pi?.spec.registration;
+    expect(registration?.kind).toBe("command");
+    const results = await applySetup(
+      hosts,
+      server,
+      ["pi"],
+      async (question) => {
+        questions.push(question);
+        return false;
+      },
+      env,
+    );
+    expect(results).toEqual([expect.objectContaining({ id: "pi", status: "declined" })]);
+    expect(questions).toEqual([
+      `Register Ask LLM with Pi? Runs: ${registration?.kind === "command" ? commandText(registration.argv(server)) : ""}`,
+    ]);
+    expect(fakeArgv(home, "pi")).toEqual([]);
+    expect(existsSync(join(home, ".pi/agent/settings.json"))).toBe(false);
+  });
+
+  it("recognizes Pi's record of a local install as this package's registration", () => {
+    writeFileSync(join(bin, "pi"), '#!/bin/sh\n[ "$1" = "--version" ] && { echo "0.87.1"; exit 0; }\nexit 9\n', {
+      mode: 0o755,
+    });
+    const agentDir = join(home, ".pi/agent");
+    mkdirSync(agentDir, { recursive: true });
+    // `pi install <dir>` stores a user-scope local package relative to Pi's agent folder.
+    writeFileSync(join(agentDir, "settings.json"), JSON.stringify({ packages: [relative(agentDir, packageRoot)] }));
+    const preview = ask("setup", "--dry-run", "--json", "--host", "pi");
+    expect(JSON.parse(preview.stdout).hosts).toEqual([expect.objectContaining({ id: "pi", action: "up-to-date" })]);
+  });
+
+  it("installs Pi skills after a bridge install and leaves the package registration unchanged", () => {
+    writeFileSync(join(bin, "pi"), '#!/bin/sh\n[ "$1" = "--version" ] && { echo "0.87.1"; exit 0; }\nexit 9\n', {
+      mode: 0o755,
+    });
+    const settings = join(home, ".pi/agent/settings.json");
+    const content = JSON.stringify({ packages: ["npm:@ask-llm/plugin"] });
+    mkdirSync(join(home, ".pi/agent"), { recursive: true });
+    writeFileSync(settings, content);
+
+    const preview = ask("setup", "--dry-run", "--json", "--host", "pi");
+    expect(preview.status).toBe(0);
+    expect(JSON.parse(preview.stdout).hosts).toEqual([expect.objectContaining({ id: "pi", action: "up-to-date" })]);
+
+    const first = ask("setup", "-y", "--host", "pi");
+    expect(first.status, first.stderr).toBe(0);
+    expect(first.stdout).toContain("Pi 0.87.1: already registered");
+    expect(first.stdout).toContain("Pi skills: installed");
+    expect(existsSync(join(home, ".agents/skills/ask-llm-review/SKILL.md"))).toBe(true);
+    expect(readFileSync(settings, "utf8")).toBe(content);
+
+    const second = ask("setup", "-y", "--host", "pi");
+    expect(second.status, second.stderr).toBe(0);
+    expect(second.stdout).toContain("Pi skills: already installed");
+    expect(readFileSync(settings, "utf8")).toBe(content);
   });
 
   it("reports a foreign file-host entry with the entry it would use and leaves the file alone", () => {
@@ -250,7 +480,7 @@ describe("ask-llm setup", () => {
   it("backs up each host's config file before its command writes it", () => {
     writeConfigFiles();
     const result = ask("setup", "-y");
-    expect(result.status).toBe(0);
+    expect(result.status).toBe(1);
     expect(result.stdout).toContain("Each backup may contain credentials");
     expect(result.stdout).toContain("remains until you delete it");
     const saved = backups();
@@ -465,7 +695,7 @@ describe("ask-llm remove", () => {
   });
 
   it("round-trips setup and remove", () => {
-    expect(ask("setup", "-y").status).toBe(0);
+    expect(ask("setup", "-y").stdout).toContain("Antigravity skills: manual");
     expect(ask("remove", "-y", "--host", "codex").status).toBe(0);
     expect(fakeArgv(home, "codex")).toEqual([ADD.codex, ["mcp", "remove", "ask-llm"]]);
     expect(ask("setup", "-y").stdout).toContain("Codex CLI 0.158.0: registered");

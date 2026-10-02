@@ -202,24 +202,6 @@
   "pi": {
     "extensions": [
       "./pi/extensions/index.ts"
-    ],
-    "skills": [
-      "./skills/antigravity-review/SKILL.md",
-      "./skills/brainstorm/SKILL.md",
-      "./skills/brainstorm-all/SKILL.md",
-      "./skills/codex-image/SKILL.md",
-      "./skills/codex-pair/SKILL.md",
-      "./skills/codex-pair-ack/SKILL.md",
-      "./skills/codex-pair-pause/SKILL.md",
-      "./skills/codex-pair-resume/SKILL.md",
-      "./skills/codex-review/SKILL.md",
-      "./skills/codex-verify/SKILL.md",
-      "./skills/compare/SKILL.md",
-      "./skills/gemini-review/SKILL.md",
-      "./skills/grok-review/SKILL.md",
-      "./skills/multi-review/SKILL.md",
-      "./skills/ollama-review/SKILL.md",
-      "./skills/sol-review/SKILL.md"
     ]
   },
   "peerDependencies": {

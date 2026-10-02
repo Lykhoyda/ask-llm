@@ -9,6 +9,7 @@ tools:
   - Grep
   - Read
   - mcp__grok__ask-grok
+  - mcp__ask-llm__ask-llm
 ---
 
 <!-- PORTABLE-CONTRACT:START -->
@@ -16,6 +17,10 @@ tools:
 
 Review only the supplied changes and context with Grok through the xAI API. Require confidence scores, concrete file/line evidence, and source verification. Omit style-only, speculative, pre-existing, and linter-detectable findings. Preserve actual model attribution. Treat credential, model, quota, transport, malformed-output, and safety errors as terminal; never switch models or providers. Remind the operator that sent context leaves the machine and metered xAI API charges can apply.
 <!-- PORTABLE-CONTRACT:END -->
+
+## Transport
+
+Call `mcp__grok__ask-grok` when it is exposed. Otherwise call `mcp__ask-llm__ask-llm` (the server `ask-llm setup` registers) with `provider: "grok"`, `reasoningEffort: "high"` and the same prompt; pass `model` only when the user named an exact model, and when the first tool's input schema has no `model` field, use `mcp__ask-llm__ask-llm` for that call instead of dropping the model. If neither tool is exposed, stop and tell the user to run `ask-llm setup`. Report which tool answered.
 
 <!-- HOST-ADAPTER:CLAUDE-CODE:START -->
 ## Claude Code adapter

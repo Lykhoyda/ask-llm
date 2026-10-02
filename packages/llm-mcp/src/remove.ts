@@ -1,4 +1,4 @@
-import { type Applied, applyRegistrar, canApply, changeText } from "./hosts/apply.js";
+import { type Applied, applyRegistrar, canRemove, changeText } from "./hosts/apply.js";
 import type { DetectedHost } from "./hosts/detect.js";
 import type { HostId } from "./hosts/registry.js";
 import { isOwnRegistration, UNUSABLE_ENTRY } from "./plan.js";
@@ -25,7 +25,7 @@ export async function applyRemove(
   const results: HostResult[] = [];
   for (const host of hosts.filter((candidate) => inScope(candidate, selected))) {
     const manual = changeText(host, "remove", server);
-    if (!canApply(host)) {
+    if (!canRemove(host)) {
       results.push(
         result(host, selected ? "manual" : "unsupported", { detail: `remove does not handle ${host.name} yet` }),
       );

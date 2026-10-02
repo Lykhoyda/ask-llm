@@ -10,9 +10,9 @@ The **Ask LLM plugin** brings the second opinion into Claude Code itself: slash-
 
 ## Installation
 
-### From Marketplace (recommended)
+### Through setup (recommended)
 
-Add the Ask LLM marketplace, then install the plugin:
+Follow the [Quick Start](https://github.com/Lykhoyda/ask-llm#quick-start) to install through setup. See [Command compatibility](https://github.com/Lykhoyda/ask-llm/blob/main/packages/llm-mcp/README.md#command-compatibility) for workflow installation and removal, and [Skills](/plugin/skills) for portable names and compatibility aliases. To install only the Claude Code plugin by hand:
 
 ```bash
 /plugin marketplace add Lykhoyda/ask-llm

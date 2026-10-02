@@ -1,6 +1,6 @@
 import { chmodSync, existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, relative } from "node:path";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { type DetectedHost, detectHosts } from "../hosts/detect.js";
 
@@ -168,10 +168,41 @@ describe("detectHosts", () => {
     });
   });
 
-  it("recognizes a version-pinned Pi package source", async () => {
-    write(".pi/agent/settings.json", JSON.stringify({ packages: ["npm:@ask-llm/mcp@1.0.0"] }));
-    expect(host(await detectHosts(env), "pi")).toMatchObject({ registered: true });
+  describe.each(["npm:@ask-llm/mcp", "npm:@ask-llm/plugin"])("Pi package %s", (source) => {
+    it.each([source, `${source}@1.0.0`, { source }, { source: `${source}@1.0.0` }])(
+      "recognizes registration from %j",
+      async (entry) => {
+        write(".pi/agent/settings.json", JSON.stringify({ packages: [entry] }));
+        expect(host(await detectHosts(env), "pi")).toMatchObject({ registered: true });
+      },
+    );
   });
+
+  describe("Pi local install of this package", () => {
+    const PACKAGE_ROOT = join(__dirname, "..", "..");
+    const agentDir = () => join(home, ".pi", "agent");
+    it.each([
+      ["an absolute path", () => PACKAGE_ROOT],
+      ["a path relative to Pi's agent folder", () => relative(agentDir(), PACKAGE_ROOT)],
+      ["a source object", () => ({ source: relative(agentDir(), PACKAGE_ROOT) })],
+    ])("recognizes registration from %s", async (_label, entry) => {
+      write(".pi/agent/settings.json", JSON.stringify({ packages: [entry()] }));
+      expect(host(await detectHosts(env), "pi")).toMatchObject({ registered: true });
+    });
+
+    it("does not treat another local package as this package's registration", async () => {
+      write(".pi/agent/settings.json", JSON.stringify({ packages: [join(PACKAGE_ROOT, "skills"), "../other"] }));
+      expect(host(await detectHosts(env), "pi")).toMatchObject({ registered: false });
+    });
+  });
+
+  it.each(["npm:@ask-llm/mcp-extra", "npm:@ask-llm/plugin-extra", "npm:pi-lens", null, {}])(
+    "does not treat %j as an Ask LLM Pi registration",
+    async (entry) => {
+      write(".pi/agent/settings.json", JSON.stringify({ packages: [entry] }));
+      expect(host(await detectHosts(env), "pi")).toMatchObject({ registered: false });
+    },
+  );
 
   it("reports an unreadable registration as unknown instead of unregistered", async () => {
     write(".cursor/mcp.json", "{ not json");

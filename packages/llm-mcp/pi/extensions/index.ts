@@ -1,6 +1,7 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { registerCodexPair } from "./codex-pair.js";
 import { registerProviderTools } from "./provider-tools.js";
+import { registerSkillsNotice } from "./skills-notice.js";
 
 /**
  * Ask LLM's Pi adapter. The factory only registers tools, commands, and event
@@ -10,4 +11,5 @@ import { registerProviderTools } from "./provider-tools.js";
 export default function askLlmPiExtension(pi: ExtensionAPI): void {
   registerProviderTools(pi);
   registerCodexPair(pi);
+  registerSkillsNotice(pi);
 }

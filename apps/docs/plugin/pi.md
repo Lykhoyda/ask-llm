@@ -24,12 +24,9 @@ The extension reads provider credentials only indirectly by invoking the provide
 
 ## Install
 
-Recommended user-scoped install:
+Follow the [Pi Quick Start](https://github.com/Lykhoyda/ask-llm#pi) for the user-scoped installation. See the [setup reference](https://github.com/Lykhoyda/ask-llm/blob/main/packages/llm-mcp/README.md#command-compatibility) for local package registration, skill refresh, and alternate Pi profiles.
 
-```bash
-pi install npm:@ask-llm/plugin
-pi list
-```
+The package provides the native tools and the codex-pair commands. An interactive session prints a one-line notice naming `ask-llm setup --host pi` when no `ask-llm-*` skill is discovered. See [Skills](/plugin/skills) for the portable names and earlier-name compatibility.
 
 Project-local install (loaded only after Pi project trust):
 
@@ -60,17 +57,17 @@ Invoke a skill explicitly with `/skill:<name>` or describe the workflow naturall
 Representative commands:
 
 ```text
-/skill:codex-review
-/skill:multi-review
-/skill:compare gemini,codex explain this API design
-/skill:brainstorm antigravity,codex review this architecture
-/skill:brainstorm grok@cursor-agent:grok-4.7-high,codex@cursor-agent:gpt-6-sol-high review this architecture
-/skill:codex-image create a monochrome architecture diagram
-/skill:codex-verify
-/skill:codex-pair
+/skill:ask-llm-review
+/skill:ask-llm-multi-review
+/skill:ask-llm-compare gemini,codex explain this API design
+/skill:ask-llm-brainstorm antigravity,codex review this architecture
+/skill:ask-llm-brainstorm grok@cursor-agent:grok-4.7-high,codex@cursor-agent:gpt-6-sol-high review this architecture
+/skill:ask-llm-codex-image create a monochrome architecture diagram
+/skill:ask-llm-codex-verify
+/skill:ask-llm-codex-pair
 ```
 
-Pi loads 16 skills. `fable-review` and `grok-pair` are intentionally excluded and are neither loaded nor advertised: independent Fable review would require a nested Pi session or provider bridge, while Grok pairing still needs a dedicated Pi consent/lifecycle adapter.
+Pi reads these skills from the shared skills folder that `ask-llm setup --host pi` fills; the package itself ships only the extension. `ask-llm-fable-review` is not installed: independent Fable review would require a nested Pi session or provider bridge. `ask-llm-grok-pair` is installed for other hosts and refuses on Pi, because Grok pairing still needs a dedicated Pi consent/lifecycle adapter.
 
 Native tools:
 
@@ -127,27 +124,39 @@ Pi pairing works in TUI, RPC, and a long-lived JSON process. It is unsupported i
 | Capability | Claude Code | Cursor Agent | Codex CLI host | Pi |
 |---|---:|---:|---:|---:|
 | Provider MCP servers | Yes | Yes | Yes | No; native tools instead |
-| Review/compare/brainstorm skills | Yes | Agent Skills | MCP tools only | Yes, `/skill:<name>` + natural language; exact Grok + Sol mode calls native `ask-cursor-agent` twice and never `ask-multi`/Gemini |
+| Review/compare/brainstorm skills | Yes | Agent Skills | Portable skills through setup | Yes, `/skill:<name>` + natural language; exact Grok + Sol mode calls native `ask-cursor-agent` twice and never `ask-multi`/Gemini |
 | Isolated reviewer subagents | Yes | Host-dependent | No | No; portable contracts run inline |
 | Independent `fable-review` | Yes | No; excluded | No | No; excluded |
 | `codex-image` | Yes | provider-dependent | provider-dependent | Yes, explicit workspace-write opt-in |
-| codex-pair | Claude per-edit hooks | On-demand persisted session | No | Pi lifecycle extension |
+| codex-pair | Claude per-edit hooks | On-demand persisted session | On-demand persisted session | Pi lifecycle extension |
+| Grok pairing | Explicit Cursor/xAI/CLI routes | Direct xAI/CLI routes | Direct xAI/CLI routes | Skill is installed but refuses; no consent/lifecycle adapter |
 | Blocking `blockOn: HIGH` Stop gate | Yes | No claim | No | **No**; findings are non-blocking |
-| Pairing in one-shot print mode | Hook-dependent | On-demand skill | No | **No** |
+| Pairing in one-shot print mode | Hook-dependent | On-demand skill | On-demand skill | **No** |
 
 ## Update and remove
+
+For a local package registered by setup, update the global installation and refresh the skills:
+
+```bash
+npm install -g @ask-llm/mcp
+ask-llm setup --host pi
+```
+
+Restart Pi or use `/reload` to load the updated extension. To unregister it, run `pi remove <installed package directory>` with the local source path shown by `pi list`; this leaves the global npm installation in place.
+
+For an existing npm bridge installation:
 
 ```bash
 pi update npm:@ask-llm/plugin
 pi remove npm:@ask-llm/plugin
 ```
 
-Pi 0.83 removes its managed npm tree/settings entry. User-owned `.codex-pair/` logs/cache/state and the consent allowlist remain until you delete or revoke them explicitly.
+Removing the npm bridge deletes Pi's managed npm tree/settings entry. Separately installed skills remain; see [workflow removal](https://github.com/Lykhoyda/ask-llm/blob/main/packages/llm-mcp/README.md#command-compatibility). User-owned `.codex-pair/` logs/cache/state and the consent allowlist remain until you delete or revoke them explicitly.
 
 ## Troubleshooting
 
-- **Package absent:** run `pi list`; reinstall with `pi install npm:@ask-llm/plugin`.
-- **Skills absent:** confirm `enableSkillCommands` is true, run `/reload`, and check `/skill:codex-review`. `fable-review` should remain absent.
+- **Package absent:** run `pi list`; rerun the [Pi Quick Start](https://github.com/Lykhoyda/ask-llm#pi) setup step.
+- **Skills absent:** confirm `enableSkillCommands` is true, run `/reload`, and check `/skill:ask-llm-review`; if it is missing, run `ask-llm setup --host pi`. `ask-llm-fable-review` should remain absent.
 - **Project package absent:** trust the project (`/trust`, then restart) or use `--approve` for a one-run check.
 - **Pairing refuses a marker:** project trust and user-owned consent are both required; run `/codex-pair` in interactive Pi.
 - **Provider unavailable:** run the named CLI directly once to install/authenticate it (`codex`, `gemini`, `agy`) or start Ollama and pull the configured model. The native tool returns the provider package's actionable error.

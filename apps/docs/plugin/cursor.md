@@ -4,7 +4,7 @@ description: Use Ask LLM pairing skills from Cursor Agent through Cursor's nativ
 
 # Cursor Agent Host
 
-`@ask-llm/mcp` ships the Cursor Plugin adapter in `.cursor-plugin/plugin.json`; `@ask-llm/plugin` remains a dependent bridge. Cursor loads exactly the two Cursor-adapted skills (`/codex-pair`, `/grok-pair`) through its Agent Skills surface and the unified Ask LLM server through `mcp.json`; the manifest sets `agents: []`, `commands: []`, and `hooks: {}` (Cursor's manifest schema accepts a path or array for `agents`/`commands` and a path or object for `hooks`, and a present field replaces folder discovery) so Claude-only reviewer agents and the Claude-format `hooks/hooks.json` are never auto-discovered by Cursor. The remaining review/brainstorm/compare skills still use Claude-only mechanics and are deferred to separate Cursor-compatibility work. It does not consume Claude Code's hook registration, `${CLAUDE_PLUGIN_ROOT}`, `AskUserQuestion`, or Claude MCP namespace conventions.
+`@ask-llm/mcp` ships the Cursor Plugin adapter in `.cursor-plugin/plugin.json`; `@ask-llm/plugin` remains a dependent bridge. The Cursor plugin loads exactly the two Cursor-adapted skills (`/ask-llm-codex-pair`, `/ask-llm-grok-pair`, still reachable by their earlier names `/codex-pair` and `/grok-pair`) through its Agent Skills surface and the unified Ask LLM server through `mcp.json`; the manifest sets `agents: []`, `commands: []`, and `hooks: {}` (Cursor's manifest schema accepts a path or array for `agents`/`commands` and a path or object for `hooks`, and a present field replaces folder discovery) so Claude-only reviewer agents and the Claude-format `hooks/hooks.json` are never auto-discovered by Cursor. It does not consume Claude Code's hook registration, `${CLAUDE_PLUGIN_ROOT}`, `AskUserQuestion`, or Claude MCP namespace conventions.
 
 ## Start from source
 
@@ -14,7 +14,7 @@ yarn build
 agent --plugin-dir ./packages/llm-mcp
 ```
 
-Installed plugins expose only `/codex-pair` and `/grok-pair` in Cursor's `/` skill menu. The Cursor manifest deliberately omits `/codex-pair-ack`, `/codex-pair-pause`, and `/codex-pair-resume`: those toggle the Claude Code/Pi background per-edit reviewer through `.codex-pair/state` sentinels, and Cursor's on-demand session has no background reviewer for them to act on. For user-scope MCP setup, follow the [Quick Start](https://github.com/Lykhoyda/ask-llm#quick-start); for project-scoped configuration, copy the `packages/llm-mcp/mcp.json` entry to `.cursor/mcp.json`, then restart/reload Cursor Agent. The adapter bundles exactly one server:
+Installed plugins expose only these two skills and their earlier-name pointers in Cursor's `/` skill menu. `ask-llm setup --host cursor` also installs every portable `ask-llm-*` skill (reviews, compare, brainstorm and the rest) into Cursor's skills folder through the pinned `skills` CLI; their host adapters use the [shared transport contract](https://github.com/Lykhoyda/ask-llm/blob/main/packages/llm-mcp/skills/ask-llm-review/transport.md). The Cursor manifest deliberately omits `/codex-pair-ack`, `/codex-pair-pause`, and `/codex-pair-resume`: those toggle the Claude Code/Pi background per-edit reviewer through `.codex-pair/state` sentinels, and Cursor's on-demand session has no background reviewer for them to act on. For user-scope MCP setup, follow the [Quick Start](https://github.com/Lykhoyda/ask-llm#quick-start); for project-scoped configuration, copy the `packages/llm-mcp/mcp.json` entry to `.cursor/mcp.json`, then restart/reload Cursor Agent. The adapter bundles exactly one server:
 
 - `ask-llm` → `@ask-llm/mcp` (`ask-cursor-agent` plus the unified `ask-llm` tool, which pair skills call only fully pinned — provider, harness, exact model, effort, include directories, sandbox, session — never as a generic fallback).
 
@@ -69,6 +69,6 @@ Save it in project `.cursor/mcp.json` or user `~/.cursor/mcp.json`. The `xai-api
 | Include directories | Per-edit context from marker/project | Explicit safe relative `includeDirs` on first Codex call |
 | Completion gate | Optional Claude Stop hook | Explicit completed/cancelled/failed session report |
 | Cancellation | Claude hook/provider process lifecycle | Cursor MCP AbortSignal/interrupt |
-| Pause / resume / ack | `/codex-pair-pause`, `/codex-pair-resume`, `/codex-pair-ack` toggle the background hook | Not exposed — no background reviewer; end or restart the on-demand session |
+| Pause / resume / ack | `/codex-pair-pause`, `/codex-pair-resume`, `/codex-pair-ack` toggle the background hook | Setup installs the portable skills, but they do not control Cursor's on-demand session; end or restart that session instead |
 
-The portable contract is canonical in `packages/llm-mcp/skills/pairing-contract.md`; host adapters must not claim lifecycle guarantees their host does not provide.
+The portable contract is canonical in `packages/llm-mcp/skills/ask-llm-codex-pair/pairing-contract.md`; host adapters must not claim lifecycle guarantees their host does not provide.

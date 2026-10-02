@@ -73,6 +73,11 @@ export function installFakeHost(bin: string, name: string): void {
     "#!/bin/sh",
     `if [ "$1" = "--version" ]; then echo "${host.version}"; exit 0; fi`,
     `if [ "$*" = "mcp list --json" ]; then cat ${file} 2>/dev/null || echo "[]"; exit 0; fi`,
+    // Plugin commands answer like Claude Code 2.1.284 did in the temp-HOME probes; logged apart from MCP argv.
+    `if [ "$1" = plugin ]; then echo "$*" >> "$HOME/.fake-${name}-plugin-argv"; p="$HOME/.claude/plugins"; mkdir -p "$p"`,
+    `  [ "$2" = marketplace ] && echo '{"ask-llm-plugins":{}}' > "$p/known_marketplaces.json"`,
+    `  [ "$2" = install ] && echo '{"version":2,"plugins":{"ask-llm@ask-llm-plugins":[{"scope":"user"}]}}' > "$p/installed_plugins.json"`,
+    "  exit 0; fi",
     `printf '%s\\t' "$@" >> "$HOME/.fake-${name}-argv"; echo >> "$HOME/.fake-${name}-argv"`,
     `mode=$(cat "$HOME/.fake-${name}-mode" 2>/dev/null)`,
     `if [ "$mode" = fail ]; then echo "error: unexpected argument --scope found" >&2; exit 2; fi`,
@@ -126,4 +131,32 @@ export function writeUnusableRegistration(home: string, name: string): void {
   const path = join(home, host.file);
   mkdirSync(join(path, ".."), { recursive: true });
   writeFileSync(path, host.unusable.replaceAll("\\n", "\n"));
+}
+
+// Mirrors skills@1.7.0 from the temp-HOME probes: copies from the local source into where the real CLI writes,
+// and exits 1 on "Invalid agents" or a skill the source lacks.
+export const FAKE_NPX = `#!/bin/sh
+printf '%s\\n' "$*" >> "$HOME/npx-argv"
+mode=$(cat "$HOME/npx-mode" 2>/dev/null || echo ok)
+[ "$mode" = fail ] && { echo "network error" >&2; exit 1; }
+[ "$mode" = silent ] && exit 0
+agents=$(printf '%s\\n' "$@" | sed -n '/^-a$/,/^-y$/p' | sed '1d;$d')
+for agent in $agents; do
+  case $agent in codex|cursor|gemini-cli|opencode|grok|pi) ;; *) echo "Invalid agents: $agent" >&2; exit 1 ;; esac
+done
+skills=$(printf '%s\\n' "$@" | sed -n '/^--skill$/,/^-g$/p' | sed '1d;$d')
+source=$(printf '%s\\n' "$@" | sed -n '/^add$/{n;p;}')
+for skill in $skills; do
+  [ -f "$source/skills/$skill/SKILL.md" ] || { echo "No matching skills found: $skill" >&2; exit 1; }
+done
+for agent in $agents; do
+  case $agent in grok) dir="$HOME/.grok/skills" ;; pi) dir="$HOME/.pi/agent/skills" ;; *) dir="$HOME/.agents/skills" ;; esac
+  mkdir -p "$dir"
+  for skill in $skills; do rm -rf "$dir/$skill" && cp -R "$source/skills/$skill" "$dir/$skill" || exit 1; done
+done
+`;
+
+export function installFakeNpx(bin: string): void {
+  writeFileSync(join(bin, "npx"), FAKE_NPX);
+  chmodSync(join(bin, "npx"), 0o755);
 }

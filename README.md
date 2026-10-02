@@ -52,7 +52,7 @@ npm install -g @ask-llm/mcp
 ask-llm setup --host claude
 ```
 
-Setup previews the user-scope registration and asks before applying it. Then try: `ask codex to review my last commit`. Run `ask-llm doctor` if anything looks off. See [command compatibility](packages/llm-mcp/README.md#command-compatibility) for `-y`, removal, and other hosts.
+Setup previews the user-scope registration and the workflows it installs (the Claude Code plugin, or the `ask-llm-*` skills on other hosts) and asks before applying them. Then try: `ask codex to review my last commit`. Run `ask-llm doctor` if anything looks off. See [command compatibility](packages/llm-mcp/README.md#command-compatibility) for `-y`, removal, and other hosts.
 
 <details>
 <summary>Advanced: install split provider packages instead</summary>
@@ -92,13 +92,13 @@ After the global install above, run `ask-llm setup --host opencode`. Setup chang
 
 ### Pi
 
-Pi has no built-in MCP client, so it installs the host package instead, which registers native `ask-*` tools plus the shared skills:
+Pi has no built-in MCP client, so it installs the host package instead, which registers native `ask-*` tools. After the global Ask LLM install above, install the package and shared skills:
 
 ```bash
-pi install npm:@ask-llm/plugin
+ask-llm setup --host pi
 ```
 
-Then use `/skill:codex-review`, `/skill:multi-review`, `/skill:compare`, `/skill:brainstorm`, or just describe what you want. See the [Pi host guide](https://lykhoyda.github.io/ask-llm/plugin/pi) for trust, data-transfer, and compatibility details.
+Then use `/skill:ask-llm-review`, `/skill:ask-llm-multi-review`, `/skill:ask-llm-compare`, `/skill:ask-llm-brainstorm`, or just describe what you want. See the [Pi host guide](https://lykhoyda.github.io/ask-llm/plugin/pi) for trust, data-transfer, and compatibility details.
 
 <details>
 <summary>Any other MCP client (STDIO)</summary>
@@ -132,6 +132,8 @@ Fallbacks fire only under each provider's documented conditions (quota for Gemin
 
 MCP gives your assistant the *tools*. The canonical [`@ask-llm/mcp`](https://www.npmjs.com/package/@ask-llm/mcp) package also owns the *workflows*: slash-command reviews with a validation pipeline, multi-model brainstorming, and opt-in continuous pair review. `@ask-llm/plugin` remains a dependent bridge for existing installs.
 
+`ask-llm setup` installs these workflows for you: the plugin in Claude Code, and the same skills, named `ask-llm-*`, in Codex, Cursor Agent, Grok Build, Gemini CLI, OpenCode and Pi through the pinned `skills` CLI. In Claude Code the earlier names such as `/codex-review` keep working. To install only the Claude Code plugin by hand:
+
 ```
 /plugin marketplace add Lykhoyda/ask-llm
 /plugin install ask-llm@ask-llm-plugins
@@ -155,17 +157,9 @@ Review agents follow a 4-phase pipeline inspired by [Anthropic's code-review plu
 
 `@ask-llm/mcp` owns the canonical host assets and skill corpus; `@ask-llm/plugin` is a dependent compatibility bridge. Claude Code loads its marketplace agents and hooks; Cursor Agent loads the adapted `/codex-pair` and `/grok-pair` skills through Agent Skills plus `mcp.json` (`agent --plugin-dir ./packages/llm-mcp`; see the [Cursor Agent host guide](https://lykhoyda.github.io/ask-llm/plugin/cursor)); Pi loads explicit native tools, portable skill adapters, and a thin lifecycle extension.
 
-| Capability | Claude Code | Cursor Agent | Codex CLI host | Pi |
-|---|---:|---:|---:|---:|
-| Provider transport | MCP | MCP (`mcp.json`, unified `ask-llm` only) | MCP | native Ask LLM tools (no built-in MCP) |
-| Review/compare/brainstorm skills | yes | Agent Skills | tools only | `/skill:<name>` + natural language |
-| Isolated reviewer contexts / Fable | yes | no; `fable-review` excluded | no | no; `fable-review` excluded |
-| codex-pair | hooks | on-demand persisted session | no | lifecycle extension |
-| `/grok-pair` | yes (explicit Cursor/xAI/CLI route) | direct xAI/CLI routes via pinned unified `ask-llm` (or user-installed `ask-grok`) | no | excluded |
-| Blocking HIGH Stop gate | opt-in | no | no | no; surfaced non-blockingly |
-| Async pairing in one-shot print | n/a | on-demand skill | no | unsupported |
+See the [host feature matrix](https://lykhoyda.github.io/ask-llm/plugin/pi#host-feature-matrix) for workflow availability, pairing modes, and lifecycle limits.
 
-Pi specifics: codex-pair requires the repository marker, Pi project trust, **and** interactive user-owned consent via `/codex-pair`; a committed marker alone never authorizes source transfer or cost. Pi surfaces findings non-blockingly and does not claim Claude's blocking Stop gate or one-shot print parity. `fable-review` is Claude Code-only. Provider CLI authentication is separate from Pi's host-model login. Update or remove with `pi update npm:@ask-llm/plugin` / `pi remove npm:@ask-llm/plugin`.
+Pi specifics: codex-pair requires the repository marker, Pi project trust, **and** interactive user-owned consent via `/codex-pair`; a committed marker alone never authorizes source transfer or cost. Pi surfaces findings non-blockingly and does not claim Claude's blocking Stop gate or one-shot print parity. `fable-review` is Claude Code-only. Provider CLI authentication is separate from Pi's host-model login. See the Pi guide to [update or remove](https://lykhoyda.github.io/ask-llm/plugin/pi#update-and-remove).
 
 </details>
 

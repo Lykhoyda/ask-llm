@@ -4,9 +4,11 @@ description: Slash commands for AI code review, brainstorming, and side-by-side 
 
 # Skills
 
-Skills are canonical portable workflows shared by Claude Code, Cursor Agent, and Pi. In Claude Code invoke `/name`; in Pi invoke `/skill:name` or use natural-language matching; Cursor currently exposes only the adapted `/codex-pair` and `/grok-pair` skills. Each file delimits its portable contract and host adapters. Claude can use isolated reviewer agents; Cursor uses native Agent Skills plus MCP; Pi runs the portable contract inline with native Ask LLM tools and does not claim isolated context.
+Skills use the portable `ask-llm-*` names: `codex-review` becomes `ask-llm-review`, and every other earlier name gains the `ask-llm-` prefix. The examples below use Claude Code's retained compatibility aliases; on other hosts use the portable names, including `/skill:ask-llm-review` in Pi. See the [setup reference](https://github.com/Lykhoyda/ask-llm/blob/main/packages/llm-mcp/README.md#command-compatibility) for installation and the [Cursor](/plugin/cursor) and [Pi](/plugin/pi) guides for host-specific command surfaces.
 
-> `/fable-review` runs as a native isolated Claude Code agent and needs no MCP server. It is intentionally excluded from Pi discovery; Pi does not start a nested Fable session. On Pi, provider skills use native tools rather than MCP configuration. The Claude Code plugin bundles the Codex MCP registration used by `/sol-review` and `/codex-review`; `/ollama-review` and `/antigravity-review` require their respective MCP servers; see [Plugin Overview](/plugin/overview#installation).
+Each skill contains its portable contract and host adapters. The detailed agent-based workflows below describe Claude Code; other hosts follow their own adapters. Claude can use isolated reviewer agents; Pi runs workflows inline with native tools and does not claim isolated context. Other hosts use the [shared transport contract](https://github.com/Lykhoyda/ask-llm/blob/main/packages/llm-mcp/skills/ask-llm-review/transport.md).
+
+> `/fable-review` requires native isolated Claude Code execution and is excluded from setup's portable installation. On Pi, provider skills use native tools rather than MCP configuration. Claude Code's plugin bundles Codex; other provider reviewers can use the unified server registered by setup or optional split provider servers. See [Plugin Overview](/plugin/overview#installation).
 
 ## Native Model Review Skills
 
@@ -86,7 +88,7 @@ Get a **subscription-backed** second opinion from Google Antigravity (`agy`): us
 /antigravity-review
 ```
 
-Experimental and one-shot (no multi-turn). Requires `agy` installed + logged in once and the Antigravity MCP server registered (`claude mcp add antigravity -- npx -y @ask-llm/antigravity-mcp`).
+Experimental and one-shot (no multi-turn). Requires `agy` installed + logged in once and a provider transport from the [Plugin Overview](/plugin/overview#mcp-servers).
 
 ## Brainstorm Skills
 

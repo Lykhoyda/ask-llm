@@ -1,6 +1,6 @@
 # Pi host compatibility inventory
 
-This inventory is the committed disposition for every workflow shipped by the canonical `@ask-llm/mcp` package. Pi is a **host harness**, not a consulted Ask LLM provider. Claude Code and Pi load the same skill files; portable contracts and explicit host adapters are delimited in those files.
+This inventory is the committed disposition for every workflow shipped by the canonical `@ask-llm/mcp` package. Pi is a **host harness**, not a consulted Ask LLM provider. Claude Code and Pi load the same skill files (Claude Code through its plugin, Pi from the shared skills folder that `ask-llm setup` fills); portable contracts and explicit host adapters are delimited in those files.
 
 Classifications: **host-neutral**, **thin host adapter**, **lifecycle integration**, and **Claude-only**.
 
@@ -8,24 +8,24 @@ Classifications: **host-neutral**, **thin host adapter**, **lifecycle integratio
 
 | Skill | Classification | Pi disposition |
 |---|---|---|
-| `antigravity-review` | Thin host adapter | Portable review contract runs inline through native `ask-antigravity`. |
-| `brainstorm` | Thin host adapter | Standard mode commits the current Pi host's independent view before deterministic `ask-multi`. Exact Grok + GPT-6 Sol mode instead calls `ask-cursor-agent` for only the two explicit provider/model pairs, treats the host view as non-voting evidence, excludes Gemini, and never upgrades a partial failure to consensus. |
-| `brainstorm-all` | Thin host adapter | Same as `brainstorm`, with all five external providers. |
-| `codex-image` | Thin host adapter | Native `ask-codex` with explicit `sandbox: "workspace-write"`, followed by filesystem verification. |
-| `codex-pair` | Lifecycle integration + thin adapter | Pi command owns consent/status; extension observes successful `tool_result` edit/write events, debounces, reviews, and injects findings. |
-| `codex-pair-ack` | Thin host adapter | Pi command dismisses a finding reminder. Pi has no blocking Stop gate. |
-| `codex-pair-pause` | Host-neutral + thin command | Shared pause sentinel; native Pi command is the convenient adapter. |
-| `codex-pair-resume` | Host-neutral + thin command | Shared pause/failure state; native Pi command is the convenient adapter. |
-| `codex-review` | Thin host adapter | Portable reviewer contract runs inline through native `ask-codex`; no false claim of isolated context. |
-| `codex-verify` | Thin host adapter | Portable claim-verification contract runs inline with focused `ask-codex` calls. |
-| `compare` | Thin host adapter | One `ask-multi` call guarantees bounded concurrent dispatch and stable result order. |
-| `fable-review` | Claude-only | Retained for Claude Code's independent Fable agent, but excluded from Pi discovery and advertising. No nested Pi session or Fable provider bridge is added. |
-| `gemini-review` | Thin host adapter | Portable review contract runs inline through native `ask-gemini`. |
-| `grok-pair` | Claude/Cursor host adapter; excluded from Pi | Claude selects explicit Cursor/xAI/CLI Grok routes; Cursor avoids recursive Cursor invocation. Pi does not advertise this command until a dedicated consent/lifecycle adapter exists. |
-| `grok-review` | Thin host adapter | Portable review contract runs inline through native `ask-grok`; the explicit `xai-api`/`grok-cli` harness and exact model are disclosed, with no fallback. |
-| `multi-review` | Thin host adapter | One `ask-multi` dispatch followed by host-side source verification. |
-| `ollama-review` | Thin host adapter | Portable review contract runs inline through local native `ask-ollama`. |
-| `sol-review` | Thin host adapter | Native `ask-codex`, explicitly pinned to Sol/high/read-only, with fallback disclosure. |
+| `ask-llm-antigravity-review` | Thin host adapter | Portable review contract runs inline through native `ask-antigravity`. |
+| `ask-llm-brainstorm` | Thin host adapter | Standard mode commits the current Pi host's independent view before deterministic `ask-multi`. Exact Grok + GPT-6 Sol mode instead calls `ask-cursor-agent` for only the two explicit provider/model pairs, treats the host view as non-voting evidence, excludes Gemini, and never upgrades a partial failure to consensus. |
+| `ask-llm-brainstorm-all` | Thin host adapter | Same as `brainstorm`, with all five external providers. |
+| `ask-llm-codex-image` | Thin host adapter | Native `ask-codex` with explicit `sandbox: "workspace-write"`, followed by filesystem verification. |
+| `ask-llm-codex-pair` | Lifecycle integration + thin adapter | Pi command owns consent/status; extension observes successful `tool_result` edit/write events, debounces, reviews, and injects findings. |
+| `ask-llm-codex-pair-ack` | Thin host adapter | Pi command dismisses a finding reminder. Pi has no blocking Stop gate. |
+| `ask-llm-codex-pair-pause` | Host-neutral + thin command | Shared pause sentinel; native Pi command is the convenient adapter. |
+| `ask-llm-codex-pair-resume` | Host-neutral + thin command | Shared pause/failure state; native Pi command is the convenient adapter. |
+| `ask-llm-review` | Thin host adapter | Portable reviewer contract runs inline through native `ask-codex`; no false claim of isolated context. |
+| `ask-llm-codex-verify` | Thin host adapter | Portable claim-verification contract runs inline with focused `ask-codex` calls. |
+| `ask-llm-compare` | Thin host adapter | One `ask-multi` call guarantees bounded concurrent dispatch and stable result order. |
+| `ask-llm-fable-review` | Claude-only | Retained for Claude Code's independent Fable agent, but excluded from Pi discovery and advertising. No nested Pi session or Fable provider bridge is added. |
+| `ask-llm-gemini-review` | Thin host adapter | Portable review contract runs inline through native `ask-gemini`. |
+| `ask-llm-grok-pair` | Claude/Cursor host adapter; refuses on Pi | Claude selects explicit Cursor/xAI/CLI Grok routes; Cursor avoids recursive Cursor invocation. The shared skills folder also exposes it to Pi, where it refuses until a dedicated consent/lifecycle adapter exists. |
+| `ask-llm-grok-review` | Thin host adapter | Portable review contract runs inline through native `ask-grok`; the explicit `xai-api`/`grok-cli` harness and exact model are disclosed, with no fallback. |
+| `ask-llm-multi-review` | Thin host adapter | One `ask-multi` dispatch followed by host-side source verification. |
+| `ask-llm-ollama-review` | Thin host adapter | Portable review contract runs inline through local native `ask-ollama`. |
+| `ask-llm-sol-review` | Thin host adapter | Native `ask-codex`, explicitly pinned to Sol/high/read-only, with fallback disclosure. |
 
 ## Agents and hooks
 
