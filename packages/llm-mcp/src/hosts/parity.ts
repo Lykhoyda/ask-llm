@@ -48,7 +48,7 @@ export const HOST_PARITY: Record<ParityRow, Record<HostId, string>> = {
     "claude-desktop": "none (tools only)",
   }),
   options: row(
-    "every `ask-llm` option reaches the executor unchanged; `provider` lists the providers found at start",
+    "every `ask-llm` option reaches the executor unchanged; provider enums list providers detected at start, falling back to all eligible providers after exclusions when none are detected",
     {},
   ),
   diagnostics: row("`diagnose` tool and `ask-llm doctor`", { pi: "`ask-llm doctor` (no `diagnose` tool)" }),
@@ -59,7 +59,7 @@ export const HOST_PARITY: Record<ParityRow, Record<HostId, string>> = {
   }),
   subagents: row(INLINE, { claude: "isolated reviewer agents from the plugin", "claude-desktop": "none" }),
   "Stop gate": row("none", {
-    claude: "blocks the turn on a HIGH codex-pair finding",
+    claude: "blocks the turn on a HIGH codex-pair finding only with `blockOn: HIGH`",
     pi: "none; codex-pair findings are non-blocking",
   }),
 };
