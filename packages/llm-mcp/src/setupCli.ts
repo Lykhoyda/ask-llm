@@ -96,8 +96,8 @@ function formatEntry(entry: PlanEntry): string[] {
   const lines = [`  ${entry.name}${version}: ${entry.action}${entry.reason ? ` (${entry.reason})` : ""}`];
   const { registration } = entry;
   lines.push(
-    entry.replace
-      ? `      ${entry.replace}`
+    entry.manual || entry.replace
+      ? `      ${entry.manual ?? entry.replace}`
       : registration.kind === "command"
         ? `      ${registration.command}`
         : `      merge ${JSON.stringify(registration.entry)} at ${registration.keyPath.join(".")} in ${registration.file}`,

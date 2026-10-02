@@ -67,7 +67,7 @@ export async function applySetup(
   for (const [index, host] of hosts.entries()) {
     if (!inScope(host, selected)) continue;
     const { action, reason, registration, replace } = plan[index];
-    const manual = manualText(registration);
+    const manual = plan[index].manual ?? manualText(registration);
     if (action === "replace") {
       const verb = registration.kind === "command" ? "Runs" : "Writes";
       const change = replace ?? manual;
@@ -108,7 +108,7 @@ export async function applySetup(
       results.push(
         result(host, status, {
           detail: action === "up-to-date" ? undefined : reason,
-          manual: snippet ? manual : undefined,
+          manual: plan[index].manual ?? (snippet ? manual : undefined),
         }),
       );
     }

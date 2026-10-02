@@ -69,6 +69,8 @@ function conflict(command: string[] | undefined): Applied {
 // Every host except Claude overwrites on add, so ownership is checked on a fresh read right before any spawn.
 function gate(host: DetectedHost, current: RegistrationState, op: HostOp, server: string): Applied | undefined {
   if (current.registered === null) return { outcome: "failed", detail: current.error };
+  if (host.spec.registrationState.kind === "packages" && current.custom)
+    return { outcome: "conflict", detail: "Ask LLM packages have custom settings; left in place" };
   const owned = current.registered && isOwnRegistration({ ...host, ...current, command: current.command }, server);
   if (op === "add") {
     if (current.present) return { outcome: "conflict", detail: `${UNUSABLE_ENTRY}; not overwritten` };

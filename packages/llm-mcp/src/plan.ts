@@ -3,7 +3,7 @@ import { realpathSync } from "node:fs";
 import { join, sep } from "node:path";
 import { getSpawnEnv } from "@ask-llm/shared";
 import type { DetectedHost } from "./hosts/detect.js";
-import { legacyPackage } from "./hosts/legacy.js";
+import { legacyPackage, mentionedPackage } from "./hosts/legacy.js";
 import { type HostId, SERVER_NAME } from "./hosts/registry.js";
 import { resolveCommand } from "./utils/availability.js";
 
@@ -59,7 +59,7 @@ export function isOwnCommand(command: string[] | undefined, server: string): boo
 }
 
 export function isOwnRegistration(host: DetectedHost, server: string): boolean {
-  if (host.spec.registrationState.kind === "packages") return host.registered === true;
+  if (host.spec.registrationState.kind === "packages") return host.registered === true && !host.custom;
   return isOwnCommand(host.command, server);
 }
 
@@ -128,6 +128,11 @@ function decide(host: DetectedHost, server: string): { action: PlanAction; reaso
       reason: host.leftoverConfig ? `not installed; leftover config at ${host.spec.configHome}` : "not installed",
     };
   }
+  if (host.spec.registrationState.kind === "packages" && host.custom)
+    return {
+      action: "conflict",
+      reason: `Ask LLM packages have their own settings (${host.custom}); setup leaves them in place`,
+    };
   if (host.registered) {
     if (isOwnRegistration(host, server))
       return { action: "up-to-date", reason: "already registered to this ask-llm-mcp" };
@@ -167,10 +172,12 @@ export function buildPlan(hosts: DetectedHost[], server: string): PlanEntry[] {
       action,
       reason,
       manual:
-        action === "manual" || (host.installed && !host.supported)
+        action === "conflict" && host.spec.registrationState.kind === "packages" && host.custom
+          ? `preserve package filters and custom settings in ${host.spec.configFile} when migrating to @ask-llm/mcp`
+          : action === "manual" || (host.installed && !host.supported)
           ? manualText(registration)
-          : action === "conflict" && host.custom && legacyPackage(host.command)
-            ? replaceText(host, server)
+          : action === "conflict" && mentionedPackage(host.command?.join(" "))
+            ? `preserve custom settings and command options you still need, then: ${replaceText(host, server)}`
             : undefined,
       replace: action === "replace" ? replaceText(host, server) : undefined,
       registration,

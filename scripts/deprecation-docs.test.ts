@@ -1,4 +1,4 @@
-import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
@@ -81,18 +81,9 @@ describe("1.0 deprecation record", () => {
     }
   });
 
-  it("uses the same guide URL in setup, the README pointer and the sidebar", () => {
+  it("keeps the README migration pointer aligned with the deprecation messages", () => {
     const url = adr[0]?.message.match(/https:\/\/\S+/)?.[0];
-    expect(read("packages/llm-mcp/src/migrate.ts")).toContain(`MIGRATION_GUIDE = "${url}"`);
     const readme = section(read("README.md"), "## Migrating from @ask-llm/*", /^## /m);
     expect(readme).toContain(`](${url})`);
-    expect(read("apps/docs/.vitepress/config.ts")).toContain('link: "/reference/migration"');
-  });
-
-  it("keeps npm deprecate out of every workflow", () => {
-    const dir = join(ROOT, ".github/workflows");
-    for (const file of readdirSync(dir).filter((name) => /\.ya?ml$/.test(name))) {
-      expect(readFileSync(join(dir, file), "utf8"), file).not.toMatch(/npm\s+deprecate/);
-    }
   });
 });

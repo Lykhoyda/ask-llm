@@ -54,7 +54,8 @@ function removeText(host: DetectedHost, name: string): string {
 }
 
 function finding(host: DetectedHost, entry: ServerEntry): MigrationFinding | undefined {
-  const pkg = legacyPackage(entry.command) ?? (entry.command ? undefined : mentionedPackage(entry.text));
+  const exact = legacyPackage(entry.command);
+  const pkg = exact ?? mentionedPackage(entry.command ? commandText(entry.command) : entry.text);
   if (!pkg) return undefined;
   const base = {
     id: host.id,
@@ -65,7 +66,7 @@ function finding(host: DetectedHost, entry: ServerEntry): MigrationFinding | und
   };
   const remove = removeText(host, entry.name);
   const current = entry.command ? `\`${commandText(entry.command)}\`` : pkg;
-  if (entry.command && !entry.custom) {
+  if (exact && entry.command && !entry.custom) {
     return {
       ...base,
       action: "retire",
@@ -101,9 +102,13 @@ export async function planMigration(
         label: `${host.name} package ${source}`,
         entry: source,
         package: "@ask-llm/plugin",
-        action: "retire",
-        reason: "the earlier package that @ask-llm/mcp replaces",
-        change: commandText(["pi", "remove", source]),
+        action: host.custom ? "guidance" : "retire",
+        reason: host.custom
+          ? `Ask LLM packages have their own settings (${host.custom}); setup leaves them in place`
+          : "the earlier package that @ask-llm/mcp replaces",
+        change: host.custom
+          ? `preserve package filters and custom settings in ${host.spec.configFile}; follow ${MIGRATION_GUIDE}`
+          : commandText(["pi", "remove", source]),
       });
     }
     if (host.registered === null || host.spec.registrationState.kind === "packages") continue;
@@ -225,7 +230,7 @@ async function retire(host: DetectedHost, found: MigrationFinding, env: NodeJS.P
     packages ? (current.legacy ?? []).includes(found.entry) : current.registered === true || current.present === true;
   const unchanged = (current: RegistrationState) =>
     packages
-      ? listed(current)
+      ? listed(current) && !current.custom
       : current.registered === true && sameCommand(current.command, found.command) && !current.custom;
 
   const before = await read();

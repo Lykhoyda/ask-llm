@@ -223,18 +223,32 @@ function readPackages(
   const text = readText(file);
   if (text === undefined) return { registered: false };
   const packages = (JSON.parse(text) as { packages?: unknown }).packages;
-  const names = (Array.isArray(packages) ? packages : [])
-    .map((entry) => (typeof entry === "string" ? entry : (entry as { source?: unknown })?.source))
-    .filter((listed): listed is string => typeof listed === "string");
+  const entries: unknown[] = Array.isArray(packages) ? packages : [];
   const isSource = (listed: string, among: string[]) =>
     among.some((source) => listed === source || listed.startsWith(`${source}@`));
   const isLocal = (listed: string) =>
     localDir !== undefined &&
     !REMOTE_PI_SOURCE.test(listed.trim()) &&
     samePath(resolve(dirname(file), listed.trim()), localDir);
-  const registered = names.some((listed) => isSource(listed, sources) || isLocal(listed));
-  const legacy = names.filter((listed) => isSource(listed, legacySources));
-  return legacy.length > 0 ? { registered, legacy } : { registered };
+  let registered = false;
+  const legacy: string[] = [];
+  const settings = new Set<string>();
+  for (const entry of entries) {
+    const source = typeof entry === "string" ? entry : (entry as { source?: unknown } | null)?.source;
+    if (typeof source !== "string") continue;
+    const current = isSource(source, sources) || isLocal(source);
+    const earlier = isSource(source, legacySources);
+    if (!current && !earlier) continue;
+    if (current) registered = true;
+    if (earlier) legacy.push(source);
+    if (typeof entry === "object" && entry !== null)
+      for (const key of Object.keys(entry)) if (key !== "source") settings.add(key);
+  }
+  return {
+    registered,
+    ...(legacy.length > 0 ? { legacy } : {}),
+    ...(settings.size > 0 ? { custom: [...settings].join(", ") } : {}),
+  };
 }
 
 // The same registration surface, read for another server name.
