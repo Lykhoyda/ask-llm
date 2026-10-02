@@ -1,8 +1,8 @@
 import { basename } from "node:path";
 
-export const UNIFIED_PACKAGE = "@ask-llm/mcp";
+const UNIFIED_PACKAGE = "@ask-llm/mcp";
 const PROVIDERS = ["antigravity", "claude", "codex", "gemini", "grok", "ollama"];
-export const SPLIT_PACKAGES = PROVIDERS.map((provider) => `@ask-llm/${provider}-mcp`);
+const SPLIT_PACKAGES = PROVIDERS.map((provider) => `@ask-llm/${provider}-mcp`);
 
 // Every npm name an Ask LLM server was published under, mapped to the package that carries it now.
 const PACKAGE_NAMES: Record<string, string> = {

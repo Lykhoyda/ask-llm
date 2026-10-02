@@ -16,8 +16,6 @@ import { runHost } from "./hosts/spawn.js";
 import { commandText, isOwnRegistration } from "./plan.js";
 import type { Confirm, HostResult, HostStatus } from "./setup.js";
 
-export { legacyPackage, SPLIT_PACKAGES, UNIFIED_PACKAGE } from "./hosts/legacy.js";
-
 // The page every deprecation message and every migration step points to.
 export const MIGRATION_GUIDE = "https://lykhoyda.github.io/ask-llm/reference/migration.html";
 
@@ -95,7 +93,7 @@ export async function planMigration(
 ): Promise<MigrationFinding[]> {
   const findings: MigrationFinding[] = [];
   for (const host of hosts) {
-    if (!host.installed || (selected ? !selected.includes(host.id) : false)) continue;
+    if (!host.installed || (selected && !selected.includes(host.id))) continue;
     for (const source of host.legacy ?? []) {
       findings.push({
         id: host.id,
