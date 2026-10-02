@@ -21,7 +21,7 @@ import type { CallToolResult, ServerNotification, ServerRequest } from "@modelco
 import { z } from "zod";
 import { getEligibleProviderKeys, INSTALL_HINTS, PROVIDERS } from "./constants.js";
 import { executeCursorAgent } from "./cursorAgent.js";
-import { buildMultiLlmInputSchema, dispatchMultiLlm, formatMultiLlmReport, multiLlmReportSchema } from "./multiLlm.js";
+import { buildMultiLlmInputSchema, formatMultiLlmReport, multiLlmReportSchema, runMultiLlm } from "./multiLlm.js";
 import { readPackageJson } from "./packageMetadata.js";
 import { isCommandAvailable } from "./utils/availability.js";
 import { loadProviderModule } from "./utils/providerModules.js";
@@ -89,6 +89,7 @@ export type ExecutorFn = (options: {
   harness?: "xai-api" | "grok-cli" | "cursor-agent";
 }>;
 
+export { getEligibleProviderKeys } from "./constants.js";
 export type {
   MachineDeps,
   MachineJsonSchemaBundle,
@@ -103,6 +104,8 @@ export {
   runMachineRequest,
   validateMachineSchemaRefinements,
 } from "./machine.js";
+export type { MultiLlmReport } from "./multiLlm.js";
+export { buildMultiLlmInputSchema, formatMultiLlmReport, runMultiLlm } from "./multiLlm.js";
 
 function parseProviderName(value: string): ProviderName {
   const match = CANONICAL_PROVIDERS.find((provider) => provider === value);
@@ -388,6 +391,90 @@ export function askLlmArgsToExecutorOptions(args: {
   };
 }
 
+export type AskLlmSchema = ReturnType<typeof buildAskLlmSchema>;
+
+export const ASK_LLM_DESCRIPTION =
+  "Send a prompt to an LLM provider (Codex, Claude, Grok, Antigravity, Ollama, Gemini). Specify which provider to use. Provider-specific fallback behavior is reported truthfully; Grok never substitutes or falls back from the requested model. Returns both human-readable text and a structured response (provider, model, sessionId, usage) via outputSchema.";
+
+export const MULTI_LLM_DESCRIPTION =
+  "Dispatch the same prompt to multiple LLM providers in parallel and return all responses in one structured payload. Use when you want to compare answers across Codex, Claude, Grok, Antigravity, Ollama, and Gemini, or when you want a multi-provider sanity check on a question. Returns per-provider success/failure, response text, model, sessionId, and token usage. Each call is fresh — no session continuity (use ask-llm for individual session-bearing calls).";
+
+export const cursorAgentInputSchema = z.object({
+  provider: z
+    .enum(CURSOR_PROVIDERS)
+    .describe(
+      "Canonical provider family of the selected Cursor model (claude, codex, gemini, grok); kept separate from the cursor-agent harness and verified against the requested and CLI-reported model ID.",
+    ),
+  model: z
+    .string()
+    .min(1)
+    .describe(
+      "Exact Cursor catalog model ID from `agent --list-models`; Ask LLM does not rewrite it, echoes it back as `model`, and refuses Auto or other noncanonical IDs. The CLI's display label is returned separately as `reportedModel`.",
+    ),
+  prompt: z.string().min(1).max(100000).describe("Question, review, or analysis task for Cursor Agent ask mode."),
+  includeDirs: z
+    .array(relativeDirSchema)
+    .max(32)
+    .optional()
+    .describe("Relative additional workspace directories passed to Cursor Agent with repeatable --add-dir."),
+  sessionId: z
+    .string()
+    .optional()
+    .describe("Prior Cursor conversation ID to resume. Omit on the first call and reuse the returned sessionId."),
+});
+
+// The input schema the MCP SDK lists for a tool registered with this object's shape.
+export function toolInputJsonSchema(schema: z.ZodObject<z.ZodRawShape>): Record<string, unknown> {
+  return z.toJSONSchema(z.object(schema.shape), { target: "draft-7", io: "input" });
+}
+
+export interface AskLlmCall {
+  getExecutor: (provider: string) => ExecutorFn | undefined;
+  onProgress?: (output: string) => void;
+  signal?: AbortSignal;
+}
+
+// The ask-llm request path shared by the MCP server and Pi: validate, run the executor, build the AskResponse.
+export async function runAskLlm(
+  schema: AskLlmSchema,
+  args: Record<string, unknown>,
+  call: AskLlmCall,
+): Promise<{ text: string; structured: AskResponse; usage?: UsageStats }> {
+  const parsed = schema.parse(args);
+  const { provider } = parsed;
+  Logger.toolInvocation("ask-llm", args);
+
+  const executor = call.getExecutor(provider);
+  if (!executor) {
+    const hint = INSTALL_HINTS[provider] ?? "";
+    throw new Error(
+      `Provider "${provider}" is not available. ${hint ? `Install: ${hint}` : "Check that the CLI is on your PATH."}`,
+    );
+  }
+
+  const result = await executor({
+    ...askLlmArgsToExecutorOptions(parsed),
+    onProgress: call.onProgress,
+    signal: call.signal,
+  });
+
+  const providerName = PROVIDERS[provider]?.name ?? provider;
+  const idLine = result.sessionId
+    ? `\n\n[Session ID: ${result.sessionId}]`
+    : result.threadId
+      ? `\n\n[Thread ID: ${result.threadId}]`
+      : "";
+  const structured: AskResponse = {
+    provider: result.provider ?? parseProviderName(provider),
+    response: result.response,
+    model: result.usage?.model ?? result.model ?? parsed.model ?? PROVIDERS[provider]?.defaultModel ?? "unknown",
+    sessionId: result.sessionId ?? result.threadId,
+    usage: result.usage,
+    harness: result.harness,
+  };
+  return { text: `${providerName} response:\n${result.response}${idLine}`, structured, usage: result.usage };
+}
+
 export function formatProviderPing(status: ProviderStatus, message?: string): string {
   const prefix = message || "Pong from @ask-llm/mcp!";
   const providers = status.available.length > 0 ? status.available.join(", ") : "none";
@@ -433,11 +520,9 @@ export function registerDiagnoseTool(server: McpServer, diagnoseSpecs: ProviderS
   );
 }
 
-export async function startServer() {
-  Logger.debug("init @ask-llm/mcp");
-  Logger.checkNodeVersion();
+// Every tool the server registers, for the providers `detectProviders` found; the caller connects a transport.
+export async function createAskLlmServer(providerStatus: ProviderStatus): Promise<McpServer> {
   const { name, version } = readPackageJson();
-  const providerStatus = await detectProviders();
   const { available } = providerStatus;
   const excludedProviders = providerStatus.unavailable
     .filter((provider) => provider.state === "unsupported" || provider.state === "unusable")
@@ -451,8 +536,7 @@ export async function startServer() {
   server.registerTool(
     "ask-llm",
     {
-      description:
-        "Send a prompt to an LLM provider (Codex, Claude, Grok, Antigravity, Ollama, Gemini). Specify which provider to use. Provider-specific fallback behavior is reported truthfully; Grok never substitutes or falls back from the requested model. Returns both human-readable text and a structured response (provider, model, sessionId, usage) via outputSchema.",
+      description: ASK_LLM_DESCRIPTION,
       inputSchema: askLlmSchema.shape,
       outputSchema: askResponseSchema.shape,
       annotations: { title: "Ask LLM", readOnlyHint: false, destructiveHint: false, openWorldHint: true },
@@ -460,50 +544,17 @@ export async function startServer() {
     async (args: Record<string, unknown>, extra: ToolExtra): Promise<CallToolResult> => {
       const progress = createProgressTracker("ask-llm", extra, PROGRESS_MESSAGES("ask-llm"));
       try {
-        const parsed = askLlmSchema.parse(args);
-        const { provider } = parsed;
-        Logger.toolInvocation("ask-llm", args);
-
-        const executor = loadedExecutors.get(provider);
-        if (!executor) {
-          const hint = INSTALL_HINTS[provider] ?? "";
-          throw new Error(
-            `Provider "${provider}" is not available. ${hint ? `Install: ${hint}` : "Check that the CLI is on your PATH."}`,
-          );
-        }
-
-        const result = await executor({
-          ...askLlmArgsToExecutorOptions(parsed),
+        const { text, structured, usage } = await runAskLlm(askLlmSchema, args, {
+          getExecutor: (provider) => loadedExecutors.get(provider),
           onProgress: (output) => {
             progress.updateOutput(output);
           },
           signal: extra.signal,
         });
-
-        if (result.usage) sessionUsage.record(result.usage);
-
+        if (usage) sessionUsage.record(usage);
         await progress.stop(true);
-        const providerName = PROVIDERS[provider]?.name ?? provider;
-        const resolvedSessionId = result.sessionId ?? result.threadId;
-        const idLine = result.sessionId
-          ? `\n\n[Session ID: ${result.sessionId}]`
-          : result.threadId
-            ? `\n\n[Thread ID: ${result.threadId}]`
-            : "";
-        const structured: AskResponse = {
-          provider: result.provider ?? parseProviderName(provider),
-          response: result.response,
-          model: result.usage?.model ?? result.model ?? parsed.model ?? PROVIDERS[provider]?.defaultModel ?? "unknown",
-          sessionId: resolvedSessionId,
-          usage: result.usage,
-          harness: result.harness,
-        };
         const structuredContent: Record<string, unknown> = { ...structured };
-        return {
-          content: [{ type: "text", text: `${providerName} response:\n${result.response}${idLine}` }],
-          structuredContent,
-          isError: false,
-        };
+        return { content: [{ type: "text", text }], structuredContent, isError: false };
       } catch (error) {
         await progress.stop(false);
         const msg = error instanceof Error ? error.message : String(error);
@@ -513,35 +564,12 @@ export async function startServer() {
     },
   );
 
-  const cursorAgentSchema = z.object({
-    provider: z
-      .enum(CURSOR_PROVIDERS)
-      .describe(
-        "Canonical provider family of the selected Cursor model (claude, codex, gemini, grok); kept separate from the cursor-agent harness and verified against the requested and CLI-reported model ID.",
-      ),
-    model: z
-      .string()
-      .min(1)
-      .describe(
-        "Exact Cursor catalog model ID from `agent --list-models`; Ask LLM does not rewrite it, echoes it back as `model`, and refuses Auto or other noncanonical IDs. The CLI's display label is returned separately as `reportedModel`.",
-      ),
-    prompt: z.string().min(1).max(100000).describe("Question, review, or analysis task for Cursor Agent ask mode."),
-    includeDirs: z
-      .array(relativeDirSchema)
-      .max(32)
-      .optional()
-      .describe("Relative additional workspace directories passed to Cursor Agent with repeatable --add-dir."),
-    sessionId: z
-      .string()
-      .optional()
-      .describe("Prior Cursor conversation ID to resume. Omit on the first call and reuse the returned sessionId."),
-  });
   server.registerTool(
     "ask-cursor-agent",
     {
       description:
         "Use Cursor Agent as a model-neutral, read-only consultation harness. The provider and exact Cursor catalog model ID are separate required fields. Runs `agent --print --mode ask` without --force/--trust, never changes spend settings, and never falls back to another model or provider.",
-      inputSchema: cursorAgentSchema.shape,
+      inputSchema: cursorAgentInputSchema.shape,
       outputSchema: askResponseSchema.shape,
       annotations: {
         title: "Ask via Cursor Agent",
@@ -554,7 +582,7 @@ export async function startServer() {
     async (args: Record<string, unknown>, extra: ToolExtra): Promise<CallToolResult> => {
       const progress = createProgressTracker("ask-cursor-agent", extra, PROGRESS_MESSAGES("ask-cursor-agent"));
       try {
-        const input = cursorAgentSchema.parse(args);
+        const input = cursorAgentInputSchema.parse(args);
         const result = await executeCursorAgent({
           ...input,
           onProgress: (output) => progress.updateOutput(output),
@@ -639,8 +667,7 @@ export async function startServer() {
   server.registerTool(
     "multi-llm",
     {
-      description:
-        "Dispatch the same prompt to multiple LLM providers in parallel and return all responses in one structured payload. Use when you want to compare answers across Codex, Claude, Grok, Antigravity, Ollama, and Gemini, or when you want a multi-provider sanity check on a question. Returns per-provider success/failure, response text, model, sessionId, and token usage. Each call is fresh — no session continuity (use ask-llm for individual session-bearing calls).",
+      description: MULTI_LLM_DESCRIPTION,
       inputSchema: multiLlmInputSchema.shape,
       outputSchema: (multiLlmReportSchema as z.ZodObject<z.ZodRawShape>).shape,
       annotations: {
@@ -652,16 +679,8 @@ export async function startServer() {
       },
     },
     async (args: Record<string, unknown>, extra: ToolExtra): Promise<CallToolResult> => {
-      const { prompt, providers: requestedProviders } = multiLlmInputSchema.parse(args) as {
-        prompt: string;
-        providers?: string[];
-      };
-      const providers = requestedProviders && requestedProviders.length > 0 ? requestedProviders : available;
-      Logger.toolInvocation("multi-llm", { prompt: prompt.slice(0, 80), providers });
-
-      const report = await dispatchMultiLlm({
-        prompt,
-        providers,
+      const report = await runMultiLlm(multiLlmInputSchema, args, {
+        available,
         getExecutor: (name) => loadedExecutors.get(name),
         recordUsage: (stats) => sessionUsage.record(stats),
         signal: extra.signal,
@@ -677,6 +696,16 @@ export async function startServer() {
 
   const diagnoseSpecs = await buildProviderSpecs();
   registerDiagnoseTool(server, diagnoseSpecs);
+  return server;
+}
+
+export async function startServer() {
+  Logger.debug("init @ask-llm/mcp");
+  Logger.checkNodeVersion();
+  const { version } = readPackageJson();
+  const providerStatus = await detectProviders();
+  const server = await createAskLlmServer(providerStatus);
+  const { available } = providerStatus;
 
   Logger.warn(`@ask-llm/mcp v${version} — 6 tools, ${available.length} provider(s): ${available.join(", ") || "none"}`);
 

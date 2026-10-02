@@ -10,6 +10,7 @@ import {
 } from "@ask-llm/shared";
 import { PROVIDERS } from "./constants.js";
 import { type DetectedHost, detectHosts } from "./hosts/detect.js";
+import { type ParityRow, parityRowsFor } from "./hosts/parity.js";
 import type { ExecutorFn } from "./index.js";
 import { dispatchMultiLlm } from "./multiLlm.js";
 import { buildPlan, DURABLE_SERVER_GUIDANCE, isOwnRegistration, resolveServerPath } from "./plan.js";
@@ -122,7 +123,12 @@ export async function exerciseProviders(
   return { ...report, status, providers, checks: allChecks };
 }
 
-type DoctorHost = Omit<DetectedHost, "spec"> & { ownServer?: boolean; restart: string; manual?: string };
+type DoctorHost = Omit<DetectedHost, "spec"> & {
+  ownServer?: boolean;
+  restart: string;
+  manual?: string;
+  parity?: Record<ParityRow, string>;
+};
 
 async function doctorHosts(ownCli: string): Promise<DoctorHost[]> {
   const server = await resolveServerPath(ownCli).then(
@@ -138,6 +144,7 @@ async function doctorHosts(ownCli: string): Promise<DoctorHost[]> {
       ownServer: host.registered && server ? isOwnRegistration({ ...host, spec }, server) : undefined,
       restart: spec.restart,
       manual: plan?.[index].manual ?? (!server && needsManual ? DURABLE_SERVER_GUIDANCE : undefined),
+      parity: host.installed ? parityRowsFor(spec.id) : undefined,
     };
   });
 }
@@ -163,6 +170,7 @@ function formatHost(host: DoctorHost): string[] {
     `      after a registration change: ${restart}`,
   ];
   if (host.manual) lines.push(`      exact manual command: ${host.manual}`);
+  for (const [row, value] of Object.entries(host.parity ?? {})) lines.push(`      ${row}: ${value}`);
   return lines;
 }
 

@@ -1,4 +1,4 @@
-import { PROVIDERS, type UsageStats } from "@ask-llm/shared";
+import { Logger, PROVIDERS, type UsageStats } from "@ask-llm/shared";
 import { z } from "zod";
 import type { ExecutorFn } from "./index.js";
 
@@ -103,6 +103,18 @@ export async function dispatchMultiLlm(opts: DispatchOptions): Promise<MultiLlmR
   const failureCount = results.length - successCount;
 
   return { dispatchedAt, totalDurationMs, successCount, failureCount, results };
+}
+
+// The multi-llm request path shared by the MCP server and Pi; omitted providers mean every available one.
+export async function runMultiLlm(
+  schema: z.ZodObject<z.ZodRawShape>,
+  args: Record<string, unknown>,
+  { available, ...dispatch }: Omit<DispatchOptions, "prompt" | "providers"> & { available: string[] },
+): Promise<MultiLlmReport> {
+  const { prompt, providers: requested } = schema.parse(args) as { prompt: string; providers?: string[] };
+  const providers = requested && requested.length > 0 ? requested : available;
+  Logger.toolInvocation("multi-llm", { prompt: prompt.slice(0, 80), providers });
+  return dispatchMultiLlm({ ...dispatch, prompt, providers });
 }
 
 export function formatMultiLlmReport(report: MultiLlmReport): string {

@@ -9,6 +9,11 @@ const calls = vi.hoisted(() => ({
   cursor: vi.fn(),
 }));
 
+// Pi loads the package's built entry; point it at the source under test.
+vi.mock("@ask-llm/mcp", async () => ({
+  ...(await import("../index.js")),
+  detectProviders: vi.fn(async () => ({ available: ["codex", "gemini"], missing: [], unavailable: [] })),
+}));
 vi.mock("@ask-llm/mcp/providers/codex/register", () => ({ executeTool: calls.codex }));
 vi.mock("@ask-llm/mcp/providers/gemini/register", () => ({ executeTool: calls.gemini }));
 vi.mock("@ask-llm/mcp/providers/grok/register", () => ({ executeTool: calls.grok }));
@@ -32,9 +37,9 @@ interface RegisteredTool {
   ) => Promise<{ content: Array<{ type: string; text: string }>; details: Record<string, unknown> }>;
 }
 
-function harness() {
+async function harness() {
   const tools: RegisteredTool[] = [];
-  registerProviderTools({ registerTool: (tool: RegisteredTool) => tools.push(tool) } as never);
+  await registerProviderTools({ registerTool: (tool: RegisteredTool) => tools.push(tool) } as never);
   return { tools, byName: (name: string) => tools.find((tool) => tool.name === name) as RegisteredTool };
 }
 
@@ -49,21 +54,23 @@ beforeEach(() => {
 });
 
 describe("Pi provider tools", () => {
-  it("registers provider tools, the Cursor harness, and deterministic ask-multi", () => {
-    const { tools } = harness();
+  it("registers the unified tools, the Cursor harness, and the deprecated provider aliases", async () => {
+    const { tools } = await harness();
     expect(tools.map((tool) => tool.name)).toEqual([
+      "ask-llm",
+      "multi-llm",
+      "ask-cursor-agent",
       "ask-codex",
       "ask-gemini",
       "ask-grok",
       "ask-ollama",
       "ask-antigravity",
-      "ask-cursor-agent",
       "ask-multi",
     ]);
   });
 
-  it("exposes every skill-required provider parameter", () => {
-    const { byName } = harness();
+  it("exposes every skill-required provider parameter", async () => {
+    const { byName } = await harness();
     expect(Object.keys(byName("ask-codex").parameters.properties ?? {})).toEqual([
       "prompt",
       "model",
@@ -81,9 +88,9 @@ describe("Pi provider tools", () => {
       "reasoningEffort",
     ]);
     expect(Object.keys(byName("ask-cursor-agent").parameters.properties ?? {})).toEqual([
-      "prompt",
       "provider",
       "model",
+      "prompt",
       "includeDirs",
       "sessionId",
     ]);
@@ -105,7 +112,7 @@ describe("Pi provider tools", () => {
       usage: { provider: "grok", model: "grok-4.7-high", fellBack: false },
     });
     const controller = new AbortController();
-    const result = await harness()
+    const result = await (await harness())
       .byName("ask-cursor-agent")
       .execute("call", { prompt: "review", provider: "grok", model: "grok-4.7-high" }, controller.signal);
 
@@ -134,7 +141,7 @@ describe("Pi provider tools", () => {
       return { text: "ok", structuredContent: { provider: "codex", response: "ok" } };
     });
     const controller = new AbortController();
-    const result = await harness()
+    const result = await (await harness())
       .byName("ask-codex")
       .execute("call", { prompt: "review", sandbox: "read-only" }, controller.signal);
     expect(calls.codex).toHaveBeenCalledWith(
@@ -150,7 +157,7 @@ describe("Pi provider tools", () => {
 
   it("throws canonical provider failures so Pi marks the tool result as an error", async () => {
     calls.gemini.mockRejectedValue(new Error("gemini CLI not found on PATH"));
-    await expect(harness().byName("ask-gemini").execute("call", { prompt: "review" })).rejects.toThrow(
+    await expect((await harness()).byName("ask-gemini").execute("call", { prompt: "review" })).rejects.toThrow(
       "gemini CLI not found on PATH",
     );
   });
@@ -175,12 +182,10 @@ describe("Pi provider tools", () => {
       }),
     );
 
-    const pending = harness()
-      .byName("ask-multi")
-      .execute("multi", {
-        prompt: "same bytes",
-        providers: ["ollama", "codex"],
-      });
+    const pending = (await harness()).byName("ask-multi").execute("multi", {
+      prompt: "same bytes",
+      providers: ["ollama", "codex"],
+    });
     await Promise.all([codexStarted, ollamaStarted]);
     releaseCodex();
     releaseOllama();
@@ -194,14 +199,34 @@ describe("Pi provider tools", () => {
     expect(records[1]).toMatchObject({ status: "fulfilled" });
   });
 
+  it.each(["codex", "gemini", "grok", "ollama", "antigravity"] as const)(
+    "preserves complete %s structured responses in both deprecated routes",
+    async (provider) => {
+      const structuredContent = { provider, response: "x".repeat(70_000), model: "fixture" };
+      calls[provider].mockResolvedValue({ text: structuredContent.response, structuredContent });
+      const { byName } = await harness();
+      const direct = await byName(`ask-${provider}`).execute("call", { prompt: "review" });
+      expect(direct.details.structuredContent).toEqual(structuredContent);
+      expect(direct.details.outputTruncated).toBe(true);
+      expect(direct.content[0].text.length).toBeLessThan(structuredContent.response.length);
+      const multi = await byName("ask-multi").execute("call", {
+        prompt: "review",
+        providers: [provider, provider === "codex" ? "gemini" : "codex"],
+      });
+      expect(multi.details.results).toEqual([
+        expect.objectContaining({ provider, details: expect.objectContaining({ structuredContent }) }),
+        expect.anything(),
+      ]);
+      expect(multi.content[0].text.length).toBeLessThan(structuredContent.response.length);
+    },
+  );
+
   it("rejects duplicate providers instead of dispatching twice", async () => {
     await expect(
-      harness()
-        .byName("ask-multi")
-        .execute("multi", {
-          prompt: "review",
-          providers: ["codex", "codex"],
-        }),
+      (await harness()).byName("ask-multi").execute("multi", {
+        prompt: "review",
+        providers: ["codex", "codex"],
+      }),
     ).rejects.toThrow("must be unique");
   });
 });

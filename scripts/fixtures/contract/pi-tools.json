@@ -70,39 +70,38 @@
   {
     "name": "ask-cursor-agent",
     "parameters": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
       "properties": {
         "includeDirs": {
-          "description": "Relative directories the provider may read in addition to the current workspace.",
+          "description": "Relative additional workspace directories passed to Cursor Agent with repeatable --add-dir.",
           "items": {
-            "maxLength": 4096,
-            "minLength": 1,
             "type": "string"
           },
           "maxItems": 32,
           "type": "array"
         },
         "model": {
-          "description": "Exact ID from agent --list-models; echoed back as `model`, with the CLI display label in `reportedModel`. Auto and other noncanonical IDs are refused.",
+          "description": "Exact Cursor catalog model ID from `agent --list-models`; Ask LLM does not rewrite it, echoes it back as `model`, and refuses Auto or other noncanonical IDs. The CLI's display label is returned separately as `reportedModel`.",
           "minLength": 1,
           "type": "string"
         },
         "prompt": {
-          "description": "Prompt sent to the consulted provider.",
+          "description": "Question, review, or analysis task for Cursor Agent ask mode.",
           "maxLength": 100000,
           "minLength": 1,
           "type": "string"
         },
         "provider": {
-          "description": "Canonical provider family of the Cursor model (claude, codex, gemini, grok); verified against the requested and CLI-reported model ID.",
+          "description": "Canonical provider family of the selected Cursor model (claude, codex, gemini, grok); kept separate from the cursor-agent harness and verified against the requested and CLI-reported model ID.",
           "enum": ["claude", "codex", "gemini", "grok"],
           "type": "string"
         },
         "sessionId": {
-          "description": "Prior Cursor conversation ID to resume; omit first, then reuse the returned ID.",
+          "description": "Prior Cursor conversation ID to resume. Omit on the first call and reuse the returned sessionId.",
           "type": "string"
         }
       },
-      "required": ["prompt", "provider", "model"],
+      "required": ["provider", "model", "prompt"],
       "type": "object"
     }
   },
@@ -152,6 +151,62 @@
         }
       },
       "required": ["prompt"],
+      "type": "object"
+    }
+  },
+  {
+    "name": "ask-llm",
+    "parameters": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "properties": {
+        "harness": {
+          "description": "Execution harness, separate from provider/model. xai-api and grok-cli require provider=grok. Use ask-cursor-agent for Cursor's model-neutral harness. No harness fallback is attempted.",
+          "enum": ["provider-default", "xai-api", "grok-cli"],
+          "type": "string"
+        },
+        "includeDirs": {
+          "description": "Relative workspace directories exposed to providers that support additional read roots (Codex, Claude, and Antigravity). Unsupported providers are rejected instead of silently dropping this option; Codex only accepts it on a fresh call (sessionId omitted or \"\"), never on a resumed thread.",
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 32,
+          "type": "array"
+        },
+        "model": {
+          "description": "Exact model ID for the selected provider/harness. Usually not needed.",
+          "type": "string"
+        },
+        "preferred": {
+          "description": "Codex-only: opt into ASK_CODEX_PREFERRED_MODEL when it differs from the default. Unsupported on other providers; never silently stripped. Leave unset for normal review calls.",
+          "type": "boolean"
+        },
+        "prompt": {
+          "description": "The question, code review request, or analysis task to send",
+          "maxLength": 100000,
+          "minLength": 1,
+          "type": "string"
+        },
+        "provider": {
+          "description": "Which LLM provider to use. Available: \"gemini\" (Gemini, default model: gemini-3.1-pro-preview), \"codex\" (Codex, default model: gpt-6-astra), \"claude\" (Claude, default model: opus), \"grok\" (Grok, default model: grok-4.7), \"ollama\" (Ollama, default model: qwen3.8:27b), \"antigravity\" (Antigravity, default model: gemini-3.1-pro)",
+          "enum": ["gemini", "codex", "claude", "grok", "ollama", "antigravity"],
+          "type": "string"
+        },
+        "reasoningEffort": {
+          "description": "Provider-native reasoning effort. Codex accepts low/medium/high/xhigh/max/ultra; Grok accepts low/medium/high/xhigh. Unsupported provider/effort combinations are rejected, never stripped.",
+          "enum": ["low", "medium", "high", "xhigh", "max", "ultra"],
+          "type": "string"
+        },
+        "sandbox": {
+          "description": "Codex-only sandbox. Defaults to the executor's read-only review contract when omitted. Set workspace-write only for explicit write flows such as image generation. Unsupported on other providers; never silently stripped.",
+          "enum": ["read-only", "workspace-write"],
+          "type": "string"
+        },
+        "sessionId": {
+          "description": "Optional session ID. For Codex, pass \"\" on the first call to create a persisted thread, then pass its returned Thread ID to resume; omitting it makes the call ephemeral. For other session-capable providers, pass a prior Session ID to resume. Claude/Gemini use --resume, Codex uses exec resume, and Ollama uses server-side replay. Grok and Antigravity are one-shot.",
+          "type": "string"
+        }
+      },
+      "required": ["provider", "prompt"],
       "type": "object"
     }
   },
@@ -290,6 +345,31 @@
         },
         "sessionId": {
           "type": "string"
+        }
+      },
+      "required": ["prompt"],
+      "type": "object"
+    }
+  },
+  {
+    "name": "multi-llm",
+    "parameters": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "properties": {
+        "prompt": {
+          "description": "The prompt to send to all selected providers in parallel.",
+          "maxLength": 100000,
+          "minLength": 1,
+          "type": "string"
+        },
+        "providers": {
+          "description": "Which providers to dispatch to. Available: gemini, codex, claude, grok, ollama, antigravity. Defaults to all available providers.",
+          "items": {
+            "enum": ["gemini", "codex", "claude", "grok", "ollama", "antigravity"],
+            "type": "string"
+          },
+          "minItems": 1,
+          "type": "array"
         }
       },
       "required": ["prompt"],

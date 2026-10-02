@@ -6,7 +6,7 @@
 // permitted by this script.
 
 import { spawn } from "node:child_process";
-import { appendFile, chmod, mkdir, mkdtemp, readFile, realpath, rm, writeFile } from "node:fs/promises";
+import { appendFile, chmod, cp, mkdir, mkdtemp, readdir, readFile, realpath, rm, writeFile } from "node:fs/promises";
 import { createServer, type ServerResponse } from "node:http";
 import { tmpdir } from "node:os";
 import { delimiter, dirname, join, resolve } from "node:path";
@@ -21,6 +21,11 @@ const bin = join(work, "bin");
 const invocationLog = join(work, "provider-invocations.jsonl");
 const imagePath = join(project, "smoke-image.png");
 const agentDir = process.env.PI_CODING_AGENT_DIR || join(work, "agent");
+// The package ships no skills: Pi reads them from a skills folder. CI points this at the
+// folder the pinned skills CLI filled; otherwise seed one from this checkout's corpus.
+const skillsDir = process.env.ASK_LLM_PI_SKILLS_DIR || join(work, "skills");
+// CI installs the packed package into PI_CODING_AGENT_DIR; a bare run loads this checkout's package.
+const packageSource = process.env.PI_CODING_AGENT_DIR ? undefined : join(root, "packages", "llm-mcp");
 
 interface ContentPart {
   type?: string;
@@ -38,8 +43,11 @@ interface RpcEvent {
   success?: boolean;
   toolName?: string;
   isError?: boolean;
-  result?: { content?: ContentPart[]; details?: { provider?: string } };
-  data?: { messages?: unknown[] };
+  result?: {
+    content?: ContentPart[];
+    details?: { provider?: string; structuredContent?: Record<string, unknown> };
+  };
+  data?: { messages?: unknown[]; commands?: Array<{ name?: string }> };
 }
 
 function invariant(value: unknown, message: string): asserts value {
@@ -68,6 +76,15 @@ function scriptedTool(scenario: string) {
   }
   if (scenario.includes("SMOKE_SINGLE")) {
     return { name: "ask-codex", arguments: { prompt: "FAKE_SINGLE", reasoningEffort: "high" } };
+  }
+  if (scenario.includes("SMOKE_ASK_LLM")) {
+    return {
+      name: "ask-llm",
+      arguments: { provider: "codex", prompt: "FAKE_ASK_LLM", reasoningEffort: "high", sandbox: "read-only" },
+    };
+  }
+  if (scenario.includes("SMOKE_MULTI_LLM")) {
+    return { name: "multi-llm", arguments: { prompt: "FAKE_MULTI_LLM", providers: ["codex", "gemini"] } };
   }
   if (scenario.includes("SMOKE_MULTI")) {
     return { name: "ask-multi", arguments: { prompt: "FAKE_MULTI", providers: ["codex", "gemini"] } };
@@ -176,6 +193,11 @@ const server = createServer(async (request, response) => {
 
 await mkdir(project, { recursive: true });
 await mkdir(bin, { recursive: true });
+if (!process.env.ASK_LLM_PI_SKILLS_DIR) {
+  const corpus = join(root, "packages", "llm-mcp", "skills");
+  const seeded = (await readdir(corpus)).filter((name) => name.startsWith("ask-llm-") && name !== "ask-llm-fable-review");
+  for (const name of seeded) await cp(join(corpus, name), join(skillsDir, name), { recursive: true });
+}
 await mkdir(join(project, ".codex-pair"), { recursive: true });
 await writeFile(
   join(project, ".codex-pair", "context.md"),
@@ -248,7 +270,11 @@ const childArgs = [
   "scripted",
   "-e",
   fixtureExtension,
+  "--no-skills",
+  "--skill",
+  skillsDir,
 ];
+if (packageSource) childArgs.push("-e", resolve(packageSource));
 if (process.env.ASK_LLM_PI_PLUGIN_EXTENSION) childArgs.push("-e", resolve(process.env.ASK_LLM_PI_PLUGIN_EXTENSION));
 const child = spawn(process.env.PI_BIN || "pi", childArgs, {
   cwd: project,
@@ -356,11 +382,42 @@ async function waitForMessage(fragment: string): Promise<RpcEvent> {
 }
 
 try {
+  const commands = (await request("get_commands")).data?.commands?.map((command) => command.name) ?? [];
+  for (const skill of ["review", "compare", "brainstorm", "codex-pair"]) {
+    invariant(commands.includes(`skill:ask-llm-${skill}`), `skill:ask-llm-${skill} was not loaded from ${skillsDir}`);
+  }
+  invariant(!commands.includes("skill:ask-llm-fable-review"), "Claude-only fable-review reached Pi");
+
   // Representative canonical skills through a real scripted Pi host model.
   let result = await runPrompt("/skill:ask-llm-review SMOKE_SINGLE", "ask-codex");
   invariant(!result.toolEnd.isError, "codex-review tool failed");
   invariant(toolResultText(result.toolEnd).includes("FAKE_CODEX_RESPONSE"), "codex executor response missing");
   invariant(result.toolEnd.result?.details?.provider === "codex", "codex structured details missing provider");
+
+  // The unified tools return the server's AskResponse and multi-llm report.
+  await newSession();
+  result = await runPrompt("SMOKE_ASK_LLM", "ask-llm");
+  invariant(!result.toolEnd.isError, `ask-llm failed: ${toolResultText(result.toolEnd)}`);
+  invariant(toolResultText(result.toolEnd).startsWith("Codex response:\nFAKE_CODEX_RESPONSE"), "ask-llm text differs");
+  const askResponse = result.toolEnd.result?.details?.structuredContent ?? {};
+  invariant(
+    askResponse.provider === "codex" &&
+      askResponse.response === "FAKE_CODEX_RESPONSE" &&
+      typeof askResponse.model === "string" &&
+      Object.keys(askResponse).every((key) =>
+        ["provider", "response", "model", "sessionId", "usage", "harness", "reportedModel"].includes(key),
+      ),
+    `ask-llm did not return an AskResponse: ${JSON.stringify(askResponse)}`,
+  );
+
+  await newSession();
+  result = await runPrompt("SMOKE_MULTI_LLM", "multi-llm");
+  invariant(!result.toolEnd.isError, `multi-llm failed: ${toolResultText(result.toolEnd)}`);
+  const report = result.toolEnd.result?.details?.structuredContent ?? {};
+  invariant(
+    report.successCount === 2 && toolResultText(result.toolEnd).includes("FAKE_GEMINI_RESPONSE"),
+    `multi-llm report differs: ${JSON.stringify(report)}`,
+  );
 
   await newSession();
   result = await runPrompt("/skill:ask-llm-compare SMOKE_MULTI", "ask-multi");
@@ -409,8 +466,8 @@ try {
   await waitForMessage("PI_PAIR_FINDING");
 
   // Failed built-in writes must not schedule provider work.
-  const beforeFailure = (await readFile(invocationLog, "utf8")).split("\n").filter(Boolean).length;
   await newSession();
+  const beforeFailure = (await readFile(invocationLog, "utf8")).split("\n").filter(Boolean).length;
   result = await runPrompt("SMOKE_FAILED_WRITE", "write");
   invariant(result.toolEnd.isError === true, "failed built-in write did not report isError");
   await sleep(150);
@@ -428,7 +485,7 @@ try {
     );
   }
   console.log(
-    "Pi packed-package E2E passed: skills, native tools, fake executors, errors, bounds, built-in write, and pairing.",
+    "Pi packed-package E2E passed: skills from a skills folder, unified and alias tools, fake executors, errors, bounds, built-in write, and pairing.",
   );
 } finally {
   child.stdin.end();

@@ -1,5 +1,15 @@
 # Architectural Decisions
 
+## ADR-184: Pi registers the MCP tools from the server's own schemas, and `docs/HOST-PARITY.md` declares every host difference
+
+**Status:** Accepted (2026-10-02). Implements ADR-179's equal-experience contract for Pi (slice S7); keeps ADR-142's rule against a generic host abstraction.
+
+**Context:** Pi has no MCP client, so its extension registered its own TypeBox tools (`ask-codex`, `ask-gemini`, `ask-grok`, `ask-ollama`, `ask-antigravity`, `ask-cursor-agent`, `ask-multi`) and had no `ask-llm` or `multi-llm`. Nothing tied their schemas to the server's, and the host differences (hooks, subagents, Stop gate, skills route, diagnostics) were spread across skill adapters and host pages. Pi accepts plain JSON Schema tool parameters and validates them with its own compiler.
+
+**Decision:** Pi registers `ask-llm`, `multi-llm` and `ask-cursor-agent` with `toolInputJsonSchema(...)` of the zod schemas the server registers, converted exactly as the MCP SDK lists a registered shape, and runs the server's request paths (`runAskLlm`, `runMultiLlm`), so both hosts return the same `AskResponse` and report. The extension factory awaits the server's `detectProviders` before registering tools and builds both schemas from the same availability and exclusion inputs as MCP. Pi bounds displayed text only, preserving complete structured responses. The six earlier Pi tools stay as deprecated aliases. `src/hosts/parity.ts` holds the host matrix (rows: tools, skills, options, diagnostics, pairing, subagents, Stop gate; one column per host setup knows); `docs/HOST-PARITY.md` publishes it and `ask-llm doctor` prints the column of each installed host. `src/__tests__/host-parity.test.ts` lists the server's tools through a real MCP client and fails on any tool name or input schema that differs from Pi's, and on a published table that differs from the module.
+
+**Consequences:** A schema change in the server reaches Pi with no second edit, and a Pi-only change fails the test. Both hosts advertise the same provider enums and descriptions for equivalent detection results, including partial availability and unavailable-provider exclusions. `ask-multi` keeps its per-provider options, which `multi-llm` does not have, so it is deprecated but not yet replaceable. CI now seeds Pi's skills into the shared `~/.agents/skills` folder the way setup does, and the package e2e loads them with `--no-skills --skill <folder>`; run alone, it seeds that folder from the checkout and loads the checkout's package.
+
 ## ADR-183: `ask-llm setup` installs the workflows: the plugin in Claude Code, the pinned `skills` CLI everywhere else
 
 **Status:** Accepted (2026-09-29). Implements ADR-179's skills rule (slice S6) and issue #266's transport ladder inside the portable skills; keeps ADR-180's backup and reporting rules.

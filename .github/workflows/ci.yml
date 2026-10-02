@@ -280,9 +280,10 @@ jobs:
         if grep -q '"name":"skill:ask-llm-' /tmp/pi-package-only.jsonl; then
           echo 'FAIL: the Pi package ships skills; they belong in the shared skills folder'; exit 1
         fi
-        # Skills reach Pi the way setup installs them: the pinned skills CLI, from this checkout.
+        # Skills reach Pi the way setup installs them: the pinned skills CLI, from this checkout,
+        # into the shared ~/.agents/skills folder (its universal codex target) that Pi discovers.
         skills=$(cd "$GITHUB_WORKSPACE/packages/llm-mcp/skills" && ls -d ask-llm-* | grep -vx ask-llm-fable-review)
-        DISABLE_TELEMETRY=1 npx -y skills@1.7.0 add "$GITHUB_WORKSPACE/packages/llm-mcp" --skill $skills -g -a pi -y
+        DISABLE_TELEMETRY=1 npx -y skills@1.7.0 add "$GITHUB_WORKSPACE/packages/llm-mcp" --skill $skills -g -a codex -y
         printf '{"type":"get_commands"}\n' | pi --mode rpc --no-session --approve > /tmp/pi-commands.jsonl
         for skill in review multi-review compare brainstorm codex-pair; do
           grep -q "skill:ask-llm-$skill" /tmp/pi-commands.jsonl
@@ -296,7 +297,7 @@ jobs:
         # Real Pi RPC + installed package + real executor code, backed only by
         # scripted host/provider fixtures. ASK_LLM_PATH is pinned by the harness
         # so a runner's authenticated subscription CLIs can never be selected.
-        node "$GITHUB_WORKSPACE/scripts/test-pi-package-e2e.ts"
+        ASK_LLM_PI_SKILLS_DIR="$HOME/.agents/skills" node "$GITHUB_WORKSPACE/scripts/test-pi-package-e2e.ts"
         pi update npm:@ask-llm/plugin
         pi remove npm:@ask-llm/plugin
         if pi list | grep -F 'npm:@ask-llm/plugin'; then echo 'FAIL: package remains installed'; exit 1; fi
