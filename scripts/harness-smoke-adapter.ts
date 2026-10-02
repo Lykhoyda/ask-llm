@@ -204,7 +204,7 @@ async function runPiAdapter() {
       tools.set(registered.name, registered);
     },
   };
-  registerProviderTools(extensionStub as never);
+  await registerProviderTools(extensionStub as never);
   const requiredTool = (name: string) => {
     const tool = tools.get(name);
     invariant(tool, `Pi adapter did not register ${name}`);
