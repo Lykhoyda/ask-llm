@@ -3,13 +3,8 @@ import { registerCodexPair } from "./codex-pair.js";
 import { registerProviderTools } from "./provider-tools.js";
 import { registerSkillsNotice } from "./skills-notice.js";
 
-/**
- * Ask LLM's Pi adapter. The factory only registers tools, commands, and event
- * handlers; provider work, filesystem reads, timers, and child processes start
- * lazily from an explicit tool/command/lifecycle event.
- */
-export default function askLlmPiExtension(pi: ExtensionAPI): void {
-  registerProviderTools(pi);
+export default async function askLlmPiExtension(pi: ExtensionAPI): Promise<void> {
+  await registerProviderTools(pi);
   registerCodexPair(pi);
   registerSkillsNotice(pi);
 }

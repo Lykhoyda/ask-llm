@@ -47,9 +47,7 @@ export const HOST_PARITY: Record<ParityRow, Record<HostId, string>> = {
     grok: "`~/.grok/skills`, filled by `ask-llm setup`",
     "claude-desktop": "none (tools only)",
   }),
-  options: row("every `ask-llm` option reaches the executor unchanged; `provider` lists the providers found at start", {
-    pi: "same options and checks; `provider` lists every eligible provider and an undetected one fails at call time",
-  }),
+  options: row("every `ask-llm` option reaches the executor unchanged; `provider` lists the providers found at start", {}),
   diagnostics: row("`diagnose` tool and `ask-llm doctor`", { pi: "`ask-llm doctor` (no `diagnose` tool)" }),
   pairing: row(SKILL_PAIRING, {
     claude: "per-edit codex-pair hooks from the plugin, off until `/codex-pair` consent",

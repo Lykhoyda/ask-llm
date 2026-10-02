@@ -25,7 +25,6 @@ import { executeGeminiCLI } from "@ask-llm/gemini-mcp/executor";
 import { isGrokProviderAvailable } from "@ask-llm/grok-mcp/executor";
 import { isProviderAvailable as isOllamaAvailable } from "@ask-llm/ollama-mcp/executor";
 import { registerProviderTools } from "../../pi/extensions/provider-tools.js";
-import { getEligibleProviderKeys } from "../constants.js";
 import {
   HOST_PARITY,
   MCP_ONLY_TOOLS,
@@ -35,7 +34,7 @@ import {
   SHARED_TOOLS,
 } from "../hosts/parity.js";
 import { hostSpecs } from "../hosts/registry.js";
-import { createAskLlmServer, type ProviderStatus } from "../index.js";
+import { createAskLlmServer, detectProviders, type ProviderStatus } from "../index.js";
 import { isCommandAvailable } from "../utils/availability.js";
 
 interface ToolContract {
@@ -64,8 +63,7 @@ async function connectMcp(status: ProviderStatus) {
 }
 
 async function mcpContracts(): Promise<ToolContract[]> {
-  // Pi's factory never probes providers, so compare against a server that found every eligible one.
-  const { client, close } = await connectMcp({ available: getEligibleProviderKeys(), missing: [], unavailable: [] });
+  const { client, close } = await connectMcp(await detectProviders());
   try {
     return (await client.listTools()).tools.map(({ name, inputSchema }) => ({ name, inputSchema }));
   } finally {
@@ -73,9 +71,9 @@ async function mcpContracts(): Promise<ToolContract[]> {
   }
 }
 
-function piTools(): PiTool[] {
+async function piTools(): Promise<PiTool[]> {
   const tools: PiTool[] = [];
-  registerProviderTools({ registerTool: (tool: PiTool) => tools.push(tool) } as never);
+  await registerProviderTools({ registerTool: (tool: PiTool) => tools.push(tool) } as never);
   return tools;
 }
 
@@ -95,8 +93,8 @@ function divergences(mcp: ToolContract[], pi: ToolContract[]): string[] {
   return found;
 }
 
-function piContracts(): ToolContract[] {
-  return piTools().map(({ name, parameters }) => ({ name, inputSchema: parameters }));
+async function piContracts(): Promise<ToolContract[]> {
+  return (await piTools()).map(({ name, parameters }) => ({ name, inputSchema: parameters }));
 }
 
 beforeEach(() => {
@@ -121,17 +119,59 @@ afterEach(() => {
 
 describe("MCP and Pi tool contract", () => {
   it("exposes the declared tool names with identical input schemas", async () => {
-    expect(divergences(await mcpContracts(), piContracts())).toEqual([]);
+    expect(divergences(await mcpContracts(), await piContracts())).toEqual([]);
   });
+
+  it("matches both enums and descriptions when only Codex is detected", async () => {
+    vi.mocked(isCommandAvailable).mockImplementation(async (command) => command === "codex");
+    const mcp = await mcpContracts();
+    const pi = await piContracts();
+    expect(divergences(mcp, pi)).toEqual([]);
+    expect(pi.find((tool) => tool.name === "ask-llm")?.inputSchema).toMatchObject({
+      properties: { provider: { enum: ["codex"] } },
+    });
+    expect(pi.find((tool) => tool.name === "multi-llm")?.inputSchema).toMatchObject({
+      properties: { providers: { items: { enum: ["codex"] } } },
+    });
+  });
+
+  it("matches when all eligible providers are detected", async () => {
+    vi.mocked(isCommandAvailable).mockResolvedValue(true);
+    vi.mocked(isGrokProviderAvailable).mockResolvedValue(true);
+    vi.mocked(isOllamaAvailable).mockResolvedValue(true);
+    vi.mocked(probeAgySupport).mockResolvedValue({
+      status: "supported",
+      available: true,
+      detected: true,
+      requiredVersion: "1.1.5",
+      message: "supported",
+    });
+    expect(divergences(await mcpContracts(), await piContracts())).toEqual([]);
+  });
+
+  it.each(["missing", "unsupported", "unusable"] as const)(
+    "matches with no available providers and agy %s",
+    async (status) => {
+      vi.mocked(isCommandAvailable).mockResolvedValue(false);
+      vi.mocked(probeAgySupport).mockResolvedValue({
+        status,
+        available: false,
+        detected: status !== "missing",
+        requiredVersion: "1.1.5",
+        message: status,
+      });
+      expect(divergences(await mcpContracts(), await piContracts())).toEqual([]);
+    },
+  );
 
   it("holds when the host hides the Claude provider", async () => {
     process.env.CLAUDECODE = "1";
-    expect(divergences(await mcpContracts(), piContracts())).toEqual([]);
+    expect(divergences(await mcpContracts(), await piContracts())).toEqual([]);
   });
 
   it("reports a renamed tool, a missing tool and a changed field", async () => {
     const mcp = await mcpContracts();
-    const pi = piContracts();
+    const pi = await piContracts();
     const renamed = pi.map((tool) => (tool.name === "multi-llm" ? { ...tool, name: "multi_llm" } : tool));
     expect(divergences(mcp, renamed)).toEqual([expect.stringContaining("Pi tools"), "multi-llm input schema"]);
     expect(divergences(mcp.slice(1), pi)).toContain(`${mcp[0].name} input schema`);
@@ -143,10 +183,9 @@ describe("MCP and Pi tool contract", () => {
     ]);
   });
 
-  it("returns the same AskResponse for ask-llm with provider codex", async () => {
+  it.each(["FAKE_CODEX", "x".repeat(70_000)])("returns the same Codex AskResponse (case %#)", async (response) => {
     const usage = { provider: "codex" as const, model: "gpt-6-astra", inputTokens: 3, durationMs: 7, fellBack: false };
-    vi.mocked(executeCodexCLI).mockResolvedValue({ response: "FAKE_CODEX", threadId: "thread-1", usage });
-    const { detectProviders } = await import("../index.js");
+    vi.mocked(executeCodexCLI).mockResolvedValue({ response, threadId: "thread-1", usage });
     const { client, close } = await connectMcp(await detectProviders());
     const args = { provider: "codex", prompt: "review this", reasoningEffort: "high", sandbox: "read-only" };
     let viaMcp: Awaited<ReturnType<typeof client.callTool>>;
@@ -155,18 +194,25 @@ describe("MCP and Pi tool contract", () => {
     } finally {
       await close();
     }
-    const viaPi = await (piTools().find((tool) => tool.name === "ask-llm") as PiTool).execute("call", args);
+    const viaPi = await ((await piTools()).find((tool) => tool.name === "ask-llm") as PiTool).execute("call", args);
 
     expect(viaMcp.isError).toBe(false);
     expect(viaMcp.structuredContent).toEqual({
       provider: "codex",
-      response: "FAKE_CODEX",
+      response,
       model: "gpt-6-astra",
       sessionId: "thread-1",
       usage,
     });
     expect(viaPi.details.structuredContent).toEqual(viaMcp.structuredContent);
-    expect(viaPi.content).toEqual(viaMcp.content);
+    if (response.length > 50_000) {
+      expect(viaPi.details.outputTruncated).toBe(true);
+      expect(viaPi.content[0].text.length).toBeLessThan(response.length);
+      expect(viaPi.content[0].text).toContain("[Output truncated");
+    } else {
+      expect(viaPi.content).toEqual(viaMcp.content);
+      expect(viaPi.details.outputTruncated).toBe(false);
+    }
     const [mcpOptions, piOptions] = vi
       .mocked(executeCodexCLI)
       .mock.calls.map(([{ onProgress: _progress, signal: _signal, ...options }]) => options);
@@ -174,10 +220,9 @@ describe("MCP and Pi tool contract", () => {
     expect(mcpOptions).toMatchObject({ prompt: "review this", reasoningEffort: "high", sandbox: "read-only" });
   });
 
-  it("returns the same multi-llm report, defaulting to the detected providers", async () => {
-    vi.mocked(executeCodexCLI).mockResolvedValue({ response: "FAKE_CODEX" });
+  it.each(["FAKE_CODEX", "x".repeat(70_000)])("returns the same default multi-llm report (case %#)", async (response) => {
+    vi.mocked(executeCodexCLI).mockResolvedValue({ response });
     vi.mocked(executeGeminiCLI).mockRejectedValue(new Error("gemini quota"));
-    const { detectProviders } = await import("../index.js");
     const { client, close } = await connectMcp(await detectProviders());
     let viaMcp: Awaited<ReturnType<typeof client.callTool>>;
     try {
@@ -185,7 +230,7 @@ describe("MCP and Pi tool contract", () => {
     } finally {
       await close();
     }
-    const viaPi = await (piTools().find((tool) => tool.name === "multi-llm") as PiTool).execute("call", {
+    const viaPi = await ((await piTools()).find((tool) => tool.name === "multi-llm") as PiTool).execute("call", {
       prompt: "same",
     });
 
@@ -201,19 +246,28 @@ describe("MCP and Pi tool contract", () => {
       failureCount: 1,
       results: [
         { provider: "gemini", ok: false, error: "gemini quota" },
-        { provider: "codex", ok: true, response: "FAKE_CODEX" },
+        { provider: "codex", ok: true, response },
       ],
     });
     expect(strip(viaPi.details.structuredContent)).toEqual(strip(viaMcp.structuredContent));
+    expect(viaPi.details.outputTruncated).toBe(response.length > 50_000);
+    if (response.length > 50_000) expect(viaPi.content[0].text.length).toBeLessThan(response.length);
   });
 
-  it("reports an undetected provider the way the server does", async () => {
+  it("rejects an undetected provider in both hosts", async () => {
+    const { client, close } = await connectMcp(await detectProviders());
+    try {
+      const result = await client.callTool({ name: "ask-llm", arguments: { provider: "ollama", prompt: "x" } });
+      expect(result.isError).toBe(true);
+    } finally {
+      await close();
+    }
     await expect(
-      (piTools().find((tool) => tool.name === "ask-llm") as PiTool).execute("call", {
+      ((await piTools()).find((tool) => tool.name === "ask-llm") as PiTool).execute("call", {
         provider: "ollama",
         prompt: "x",
       }),
-    ).rejects.toThrow('Provider "ollama" is not available. Install: https://ollama.com');
+    ).rejects.toThrow();
   });
 });
 

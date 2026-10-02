@@ -53,10 +53,10 @@ Pi pairing requires all three conditions:
 
 A committed marker alone never authorizes project-data transfer or Codex cost. Consent lives under `PI_CODING_AGENT_DIR` (normally `~/.pi/agent/ask-llm/codex-pair-projects.json`) and is revoked with `/codex-pair revoke`.
 
-The extension factory registers resources only. It performs no filesystem read, timer creation, or provider invocation until a session event, command, tool call, or successful edit/write result requires it.
+The extension factory detects provider availability before registering tools. Model requests and codex-pair work start only from an explicit tool call, command, or session event.
 
 ## Provider bridge
 
-Pi intentionally has no built-in MCP client. The extension therefore registers native `ask-llm`, `multi-llm` and the model-neutral `ask-cursor-agent` harness tool with the MCP server's own input schemas and request paths, so they return the same `AskResponse` and report; [HOST-PARITY.md](HOST-PARITY.md) declares what still differs, and `src/__tests__/host-parity.test.ts` fails on any tool name or input schema drift. The factory does no provider work: `ask-llm` lists every eligible provider and runs the server's provider detection on the first call.
+Pi intentionally has no built-in MCP client. The extension therefore registers native `ask-llm`, `multi-llm` and the model-neutral `ask-cursor-agent` harness tool with the MCP server's own input schemas and request paths, so they return the same `AskResponse` and report; [HOST-PARITY.md](HOST-PARITY.md) declares what still differs, and `src/__tests__/host-parity.test.ts` fails on any tool name or input schema drift. The factory awaits the server's provider detection and builds both provider lists and their descriptions from the same availability and exclusion inputs as MCP.
 
 `ask-codex`, `ask-gemini`, `ask-grok`, `ask-ollama`, `ask-antigravity` and `ask-multi` remain as deprecated aliases. They invoke each provider package's public `./register` `executeTool` contract so canonical validation, response structure, session behavior, fallbacks, and errors remain provider-owned. `ask-multi` is concrete Pi glue: a bounded `Promise.allSettled` fan-out over two to five unique providers, with per-provider options, stable input-order results and explicit failures.

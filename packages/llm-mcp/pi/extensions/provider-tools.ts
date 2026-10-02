@@ -14,10 +14,8 @@ import {
   cursorAgentInputSchema,
   detectProviders,
   formatMultiLlmReport,
-  getEligibleProviderKeys,
   getLoadedExecutor,
   MULTI_LLM_DESCRIPTION,
-  type ProviderStatus,
   runAskLlm,
   runMultiLlm,
   toolInputJsonSchema,
@@ -117,14 +115,6 @@ function bounded(text: string): { text: string; truncated: boolean } {
   };
 }
 
-function boundedStructured(value: Record<string, unknown> | undefined): Record<string, unknown> | undefined {
-  if (!value) return undefined;
-  const response = value.response;
-  if (typeof response !== "string") return value;
-  const limited = bounded(response);
-  return limited.truncated ? { ...value, response: limited.text, outputTruncated: true } : value;
-}
-
 async function invokeProvider(
   provider: ProviderName,
   args: Record<string, unknown>,
@@ -142,7 +132,7 @@ async function invokeProvider(
     text: output.text,
     details: {
       provider,
-      structuredContent: boundedStructured(typeof result === "string" ? undefined : result.structuredContent),
+      structuredContent: typeof result === "string" ? undefined : result.structuredContent,
       askLlmUsage: usage,
       outputTruncated: output.truncated,
     },
@@ -187,28 +177,20 @@ function registerProviderTool<T extends ReturnType<typeof Type.Object>>(
   });
 }
 
-export function registerProviderTools(pi: ExtensionAPI): void {
-  // Pi's factory never probes providers: schemas list every eligible provider, and the
-  // server's own detection runs once, on the first ask-llm or multi-llm call.
-  const eligible = getEligibleProviderKeys();
-  const askLlmSchema = buildAskLlmSchema(eligible);
-  const multiLlmSchema = buildMultiLlmInputSchema(eligible);
-  let detection: Promise<ProviderStatus> | undefined;
-  const detected = () => {
-    detection ??= detectProviders().catch((error: unknown) => {
-      detection = undefined;
-      throw error;
-    });
-    return detection;
-  };
+export async function registerProviderTools(pi: ExtensionAPI): Promise<void> {
+  const { available, unavailable } = await detectProviders();
+  const excludedProviders = unavailable
+    .filter((provider) => provider.state === "unsupported" || provider.state === "unusable")
+    .map((provider) => provider.key);
+  const askLlmSchema = buildAskLlmSchema(available, excludedProviders);
+  const multiLlmSchema = buildMultiLlmInputSchema(available, excludedProviders);
 
   pi.registerTool({
     name: "ask-llm",
     label: "Ask LLM",
-    description: `${ASK_LLM_DESCRIPTION} Output is bounded to Pi's 50KB/2000-line limits.`,
+    description: `${ASK_LLM_DESCRIPTION} Displayed text is bounded to Pi's 50KB/2000-line limits.`,
     parameters: toolInputJsonSchema(askLlmSchema),
     async execute(_toolCallId, params: Record<string, unknown>, signal, onUpdate) {
-      await detected();
       const { text, structured } = await runAskLlm(askLlmSchema, params, {
         getExecutor: getLoadedExecutor,
         onProgress: progressForwarder(onUpdate, String(params.provider)),
@@ -219,7 +201,7 @@ export function registerProviderTools(pi: ExtensionAPI): void {
         content: [{ type: "text", text: output.text }],
         details: {
           provider: structured.provider,
-          structuredContent: boundedStructured({ ...structured }),
+          structuredContent: structured,
           askLlmUsage: structured.usage,
           outputTruncated: output.truncated,
         },
@@ -230,16 +212,15 @@ export function registerProviderTools(pi: ExtensionAPI): void {
   pi.registerTool({
     name: "multi-llm",
     label: "Multi-LLM Parallel Dispatch",
-    description: `${MULTI_LLM_DESCRIPTION} Output is bounded to Pi's 50KB/2000-line limits.`,
+    description: `${MULTI_LLM_DESCRIPTION} Displayed text is bounded to Pi's 50KB/2000-line limits.`,
     parameters: toolInputJsonSchema(multiLlmSchema),
     async execute(_toolCallId, params: Record<string, unknown>, signal) {
-      const { available } = await detected();
       const report = await runMultiLlm(multiLlmSchema, params, { available, getExecutor: getLoadedExecutor, signal });
       const output = bounded(formatMultiLlmReport(report));
       return {
         content: [{ type: "text", text: output.text }],
         details: {
-          structuredContent: { ...report, results: report.results.map((result) => boundedStructured({ ...result })) },
+          structuredContent: report,
           outputTruncated: output.truncated,
         },
       };
@@ -283,7 +264,7 @@ export function registerProviderTools(pi: ExtensionAPI): void {
     name: "ask-codex",
     label: "Ask Codex",
     description:
-      "Deprecated alias for `ask-llm` with provider codex. Consult OpenAI Codex through Ask LLM's canonical executor. Read-only by default; use workspace-write only for an explicit write flow such as codex-image. Output is bounded to Pi's 50KB/2000-line limits.",
+      "Deprecated alias for `ask-llm` with provider codex. Consult OpenAI Codex through Ask LLM's canonical executor. Read-only by default; use workspace-write only for an explicit write flow such as codex-image. Displayed text is bounded to Pi's 50KB/2000-line limits.",
     parameters: codexSchema,
     provider: "codex",
   });
@@ -291,7 +272,7 @@ export function registerProviderTools(pi: ExtensionAPI): void {
     name: "ask-gemini",
     label: "Ask Gemini",
     description:
-      "Deprecated alias for `ask-llm` with provider gemini. Consult Gemini through Ask LLM's canonical executor (`gemini-3.1-pro-preview` → `gemini-3.8-flash` on quota), including validation, sessions, and structured response. Output is bounded to Pi's 50KB/2000-line limits.",
+      "Deprecated alias for `ask-llm` with provider gemini. Consult Gemini through Ask LLM's canonical executor (`gemini-3.1-pro-preview` → `gemini-3.8-flash` on quota), including validation, sessions, and structured response. Displayed text is bounded to Pi's 50KB/2000-line limits.",
     parameters: geminiSchema,
     provider: "gemini",
   });
@@ -299,7 +280,7 @@ export function registerProviderTools(pi: ExtensionAPI): void {
     name: "ask-grok",
     label: "Ask Grok",
     description:
-      "Deprecated alias for `ask-llm` with provider grok. Consult Grok through Ask LLM's canonical xAI API executor. Requires XAI_API_KEY and may incur metered API charges; no billing changes or model fallback are performed. Output is bounded to Pi's 50KB/2000-line limits.",
+      "Deprecated alias for `ask-llm` with provider grok. Consult Grok through Ask LLM's canonical xAI API executor. Requires XAI_API_KEY and may incur metered API charges; no billing changes or model fallback are performed. Displayed text is bounded to Pi's 50KB/2000-line limits.",
     parameters: grokSchema,
     provider: "grok",
   });
@@ -307,7 +288,7 @@ export function registerProviderTools(pi: ExtensionAPI): void {
     name: "ask-ollama",
     label: "Ask Ollama",
     description:
-      "Deprecated alias for `ask-llm` with provider ollama. Consult the configured local Ollama model through Ask LLM's canonical executor. No external provider data transfer; output is bounded to Pi's 50KB/2000-line limits.",
+      "Deprecated alias for `ask-llm` with provider ollama. Consult the configured local Ollama model through Ask LLM's canonical executor. No external provider data transfer; displayed text is bounded to Pi's 50KB/2000-line limits.",
     parameters: ollamaSchema,
     provider: "ollama",
   });
@@ -315,7 +296,7 @@ export function registerProviderTools(pi: ExtensionAPI): void {
     name: "ask-antigravity",
     label: "Ask Antigravity",
     description:
-      "Deprecated alias for `ask-llm` with provider antigravity. Consult Google's Antigravity CLI (agy) through Ask LLM's canonical executor. Requires a supported authenticated agy installation. Output is bounded to Pi's 50KB/2000-line limits.",
+      "Deprecated alias for `ask-llm` with provider antigravity. Consult Google's Antigravity CLI (agy) through Ask LLM's canonical executor. Requires a supported authenticated agy installation. Displayed text is bounded to Pi's 50KB/2000-line limits.",
     parameters: antigravitySchema,
     provider: "antigravity",
   });

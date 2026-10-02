@@ -25,8 +25,7 @@ const agentDir = process.env.PI_CODING_AGENT_DIR || join(work, "agent");
 // folder the pinned skills CLI filled; otherwise seed one from this checkout's corpus.
 const skillsDir = process.env.ASK_LLM_PI_SKILLS_DIR || join(work, "skills");
 // CI installs the packed package into PI_CODING_AGENT_DIR; a bare run loads this checkout's package.
-const packageSource =
-  process.env.ASK_LLM_PI_PACKAGE ?? (process.env.PI_CODING_AGENT_DIR ? undefined : join(root, "packages", "llm-mcp"));
+const packageSource = process.env.PI_CODING_AGENT_DIR ? undefined : join(root, "packages", "llm-mcp");
 
 interface ContentPart {
   type?: string;

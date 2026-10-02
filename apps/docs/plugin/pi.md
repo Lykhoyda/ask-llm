@@ -73,7 +73,7 @@ Native tools (Pi has no MCP client, so the extension registers them with the MCP
 
 | Tool | Contract |
 |---|---|
-| `ask-llm` | the MCP `ask-llm` schema (`provider`, `model`, `reasoningEffort`, `includeDirs`, `sessionId`, `harness`, `preferred`, `sandbox`) and the same `AskResponse` in `details.structuredContent`; `provider` lists every eligible provider, and one that is not installed fails at call time |
+| `ask-llm` | the MCP `ask-llm` schema (`provider`, `model`, `reasoningEffort`, `includeDirs`, `sessionId`, `harness`, `preferred`, `sandbox`) and the same `AskResponse` in `details.structuredContent`; `provider` uses the same detected availability and exclusions as MCP |
 | `multi-llm` | the MCP `multi-llm` schema and report; omitted `providers` means every detected provider |
 | `ask-cursor-agent` | the MCP schema: model-neutral Cursor harness with separate provider + exact account model ID, safe relative `includeDirs`, and optional returned/resumed Cursor `sessionId`; the exact ID is echoed as `model`, Cursor's label stays separate as `reportedModel`, and read-only ask mode never falls back |
 
@@ -88,7 +88,7 @@ Deprecated aliases, kept for existing skills and prompts:
 | `ask-antigravity` | prompt/includeDirs schema and supported-`agy` checks |
 | `ask-multi` | same prompt to 2–5 unique providers via bounded `Promise.allSettled`, with per-provider options; stable input-order records and explicit failures |
 
-Tool output is bounded to Pi's 50KB/2000-line policy. Provider failures throw, so Pi records `isError: true`; Ask LLM usage remains raw metadata in `details` and is not misreported as Pi host-model cost.
+Displayed tool text is bounded to Pi's 50KB/2000-line policy; structured payloads remain complete. Provider failures throw, so Pi records `isError: true`; Ask LLM usage remains raw metadata in `details` and is not misreported as Pi host-model cost.
 
 ## Pi codex-pair consent
 
@@ -120,7 +120,7 @@ Pair controls:
 /codex-pair-ack <hash> <reason>
 ```
 
-The extension observes only successful built-in `edit`/`write` `tool_result` events, debounces a burst to the final settled file state, deduplicates identical content, and injects findings as a persisted `steer` message without triggering an extra host-model turn. It starts no process/timer at extension load. On shutdown/reload/new/resume/fork it closes the current epoch, clears timers, aborts active provider work, waits a bounded interval, and releases owned locks. Durable logs, cache, pause, ack, consent, and pending findings are user product state; shutdown does not erase that history.
+The extension observes only successful built-in `edit`/`write` `tool_result` events, debounces a burst to the final settled file state, deduplicates identical content, and injects findings as a persisted `steer` message without triggering an extra host-model turn. Pairing starts no process/timer at extension load; native tools probe provider availability before registration. On shutdown/reload/new/resume/fork it closes the current epoch, clears timers, aborts active provider work, waits a bounded interval, and releases owned locks. Durable logs, cache, pause, ack, consent, and pending findings are user product state; shutdown does not erase that history.
 
 Pending delivery is durable at least once across process crashes. Atomic claims prevent concurrent Pi sessions from delivering the same pending record, but a crash after `steer` succeeds and before durable cleanup can repeat it after restart. Every retry preserves the stable `details.findingId`, which receivers can use to deduplicate; Pi does not provide an atomic idempotent-message API that could guarantee exactly-once crash delivery.
 
