@@ -75,35 +75,54 @@ export function entryCommand(entry: unknown): string[] | undefined {
   return undefined;
 }
 
-// Keys every host writes for a plain stdio entry; any other key with a value is the user's own setting.
-const ENTRY_KEYS = new Set(["name", "command", "args", "transport", "disabled_reason", "auth_status"]);
-
-function isEmpty(value: unknown): boolean {
-  if (value === null || value === undefined || value === "") return true;
-  if (Array.isArray(value)) return value.length === 0;
-  return typeof value === "object" && Object.keys(value as object).length === 0;
-}
-
-export function customSettings(entry: unknown): string | undefined {
+export function customSettings(entry: unknown, packageEntry = false): string | undefined {
   if (entry === null || typeof entry !== "object") return undefined;
   const settings: string[] = [];
-  const visit = (fields: Record<string, unknown>) => {
+  const visit = (fields: Record<string, unknown>, shape: "package" | "list" | "transport" | "mcp") => {
     for (const [key, value] of Object.entries(fields)) {
-      if (key === "transport" && value !== null && typeof value === "object") visit(value as Record<string, unknown>);
-      else if (key === "enabled") {
-        if (value !== true) settings.push(`enabled ${JSON.stringify(value)}`);
-      } else if (key === "type") {
-        if (value !== "stdio" && value !== "local") settings.push(`type ${JSON.stringify(value)}`);
-      } else if (!ENTRY_KEYS.has(key) && !isEmpty(value)) {
+      if (
+        shape === "list" &&
+        key === "transport" &&
+        value !== null &&
+        typeof value === "object" &&
+        !Array.isArray(value)
+      ) {
+        visit(value as Record<string, unknown>, "transport");
+        continue;
+      }
+      const known =
+        shape === "package"
+          ? key === "source"
+          : shape === "list"
+            ? (key === "name" && typeof value === "string") ||
+              (key === "enabled" && value === true) ||
+              (["disabled_reason", "startup_timeout_sec", "tool_timeout_sec"].includes(key) && value === null) ||
+              (key === "auth_status" && value === "unsupported")
+            : key === "command" ||
+              key === "args" ||
+              (key === "type" && (value === "stdio" || (shape === "mcp" && value === "local"))) ||
+              (shape === "mcp" && key === "enabled" && value === true) ||
+              (shape === "mcp" &&
+                key === "env" &&
+                value !== null &&
+                typeof value === "object" &&
+                !Array.isArray(value) &&
+                Object.keys(value).length === 0) ||
+              (shape === "transport" && ["env", "cwd"].includes(key) && value === null) ||
+              (shape === "transport" && key === "env_vars" && Array.isArray(value) && value.length === 0);
+      if (!known) {
         settings.push(
           value !== null && typeof value === "object" && !Array.isArray(value)
-            ? `${key} ${Object.keys(value).join(", ")}`
+            ? `${key} ${Object.keys(value).join(", ")}`.trimEnd()
             : key,
         );
       }
     }
   };
-  visit(entry as Record<string, unknown>);
+  visit(
+    entry as Record<string, unknown>,
+    packageEntry ? "package" : Object.hasOwn(entry, "transport") ? "list" : "mcp",
+  );
   return settings.length > 0 ? settings.join("; ") : undefined;
 }
 
@@ -182,12 +201,18 @@ function readTomlTable(file: string, table: string): RegistrationState {
     if (pair[1] === "args") args = value;
     if (pair[1] === "enabled") enabled = value;
   }
-  return state(found, found ? entryCommand({ command, args, enabled }) : undefined);
+  const entry = { command, args, ...(enabled === undefined ? {} : { enabled }) };
+  return state(found, found ? entryCommand(entry) : undefined, customSettings(entry));
 }
 
 interface ListedServer {
   name?: unknown;
+  enabled?: unknown;
   transport?: { command?: unknown; args?: unknown };
+}
+
+function listedCommand(entry: ListedServer | undefined): string[] | undefined {
+  return entry?.enabled === false ? undefined : entryCommand(entry?.transport);
 }
 
 async function listed(binary: string, args: string[], env: NodeJS.ProcessEnv): Promise<ListedServer[]> {
@@ -203,7 +228,7 @@ async function readList(
   name = SERVER_NAME,
 ): Promise<RegistrationState> {
   const entry = (await listed(binary, args, env)).find((server) => server.name === name);
-  return state(entry !== undefined, entryCommand(entry?.transport), customSettings(entry));
+  return state(entry !== undefined, listedCommand(entry), customSettings(entry));
 }
 
 // Pi's own test for a local package source: anything without a remote prefix.
@@ -241,8 +266,8 @@ function readPackages(
     if (!current && !earlier) continue;
     if (current) registered = true;
     if (earlier) legacy.push(source);
-    if (typeof entry === "object" && entry !== null)
-      for (const key of Object.keys(entry)) if (key !== "source") settings.add(key);
+    const custom = customSettings(entry, true);
+    if (custom) settings.add(custom);
   }
   return {
     registered,
@@ -309,8 +334,8 @@ export async function listServers(
     const names = new Set([...text.matchAll(header)].map((match) => match[1] ?? match[2]));
     return [...names].map((name) => {
       try {
-        const { command } = readTomlTable(source.file, `mcp_servers.${name}`);
-        return { name, command, text: tomlTableText(text, name) };
+        const { command, custom } = readTomlTable(source.file, `mcp_servers.${name}`);
+        return { name, command, custom, text: tomlTableText(text, name) };
       } catch (error) {
         return { name, error: (error as Error).message, text: tomlTableText(text, name) };
       }
@@ -322,7 +347,7 @@ export async function listServers(
       .filter((server): server is ListedServer & { name: string } => typeof server.name === "string")
       .map((server) => ({
         name: server.name,
-        command: entryCommand(server.transport),
+        command: listedCommand(server),
         custom: customSettings(server),
         text: JSON.stringify(server),
       }));

@@ -77,7 +77,7 @@ function finding(host: DetectedHost, entry: ServerEntry): MigrationFinding | und
   }
   const why = entry.custom
     ? `with its own settings (${entry.custom})`
-    : `in a form setup cannot read (${entry.error ?? "no usable command"})`;
+    : `in a form setup cannot classify (${entry.error ?? (entry.command ? "custom command options" : "no usable command")})`;
   return {
     ...base,
     action: "guidance",
@@ -221,7 +221,12 @@ export async function replaceRegistration(
   return failed(`${problem}; the earlier entry could not be restored${backup ? `, the backup has it` : ""}`, backup);
 }
 
-async function retire(host: DetectedHost, found: MigrationFinding, env: NodeJS.ProcessEnv): Promise<Applied> {
+async function retire(
+  host: DetectedHost,
+  found: MigrationFinding,
+  server: string,
+  env: NodeJS.ProcessEnv,
+): Promise<Applied> {
   const spawnEnv = hostEnv(host, env);
   const source = namedSource(host.spec.registrationState, found.entry);
   const read = () => readRegistration(source, host.binary, spawnEnv);
@@ -237,6 +242,17 @@ async function retire(host: DetectedHost, found: MigrationFinding, env: NodeJS.P
   if (before.registered === null) return failed(before.error);
   if (!listed(before)) return { outcome: "unchanged" };
   if (!unchanged(before)) return { outcome: "conflict", detail: "the entry changed since the preview; left in place" };
+
+  const canonical = await readRegistration(host.spec.registrationState, host.binary, spawnEnv);
+  if (
+    canonical.registered !== true ||
+    canonical.custom ||
+    !isOwnRegistration({ ...host, ...canonical, command: canonical.command, custom: canonical.custom }, server)
+  )
+    return {
+      outcome: "conflict",
+      detail: "Ask LLM is no longer registered without custom settings to this install; earlier entry left in place",
+    };
 
   const { registration } = host.spec;
   let backup: string | undefined;
@@ -277,6 +293,7 @@ const READY: ReadonlySet<HostStatus> = new Set(["registered", "replaced", "up-to
 export async function applyMigration(
   findings: MigrationFinding[],
   hosts: DetectedHost[],
+  server: string,
   registrations: HostResult[],
   confirm: Confirm,
   env: NodeJS.ProcessEnv,
@@ -304,7 +321,7 @@ export async function applyMigration(
       result("declined");
       continue;
     }
-    const applied = await retire(host, found, env);
+    const applied = await retire(host, found, server, env);
     const status: HostStatus =
       applied.outcome === "changed" || applied.outcome === "unchanged" ? "retired" : applied.outcome;
     results.push({

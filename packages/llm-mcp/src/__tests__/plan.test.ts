@@ -140,7 +140,7 @@ describe("buildPlan", () => {
     );
     expect(plan).toMatchObject({ action: "conflict", reason: expect.stringContaining("(env GEMINI_API_KEY)") });
     expect(plan.manual).toBe(
-      `claude mcp remove --scope user ask-llm && claude mcp add --scope user ask-llm -- ${SERVER}`,
+      `preserve custom settings and command options you still need, then: claude mcp remove --scope user ask-llm && claude mcp add --scope user ask-llm -- ${SERVER}`,
     );
   });
 

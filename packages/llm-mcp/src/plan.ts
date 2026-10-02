@@ -134,20 +134,19 @@ function decide(host: DetectedHost, server: string): { action: PlanAction; reaso
       reason: `Ask LLM packages have their own settings (${host.custom}); setup leaves them in place`,
     };
   if (host.registered) {
+    const current = host.command ? `\`${host.command.join(" ")}\`` : "an unrecognized command";
+    if (host.custom)
+      return {
+        action: "conflict",
+        reason: `an ask-llm entry runs ${current} with its own settings (${host.custom}); setup will not carry them over or overwrite it`,
+      };
     if (isOwnRegistration(host, server))
       return { action: "up-to-date", reason: "already registered to this ask-llm-mcp" };
-    const current = host.command ? `\`${host.command.join(" ")}\`` : "an unrecognized command";
-    if (legacyPackage(host.command)) {
-      if (!host.custom && host.supported)
-        return {
-          action: "replace",
-          reason: `an ask-llm entry runs ${current} from an earlier install; setup replaces it`,
-        };
-      if (host.custom) {
-        const reason = `an ask-llm entry runs ${current} with its own settings (${host.custom}); setup will not carry them over or overwrite it`;
-        return { action: "conflict", reason };
-      }
-    }
+    if (legacyPackage(host.command) && host.supported)
+      return {
+        action: "replace",
+        reason: `an ask-llm entry runs ${current} from an earlier install; setup replaces it`,
+      };
     return { action: "conflict", reason: `an ask-llm entry already runs ${current}; setup will not overwrite it` };
   }
   if (host.present) return { action: "conflict", reason: `${UNUSABLE_ENTRY}; setup will not overwrite it` };
@@ -175,10 +174,10 @@ export function buildPlan(hosts: DetectedHost[], server: string): PlanEntry[] {
         action === "conflict" && host.spec.registrationState.kind === "packages" && host.custom
           ? `preserve package filters and custom settings in ${host.spec.configFile} when migrating to @ask-llm/mcp`
           : action === "manual" || (host.installed && !host.supported)
-          ? manualText(registration)
-          : action === "conflict" && mentionedPackage(host.command?.join(" "))
-            ? `preserve custom settings and command options you still need, then: ${replaceText(host, server)}`
-            : undefined,
+            ? manualText(registration)
+            : action === "conflict" && mentionedPackage(host.command?.join(" "))
+              ? `preserve custom settings and command options you still need, then: ${replaceText(host, server)}`
+              : undefined,
       replace: action === "replace" ? replaceText(host, server) : undefined,
       registration,
       skillsDir: host.spec.skillsDir,

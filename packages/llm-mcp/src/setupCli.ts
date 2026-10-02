@@ -320,7 +320,7 @@ export async function runSetupCli(args: string[], ownCli: string): Promise<numbe
       const registered = await applySetup(hosts, server.path, options.hosts, confirm, process.env);
       return [
         registered,
-        await applyMigration(findings, hosts, registered, confirm, process.env),
+        await applyMigration(findings, hosts, server.path, registered, confirm, process.env),
         [
           ...(await installPlugins(workflows.plugins, confirm, process.env)),
           ...(await installSkills(workflows.skills, confirm, process.env)),
