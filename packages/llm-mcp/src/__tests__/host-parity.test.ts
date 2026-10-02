@@ -220,39 +220,42 @@ describe("MCP and Pi tool contract", () => {
     expect(mcpOptions).toMatchObject({ prompt: "review this", reasoningEffort: "high", sandbox: "read-only" });
   });
 
-  it.each(["FAKE_CODEX", "x".repeat(70_000)])("returns the same default multi-llm report (case %#)", async (response) => {
-    vi.mocked(executeCodexCLI).mockResolvedValue({ response });
-    vi.mocked(executeGeminiCLI).mockRejectedValue(new Error("gemini quota"));
-    const { client, close } = await connectMcp(await detectProviders());
-    let viaMcp: Awaited<ReturnType<typeof client.callTool>>;
-    try {
-      viaMcp = await client.callTool({ name: "multi-llm", arguments: { prompt: "same" } });
-    } finally {
-      await close();
-    }
-    const viaPi = await ((await piTools()).find((tool) => tool.name === "multi-llm") as PiTool).execute("call", {
-      prompt: "same",
-    });
+  it.each(["FAKE_CODEX", "x".repeat(70_000)])(
+    "returns the same default multi-llm report (case %#)",
+    async (response) => {
+      vi.mocked(executeCodexCLI).mockResolvedValue({ response });
+      vi.mocked(executeGeminiCLI).mockRejectedValue(new Error("gemini quota"));
+      const { client, close } = await connectMcp(await detectProviders());
+      let viaMcp: Awaited<ReturnType<typeof client.callTool>>;
+      try {
+        viaMcp = await client.callTool({ name: "multi-llm", arguments: { prompt: "same" } });
+      } finally {
+        await close();
+      }
+      const viaPi = await ((await piTools()).find((tool) => tool.name === "multi-llm") as PiTool).execute("call", {
+        prompt: "same",
+      });
 
-    const strip = (report: unknown) => {
-      const { dispatchedAt: _at, totalDurationMs: _total, results, ...rest } = report as Record<string, unknown>;
-      return {
-        ...rest,
-        results: (results as Array<Record<string, unknown>>).map(({ durationMs: _ms, ...result }) => result),
+      const strip = (report: unknown) => {
+        const { dispatchedAt: _at, totalDurationMs: _total, results, ...rest } = report as Record<string, unknown>;
+        return {
+          ...rest,
+          results: (results as Array<Record<string, unknown>>).map(({ durationMs: _ms, ...result }) => result),
+        };
       };
-    };
-    expect(strip(viaMcp.structuredContent)).toEqual({
-      successCount: 1,
-      failureCount: 1,
-      results: [
-        { provider: "gemini", ok: false, error: "gemini quota" },
-        { provider: "codex", ok: true, response },
-      ],
-    });
-    expect(strip(viaPi.details.structuredContent)).toEqual(strip(viaMcp.structuredContent));
-    expect(viaPi.details.outputTruncated).toBe(response.length > 50_000);
-    if (response.length > 50_000) expect(viaPi.content[0].text.length).toBeLessThan(response.length);
-  });
+      expect(strip(viaMcp.structuredContent)).toEqual({
+        successCount: 1,
+        failureCount: 1,
+        results: [
+          { provider: "gemini", ok: false, error: "gemini quota" },
+          { provider: "codex", ok: true, response },
+        ],
+      });
+      expect(strip(viaPi.details.structuredContent)).toEqual(strip(viaMcp.structuredContent));
+      expect(viaPi.details.outputTruncated).toBe(response.length > 50_000);
+      if (response.length > 50_000) expect(viaPi.content[0].text.length).toBeLessThan(response.length);
+    },
+  );
 
   it("rejects an undetected provider in both hosts", async () => {
     const { client, close } = await connectMcp(await detectProviders());

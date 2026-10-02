@@ -182,12 +182,10 @@ describe("Pi provider tools", () => {
       }),
     );
 
-    const pending = (await harness())
-      .byName("ask-multi")
-      .execute("multi", {
-        prompt: "same bytes",
-        providers: ["ollama", "codex"],
-      });
+    const pending = (await harness()).byName("ask-multi").execute("multi", {
+      prompt: "same bytes",
+      providers: ["ollama", "codex"],
+    });
     await Promise.all([codexStarted, ollamaStarted]);
     releaseCodex();
     releaseOllama();
@@ -225,12 +223,10 @@ describe("Pi provider tools", () => {
 
   it("rejects duplicate providers instead of dispatching twice", async () => {
     await expect(
-      (await harness())
-        .byName("ask-multi")
-        .execute("multi", {
-          prompt: "review",
-          providers: ["codex", "codex"],
-        }),
+      (await harness()).byName("ask-multi").execute("multi", {
+        prompt: "review",
+        providers: ["codex", "codex"],
+      }),
     ).rejects.toThrow("must be unique");
   });
 });
