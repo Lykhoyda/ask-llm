@@ -1,5 +1,19 @@
 # @ask-llm/mcp
 
+## 1.2.0
+
+### Minor Changes
+
+- [#381](https://github.com/Lykhoyda/ask-llm/pull/381) [`6dd1dd6`](https://github.com/Lykhoyda/ask-llm/commit/6dd1dd6ad4116c21b3fbd5f84b7a74b9cf5ccf2b) Thanks [@Lykhoyda](https://github.com/Lykhoyda)! - Pi now has the `ask-llm` and `multi-llm` tools with the MCP server's input schemas and responses (and `ask-cursor-agent` with the server's schema); the earlier `ask-codex`, `ask-gemini`, `ask-grok`, `ask-ollama`, `ask-antigravity` and `ask-multi` tools remain as deprecated aliases, `docs/HOST-PARITY.md` declares what each host supports, and `ask-llm doctor` prints those rows for every installed host.
+
+- [#377](https://github.com/Lykhoyda/ask-llm/pull/377) [`162238f`](https://github.com/Lykhoyda/ask-llm/commit/162238fc6cd18bea39480773cbb2cc59f2f1234b) Thanks [@Lykhoyda](https://github.com/Lykhoyda)! - `ask-llm setup` now also installs the workflows, the plugin in Claude Code and the renamed `ask-llm-*` skills in Codex, Cursor, Grok Build, Gemini CLI, OpenCode and Pi through the pinned `skills` CLI (Antigravity gets a printed copy command). Setup installs missing skills, refreshes changed skill folders after comparing their complete contents, and installs the Pi package from the installed `@ask-llm/mcp` package folder, so installed workflows match the installed version. Identical skill contents are a no-op, foreign skills are left untouched, and both manual-copy planning and post-install verification use the same full-content comparison. For a detected Pi without an Ask LLM package registration, setup runs `pi install <package directory>` (also with `-y --host pi`), honors `PI_CODING_AGENT_DIR` consistently for detection, backup, installation and verification, and verifies the package list before reporting success; failed installs print the manual command. On Pi, run `ask-llm setup --host pi` to get `/skill:ask-llm-review`, `/skill:ask-llm-compare` and `/skill:ask-llm-brainstorm` in place of `/skill:codex-review`, `/skill:compare` and `/skill:brainstorm`.
+
+### Patch Changes
+
+- [#378](https://github.com/Lykhoyda/ask-llm/pull/378) [`a7ce87d`](https://github.com/Lykhoyda/ask-llm/commit/a7ce87d7bbc70837344590099e301df1a536465c) Thanks [@Lykhoyda](https://github.com/Lykhoyda)! - codex-pair reviews no longer time out at once when `ASK_CODEX_TIMEOUT_MS` is empty, non-numeric, zero, negative or infinite (they use the 800s default), and a debounced review keeps the timeout it was scheduled with when the frontmatter `timeoutMs` changes during the settle window.
+
+- [#380](https://github.com/Lykhoyda/ask-llm/pull/380) [`16ddec1`](https://github.com/Lykhoyda/ask-llm/commit/16ddec114dc7b7964176b24ddf546b036ea602da) Thanks [@Lykhoyda](https://github.com/Lykhoyda)! - The Grok CLI harness now reports a read-only sandbox that cannot start (for example an unreachable Docker socket) as a harness environment failure naming the sandbox, instead of a safety refusal.
+
 ## 1.1.0
 
 ### Minor Changes
