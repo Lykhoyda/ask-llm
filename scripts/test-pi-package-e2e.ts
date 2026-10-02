@@ -466,8 +466,8 @@ try {
   await waitForMessage("PI_PAIR_FINDING");
 
   // Failed built-in writes must not schedule provider work.
-  const beforeFailure = (await readFile(invocationLog, "utf8")).split("\n").filter(Boolean).length;
   await newSession();
+  const beforeFailure = (await readFile(invocationLog, "utf8")).split("\n").filter(Boolean).length;
   result = await runPrompt("SMOKE_FAILED_WRITE", "write");
   invariant(result.toolEnd.isError === true, "failed built-in write did not report isError");
   await sleep(150);
