@@ -92,7 +92,7 @@ After the global install above, run `ask-llm setup --host opencode`. Setup chang
 
 ### Pi
 
-Pi has no built-in MCP client, so it installs the host package instead, which registers native `ask-*` tools. After the global Ask LLM install above, install the package and shared skills:
+Pi has no built-in MCP client, so it installs the host package instead, which registers [native consultation tools](https://lykhoyda.github.io/ask-llm/plugin/pi#skills-and-tools). After the global Ask LLM install above, install the package and shared skills:
 
 ```bash
 ask-llm setup --host pi

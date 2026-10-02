@@ -128,16 +128,13 @@ Pi pairing works in TUI, RPC, and a long-lived JSON process. It is unsupported i
 
 ## Host feature matrix
 
+See the [host parity matrix](https://github.com/Lykhoyda/ask-llm/blob/main/docs/HOST-PARITY.md) for tools, skills, options, diagnostics, pairing, subagents, and the Stop gate across all supported hosts. The following workflow-specific limits supplement that matrix:
+
 | Capability | Claude Code | Cursor Agent | Codex CLI host | Pi |
 |---|---:|---:|---:|---:|
-| Provider MCP servers | Yes | Yes | Yes | No; native tools instead |
-| Review/compare/brainstorm skills | Yes | Agent Skills | Portable skills through setup | Yes, `/skill:<name>` + natural language; exact Grok + Sol mode calls native `ask-cursor-agent` twice and never `ask-multi`/Gemini |
-| Isolated reviewer subagents | Yes | Host-dependent | No | No; portable contracts run inline |
 | Independent `fable-review` | Yes | No; excluded | No | No; excluded |
 | `codex-image` | Yes | provider-dependent | provider-dependent | Yes, explicit workspace-write opt-in |
-| codex-pair | Claude per-edit hooks | On-demand persisted session | On-demand persisted session | Pi lifecycle extension |
 | Grok pairing | Explicit Cursor/xAI/CLI routes | Direct xAI/CLI routes | Direct xAI/CLI routes | Skill is installed but refuses; no consent/lifecycle adapter |
-| Blocking `blockOn: HIGH` Stop gate | Yes | No claim | No | **No**; findings are non-blocking |
 | Pairing in one-shot print mode | Hook-dependent | On-demand skill | On-demand skill | **No** |
 
 ## Update and remove
