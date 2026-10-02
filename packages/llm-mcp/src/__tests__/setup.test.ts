@@ -120,7 +120,14 @@ if (args[0] === "--version") { console.log("0.87.1"); process.exit(0); }
 appendFileSync(join(process.env.HOME, ".fake-pi-argv"), args.join("\\t") + "\\t\\n");
 if (${JSON.stringify(mode)} === "fail") { console.error("install failed"); process.exit(2); }
 if (${JSON.stringify(mode)} === "silent") process.exit(0);
-if (args.length !== 2 || args[0] !== "install") process.exit(9);
+if (args.length !== 2 || (args[0] !== "install" && args[0] !== "remove")) process.exit(9);
+if (args[0] === "remove") {
+  const file = join(process.env.PI_CODING_AGENT_DIR || join(process.env.HOME, ".pi/agent"), "settings.json");
+  const settings = JSON.parse(readFileSync(file, "utf8"));
+  settings.packages = settings.packages.filter((entry) => entry !== args[1]);
+  writeFileSync(file, JSON.stringify(settings));
+  process.exit(0);
+}
 const pkg = JSON.parse(readFileSync(join(args[1], "package.json"), "utf8"));
 writeFileSync(join(process.env.HOME, ".fake-pi-version"), pkg.version);
 const dir = process.env.PI_CODING_AGENT_DIR || join(process.env.HOME, ".pi/agent");
@@ -415,30 +422,49 @@ describe("ask-llm setup", () => {
     expect(JSON.parse(preview.stdout).hosts).toEqual([expect.objectContaining({ id: "pi", action: "up-to-date" })]);
   });
 
-  it("installs Pi skills after a bridge install and leaves the package registration unchanged", () => {
-    writeFileSync(join(bin, "pi"), '#!/bin/sh\n[ "$1" = "--version" ] && { echo "0.87.1"; exit 0; }\nexit 9\n', {
-      mode: 0o755,
-    });
+  it("moves a Pi bridge install onto this package, then removes the bridge", () => {
+    installPi();
     const settings = join(home, ".pi/agent/settings.json");
-    const content = JSON.stringify({ packages: ["npm:@ask-llm/plugin"] });
     mkdirSync(join(home, ".pi/agent"), { recursive: true });
-    writeFileSync(settings, content);
+    writeFileSync(settings, JSON.stringify({ theme: "dark", packages: ["npm:@ask-llm/plugin"] }));
 
     const preview = ask("setup", "--dry-run", "--json", "--host", "pi");
     expect(preview.status).toBe(0);
-    expect(JSON.parse(preview.stdout).hosts).toEqual([expect.objectContaining({ id: "pi", action: "up-to-date" })]);
+    const plan = JSON.parse(preview.stdout);
+    expect(plan.hosts).toEqual([
+      expect.objectContaining({
+        id: "pi",
+        action: "register",
+        reason: "replaces npm:@ask-llm/plugin, which setup then removes",
+      }),
+    ]);
+    expect(plan.migration).toEqual([
+      expect.objectContaining({
+        id: "pi",
+        entry: "npm:@ask-llm/plugin",
+        action: "retire",
+        change: "pi remove npm:@ask-llm/plugin",
+      }),
+    ]);
 
     const first = ask("setup", "-y", "--host", "pi");
-    expect(first.status, first.stderr).toBe(0);
-    expect(first.stdout).toContain("Pi 0.87.1: already registered");
+    expect(first.status, first.stdout + first.stderr).toBe(0);
+    expect(first.stdout).toContain("Pi 0.87.1: registered");
+    expect(first.stdout).toContain("Pi package npm:@ask-llm/plugin: removed");
     expect(first.stdout).toContain("Pi skills: installed");
-    expect(existsSync(join(home, ".agents/skills/ask-llm-review/SKILL.md"))).toBe(true);
-    expect(readFileSync(settings, "utf8")).toBe(content);
+    expect(readFileSync(join(home, ".fake-pi-argv"), "utf8").split("\n").filter(Boolean)).toEqual([
+      `install\t${packageRoot}\t`,
+      "remove\tnpm:@ask-llm/plugin\t",
+    ]);
+    expect(JSON.parse(readFileSync(settings, "utf8"))).toEqual({
+      theme: "dark",
+      packages: [relative(join(home, ".pi/agent"), packageRoot)],
+    });
 
     const second = ask("setup", "-y", "--host", "pi");
     expect(second.status, second.stderr).toBe(0);
-    expect(second.stdout).toContain("Pi skills: already installed");
-    expect(readFileSync(settings, "utf8")).toBe(content);
+    expect(second.stdout).toContain("Pi 0.87.1: already registered");
+    expect(second.stdout).not.toContain("npm:@ask-llm/plugin");
   });
 
   it("reports a foreign file-host entry with the entry it would use and leaves the file alone", () => {

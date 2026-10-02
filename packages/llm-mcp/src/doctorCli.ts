@@ -10,6 +10,7 @@ import {
 } from "@ask-llm/shared";
 import { PROVIDERS } from "./constants.js";
 import { type DetectedHost, detectHosts } from "./hosts/detect.js";
+import { legacyPackage } from "./hosts/legacy.js";
 import { type ParityRow, parityRowsFor } from "./hosts/parity.js";
 import type { ExecutorFn } from "./index.js";
 import { dispatchMultiLlm } from "./multiLlm.js";
@@ -164,6 +165,9 @@ function formatHost(host: DoctorHost): string[] {
   else if (host.registered && host.ownServer === false) {
     registration = `registered to \`${host.command?.join(" ") ?? "an unrecognized command"}\``;
   } else if (host.registered) registration = "registered";
+  if (host.legacy?.length) registration += `; earlier ${host.legacy.join(", ")} still listed`;
+  if (host.legacy?.length || (host.ownServer === false && legacyPackage(host.command)))
+    registration += " (`ask-llm setup` migrates it)";
   const restart = host.restart === "app-restart" ? "restart the app" : "start a new session";
   const lines = [
     `  - ${host.name}: installed${version}, ${registration}`,

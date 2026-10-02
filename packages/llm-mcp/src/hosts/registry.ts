@@ -16,16 +16,24 @@ import { opencode } from "./registrars/opencode.js";
 export type HostId = "claude" | "codex" | "agy" | "grok" | "gemini" | "cursor" | "claude-desktop" | "pi" | "opencode";
 
 export type Registration =
-  | { kind: "command"; argv: (server: string) => string[] }
+  // `remove` takes the server name, so setup can also retire an earlier entry; `refusesExisting` hosts
+  // reject an add over an existing name, where every other host overwrites it.
+  | {
+      kind: "command";
+      argv: (server: string) => string[];
+      remove?: (name: string) => string[];
+      refusesExisting?: boolean;
+    }
   | { kind: "json"; file: string; edit: (op: HostOp, server: string) => JsonEdit };
 
 export type RegistrationSource =
   // A `jsonc` sibling the host also loads makes the registration unknown, since setup never rewrites JSONC.
   | { kind: "json"; file: string; keyPath: string[]; jsonc?: string }
   | { kind: "toml"; file: string; table: string }
-  | { kind: "list"; args: string[] }
-  // `localDir` matches the local package entry `pi install <dir>` records relative to the settings folder.
-  | { kind: "packages"; file: string; sources: string[]; localDir?: string };
+  | { kind: "list"; args: string[]; name?: string }
+  // `localDir` matches the local package entry `pi install <dir>` records relative to the settings folder;
+  // `legacySources` are earlier Ask LLM packages that setup replaces.
+  | { kind: "packages"; file: string; sources: string[]; legacySources: string[]; localDir?: string };
 
 export interface HostSpec {
   id: HostId;
@@ -92,7 +100,12 @@ export function hostSpecs(env: NodeJS.ProcessEnv = process.env, platform = proce
       configHome: claudeHome,
       configFile: claudeFile,
       versionProbe: { args: ["--version"], pattern: /^(\d+\.\d+\.\d+) \(Claude Code\)/ },
-      registration: { kind: "command", argv: (server) => claude("add", server) },
+      registration: {
+        kind: "command",
+        argv: (server) => claude("add", server),
+        remove: (name) => claude("remove", "", name),
+        refusesExisting: true,
+      },
       // `claude mcp list` health-checks (spawns) every server, so read the user-scope file instead.
       registrationState: { kind: "json", file: claudeFile, keyPath: serverKey },
       skillsDir: join(claudeHome, "skills"),
@@ -109,7 +122,11 @@ export function hostSpecs(env: NodeJS.ProcessEnv = process.env, platform = proce
       configHome: codexHome,
       configFile: join(codexHome, "config.toml"),
       versionProbe: { args: ["--version"], pattern: /^codex-cli (\d+\.\d+\.\d+)/ },
-      registration: { kind: "command", argv: (server) => codex("add", server) },
+      registration: {
+        kind: "command",
+        argv: (server) => codex("add", server),
+        remove: (name) => codex("remove", "", name),
+      },
       registrationState: { kind: "list", args: ["mcp", "list", "--json"] },
       skillsDir: sharedSkills,
       skillsAgent: "codex",
@@ -122,7 +139,11 @@ export function hostSpecs(env: NodeJS.ProcessEnv = process.env, platform = proce
       configHome: join(home, ".gemini", "config"),
       configFile: agyConfig,
       versionProbe: plainVersion,
-      registration: { kind: "command", argv: (server) => antigravity("add", server) },
+      registration: {
+        kind: "command",
+        argv: (server) => antigravity("add", server),
+        remove: (name) => antigravity("remove", "", name),
+      },
       registrationState: { kind: "json", file: agyConfig, keyPath: serverKey },
       // agy reads global skills only from here, which no skills@1.7.0 agent id writes.
       skillsDir: join(home, ".gemini", "config", "skills"),
@@ -135,7 +156,11 @@ export function hostSpecs(env: NodeJS.ProcessEnv = process.env, platform = proce
       configHome: grokHome,
       configFile: grokConfig,
       versionProbe: { args: ["--version"], pattern: /^grok (\d+\.\d+\.\d+)/ },
-      registration: { kind: "command", argv: (server) => grok("add", server) },
+      registration: {
+        kind: "command",
+        argv: (server) => grok("add", server),
+        remove: (name) => grok("remove", "", name),
+      },
       // `grok mcp list` writes logs and docs under ~/.grok, so read the file its add command owns.
       registrationState: { kind: "toml", file: grokConfig, table: `mcp_servers.${SERVER_NAME}` },
       skillsDir: join(grokHome, "skills"),
@@ -149,7 +174,11 @@ export function hostSpecs(env: NodeJS.ProcessEnv = process.env, platform = proce
       configHome: geminiSettings,
       configFile: geminiSettings,
       versionProbe: plainVersion,
-      registration: { kind: "command", argv: (server) => gemini("add", server) },
+      registration: {
+        kind: "command",
+        argv: (server) => gemini("add", server),
+        remove: (name) => gemini("remove", "", name),
+      },
       registrationState: { kind: "json", file: geminiSettings, keyPath: serverKey },
       skillsDir: sharedSkills,
       skillsAgent: "gemini-cli",
@@ -194,7 +223,8 @@ export function hostSpecs(env: NodeJS.ProcessEnv = process.env, platform = proce
       registrationState: {
         kind: "packages",
         file: piSettings,
-        sources: ["npm:@ask-llm/mcp", "npm:@ask-llm/plugin"],
+        sources: ["npm:@ask-llm/mcp"],
+        legacySources: ["npm:@ask-llm/plugin"],
         localDir: PACKAGE_DIR,
       },
       // Pi discovers shared skills directly. The pinned CLI's pi-only target creates private copies;

@@ -123,10 +123,13 @@ describe("host discovery commands", () => {
       action: "register",
       registration: { kind: "command", argv: ["gemini", "mcp", "add", "--scope", "user", "ask-llm", server] },
     });
+    // The npx entry is an earlier install route, so setup offers to swap it for this install.
     expect(byId.cursor).toMatchObject({
-      action: "conflict",
+      action: "replace",
       registration: { kind: "json", file: join(home, ".cursor/mcp.json"), keyPath: ["mcpServers", "ask-llm"] },
+      replace: `replace mcpServers.ask-llm in ${join(home, ".cursor/mcp.json")} with ${JSON.stringify({ command: server, args: [] })}`,
     });
+    expect(plan.migration).toEqual([]);
     expect(byId.codex).toMatchObject({
       installed: false,
       action: "skip",
@@ -140,7 +143,7 @@ describe("host discovery commands", () => {
     expect(result.stdout).toContain(`gemini mcp add --scope user ask-llm ${server}`);
     expect(result.stdout).toContain(`claude mcp add --scope user ask-llm -- ${server}`);
     expect(result.stdout).toContain(
-      `merge ${JSON.stringify({ command: server, args: [] })} at mcpServers.ask-llm in ${join(home, ".cursor/mcp.json")}`,
+      `replace mcpServers.ask-llm in ${join(home, ".cursor/mcp.json")} with ${JSON.stringify({ command: server, args: [] })}`,
     );
     expect(result.stdout).toContain("nothing was changed");
   });
