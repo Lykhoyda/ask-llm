@@ -9,6 +9,8 @@ const calls = vi.hoisted(() => ({
   cursor: vi.fn(),
 }));
 
+// Pi loads the package's built entry; point it at the source under test.
+vi.mock("@ask-llm/mcp", async () => await import("../index.js"));
 vi.mock("@ask-llm/mcp/providers/codex/register", () => ({ executeTool: calls.codex }));
 vi.mock("@ask-llm/mcp/providers/gemini/register", () => ({ executeTool: calls.gemini }));
 vi.mock("@ask-llm/mcp/providers/grok/register", () => ({ executeTool: calls.grok }));
@@ -49,15 +51,17 @@ beforeEach(() => {
 });
 
 describe("Pi provider tools", () => {
-  it("registers provider tools, the Cursor harness, and deterministic ask-multi", () => {
+  it("registers the unified tools, the Cursor harness, and the deprecated provider aliases", () => {
     const { tools } = harness();
     expect(tools.map((tool) => tool.name)).toEqual([
+      "ask-llm",
+      "multi-llm",
+      "ask-cursor-agent",
       "ask-codex",
       "ask-gemini",
       "ask-grok",
       "ask-ollama",
       "ask-antigravity",
-      "ask-cursor-agent",
       "ask-multi",
     ]);
   });
@@ -81,9 +85,9 @@ describe("Pi provider tools", () => {
       "reasoningEffort",
     ]);
     expect(Object.keys(byName("ask-cursor-agent").parameters.properties ?? {})).toEqual([
-      "prompt",
       "provider",
       "model",
+      "prompt",
       "includeDirs",
       "sessionId",
     ]);

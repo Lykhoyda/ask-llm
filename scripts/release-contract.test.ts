@@ -165,13 +165,20 @@ describe("release contract", () => {
     });
   });
 
-  it("pins the Pi ask-* tool names and parameters", () => {
+  it("pins the Pi tool names and parameters", () => {
     const tools: Array<{ name: string; parameters: unknown }> = [];
-    askLlmPiExtension({
-      registerTool: (tool: { name: string; parameters: unknown }) => tools.push(tool),
-      on: () => {},
-      registerCommand: () => {},
-    } as unknown as Parameters<typeof askLlmPiExtension>[0]);
+    // Like the hermetic MCP fixtures: a Claude Code session would hide the claude provider.
+    const claudeCode = process.env.CLAUDECODE;
+    delete process.env.CLAUDECODE;
+    try {
+      askLlmPiExtension({
+        registerTool: (tool: { name: string; parameters: unknown }) => tools.push(tool),
+        on: () => {},
+        registerCommand: () => {},
+      } as unknown as Parameters<typeof askLlmPiExtension>[0]);
+    } finally {
+      if (claudeCode !== undefined) process.env.CLAUDECODE = claudeCode;
+    }
     expectFixture(
       "pi-tools",
       byName(tools).map(({ name, parameters }) => ({ name, parameters })),

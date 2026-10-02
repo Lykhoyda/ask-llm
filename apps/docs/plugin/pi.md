@@ -69,17 +69,24 @@ Representative commands:
 
 Pi reads these skills from the shared skills folder that `ask-llm setup --host pi` fills; the package itself ships only the extension. `ask-llm-fable-review` is not installed: independent Fable review would require a nested Pi session or provider bridge. `ask-llm-grok-pair` is installed for other hosts and refuses on Pi, because Grok pairing still needs a dedicated Pi consent/lifecycle adapter.
 
-Native tools:
+Native tools (Pi has no MCP client, so the extension registers them with the MCP server's input schemas; see the [host parity matrix](https://github.com/Lykhoyda/ask-llm/blob/main/docs/HOST-PARITY.md)):
+
+| Tool | Contract |
+|---|---|
+| `ask-llm` | the MCP `ask-llm` schema (`provider`, `model`, `reasoningEffort`, `includeDirs`, `sessionId`, `harness`, `preferred`, `sandbox`) and the same `AskResponse` in `details.structuredContent`; `provider` lists every eligible provider, and one that is not installed fails at call time |
+| `multi-llm` | the MCP `multi-llm` schema and report; omitted `providers` means every detected provider |
+| `ask-cursor-agent` | the MCP schema: model-neutral Cursor harness with separate provider + exact account model ID, safe relative `includeDirs`, and optional returned/resumed Cursor `sessionId`; the exact ID is echoed as `model`, Cursor's label stays separate as `reportedModel`, and read-only ask mode never falls back |
+
+Deprecated aliases, kept for existing skills and prompts:
 
 | Tool | Contract |
 |---|---|
 | `ask-codex` | complete prompt/model/reasoning/session/includeDirs/preferred/sandbox schema; read-only default |
 | `ask-gemini` | prompt/model/session schema and canonical quota fallback |
 | `ask-grok` | prompt/model/reasoning plus explicit `xai-api` or `grok-cli` harness; no model/harness fallback |
-| `ask-cursor-agent` | model-neutral Cursor harness with separate provider + exact account model ID, safe relative `includeDirs`, and optional returned/resumed Cursor `sessionId`; the exact ID is echoed as `model`, Cursor's label stays separate as `reportedModel`, and read-only ask mode never falls back |
 | `ask-ollama` | prompt/model/session schema; local-only, no silent model substitution |
 | `ask-antigravity` | prompt/includeDirs schema and supported-`agy` checks |
-| `ask-multi` | same prompt to 2–5 unique providers via bounded `Promise.allSettled`; stable input-order records and explicit failures |
+| `ask-multi` | same prompt to 2–5 unique providers via bounded `Promise.allSettled`, with per-provider options; stable input-order records and explicit failures |
 
 Tool output is bounded to Pi's 50KB/2000-line policy. Provider failures throw, so Pi records `isError: true`; Ask LLM usage remains raw metadata in `details` and is not misreported as Pi host-model cost.
 

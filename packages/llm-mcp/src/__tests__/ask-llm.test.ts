@@ -15,6 +15,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterAll, describe, expect, it, vi } from "vitest";
+import { PARITY_ROWS, parityRowsFor } from "../hosts/parity.js";
 
 const command = fileURLToPath(new URL("../../dist/ask-llm.js", import.meta.url));
 const version = JSON.parse(readFileSync(new URL("../../package.json", import.meta.url), "utf8")).version;
@@ -290,6 +291,8 @@ describe("host discovery commands", () => {
     });
     expect(byId.gemini).toMatchObject({ installed: true, registered: false });
     expect(byId.codex).toMatchObject({ installed: false, leftoverConfig: true });
+    expect(byId.claude.parity).toEqual(parityRowsFor("claude"));
+    expect(byId.codex).not.toHaveProperty("parity");
 
     const legacy = spawnSync(process.execPath, [server, "doctor", "--json"], {
       cwd: root,
@@ -329,5 +332,15 @@ describe("host discovery commands", () => {
     const result = ask("doctor");
     expect(result.stdout).toContain("Hosts:");
     expect(result.stdout).toContain("Claude Code: installed (2.1.284), registered to this ask-llm-mcp");
+  });
+
+  it("prints the host parity rows for each installed host only", () => {
+    const hosts = ask("doctor").stdout.split("Hosts:\n")[1];
+    const block = (name: string) =>
+      hosts.split(/\n {2}- /).find((entry) => entry.replace(/^ {2}- /, "").startsWith(name));
+    const claude = parityRowsFor("claude");
+    expect(block("Claude Code")).toContain(PARITY_ROWS.map((row) => `      ${row}: ${claude[row]}`).join("\n"));
+    expect(block("Codex CLI")).toContain("not installed");
+    expect(block("Codex CLI")).not.toContain("tools:");
   });
 });

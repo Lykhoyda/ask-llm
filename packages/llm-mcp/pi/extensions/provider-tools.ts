@@ -6,12 +6,26 @@ import { executeTool as executeCodexTool } from "@ask-llm/mcp/providers/codex/re
 import { executeTool as executeGeminiTool } from "@ask-llm/mcp/providers/gemini/register";
 import { executeTool as executeGrokTool } from "@ask-llm/mcp/providers/grok/register";
 import { executeTool as executeOllamaTool } from "@ask-llm/mcp/providers/ollama/register";
-import { CURSOR_PROVIDERS, executeCursorAgent } from "@ask-llm/mcp/cursor";
+import { executeCursorAgent } from "@ask-llm/mcp/cursor";
+import {
+  ASK_LLM_DESCRIPTION,
+  buildAskLlmSchema,
+  buildMultiLlmInputSchema,
+  cursorAgentInputSchema,
+  detectProviders,
+  formatMultiLlmReport,
+  getEligibleProviderKeys,
+  getLoadedExecutor,
+  MULTI_LLM_DESCRIPTION,
+  type ProviderStatus,
+  runAskLlm,
+  runMultiLlm,
+  toolInputJsonSchema,
+} from "@ask-llm/mcp";
 import { Type } from "typebox";
 
 const providerNames = ["codex", "gemini", "grok", "ollama", "antigravity"] as const;
 type ProviderName = (typeof providerNames)[number];
-const cursorProviderNames = CURSOR_PROVIDERS;
 
 type CanonicalResult =
   | string
@@ -75,23 +89,6 @@ const providerOptionSchemas = {
   ollama: Type.Omit(ollamaSchema, ["prompt"]),
   antigravity: Type.Omit(antigravitySchema, ["prompt"]),
 };
-
-const cursorAgentSchema = Type.Object({
-  prompt,
-  provider: StringEnum(cursorProviderNames, {
-    description:
-      "Canonical provider family of the Cursor model (claude, codex, gemini, grok); verified against the requested and CLI-reported model ID.",
-  }),
-  model: Type.String({
-    minLength: 1,
-    description:
-      "Exact ID from agent --list-models; echoed back as `model`, with the CLI display label in `reportedModel`. Auto and other noncanonical IDs are refused.",
-  }),
-  includeDirs: Type.Optional(relativeDirs),
-  sessionId: Type.Optional(
-    Type.String({ description: "Prior Cursor conversation ID to resume; omit first, then reuse the returned ID." }),
-  ),
-});
 
 const askMultiSchema = Type.Object({
   prompt,
@@ -191,45 +188,62 @@ function registerProviderTool<T extends ReturnType<typeof Type.Object>>(
 }
 
 export function registerProviderTools(pi: ExtensionAPI): void {
-  registerProviderTool(pi, {
-    name: "ask-codex",
-    label: "Ask Codex",
-    description:
-      "Consult OpenAI Codex through Ask LLM's canonical executor. Read-only by default; use workspace-write only for an explicit write flow such as codex-image. Output is bounded to Pi's 50KB/2000-line limits.",
-    parameters: codexSchema,
-    provider: "codex",
+  // Pi's factory never probes providers: schemas list every eligible provider, and the
+  // server's own detection runs once, on the first ask-llm or multi-llm call.
+  const eligible = getEligibleProviderKeys();
+  const askLlmSchema = buildAskLlmSchema(eligible);
+  const multiLlmSchema = buildMultiLlmInputSchema(eligible);
+  let detection: Promise<ProviderStatus> | undefined;
+  const detected = () => {
+    detection ??= detectProviders().catch((error: unknown) => {
+      detection = undefined;
+      throw error;
+    });
+    return detection;
+  };
+
+  pi.registerTool({
+    name: "ask-llm",
+    label: "Ask LLM",
+    description: `${ASK_LLM_DESCRIPTION} Output is bounded to Pi's 50KB/2000-line limits.`,
+    parameters: toolInputJsonSchema(askLlmSchema),
+    async execute(_toolCallId, params: Record<string, unknown>, signal, onUpdate) {
+      await detected();
+      const { text, structured } = await runAskLlm(askLlmSchema, params, {
+        getExecutor: getLoadedExecutor,
+        onProgress: progressForwarder(onUpdate, String(params.provider)),
+        signal,
+      });
+      const output = bounded(text);
+      return {
+        content: [{ type: "text", text: output.text }],
+        details: {
+          provider: structured.provider,
+          structuredContent: boundedStructured({ ...structured }),
+          askLlmUsage: structured.usage,
+          outputTruncated: output.truncated,
+        },
+      };
+    },
   });
-  registerProviderTool(pi, {
-    name: "ask-gemini",
-    label: "Ask Gemini",
-    description:
-      "Consult Gemini through Ask LLM's canonical executor (`gemini-3.1-pro-preview` → `gemini-3.8-flash` on quota), including validation, sessions, and structured response. Output is bounded to Pi's 50KB/2000-line limits.",
-    parameters: geminiSchema,
-    provider: "gemini",
-  });
-  registerProviderTool(pi, {
-    name: "ask-grok",
-    label: "Ask Grok",
-    description:
-      "Consult Grok through Ask LLM's canonical xAI API executor. Requires XAI_API_KEY and may incur metered API charges; no billing changes or model fallback are performed. Output is bounded to Pi's 50KB/2000-line limits.",
-    parameters: grokSchema,
-    provider: "grok",
-  });
-  registerProviderTool(pi, {
-    name: "ask-ollama",
-    label: "Ask Ollama",
-    description:
-      "Consult the configured local Ollama model through Ask LLM's canonical executor. No external provider data transfer; output is bounded to Pi's 50KB/2000-line limits.",
-    parameters: ollamaSchema,
-    provider: "ollama",
-  });
-  registerProviderTool(pi, {
-    name: "ask-antigravity",
-    label: "Ask Antigravity",
-    description:
-      "Consult Google's Antigravity CLI (agy) through Ask LLM's canonical executor. Requires a supported authenticated agy installation. Output is bounded to Pi's 50KB/2000-line limits.",
-    parameters: antigravitySchema,
-    provider: "antigravity",
+
+  pi.registerTool({
+    name: "multi-llm",
+    label: "Multi-LLM Parallel Dispatch",
+    description: `${MULTI_LLM_DESCRIPTION} Output is bounded to Pi's 50KB/2000-line limits.`,
+    parameters: toolInputJsonSchema(multiLlmSchema),
+    async execute(_toolCallId, params: Record<string, unknown>, signal) {
+      const { available } = await detected();
+      const report = await runMultiLlm(multiLlmSchema, params, { available, getExecutor: getLoadedExecutor, signal });
+      const output = bounded(formatMultiLlmReport(report));
+      return {
+        content: [{ type: "text", text: output.text }],
+        details: {
+          structuredContent: { ...report, results: report.results.map((result) => boundedStructured({ ...result })) },
+          outputTruncated: output.truncated,
+        },
+      };
+    },
   });
 
   pi.registerTool({
@@ -237,16 +251,17 @@ export function registerProviderTools(pi: ExtensionAPI): void {
     label: "Ask via Cursor Agent",
     description:
       "Use Cursor Agent as a model-neutral read-only harness. Provider (claude, codex, gemini, grok) and exact model ID are separate and must agree; Auto or noncanonical catalog IDs are refused. Prompts above 16KB are piped over stdin. Requires an authenticated Cursor CLI and may consume included usage or on-demand spend; no spend settings or fallback are changed.",
-    parameters: cursorAgentSchema,
-    async execute(_toolCallId, params, signal, onUpdate) {
+    parameters: toolInputJsonSchema(cursorAgentInputSchema),
+    async execute(_toolCallId, params: Record<string, unknown>, signal, onUpdate) {
+      const input = cursorAgentInputSchema.parse(params);
       const result = await executeCursorAgent({
-        prompt: params.prompt,
-        provider: params.provider,
-        model: params.model,
-        includeDirs: params.includeDirs,
-        sessionId: params.sessionId,
+        prompt: input.prompt,
+        provider: input.provider,
+        model: input.model,
+        includeDirs: input.includeDirs,
+        sessionId: input.sessionId,
         signal,
-        onProgress: progressForwarder(onUpdate, params.provider),
+        onProgress: progressForwarder(onUpdate, input.provider),
       });
       const text = bounded(result.response);
       return {
@@ -264,11 +279,52 @@ export function registerProviderTools(pi: ExtensionAPI): void {
     },
   });
 
+  registerProviderTool(pi, {
+    name: "ask-codex",
+    label: "Ask Codex",
+    description:
+      "Deprecated alias for `ask-llm` with provider codex. Consult OpenAI Codex through Ask LLM's canonical executor. Read-only by default; use workspace-write only for an explicit write flow such as codex-image. Output is bounded to Pi's 50KB/2000-line limits.",
+    parameters: codexSchema,
+    provider: "codex",
+  });
+  registerProviderTool(pi, {
+    name: "ask-gemini",
+    label: "Ask Gemini",
+    description:
+      "Deprecated alias for `ask-llm` with provider gemini. Consult Gemini through Ask LLM's canonical executor (`gemini-3.1-pro-preview` → `gemini-3.8-flash` on quota), including validation, sessions, and structured response. Output is bounded to Pi's 50KB/2000-line limits.",
+    parameters: geminiSchema,
+    provider: "gemini",
+  });
+  registerProviderTool(pi, {
+    name: "ask-grok",
+    label: "Ask Grok",
+    description:
+      "Deprecated alias for `ask-llm` with provider grok. Consult Grok through Ask LLM's canonical xAI API executor. Requires XAI_API_KEY and may incur metered API charges; no billing changes or model fallback are performed. Output is bounded to Pi's 50KB/2000-line limits.",
+    parameters: grokSchema,
+    provider: "grok",
+  });
+  registerProviderTool(pi, {
+    name: "ask-ollama",
+    label: "Ask Ollama",
+    description:
+      "Deprecated alias for `ask-llm` with provider ollama. Consult the configured local Ollama model through Ask LLM's canonical executor. No external provider data transfer; output is bounded to Pi's 50KB/2000-line limits.",
+    parameters: ollamaSchema,
+    provider: "ollama",
+  });
+  registerProviderTool(pi, {
+    name: "ask-antigravity",
+    label: "Ask Antigravity",
+    description:
+      "Deprecated alias for `ask-llm` with provider antigravity. Consult Google's Antigravity CLI (agy) through Ask LLM's canonical executor. Requires a supported authenticated agy installation. Output is bounded to Pi's 50KB/2000-line limits.",
+    parameters: antigravitySchema,
+    provider: "antigravity",
+  });
+
   pi.registerTool({
     name: "ask-multi",
     label: "Ask Multiple Providers",
     description:
-      "Send exactly the same prompt to two to five Ask LLM providers concurrently. Dispatch is deterministic and bounded; results preserve provider input order and report every failure instead of silently dropping it.",
+      "Deprecated alias for `multi-llm`, kept because it also accepts per-provider options. Send exactly the same prompt to two to five Ask LLM providers concurrently. Dispatch is deterministic and bounded; results preserve provider input order and report every failure instead of silently dropping it.",
     parameters: askMultiSchema,
     async execute(_toolCallId, params, signal, onUpdate) {
       const unique = [...new Set(params.providers)];
