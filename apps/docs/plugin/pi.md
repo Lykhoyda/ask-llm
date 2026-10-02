@@ -24,15 +24,9 @@ The extension reads provider credentials only indirectly by invoking the provide
 
 ## Install
 
-After the global Ask LLM install in the [Quick Start](https://github.com/Lykhoyda/ask-llm#quick-start), use this user-scoped install:
+Follow the [Pi Quick Start](https://github.com/Lykhoyda/ask-llm#pi) for the user-scoped installation. See the [setup reference](https://github.com/Lykhoyda/ask-llm/blob/main/packages/llm-mcp/README.md#command-compatibility) for local package registration, skill refresh, and alternate Pi profiles.
 
-```bash
-pi install npm:@ask-llm/plugin
-pi list
-ask-llm setup --host pi
-```
-
-The package provides the native tools and the codex-pair commands. The skills come from `ask-llm setup --host pi`, which installs them into Pi's skills folder with the pinned `skills` CLI from the installed Ask LLM package's own folder, so they match its version; an interactive session prints a one-line notice naming that command when no `ask-llm-*` skill is discovered. Skills are now named `/skill:ask-llm-*`: `/skill:codex-review`, `/skill:compare` and `/skill:brainstorm` are replaced by `/skill:ask-llm-review`, `/skill:ask-llm-compare` and `/skill:ask-llm-brainstorm`.
+The package provides the native tools and the codex-pair commands. An interactive session prints a one-line notice naming `ask-llm setup --host pi` when no `ask-llm-*` skill is discovered. See [Skills](/plugin/skills) for the portable names and earlier-name compatibility.
 
 Project-local install (loaded only after Pi project trust):
 
@@ -141,16 +135,27 @@ Pi pairing works in TUI, RPC, and a long-lived JSON process. It is unsupported i
 
 ## Update and remove
 
+For a local package registered by setup, update the global installation and refresh the skills:
+
+```bash
+npm install -g @ask-llm/mcp
+ask-llm setup --host pi
+```
+
+Restart Pi or use `/reload` to load the updated extension. To unregister it, run `pi remove <installed package directory>` with the local source path shown by `pi list`; this leaves the global npm installation in place.
+
+For an existing npm bridge installation:
+
 ```bash
 pi update npm:@ask-llm/plugin
 pi remove npm:@ask-llm/plugin
 ```
 
-Pi 0.83 removes its managed npm tree/settings entry. Separately installed skills remain; see [workflow removal](https://github.com/Lykhoyda/ask-llm/blob/main/packages/llm-mcp/README.md#command-compatibility). User-owned `.codex-pair/` logs/cache/state and the consent allowlist remain until you delete or revoke them explicitly.
+Removing the npm bridge deletes Pi's managed npm tree/settings entry. Separately installed skills remain; see [workflow removal](https://github.com/Lykhoyda/ask-llm/blob/main/packages/llm-mcp/README.md#command-compatibility). User-owned `.codex-pair/` logs/cache/state and the consent allowlist remain until you delete or revoke them explicitly.
 
 ## Troubleshooting
 
-- **Package absent:** run `pi list`; reinstall with `pi install npm:@ask-llm/plugin`.
+- **Package absent:** run `pi list`; rerun the [Pi Quick Start](https://github.com/Lykhoyda/ask-llm#pi) setup step.
 - **Skills absent:** confirm `enableSkillCommands` is true, run `/reload`, and check `/skill:ask-llm-review`; if it is missing, run `ask-llm setup --host pi`. `ask-llm-fable-review` should remain absent.
 - **Project package absent:** trust the project (`/trust`, then restart) or use `--approve` for a one-run check.
 - **Pairing refuses a marker:** project trust and user-owned consent are both required; run `/codex-pair` in interactive Pi.

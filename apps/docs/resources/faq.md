@@ -98,7 +98,7 @@ Use the `multi-llm` MCP tool:
 Use multi-llm to send "is this thread-safe?" to Gemini and Codex
 ```
 
-Or use the `/compare` skill from the Claude Code or Pi host package for the same thing with a nicer interactive surface. Use `/multi-review` if you want verified code review findings rather than raw responses; see the [Pi host guide](/plugin/pi) for its native-tool transport and limitations.
+For an interactive comparison or verified code review, use the [compare or multi-review workflows](/plugin/skills). That reference lists portable names and Claude Code compatibility aliases; see the [Pi host guide](/plugin/pi) for Pi's command syntax, native-tool transport, and limitations.
 
 ### Which model should I use?
 

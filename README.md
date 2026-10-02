@@ -95,7 +95,6 @@ After the global install above, run `ask-llm setup --host opencode`. Setup chang
 Pi has no built-in MCP client, so it installs the host package instead, which registers native `ask-*` tools. After the global Ask LLM install above, install the package and shared skills:
 
 ```bash
-pi install npm:@ask-llm/plugin
 ask-llm setup --host pi
 ```
 
@@ -160,7 +159,7 @@ Review agents follow a 4-phase pipeline inspired by [Anthropic's code-review plu
 
 See the [host feature matrix](https://lykhoyda.github.io/ask-llm/plugin/pi#host-feature-matrix) for workflow availability, pairing modes, and lifecycle limits.
 
-Pi specifics: codex-pair requires the repository marker, Pi project trust, **and** interactive user-owned consent via `/codex-pair`; a committed marker alone never authorizes source transfer or cost. Pi surfaces findings non-blockingly and does not claim Claude's blocking Stop gate or one-shot print parity. `fable-review` is Claude Code-only. Provider CLI authentication is separate from Pi's host-model login. Update or remove with `pi update npm:@ask-llm/plugin` / `pi remove npm:@ask-llm/plugin`.
+Pi specifics: codex-pair requires the repository marker, Pi project trust, **and** interactive user-owned consent via `/codex-pair`; a committed marker alone never authorizes source transfer or cost. Pi surfaces findings non-blockingly and does not claim Claude's blocking Stop gate or one-shot print parity. `fable-review` is Claude Code-only. Provider CLI authentication is separate from Pi's host-model login. See the Pi guide to [update or remove](https://lykhoyda.github.io/ask-llm/plugin/pi#update-and-remove).
 
 </details>
 
