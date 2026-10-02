@@ -26,7 +26,7 @@ export type Registrar = (op: HostOp, server: string) => string[];
 
 export const REGISTRARS: Partial<Record<HostId, Registrar>> = { claude, codex, agy: antigravity, grok, gemini };
 
-export function canApply(host: DetectedHost): boolean {
+export function canRemove(host: DetectedHost): boolean {
   return host.spec.registration.kind === "json" || REGISTRARS[host.id] !== undefined;
 }
 
@@ -38,8 +38,8 @@ export function changeText(host: DetectedHost, op: HostOp, server: string): stri
     const at = `${keyPath.join(".")} in ${registration.file}`;
     return op === "add" ? `add ${JSON.stringify(value)} at ${at}` : `remove ${at}`;
   }
-  const registrar = REGISTRARS[host.id];
-  return registrar && commandText(registrar(op, server));
+  const argv = op === "add" ? registration.argv(server) : REGISTRARS[host.id]?.(op, server);
+  return argv && commandText(argv);
 }
 
 export interface Applied {
@@ -140,8 +140,13 @@ export async function applyRegistrar(
   env: NodeJS.ProcessEnv,
 ): Promise<Applied> {
   const { registration } = host.spec;
-  const registrar = REGISTRARS[host.id];
-  if (registration.kind === "command" && (!registrar || !host.binary))
+  const argv =
+    registration.kind === "command"
+      ? op === "add"
+        ? registration.argv(server)
+        : REGISTRARS[host.id]?.(op, server)
+      : undefined;
+  if (registration.kind === "command" && (!argv || !host.binary))
     return { outcome: "failed", detail: `${host.name} has no command registrar` };
   const spawnEnv = { ...env, PATH: getSpawnEnv().PATH };
   const read = () => readRegistration(host.spec.registrationState, host.binary, spawnEnv);
@@ -164,7 +169,7 @@ export async function applyRegistrar(
   } else {
     const unsaved = backUp();
     if (unsaved) return { outcome: "failed", detail: unsaved };
-    change = await runRegistrar(host, (registrar as Registrar)(op, server), op, spawnEnv);
+    change = await runRegistrar(host, argv as string[], op, spawnEnv);
   }
   const applied = "outcome" in change ? change : verify(host, op, server, change, await read());
   return backup ? { ...applied, backup } : applied;

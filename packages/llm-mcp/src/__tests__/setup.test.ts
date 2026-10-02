@@ -109,6 +109,32 @@ function calls(): Record<string, string[][]> {
   return Object.fromEntries(HOSTS.map((name) => [name, fakeArgv(home, name)]));
 }
 
+function installPi(mode = "ok"): void {
+  writeFileSync(
+    join(bin, "pi"),
+    `#!${process.execPath}
+import { appendFileSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { join, relative } from "node:path";
+const args = process.argv.slice(2);
+if (args[0] === "--version") { console.log("0.87.1"); process.exit(0); }
+appendFileSync(join(process.env.HOME, ".fake-pi-argv"), args.join("\\t") + "\\t\\n");
+if (${JSON.stringify(mode)} === "fail") { console.error("install failed"); process.exit(2); }
+if (${JSON.stringify(mode)} === "silent") process.exit(0);
+if (args.length !== 2 || args[0] !== "install") process.exit(9);
+const pkg = JSON.parse(readFileSync(join(args[1], "package.json"), "utf8"));
+writeFileSync(join(process.env.HOME, ".fake-pi-version"), pkg.version);
+const dir = join(process.env.HOME, ".pi/agent");
+mkdirSync(dir, { recursive: true });
+const file = join(dir, "settings.json");
+let settings = {};
+try { settings = JSON.parse(readFileSync(file, "utf8")); } catch (error) { if (error.code !== "ENOENT") throw error; }
+settings.packages = [...(settings.packages ?? []), relative(dir, args[1])];
+writeFileSync(file, JSON.stringify(settings));
+`,
+    { mode: 0o755 },
+  );
+}
+
 describe("ask-llm setup", () => {
   it("registers every detected command host with -y, and a second run changes nothing", () => {
     const first = ask("setup", "-y");
@@ -254,19 +280,86 @@ describe("ask-llm setup", () => {
     expect(result.stdout).toContain("Gemini CLI: skipped (not installed)");
   });
 
-  it("lists an installed host it does not register with its manual step instead of dropping it", () => {
-    writeFileSync(join(bin, "pi"), '#!/bin/sh\necho "0.87.1"\n', { mode: 0o755 });
-    const result = ask("setup", "-y");
+  it.each([{ selection: [] }, { selection: ["--host", "pi"] }])(
+    "installs Pi from this package with setup -y $selection",
+    ({ selection }) => {
+      installPi();
+      const settings = join(home, ".pi/agent/settings.json");
+      const original = JSON.stringify({ theme: "dark", packages: ["npm:other"] });
+      mkdirSync(join(settings, ".."), { recursive: true });
+      writeFileSync(settings, original);
+
+      const preview = ask("setup", "--dry-run", "--json", "--host", "pi");
+      const plan = JSON.parse(preview.stdout);
+      expect(plan.hosts[0].registration.argv).toEqual(["pi", "install", packageRoot]);
+      expect(plan.workflows.skills.source).toEqual({ dir: packageRoot, version: INSTALLED_VERSION });
+      expect(fakeArgv(home, "pi")).toEqual([]);
+      expect(readFileSync(settings, "utf8")).toBe(original);
+
+      const result = ask("setup", "-y", ...selection);
+      expect(result.status, result.stderr).toBe(selection.length ? 0 : 1);
+      expect(result.stdout).toContain("Pi 0.87.1: registered");
+      expect(result.stdout).toContain("Pi skills: installed");
+      expect(result.stdout).not.toContain("Run it manually: pi install");
+      expect(fakeArgv(home, "pi")).toEqual([["install", packageRoot]]);
+      expect(readFileSync(join(home, ".fake-pi-version"), "utf8")).toBe(INSTALLED_VERSION);
+      const installed = readFileSync(settings, "utf8");
+      expect(JSON.parse(installed)).toEqual({
+        theme: "dark",
+        packages: ["npm:other", relative(join(home, ".pi/agent"), packageRoot)],
+      });
+      const backup = backups().find((file) => file.startsWith(".pi/agent/settings.json.ask-llm-backup-"));
+      expect(backup).toBeDefined();
+      expect(readFileSync(join(home, backup as string), "utf8")).toBe(original);
+
+      const second = ask("setup", "-y", "--host", "pi");
+      expect(second.status).toBe(0);
+      expect(second.stdout).toContain("Pi 0.87.1: already registered");
+      expect(second.stdout).toContain("Pi skills: already installed");
+      const removed = ask("remove", "-y", "--host", "pi");
+      expect(removed.stdout).toContain("remove does not handle Pi yet");
+      expect(fakeArgv(home, "pi")).toEqual([["install", packageRoot]]);
+      expect(readFileSync(settings, "utf8")).toBe(installed);
+    },
+  );
+
+  it.each(["fail", "silent"])("reports Pi install mode %s as failed with the local manual command", (mode) => {
+    installPi(mode);
+    const result = ask("setup", "-y", "--host", "pi");
     expect(result.status).toBe(1);
-    expect(result.stdout).toContain("Pi 0.87.1: not handled by this release (setup does not register Pi yet)");
-    expect(result.stdout).toContain(`Run it manually: pi install ${packageRoot}\n`);
-    const removed = ask("remove", "-y");
-    expect(removed.stdout).toContain("Pi 0.87.1: not handled by this release (remove does not handle Pi yet)");
-    expect(removed.stdout).not.toContain("trusted folders");
-    expect(ask("setup", "-y", "--host", "pi").stdout).toContain("Pi 0.87.1: manual (setup does not register Pi yet)");
+    expect(result.stdout).toContain("Pi 0.87.1: failed");
+    expect(result.stdout).toContain(mode === "fail" ? "install failed (exit 2)" : "entry was not found after");
+    expect(result.stdout).toContain(`Run it manually: pi install ${packageRoot}`);
+    expect(fakeArgv(home, "pi")).toEqual([["install", packageRoot]]);
+    expect(existsSync(join(home, ".pi/agent/settings.json"))).toBe(false);
   });
 
-  it("recognizes Pi's record of the printed local install as this package's registration", () => {
+  it("leaves Pi untouched when its registration is declined", async () => {
+    installPi();
+    const questions: string[] = [];
+    const hosts = await detectHosts(env);
+    const pi = hosts.find(({ id }) => id === "pi");
+    const registration = pi?.spec.registration;
+    expect(registration?.kind).toBe("command");
+    const results = await applySetup(
+      hosts,
+      server,
+      ["pi"],
+      async (question) => {
+        questions.push(question);
+        return false;
+      },
+      env,
+    );
+    expect(results).toEqual([expect.objectContaining({ id: "pi", status: "declined" })]);
+    expect(questions).toEqual([
+      `Register Ask LLM with Pi? Runs: ${registration?.kind === "command" ? commandText(registration.argv(server)) : ""}`,
+    ]);
+    expect(fakeArgv(home, "pi")).toEqual([]);
+    expect(existsSync(join(home, ".pi/agent/settings.json"))).toBe(false);
+  });
+
+  it("recognizes Pi's record of a local install as this package's registration", () => {
     writeFileSync(join(bin, "pi"), '#!/bin/sh\n[ "$1" = "--version" ] && { echo "0.87.1"; exit 0; }\nexit 9\n', {
       mode: 0o755,
     });

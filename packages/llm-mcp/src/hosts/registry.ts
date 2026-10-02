@@ -172,6 +172,7 @@ export function hostSpecs(env: NodeJS.ProcessEnv = process.env, platform = proce
       name: "Pi",
       binaries: ["pi"],
       configHome: join(home, ".pi"),
+      configFile: piSettings,
       versionProbe: plainVersion,
       // Pi loads the installed package in place, so its extension always matches this setup's version.
       registration: { kind: "command", argv: () => ["pi", "install", PACKAGE_DIR] },
