@@ -1,4 +1,15 @@
-import { cpSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { execFileSync } from "node:child_process";
+import {
+  cpSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -39,6 +50,18 @@ function hosts(installed: HostId[]): DetectedHost[] {
 
 const argv = () => readFileSync(join(home, "npx-argv"), "utf8").trim().split("\n");
 const yes = async () => true;
+
+function fixturePackage(): string {
+  const source = join(home, "installed package");
+  for (const name of ["ask-llm-review", "ask-llm-compare"]) {
+    const dir = join(source, "skills", name);
+    mkdirSync(join(dir, "references"), { recursive: true });
+    writeFileSync(join(dir, "SKILL.md"), `---\nname: ${name}\n---\nVersion one\n`);
+    writeFileSync(join(dir, "references", "data.bin"), Buffer.from([0, 1, 255]));
+  }
+  writeFileSync(join(source, "package.json"), JSON.stringify({ name: "@ask-llm/mcp", version: "1.0.0" }));
+  return source;
+}
 
 describe("portable skill list", () => {
   it("is every namespaced folder except the Claude-only fable-review, never an old-name pointer", () => {
@@ -136,7 +159,7 @@ describe("installSkills through the pinned skills CLI", () => {
     expect(result.detail).toContain("Invalid agents: unknown-agent");
   });
 
-  it("changes nothing when every portable skill is already present", async () => {
+  it("changes nothing when every portable skill has identical contents", async () => {
     await installSkills(planSkills(hosts(["codex"]), undefined, PACKAGE_ROOT), yes, env);
     const again = planSkills(hosts(["codex"]), undefined, PACKAGE_ROOT);
     expect(again.argv).toBeUndefined();
@@ -145,6 +168,85 @@ describe("installSkills through the pinned skills CLI", () => {
       expect.objectContaining({ id: "codex", status: "up-to-date" }),
     ]);
     expect(argv()).toHaveLength(1);
+  });
+
+  it("refreshes changed skill text on upgrade while leaving identical and foreign skills untouched", async () => {
+    const source = fixturePackage();
+    const installed = join(home, ".agents", "skills");
+    await installSkills(planSkills(hosts(["codex"]), undefined, source), yes, env);
+    const foreign = join(installed, "my-skill", "SKILL.md");
+    mkdirSync(join(foreign, ".."));
+    writeFileSync(foreign, "user-owned");
+    const unchanged = join(installed, "ask-llm-compare", "SKILL.md");
+    const before = [statSync(unchanged).mtimeMs, statSync(foreign).mtimeMs];
+    const updated = "---\nname: ask-llm-review\n---\nVersion two\n";
+    writeFileSync(join(source, "skills", "ask-llm-review", "SKILL.md"), updated);
+    writeFileSync(join(source, "package.json"), JSON.stringify({ name: "@ask-llm/mcp", version: "2.0.0" }));
+
+    const plan = planSkills(hosts(["codex"]), undefined, source);
+    expect(plan.source.version).toBe("2.0.0");
+    expect(plan.argv?.slice(5)).toEqual(["--skill", "ask-llm-review", "-g", "-a", "codex", "-y"]);
+    expect(await installSkills(plan, yes, env)).toEqual([expect.objectContaining({ status: "installed" })]);
+    expect(readFileSync(join(installed, "ask-llm-review", "SKILL.md"), "utf8")).toBe(updated);
+    expect(readFileSync(foreign, "utf8")).toBe("user-owned");
+    expect([statSync(unchanged).mtimeMs, statSync(foreign).mtimeMs]).toEqual(before);
+    expect(planSkills(hosts(["codex"]), undefined, source).argv).toBeUndefined();
+    expect(argv()).toHaveLength(2);
+  });
+
+  it.each(["changed bytes", "missing file", "extra file", "wrong type"])(
+    "detects and repairs %s in a skill's supporting files",
+    async (defect) => {
+      const source = fixturePackage();
+      await installSkills(planSkills(hosts(["codex"]), undefined, source), yes, env);
+      const reference = join(home, ".agents", "skills", "ask-llm-review", "references", "data.bin");
+      if (defect === "changed bytes") writeFileSync(reference, Buffer.from([0, 2, 255]));
+      if (defect === "missing file") rmSync(reference);
+      if (defect === "extra file") writeFileSync(`${reference}.old`, "obsolete");
+      if (defect === "wrong type") {
+        rmSync(reference);
+        mkdirSync(reference);
+      }
+      const plan = planSkills(hosts(["codex"]), undefined, source);
+      expect(plan.agents.map(({ id }) => id)).toEqual(["codex"]);
+      writeFileSync(join(home, "npx-mode"), "silent");
+      const [failed] = await installSkills(plan, yes, env);
+      expect(failed).toMatchObject({ status: "failed", manual: plan.command });
+      expect(failed.detail).toContain("does not match the packaged Ask LLM skills");
+      writeFileSync(join(home, "npx-mode"), "ok");
+      expect(await installSkills(plan, yes, env)).toEqual([expect.objectContaining({ status: "installed" })]);
+      expect(readFileSync(reference)).toEqual(Buffer.from([0, 1, 255]));
+      expect(existsSync(`${reference}.old`)).toBe(false);
+      expect(planSkills(hosts(["codex"]), undefined, source).argv).toBeUndefined();
+    },
+  );
+
+  it("refreshes Antigravity through its manual command and preserves foreign skills", () => {
+    const source = fixturePackage();
+    const dir = join(home, ".gemini", "config", "skills");
+    const foreign = join(dir, "my-skill", "SKILL.md");
+    mkdirSync(join(foreign, ".."), { recursive: true });
+    writeFileSync(foreign, "user-owned");
+    const runCopy = () => {
+      const plan = planSkills(hosts(["agy"]), undefined, source);
+      expect(plan.manual).toHaveLength(1);
+      execFileSync("sh", ["-c", plan.manual[0].command], { env });
+    };
+    runCopy();
+    expect(planSkills(hosts(["agy"]), undefined, source).upToDate).toHaveLength(1);
+    const reference = join(dir, "ask-llm-review", "references", "data.bin");
+    writeFileSync(reference, "stale");
+    writeFileSync(`${reference}.old`, "obsolete");
+    const updated = "---\nname: ask-llm-review\n---\nVersion two\n";
+    writeFileSync(join(source, "skills", "ask-llm-review", "SKILL.md"), updated);
+    runCopy();
+    expect(readFileSync(join(dir, "ask-llm-review", "SKILL.md"), "utf8")).toBe(updated);
+    expect(readFileSync(reference)).toEqual(Buffer.from([0, 1, 255]));
+    expect(existsSync(`${reference}.old`)).toBe(false);
+    expect(readFileSync(foreign, "utf8")).toBe("user-owned");
+    const again = planSkills(hosts(["agy"]), undefined, source);
+    expect(again.manual).toEqual([]);
+    expect(again.upToDate).toEqual([{ id: "agy", name: "Antigravity" }]);
   });
 
   it.each(["codex", "cursor"] as const)("reuses Pi's shared skills when adding %s", async (nextHost) => {

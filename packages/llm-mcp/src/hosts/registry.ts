@@ -1,4 +1,6 @@
-import { join } from "node:path";
+import { homedir } from "node:os";
+import { join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { PACKAGE_DIR } from "../packageMetadata.js";
 import type { HostOp } from "./apply.js";
 import type { JsonEdit } from "./json-merge.js";
@@ -31,6 +33,7 @@ export interface HostSpec {
   binaries: string[];
   apps?: string[];
   configHome: string;
+  env?: NodeJS.ProcessEnv;
   // The file setup or the host's own mcp add/remove rewrites; backed up before each write.
   configFile?: string;
   versionProbe?: { args: string[]; pattern: RegExp };
@@ -63,7 +66,18 @@ export function hostSpecs(env: NodeJS.ProcessEnv = process.env, platform = proce
       ? join(home, "Library", "Application Support", "Claude")
       : join(env.XDG_CONFIG_HOME ?? join(home, ".config"), "Claude");
   const desktopConfig = join(desktopHome, "claude_desktop_config.json");
-  const piSettings = join(home, ".pi", "agent", "settings.json");
+  const piUserHome = env.HOME ?? homedir();
+  const piOverride = env.PI_CODING_AGENT_DIR || join(piUserHome, ".pi", "agent");
+  const piHome = resolve(
+    piOverride === "~"
+      ? piUserHome
+      : piOverride.startsWith("~/")
+        ? join(piUserHome, piOverride.slice(2))
+        : piOverride.startsWith("file://")
+          ? fileURLToPath(piOverride)
+          : piOverride,
+  );
+  const piSettings = join(piHome, "settings.json");
   const opencodeHome = join(env.XDG_CONFIG_HOME ?? join(home, ".config"), "opencode");
   const opencodeConfig = join(opencodeHome, "opencode.json");
   // skills@1.7.0 installs every "universal" agent (Codex, Cursor, Gemini CLI, OpenCode) into this one folder.
@@ -171,7 +185,8 @@ export function hostSpecs(env: NodeJS.ProcessEnv = process.env, platform = proce
       id: "pi",
       name: "Pi",
       binaries: ["pi"],
-      configHome: join(home, ".pi"),
+      configHome: piHome,
+      env: { PI_CODING_AGENT_DIR: piHome },
       configFile: piSettings,
       versionProbe: plainVersion,
       // Pi loads the installed package in place, so its extension always matches this setup's version.

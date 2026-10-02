@@ -148,7 +148,7 @@ export async function applyRegistrar(
       : undefined;
   if (registration.kind === "command" && (!argv || !host.binary))
     return { outcome: "failed", detail: `${host.name} has no command registrar` };
-  const spawnEnv = { ...env, PATH: getSpawnEnv().PATH };
+  const spawnEnv = { ...env, ...host.spec.env, PATH: getSpawnEnv().PATH };
   const read = () => readRegistration(host.spec.registrationState, host.binary, spawnEnv);
   const refused = gate(host, await read(), op, server);
   if (refused) return refused;

@@ -139,6 +139,7 @@ export const FAKE_NPX = `#!/bin/sh
 printf '%s\\n' "$*" >> "$HOME/npx-argv"
 mode=$(cat "$HOME/npx-mode" 2>/dev/null || echo ok)
 [ "$mode" = fail ] && { echo "network error" >&2; exit 1; }
+[ "$mode" = silent ] && exit 0
 agents=$(printf '%s\\n' "$@" | sed -n '/^-a$/,/^-y$/p' | sed '1d;$d')
 for agent in $agents; do
   case $agent in codex|cursor|gemini-cli|opencode|grok|pi) ;; *) echo "Invalid agents: $agent" >&2; exit 1 ;; esac
@@ -150,7 +151,8 @@ for skill in $skills; do
 done
 for agent in $agents; do
   case $agent in grok) dir="$HOME/.grok/skills" ;; pi) dir="$HOME/.pi/agent/skills" ;; *) dir="$HOME/.agents/skills" ;; esac
-  for skill in $skills; do mkdir -p "$dir/$skill" && cp "$source/skills/$skill/SKILL.md" "$dir/$skill/SKILL.md"; done
+  mkdir -p "$dir"
+  for skill in $skills; do rm -rf "$dir/$skill" && cp -R "$source/skills/$skill" "$dir/$skill" || exit 1; done
 done
 `;
 

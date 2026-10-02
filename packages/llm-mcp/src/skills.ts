@@ -1,4 +1,4 @@
-import { existsSync, readdirSync } from "node:fs";
+import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { firstLine } from "./hosts/apply.js";
 import type { DetectedHost } from "./hosts/detect.js";
@@ -52,8 +52,21 @@ export function portableSkills(dir = join(PACKAGE_DIR, "skills")): string[] {
     .sort();
 }
 
-function hasAll(dir: string, names: string[]): boolean {
-  return names.every((name) => existsSync(join(dir, name, "SKILL.md")));
+function sameContents(source: string, target: string): boolean {
+  try {
+    const original = statSync(source);
+    const installed = statSync(target);
+    if (original.isDirectory() && installed.isDirectory()) {
+      const entries = readdirSync(source);
+      return (
+        entries.length === readdirSync(target).length &&
+        entries.every((name) => sameContents(join(source, name), join(target, name)))
+      );
+    }
+    return original.isFile() && installed.isFile() && readFileSync(source).equals(readFileSync(target));
+  } catch {
+    return false;
+  }
 }
 
 export function planSkills(
@@ -65,20 +78,29 @@ export function planSkills(
   const names = portableSkills(skillsDir);
   const source = { dir: packageDir, version: packageVersion(packageDir) };
   const plan: SkillsPlan = { source, names, agents: [], upToDate: [], manual: [] };
+  const needed = new Set<string>();
   for (const { id, name, installed, spec } of hosts) {
     const dir = spec.skillsDir;
     if (!installed || (selected && !selected.includes(id)) || spec.pluginInstall || !dir) continue;
-    if (hasAll(dir, names)) plan.upToDate.push({ id, name });
-    else if (spec.skillsAgent) plan.agents.push({ id, name, agent: spec.skillsAgent, dir });
-    else {
-      const copy = ["cp", "-R", ...names.map((skill) => join(skillsDir, skill)), `${dir}/`];
-      plan.manual.push({ id, name, command: `${commandText(["mkdir", "-p", dir])} && ${commandText(copy)}` });
+    const changed = names.filter((skill) => !sameContents(join(skillsDir, skill), join(dir, skill)));
+    if (changed.length === 0) plan.upToDate.push({ id, name });
+    else if (spec.skillsAgent) {
+      plan.agents.push({ id, name, agent: spec.skillsAgent, dir });
+      for (const skill of changed) needed.add(skill);
+    } else {
+      const remove = ["rm", "-rf", "--", ...changed.map((skill) => join(dir, skill))];
+      const copy = ["cp", "-R", ...changed.map((skill) => join(skillsDir, skill)), `${dir}/`];
+      plan.manual.push({
+        id,
+        name,
+        command: [commandText(["mkdir", "-p", dir]), commandText(remove), commandText(copy)].join(" && "),
+      });
     }
   }
   if (plan.agents.length > 0) {
     const agents = [...new Set(plan.agents.map(({ agent }) => agent))];
     const cli = ["npx", "-y", `skills@${SKILLS_CLI_VERSION}`, "add", packageDir];
-    plan.argv = [...cli, "--skill", ...names, "-g", "-a", ...agents, "-y"];
+    plan.argv = [...cli, "--skill", ...names.filter((name) => needed.has(name)), "-g", "-a", ...agents, "-y"];
     plan.command = `DISABLE_TELEMETRY=1 ${commandText(plan.argv)}`;
   }
   return plan;
@@ -115,13 +137,13 @@ export async function installSkills(
     const detail = `${firstLine(`${run.stderr}\n${run.stdout}`) || "no output"} (exit ${run.code ?? "timeout or signal"})`;
     return [...results, ...agents.map((host) => row(host, "failed", { detail, manual: command }))];
   }
-  const missing = (dir: string) => `the skills CLI exited 0 but ${dir} lacks some Ask LLM skills`;
+  const mismatch = (dir: string) => `the skills CLI exited 0 but ${dir} does not match the packaged Ask LLM skills`;
   return [
     ...results,
     ...agents.map((host) =>
-      hasAll(host.dir, names)
+      names.every((name) => sameContents(join(plan.source.dir, "skills", name), join(host.dir, name)))
         ? row(host, "installed")
-        : row(host, "failed", { detail: missing(host.dir), manual: command }),
+        : row(host, "failed", { detail: mismatch(host.dir), manual: command }),
     ),
   ];
 }

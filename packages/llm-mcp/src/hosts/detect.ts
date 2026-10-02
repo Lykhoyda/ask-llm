@@ -231,5 +231,5 @@ async function detectHost(spec: HostSpec, env: NodeJS.ProcessEnv): Promise<Detec
 
 export async function detectHosts(env: NodeJS.ProcessEnv = process.env): Promise<DetectedHost[]> {
   const spawnEnv = { ...env, PATH: getSpawnEnv().PATH };
-  return Promise.all(hostSpecs(env).map((spec) => detectHost(spec, spawnEnv)));
+  return Promise.all(hostSpecs(env).map((spec) => detectHost(spec, { ...spawnEnv, ...spec.env })));
 }

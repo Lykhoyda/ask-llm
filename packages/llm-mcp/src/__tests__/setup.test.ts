@@ -14,7 +14,7 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, relative } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { detectHosts } from "../hosts/detect.js";
 import { type HostId, hostSpecs } from "../hosts/registry.js";
@@ -123,7 +123,8 @@ if (${JSON.stringify(mode)} === "silent") process.exit(0);
 if (args.length !== 2 || args[0] !== "install") process.exit(9);
 const pkg = JSON.parse(readFileSync(join(args[1], "package.json"), "utf8"));
 writeFileSync(join(process.env.HOME, ".fake-pi-version"), pkg.version);
-const dir = join(process.env.HOME, ".pi/agent");
+const dir = process.env.PI_CODING_AGENT_DIR || join(process.env.HOME, ".pi/agent");
+writeFileSync(join(process.env.HOME, ".fake-pi-profile"), dir);
 mkdirSync(dir, { recursive: true });
 const file = join(dir, "settings.json");
 let settings = {};
@@ -332,6 +333,49 @@ describe("ask-llm setup", () => {
     expect(result.stdout).toContain(`Run it manually: pi install ${packageRoot}`);
     expect(fakeArgv(home, "pi")).toEqual([["install", packageRoot]]);
     expect(existsSync(join(home, ".pi/agent/settings.json"))).toBe(false);
+  });
+
+  it.each(["absolute", "relative", "tilde", "url"] as const)("uses the %s Pi profile for setup and backup", (form) => {
+    installPi();
+    const profile = join(home, "alternate pi");
+    const override = {
+      absolute: profile,
+      relative: relative(root, profile),
+      tilde: "~/alternate pi",
+      url: pathToFileURL(profile).href,
+    }[form];
+    mkdirSync(profile);
+    const settings = join(profile, "settings.json");
+    const original = JSON.stringify({ theme: "dark", packages: ["npm:other"] });
+    writeFileSync(settings, original);
+    const run = (...args: string[]) =>
+      spawnSync(process.execPath, [command, "setup", ...args, "--host", "pi"], {
+        cwd: root,
+        env: { ...env, PI_CODING_AGENT_DIR: override },
+        encoding: "utf8",
+        timeout: 60_000,
+      });
+    expect(run("--dry-run").status).toBe(0);
+    expect(fakeArgv(home, "pi")).toEqual([]);
+    const first = run("-y");
+    expect(first.status, first.stderr).toBe(0);
+    expect(first.stdout).toContain("Pi 0.87.1: registered");
+    expect(readFileSync(join(home, ".fake-pi-profile"), "utf8")).toBe(profile);
+    expect(JSON.parse(readFileSync(settings, "utf8"))).toEqual({
+      theme: "dark",
+      packages: ["npm:other", relative(profile, packageRoot)],
+    });
+    const saved = backups();
+    expect(saved).toHaveLength(1);
+    expect(saved[0]).toMatch(/^alternate pi\/settings.json.ask-llm-backup-/);
+    expect(readFileSync(join(home, saved[0]), "utf8")).toBe(original);
+    expect(first.stdout).toContain(`Backup: ${join(home, saved[0])}`);
+    expect(existsSync(join(home, ".pi"))).toBe(false);
+    const second = run("-y");
+    expect(second.status).toBe(0);
+    expect(second.stdout).toContain("Pi 0.87.1: already registered");
+    expect(fakeArgv(home, "pi")).toEqual([["install", packageRoot]]);
+    expect(backups()).toEqual(saved);
   });
 
   it("leaves Pi untouched when its registration is declined", async () => {
