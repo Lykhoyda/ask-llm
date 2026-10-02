@@ -148,10 +148,9 @@ ask-llm setup --host pi
 
 Restart Pi or use `/reload` to load the updated extension. To unregister it, run `pi remove <installed package directory>` with the local source path shown by `pi list`; this leaves the global npm installation in place.
 
-For an existing npm bridge installation:
+An existing `npm:@ask-llm/plugin` installation is moved by setup: `ask-llm setup --host pi` installs this package's folder, then runs `pi remove npm:@ask-llm/plugin` (see [Migrating from @ask-llm/*](/reference/migration)). To remove the bridge by hand:
 
 ```bash
-pi update npm:@ask-llm/plugin
 pi remove npm:@ask-llm/plugin
 ```
 

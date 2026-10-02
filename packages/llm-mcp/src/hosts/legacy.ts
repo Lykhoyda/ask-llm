@@ -56,9 +56,9 @@ export function legacyPackage(command: string[] | undefined): string | undefined
   return bin === UNIFIED_PACKAGE && program.includes("/") ? undefined : bin;
 }
 
-const escape = (text: string) => text.replace(/[.*+?^${}()|[\]\\/]/g, "\\$&");
+const escapeRegExp = (text: string) => text.replace(/[.*+?^${}()|[\]\\/]/g, "\\$&");
 const MENTION = new RegExp(
-  `(?<![\\w@.-])(${[...Object.keys(PACKAGE_NAMES), ...Object.keys(BINS)].map(escape).join("|")})(?![\\w-])`,
+  `(?<![\\w@.-])(${[...Object.keys(PACKAGE_NAMES), ...Object.keys(BINS)].map(escapeRegExp).join("|")})(?![\\w-])`,
 );
 
 // For an entry setup cannot read in full: the Ask LLM package its raw text names, if any.

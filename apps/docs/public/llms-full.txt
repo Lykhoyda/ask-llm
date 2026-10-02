@@ -496,6 +496,7 @@ All MCP servers handle errors gracefully:
 
 - Source: https://github.com/Lykhoyda/ask-llm
 - Docs: https://lykhoyda.github.io/ask-llm/
+- Migrating from @ask-llm/* (split provider servers, npx registrations, the plugin bridge): https://lykhoyda.github.io/ask-llm/reference/migration.html
 - npm (codex): https://www.npmjs.com/package/@ask-llm/codex-mcp
 - npm (claude): https://www.npmjs.com/package/@ask-llm/claude-mcp
 - npm (antigravity): https://www.npmjs.com/package/@ask-llm/antigravity-mcp

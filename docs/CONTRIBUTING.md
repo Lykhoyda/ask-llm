@@ -112,6 +112,27 @@ Driven by [changesets/action](https://github.com/changesets/action) (ADR-076). T
 
 **Maintainer responsibilities** are minimal: review the Version Packages PR (does the CHANGELOG read sensibly? are the bump types right?), merge it when ready to ship. No manual `git tag` or `package.json` editing. If npm published but Registry, the unified GitHub Release, or package tags did not, Run workflow on `main` — there are no dispatch options. That path repairs those three artifacts and never re-enters npm publication (ADR-139/158). Release recovery uses the same create-or-verify package-tag contract and never retags an existing remote ref. If the release job reports `npm gitHead cross-check failed` for a package (its published tarball came from a commit other than the one that introduced the version, for example after a partial publish completed on a later commit), the other packages are still tagged; recover the affected package by shipping a new version — never by retagging. A main-branch Run workflow cannot repair that mismatch because it never republishes npm.
 
+### Deprecating the split packages and the plugin bridge
+
+This runs once, by hand, and never from `release.yml` (ADR-179, ADR-185). Nothing is unpublished, and `@ask-llm/mcp` is never deprecated or shimmed.
+
+1. Confirm the migration page is live: `https://lykhoyda.github.io/ask-llm/reference/migration.html` must load.
+2. Confirm the `@ask-llm/mcp` release whose `ask-llm setup` migrates earlier installations is on npm (`npm view @ask-llm/mcp version`).
+3. Run the seven commands, adding `--otp=<code>` when npm asks for two-factor authentication:
+
+```bash
+npm deprecate @ask-llm/antigravity-mcp "Replaced by @ask-llm/mcp, which includes every provider. Install it with npm install -g @ask-llm/mcp, then run ask-llm setup. Migration guide: https://lykhoyda.github.io/ask-llm/reference/migration.html"
+npm deprecate @ask-llm/claude-mcp "Replaced by @ask-llm/mcp, which includes every provider. Install it with npm install -g @ask-llm/mcp, then run ask-llm setup. Migration guide: https://lykhoyda.github.io/ask-llm/reference/migration.html"
+npm deprecate @ask-llm/codex-mcp "Replaced by @ask-llm/mcp, which includes every provider. Install it with npm install -g @ask-llm/mcp, then run ask-llm setup. Migration guide: https://lykhoyda.github.io/ask-llm/reference/migration.html"
+npm deprecate @ask-llm/gemini-mcp "Replaced by @ask-llm/mcp, which includes every provider. Install it with npm install -g @ask-llm/mcp, then run ask-llm setup. Migration guide: https://lykhoyda.github.io/ask-llm/reference/migration.html"
+npm deprecate @ask-llm/grok-mcp "Replaced by @ask-llm/mcp, which includes every provider. Install it with npm install -g @ask-llm/mcp, then run ask-llm setup. Migration guide: https://lykhoyda.github.io/ask-llm/reference/migration.html"
+npm deprecate @ask-llm/ollama-mcp "Replaced by @ask-llm/mcp, which includes every provider. Install it with npm install -g @ask-llm/mcp, then run ask-llm setup. Migration guide: https://lykhoyda.github.io/ask-llm/reference/migration.html"
+npm deprecate @ask-llm/plugin "Now part of @ask-llm/mcp. Install it with npm install -g @ask-llm/mcp, then run ask-llm setup, which also moves Pi installs. Migration guide: https://lykhoyda.github.io/ask-llm/reference/migration.html"
+```
+
+4. Verify: `npm view <package> deprecated` prints the message for each of the seven, and `npm view @ask-llm/mcp deprecated` prints nothing.
+5. Retiring the split packages' MCP Registry records is separate, approved publication work.
+
 ## Questions
 
 Open a [GitHub discussion](https://github.com/Lykhoyda/ask-llm/discussions) or comment on an existing issue.
