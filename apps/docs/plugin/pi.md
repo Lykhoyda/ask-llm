@@ -31,13 +31,13 @@ The package provides the native tools and the codex-pair commands. An interactiv
 Project-local install (loaded only after Pi project trust):
 
 ```bash
-pi install -l --approve npm:@ask-llm/plugin
+pi install -l --approve npm:@ask-llm/mcp
 ```
 
 Temporary evaluation without changing settings:
 
 ```bash
-pi -e npm:@ask-llm/plugin
+pi -e npm:@ask-llm/mcp
 ```
 
 For a built source checkout:
