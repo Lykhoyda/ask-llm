@@ -15,6 +15,8 @@ import {
   probeCursorAgent,
 } from "../cursorAgent.js";
 
+import { CURSOR_API_STARTUP_FAILURE, CURSOR_API_STARTUP_FAILURE_ANSI } from "./fixtures/cursor-startup-failure.js";
+
 function stream(model = "Grok 4.7", result = "Cursor review"): string {
   return [
     JSON.stringify({ type: "system", subtype: "init", model, session_id: "session-fixture" }),
@@ -176,6 +178,51 @@ describe("model-neutral Cursor Agent harness", () => {
     expect(executeCommandMock).toHaveBeenCalledTimes(5);
   });
 
+  it.each([
+    CURSOR_API_STARTUP_FAILURE,
+    CURSOR_API_STARTUP_FAILURE_ANSI,
+    "Failed to reach the Cursor API.",
+    "FAILED TO REACH THE CURSOR API.\r\n",
+  ])("recognizes the exact current startup diagnostic: %s", async (raw) => {
+    executeCommandMock.mockRejectedValueOnce(new Error(raw));
+    await expect(listCursorModels()).rejects.toThrow(
+      "Cursor Agent backend is unreachable during startup. Check the Cursor API endpoint and network/proxy settings, then retry. No fallback was attempted.",
+    );
+    expect(executeCommandMock).toHaveBeenCalledOnce();
+  });
+
+  it.each([
+    ["401 unauthorized", /authentication failed/],
+    ["unknown model selected", /model .* unavailable/],
+    ["429 quota exceeded", /quota or spend limit/],
+    ["workspace trust required", /requires this workspace to be trusted/],
+    ["request refused by content policy", /safety refusal/],
+  ])("preserves mixed %s before and after the current startup line", async (failure, expected) => {
+    for (const raw of [
+      `${CURSOR_API_STARTUP_FAILURE_ANSI}\n${failure}`,
+      `${failure}\n${CURSOR_API_STARTUP_FAILURE_ANSI}`,
+    ]) {
+      executeCommandMock.mockRejectedValueOnce(new Error(raw));
+      await expect(
+        executeCursorAgent({ provider: "codex", model: "gpt-6-sol-high", prompt: "review" }),
+      ).rejects.toThrow(expected);
+    }
+    expect(executeCommandMock).toHaveBeenCalledTimes(2);
+  });
+
+  it.each([
+    ["opaque backend error", "review"],
+    ["missing required prompt", "x".repeat(CURSOR_STDIN_THRESHOLD_BYTES + 1)],
+  ])("strips ANSI from embedded human detail: %s", async (raw, prompt) => {
+    executeCommandMock.mockRejectedValueOnce(new Error(`\u001b[31m${raw}\u001b[0m`));
+    const message = await executeCursorAgent({ provider: "codex", model: "gpt-6-sol-high", prompt }).catch(
+      (error: Error) => error.message,
+    );
+    expect(message).toContain(raw);
+    expect(message).not.toContain("\u001b");
+    expect(executeCommandMock).toHaveBeenCalledOnce();
+  });
+
   it.each(["401", "403", "429", "54321"])(
     "does not confuse a refused startup endpoint's port %s with an account failure",
     async (port) => {
@@ -216,6 +263,10 @@ describe("model-neutral Cursor Agent harness", () => {
 
   it.each([
     "connect ECONNREFUSED 127.0.0.1:54321",
+    "Tool output: Failed to reach the Cursor API.",
+    "Failed to reach the Cursor API. request detail follows",
+    "Failed to reach the Cursor API without a response.",
+    "fetch failed: network proxy connect error",
     "Failed to load models: [unavailable] request timed out",
     "Tool output: Failed to load models: [unavailable] connect ECONNREFUSED 127.0.0.1:54321",
   ])("does not infer backend startup or unsent requests from arbitrary error text: %s", async (raw) => {

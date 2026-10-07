@@ -1,3 +1,4 @@
+import { stripVTControlCharacters } from "node:util";
 import {
   CURSOR_PROVIDERS,
   type CursorProviderName,
@@ -62,12 +63,12 @@ function redactCursorSecrets(message: string): string {
 }
 
 function classifyCursorError(error: unknown, model: string, promptViaStdin = false): Error {
-  const detail = redactCursorSecrets(error instanceof Error ? error.message : String(error));
+  const detail = redactCursorSecrets(stripVTControlCharacters(error instanceof Error ? error.message : String(error)));
   const rawLower = detail.toLowerCase();
-  // Cursor's catalog-startup diagnostic names a refused socket, not an HTTP status or policy refusal.
+  // Recognize only Cursor's captured backend-startup lines, not generic network failures.
   // Remove only that complete line so mixed account/model/policy failures retain their precedence.
   const backendStartup = rawLower.match(
-    /^failed to load models: \[unavailable\] connect econnrefused [\da-f:.]+:\d+(?:\r?\n|$)/m,
+    /^(?:failed to load models: \[unavailable\] connect econnrefused [\da-f:.]+:\d+|(?:✗ )?failed to reach the cursor api\.(?: if you are behind a corporate proxy, set the https_proxy environment variable\.)?)(?:\r?\n|$)/m,
   );
   const lower = backendStartup ? rawLower.replace(backendStartup[0], "") : rawLower;
   if (lower.includes("not found") || lower.includes("enoent")) {
