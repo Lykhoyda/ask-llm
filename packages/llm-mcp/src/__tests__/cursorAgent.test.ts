@@ -176,6 +176,57 @@ describe("model-neutral Cursor Agent harness", () => {
     expect(executeCommandMock).toHaveBeenCalledTimes(5);
   });
 
+  it.each(["401", "403", "429", "54321"])(
+    "does not confuse a refused startup endpoint's port %s with an account failure",
+    async (port) => {
+      executeCommandMock.mockRejectedValueOnce(
+        new Error(`Failed to load models: [unavailable] connect ECONNREFUSED 127.0.0.1:${port}`),
+      );
+      await expect(
+        executeCursorAgent({ provider: "codex", model: "gpt-6-sol-high", prompt: "review" }),
+      ).rejects.toThrow(/^Cursor Agent backend is unreachable during startup\./);
+      expect(executeCommandMock).toHaveBeenCalledOnce();
+    },
+  );
+
+  it.each([
+    ["401 unauthorized", /authentication failed/],
+    ["unknown model selected", /model .* unavailable/],
+    ["429 quota exceeded", /quota or spend limit/],
+    ["workspace trust required", /requires this workspace to be trusted/],
+    ["request refused by content policy", /safety refusal/],
+  ])("preserves a genuine mixed %s failure", async (failure, expected) => {
+    executeCommandMock.mockRejectedValueOnce(
+      new Error(`Failed to load models: [unavailable] connect ECONNREFUSED 127.0.0.1:54321\n${failure}`),
+    );
+    await expect(executeCursorAgent({ provider: "codex", model: "gpt-6-sol-high", prompt: "review" })).rejects.toThrow(
+      expected,
+    );
+    expect(executeCommandMock).toHaveBeenCalledOnce();
+  });
+
+  it("preserves a quota failure preceding a refused startup endpoint on port 403", async () => {
+    executeCommandMock.mockRejectedValueOnce(
+      new Error("429 quota exceeded\nFailed to load models: [unavailable] connect ECONNREFUSED 127.0.0.1:403"),
+    );
+    await expect(executeCursorAgent({ provider: "codex", model: "gpt-6-sol-high", prompt: "review" })).rejects.toThrow(
+      /quota or spend limit/,
+    );
+  });
+
+  it.each([
+    "connect ECONNREFUSED 127.0.0.1:54321",
+    "Failed to load models: [unavailable] request timed out",
+    "Tool output: Failed to load models: [unavailable] connect ECONNREFUSED 127.0.0.1:54321",
+  ])("does not infer backend startup or unsent requests from arbitrary error text: %s", async (raw) => {
+    executeCommandMock.mockRejectedValueOnce(new Error(raw));
+    const message = await executeCursorAgent({ provider: "codex", model: "gpt-6-sol-high", prompt: "review" }).catch(
+      (error: Error) => error.message,
+    );
+    expect(message).not.toMatch(/backend is unreachable during startup|no (?:model )?request/i);
+    expect(executeCommandMock).toHaveBeenCalledOnce();
+  });
+
   it("capability-probes the harness and discovers exact account model IDs", async () => {
     executeCommandMock.mockResolvedValueOnce("--output-format --mode --model");
     await expect(probeCursorAgent()).resolves.toBe(true);

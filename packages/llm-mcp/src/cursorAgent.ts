@@ -63,7 +63,13 @@ function redactCursorSecrets(message: string): string {
 
 function classifyCursorError(error: unknown, model: string, promptViaStdin = false): Error {
   const detail = redactCursorSecrets(error instanceof Error ? error.message : String(error));
-  const lower = detail.toLowerCase();
+  const rawLower = detail.toLowerCase();
+  // Cursor's catalog-startup diagnostic names a refused socket, not an HTTP status or policy refusal.
+  // Remove only that complete line so mixed account/model/policy failures retain their precedence.
+  const backendStartup = rawLower.match(
+    /^failed to load models: \[unavailable\] connect econnrefused [\da-f:.]+:\d+(?:\r?\n|$)/m,
+  );
+  const lower = backendStartup ? rawLower.replace(backendStartup[0], "") : rawLower;
   if (lower.includes("not found") || lower.includes("enoent")) {
     return new Error(
       "Cursor Agent harness is unavailable. Install Cursor CLI and verify `agent --version`. No provider or model fallback was attempted.",
@@ -93,6 +99,11 @@ function classifyCursorError(error: unknown, model: string, promptViaStdin = fal
   }
   if (["safety", "policy", "refus"].some((part) => lower.includes(part))) {
     return new Error("Cursor Agent returned a safety refusal. Revise the prompt; no fallback was attempted.");
+  }
+  if (backendStartup) {
+    return new Error(
+      "Cursor Agent backend is unreachable during startup. Check the Cursor API endpoint and network/proxy settings, then retry. No fallback was attempted.",
+    );
   }
   if (promptViaStdin && lower.includes("prompt")) {
     return new Error(
