@@ -121,14 +121,11 @@ describe("legacyPackage", () => {
   it.each([
     [["npx", "-y", "@ask-llm/mcp"], "@ask-llm/mcp"],
     [["npx", "--yes", "@ask-llm/mcp@latest"], "@ask-llm/mcp"],
-    [["/usr/local/bin/npx", "-y", "ask-llm-mcp"], "@ask-llm/mcp"],
     [["ask-llm-mcp"], "@ask-llm/mcp"],
     [["npx", "-y", "@ask-llm/codex-mcp"], "@ask-llm/codex-mcp"],
     [["npx", "-y", "ask-gemini-mcp@1.6.7"], "@ask-llm/gemini-mcp"],
     [["npx", "-y", "@anton-lykhoyda/ask-claude-mcp"], "@ask-llm/claude-mcp"],
     [["ask-grok-mcp"], "@ask-llm/grok-mcp"],
-    [["/home/me/.npm-global/bin/ask-ollama-mcp"], "@ask-llm/ollama-mcp"],
-    [["node", "/usr/lib/node_modules/@ask-llm/antigravity-mcp/dist/cli.js"], "@ask-llm/antigravity-mcp"],
   ])("recognizes %j as %s", (command, expected) => {
     expect(legacyPackage(command)).toBe(expected);
   });
@@ -138,6 +135,11 @@ describe("legacyPackage", () => {
     [["npx", "-y", "@ask-llm/mcp-extra"]],
     [["npx", "-y", "some-other-server"]],
     [["/opt/other/ask-llm-mcp"]],
+    [["/usr/local/bin/npx", "-y", "ask-llm-mcp"]],
+    [["./npx", "-y", "@ask-llm/mcp"]],
+    [["/home/me/.npm-global/bin/ask-ollama-mcp"]],
+    [["node", "/usr/lib/node_modules/@ask-llm/antigravity-mcp/dist/cli.js"]],
+    [["/usr/lib/node_modules/@ask-llm/codex-mcp/dist/cli.js"]],
     [["node", "/home/me/ask-llm/packages/llm-mcp/dist/cli.js"]],
     [["ask-codex-mcp", "--flag"]],
     [[]],
@@ -147,6 +149,75 @@ describe("legacyPackage", () => {
 });
 
 describe("migration of existing installations", () => {
+  it.each([
+    [["/home/me/bin/ask-codex-mcp"]],
+    [["./ask-codex-mcp"]],
+    [["/home/me/bin/npx", "-y", "@ask-llm/codex-mcp"]],
+    [["./npx", "-y", "@ask-llm/codex-mcp"]],
+    [["node", "/home/me/node_modules/@ask-llm/codex-mcp/dist/cli.js"]],
+    [["/home/me/node_modules/@ask-llm/codex-mcp/dist/cli.js"]],
+  ])("preserves unverified executable paths %j and repeats guidance", async (command) => {
+    install("claude");
+    for (const canonical of [command, [SERVER]]) {
+      seedServers(home, "claude", { "ask-llm": { command: canonical }, codex: { command } });
+      const before = readHostFile(home, "claude");
+      const first = await migrate(["claude"]);
+      const second = await migrate(["claude"]);
+      expect(first.registrations[0].status).toBe(canonical === command ? "conflict" : "up-to-date");
+      if (canonical === command) {
+        expect(first.registrations[0].manual).toContain("preserve custom settings");
+        expect(await replaceRegistration(host(first.hosts, "claude"), SERVER, env)).toMatchObject({
+          outcome: "conflict",
+        });
+      }
+      expect(first.findings).toEqual([expect.objectContaining({ action: "guidance", command })]);
+      expect(first.migrated).toEqual([expect.objectContaining({ status: "manual" })]);
+      expect(second.registrations).toEqual(first.registrations);
+      expect(second.findings).toEqual(first.findings);
+      expect(second.migrated).toEqual(first.migrated);
+      const stale = await applyMigration(
+        first.findings.map((found) => ({ ...found, action: "retire" as const })),
+        first.hosts,
+        SERVER,
+        [{ id: "claude", name: "Claude Code", status: "up-to-date" }],
+        yes,
+        env,
+      );
+      expect(stale).toEqual([expect.objectContaining({ status: "conflict" })]);
+      expect(readHostFile(home, "claude")).toBe(before);
+      expect(migrationArgv(home, "claude")).toEqual([]);
+    }
+  });
+
+  it.each([
+    [["npm:@ask-llm/mcp@0.12.1"]],
+    [[{ source: "npm:@ask-llm/mcp@0.12.1" }]],
+    [["npm:@ask-llm/mcp@1.0.0"]],
+    [["npm:@ask-llm/mcp@latest"]],
+    [["npm:@ask-llm/mcp@0.12.1", join(__dirname, "..", "..")]],
+  ])("keeps the Pi bridge with an unverified replacement %j", async (sources) => {
+    installPi();
+    piPackages(...sources, "npm:@ask-llm/plugin");
+    const file = join(home, ".pi/agent/settings.json");
+    const before = readFileSync(file, "utf8");
+    const first = await migrate(["pi"]);
+    const second = await migrate(["pi"]);
+    expect(first.registrations).toEqual([
+      expect.objectContaining({
+        status: "conflict",
+        detail: expect.stringContaining("unverified package compatibility"),
+      }),
+    ]);
+    expect(first.registrations[0].manual).toContain("preserve package filters");
+    expect(first.findings).toEqual([expect.objectContaining({ action: "guidance", entry: "npm:@ask-llm/plugin" })]);
+    expect(first.migrated).toEqual([expect.objectContaining({ status: "manual" })]);
+    expect(second.registrations).toEqual(first.registrations);
+    expect(second.findings).toEqual(first.findings);
+    expect(second.migrated).toEqual(first.migrated);
+    expect(readFileSync(file, "utf8")).toBe(before);
+    expect(existsSync(join(home, ".fake-pi-argv"))).toBe(false);
+  });
+
   it.each(["enabled_tools = []", 'disabled_tools = ["ask-codex"]', "project shadowing"])(
     "preserves persisted Codex records hidden by its list projection: %s",
     async (hidden) => {
@@ -434,7 +505,7 @@ describe("migration of existing installations", () => {
     },
   );
 
-  it.each(["canonical removed", "canonical filtered", "legacy customised"])(
+  it.each(["canonical removed", "canonical filtered", "canonical pinned", "legacy customised"])(
     "keeps Pi packages after %s during confirmation",
     async (change) => {
       installPi();
@@ -448,6 +519,7 @@ describe("migration of existing installations", () => {
         if (change === "canonical removed") piPackages("npm:@ask-llm/plugin");
         else if (change === "canonical filtered")
           piPackages({ source: "npm:@ask-llm/mcp", extensions: [] }, "npm:@ask-llm/plugin");
+        else if (change === "canonical pinned") piPackages("npm:@ask-llm/mcp@0.12.1", "npm:@ask-llm/plugin");
         else piPackages("npm:@ask-llm/mcp", { source: "npm:@ask-llm/plugin", unknown: null });
         edited = readFileSync(file, "utf8");
         return true;

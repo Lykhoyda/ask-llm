@@ -1,5 +1,3 @@
-import { basename } from "node:path";
-
 const UNIFIED_PACKAGE = "@ask-llm/mcp";
 const PROVIDERS = ["antigravity", "claude", "codex", "gemini", "grok", "ollama"];
 const SPLIT_PACKAGES = PROVIDERS.map((provider) => `@ask-llm/${provider}-mcp`);
@@ -33,27 +31,14 @@ function packageOf(spec: string): string | undefined {
   return lookup(PACKAGE_NAMES, version === -1 ? spec : spec.slice(0, version));
 }
 
-// The package an MCP entry launches through an earlier install route: an `npx` package spec, a server
-// bin on PATH, or a split server's installed bin or `dist/cli.js`. Another absolute install of the
-// unified server is not an earlier route, and an entry with extra arguments is the user's own.
 export function legacyPackage(command: string[] | undefined): string | undefined {
   if (!command || command.length === 0) return undefined;
   const [program, ...args] = command;
-  const name = basename(program);
-  if (name === "npx") {
+  if (program === "npx") {
     const specs = args.filter((arg) => !NPX_FLAGS.has(arg));
     return specs.length === 1 ? packageOf(specs[0]) : undefined;
   }
-  const script = name === "node" && args.length === 1 ? args[0] : args.length === 0 ? program : undefined;
-  if (script === undefined) return undefined;
-  const installed = /node_modules\/((?:@[^/]+\/)?[^/]+)\/dist\/cli\.js$/.exec(script);
-  if (installed) {
-    const found = lookup(PACKAGE_NAMES, installed[1]);
-    return found === UNIFIED_PACKAGE ? undefined : found;
-  }
-  if (name === "node") return undefined;
-  const bin = lookup(BINS, name);
-  return bin === UNIFIED_PACKAGE && program.includes("/") ? undefined : bin;
+  return args.length === 0 ? lookup(BINS, program) : undefined;
 }
 
 const escapeRegExp = (text: string) => text.replace(/[.*+?^${}()|[\]\\/]/g, "\\$&");

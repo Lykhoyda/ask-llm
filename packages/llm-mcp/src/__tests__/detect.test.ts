@@ -176,7 +176,7 @@ describe("detectHosts", () => {
     });
   });
 
-  it.each(["npm:@ask-llm/mcp", "npm:@ask-llm/mcp@1.0.0", { source: "npm:@ask-llm/mcp" }])(
+  it.each(["npm:@ask-llm/mcp", { source: "npm:@ask-llm/mcp" }])(
     "recognizes Pi registration from %j",
     async (entry) => {
       write(".pi/agent/settings.json", JSON.stringify({ packages: [entry] }));

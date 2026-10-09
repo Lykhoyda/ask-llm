@@ -38,6 +38,8 @@ Setup lists every coding agent it finds, then, for each one, shows the exact com
 
 Automatic migration requires a complete persisted user-scope record with a known unmodified shape. Codex CLI list output omits tool filters and can include project overrides, so setup prints guidance and leaves Codex registrations unchanged. Inspect the user and project configurations and preserve their filters before making any manual change.
 
+Unverified executable paths and pinned Pi package versions also receive guidance. Setup keeps the Pi plugin bridge when it cannot establish that the replacement includes compatible Pi assets.
+
 Entries that do not run an Ask LLM package are never reported or changed. Before a host's first change, setup copies its config file to `<file>.ask-llm-backup-<timestamp>` next to it. If a replacement fails in Claude Code, which removes the old entry before adding the new one, setup adds the earlier entry back through `claude mcp add`; the rest of the file, including edits made meanwhile, is left as it is. Re-running `ask-llm setup` changes nothing once a host is migrated.
 
 `-y` answers yes to every question and `--host claude,codex` limits setup to the named hosts:

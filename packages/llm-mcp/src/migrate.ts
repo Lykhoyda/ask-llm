@@ -170,7 +170,10 @@ export async function replaceRegistration(
   const read = () => readRegistration(host.spec.registrationState, host.binary, spawnEnv);
   const earlier = host.command;
   const unchanged = (current: RegistrationState) =>
-    current.registered === true && sameCommand(current.command, earlier) && !current.custom;
+    current.registered === true &&
+    sameCommand(current.command, earlier) &&
+    !!legacyPackage(current.command) &&
+    !current.custom;
   const own = (current: RegistrationState) =>
     isOwnRegistration({ ...host, ...current, command: current.command }, server);
   const before = await read();
@@ -239,7 +242,10 @@ async function retire(
   const unchanged = (current: RegistrationState) =>
     packages
       ? listed(current) && !current.custom
-      : current.registered === true && sameCommand(current.command, found.command) && !current.custom;
+      : current.registered === true &&
+        sameCommand(current.command, found.command) &&
+        !!legacyPackage(current.command) &&
+        !current.custom;
 
   const before = await read();
   if (before.registered === null) return failed(before.error);
