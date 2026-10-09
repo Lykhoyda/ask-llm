@@ -240,10 +240,10 @@ function readPackages(
   for (const entry of entries) {
     const source = typeof entry === "string" ? entry : (entry as { source?: unknown } | null)?.source;
     if (typeof source !== "string") continue;
-    const current = sources.includes(source) || isLocal(source);
-    const unverified = !current && isSource(source, sources);
+    const current = isLocal(source);
     const earlier = isSource(source, legacySources);
-    if (!current && !earlier && !unverified) continue;
+    const unverified = isSource(source, sources) || earlier;
+    if (!current && !unverified) continue;
     if (current) registered = true;
     if (unverified) settings.add("unverified package compatibility");
     if (earlier) legacy.push(source);

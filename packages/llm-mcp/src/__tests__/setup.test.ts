@@ -429,50 +429,38 @@ describe("ask-llm setup", () => {
     expect(JSON.parse(preview.stdout).hosts).toEqual([expect.objectContaining({ id: "pi", action: "up-to-date" })]);
   });
 
-  it("moves a Pi bridge install onto this package, then removes the bridge", () => {
-    installPi();
-    const settings = join(home, ".pi/agent/settings.json");
-    mkdirSync(join(home, ".pi/agent"), { recursive: true });
-    writeFileSync(settings, JSON.stringify({ theme: "dark", packages: ["npm:@ask-llm/plugin"] }));
+  it.each([
+    "npm:@ask-llm/plugin",
+    { source: "npm:@ask-llm/plugin" },
+    "npm:@ask-llm/plugin@0.19.4",
+    { source: "npm:@ask-llm/plugin@0.19.4" },
+  ])(
+    "preserves the Pi npm bridge %j and repeats migration guidance",
+    (entry) => {
+      installPi();
+      const settings = join(home, ".pi/agent/settings.json");
+      mkdirSync(join(home, ".pi/agent"), { recursive: true });
+      const before = JSON.stringify({ theme: "dark", packages: [entry] });
+      writeFileSync(settings, before);
 
-    const preview = ask("setup", "--dry-run", "--json", "--host", "pi");
-    expect(preview.status).toBe(0);
-    const plan = JSON.parse(preview.stdout);
-    expect(plan.hosts).toEqual([
-      expect.objectContaining({
-        id: "pi",
-        action: "register",
-        reason: "replaces npm:@ask-llm/plugin, which setup then removes",
-      }),
-    ]);
-    expect(plan.migration).toEqual([
-      expect.objectContaining({
-        id: "pi",
-        entry: "npm:@ask-llm/plugin",
-        action: "retire",
-        change: "pi remove npm:@ask-llm/plugin",
-      }),
-    ]);
+      const preview = ask("setup", "--dry-run", "--json", "--host", "pi");
+      expect(preview.status).toBe(0);
+      const plan = JSON.parse(preview.stdout);
+      expect(plan.hosts).toEqual([expect.objectContaining({ id: "pi", action: "conflict" })]);
+      expect(plan.migration).toEqual([expect.objectContaining({ id: "pi", action: "guidance" })]);
 
-    const first = ask("setup", "-y", "--host", "pi");
-    expect(first.status, first.stdout + first.stderr).toBe(0);
-    expect(first.stdout).toContain("Pi 0.87.1: registered");
-    expect(first.stdout).toContain("Pi package npm:@ask-llm/plugin: removed");
-    expect(first.stdout).toContain("Pi skills: installed");
-    expect(readFileSync(join(home, ".fake-pi-argv"), "utf8").split("\n").filter(Boolean)).toEqual([
-      `install\t${packageRoot}\t`,
-      "remove\tnpm:@ask-llm/plugin\t",
-    ]);
-    expect(JSON.parse(readFileSync(settings, "utf8"))).toEqual({
-      theme: "dark",
-      packages: [relative(join(home, ".pi/agent"), packageRoot)],
-    });
-
-    const second = ask("setup", "-y", "--host", "pi");
-    expect(second.status, second.stderr).toBe(0);
-    expect(second.stdout).toContain("Pi 0.87.1: already registered");
-    expect(second.stdout).not.toContain("npm:@ask-llm/plugin");
-  });
+      for (let run = 0; run < 2; run++) {
+        const result = ask("setup", "-y", "--host", "pi");
+        expect(result.status, result.stdout + result.stderr).toBe(1);
+        expect(result.stdout).toContain("unverified package compatibility");
+        expect(result.stdout).toContain("preserve package filters");
+        expect(readFileSync(settings, "utf8")).toBe(before);
+        expect(fakeArgv(home, "pi")).toEqual([]);
+      }
+      const again = ask("setup", "--dry-run", "--json", "--host", "pi");
+      expect(JSON.parse(again.stdout).migration).toEqual(plan.migration);
+    },
+  );
 
   it("reports a foreign file-host entry with the entry it would use and leaves the file alone", () => {
     writeFileSync(join(bin, "cursor-agent"), "#!/bin/sh\nexit 0\n", { mode: 0o755 });

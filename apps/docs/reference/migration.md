@@ -31,14 +31,14 @@ Setup lists every coding agent it finds, then, for each one, shows the exact com
 
 | What setup finds | What it does |
 |---|---|
-| An `ask-llm` entry that already runs this install, Pi's `npm:@ask-llm/mcp` package, or the Claude Code plugin | Reuses it and changes nothing |
+| An `ask-llm` entry that already runs this install, Pi's local package registration managed by setup, or the Claude Code plugin | Reuses it and changes nothing |
 | An `ask-llm` entry started through an earlier route: `npx -y @ask-llm/mcp`, `npx -y ask-llm-mcp`, or a bare `ask-llm-mcp` | Previews the replacement, replaces it after you confirm, and reads it back to verify |
-| A split provider entry (for example `codex` running `npx -y @ask-llm/codex-mcp`), a second Ask LLM server under another name, or Pi's `npm:@ask-llm/plugin` package | Removes it after you confirm, but only once Ask LLM is registered in that host, so you are never left without a working server |
+| A split provider entry (for example `codex` running `npx -y @ask-llm/codex-mcp`), a second Ask LLM server under another name | Removes it after you confirm, but only once Ask LLM is registered in that host, so you are never left without a working server |
 | An Ask LLM entry with its own settings (environment variables such as `XAI_API_KEY`, a working directory, a disabled flag) or in a form setup cannot read | Leaves it in place and prints the exact removal command, so you can carry the settings over first |
 
 Automatic migration requires a complete persisted user-scope record with a known unmodified shape. Codex CLI list output omits tool filters and can include project overrides, so setup prints guidance and leaves Codex registrations unchanged. Inspect the user and project configurations and preserve their filters before making any manual change.
 
-Unverified executable paths and pinned Pi package versions also receive guidance. Setup keeps the Pi plugin bridge when it cannot establish that the replacement includes compatible Pi assets.
+Unverified executable paths and all Pi npm registrations receive guidance. This includes `npm:@ask-llm/mcp` and `npm:@ask-llm/plugin`, pinned or unpinned, as strings or source objects. Setup leaves those packages and the plugin bridge unchanged because their source names do not prove installed compatibility. Only the local installed-package registration managed by setup proves compatibility.
 
 Entries that do not run an Ask LLM package are never reported or changed. Before a host's first change, setup copies its config file to `<file>.ask-llm-backup-<timestamp>` next to it. If a replacement fails in Claude Code, which removes the old entry before adding the new one, setup adds the earlier entry back through `claude mcp add`; the rest of the file, including edits made meanwhile, is left as it is. Re-running `ask-llm setup` changes nothing once a host is migrated.
 
@@ -62,7 +62,7 @@ Setup works at user scope. In the examples, `<prefix>` is the output of `npm pre
 | Cursor | `"ask-llm": { "command": "npx", "args": ["-y", "@ask-llm/mcp"] }` in `~/.cursor/mcp.json` | `"ask-llm": { "command": "<prefix>/bin/ask-llm-mcp", "args": [] }`; other entries untouched |
 | Claude Desktop | `"ask-llm": { "command": "npx", "args": ["-y", "ask-llm-mcp"] }` in `claude_desktop_config.json` | `"ask-llm": { "command": "<prefix>/bin/ask-llm-mcp", "args": [] }`; restart Claude Desktop |
 | OpenCode | `"mcp": { "ask-llm": { "type": "local", "command": ["npx", "-y", "@ask-llm/mcp"] } }` in `~/.config/opencode/opencode.json` | `"command": ["<prefix>/bin/ask-llm-mcp"]` |
-| Pi | `pi install npm:@ask-llm/plugin` | `pi install <prefix>/lib/node_modules/@ask-llm/mcp`, then `pi remove npm:@ask-llm/plugin`; the skills land in the shared skills folder |
+| Pi | `pi install npm:@ask-llm/plugin` or `pi install npm:@ask-llm/mcp` | Guidance only; preserve filters and settings, manually register `<prefix>/lib/node_modules/@ask-llm/mcp` and verify the extension before removing the bridge |
 
 Claude Code, Antigravity, Grok Build and Gemini CLI are changed through their own `mcp` commands; setup edits the JSON file only for Cursor, Claude Desktop and OpenCode, which have no such command. Start a new session (or restart Cursor and Claude Desktop) to load the change.
 

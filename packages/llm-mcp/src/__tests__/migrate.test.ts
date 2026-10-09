@@ -190,6 +190,9 @@ describe("migration of existing installations", () => {
   });
 
   it.each([
+    [["npm:@ask-llm/mcp"]],
+    [[{ source: "npm:@ask-llm/mcp" }]],
+    [["npm:@ask-llm/mcp", join(__dirname, "..", "..")]],
     [["npm:@ask-llm/mcp@0.12.1"]],
     [[{ source: "npm:@ask-llm/mcp@0.12.1" }]],
     [["npm:@ask-llm/mcp@1.0.0"]],
@@ -298,12 +301,12 @@ describe("migration of existing installations", () => {
     },
   );
 
-  it("migrates an unmodified Pi source object and becomes up to date", async () => {
+  it("registers the local Pi package and becomes up to date", async () => {
     installPi();
-    piPackages({ source: "npm:@ask-llm/plugin" });
+    piPackages();
     const first = await migrate(["pi"]);
     expect(first.registrations[0].status).toBe("registered");
-    expect(first.migrated[0].status).toBe("retired");
+    expect(first.migrated).toEqual([]);
     const second = await migrate(["pi"]);
     expect(second.registrations[0].status).toBe("up-to-date");
     expect(second.findings).toEqual([]);
@@ -505,26 +508,68 @@ describe("migration of existing installations", () => {
     },
   );
 
-  it.each(["canonical removed", "canonical filtered", "canonical pinned", "legacy customised"])(
-    "keeps Pi packages after %s during confirmation",
+  it.each([
+    "npm:@ask-llm/mcp",
+    { source: "npm:@ask-llm/mcp" },
+    "npm:@ask-llm/plugin@0.19.4",
+    { source: "npm:@ask-llm/plugin" },
+  ])("preserves a Pi npm entry added during registration confirmation: %j", async (entry) => {
+    installPi();
+    piPackages();
+    const hosts = await detectHosts(env);
+    const file = join(home, ".pi/agent/settings.json");
+    let edited = "";
+    const results = await applySetup(
+      hosts,
+      SERVER,
+      ["pi"],
+      async () => {
+        piPackages(entry);
+        edited = readFileSync(file, "utf8");
+        return true;
+      },
+      env,
+    );
+    expect(results).toEqual([expect.objectContaining({ status: "conflict" })]);
+    expect(readFileSync(file, "utf8")).toBe(edited);
+    expect(existsSync(join(home, ".fake-pi-argv"))).toBe(false);
+  });
+
+  it.each([
+    "canonical removed",
+    "canonical filtered",
+    "canonical unpinned",
+    "canonical pinned",
+    "legacy customised",
+  ])(
+    "rejects stale Pi retirement after %s during confirmation",
     async (change) => {
       installPi();
-      piPackages("npm:@ask-llm/mcp", "npm:@ask-llm/plugin");
+      const local = join(__dirname, "..", "..");
+      piPackages(local, "npm:@ask-llm/plugin");
       const file = join(home, ".pi/agent/settings.json");
       const hosts = await detectHosts(env);
       const findings = await planMigration(hosts, ["pi"], env);
-      const registrations = await applySetup(hosts, SERVER, ["pi"], yes, env);
+      expect(findings[0].action).toBe("guidance");
       let edited = "";
       const confirm = async () => {
         if (change === "canonical removed") piPackages("npm:@ask-llm/plugin");
         else if (change === "canonical filtered")
-          piPackages({ source: "npm:@ask-llm/mcp", extensions: [] }, "npm:@ask-llm/plugin");
+          piPackages({ source: local, extensions: [] }, "npm:@ask-llm/plugin");
+        else if (change === "canonical unpinned") piPackages("npm:@ask-llm/mcp", "npm:@ask-llm/plugin");
         else if (change === "canonical pinned") piPackages("npm:@ask-llm/mcp@0.12.1", "npm:@ask-llm/plugin");
-        else piPackages("npm:@ask-llm/mcp", { source: "npm:@ask-llm/plugin", unknown: null });
+        else piPackages(local, { source: "npm:@ask-llm/plugin", unknown: null });
         edited = readFileSync(file, "utf8");
         return true;
       };
-      const results = await applyMigration(findings, hosts, SERVER, registrations, confirm, env);
+      const results = await applyMigration(
+        findings.map((found) => ({ ...found, action: "retire" as const })),
+        hosts,
+        SERVER,
+        [{ id: "pi", name: "Pi", status: "up-to-date" }],
+        confirm,
+        env,
+      );
       expect(results).toEqual([expect.objectContaining({ status: "conflict" })]);
       expect(readFileSync(file, "utf8")).toBe(edited);
       expect(existsSync(join(home, ".fake-pi-argv"))).toBe(false);
@@ -582,59 +627,61 @@ describe("migration of existing installations", () => {
     expect(again.findings).toEqual([]);
   });
 
-  it("plugin-only: keeps the Claude Code plugin, registers the server, and moves Pi off the plugin bridge", async () => {
+  it("plugin-only: registers the Claude server and preserves the Pi bridge", async () => {
     install("claude");
     installPi();
     claudePlugin();
     piPackages("npm:@ask-llm/plugin");
+    const before = readFileSync(join(home, ".pi/agent/settings.json"), "utf8");
 
     const { hosts, plan, findings, registrations, migrated } = await migrate(["claude", "pi"]);
     expect(host(hosts, "pi")).toMatchObject({ registered: false, legacy: ["npm:@ask-llm/plugin"] });
     expect(plan.find(({ id }) => id === "claude")?.action).toBe("register");
     expect(plan.find(({ id }) => id === "pi")).toMatchObject({
-      action: "register",
-      reason: expect.stringContaining("npm:@ask-llm/plugin"),
+      action: "conflict",
+      reason: expect.stringContaining("unverified package compatibility"),
     });
     expect(findings).toEqual([
       expect.objectContaining({
         id: "pi",
         entry: "npm:@ask-llm/plugin",
-        action: "retire",
-        change: "pi remove npm:@ask-llm/plugin",
+        action: "guidance",
+        change: expect.stringContaining("preserve package filters"),
       }),
     ]);
     expect(registrations.map(({ id, status }) => [id, status])).toEqual([
       ["claude", "registered"],
-      ["pi", "registered"],
+      ["pi", "conflict"],
     ]);
-    expect(migrated).toEqual([expect.objectContaining({ id: "pi", status: "retired" })]);
-    const settings = JSON.parse(readFileSync(join(home, ".pi/agent/settings.json"), "utf8"));
-    expect(settings.theme).toBe("dark");
-    expect(settings.packages).toHaveLength(1);
-    expect(settings.packages[0]).not.toContain("@ask-llm/plugin");
+    expect(migrated).toEqual([expect.objectContaining({ id: "pi", status: "manual" })]);
+    expect(readFileSync(join(home, ".pi/agent/settings.json"), "utf8")).toBe(before);
+    expect(existsSync(join(home, ".fake-pi-argv"))).toBe(false);
     expect(readFileSync(join(home, ".claude/plugins/installed_plugins.json"), "utf8")).toContain(
       "ask-llm@ask-llm-plugins",
     );
   });
 
-  it("combined: replaces the npx entry next to the plugin and retires the duplicate Pi bridge", async () => {
+  it("combined: replaces the npx entry and gives guidance while preserving Pi packages", async () => {
     install("claude");
     installPi();
     claudePlugin();
     seedServers(home, "claude", { "ask-llm": { command: NPX_UNIFIED } });
     piPackages("npm:@ask-llm/mcp", "npm:@ask-llm/plugin@0.19.4");
+    const before = readFileSync(join(home, ".pi/agent/settings.json"), "utf8");
 
     const { plan, findings, registrations, migrated } = await migrate(["claude", "pi"]);
-    expect(plan.map(({ id, action }) => [id, action])).toContainEqual(["pi", "up-to-date"]);
-    expect(findings.map(({ entry, action }) => [entry, action])).toEqual([["npm:@ask-llm/plugin@0.19.4", "retire"]]);
+    expect(plan.map(({ id, action }) => [id, action])).toContainEqual(["pi", "conflict"]);
+    expect(findings.map(({ entry, action }) => [entry, action])).toEqual([["npm:@ask-llm/plugin@0.19.4", "guidance"]]);
     expect(registrations.map(({ id, status }) => [id, status])).toEqual([
       ["claude", "replaced"],
-      ["pi", "up-to-date"],
+      ["pi", "conflict"],
     ]);
-    expect(migrated.map(({ status }) => status)).toEqual(["retired"]);
-    expect(JSON.parse(readFileSync(join(home, ".pi/agent/settings.json"), "utf8")).packages).toEqual([
-      "npm:@ask-llm/mcp",
-    ]);
+    expect(migrated.map(({ status }) => status)).toEqual(["manual"]);
+    expect(readFileSync(join(home, ".pi/agent/settings.json"), "utf8")).toBe(before);
+    const again = await migrate(["pi"]);
+    expect(again.findings).toEqual(findings);
+    expect(again.migrated).toEqual(migrated);
+    expect(readFileSync(join(home, ".pi/agent/settings.json"), "utf8")).toBe(before);
   });
 
   it("split-provider: retires persisted entries and guides list-only hosts", async () => {

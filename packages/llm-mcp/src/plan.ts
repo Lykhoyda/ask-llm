@@ -156,8 +156,6 @@ function decide(host: DetectedHost, server: string): { action: PlanAction; reaso
     const probe = [host.spec.binaries[0], ...(host.spec.versionProbe?.args ?? [])].join(" ");
     return { action: "manual", reason: `unrecognized \`${probe}\` output; check the syntax and run it manually` };
   }
-  if (host.legacy?.length)
-    return { action: "register", reason: `replaces ${host.legacy.join(", ")}, which setup then removes` };
   return { action: "register" };
 }
 

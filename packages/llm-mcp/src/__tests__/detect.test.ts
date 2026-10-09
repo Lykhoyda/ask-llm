@@ -147,7 +147,11 @@ describe("detectHosts", () => {
     expect(host(hosts, "claude")).toMatchObject({ registered: true, command: ["/opt/x/ask-llm-mcp"] });
     expect(host(hosts, "grok")).toMatchObject({ registered: true, command: ["/opt/x/ask-llm-mcp"] });
     expect(host(hosts, "agy")).toMatchObject({ registered: false });
-    expect(host(hosts, "pi")).toMatchObject({ installed: false, registered: true });
+    expect(host(hosts, "pi")).toMatchObject({
+      installed: false,
+      registered: false,
+      custom: "unverified package compatibility",
+    });
     expect(host(hosts, "opencode")).toMatchObject({ registered: true, command: ["/o/ask"] });
     if (process.platform === "darwin") {
       expect(host(hosts, "claude-desktop")).toMatchObject({ registered: true, command: ["npx", "-y", "ask-llm-mcp"] });
@@ -177,10 +181,13 @@ describe("detectHosts", () => {
   });
 
   it.each(["npm:@ask-llm/mcp", { source: "npm:@ask-llm/mcp" }])(
-    "recognizes Pi registration from %j",
+    "requires guidance for the unverified Pi npm registration %j",
     async (entry) => {
       write(".pi/agent/settings.json", JSON.stringify({ packages: [entry] }));
-      expect(host(await detectHosts(env), "pi")).toMatchObject({ registered: true });
+      expect(host(await detectHosts(env), "pi")).toMatchObject({
+        registered: false,
+        custom: "unverified package compatibility",
+      });
     },
   );
 

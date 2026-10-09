@@ -104,13 +104,9 @@ export async function planMigration(
         label: `${host.name} package ${source}`,
         entry: source,
         package: "@ask-llm/plugin",
-        action: host.custom ? "guidance" : "retire",
-        reason: host.custom
-          ? `Ask LLM packages have their own settings (${host.custom}); setup leaves them in place`
-          : "the earlier package that @ask-llm/mcp replaces",
-        change: host.custom
-          ? `preserve package filters and custom settings in ${host.spec.configFile}; follow ${MIGRATION_GUIDE}`
-          : commandText(["pi", "remove", source]),
+        action: "guidance",
+        reason: "Ask LLM npm package compatibility is unverified; setup leaves packages and their settings in place",
+        change: `preserve package filters and custom settings in ${host.spec.configFile}; follow ${MIGRATION_GUIDE}`,
       });
     }
     if (host.spec.registrationState.kind === "packages") continue;
@@ -236,16 +232,15 @@ async function retire(
   const spawnEnv = hostEnv(host, env);
   const source = namedSource(host.spec.registrationState, found.entry);
   const read = () => readRegistration(source, host.binary, spawnEnv);
-  const packages = source.kind === "packages";
   const listed = (current: RegistrationState) =>
-    packages ? (current.legacy ?? []).includes(found.entry) : current.registered === true || current.present === true;
+    source.kind === "packages"
+      ? (current.legacy ?? []).includes(found.entry)
+      : current.registered === true || current.present === true;
   const unchanged = (current: RegistrationState) =>
-    packages
-      ? listed(current) && !current.custom
-      : current.registered === true &&
-        sameCommand(current.command, found.command) &&
-        !!legacyPackage(current.command) &&
-        !current.custom;
+    current.registered === true &&
+    sameCommand(current.command, found.command) &&
+    !!legacyPackage(current.command) &&
+    !current.custom;
 
   const before = await read();
   if (before.registered === null) return failed(before.error);
@@ -277,11 +272,7 @@ async function retire(
       return failed(firstLine((error as Error).message), backup);
     }
   } else {
-    const argv = packages
-      ? ["pi", "remove", found.entry]
-      : registration.kind === "command"
-        ? registration.remove?.(found.entry)
-        : undefined;
+    const argv = registration.kind === "command" ? registration.remove?.(found.entry) : undefined;
     if (!argv || !host.binary) return failed(`${host.name} has no command to remove the entry`);
     const taken = takeBackup(host);
     if (taken.error) return failed(taken.error);
