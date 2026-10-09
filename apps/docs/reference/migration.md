@@ -1,11 +1,11 @@
 ---
 title: Migrating from @ask-llm/*
-description: Move an existing Ask LLM installation (split provider servers, npx registrations, the plugin bridge) to the one @ask-llm/mcp package with a single setup command.
+description: Use ask-llm setup to migrate supported registrations and get manual guidance for existing Pi npm installations, Codex and custom entries.
 ---
 
 # Migrating from @ask-llm/*
 
-Ask LLM is now one package, `@ask-llm/mcp`, with one command, `ask-llm`. If you set Ask LLM up earlier with `npx -y @ask-llm/mcp`, with one of the split provider servers (`@ask-llm/codex-mcp`, `@ask-llm/claude-mcp`, `@ask-llm/grok-mcp`, `@ask-llm/antigravity-mcp`, `@ask-llm/ollama-mcp`, `@ask-llm/gemini-mcp`), or with the `@ask-llm/plugin` package in Pi, one command moves you over.
+Ask LLM is now one package, `@ask-llm/mcp`, with one command, `ask-llm`. Start migration with `ask-llm setup` if you previously used `npx -y @ask-llm/mcp`, a split provider server (`@ask-llm/codex-mcp`, `@ask-llm/claude-mcp`, `@ask-llm/grok-mcp`, `@ask-llm/antigravity-mcp`, `@ask-llm/ollama-mcp`, `@ask-llm/gemini-mcp`), or the `@ask-llm/plugin` package in Pi. Setup migrates registrations it can verify and prints manual guidance for the others. Existing Pi npm packages and their plugin bridge remain untouched.
 
 ## What changed
 

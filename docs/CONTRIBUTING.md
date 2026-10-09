@@ -127,7 +127,7 @@ npm deprecate @ask-llm/codex-mcp "Replaced by @ask-llm/mcp, which includes every
 npm deprecate @ask-llm/gemini-mcp "Replaced by @ask-llm/mcp, which includes every provider. Install it with npm install -g @ask-llm/mcp, then run ask-llm setup. Migration guide: https://lykhoyda.github.io/ask-llm/reference/migration.html"
 npm deprecate @ask-llm/grok-mcp "Replaced by @ask-llm/mcp, which includes every provider. Install it with npm install -g @ask-llm/mcp, then run ask-llm setup. Migration guide: https://lykhoyda.github.io/ask-llm/reference/migration.html"
 npm deprecate @ask-llm/ollama-mcp "Replaced by @ask-llm/mcp, which includes every provider. Install it with npm install -g @ask-llm/mcp, then run ask-llm setup. Migration guide: https://lykhoyda.github.io/ask-llm/reference/migration.html"
-npm deprecate @ask-llm/plugin "Now part of @ask-llm/mcp. Install it with npm install -g @ask-llm/mcp, then run ask-llm setup, which also moves Pi installs. Migration guide: https://lykhoyda.github.io/ask-llm/reference/migration.html"
+npm deprecate @ask-llm/plugin "Now part of @ask-llm/mcp. Install it with npm install -g @ask-llm/mcp, then run ask-llm setup. Existing Pi npm installations remain unchanged with manual migration guidance. Migration guide: https://lykhoyda.github.io/ask-llm/reference/migration.html"
 ```
 
 4. Verify: `npm view <package> deprecated` prints the message for each of the seven, and `npm view @ask-llm/mcp deprecated` prints nothing.
