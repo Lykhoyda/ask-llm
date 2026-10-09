@@ -280,26 +280,23 @@ describe("migration of existing installations", () => {
         { env: {} },
       ].map((extra) => ({ source, extra })),
     ),
-  )(
-    "preserves Pi package $source with $extra and repeats guidance",
-    async ({ source, extra }) => {
-      installPi();
-      const file = join(home, ".pi/agent/settings.json");
-      piPackages({ source, ...extra }, "npm:@ask-llm/plugin@0.19.4");
-      const before = readFileSync(file, "utf8");
-      const first = await migrate(["pi"]);
-      const second = await migrate(["pi"]);
-      expect(first.registrations).toEqual([expect.objectContaining({ status: "conflict" })]);
-      expect(first.findings).not.toHaveLength(0);
-      expect(first.findings.every(({ action }) => action === "guidance")).toBe(true);
-      expect(first.migrated.every(({ status }) => status === "manual")).toBe(true);
-      expect(second.findings).toEqual(first.findings);
-      expect(second.registrations).toEqual(first.registrations);
-      expect(second.migrated).toEqual(first.migrated);
-      expect(readFileSync(file, "utf8")).toBe(before);
-      expect(existsSync(join(home, ".fake-pi-argv"))).toBe(false);
-    },
-  );
+  )("preserves Pi package $source with $extra and repeats guidance", async ({ source, extra }) => {
+    installPi();
+    const file = join(home, ".pi/agent/settings.json");
+    piPackages({ source, ...extra }, "npm:@ask-llm/plugin@0.19.4");
+    const before = readFileSync(file, "utf8");
+    const first = await migrate(["pi"]);
+    const second = await migrate(["pi"]);
+    expect(first.registrations).toEqual([expect.objectContaining({ status: "conflict" })]);
+    expect(first.findings).not.toHaveLength(0);
+    expect(first.findings.every(({ action }) => action === "guidance")).toBe(true);
+    expect(first.migrated.every(({ status }) => status === "manual")).toBe(true);
+    expect(second.findings).toEqual(first.findings);
+    expect(second.registrations).toEqual(first.registrations);
+    expect(second.migrated).toEqual(first.migrated);
+    expect(readFileSync(file, "utf8")).toBe(before);
+    expect(existsSync(join(home, ".fake-pi-argv"))).toBe(false);
+  });
 
   it("registers the local Pi package and becomes up to date", async () => {
     installPi();
@@ -340,7 +337,9 @@ describe("migration of existing installations", () => {
         writeFileSync(join(home, HOST_FILES[id]), before);
         const first = await migrate([id]);
         const second = await migrate([id]);
-        expect(first.registrations).toEqual([expect.objectContaining({ status: id === "codex" ? "manual" : "conflict" })]);
+        expect(first.registrations).toEqual([
+          expect.objectContaining({ status: id === "codex" ? "manual" : "conflict" }),
+        ]);
         expect(first.registrations[0].manual).toContain("preserve custom settings");
         expect(first.findings).toEqual([expect.objectContaining({ action: "guidance", entry: "codex" })]);
         expect(first.migrated).toEqual([expect.objectContaining({ status: "manual" })]);
@@ -495,9 +494,7 @@ describe("migration of existing installations", () => {
       const confirm = async () => {
         edited = JSON.stringify({
           mcpServers:
-            change === "removed"
-              ? { codex: split }
-              : { "ask-llm": { command: SERVER, enabled: false }, codex: split },
+            change === "removed" ? { codex: split } : { "ask-llm": { command: SERVER, enabled: false }, codex: split },
         });
         writeFileSync(file, edited);
         return true;
@@ -535,13 +532,7 @@ describe("migration of existing installations", () => {
     expect(existsSync(join(home, ".fake-pi-argv"))).toBe(false);
   });
 
-  it.each([
-    "canonical removed",
-    "canonical filtered",
-    "canonical unpinned",
-    "canonical pinned",
-    "legacy customised",
-  ])(
+  it.each(["canonical removed", "canonical filtered", "canonical unpinned", "canonical pinned", "legacy customised"])(
     "rejects stale Pi retirement after %s during confirmation",
     async (change) => {
       installPi();
@@ -554,8 +545,7 @@ describe("migration of existing installations", () => {
       let edited = "";
       const confirm = async () => {
         if (change === "canonical removed") piPackages("npm:@ask-llm/plugin");
-        else if (change === "canonical filtered")
-          piPackages({ source: local, extensions: [] }, "npm:@ask-llm/plugin");
+        else if (change === "canonical filtered") piPackages({ source: local, extensions: [] }, "npm:@ask-llm/plugin");
         else if (change === "canonical unpinned") piPackages("npm:@ask-llm/mcp", "npm:@ask-llm/plugin");
         else if (change === "canonical pinned") piPackages("npm:@ask-llm/mcp@0.12.1", "npm:@ask-llm/plugin");
         else piPackages(local, { source: "npm:@ask-llm/plugin", unknown: null });
@@ -623,7 +613,9 @@ describe("migration of existing installations", () => {
     expect(migrationArgv(home, "codex")).toEqual([]);
 
     const again = await migrate(["claude", "codex", "agy", "cursor"]);
-    expect(again.registrations.every(({ id, status }) => status === (id === "codex" ? "manual" : "up-to-date"))).toBe(true);
+    expect(again.registrations.every(({ id, status }) => status === (id === "codex" ? "manual" : "up-to-date"))).toBe(
+      true,
+    );
     expect(again.findings).toEqual([]);
   });
 

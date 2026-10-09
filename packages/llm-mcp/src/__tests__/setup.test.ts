@@ -434,33 +434,30 @@ describe("ask-llm setup", () => {
     { source: "npm:@ask-llm/plugin" },
     "npm:@ask-llm/plugin@0.19.4",
     { source: "npm:@ask-llm/plugin@0.19.4" },
-  ])(
-    "preserves the Pi npm bridge %j and repeats migration guidance",
-    (entry) => {
-      installPi();
-      const settings = join(home, ".pi/agent/settings.json");
-      mkdirSync(join(home, ".pi/agent"), { recursive: true });
-      const before = JSON.stringify({ theme: "dark", packages: [entry] });
-      writeFileSync(settings, before);
+  ])("preserves the Pi npm bridge %j and repeats migration guidance", (entry) => {
+    installPi();
+    const settings = join(home, ".pi/agent/settings.json");
+    mkdirSync(join(home, ".pi/agent"), { recursive: true });
+    const before = JSON.stringify({ theme: "dark", packages: [entry] });
+    writeFileSync(settings, before);
 
-      const preview = ask("setup", "--dry-run", "--json", "--host", "pi");
-      expect(preview.status).toBe(0);
-      const plan = JSON.parse(preview.stdout);
-      expect(plan.hosts).toEqual([expect.objectContaining({ id: "pi", action: "conflict" })]);
-      expect(plan.migration).toEqual([expect.objectContaining({ id: "pi", action: "guidance" })]);
+    const preview = ask("setup", "--dry-run", "--json", "--host", "pi");
+    expect(preview.status).toBe(0);
+    const plan = JSON.parse(preview.stdout);
+    expect(plan.hosts).toEqual([expect.objectContaining({ id: "pi", action: "conflict" })]);
+    expect(plan.migration).toEqual([expect.objectContaining({ id: "pi", action: "guidance" })]);
 
-      for (let run = 0; run < 2; run++) {
-        const result = ask("setup", "-y", "--host", "pi");
-        expect(result.status, result.stdout + result.stderr).toBe(1);
-        expect(result.stdout).toContain("unverified package compatibility");
-        expect(result.stdout).toContain("preserve package filters");
-        expect(readFileSync(settings, "utf8")).toBe(before);
-        expect(fakeArgv(home, "pi")).toEqual([]);
-      }
-      const again = ask("setup", "--dry-run", "--json", "--host", "pi");
-      expect(JSON.parse(again.stdout).migration).toEqual(plan.migration);
-    },
-  );
+    for (let run = 0; run < 2; run++) {
+      const result = ask("setup", "-y", "--host", "pi");
+      expect(result.status, result.stdout + result.stderr).toBe(1);
+      expect(result.stdout).toContain("unverified package compatibility");
+      expect(result.stdout).toContain("preserve package filters");
+      expect(readFileSync(settings, "utf8")).toBe(before);
+      expect(fakeArgv(home, "pi")).toEqual([]);
+    }
+    const again = ask("setup", "--dry-run", "--json", "--host", "pi");
+    expect(JSON.parse(again.stdout).migration).toEqual(plan.migration);
+  });
 
   it("reports a foreign file-host entry with the entry it would use and leaves the file alone", () => {
     writeFileSync(join(bin, "cursor-agent"), "#!/bin/sh\nexit 0\n", { mode: 0o755 });
