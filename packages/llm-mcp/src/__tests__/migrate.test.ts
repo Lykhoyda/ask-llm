@@ -19,7 +19,6 @@ import type { HostId } from "../hosts/registry.js";
 import { applyMigration, planMigration, replaceRegistration } from "../migrate.js";
 import { buildPlan } from "../plan.js";
 import { applyRemove } from "../remove.js";
-import { applyRemove } from "../remove.js";
 import { applySetup } from "../setup.js";
 import {
   HOST_FILES,
@@ -203,15 +202,6 @@ describe("migration of existing installations", () => {
       expect(again.findings).toEqual(findings);
       expect(again.registrations).toEqual(registrations);
       expect(again.migrated).toEqual(migrated);
-      const stale = await applyMigration(
-        [{ ...findings[0], action: "retire", change: remove("codex") }],
-        hosts,
-        SERVER,
-        [{ id, name: detected.name, status: "up-to-date" }],
-        confirm,
-        env,
-      );
-      expect(stale).toEqual([expect.objectContaining({ status: "manual", manual: remove("codex") })]);
       expect(confirm).not.toHaveBeenCalled();
       for (const op of ["add", "remove"] as const) {
         expect(await applyRegistrar(detected, op, SERVER, env)).toMatchObject({ outcome: "manual" });
@@ -220,6 +210,34 @@ describe("migration of existing installations", () => {
       expect(readHostFile(home, id)).toBe(before);
       expect(readdirSync(join(file, ".."))).toEqual(files);
       expect(migrationArgv(home, id)).toEqual([]);
+    });
+
+    it.each(["mismatch", "failed"] as const)("rejects stale retirement after a %s probe", async (probe) => {
+      install(id);
+      seedServers(home, id, {
+        "ask-llm": { command: [SERVER] },
+        codex: { command: ["npx", "-y", "@ask-llm/codex-mcp"] },
+        other: OTHER,
+      });
+      const hosts = await detectHosts(env);
+      const findings = await planMigration(hosts, [id], env);
+      const registrations = await applySetup(hosts, SERVER, [id], yes, env);
+      expect(findings).toEqual([expect.objectContaining({ action: "retire", change: remove("codex") })]);
+      expect(registrations).toEqual([expect.objectContaining({ status: "up-to-date" })]);
+      installMigrationHost(bin, id, probe);
+      const unsupported = await detectHosts(env);
+      expect(host(unsupported, id).supported).toBe(false);
+      const before = readHostFile(home, id);
+      const directory = join(home, HOST_FILES[id], "..");
+      const files = readdirSync(directory);
+      const confirm = vi.fn(yes);
+      const stale = await applyMigration(findings, unsupported, SERVER, registrations, confirm, env);
+      expect.soft(stale).toEqual([expect.objectContaining({ status: "manual", manual: remove("codex") })]);
+      expect.soft(confirm).not.toHaveBeenCalled();
+      expect.soft(readHostFile(home, id)).toBe(before);
+      expect.soft(readdirSync(directory)).toEqual(files);
+      expect.soft(migrationArgv(home, id)).toEqual([]);
+      expect(await applyMigration(findings, unsupported, SERVER, registrations, confirm, env)).toEqual(stale);
     });
 
     it.each(["register", "replace", "retire", "remove"] as const)(

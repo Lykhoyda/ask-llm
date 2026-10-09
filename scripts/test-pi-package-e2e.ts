@@ -390,7 +390,7 @@ try {
 
   // Representative canonical skills through a real scripted Pi host model.
   let result = await runPrompt("/skill:ask-llm-review SMOKE_SINGLE", "ask-codex");
-  invariant(!result.toolEnd.isError, "codex-review tool failed");
+  invariant(!result.toolEnd.isError, `codex-review tool failed: ${toolResultText(result.toolEnd)}`);
   invariant(toolResultText(result.toolEnd).includes("FAKE_CODEX_RESPONSE"), "codex executor response missing");
   invariant(result.toolEnd.result?.details?.provider === "codex", "codex structured details missing provider");
 

@@ -70,6 +70,9 @@ beforeEach(() => {
   mkdirSync(join(root, "global"), { recursive: true });
   writeFileSync(SERVER, "#!/bin/sh\n", { mode: 0o755 });
   for (const name of Object.keys(ARGV)) installFakeHost(bin, name);
+  for (const name of ["agent", "claude-desktop", "opencode"]) {
+    writeFileSync(join(bin, name), '#!/bin/sh\necho "1.0.0"\n', { mode: 0o755 });
+  }
 });
 
 async function detected(id: string): Promise<DetectedHost> {
