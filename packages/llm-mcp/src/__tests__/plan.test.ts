@@ -44,9 +44,15 @@ function entry(host: DetectedHost): PlanEntry {
 }
 
 describe("buildPlan", () => {
+  it.each([false, true])("keeps incomplete list registrations manual when registered is %s", (registered) => {
+    const plan = entry(detected("codex", { registered, command: registered ? [SERVER] : undefined }));
+    expect(plan.action).toBe("manual");
+    expect(plan.manual).toContain("preserve custom settings and tool filters");
+    expect(plan.replace).toBeUndefined();
+  });
+
   it.each([
     ["claude", ["claude", "mcp", "add", "--scope", "user", "ask-llm", "--", SERVER]],
-    ["codex", ["codex", "mcp", "add", "ask-llm", "--", SERVER]],
     ["agy", ["agy", "mcp", "add", "ask-llm", SERVER]],
     ["grok", ["grok", "mcp", "add", "--scope", "user", "ask-llm", SERVER]],
     ["gemini", ["gemini", "mcp", "add", "--scope", "user", "ask-llm", SERVER]],
@@ -145,7 +151,7 @@ describe("buildPlan", () => {
   });
 
   it("never overwrites a disabled or command-less ask-llm entry", () => {
-    expect(entry(detected("codex", { registered: false, present: true }))).toMatchObject({
+    expect(entry(detected("claude", { registered: false, present: true }))).toMatchObject({
       action: "conflict",
       reason: "an ask-llm entry exists but is disabled or has no usable command; setup will not overwrite it",
     });

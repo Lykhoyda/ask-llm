@@ -2,7 +2,7 @@ import { execFileSync } from "node:child_process";
 import { realpathSync } from "node:fs";
 import { join, sep } from "node:path";
 import { getSpawnEnv } from "@ask-llm/shared";
-import type { DetectedHost } from "./hosts/detect.js";
+import { type DetectedHost, INCOMPLETE_REGISTRATION } from "./hosts/detect.js";
 import { legacyPackage, mentionedPackage } from "./hosts/legacy.js";
 import { type HostId, SERVER_NAME } from "./hosts/registry.js";
 import { resolveCommand } from "./utils/availability.js";
@@ -59,6 +59,7 @@ export function isOwnCommand(command: string[] | undefined, server: string): boo
 }
 
 export function isOwnRegistration(host: DetectedHost, server: string): boolean {
+  if (host.spec.registrationState.kind === "list") return false;
   if (host.spec.registrationState.kind === "packages") return host.registered === true && !host.custom;
   return isOwnCommand(host.command, server);
 }
@@ -128,6 +129,7 @@ function decide(host: DetectedHost, server: string): { action: PlanAction; reaso
       reason: host.leftoverConfig ? `not installed; leftover config at ${host.spec.configHome}` : "not installed",
     };
   }
+  if (host.spec.registrationState.kind === "list") return { action: "manual", reason: INCOMPLETE_REGISTRATION };
   if (host.spec.registrationState.kind === "packages" && host.custom)
     return {
       action: "conflict",
@@ -171,13 +173,15 @@ export function buildPlan(hosts: DetectedHost[], server: string): PlanEntry[] {
       action,
       reason,
       manual:
-        action === "conflict" && host.spec.registrationState.kind === "packages" && host.custom
-          ? `preserve package filters and custom settings in ${host.spec.configFile} when migrating to @ask-llm/mcp`
-          : action === "manual" || (host.installed && !host.supported)
-            ? manualText(registration)
-            : action === "conflict" && mentionedPackage(host.command?.join(" "))
-              ? `preserve custom settings and command options you still need, then: ${replaceText(host, server)}`
-              : undefined,
+        host.installed && host.spec.registrationState.kind === "list"
+          ? `inspect ${host.spec.configFile} and project overrides; preserve custom settings and tool filters before manually migrating. Intended registration: ${manualText(registration)}`
+          : action === "conflict" && host.spec.registrationState.kind === "packages" && host.custom
+            ? `preserve package filters and custom settings in ${host.spec.configFile} when migrating to @ask-llm/mcp`
+            : action === "manual" || (host.installed && !host.supported)
+              ? manualText(registration)
+              : action === "conflict" && mentionedPackage(host.command?.join(" "))
+                ? `preserve custom settings and command options you still need, then: ${replaceText(host, server)}`
+                : undefined,
       replace: action === "replace" ? replaceText(host, server) : undefined,
       registration,
       skillsDir: host.spec.skillsDir,

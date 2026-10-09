@@ -8,6 +8,9 @@ import { runHost } from "./spawn.js";
 
 const PROBE_TIMEOUT_MS = 5000;
 
+export const INCOMPLETE_REGISTRATION =
+  "the host list omits persisted settings and may include project overrides; user-scope ownership is unverified";
+
 export interface RegistrationState {
   registered: boolean | null;
   command?: string[];
@@ -78,51 +81,27 @@ export function entryCommand(entry: unknown): string[] | undefined {
 export function customSettings(entry: unknown, packageEntry = false): string | undefined {
   if (entry === null || typeof entry !== "object") return undefined;
   const settings: string[] = [];
-  const visit = (fields: Record<string, unknown>, shape: "package" | "list" | "transport" | "mcp") => {
-    for (const [key, value] of Object.entries(fields)) {
-      if (
-        shape === "list" &&
-        key === "transport" &&
-        value !== null &&
-        typeof value === "object" &&
-        !Array.isArray(value)
-      ) {
-        visit(value as Record<string, unknown>, "transport");
-        continue;
-      }
-      const known =
-        shape === "package"
-          ? key === "source"
-          : shape === "list"
-            ? (key === "name" && typeof value === "string") ||
-              (key === "enabled" && value === true) ||
-              (["disabled_reason", "startup_timeout_sec", "tool_timeout_sec"].includes(key) && value === null) ||
-              (key === "auth_status" && value === "unsupported")
-            : key === "command" ||
-              key === "args" ||
-              (key === "type" && (value === "stdio" || (shape === "mcp" && value === "local"))) ||
-              (shape === "mcp" && key === "enabled" && value === true) ||
-              (shape === "mcp" &&
-                key === "env" &&
-                value !== null &&
-                typeof value === "object" &&
-                !Array.isArray(value) &&
-                Object.keys(value).length === 0) ||
-              (shape === "transport" && ["env", "cwd"].includes(key) && value === null) ||
-              (shape === "transport" && key === "env_vars" && Array.isArray(value) && value.length === 0);
-      if (!known) {
-        settings.push(
-          value !== null && typeof value === "object" && !Array.isArray(value)
-            ? `${key} ${Object.keys(value).join(", ")}`.trimEnd()
-            : key,
-        );
-      }
+  for (const [key, value] of Object.entries(entry)) {
+    const known =
+      packageEntry
+        ? key === "source"
+        : key === "command" ||
+          key === "args" ||
+          (key === "type" && (value === "stdio" || value === "local")) ||
+          (key === "enabled" && value === true) ||
+          (key === "env" &&
+            value !== null &&
+            typeof value === "object" &&
+            !Array.isArray(value) &&
+            Object.keys(value).length === 0);
+    if (!known) {
+      settings.push(
+        value !== null && typeof value === "object" && !Array.isArray(value)
+          ? `${key} ${Object.keys(value).join(", ")}`.trimEnd()
+          : key,
+      );
     }
-  };
-  visit(
-    entry as Record<string, unknown>,
-    packageEntry ? "package" : Object.hasOwn(entry, "transport") ? "list" : "mcp",
-  );
+  }
   return settings.length > 0 ? settings.join("; ") : undefined;
 }
 
@@ -228,7 +207,7 @@ async function readList(
   name = SERVER_NAME,
 ): Promise<RegistrationState> {
   const entry = (await listed(binary, args, env)).find((server) => server.name === name);
-  return state(entry !== undefined, listedCommand(entry), customSettings(entry));
+  return { registered: null, command: listedCommand(entry), error: INCOMPLETE_REGISTRATION };
 }
 
 // Pi's own test for a local package source: anything without a remote prefix.
@@ -348,7 +327,7 @@ export async function listServers(
       .map((server) => ({
         name: server.name,
         command: listedCommand(server),
-        custom: customSettings(server),
+        error: INCOMPLETE_REGISTRATION,
         text: JSON.stringify(server),
       }));
   }

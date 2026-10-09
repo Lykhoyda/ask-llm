@@ -46,7 +46,16 @@ const bin = join(root, "bin");
 const home = join(root, "home");
 const installedServer = join(bin, "ask-llm-mcp");
 const path = `${bin}:/usr/bin:/bin`;
-const env = { HOME: home, PATH: path, ASK_LLM_PATH: path };
+const env = {
+  HOME: home,
+  CODEX_HOME: join(home, ".codex"),
+  XDG_CONFIG_HOME: join(home, ".config"),
+  XDG_CACHE_HOME: join(home, ".cache"),
+  XDG_DATA_HOME: join(home, ".local/share"),
+  XDG_STATE_HOME: join(home, ".local/state"),
+  PATH: path,
+  ASK_LLM_PATH: path,
+};
 const FOREIGN = "/opt/other/ask-llm-mcp";
 const HOSTS = Object.keys(FAKE_HOSTS);
 const previousPath = process.env.ASK_LLM_PATH;
@@ -54,7 +63,6 @@ process.env.ASK_LLM_PATH = path;
 
 const ADD: Record<string, string[]> = {
   claude: ["mcp", "add", "--scope", "user", "ask-llm", "--", installedServer],
-  codex: ["mcp", "add", "ask-llm", "--", installedServer],
   agy: ["mcp", "add", "ask-llm", installedServer],
   grok: ["mcp", "add", "--scope", "user", "ask-llm", installedServer],
   gemini: ["mcp", "add", "--scope", "user", "ask-llm", installedServer],
@@ -144,13 +152,12 @@ writeFileSync(file, JSON.stringify(settings));
 }
 
 describe("ask-llm setup", () => {
-  it("registers every detected command host with -y, and a second run changes nothing", () => {
+  it("registers hosts with persisted records and leaves list-only hosts manual", () => {
     const first = ask("setup", "-y");
     expect(first.stderr).toBe("");
-    // The only unsuccessful row is agy's skills folder, which no skills@1.7.0 agent id reaches (ADR-183).
     expect(first.status).toBe(1);
     expect(first.stdout).toContain("Antigravity skills: manual");
-    expect(calls()).toEqual(Object.fromEntries(HOSTS.map((name) => [name, [ADD[name]]])));
+    expect(calls()).toEqual(Object.fromEntries(HOSTS.map((name) => [name, name === "codex" ? [] : [ADD[name]]])));
     expect(first.stdout).toContain("Claude Code 2.1.284: registered");
     expect(first.stdout).toContain("start a new session");
     expect(first.stdout).toContain("trusted folders");
@@ -159,11 +166,11 @@ describe("ask-llm setup", () => {
 
     const second = ask("setup", "-y");
     expect(second.status).toBe(1);
-    expect(second.stdout).toContain("Codex CLI 0.158.0: already registered");
+    expect(second.stdout).toContain("Codex CLI 0.158.0: manual");
     expect(second.stdout).toContain("Claude Code plugin: already installed");
     expect(second.stdout).toContain("Codex CLI skills: already installed");
     expect(second.stdout).toContain("No changes.");
-    expect(calls()).toEqual(Object.fromEntries(HOSTS.map((name) => [name, [ADD[name]]])));
+    expect(calls()).toEqual(Object.fromEntries(HOSTS.map((name) => [name, name === "codex" ? [] : [ADD[name]]])));
     expect(readFileSync(join(home, "npx-argv"), "utf8").trim().split("\n")).toHaveLength(1);
     expect(readFileSync(join(home, ".fake-claude-plugin-argv"), "utf8").trim().split("\n")).toHaveLength(2);
   });
@@ -185,7 +192,7 @@ describe("ask-llm setup", () => {
     expect(existsSync(join(home, "npx-argv"))).toBe(false);
 
     const result = ask("setup", "-y", "--host", "claude,codex,grok");
-    expect(result.status).toBe(0);
+    expect(result.status).toBe(1);
     expect(result.stdout).toContain("Claude Code plugin: installed");
     expect(result.stdout).toContain("Codex CLI skills: installed");
     expect(result.stdout).toContain("Grok Build skills: installed");
@@ -212,8 +219,8 @@ describe("ask-llm setup", () => {
   });
 
   it("changes only the hosts named with --host", () => {
-    expect(ask("setup", "-y", "--host", "claude,codex").status).toBe(0);
-    expect(calls()).toEqual({ claude: [ADD.claude], codex: [ADD.codex], agy: [], grok: [], gemini: [] });
+    expect(ask("setup", "-y", "--host", "claude,codex").status).toBe(1);
+    expect(calls()).toEqual({ claude: [ADD.claude], codex: [], agy: [], grok: [], gemini: [] });
   });
 
   it("never overwrites a foreign ask-llm entry", () => {
@@ -278,7 +285,7 @@ describe("ask-llm setup", () => {
     expect(result.stdout).toContain(
       `Run it manually: ${commandText(["grok", "mcp", "add", "--scope", "user", "ask-llm", installedServer])}`,
     );
-    expect(result.stdout).toContain("Codex CLI 0.158.0: registered");
+    expect(result.stdout).toContain("Codex CLI 0.158.0: manual");
   });
 
   it("reports a requested host that is not installed instead of dropping it", () => {
@@ -510,8 +517,12 @@ describe("ask-llm setup", () => {
     expect(result.stdout).toContain("Each backup may contain credentials");
     expect(result.stdout).toContain("remains until you delete it");
     const saved = backups();
-    expect(saved).toHaveLength(HOSTS.length);
-    for (const [file, content] of Object.values(CONFIG_FILES)) {
+    expect(saved).toHaveLength(HOSTS.length - 1);
+    for (const [id, [file, content]] of Object.entries(CONFIG_FILES)) {
+      if (id === "codex") {
+        expect(readFileSync(join(home, file), "utf8")).toBe(content);
+        continue;
+      }
       const backup = saved.find((path) => path.startsWith(`${file}.ask-llm-backup-`));
       expect(backup).toBeDefined();
       expect(readFileSync(join(home, backup as string), "utf8")).toBe(content);
@@ -575,13 +586,13 @@ describe("ask-llm setup", () => {
 
   it("asks once per host and leaves declined hosts untouched", async () => {
     const asked: string[] = [];
-    const isolated = { HOME: home };
+    const isolated = env;
     const confirm = async (question: string) => {
       asked.push(question);
       return question.includes("Claude Code");
     };
     const results = await applySetup(await detectHosts(isolated), server, HOSTS as HostId[], confirm, isolated);
-    expect(asked).toHaveLength(5);
+    expect(asked).toHaveLength(4);
     expect(asked[0]).toContain(commandText(["claude", "mcp", "add", "--scope", "user", "ask-llm", "--", server]));
     expect(calls()).toEqual({
       claude: [["mcp", "add", "--scope", "user", "ask-llm", "--", server]],
@@ -590,7 +601,7 @@ describe("ask-llm setup", () => {
       grok: [],
       gemini: [],
     });
-    expect(results.find(({ id }) => id === "codex")).toMatchObject({ status: "declined" });
+    expect(results.find(({ id }) => id === "codex")).toMatchObject({ status: "manual" });
   });
 });
 
@@ -699,10 +710,10 @@ describe("ask-llm remove", () => {
     for (const name of HOSTS) writeRegistration(home, name, name === "codex" ? FOREIGN : server);
     const codexFile = readFileSync(join(home, FAKE_HOSTS.codex.file), "utf8");
     const result = ask("remove", "-y");
-    expect(result.status).toBe(0);
+    expect(result.status).toBe(1);
     expect(calls()).toEqual({ ...Object.fromEntries(Object.entries(REMOVE).map(([k, v]) => [k, [v]])), codex: [] });
     expect(result.stdout).toContain("Claude Code 2.1.284: removed");
-    expect(result.stdout).toContain(`Codex CLI 0.158.0: not removed (an ask-llm entry runs \`${FOREIGN}\``);
+    expect(result.stdout).toContain("Codex CLI 0.158.0: manual");
     expect(readFileSync(join(home, FAKE_HOSTS.codex.file), "utf8")).toBe(codexFile);
     expect(result.stdout).toContain("may reformat its config file");
     const saved = backups();
@@ -715,16 +726,16 @@ describe("ask-llm remove", () => {
 
     const before = calls();
     const again = ask("remove", "-y");
-    expect(again.status).toBe(0);
+    expect(again.status).toBe(1);
     expect(again.stdout).toContain("No changes.");
     expect(calls()).toEqual(before);
   });
 
   it("round-trips setup and remove", () => {
     expect(ask("setup", "-y").stdout).toContain("Antigravity skills: manual");
-    expect(ask("remove", "-y", "--host", "codex").status).toBe(0);
-    expect(fakeArgv(home, "codex")).toEqual([ADD.codex, ["mcp", "remove", "ask-llm"]]);
-    expect(ask("setup", "-y").stdout).toContain("Codex CLI 0.158.0: registered");
+    expect(ask("remove", "-y", "--host", "claude").status).toBe(0);
+    expect(fakeArgv(home, "claude")).toEqual([ADD.claude, ["mcp", "remove", "--scope", "user", "ask-llm"]]);
+    expect(ask("setup", "-y").stdout).toContain("Claude Code 2.1.284: registered");
   });
 
   it("leaves a disabled or command-less entry in place and says so", () => {

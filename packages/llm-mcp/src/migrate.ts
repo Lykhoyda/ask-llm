@@ -66,7 +66,7 @@ function finding(host: DetectedHost, entry: ServerEntry): MigrationFinding | und
   };
   const remove = removeText(host, entry.name);
   const current = entry.command ? `\`${commandText(entry.command)}\`` : pkg;
-  if (exact && entry.command && !entry.custom) {
+  if (exact && entry.command && !entry.custom && !entry.error) {
     return {
       ...base,
       action: "retire",
@@ -83,7 +83,9 @@ function finding(host: DetectedHost, entry: ServerEntry): MigrationFinding | und
     action: "guidance",
     command: entry.command,
     reason: `runs ${current} ${why}; setup leaves it in place`,
-    change: `carry over any settings you still need, then: ${remove}`,
+    change: entry.error
+      ? `inspect ${host.spec.configFile} and project overrides; preserve custom settings and verify the user-scope entry before manually using: ${remove}`
+      : `carry over any settings you still need, then: ${remove}`,
   };
 }
 
@@ -111,7 +113,8 @@ export async function planMigration(
           : commandText(["pi", "remove", source]),
       });
     }
-    if (host.registered === null || host.spec.registrationState.kind === "packages") continue;
+    if (host.spec.registrationState.kind === "packages") continue;
+    if (host.registered === null && (host.spec.registrationState.kind !== "list" || !host.supported)) continue;
     let entries: ServerEntry[];
     try {
       entries = await listServers(host.spec.registrationState, host.binary, hostEnv(host, env));

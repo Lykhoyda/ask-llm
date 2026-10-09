@@ -10,7 +10,14 @@ const home = join(root, "home");
 const previousPath = process.env.ASK_LLM_PATH;
 // Pin the shared PATH resolver to the fixture bin like the harness-smoke gate.
 process.env.ASK_LLM_PATH = bin;
-const env = { HOME: home };
+const env = {
+  HOME: home,
+  CODEX_HOME: join(home, ".codex"),
+  XDG_CONFIG_HOME: join(home, ".config"),
+  XDG_CACHE_HOME: join(home, ".cache"),
+  XDG_DATA_HOME: join(home, ".local/share"),
+  XDG_STATE_HOME: join(home, ".local/state"),
+};
 
 afterAll(() => {
   if (previousPath === undefined) delete process.env.ASK_LLM_PATH;
@@ -149,7 +156,7 @@ describe("detectHosts", () => {
     expect(existsSync(join(home, "grok-spawned"))).toBe(false);
   });
 
-  it("reads Codex registration through its side-effect-free JSON list command", async () => {
+  it("does not trust the Codex list projection as a persisted registration", async () => {
     fake(
       "codex",
       [
@@ -163,7 +170,8 @@ describe("detectHosts", () => {
     );
     expect(host(await detectHosts(env), "codex")).toMatchObject({
       installed: true,
-      registered: true,
+      registered: null,
+      error: expect.stringContaining("user-scope ownership is unverified"),
       command: ["/opt/x/ask-llm-mcp"],
     });
   });
@@ -231,7 +239,7 @@ describe("detectHosts", () => {
       'case "$1" in --version) echo "codex-cli 0.158.0";; *) echo \'[{"name":"ask-llm","transport":{}}]\';; esac',
     );
     const hosts = await detectHosts(env);
-    for (const id of ["claude", "gemini", "grok", "opencode", "codex"]) {
+    for (const id of ["claude", "gemini", "grok", "opencode"]) {
       expect(host(hosts, id).registered, id).toBe(false);
     }
   });
