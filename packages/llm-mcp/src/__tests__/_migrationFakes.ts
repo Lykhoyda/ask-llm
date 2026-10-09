@@ -32,7 +32,7 @@ const host = HOST;
 const home = process.env.HOME;
 const file = join(home, FILE);
 const args = process.argv.slice(2);
-if (args[0] === "--version") { console.log(VERSION); process.exit(0); }
+if (args[0] === "--version") { console.log(VERSION); process.exit(PROBE_EXIT); }
 const read = () => (existsSync(file) ? readFileSync(file, "utf8") : undefined);
 if (args.join(" ") === "mcp list --json") { console.log(read() ?? "[]"); process.exit(0); }
 appendFileSync(join(home, ".fake-" + host + "-argv"), args.join("\t") + "\t\n");
@@ -107,10 +107,15 @@ if (op === "remove") {
 process.exit(9);
 `;
 
-export function installMigrationHost(bin: string, host: MigrationHost): void {
+export function installMigrationHost(
+  bin: string,
+  host: MigrationHost,
+  probe: "ok" | "mismatch" | "failed" = "ok",
+): void {
   const script = SCRIPT.replace("HOST", JSON.stringify(host))
     .replace("FILE", JSON.stringify(HOST_FILES[host]))
-    .replace("VERSION", JSON.stringify(VERSIONS[host]));
+    .replace("VERSION", JSON.stringify(probe === "mismatch" ? "unknown version" : VERSIONS[host]))
+    .replace("PROBE_EXIT", probe === "failed" ? "1" : "0");
   writeFileSync(join(bin, host), `#!${process.execPath}\n${script}`);
   chmodSync(join(bin, host), 0o755);
 }

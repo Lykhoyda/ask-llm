@@ -121,6 +121,11 @@ export function replaceText(host: DetectedHost, server: string): string {
   return registration.refusesExisting && remove ? `${commandText(remove)} && ${add}` : add;
 }
 
+export function compatibilityReason(host: DetectedHost): string {
+  const probe = [host.spec.binaries[0], ...(host.spec.versionProbe?.args ?? [])].join(" ");
+  return `unrecognized \`${probe}\` output; check the syntax and run it manually`;
+}
+
 function decide(host: DetectedHost, server: string): { action: PlanAction; reason?: string } {
   if (host.registered === null) return { action: "manual", reason: host.error };
   if (!host.installed) {
@@ -142,9 +147,10 @@ function decide(host: DetectedHost, server: string): { action: PlanAction; reaso
         action: "conflict",
         reason: `an ask-llm entry runs ${current} with its own settings (${host.custom}); setup will not carry them over or overwrite it`,
       };
+    if (!host.supported) return { action: "manual", reason: compatibilityReason(host) };
     if (isOwnRegistration(host, server))
       return { action: "up-to-date", reason: "already registered to this ask-llm-mcp" };
-    if (legacyPackage(host.command) && host.supported)
+    if (legacyPackage(host.command))
       return {
         action: "replace",
         reason: `an ask-llm entry runs ${current} from an earlier install; setup replaces it`,
@@ -152,10 +158,7 @@ function decide(host: DetectedHost, server: string): { action: PlanAction; reaso
     return { action: "conflict", reason: `an ask-llm entry already runs ${current}; setup will not overwrite it` };
   }
   if (host.present) return { action: "conflict", reason: `${UNUSABLE_ENTRY}; setup will not overwrite it` };
-  if (!host.supported) {
-    const probe = [host.spec.binaries[0], ...(host.spec.versionProbe?.args ?? [])].join(" ");
-    return { action: "manual", reason: `unrecognized \`${probe}\` output; check the syntax and run it manually` };
-  }
+  if (!host.supported) return { action: "manual", reason: compatibilityReason(host) };
   return { action: "register" };
 }
 

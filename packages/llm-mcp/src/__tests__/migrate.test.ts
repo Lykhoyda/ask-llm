@@ -3,6 +3,7 @@ import {
   existsSync,
   mkdirSync,
   mkdtempSync,
+  readdirSync,
   readFileSync,
   realpathSync,
   rmSync,
@@ -10,12 +11,14 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { applyRegistrar } from "../hosts/apply.js";
 import { type DetectedHost, detectHosts } from "../hosts/detect.js";
 import { legacyPackage } from "../hosts/legacy.js";
 import type { HostId } from "../hosts/registry.js";
 import { applyMigration, planMigration, replaceRegistration } from "../migrate.js";
 import { buildPlan } from "../plan.js";
+import { applyRemove } from "../remove.js";
 import { applyRemove } from "../remove.js";
 import { applySetup } from "../setup.js";
 import {
@@ -149,6 +152,127 @@ describe("legacyPackage", () => {
 });
 
 describe("migration of existing installations", () => {
+  describe.each(MIGRATION_HOSTS.filter((id) => id !== "codex"))("%s compatibility", (id) => {
+    const add = () =>
+      id === "agy"
+        ? `agy mcp add ask-llm ${SERVER}`
+        : `${id} mcp add --scope user ask-llm ${id === "claude" ? "-- " : ""}${SERVER}`;
+    const remove = (entry: string) => `${id} mcp remove ${id === "agy" ? "" : "--scope user "}${entry}`;
+
+    it.each(["mismatch", "failed"] as const)("preserves owned and sibling entries after a %s probe", async (probe) => {
+      installMigrationHost(bin, id, probe);
+      seedServers(home, id, {
+        "ask-llm": { command: [SERVER] },
+        codex: { command: ["npx", "-y", "@ask-llm/codex-mcp"] },
+        custom: { command: ["ask-grok-mcp"], env: { USER_OPTION: "preserve" } },
+        other: OTHER,
+      });
+      const file = join(home, HOST_FILES[id]);
+      if (id === "grok") {
+        writeFileSync(
+          file,
+          readHostFile(home, id).replace("[mcp_servers.custom]", "[mcp_servers.custom]\nenabled_tools = []"),
+        );
+      } else {
+        const config = JSON.parse(readHostFile(home, id));
+        config.mcpServers.custom.enabled_tools = [];
+        writeFileSync(file, JSON.stringify(config));
+      }
+      const before = readHostFile(home, id);
+      const files = readdirSync(join(file, ".."));
+      const confirm = vi.fn(yes);
+      const hosts = await detectHosts(env);
+      const detected = host(hosts, id);
+      expect(detected).toMatchObject({ supported: false, registered: true, command: [SERVER] });
+      expect(buildPlan([detected], SERVER)[0]).toMatchObject({ action: "manual", manual: add() });
+      const findings = await planMigration(hosts, [id], env);
+      expect(findings).toEqual([
+        expect.objectContaining({
+          action: "guidance",
+          entry: "codex",
+          change: `carry over any settings you still need, then: ${remove("codex")}`,
+        }),
+        expect.objectContaining({ action: "guidance", entry: "custom" }),
+      ]);
+      expect(findings[0].reason).toContain("unverified CLI compatibility");
+      const registrations = await applySetup(hosts, SERVER, [id], confirm, env);
+      expect(registrations).toEqual([expect.objectContaining({ status: "manual", manual: add() })]);
+      const migrated = await applyMigration(findings, hosts, SERVER, registrations, confirm, env);
+      expect(migrated.every(({ status }) => status === "manual")).toBe(true);
+      const again = await migrate([id]);
+      expect(again.findings).toEqual(findings);
+      expect(again.registrations).toEqual(registrations);
+      expect(again.migrated).toEqual(migrated);
+      const stale = await applyMigration(
+        [{ ...findings[0], action: "retire", change: remove("codex") }],
+        hosts,
+        SERVER,
+        [{ id, name: detected.name, status: "up-to-date" }],
+        confirm,
+        env,
+      );
+      expect(stale).toEqual([expect.objectContaining({ status: "manual", manual: remove("codex") })]);
+      expect(confirm).not.toHaveBeenCalled();
+      for (const op of ["add", "remove"] as const) {
+        expect(await applyRegistrar(detected, op, SERVER, env)).toMatchObject({ outcome: "manual" });
+      }
+      expect(await replaceRegistration(detected, SERVER, env)).toMatchObject({ outcome: "manual" });
+      expect(readHostFile(home, id)).toBe(before);
+      expect(readdirSync(join(file, ".."))).toEqual(files);
+      expect(migrationArgv(home, id)).toEqual([]);
+    });
+
+    it.each(["register", "replace", "retire", "remove"] as const)(
+      "rechecks compatibility after %s confirmation",
+      async (action) => {
+        install(id);
+        seedServers(home, id, {
+          ...(action === "register" ? {} : { "ask-llm": { command: action === "replace" ? NPX_UNIFIED : [SERVER] } }),
+          codex: { command: ["npx", "-y", "@ask-llm/codex-mcp"] },
+          other: OTHER,
+        });
+        const file = join(home, HOST_FILES[id]);
+        const before = readHostFile(home, id);
+        const files = readdirSync(join(file, ".."));
+        const hosts = await detectHosts(env);
+        const detected = host(hosts, id);
+        expect(detected.supported).toBe(true);
+        const findings = await planMigration(hosts, [id], env);
+        expect(findings[0]).toMatchObject({ action: "retire", change: remove("codex") });
+        const confirm = vi.fn(async () => {
+          detected.supported = false;
+          return true;
+        });
+        const results =
+          action === "retire"
+            ? await applyMigration(
+                findings,
+                hosts,
+                SERVER,
+                await applySetup(hosts, SERVER, [id], yes, env),
+                confirm,
+                env,
+              )
+            : action === "remove"
+              ? await applyRemove(hosts, SERVER, [id], confirm, env)
+              : await applySetup(hosts, SERVER, [id], confirm, env);
+        const manual =
+          action === "retire"
+            ? remove("codex")
+            : action === "remove"
+              ? remove("ask-llm")
+              : action === "replace" && id === "claude"
+                ? `${remove("ask-llm")} && ${add()}`
+                : add();
+        expect(confirm).toHaveBeenCalledTimes(1);
+        expect(results).toEqual([expect.objectContaining({ status: "manual", manual })]);
+        expect(readHostFile(home, id)).toBe(before);
+        expect(readdirSync(join(file, ".."))).toEqual(files);
+        expect(migrationArgv(home, id)).toEqual([]);
+      },
+    );
+  });
+
   it.each([
     [["/home/me/bin/ask-codex-mcp"]],
     [["./ask-codex-mcp"]],

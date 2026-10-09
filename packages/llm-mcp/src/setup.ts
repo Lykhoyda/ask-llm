@@ -53,6 +53,7 @@ const ADDED: Record<Applied["outcome"], HostStatus> = {
   unchanged: "up-to-date",
   conflict: "conflict",
   failed: "failed",
+  manual: "manual",
 };
 
 export async function applySetup(
@@ -81,7 +82,7 @@ export async function applySetup(
         result(host, status, {
           detail: applied.detail,
           backup: applied.backup,
-          manual: status === "failed" ? change : undefined,
+          manual: status === "failed" || status === "manual" ? change : undefined,
           next: status === "replaced" ? nextStep(host, true) : undefined,
         }),
       );
@@ -97,7 +98,7 @@ export async function applySetup(
         result(host, status, {
           detail: applied.detail,
           backup: applied.backup,
-          manual: status === "failed" ? manual : undefined,
+          manual: status === "failed" || status === "manual" ? manual : undefined,
           next: status === "registered" ? nextStep(host, true) : undefined,
         }),
       );

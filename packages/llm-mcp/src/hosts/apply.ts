@@ -10,7 +10,7 @@ import {
   writeSync,
 } from "node:fs";
 import { getSpawnEnv } from "@ask-llm/shared";
-import { commandText, isOwnCommand, isOwnRegistration, UNUSABLE_ENTRY } from "../plan.js";
+import { commandText, compatibilityReason, isOwnCommand, isOwnRegistration, UNUSABLE_ENTRY } from "../plan.js";
 import { type DetectedHost, entryCommand, type RegistrationState, readRegistration } from "./detect.js";
 import { type JsonEdit, writeJsonKey } from "./json-merge.js";
 import { SERVER_NAME } from "./registry.js";
@@ -46,7 +46,7 @@ export function changeText(host: DetectedHost, op: HostOp, server: string): stri
 }
 
 export interface Applied {
-  outcome: "changed" | "unchanged" | "conflict" | "failed";
+  outcome: "changed" | "unchanged" | "conflict" | "failed" | "manual";
   detail?: string;
   backup?: string;
 }
@@ -144,6 +144,7 @@ export async function applyRegistrar(
   server: string,
   env: NodeJS.ProcessEnv,
 ): Promise<Applied> {
+  if (!host.supported) return { outcome: "manual", detail: compatibilityReason(host) };
   const { registration } = host.spec;
   const argv = commandArgv(host, op, server);
   if (registration.kind === "command" && (!argv || !host.binary))

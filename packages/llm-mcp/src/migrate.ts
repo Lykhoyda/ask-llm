@@ -13,7 +13,7 @@ import { writeJsonKey } from "./hosts/json-merge.js";
 import { legacyPackage, mentionedPackage } from "./hosts/legacy.js";
 import { type HostId, SERVER_NAME } from "./hosts/registry.js";
 import { runHost } from "./hosts/spawn.js";
-import { commandText, isOwnRegistration } from "./plan.js";
+import { commandText, compatibilityReason, isOwnRegistration } from "./plan.js";
 import type { Confirm, HostResult, HostStatus } from "./setup.js";
 
 // The page every deprecation message and every migration step points to.
@@ -66,7 +66,7 @@ function finding(host: DetectedHost, entry: ServerEntry): MigrationFinding | und
   };
   const remove = removeText(host, entry.name);
   const current = entry.command ? `\`${commandText(entry.command)}\`` : pkg;
-  if (exact && entry.command && !entry.custom && !entry.error) {
+  if (exact && entry.command && !entry.custom && !entry.error && host.supported) {
     return {
       ...base,
       action: "retire",
@@ -77,7 +77,9 @@ function finding(host: DetectedHost, entry: ServerEntry): MigrationFinding | und
   }
   const why = entry.custom
     ? `with its own settings (${entry.custom})`
-    : `in a form setup cannot classify (${entry.error ?? (entry.command ? "custom command options" : "no usable command")})`;
+    : !host.supported
+      ? `with unverified CLI compatibility (${compatibilityReason(host)})`
+      : `in a form setup cannot classify (${entry.error ?? (entry.command ? "custom command options" : "no usable command")})`;
   return {
     ...base,
     action: "guidance",
@@ -162,6 +164,7 @@ export async function replaceRegistration(
   server: string,
   env: NodeJS.ProcessEnv,
 ): Promise<Applied> {
+  if (!host.supported) return { outcome: "manual", detail: compatibilityReason(host) };
   const spawnEnv = hostEnv(host, env);
   const read = () => readRegistration(host.spec.registrationState, host.binary, spawnEnv);
   const earlier = host.command;
@@ -229,6 +232,7 @@ async function retire(
   server: string,
   env: NodeJS.ProcessEnv,
 ): Promise<Applied> {
+  if (!host.supported) return { outcome: "manual", detail: compatibilityReason(host) };
   const spawnEnv = hostEnv(host, env);
   const source = namedSource(host.spec.registrationState, found.entry);
   const read = () => readRegistration(source, host.binary, spawnEnv);
@@ -307,6 +311,10 @@ export async function applyMigration(
       result("manual", { detail: found.reason, manual: found.change });
       continue;
     }
+    if (!host.supported) {
+      result("manual", { detail: compatibilityReason(host), manual: found.change });
+      continue;
+    }
     const registration = registrations.find(({ id }) => id === found.id);
     if (!registration || !READY.has(registration.status)) {
       result("kept", { detail: `Ask LLM is not registered in ${host.name} yet, so this entry stays` });
@@ -330,7 +338,7 @@ export async function applyMigration(
       status,
       detail: applied.outcome === "unchanged" ? "already gone" : applied.detail,
       backup: applied.backup,
-      manual: status === "failed" ? found.change : undefined,
+      manual: status === "failed" || status === "manual" ? found.change : undefined,
     });
   }
   return results;
