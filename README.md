@@ -263,7 +263,7 @@ The [installation guide](https://lykhoyda.github.io/ask-llm/installation) has th
 
 ## Migrating from @ask-llm/*
 
-Set up earlier with `npx -y @ask-llm/mcp`, a split provider server such as `@ask-llm/codex-mcp`, or `@ask-llm/plugin` in Pi? Run `npm install -g @ask-llm/mcp`, then `ask-llm setup`: it reuses what still fits, replaces earlier `ask-llm` entries, removes split provider entries after asking, and leaves entries with their own settings in place with the exact steps. See the [migration guide](https://lykhoyda.github.io/ask-llm/reference/migration.html).
+For earlier MCP registrations, split provider servers or Pi npm installations, follow the [migration guide](https://lykhoyda.github.io/ask-llm/reference/migration.html) for the setup command, supported automatic changes and manual steps.
 
 ## Documentation
 

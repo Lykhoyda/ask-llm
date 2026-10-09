@@ -82,18 +82,17 @@ export function customSettings(entry: unknown, packageEntry = false): string | u
   if (entry === null || typeof entry !== "object") return undefined;
   const settings: string[] = [];
   for (const [key, value] of Object.entries(entry)) {
-    const known =
-      packageEntry
-        ? key === "source"
-        : key === "command" ||
-          key === "args" ||
-          (key === "type" && (value === "stdio" || value === "local")) ||
-          (key === "enabled" && value === true) ||
-          (key === "env" &&
-            value !== null &&
-            typeof value === "object" &&
-            !Array.isArray(value) &&
-            Object.keys(value).length === 0);
+    const known = packageEntry
+      ? key === "source"
+      : key === "command" ||
+        key === "args" ||
+        (key === "type" && (value === "stdio" || value === "local")) ||
+        (key === "enabled" && value === true) ||
+        (key === "env" &&
+          value !== null &&
+          typeof value === "object" &&
+          !Array.isArray(value) &&
+          Object.keys(value).length === 0);
     if (!known) {
       settings.push(
         value !== null && typeof value === "object" && !Array.isArray(value)
@@ -285,7 +284,7 @@ function tomlTableText(text: string, name: string): string {
   return lines.join("\n");
 }
 
-// Every MCP server entry a host lists at user scope, read from the same surface as its ask-llm entry.
+// Read the same surface as the ask-llm entry; list projections cannot establish user-scope ownership.
 export async function listServers(
   source: RegistrationSource,
   binary: string | undefined,

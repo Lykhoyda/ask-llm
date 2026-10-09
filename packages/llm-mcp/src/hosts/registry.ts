@@ -32,7 +32,7 @@ export type RegistrationSource =
   | { kind: "toml"; file: string; table: string }
   | { kind: "list"; args: string[]; name?: string }
   // `localDir` matches the local package entry `pi install <dir>` records relative to the settings folder;
-  // `legacySources` are earlier Ask LLM packages that setup replaces.
+  // `legacySources` identify earlier Ask LLM packages for manual migration guidance.
   | { kind: "packages"; file: string; sources: string[]; legacySources: string[]; localDir?: string };
 
 export interface HostSpec {

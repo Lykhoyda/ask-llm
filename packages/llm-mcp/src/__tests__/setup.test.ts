@@ -471,7 +471,7 @@ describe("ask-llm setup", () => {
     expect(result.status).toBe(1);
     expect(result.stdout).toContain(`Cursor: conflict (an ask-llm entry already runs \`${FOREIGN}\``);
     expect(result.stdout).toContain(
-      `Entry for this install (not written): add {"command":"${installedServer}","args":[]} at mcpServers.ask-llm in ${join(home, ".cursor/mcp.json")}`,
+      `Entry for this install (not written): preserve custom settings and command options you still need, then: replace mcpServers.ask-llm in ${join(home, ".cursor/mcp.json")} with {"command":"${installedServer}","args":[]}`,
     );
     expect(result.stdout).not.toContain("Run it manually");
     expect(readFileSync(join(home, ".cursor/mcp.json"), "utf8")).toBe(content);

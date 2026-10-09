@@ -182,9 +182,7 @@ describe("host discovery commands", () => {
       });
       const setupText = ask("setup", "--dry-run").stdout;
       expect(setupText).toContain("cannot read registration");
-      expect(setupText).toContain(
-        `merge ${JSON.stringify({ command: server, args: [] })} at mcpServers.ask-llm in ${file}`,
-      );
+      expect(setupText).toContain(manual);
 
       const doctorHost = JSON.parse(ask("doctor", "--json").stdout).hosts.find(
         (host: { id: string }) => host.id === "cursor",

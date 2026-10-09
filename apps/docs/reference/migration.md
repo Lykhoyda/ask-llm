@@ -10,7 +10,7 @@ Ask LLM is now one package, `@ask-llm/mcp`, with one command, `ask-llm`. Start m
 ## What changed
 
 - **One package.** `@ask-llm/mcp` carries the server, every provider, the skills, the Claude Code plugin assets and the Pi extension. It is not deprecated and its server bin, `ask-llm-mcp`, keeps its name.
-- **The split provider packages and `@ask-llm/plugin` are deprecated.** npm shows a notice that points to this page when you install one. Their published versions stay installable; nothing is unpublished.
+- **The split provider packages and `@ask-llm/plugin` are scheduled for deprecation.** The release owner applies the notices separately, after this page and the migration-capable release are available. A notice points to this page; published versions stay installable and nothing is unpublished.
 - **Setup registers a durable path.** `ask-llm setup` registers the absolute path of the globally installed `ask-llm-mcp`, so hosts no longer start the server through an `npx` cache.
 - **One server covers every provider.** The `ask-llm` tool takes a `provider` (`codex`, `claude`, `grok`, `antigravity`, `ollama`, `gemini`), so a separate server per provider is no longer needed.
 
@@ -31,16 +31,16 @@ Setup lists every coding agent it finds, then, for each one, shows the exact com
 
 | What setup finds | What it does |
 |---|---|
-| An `ask-llm` entry that already runs this install, Pi's local package registration managed by setup, or the Claude Code plugin | Reuses it and changes nothing |
-| An `ask-llm` entry started through an earlier route: `npx -y @ask-llm/mcp`, `npx -y ask-llm-mcp`, or a bare `ask-llm-mcp` | Previews the replacement, replaces it after you confirm, and reads it back to verify |
-| A split provider entry (for example `codex` running `npx -y @ask-llm/codex-mcp`), a second Ask LLM server under another name | Removes it after you confirm, but only once Ask LLM is registered in that host, so you are never left without a working server |
-| An Ask LLM entry with its own settings (environment variables such as `XAI_API_KEY`, a working directory, a disabled flag) or in a form setup cannot read | Leaves it in place and prints the exact removal command, so you can carry the settings over first |
+| An unmodified `ask-llm` entry that already runs this install, Pi's unmodified local package registration managed by setup, or the Claude Code plugin | Reuses it and changes nothing, subject to the Codex and Pi npm restrictions below |
+| An unmodified `ask-llm` entry started through a recognised earlier route: `npx` with an Ask LLM package, or a bare Ask LLM server bin without arguments | Previews the replacement, replaces it after you confirm, and reads it back to verify |
+| An unmodified split provider entry (for example `codex` running `npx -y @ask-llm/codex-mcp`), or a second Ask LLM server under another name | Removes it after you confirm, but only after re-reading this install's usable, unmodified `ask-llm` registration in that host; this verifies registration, not a live provider call |
+| An Ask LLM entry with its own settings (environment variables such as `XAI_API_KEY`, a working directory, a disabled flag) or in a form setup cannot read | Leaves it in place with manual guidance, so you can inspect the entry and carry its settings over first |
 
 Automatic migration requires a complete persisted user-scope record with a known unmodified shape. Codex CLI list output omits tool filters and can include project overrides, so setup prints guidance and leaves Codex registrations unchanged. Inspect the user and project configurations and preserve their filters before making any manual change.
 
 Unverified executable paths and all Pi npm registrations receive guidance. This includes `npm:@ask-llm/mcp` and `npm:@ask-llm/plugin`, pinned or unpinned, as strings or source objects. Setup leaves those packages and the plugin bridge unchanged because their source names do not prove installed compatibility. Only the local installed-package registration managed by setup proves compatibility.
 
-Entries that do not run an Ask LLM package are never reported or changed. Before a host's first change, setup copies its config file to `<file>.ask-llm-backup-<timestamp>` next to it. If a replacement fails in Claude Code, which removes the old entry before adding the new one, setup adds the earlier entry back through `claude mcp add`; the rest of the file, including edits made meanwhile, is left as it is. Re-running `ask-llm setup` changes nothing once a host is migrated.
+Unrelated entries are not migration findings and are never changed; an unrelated command occupying the `ask-llm` name is reported as a conflict. Before a host's first change, setup copies its config file to `<file>.ask-llm-backup-<timestamp>` next to it. If a replacement fails in Claude Code, which removes the old entry before adding the new one, setup attempts to restore the earlier entry through `claude mcp add` only while that name is still absent. A new entry or edits elsewhere in the file are preserved, and a failed restoration reports the backup path. Re-running `ask-llm setup` preserves migrated registrations and repeats outstanding guidance; it may still refresh changed skills.
 
 `-y` answers yes to every question and `--host claude,codex` limits setup to the named hosts:
 
@@ -87,12 +87,12 @@ claude mcp remove --scope user ask-llm
 claude mcp add --scope user ask-llm -e XAI_API_KEY="$XAI_API_KEY" -- "$(npm prefix -g)/bin/ask-llm-mcp"
 ```
 
-`ask-llm remove` later deletes only `ask-llm` entries that run this install; it never restores or deletes anything else.
+For later removal of this installation, see the [command compatibility reference](https://github.com/Lykhoyda/ask-llm/blob/main/packages/llm-mcp/README.md#command-compatibility). Removal does not restore replaced or retired entries.
 
 ## What still works
 
 - `npx -y @ask-llm/mcp` still starts the server, so an MCP config you never migrate keeps working.
-- The last published versions of the split provider packages and `@ask-llm/plugin` stay installable and keep their bins (`ask-codex-mcp`, `ask-grok-mcp` and the others) and tool names; npm only prints the deprecation notice.
+- The last published versions of the split provider packages and `@ask-llm/plugin` stay installable and keep their bins (`ask-codex-mcp`, `ask-grok-mcp` and the others) and tool names; once deprecation is applied, npm adds a notice.
 - The earlier unscoped names (`ask-llm-mcp`, `ask-codex-mcp`, `ask-gemini-mcp`, `ask-ollama-mcp`, `ask-antigravity-mcp`, `@anton-lykhoyda/ask-claude-mcp`) were deprecated before; setup recognises entries that use them too.
 - The Claude Code plugin keeps working and keeps updating through its marketplace; setup installs it for you when it is missing.
 - In Pi, `npm:@ask-llm/plugin` keeps loading until you migrate, and the earlier `ask-codex`, `ask-gemini`, `ask-grok`, `ask-ollama`, `ask-antigravity` and `ask-multi` tools remain as aliases.
