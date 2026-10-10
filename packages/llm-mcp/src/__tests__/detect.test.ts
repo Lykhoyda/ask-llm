@@ -274,9 +274,32 @@ describe("detectHosts", () => {
       { registered: true, command: ["/opt/x"] },
     ],
     ["a disabled entry", '[mcp_servers.ask-llm]\ncommand = "/opt/x"\nenabled = false\n', { present: true }],
+    [
+      "grok mcp add's multi-line args",
+      '[mcp_servers.ask-llm]\ncommand = "npx"\nargs = [\n    "-y",\n    "@ask-llm/mcp",\n]\n',
+      { registered: true, command: ["npx", "-y", "@ask-llm/mcp"] },
+    ],
+    [
+      "unindented multi-line args",
+      '[mcp_servers.ask-llm]\ncommand = "npx"\nargs = [\n"-y",\n\n# pinned\n"@ask-llm/mcp"\n]\n',
+      { registered: true, command: ["npx", "-y", "@ask-llm/mcp"] },
+    ],
+    [
+      "grok mcp add -e's env table",
+      '[mcp_servers.ask-llm]\ncommand = "npx"\nargs = [\n    "-y",\n    "@ask-llm/mcp",\n]\n\n' +
+        '[mcp_servers.ask-llm.env]\nGEMINI_API_KEY = "secret-gemini"\nPATH_HINT = "C:\\\\bin"\n',
+      { registered: true, command: ["npx", "-y", "@ask-llm/mcp"], custom: "env GEMINI_API_KEY, PATH_HINT" },
+    ],
+    [
+      "an empty env table",
+      '[mcp_servers.ask-llm]\ncommand = "/opt/x"\n\n[mcp_servers.ask-llm.env]\n',
+      { registered: true, command: ["/opt/x"] },
+    ],
   ])("reads a Grok TOML entry written with %s", async (_, content, expected) => {
     write(".grok/config.toml", content);
-    expect(host(await detectHosts(env), "grok")).toMatchObject(expected);
+    const grok = host(await detectHosts(env), "grok");
+    expect(grok).toMatchObject(expected);
+    if (!("custom" in expected)) expect(grok.custom).toBeUndefined();
   });
 
   const GROK_TUI_CONFIG =
@@ -348,7 +371,25 @@ describe("detectHosts", () => {
     ["quoted field", '[mcp_servers.ask-llm]\n"command" = "/opt/ask-llm-mcp"\n'],
     ["single-quoted value", "[mcp_servers.ask-llm]\ncommand = '/opt/ask-llm-mcp'\n"],
     ["trailing comment", '[mcp_servers.ask-llm]\ncommand = "/opt/ask-llm-mcp" # active\n'],
-    ["multiline array", '[mcp_servers.ask-llm]\ncommand = "/opt/ask-llm-mcp"\nargs = [\n  "--extra",\n]\n'],
+    ["unterminated multiline array", '[mcp_servers.ask-llm]\ncommand = "/opt/ask-llm-mcp"\nargs = [\n  "--extra",\n'],
+    [
+      "multiline array with a trailing comment",
+      '[mcp_servers.ask-llm]\ncommand = "/opt/ask-llm-mcp"\nargs = [\n  "--extra", # note\n]\n',
+    ],
+    ["multiline array without a comma", '[mcp_servers.ask-llm]\ncommand = "npx"\nargs = [\n  "-y"\n  "x",\n]\n'],
+    ["multiline array escape", '[mcp_servers.ask-llm]\ncommand = "npx"\nargs = [\n  "-\\u0079",\n  "x",\n]\n'],
+    [
+      "env table before its entry",
+      '[mcp_servers.ask-llm.env]\nKEY = "v"\n\n[mcp_servers.ask-llm]\ncommand = "/opt/x"\n',
+    ],
+    [
+      "duplicate env table",
+      '[mcp_servers.ask-llm]\ncommand = "/opt/x"\n[mcp_servers.ask-llm.env]\nA = "1"\n[mcp_servers.ask-llm.env]\nB = "2"\n',
+    ],
+    ["env quoted key", '[mcp_servers.ask-llm]\ncommand = "/opt/x"\n[mcp_servers.ask-llm.env]\n"A B" = "1"\n'],
+    ["env multiline string", '[mcp_servers.ask-llm]\ncommand = "/opt/x"\n[mcp_servers.ask-llm.env]\nA = """\n'],
+    ["env inline table", '[mcp_servers.ask-llm]\ncommand = "/opt/x"\n[mcp_servers.ask-llm.env]\nA = { b = "1" }\n'],
+    ["other nested table", '[mcp_servers.ask-llm]\ncommand = "/opt/x"\n[mcp_servers.ask-llm.headers]\nA = "1"\n'],
     ["key syntax", '[mcp_servers.ask-llm]\ncommand = "/opt/ask-llm-mcp"\n"unparsed key" = true\n'],
   ])("reports unsupported Grok TOML %s as unknown", async (_form, content) => {
     write(".grok/config.toml", content);

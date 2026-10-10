@@ -626,6 +626,77 @@ describe("migration of existing installations", () => {
     },
   );
 
+  it.each(MIGRATION_HOSTS.filter((id) => id !== "codex"))(
+    "reports a conflict when %s's split entry gains an env setting during confirmation",
+    async (id) => {
+      install(id);
+      const split = { command: ["npx", "-y", "@ask-llm/codex-mcp"] };
+      seedServers(home, id, { "ask-llm": { command: [SERVER] }, codex: split });
+      const hosts = await detectHosts(env);
+      const findings = await planMigration(hosts, [id], env);
+      expect(findings).toEqual([expect.objectContaining({ action: "retire", entry: "codex" })]);
+      const registrations = await applySetup(hosts, SERVER, [id], yes, env);
+      let edited = "";
+      const confirm = async () => {
+        seedServers(home, id, {
+          "ask-llm": { command: [SERVER] },
+          codex: { ...split, env: { OPENAI_API_KEY: "secret-openai" } },
+        });
+        edited = readHostFile(home, id);
+        return true;
+      };
+      const results = await applyMigration(findings, hosts, SERVER, registrations, confirm, env);
+      expect(results).toEqual([
+        expect.objectContaining({ status: "conflict", detail: "the entry changed since the preview; left in place" }),
+      ]);
+      expect(readHostFile(home, id)).toBe(edited);
+      expect(migrationArgv(home, id)).toEqual([]);
+    },
+  );
+
+  it("migrates the entries grok mcp add writes and keeps every other table byte for byte", async () => {
+    install("grok");
+    const unrelated = [
+      '[ui]\ntheme = "dark"',
+      '[mcp_servers.other]\ncommand = "uvx"\nargs = [\n    "some-other-server",\n    "--flag",\n]',
+      '[mcp_servers.other.env]\nOTHER_TOKEN = "secret-other"',
+      '[[marketplace.sources]]\nname = "official"\ngit = "https://example.com/marketplace.git"',
+    ];
+    const file = join(home, HOST_FILES.grok);
+    mkdirSync(join(file, ".."), { recursive: true });
+    writeFileSync(
+      file,
+      `${[
+        unrelated[0],
+        '[mcp_servers.ask-llm]\ncommand = "npx"\nargs = [\n    "-y",\n    "@ask-llm/mcp",\n]',
+        unrelated[1],
+        unrelated[2],
+        '[mcp_servers.codex]\ncommand = "npx"\nargs = [\n    "-y",\n    "@ask-llm/codex-mcp",\n]',
+        unrelated[3],
+      ].join("\n\n")}\n`,
+    );
+
+    const { plan, findings, registrations, migrated } = await migrate(["grok"]);
+    expect(plan.find(({ id }) => id === "grok")).toMatchObject({ action: "replace" });
+    expect(findings.map(({ entry, package: pkg, action }) => [entry, pkg, action])).toEqual([
+      ["codex", "@ask-llm/codex-mcp", "retire"],
+    ]);
+    expect(registrations.map(({ status }) => status)).toEqual(["replaced"]);
+    expect(migrated.map(({ status }) => status)).toEqual(["retired"]);
+    expect(serverNames(home, "grok")).toEqual({ other: ["uvx", "some-other-server", "--flag"], "ask-llm": [SERVER] });
+    const after = readHostFile(home, "grok");
+    for (const table of unrelated) expect(after).toContain(table);
+    expect(migrationArgv(home, "grok")).toEqual([
+      ["mcp", "add", "--scope", "user", "ask-llm", SERVER],
+      ["mcp", "remove", "--scope", "user", "codex"],
+    ]);
+
+    const again = await migrate(["grok"]);
+    expect(again.registrations.map(({ status }) => status)).toEqual(["up-to-date"]);
+    expect(again.findings).toEqual([]);
+    expect(readHostFile(home, "grok")).toBe(after);
+  });
+
   it.each(["removed", "disabled"])(
     "keeps a JSON split entry when the canonical entry is %s during confirmation",
     async (change) => {
