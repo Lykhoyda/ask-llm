@@ -31,7 +31,14 @@ const bin = join(root, "bin");
 const home = join(root, "home");
 const previousPath = process.env.ASK_LLM_PATH;
 process.env.ASK_LLM_PATH = `${bin}:/usr/bin:/bin`;
-const env = { HOME: home };
+const env = {
+  HOME: home,
+  CODEX_HOME: join(home, ".codex"),
+  XDG_CONFIG_HOME: join(home, ".config"),
+  XDG_CACHE_HOME: join(home, ".cache"),
+  XDG_DATA_HOME: join(home, ".local/share"),
+  XDG_STATE_HOME: join(home, ".local/state"),
+};
 const SERVER = join(root, "global", "ask-llm-mcp");
 
 const ARGV = {
@@ -39,8 +46,6 @@ const ARGV = {
     add: ["mcp", "add", "--scope", "user", "ask-llm", "--", SERVER],
     remove: ["mcp", "remove", "--scope", "user", "ask-llm"],
   },
-  codex: { add: ["mcp", "add", "ask-llm", "--", SERVER], remove: ["mcp", "remove", "ask-llm"] },
-  agy: { add: ["mcp", "add", "ask-llm", SERVER], remove: ["mcp", "remove", "ask-llm"] },
   grok: {
     add: ["mcp", "add", "--scope", "user", "ask-llm", SERVER],
     remove: ["mcp", "remove", "--scope", "user", "ask-llm"],
@@ -63,7 +68,10 @@ beforeEach(() => {
   mkdirSync(home, { recursive: true });
   mkdirSync(join(root, "global"), { recursive: true });
   writeFileSync(SERVER, "#!/bin/sh\n", { mode: 0o755 });
-  for (const name of Object.keys(ARGV)) installFakeHost(bin, name);
+  for (const name of [...Object.keys(ARGV), "agy"]) installFakeHost(bin, name);
+  for (const name of ["agent", "claude-desktop", "opencode"]) {
+    writeFileSync(join(bin, name), '#!/bin/sh\necho "1.0.0"\n', { mode: 0o755 });
+  }
 });
 
 async function detected(id: string): Promise<DetectedHost> {
@@ -71,6 +79,19 @@ async function detected(id: string): Promise<DetectedHost> {
   if (!found?.installed) throw new Error(`${id} not detected`);
   return found;
 }
+
+it.each(["add", "remove"] as const)("refuses %s from an incomplete list projection", async (op) => {
+  installFakeHost(bin, "codex");
+  writeRegistration(home, "codex", SERVER);
+  const file = join(home, FAKE_HOSTS.codex.file);
+  const before = readFileSync(file, "utf8");
+  expect(await applyRegistrar(await detected("codex"), op, SERVER, env)).toMatchObject({
+    outcome: "failed",
+    detail: expect.stringContaining("user-scope ownership is unverified"),
+  });
+  expect(readFileSync(file, "utf8")).toBe(before);
+  expect(fakeArgv(home, "codex")).toEqual([]);
+});
 
 describe.each(Object.keys(ARGV) as Array<keyof typeof ARGV>)("%s registrar", (id) => {
   it("adds with the fixed user-scope argv and verifies the entry by re-reading it", async () => {
@@ -112,8 +133,7 @@ describe.each(Object.keys(ARGV) as Array<keyof typeof ARGV>)("%s registrar", (id
     const before = readFileSync(join(home, FAKE_HOSTS[id].file), "utf8");
     const applied = await applyRegistrar(await detected(id), "remove", SERVER, env);
     expect(applied).toMatchObject({ outcome: "changed" });
-    if (id === "codex") expect(applied.backup).toBeUndefined();
-    else expect(readFileSync(applied.backup as string, "utf8")).toBe(before);
+    expect(readFileSync(applied.backup as string, "utf8")).toBe(before);
     expect(fakeArgv(home, id)).toEqual([ARGV[id].remove]);
     expect(await detected(id)).toMatchObject({ registered: false });
   });
@@ -223,21 +243,24 @@ it("keeps the config mode on the backup", async () => {
   expect(statSync(applied.backup as string).mode & 0o7777).toBe(0o640);
 });
 
-it("does not overwrite an existing backup or run the host", async () => {
+it("preserves an existing backup and uses a distinct backup before running the host", async () => {
   writeRegistration(home, "grok", SERVER);
+  const before = readFileSync(join(home, FAKE_HOSTS.grok.file));
   const backup = `${join(home, FAKE_HOSTS.grok.file)}.ask-llm-backup-2026-09-29T12-00-00-000Z`;
   writeFileSync(backup, "keep this backup", { mode: 0o600 });
   const clock = vi.spyOn(Date.prototype, "toISOString").mockReturnValue("2026-09-29T12:00:00.000Z");
   try {
     expect(await applyRegistrar(await detected("grok"), "remove", SERVER, env)).toMatchObject({
-      outcome: "failed",
-      detail: expect.stringContaining("cannot back up"),
+      outcome: "changed",
+      backup: `${backup}-1`,
     });
   } finally {
     clock.mockRestore();
   }
   expect(readFileSync(backup, "utf8")).toBe("keep this backup");
-  expect(fakeArgv(home, "grok")).toEqual([]);
+  expect(readFileSync(`${backup}-1`)).toEqual(before);
+  expect(fakeArgv(home, "grok")).toEqual([ARGV.grok.remove]);
+  expect((await detected("grok")).registered).toBe(false);
 });
 
 it("backs up beside a symlinked config's real file before registration", async () => {
@@ -271,6 +294,11 @@ it("backs up beside a symlinked config directory's real file before registration
 });
 
 const FILE_HOSTS = {
+  agy: {
+    parent: "mcpServers",
+    own: { command: SERVER, args: [] },
+    other: { command: "/bin/false", args: [], unknown: [] },
+  },
   cursor: { parent: "mcpServers", own: { command: SERVER, args: [] }, other: { command: "npx", args: ["-y", "x"] } },
   "claude-desktop": {
     parent: "mcpServers",

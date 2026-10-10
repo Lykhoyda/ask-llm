@@ -261,6 +261,10 @@ The [installation guide](https://lykhoyda.github.io/ask-llm/installation) has th
 
 </details>
 
+## Migrating from @ask-llm/*
+
+For earlier MCP registrations, split provider servers or Pi npm installations, follow the [migration guide](https://lykhoyda.github.io/ask-llm/reference/migration.html) for the setup command, supported automatic changes and manual steps.
+
 ## Documentation
 
 - **Docs site:** [lykhoyda.github.io/ask-llm](https://lykhoyda.github.io/ask-llm/) — [Getting Started](https://lykhoyda.github.io/ask-llm/getting-started), [How It Works](https://lykhoyda.github.io/ask-llm/concepts/how-it-works), [Troubleshooting](https://lykhoyda.github.io/ask-llm/resources/troubleshooting)

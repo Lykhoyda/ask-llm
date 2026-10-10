@@ -46,7 +46,16 @@ const bin = join(root, "bin");
 const home = join(root, "home");
 const installedServer = join(bin, "ask-llm-mcp");
 const path = `${bin}:/usr/bin:/bin`;
-const env = { HOME: home, PATH: path, ASK_LLM_PATH: path };
+const env = {
+  HOME: home,
+  CODEX_HOME: join(home, ".codex"),
+  XDG_CONFIG_HOME: join(home, ".config"),
+  XDG_CACHE_HOME: join(home, ".cache"),
+  XDG_DATA_HOME: join(home, ".local/share"),
+  XDG_STATE_HOME: join(home, ".local/state"),
+  PATH: path,
+  ASK_LLM_PATH: path,
+};
 const FOREIGN = "/opt/other/ask-llm-mcp";
 const HOSTS = Object.keys(FAKE_HOSTS);
 const previousPath = process.env.ASK_LLM_PATH;
@@ -54,8 +63,6 @@ process.env.ASK_LLM_PATH = path;
 
 const ADD: Record<string, string[]> = {
   claude: ["mcp", "add", "--scope", "user", "ask-llm", "--", installedServer],
-  codex: ["mcp", "add", "ask-llm", "--", installedServer],
-  agy: ["mcp", "add", "ask-llm", installedServer],
   grok: ["mcp", "add", "--scope", "user", "ask-llm", installedServer],
   gemini: ["mcp", "add", "--scope", "user", "ask-llm", installedServer],
 };
@@ -120,7 +127,14 @@ if (args[0] === "--version") { console.log("0.87.1"); process.exit(0); }
 appendFileSync(join(process.env.HOME, ".fake-pi-argv"), args.join("\\t") + "\\t\\n");
 if (${JSON.stringify(mode)} === "fail") { console.error("install failed"); process.exit(2); }
 if (${JSON.stringify(mode)} === "silent") process.exit(0);
-if (args.length !== 2 || args[0] !== "install") process.exit(9);
+if (args.length !== 2 || (args[0] !== "install" && args[0] !== "remove")) process.exit(9);
+if (args[0] === "remove") {
+  const file = join(process.env.PI_CODING_AGENT_DIR || join(process.env.HOME, ".pi/agent"), "settings.json");
+  const settings = JSON.parse(readFileSync(file, "utf8"));
+  settings.packages = settings.packages.filter((entry) => entry !== args[1]);
+  writeFileSync(file, JSON.stringify(settings));
+  process.exit(0);
+}
 const pkg = JSON.parse(readFileSync(join(args[1], "package.json"), "utf8"));
 writeFileSync(join(process.env.HOME, ".fake-pi-version"), pkg.version);
 const dir = process.env.PI_CODING_AGENT_DIR || join(process.env.HOME, ".pi/agent");
@@ -137,14 +151,17 @@ writeFileSync(file, JSON.stringify(settings));
 }
 
 describe("ask-llm setup", () => {
-  it("registers every detected command host with -y, and a second run changes nothing", () => {
+  it("registers hosts with persisted records and leaves list-only hosts manual", () => {
     const first = ask("setup", "-y");
     expect(first.stderr).toBe("");
-    // The only unsuccessful row is agy's skills folder, which no skills@1.7.0 agent id reaches (ADR-183).
     expect(first.status).toBe(1);
     expect(first.stdout).toContain("Antigravity skills: manual");
-    expect(calls()).toEqual(Object.fromEntries(HOSTS.map((name) => [name, [ADD[name]]])));
+    expect(calls()).toEqual(Object.fromEntries(HOSTS.map((name) => [name, ADD[name] ? [ADD[name]] : []])));
     expect(first.stdout).toContain("Claude Code 2.1.284: registered");
+    expect(first.stdout).toContain("Antigravity 1.2.13: registered");
+    expect(JSON.parse(readFileSync(join(home, FAKE_HOSTS.agy.file), "utf8")).mcpServers).toEqual({
+      "ask-llm": { command: installedServer, args: [] },
+    });
     expect(first.stdout).toContain("start a new session");
     expect(first.stdout).toContain("trusted folders");
     expect(first.stdout).toContain("may reformat its config file");
@@ -152,11 +169,11 @@ describe("ask-llm setup", () => {
 
     const second = ask("setup", "-y");
     expect(second.status).toBe(1);
-    expect(second.stdout).toContain("Codex CLI 0.158.0: already registered");
+    expect(second.stdout).toContain("Codex CLI 0.158.0: manual");
     expect(second.stdout).toContain("Claude Code plugin: already installed");
     expect(second.stdout).toContain("Codex CLI skills: already installed");
     expect(second.stdout).toContain("No changes.");
-    expect(calls()).toEqual(Object.fromEntries(HOSTS.map((name) => [name, [ADD[name]]])));
+    expect(calls()).toEqual(Object.fromEntries(HOSTS.map((name) => [name, ADD[name] ? [ADD[name]] : []])));
     expect(readFileSync(join(home, "npx-argv"), "utf8").trim().split("\n")).toHaveLength(1);
     expect(readFileSync(join(home, ".fake-claude-plugin-argv"), "utf8").trim().split("\n")).toHaveLength(2);
   });
@@ -178,7 +195,7 @@ describe("ask-llm setup", () => {
     expect(existsSync(join(home, "npx-argv"))).toBe(false);
 
     const result = ask("setup", "-y", "--host", "claude,codex,grok");
-    expect(result.status).toBe(0);
+    expect(result.status).toBe(1);
     expect(result.stdout).toContain("Claude Code plugin: installed");
     expect(result.stdout).toContain("Codex CLI skills: installed");
     expect(result.stdout).toContain("Grok Build skills: installed");
@@ -205,8 +222,8 @@ describe("ask-llm setup", () => {
   });
 
   it("changes only the hosts named with --host", () => {
-    expect(ask("setup", "-y", "--host", "claude,codex").status).toBe(0);
-    expect(calls()).toEqual({ claude: [ADD.claude], codex: [ADD.codex], agy: [], grok: [], gemini: [] });
+    expect(ask("setup", "-y", "--host", "claude,codex").status).toBe(1);
+    expect(calls()).toEqual({ claude: [ADD.claude], codex: [], agy: [], grok: [], gemini: [] });
   });
 
   it("never overwrites a foreign ask-llm entry", () => {
@@ -271,7 +288,7 @@ describe("ask-llm setup", () => {
     expect(result.stdout).toContain(
       `Run it manually: ${commandText(["grok", "mcp", "add", "--scope", "user", "ask-llm", installedServer])}`,
     );
-    expect(result.stdout).toContain("Codex CLI 0.158.0: registered");
+    expect(result.stdout).toContain("Codex CLI 0.158.0: manual");
   });
 
   it("reports a requested host that is not installed instead of dropping it", () => {
@@ -415,30 +432,34 @@ describe("ask-llm setup", () => {
     expect(JSON.parse(preview.stdout).hosts).toEqual([expect.objectContaining({ id: "pi", action: "up-to-date" })]);
   });
 
-  it("installs Pi skills after a bridge install and leaves the package registration unchanged", () => {
-    writeFileSync(join(bin, "pi"), '#!/bin/sh\n[ "$1" = "--version" ] && { echo "0.87.1"; exit 0; }\nexit 9\n', {
-      mode: 0o755,
-    });
+  it.each([
+    "npm:@ask-llm/plugin",
+    { source: "npm:@ask-llm/plugin" },
+    "npm:@ask-llm/plugin@0.19.4",
+    { source: "npm:@ask-llm/plugin@0.19.4" },
+  ])("preserves the Pi npm bridge %j and repeats migration guidance", (entry) => {
+    installPi();
     const settings = join(home, ".pi/agent/settings.json");
-    const content = JSON.stringify({ packages: ["npm:@ask-llm/plugin"] });
     mkdirSync(join(home, ".pi/agent"), { recursive: true });
-    writeFileSync(settings, content);
+    const before = JSON.stringify({ theme: "dark", packages: [entry] });
+    writeFileSync(settings, before);
 
     const preview = ask("setup", "--dry-run", "--json", "--host", "pi");
     expect(preview.status).toBe(0);
-    expect(JSON.parse(preview.stdout).hosts).toEqual([expect.objectContaining({ id: "pi", action: "up-to-date" })]);
+    const plan = JSON.parse(preview.stdout);
+    expect(plan.hosts).toEqual([expect.objectContaining({ id: "pi", action: "conflict" })]);
+    expect(plan.migration).toEqual([expect.objectContaining({ id: "pi", action: "guidance" })]);
 
-    const first = ask("setup", "-y", "--host", "pi");
-    expect(first.status, first.stderr).toBe(0);
-    expect(first.stdout).toContain("Pi 0.87.1: already registered");
-    expect(first.stdout).toContain("Pi skills: installed");
-    expect(existsSync(join(home, ".agents/skills/ask-llm-review/SKILL.md"))).toBe(true);
-    expect(readFileSync(settings, "utf8")).toBe(content);
-
-    const second = ask("setup", "-y", "--host", "pi");
-    expect(second.status, second.stderr).toBe(0);
-    expect(second.stdout).toContain("Pi skills: already installed");
-    expect(readFileSync(settings, "utf8")).toBe(content);
+    for (let run = 0; run < 2; run++) {
+      const result = ask("setup", "-y", "--host", "pi");
+      expect(result.status, result.stdout + result.stderr).toBe(1);
+      expect(result.stdout).toContain("unverified package compatibility");
+      expect(result.stdout).toContain("preserve package filters");
+      expect(readFileSync(settings, "utf8")).toBe(before);
+      expect(fakeArgv(home, "pi")).toEqual([]);
+    }
+    const again = ask("setup", "--dry-run", "--json", "--host", "pi");
+    expect(JSON.parse(again.stdout).migration).toEqual(plan.migration);
   });
 
   it("reports a foreign file-host entry with the entry it would use and leaves the file alone", () => {
@@ -450,7 +471,7 @@ describe("ask-llm setup", () => {
     expect(result.status).toBe(1);
     expect(result.stdout).toContain(`Cursor: conflict (an ask-llm entry already runs \`${FOREIGN}\``);
     expect(result.stdout).toContain(
-      `Entry for this install (not written): add {"command":"${installedServer}","args":[]} at mcpServers.ask-llm in ${join(home, ".cursor/mcp.json")}`,
+      `Entry for this install (not written): preserve custom settings and command options you still need, then: replace mcpServers.ask-llm in ${join(home, ".cursor/mcp.json")} with {"command":"${installedServer}","args":[]}`,
     );
     expect(result.stdout).not.toContain("Run it manually");
     expect(readFileSync(join(home, ".cursor/mcp.json"), "utf8")).toBe(content);
@@ -484,8 +505,12 @@ describe("ask-llm setup", () => {
     expect(result.stdout).toContain("Each backup may contain credentials");
     expect(result.stdout).toContain("remains until you delete it");
     const saved = backups();
-    expect(saved).toHaveLength(HOSTS.length);
-    for (const [file, content] of Object.values(CONFIG_FILES)) {
+    expect(saved).toHaveLength(HOSTS.length - 1);
+    for (const [id, [file, content]] of Object.entries(CONFIG_FILES)) {
+      if (id === "codex") {
+        expect(readFileSync(join(home, file), "utf8")).toBe(content);
+        continue;
+      }
       const backup = saved.find((path) => path.startsWith(`${file}.ask-llm-backup-`));
       expect(backup).toBeDefined();
       expect(readFileSync(join(home, backup as string), "utf8")).toBe(content);
@@ -549,13 +574,13 @@ describe("ask-llm setup", () => {
 
   it("asks once per host and leaves declined hosts untouched", async () => {
     const asked: string[] = [];
-    const isolated = { HOME: home };
+    const isolated = env;
     const confirm = async (question: string) => {
       asked.push(question);
       return question.includes("Claude Code");
     };
     const results = await applySetup(await detectHosts(isolated), server, HOSTS as HostId[], confirm, isolated);
-    expect(asked).toHaveLength(5);
+    expect(asked).toHaveLength(4);
     expect(asked[0]).toContain(commandText(["claude", "mcp", "add", "--scope", "user", "ask-llm", "--", server]));
     expect(calls()).toEqual({
       claude: [["mcp", "add", "--scope", "user", "ask-llm", "--", server]],
@@ -564,7 +589,7 @@ describe("ask-llm setup", () => {
       grok: [],
       gemini: [],
     });
-    expect(results.find(({ id }) => id === "codex")).toMatchObject({ status: "declined" });
+    expect(results.find(({ id }) => id === "codex")).toMatchObject({ status: "manual" });
   });
 });
 
@@ -664,7 +689,6 @@ describe("ask-llm setup and remove for file hosts", () => {
 describe("ask-llm remove", () => {
   const REMOVE: Record<string, string[]> = {
     claude: ["mcp", "remove", "--scope", "user", "ask-llm"],
-    agy: ["mcp", "remove", "ask-llm"],
     grok: ["mcp", "remove", "--scope", "user", "ask-llm"],
     gemini: ["mcp", "remove", "--scope", "user", "ask-llm"],
   };
@@ -673,10 +697,18 @@ describe("ask-llm remove", () => {
     for (const name of HOSTS) writeRegistration(home, name, name === "codex" ? FOREIGN : server);
     const codexFile = readFileSync(join(home, FAKE_HOSTS.codex.file), "utf8");
     const result = ask("remove", "-y");
-    expect(result.status).toBe(0);
-    expect(calls()).toEqual({ ...Object.fromEntries(Object.entries(REMOVE).map(([k, v]) => [k, [v]])), codex: [] });
+    expect(result.status).toBe(1);
+    expect(calls()).toEqual({
+      ...Object.fromEntries(Object.entries(REMOVE).map(([k, v]) => [k, [v]])),
+      codex: [],
+      agy: [],
+    });
+    expect(result.stdout).toContain("Antigravity 1.2.13: removed");
+    expect(JSON.parse(readFileSync(join(home, FAKE_HOSTS.agy.file), "utf8")).mcpServers).toEqual({
+      other: { command: "x" },
+    });
     expect(result.stdout).toContain("Claude Code 2.1.284: removed");
-    expect(result.stdout).toContain(`Codex CLI 0.158.0: not removed (an ask-llm entry runs \`${FOREIGN}\``);
+    expect(result.stdout).toContain("Codex CLI 0.158.0: manual");
     expect(readFileSync(join(home, FAKE_HOSTS.codex.file), "utf8")).toBe(codexFile);
     expect(result.stdout).toContain("may reformat its config file");
     const saved = backups();
@@ -689,16 +721,16 @@ describe("ask-llm remove", () => {
 
     const before = calls();
     const again = ask("remove", "-y");
-    expect(again.status).toBe(0);
+    expect(again.status).toBe(1);
     expect(again.stdout).toContain("No changes.");
     expect(calls()).toEqual(before);
   });
 
   it("round-trips setup and remove", () => {
     expect(ask("setup", "-y").stdout).toContain("Antigravity skills: manual");
-    expect(ask("remove", "-y", "--host", "codex").status).toBe(0);
-    expect(fakeArgv(home, "codex")).toEqual([ADD.codex, ["mcp", "remove", "ask-llm"]]);
-    expect(ask("setup", "-y").stdout).toContain("Codex CLI 0.158.0: registered");
+    expect(ask("remove", "-y", "--host", "claude").status).toBe(0);
+    expect(fakeArgv(home, "claude")).toEqual([ADD.claude, ["mcp", "remove", "--scope", "user", "ask-llm"]]);
+    expect(ask("setup", "-y").stdout).toContain("Claude Code 2.1.284: registered");
   });
 
   it("leaves a disabled or command-less entry in place and says so", () => {

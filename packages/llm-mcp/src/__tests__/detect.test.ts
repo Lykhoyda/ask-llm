@@ -10,7 +10,14 @@ const home = join(root, "home");
 const previousPath = process.env.ASK_LLM_PATH;
 // Pin the shared PATH resolver to the fixture bin like the harness-smoke gate.
 process.env.ASK_LLM_PATH = bin;
-const env = { HOME: home };
+const env = {
+  HOME: home,
+  CODEX_HOME: join(home, ".codex"),
+  XDG_CONFIG_HOME: join(home, ".config"),
+  XDG_CACHE_HOME: join(home, ".cache"),
+  XDG_DATA_HOME: join(home, ".local/share"),
+  XDG_STATE_HOME: join(home, ".local/state"),
+};
 
 afterAll(() => {
   if (previousPath === undefined) delete process.env.ASK_LLM_PATH;
@@ -140,7 +147,11 @@ describe("detectHosts", () => {
     expect(host(hosts, "claude")).toMatchObject({ registered: true, command: ["/opt/x/ask-llm-mcp"] });
     expect(host(hosts, "grok")).toMatchObject({ registered: true, command: ["/opt/x/ask-llm-mcp"] });
     expect(host(hosts, "agy")).toMatchObject({ registered: false });
-    expect(host(hosts, "pi")).toMatchObject({ installed: false, registered: true });
+    expect(host(hosts, "pi")).toMatchObject({
+      installed: false,
+      registered: false,
+      custom: "unverified package compatibility",
+    });
     expect(host(hosts, "opencode")).toMatchObject({ registered: true, command: ["/o/ask"] });
     if (process.platform === "darwin") {
       expect(host(hosts, "claude-desktop")).toMatchObject({ registered: true, command: ["npx", "-y", "ask-llm-mcp"] });
@@ -149,7 +160,7 @@ describe("detectHosts", () => {
     expect(existsSync(join(home, "grok-spawned"))).toBe(false);
   });
 
-  it("reads Codex registration through its side-effect-free JSON list command", async () => {
+  it("does not trust the Codex list projection as a persisted registration", async () => {
     fake(
       "codex",
       [
@@ -163,19 +174,30 @@ describe("detectHosts", () => {
     );
     expect(host(await detectHosts(env), "codex")).toMatchObject({
       installed: true,
-      registered: true,
+      registered: null,
+      error: expect.stringContaining("user-scope ownership is unverified"),
       command: ["/opt/x/ask-llm-mcp"],
     });
   });
 
-  describe.each(["npm:@ask-llm/mcp", "npm:@ask-llm/plugin"])("Pi package %s", (source) => {
-    it.each([source, `${source}@1.0.0`, { source }, { source: `${source}@1.0.0` }])(
-      "recognizes registration from %j",
-      async (entry) => {
-        write(".pi/agent/settings.json", JSON.stringify({ packages: [entry] }));
-        expect(host(await detectHosts(env), "pi")).toMatchObject({ registered: true });
-      },
-    );
+  it.each(["npm:@ask-llm/mcp", { source: "npm:@ask-llm/mcp" }])(
+    "requires guidance for the unverified Pi npm registration %j",
+    async (entry) => {
+      write(".pi/agent/settings.json", JSON.stringify({ packages: [entry] }));
+      expect(host(await detectHosts(env), "pi")).toMatchObject({
+        registered: false,
+        custom: "unverified package compatibility",
+      });
+    },
+  );
+
+  it.each([
+    ["npm:@ask-llm/plugin", "npm:@ask-llm/plugin"],
+    ["npm:@ask-llm/plugin@1.0.0", "npm:@ask-llm/plugin@1.0.0"],
+    [{ source: "npm:@ask-llm/plugin" }, "npm:@ask-llm/plugin"],
+  ])("reports the earlier Pi bridge package %j for migration, not as this install", async (entry, listed) => {
+    write(".pi/agent/settings.json", JSON.stringify({ packages: [entry] }));
+    expect(host(await detectHosts(env), "pi")).toMatchObject({ registered: false, legacy: [listed] });
   });
 
   describe("Pi local install of this package", () => {
@@ -224,7 +246,7 @@ describe("detectHosts", () => {
       'case "$1" in --version) echo "codex-cli 0.158.0";; *) echo \'[{"name":"ask-llm","transport":{}}]\';; esac',
     );
     const hosts = await detectHosts(env);
-    for (const id of ["claude", "gemini", "grok", "opencode", "codex"]) {
+    for (const id of ["claude", "gemini", "grok", "opencode"]) {
       expect(host(hosts, id).registered, id).toBe(false);
     }
   });

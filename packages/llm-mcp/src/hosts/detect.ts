@@ -8,15 +8,22 @@ import { runHost } from "./spawn.js";
 
 const PROBE_TIMEOUT_MS = 5000;
 
+export const INCOMPLETE_REGISTRATION =
+  "the host list omits persisted settings and may include project overrides; user-scope ownership is unverified";
+
 export interface RegistrationState {
   registered: boolean | null;
   command?: string[];
+  // Settings beyond the command that setup would not carry over, named without their values.
+  custom?: string;
   present?: boolean;
+  // Package sources of an earlier Ask LLM install that the host still lists.
+  legacy?: string[];
   error?: string;
 }
 
-function state(found: boolean, command: string[] | undefined): RegistrationState {
-  if (command) return { registered: true, command };
+function state(found: boolean, command: string[] | undefined, custom?: string): RegistrationState {
+  if (command) return custom ? { registered: true, command, custom } : { registered: true, command };
   return found ? { registered: false, present: true } : { registered: false };
 }
 
@@ -71,7 +78,33 @@ export function entryCommand(entry: unknown): string[] | undefined {
   return undefined;
 }
 
-function readText(file: string): string | undefined {
+export function customSettings(entry: unknown, packageEntry = false): string | undefined {
+  if (entry === null || typeof entry !== "object") return undefined;
+  const settings: string[] = [];
+  for (const [key, value] of Object.entries(entry)) {
+    const known = packageEntry
+      ? key === "source"
+      : key === "command" ||
+        key === "args" ||
+        (key === "type" && (value === "stdio" || value === "local")) ||
+        (key === "enabled" && value === true) ||
+        (key === "env" &&
+          value !== null &&
+          typeof value === "object" &&
+          !Array.isArray(value) &&
+          Object.keys(value).length === 0);
+    if (!known) {
+      settings.push(
+        value !== null && typeof value === "object" && !Array.isArray(value)
+          ? `${key} ${Object.keys(value).join(", ")}`.trimEnd()
+          : key,
+      );
+    }
+  }
+  return settings.length > 0 ? settings.join("; ") : undefined;
+}
+
+export function readText(file: string): string | undefined {
   try {
     return readFileSync(file, "utf8");
   } catch (error) {
@@ -89,10 +122,11 @@ function readJsonKey(file: string, keyPath: string[], jsonc?: string): Registrat
     if (value === null || typeof value !== "object") return { registered: false };
     value = (value as Record<string, unknown>)[key];
   }
-  return state(value !== undefined, entryCommand(value));
+  return state(value !== undefined, entryCommand(value), customSettings(value));
 }
 
 function readTomlTable(file: string, table: string): RegistrationState {
+  const name = table.slice("mcp_servers.".length);
   const text = readText(file);
   if (text === undefined) return { registered: false };
   let currentTable = "";
@@ -104,9 +138,9 @@ function readTomlTable(file: string, table: string): RegistrationState {
   for (const line of text.split(/\r?\n/)) {
     const trimmed = line.trim();
     if (trimmed.startsWith("[")) {
-      inTable = trimmed === `[${table}]` || trimmed === `[mcp_servers."${SERVER_NAME}"]`;
+      inTable = trimmed === `[${table}]` || trimmed === `[mcp_servers."${name}"]`;
       if (inTable) {
-        if (found) throw new Error("unsupported Grok TOML duplicate ask-llm table");
+        if (found) throw new Error(`unsupported Grok TOML duplicate ${name} table`);
         found = true;
         currentTable = table;
       } else {
@@ -115,7 +149,7 @@ function readTomlTable(file: string, table: string): RegistrationState {
         currentTable = header?.[1] ?? header?.[2] ?? "";
         if (!header || currentTable === "mcp_servers" || currentTable === table)
           throw new Error("unsupported Grok TOML table header");
-        if (currentTable.startsWith(`${table}.`)) throw new Error("unsupported Grok TOML nested ask-llm table");
+        if (currentTable.startsWith(`${table}.`)) throw new Error(`unsupported Grok TOML nested ${name} table`);
       }
       continue;
     }
@@ -125,9 +159,9 @@ function readTomlTable(file: string, table: string): RegistrationState {
       if (!rootKey || rootKey[1] === "mcp_servers") throw new Error("unsupported Grok TOML root key");
     }
     if (!inTable) continue;
-    if (trimmed.includes("\\")) throw new Error("unsupported Grok TOML escape for ask-llm");
+    if (trimmed.includes("\\")) throw new Error(`unsupported Grok TOML escape for ${name}`);
     const pair = /^(command|args|enabled)\s*=\s*(.+)$/.exec(trimmed);
-    if (!pair) throw new Error("unsupported Grok TOML key syntax for ask-llm");
+    if (!pair) throw new Error(`unsupported Grok TOML key syntax for ${name}`);
     let value: unknown;
     try {
       value = JSON.parse(pair[2]);
@@ -139,22 +173,40 @@ function readTomlTable(file: string, table: string): RegistrationState {
           : pair[2].includes("#")
             ? "trailing comment"
             : "value syntax";
-      throw new Error(`unsupported Grok TOML ${form} for ask-llm`);
+      throw new Error(`unsupported Grok TOML ${form} for ${name}`);
     }
     if (pair[1] === "command") command = value as string;
     if (pair[1] === "args") args = value;
     if (pair[1] === "enabled") enabled = value;
   }
-  return state(found, found ? entryCommand({ command, args, enabled }) : undefined);
+  const entry = { command, args, ...(enabled === undefined ? {} : { enabled }) };
+  return state(found, found ? entryCommand(entry) : undefined, customSettings(entry));
 }
 
-async function readList(binary: string, args: string[], env: NodeJS.ProcessEnv): Promise<RegistrationState> {
-  const servers = JSON.parse(await run(binary, args, env)) as Array<{
-    name?: string;
-    transport?: { command?: unknown; args?: unknown };
-  }>;
-  const entry = servers.find((server) => server.name === SERVER_NAME);
-  return state(entry !== undefined, entryCommand(entry?.transport));
+interface ListedServer {
+  name?: unknown;
+  enabled?: unknown;
+  transport?: { command?: unknown; args?: unknown };
+}
+
+function listedCommand(entry: ListedServer | undefined): string[] | undefined {
+  return entry?.enabled === false ? undefined : entryCommand(entry?.transport);
+}
+
+async function listed(binary: string, args: string[], env: NodeJS.ProcessEnv): Promise<ListedServer[]> {
+  const servers = JSON.parse(await run(binary, args, env));
+  if (!Array.isArray(servers)) throw new Error("the server list is not a JSON array");
+  return servers;
+}
+
+async function readList(
+  binary: string,
+  args: string[],
+  env: NodeJS.ProcessEnv,
+  name = SERVER_NAME,
+): Promise<RegistrationState> {
+  const entry = (await listed(binary, args, env)).find((server) => server.name === name);
+  return { registered: null, command: listedCommand(entry), error: INCOMPLETE_REGISTRATION };
 }
 
 // Pi's own test for a local package source: anything without a remote prefix.
@@ -165,22 +217,122 @@ function samePath(left: string, right: string): boolean {
   return real(left) === real(right);
 }
 
-function readPackages(file: string, sources: string[], localDir: string | undefined): RegistrationState {
+function readPackages(
+  file: string,
+  sources: string[],
+  legacySources: string[],
+  localDir: string | undefined,
+): RegistrationState {
   const text = readText(file);
   if (text === undefined) return { registered: false };
   const packages = (JSON.parse(text) as { packages?: unknown }).packages;
-  const matches = (listed: string) =>
-    sources.some((source) => listed === source || listed.startsWith(`${source}@`)) ||
-    (localDir !== undefined &&
-      !REMOTE_PI_SOURCE.test(listed.trim()) &&
-      samePath(resolve(dirname(file), listed.trim()), localDir));
-  const listed = Array.isArray(packages)
-    ? packages.some((entry) => {
-        const listed = typeof entry === "string" ? entry : (entry as { source?: unknown })?.source;
-        return typeof listed === "string" && matches(listed);
-      })
-    : false;
-  return { registered: listed };
+  const entries: unknown[] = Array.isArray(packages) ? packages : [];
+  const isSource = (listed: string, among: string[]) =>
+    among.some((source) => listed === source || listed.startsWith(`${source}@`));
+  const isLocal = (listed: string) =>
+    localDir !== undefined &&
+    !REMOTE_PI_SOURCE.test(listed.trim()) &&
+    samePath(resolve(dirname(file), listed.trim()), localDir);
+  let registered = false;
+  const legacy: string[] = [];
+  const settings = new Set<string>();
+  for (const entry of entries) {
+    const source = typeof entry === "string" ? entry : (entry as { source?: unknown } | null)?.source;
+    if (typeof source !== "string") continue;
+    const current = isLocal(source);
+    const earlier = isSource(source, legacySources);
+    const unverified = isSource(source, sources) || earlier;
+    if (!current && !unverified) continue;
+    if (current) registered = true;
+    if (unverified) settings.add("unverified package compatibility");
+    if (earlier) legacy.push(source);
+    const custom = customSettings(entry, true);
+    if (custom) settings.add(custom);
+  }
+  return {
+    registered,
+    ...(legacy.length > 0 ? { legacy } : {}),
+    ...(settings.size > 0 ? { custom: [...settings].join(", ") } : {}),
+  };
+}
+
+// The same registration surface, read for another server name.
+export function namedSource(source: RegistrationSource, name: string): RegistrationSource {
+  if (source.kind === "json") return { ...source, keyPath: [...source.keyPath.slice(0, -1), name] };
+  if (source.kind === "toml") return { ...source, table: `mcp_servers.${name}` };
+  if (source.kind === "list") return { ...source, name };
+  return source;
+}
+
+export interface ServerEntry {
+  name: string;
+  command?: string[];
+  custom?: string;
+  // Why the entry could not be read; `text` is its raw form, for recognizing what it runs.
+  error?: string;
+  text?: string;
+}
+
+function tomlTableText(text: string, name: string): string {
+  const lines: string[] = [];
+  let inside = false;
+  for (const line of text.split(/\r?\n/)) {
+    const header = /^\s*\[+\s*mcp_servers\.(?:"([^"]+)"|([A-Za-z0-9_-]+))/.exec(line);
+    if (/^\s*\[/.test(line)) inside = (header?.[1] ?? header?.[2]) === name;
+    if (inside) lines.push(line);
+  }
+  return lines.join("\n");
+}
+
+// Read the same surface as the ask-llm entry; list projections cannot establish user-scope ownership.
+export async function listServers(
+  source: RegistrationSource,
+  binary: string | undefined,
+  env: NodeJS.ProcessEnv,
+): Promise<ServerEntry[]> {
+  if (source.kind === "json") {
+    if (source.jsonc && existsSync(source.jsonc))
+      throw new Error(`${source.jsonc} exists and setup does not rewrite JSONC`);
+    const text = readText(source.file);
+    if (text === undefined) return [];
+    let value: unknown = JSON.parse(text);
+    for (const key of source.keyPath.slice(0, -1)) {
+      value = value !== null && typeof value === "object" ? (value as Record<string, unknown>)[key] : undefined;
+    }
+    if (value === null || typeof value !== "object" || Array.isArray(value)) return [];
+    return Object.entries(value).map(([name, entry]) => ({
+      name,
+      command: entryCommand(entry),
+      custom: customSettings(entry),
+      text: JSON.stringify(entry),
+    }));
+  }
+  if (source.kind === "toml") {
+    const text = readText(source.file);
+    if (text === undefined) return [];
+    const header = /^\s*\[mcp_servers\.(?:"([^"]+)"|([A-Za-z0-9_-]+))\]\s*$/gm;
+    const names = new Set([...text.matchAll(header)].map((match) => match[1] ?? match[2]));
+    return [...names].map((name) => {
+      try {
+        const { command, custom } = readTomlTable(source.file, `mcp_servers.${name}`);
+        return { name, command, custom, text: tomlTableText(text, name) };
+      } catch (error) {
+        return { name, error: (error as Error).message, text: tomlTableText(text, name) };
+      }
+    });
+  }
+  if (source.kind === "list") {
+    if (!binary) return [];
+    return (await listed(binary, source.args, env))
+      .filter((server): server is ListedServer & { name: string } => typeof server.name === "string")
+      .map((server) => ({
+        name: server.name,
+        command: listedCommand(server),
+        error: INCOMPLETE_REGISTRATION,
+        text: JSON.stringify(server),
+      }));
+  }
+  return [];
 }
 
 export async function readRegistration(
@@ -191,8 +343,8 @@ export async function readRegistration(
   try {
     if (state.kind === "json") return readJsonKey(state.file, state.keyPath, state.jsonc);
     if (state.kind === "toml") return readTomlTable(state.file, state.table);
-    if (state.kind === "packages") return readPackages(state.file, state.sources, state.localDir);
-    return binary ? await readList(binary, state.args, env) : { registered: false };
+    if (state.kind === "packages") return readPackages(state.file, state.sources, state.legacySources, state.localDir);
+    return binary ? await readList(binary, state.args, env, state.name) : { registered: false };
   } catch (error) {
     const detail = error instanceof Error ? error.message : String(error);
     return { registered: null, error: `cannot read registration: ${detail.split("\n")[0].slice(0, 200)}` };

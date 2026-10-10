@@ -10,24 +10,27 @@ import {
   writeSync,
 } from "node:fs";
 import { getSpawnEnv } from "@ask-llm/shared";
-import { commandText, isOwnCommand, isOwnRegistration, UNUSABLE_ENTRY } from "../plan.js";
+import { commandText, compatibilityReason, isOwnCommand, isOwnRegistration, UNUSABLE_ENTRY } from "../plan.js";
 import { type DetectedHost, entryCommand, type RegistrationState, readRegistration } from "./detect.js";
 import { type JsonEdit, writeJsonKey } from "./json-merge.js";
-import { antigravity } from "./registrars/antigravity.js";
-import { claude } from "./registrars/claude.js";
-import { codex } from "./registrars/codex.js";
-import { gemini } from "./registrars/gemini.js";
-import { grok } from "./registrars/grok.js";
-import type { HostId } from "./registry.js";
+import { SERVER_NAME } from "./registry.js";
 import { runHost } from "./spawn.js";
 
 export type HostOp = "add" | "remove";
-export type Registrar = (op: HostOp, server: string) => string[];
-
-export const REGISTRARS: Partial<Record<HostId, Registrar>> = { claude, codex, agy: antigravity, grok, gemini };
 
 export function canRemove(host: DetectedHost): boolean {
-  return host.spec.registration.kind === "json" || REGISTRARS[host.id] !== undefined;
+  const { registration } = host.spec;
+  return registration.kind === "json" || registration.remove !== undefined;
+}
+
+export function hostEnv(host: DetectedHost, env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
+  return { ...env, ...host.spec.env, PATH: getSpawnEnv().PATH };
+}
+
+function commandArgv(host: DetectedHost, op: HostOp, server: string): string[] | undefined {
+  const { registration } = host.spec;
+  if (registration.kind !== "command") return undefined;
+  return op === "add" ? registration.argv(server) : registration.remove?.(SERVER_NAME);
 }
 
 // What setup or remove will do, in the words the confirmation and the manual step use.
@@ -38,19 +41,19 @@ export function changeText(host: DetectedHost, op: HostOp, server: string): stri
     const at = `${keyPath.join(".")} in ${registration.file}`;
     return op === "add" ? `add ${JSON.stringify(value)} at ${at}` : `remove ${at}`;
   }
-  const argv = op === "add" ? registration.argv(server) : REGISTRARS[host.id]?.(op, server);
+  const argv = commandArgv(host, op, server);
   return argv && commandText(argv);
 }
 
 export interface Applied {
-  outcome: "changed" | "unchanged" | "conflict" | "failed";
+  outcome: "changed" | "unchanged" | "conflict" | "failed" | "manual";
   detail?: string;
   backup?: string;
 }
 
-const HOST_COMMAND_TIMEOUT_MS = 30_000;
+export const HOST_COMMAND_TIMEOUT_MS = 30_000;
 const ALREADY_EXISTS = /already (exists|configured)/i;
-const NOT_FOUND = /not found|no mcp server named/i;
+export const NOT_FOUND = /not found|no mcp server named/i;
 
 export function firstLine(text: string): string {
   return (text.split(/\r?\n/).find((line) => line.trim()) ?? "").trim().slice(0, 300);
@@ -66,6 +69,8 @@ function conflict(command: string[] | undefined): Applied {
 // Every host except Claude overwrites on add, so ownership is checked on a fresh read right before any spawn.
 function gate(host: DetectedHost, current: RegistrationState, op: HostOp, server: string): Applied | undefined {
   if (current.registered === null) return { outcome: "failed", detail: current.error };
+  if (host.spec.registrationState.kind === "packages" && current.custom)
+    return { outcome: "conflict", detail: "Ask LLM packages have custom settings; left in place" };
   const owned = current.registered && isOwnRegistration({ ...host, ...current, command: current.command }, server);
   if (op === "add") {
     if (current.present) return { outcome: "conflict", detail: `${UNUSABLE_ENTRY}; not overwritten` };
@@ -89,7 +94,8 @@ export function backupConfig(file: string | undefined): string | undefined {
     if ((error as NodeJS.ErrnoException).code === "ENOENT") return undefined;
     throw error;
   }
-  const backup = `${resolved}.ask-llm-backup-${new Date().toISOString().replace(/[:.]/g, "-")}`;
+  const base = `${resolved}.ask-llm-backup-${new Date().toISOString().replace(/[:.]/g, "-")}`;
+  let backup = base;
   let source: number;
   try {
     source = openSync(resolved, constants.O_RDONLY | constants.O_NOFOLLOW);
@@ -107,11 +113,20 @@ export function backupConfig(file: string | undefined): string | undefined {
     }
     if (stat && !stat.isFile()) throw new Error("config is not a regular file");
     if (stat) mode = stat.mode & 0o7777;
-    const target = openSync(
-      backup,
-      constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | constants.O_NOFOLLOW,
-      0o600,
-    );
+    let target: number;
+    for (let suffix = 1; ; suffix++) {
+      try {
+        target = openSync(
+          backup,
+          constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | constants.O_NOFOLLOW,
+          0o600,
+        );
+        break;
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
+        backup = `${base}-${suffix}`;
+      }
+    }
     try {
       const buffer = Buffer.alloc(64 * 1024);
       let length = readSync(source, buffer, 0, buffer.length, null);
@@ -139,16 +154,12 @@ export async function applyRegistrar(
   server: string,
   env: NodeJS.ProcessEnv,
 ): Promise<Applied> {
+  if (!host.supported) return { outcome: "manual", detail: compatibilityReason(host) };
   const { registration } = host.spec;
-  const argv =
-    registration.kind === "command"
-      ? op === "add"
-        ? registration.argv(server)
-        : REGISTRARS[host.id]?.(op, server)
-      : undefined;
+  const argv = commandArgv(host, op, server);
   if (registration.kind === "command" && (!argv || !host.binary))
     return { outcome: "failed", detail: `${host.name} has no command registrar` };
-  const spawnEnv = { ...env, ...host.spec.env, PATH: getSpawnEnv().PATH };
+  const spawnEnv = hostEnv(host, env);
   const read = () => readRegistration(host.spec.registrationState, host.binary, spawnEnv);
   const refused = gate(host, await read(), op, server);
   if (refused) return refused;

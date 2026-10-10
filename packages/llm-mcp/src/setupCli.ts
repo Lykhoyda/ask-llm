@@ -1,6 +1,7 @@
 import { createInterface } from "node:readline/promises";
 import { detectHosts } from "./hosts/detect.js";
 import { type HostId, hostSpecs } from "./hosts/registry.js";
+import { applyMigration, MIGRATION_GUIDE, type MigrationFinding, planMigration } from "./migrate.js";
 import { buildPlan, commandText, genericSnippet, type PlanEntry, resolveServerPath, type ServerPath } from "./plan.js";
 import { installPlugins, type PluginPlan, planPlugins } from "./plugins.js";
 import { applyRemove } from "./remove.js";
@@ -15,11 +16,20 @@ export function setupHelp(): string {
     "",
     "Detect coding-agent hosts, preview the exact command or file change for each, and",
     "register Ask LLM at user scope in each confirmed host: through the host's own command",
-    "for Claude Code, Codex, Antigravity, Grok Build and Gemini CLI, and by merging one entry",
-    "into the config file of Cursor, Claude Desktop and OpenCode (plain JSON only). For Pi,",
+    "for Claude Code, Grok Build and Gemini CLI, and by merging one entry into the config",
+    "file of Antigravity, Cursor, Claude Desktop and OpenCode (plain JSON only). For Pi,",
     "setup runs pi install with this installed package's directory when registration is",
-    "missing, verifies the package list, and prints a manual fallback if installation fails.",
-    "Existing ask-llm registrations are never overwritten.",
+    "missing and no Ask LLM npm package is present, then verifies the package list.",
+    "Existing Pi npm entries for @ask-llm/mcp or @ask-llm/plugin stay untouched with",
+    "manual migration guidance, whether pinned or unpinned, strings or source objects.",
+    "Only this setup installation's local package registration proves Pi compatibility.",
+    "An ask-llm entry from an earlier install route (npx, a server name on PATH) is",
+    "replaced after confirmation; any other existing ask-llm entry is never overwritten.",
+    "Recognised unmodified split provider entries and second Ask LLM servers are removed",
+    "after confirmation once this install's usable registration is verified in that host;",
+    "entries with their own settings (environment variables, working directory) get",
+    `guidance instead and stay in place. Migration guide: ${MIGRATION_GUIDE}`,
+    "Codex registrations get guidance only: its list omits settings and can include project overrides.",
     "",
     "Setup also installs the workflows: the Ask LLM plugin in Claude Code through its",
     "marketplace, and portable ask-llm-* skills through the pinned skills CLI (npx) from this",
@@ -90,11 +100,23 @@ function formatEntry(entry: PlanEntry): string[] {
   const lines = [`  ${entry.name}${version}: ${entry.action}${entry.reason ? ` (${entry.reason})` : ""}`];
   const { registration } = entry;
   lines.push(
-    registration.kind === "command"
-      ? `      ${registration.command}`
-      : `      merge ${JSON.stringify(registration.entry)} at ${registration.keyPath.join(".")} in ${registration.file}`,
+    entry.manual || entry.replace
+      ? `      ${entry.manual ?? entry.replace}`
+      : registration.kind === "command"
+        ? `      ${registration.command}`
+        : `      merge ${JSON.stringify(registration.entry)} at ${registration.keyPath.join(".")} in ${registration.file}`,
   );
   return lines;
+}
+
+function formatMigration(findings: MigrationFinding[]): string[] {
+  if (findings.length === 0) return [];
+  const lines = ["Earlier Ask LLM entries:"];
+  for (const found of findings) {
+    const action = found.action === "retire" ? "remove once Ask LLM is registered" : "guidance";
+    lines.push(`  ${found.label}: ${action} (${found.reason})`, `      ${found.change}`);
+  }
+  return [...lines, `  Migration guide: ${MIGRATION_GUIDE}`, ""];
 }
 
 interface Workflows {
@@ -124,7 +146,13 @@ function formatWorkflows({ plugins, skills }: Workflows): string[] {
   return [...lines, ""];
 }
 
-function formatPreview(heading: string, server: ServerPath, plan: PlanEntry[], workflows: Workflows): string {
+function formatPreview(
+  heading: string,
+  server: ServerPath,
+  plan: PlanEntry[],
+  findings: MigrationFinding[],
+  workflows: Workflows,
+): string {
   return [
     heading,
     `Server: ${server.path} (${server.source})`,
@@ -132,6 +160,7 @@ function formatPreview(heading: string, server: ServerPath, plan: PlanEntry[], w
     "Hosts:",
     ...plan.flatMap(formatEntry),
     "",
+    ...formatMigration(findings),
     ...formatWorkflows(workflows),
     "Any other MCP client (stdio):",
     `  ${JSON.stringify(genericSnippet(server.path))}`,
@@ -146,6 +175,9 @@ const REFORMAT_NOTICE =
 
 const LABELS: Record<HostStatus, string> = {
   registered: "registered",
+  replaced: "replaced the earlier entry",
+  retired: "removed",
+  kept: "kept",
   "up-to-date": "already registered",
   removed: "removed",
   "not-registered": "not registered",
@@ -181,15 +213,22 @@ function formatWorkflow(result: WorkflowResult): string[] {
   return lines;
 }
 
-function report(results: HostResult[], changed: HostStatus, workflows: WorkflowResult[] = []): number {
+function report(
+  results: HostResult[],
+  changed: HostStatus[],
+  workflows: WorkflowResult[] = [],
+  migrated: HostResult[] = [],
+): number {
   const lines = ["Results:", ...results.flatMap(formatResult)];
   if (results.length === 0) lines.push("  No supported host is installed; pass --host to name one.");
+  if (migrated.length > 0) lines.push("", "Earlier Ask LLM entries:", ...migrated.flatMap(formatResult));
   if (workflows.length > 0) lines.push("", "Workflows:", ...workflows.flatMap(formatWorkflow));
   const workflowChanged = workflows.some(({ status }) => status === "installed");
-  if (!results.some(({ status }) => status === changed) && !workflowChanged) lines.push("No changes.");
+  if (![...results, ...migrated].some(({ status }) => changed.includes(status)) && !workflowChanged)
+    lines.push("No changes.");
   process.stdout.write(`${lines.join("\n")}\n`);
   const workflowFailed = workflows.some(({ status }) => status === "manual" || status === "failed");
-  return results.some(({ status }) => UNSUCCESSFUL.has(status)) || workflowFailed ? 1 : 0;
+  return [...results, ...migrated].some(({ status }) => UNSUCCESSFUL.has(status)) || workflowFailed ? 1 : 0;
 }
 
 async function withConfirm<T>(yes: boolean, run: (confirm: Confirm) => Promise<T>): Promise<T> {
@@ -237,6 +276,7 @@ export async function runSetupCli(args: string[], ownCli: string): Promise<numbe
   }
   const hosts = await detectHosts();
   const shown = buildPlan(hosts, server.path).filter(({ id }) => !options.hosts || options.hosts.includes(id));
+  const findings = await planMigration(hosts, options.hosts, process.env);
   const workflows: Workflows = { plugins: planPlugins(hosts, options.hosts), skills: planSkills(hosts, options.hosts) };
   if (options.dryRun) {
     process.stdout.write(
@@ -248,6 +288,7 @@ export async function runSetupCli(args: string[], ownCli: string): Promise<numbe
               dryRun: true,
               server,
               hosts: shown,
+              migration: findings.map(({ command: _command, ...found }) => found),
               workflows: {
                 plugins: workflows.plugins.map(({ binary: _binary, ...plugin }) => plugin),
                 skills: workflows.skills,
@@ -257,7 +298,13 @@ export async function runSetupCli(args: string[], ownCli: string): Promise<numbe
             null,
             2,
           )}\n`
-        : formatPreview("ask-llm setup --dry-run: preview only, nothing was changed.", server, shown, workflows),
+        : formatPreview(
+            "ask-llm setup --dry-run: preview only, nothing was changed.",
+            server,
+            shown,
+            findings,
+            workflows,
+          ),
     );
     return 0;
   }
@@ -267,17 +314,25 @@ export async function runSetupCli(args: string[], ownCli: string): Promise<numbe
       `ask-llm setup: each change runs the host's own command or merges one entry into its file.\n${REFORMAT_NOTICE}`,
       server,
       shown,
+      findings,
       workflows,
     ),
   );
-  const [results, installed] = await withConfirm(options.yes, async (confirm) => [
-    await applySetup(hosts, server.path, options.hosts, confirm, process.env),
-    [
-      ...(await installPlugins(workflows.plugins, confirm, process.env)),
-      ...(await installSkills(workflows.skills, confirm, process.env)),
-    ],
-  ]);
-  return report(results, "registered", installed);
+  const [results, migrated, installed] = await withConfirm(
+    options.yes,
+    async (confirm): Promise<[HostResult[], HostResult[], WorkflowResult[]]> => {
+      const registered = await applySetup(hosts, server.path, options.hosts, confirm, process.env);
+      return [
+        registered,
+        await applyMigration(findings, hosts, server.path, registered, confirm, process.env),
+        [
+          ...(await installPlugins(workflows.plugins, confirm, process.env)),
+          ...(await installSkills(workflows.skills, confirm, process.env)),
+        ],
+      ];
+    },
+  );
+  return report(results, ["registered", "replaced", "retired"], installed, migrated);
 }
 
 export async function runRemoveCli(args: string[], ownCli: string): Promise<number> {
@@ -301,5 +356,5 @@ export async function runRemoveCli(args: string[], ownCli: string): Promise<numb
     applyRemove(hosts, server.path, options.hosts, confirm, process.env),
   );
   process.stdout.write(`${REMOVE_WORKFLOWS_NOTE}\n`);
-  return report(results, "removed");
+  return report(results, ["removed"]);
 }

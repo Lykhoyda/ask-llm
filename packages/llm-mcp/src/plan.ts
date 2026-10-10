@@ -2,11 +2,12 @@ import { execFileSync } from "node:child_process";
 import { realpathSync } from "node:fs";
 import { join, sep } from "node:path";
 import { getSpawnEnv } from "@ask-llm/shared";
-import type { DetectedHost } from "./hosts/detect.js";
+import { type DetectedHost, INCOMPLETE_REGISTRATION } from "./hosts/detect.js";
+import { legacyPackage, mentionedPackage } from "./hosts/legacy.js";
 import { type HostId, SERVER_NAME } from "./hosts/registry.js";
 import { resolveCommand } from "./utils/availability.js";
 
-export type PlanAction = "register" | "up-to-date" | "conflict" | "manual" | "skip";
+export type PlanAction = "register" | "replace" | "up-to-date" | "conflict" | "manual" | "skip";
 
 export type PlannedRegistration =
   | { kind: "command"; argv: string[]; command: string }
@@ -20,6 +21,8 @@ export interface PlanEntry {
   action: PlanAction;
   reason?: string;
   manual?: string;
+  // For `replace`: the exact change that swaps the earlier entry for this install's.
+  replace?: string;
   registration: PlannedRegistration;
   skillsDir?: string;
   restart: "new-session" | "app-restart";
@@ -56,7 +59,8 @@ export function isOwnCommand(command: string[] | undefined, server: string): boo
 }
 
 export function isOwnRegistration(host: DetectedHost, server: string): boolean {
-  if (host.spec.registrationState.kind === "packages") return host.registered === true;
+  if (host.spec.registrationState.kind === "list") return false;
+  if (host.spec.registrationState.kind === "packages") return host.registered === true && !host.custom;
   return isOwnCommand(host.command, server);
 }
 
@@ -105,6 +109,23 @@ export function manualText(registration: PlannedRegistration): string {
   return `add ${JSON.stringify(registration.entry)} at ${registration.keyPath.join(".")} in ${registration.file}`;
 }
 
+// Swapping an earlier entry: hosts that refuse an add over an existing name lose it first; the rest overwrite in place.
+export function replaceText(host: DetectedHost, server: string): string {
+  const { registration } = host.spec;
+  if (registration.kind === "json") {
+    const { keyPath, value } = registration.edit("add", server);
+    return `replace ${keyPath.join(".")} in ${registration.file} with ${JSON.stringify(value)}`;
+  }
+  const add = commandText(registration.argv(server));
+  const remove = registration.remove?.(SERVER_NAME);
+  return registration.refusesExisting && remove ? `${commandText(remove)} && ${add}` : add;
+}
+
+export function compatibilityReason(host: DetectedHost): string {
+  const probe = [host.spec.binaries[0], ...(host.spec.versionProbe?.args ?? [])].join(" ");
+  return `unrecognized \`${probe}\` output; check the syntax and run it manually`;
+}
+
 function decide(host: DetectedHost, server: string): { action: PlanAction; reason?: string } {
   if (host.registered === null) return { action: "manual", reason: host.error };
   if (!host.installed) {
@@ -113,17 +134,31 @@ function decide(host: DetectedHost, server: string): { action: PlanAction; reaso
       reason: host.leftoverConfig ? `not installed; leftover config at ${host.spec.configHome}` : "not installed",
     };
   }
+  if (host.spec.registrationState.kind === "list") return { action: "manual", reason: INCOMPLETE_REGISTRATION };
+  if (host.spec.registrationState.kind === "packages" && host.custom)
+    return {
+      action: "conflict",
+      reason: `Ask LLM packages have their own settings (${host.custom}); setup leaves them in place`,
+    };
   if (host.registered) {
+    const current = host.command ? `\`${host.command.join(" ")}\`` : "an unrecognized command";
+    if (host.custom)
+      return {
+        action: "conflict",
+        reason: `an ask-llm entry runs ${current} with its own settings (${host.custom}); setup will not carry them over or overwrite it`,
+      };
+    if (!host.supported) return { action: "manual", reason: compatibilityReason(host) };
     if (isOwnRegistration(host, server))
       return { action: "up-to-date", reason: "already registered to this ask-llm-mcp" };
-    const current = host.command ? `\`${host.command.join(" ")}\`` : "an unrecognized command";
+    if (legacyPackage(host.command))
+      return {
+        action: "replace",
+        reason: `an ask-llm entry runs ${current} from an earlier install; setup replaces it`,
+      };
     return { action: "conflict", reason: `an ask-llm entry already runs ${current}; setup will not overwrite it` };
   }
   if (host.present) return { action: "conflict", reason: `${UNUSABLE_ENTRY}; setup will not overwrite it` };
-  if (!host.supported) {
-    const probe = [host.spec.binaries[0], ...(host.spec.versionProbe?.args ?? [])].join(" ");
-    return { action: "manual", reason: `unrecognized \`${probe}\` output; check the syntax and run it manually` };
-  }
+  if (!host.supported) return { action: "manual", reason: compatibilityReason(host) };
   return { action: "register" };
 }
 
@@ -138,7 +173,17 @@ export function buildPlan(hosts: DetectedHost[], server: string): PlanEntry[] {
       version: host.version,
       action,
       reason,
-      manual: action === "manual" || (host.installed && !host.supported) ? manualText(registration) : undefined,
+      manual:
+        host.installed && host.spec.registrationState.kind === "list"
+          ? `inspect ${host.spec.configFile} and project overrides; preserve custom settings and tool filters before manually migrating. Intended registration: ${manualText(registration)}`
+          : action === "conflict" && host.spec.registrationState.kind === "packages" && host.custom
+            ? `preserve package filters and custom settings in ${host.spec.configFile} when migrating to @ask-llm/mcp`
+            : action === "manual" || (host.installed && !host.supported)
+              ? manualText(registration)
+              : action === "conflict" && mentionedPackage(host.command?.join(" "))
+                ? `preserve custom settings and command options you still need, then: ${replaceText(host, server)}`
+                : undefined,
+      replace: action === "replace" ? replaceText(host, server) : undefined,
       registration,
       skillsDir: host.spec.skillsDir,
       restart: host.spec.restart,

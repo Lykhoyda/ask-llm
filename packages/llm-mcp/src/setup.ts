@@ -1,10 +1,14 @@
 import { type Applied, applyRegistrar } from "./hosts/apply.js";
 import type { DetectedHost } from "./hosts/detect.js";
 import type { HostId } from "./hosts/registry.js";
+import { replaceRegistration } from "./migrate.js";
 import { buildPlan, manualText } from "./plan.js";
 
 export type HostStatus =
   | "registered"
+  | "replaced"
+  | "retired"
+  | "kept"
   | "up-to-date"
   | "removed"
   | "not-registered"
@@ -49,6 +53,7 @@ const ADDED: Record<Applied["outcome"], HostStatus> = {
   unchanged: "up-to-date",
   conflict: "conflict",
   failed: "failed",
+  manual: "manual",
 };
 
 export async function applySetup(
@@ -62,9 +67,26 @@ export async function applySetup(
   const results: HostResult[] = [];
   for (const [index, host] of hosts.entries()) {
     if (!inScope(host, selected)) continue;
-    const { action, reason, registration } = plan[index];
-    const manual = manualText(registration);
-    if (action === "register") {
+    const { action, reason, registration, replace } = plan[index];
+    const manual = plan[index].manual ?? manualText(registration);
+    if (action === "replace") {
+      const verb = registration.kind === "command" ? "Runs" : "Writes";
+      const change = replace ?? manual;
+      if (!(await confirm(`Replace the earlier Ask LLM entry in ${host.name} (${reason})? ${verb}: ${change}`))) {
+        results.push(result(host, "declined"));
+        continue;
+      }
+      const applied = await replaceRegistration(host, server, env);
+      const status = applied.outcome === "changed" ? "replaced" : ADDED[applied.outcome];
+      results.push(
+        result(host, status, {
+          detail: applied.detail,
+          backup: applied.backup,
+          manual: status === "failed" || status === "manual" ? change : undefined,
+          next: status === "replaced" ? nextStep(host, true) : undefined,
+        }),
+      );
+    } else if (action === "register") {
       const verb = registration.kind === "command" ? "Runs" : "Writes";
       if (!(await confirm(`Register Ask LLM with ${host.name}? ${verb}: ${manual}`))) {
         results.push(result(host, "declined"));
@@ -76,7 +98,7 @@ export async function applySetup(
         result(host, status, {
           detail: applied.detail,
           backup: applied.backup,
-          manual: status === "failed" ? manual : undefined,
+          manual: status === "failed" || status === "manual" ? manual : undefined,
           next: status === "registered" ? nextStep(host, true) : undefined,
         }),
       );
@@ -87,7 +109,7 @@ export async function applySetup(
       results.push(
         result(host, status, {
           detail: action === "up-to-date" ? undefined : reason,
-          manual: snippet ? manual : undefined,
+          manual: plan[index].manual ?? (snippet ? manual : undefined),
         }),
       );
     }

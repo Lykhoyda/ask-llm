@@ -9,6 +9,7 @@ const REMOVED: Record<Applied["outcome"], HostStatus> = {
   unchanged: "not-registered",
   conflict: "not-owned",
   failed: "failed",
+  manual: "manual",
 };
 
 function foreign(host: DetectedHost): string {
@@ -50,7 +51,7 @@ export async function applyRemove(
         result(host, status, {
           detail: applied.detail,
           backup: applied.backup,
-          manual: status === "failed" ? manual : undefined,
+          manual: status === "failed" || status === "manual" ? manual : undefined,
           next: status === "removed" ? nextStep(host, false) : undefined,
         }),
       );

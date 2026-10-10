@@ -44,10 +44,15 @@ function entry(host: DetectedHost): PlanEntry {
 }
 
 describe("buildPlan", () => {
+  it.each([false, true])("keeps incomplete list registrations manual when registered is %s", (registered) => {
+    const plan = entry(detected("codex", { registered, command: registered ? [SERVER] : undefined }));
+    expect(plan.action).toBe("manual");
+    expect(plan.manual).toContain("preserve custom settings and tool filters");
+    expect(plan.replace).toBeUndefined();
+  });
+
   it.each([
     ["claude", ["claude", "mcp", "add", "--scope", "user", "ask-llm", "--", SERVER]],
-    ["codex", ["codex", "mcp", "add", "ask-llm", "--", SERVER]],
-    ["agy", ["agy", "mcp", "add", "ask-llm", SERVER]],
     ["grok", ["grok", "mcp", "add", "--scope", "user", "ask-llm", SERVER]],
     ["gemini", ["gemini", "mcp", "add", "--scope", "user", "ask-llm", SERVER]],
     ["pi", ["pi", "install", PACKAGE_ROOT]],
@@ -60,6 +65,7 @@ describe("buildPlan", () => {
   });
 
   it.each([
+    ["agy", "/home/u/.gemini/config/mcp_config.json", ["mcpServers", "ask-llm"], { command: SERVER, args: [] }],
     ["cursor", "/home/u/.cursor/mcp.json", ["mcpServers", "ask-llm"], { command: SERVER, args: [] }],
     [
       "claude-desktop",
@@ -106,9 +112,9 @@ describe("buildPlan", () => {
   });
 
   it("stops with the exact manual command when the CLI version output is unrecognized", () => {
-    expect(entry(detected("agy", { version: undefined, supported: false }))).toMatchObject({
+    expect(entry(detected("grok", { version: undefined, supported: false }))).toMatchObject({
       action: "manual",
-      manual: `agy mcp add ask-llm ${SERVER}`,
+      manual: `grok mcp add --scope user ask-llm ${SERVER}`,
     });
   });
 
@@ -118,16 +124,34 @@ describe("buildPlan", () => {
   });
 
   it("never overwrites a foreign ask-llm entry", () => {
-    expect(
-      entry(detected("claude-desktop", { registered: true, command: ["npx", "-y", "ask-llm-mcp"] })),
-    ).toMatchObject({
+    expect(entry(detected("claude-desktop", { registered: true, command: ["/opt/other/ask-llm-mcp"] }))).toMatchObject({
       action: "conflict",
-      reason: "an ask-llm entry already runs `npx -y ask-llm-mcp`; setup will not overwrite it",
+      reason: "an ask-llm entry already runs `/opt/other/ask-llm-mcp`; setup will not overwrite it",
     });
   });
 
+  it("offers to replace an ask-llm entry from an earlier install route", () => {
+    expect(
+      entry(detected("claude-desktop", { registered: true, command: ["npx", "-y", "ask-llm-mcp"] })),
+    ).toMatchObject({
+      action: "replace",
+      reason: "an ask-llm entry runs `npx -y ask-llm-mcp` from an earlier install; setup replaces it",
+      replace: expect.stringMatching(/^replace mcpServers\.ask-llm in .*claude_desktop_config\.json with /),
+    });
+  });
+
+  it("leaves an earlier ask-llm entry with its own settings and prints the swap instead", () => {
+    const plan = entry(
+      detected("claude", { registered: true, command: ["npx", "-y", "@ask-llm/mcp"], custom: "env GEMINI_API_KEY" }),
+    );
+    expect(plan).toMatchObject({ action: "conflict", reason: expect.stringContaining("(env GEMINI_API_KEY)") });
+    expect(plan.manual).toBe(
+      `preserve custom settings and command options you still need, then: claude mcp remove --scope user ask-llm && claude mcp add --scope user ask-llm -- ${SERVER}`,
+    );
+  });
+
   it("never overwrites a disabled or command-less ask-llm entry", () => {
-    expect(entry(detected("codex", { registered: false, present: true }))).toMatchObject({
+    expect(entry(detected("claude", { registered: false, present: true }))).toMatchObject({
       action: "conflict",
       reason: "an ask-llm entry exists but is disabled or has no usable command; setup will not overwrite it",
     });

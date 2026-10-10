@@ -123,10 +123,13 @@ describe("host discovery commands", () => {
       action: "register",
       registration: { kind: "command", argv: ["gemini", "mcp", "add", "--scope", "user", "ask-llm", server] },
     });
+    // The npx entry is an earlier install route, so setup offers to swap it for this install.
     expect(byId.cursor).toMatchObject({
-      action: "conflict",
+      action: "replace",
       registration: { kind: "json", file: join(home, ".cursor/mcp.json"), keyPath: ["mcpServers", "ask-llm"] },
+      replace: `replace mcpServers.ask-llm in ${join(home, ".cursor/mcp.json")} with ${JSON.stringify({ command: server, args: [] })}`,
     });
+    expect(plan.migration).toEqual([]);
     expect(byId.codex).toMatchObject({
       installed: false,
       action: "skip",
@@ -140,7 +143,7 @@ describe("host discovery commands", () => {
     expect(result.stdout).toContain(`gemini mcp add --scope user ask-llm ${server}`);
     expect(result.stdout).toContain(`claude mcp add --scope user ask-llm -- ${server}`);
     expect(result.stdout).toContain(
-      `merge ${JSON.stringify({ command: server, args: [] })} at mcpServers.ask-llm in ${join(home, ".cursor/mcp.json")}`,
+      `replace mcpServers.ask-llm in ${join(home, ".cursor/mcp.json")} with ${JSON.stringify({ command: server, args: [] })}`,
     );
     expect(result.stdout).toContain("nothing was changed");
   });
@@ -179,9 +182,7 @@ describe("host discovery commands", () => {
       });
       const setupText = ask("setup", "--dry-run").stdout;
       expect(setupText).toContain("cannot read registration");
-      expect(setupText).toContain(
-        `merge ${JSON.stringify({ command: server, args: [] })} at mcpServers.ask-llm in ${file}`,
-      );
+      expect(setupText).toContain(manual);
 
       const doctorHost = JSON.parse(ask("doctor", "--json").stdout).hosts.find(
         (host: { id: string }) => host.id === "cursor",
@@ -199,11 +200,11 @@ describe("host discovery commands", () => {
     }
   });
 
-  it("prints the planned command for an unrecognized host version in doctor", () => {
+  it("prints the planned registration for an unrecognized host version in doctor", () => {
     const agy = join(bin, "agy");
     writeFileSync(agy, "#!/bin/sh\necho changed-version\n", { mode: 0o755 });
     try {
-      const manual = `agy mcp add ask-llm ${server}`;
+      const manual = `add ${JSON.stringify({ command: server, args: [] })} at mcpServers.ask-llm in ${join(home, ".gemini/config/mcp_config.json")}`;
       const setupHost = JSON.parse(ask("setup", "--dry-run", "--json").stdout).hosts.find(
         (host: { id: string }) => host.id === "agy",
       );

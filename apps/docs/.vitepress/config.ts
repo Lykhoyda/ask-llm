@@ -187,6 +187,11 @@ export default withMermaid(
           ],
         },
         {
+          text: "Reference",
+          collapsed: false,
+          items: [{ text: "Migrating from @ask-llm/*", link: "/reference/migration" }],
+        },
+        {
           text: "Resources",
           collapsed: true,
           items: [

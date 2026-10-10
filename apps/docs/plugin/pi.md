@@ -31,13 +31,13 @@ The package provides the native tools and the codex-pair commands. An interactiv
 Project-local install (loaded only after Pi project trust):
 
 ```bash
-pi install -l --approve npm:@ask-llm/plugin
+pi install -l --approve npm:@ask-llm/mcp
 ```
 
 Temporary evaluation without changing settings:
 
 ```bash
-pi -e npm:@ask-llm/plugin
+pi -e npm:@ask-llm/mcp
 ```
 
 For a built source checkout:
@@ -148,10 +148,9 @@ ask-llm setup --host pi
 
 Restart Pi or use `/reload` to load the updated extension. To unregister it, run `pi remove <installed package directory>` with the local source path shown by `pi list`; this leaves the global npm installation in place.
 
-For an existing npm bridge installation:
+Existing npm installations of `@ask-llm/mcp` or `@ask-llm/plugin` receive guidance from `ask-llm setup --host pi` and remain unchanged. Preserve resource filters and custom settings, register the globally installed package's local folder, and verify the extension before manually removing the bridge (see [Migrating from @ask-llm/*](/reference/migration)):
 
 ```bash
-pi update npm:@ask-llm/plugin
 pi remove npm:@ask-llm/plugin
 ```
 
