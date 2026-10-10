@@ -1,5 +1,27 @@
 # @ask-llm/mcp
 
+## 1.2.0
+
+### Minor Changes
+
+- [#381](https://github.com/Lykhoyda/ask-llm/pull/381) [`6dd1dd6`](https://github.com/Lykhoyda/ask-llm/commit/6dd1dd6ad4116c21b3fbd5f84b7a74b9cf5ccf2b) Thanks [@Lykhoyda](https://github.com/Lykhoyda)! - Pi now has the `ask-llm` and `multi-llm` tools with the MCP server's input schemas and responses (and `ask-cursor-agent` with the server's schema); the earlier `ask-codex`, `ask-gemini`, `ask-grok`, `ask-ollama`, `ask-antigravity` and `ask-multi` tools remain as deprecated aliases, `docs/HOST-PARITY.md` declares what each host supports, and `ask-llm doctor` prints those rows for every installed host.
+
+- [#377](https://github.com/Lykhoyda/ask-llm/pull/377) [`162238f`](https://github.com/Lykhoyda/ask-llm/commit/162238fc6cd18bea39480773cbb2cc59f2f1234b) Thanks [@Lykhoyda](https://github.com/Lykhoyda)! - `ask-llm setup` now also installs the workflows, the plugin in Claude Code and the renamed `ask-llm-*` skills in Codex, Cursor, Grok Build, Gemini CLI, OpenCode and Pi through the pinned `skills` CLI (Antigravity gets a printed copy command). Setup installs missing skills, refreshes changed skill folders after comparing their complete contents, and installs the Pi package from the installed `@ask-llm/mcp` package folder, so installed workflows match the installed version. Identical skill contents are a no-op, foreign skills are left untouched, and both manual-copy planning and post-install verification use the same full-content comparison. For a detected Pi without an Ask LLM package registration, setup runs `pi install <package directory>` (also with `-y --host pi`), honors `PI_CODING_AGENT_DIR` consistently for detection, backup, installation and verification, and verifies the package list before reporting success; failed installs print the manual command. On Pi, run `ask-llm setup --host pi` to get `/skill:ask-llm-review`, `/skill:ask-llm-compare` and `/skill:ask-llm-brainstorm` in place of `/skill:codex-review`, `/skill:compare` and `/skill:brainstorm`.
+
+- [#385](https://github.com/Lykhoyda/ask-llm/pull/385) [`457298d`](https://github.com/Lykhoyda/ask-llm/commit/457298d09a98fea224709a3d324f2f600cc2860c) Thanks [@Lykhoyda](https://github.com/Lykhoyda)! - `ask-llm setup` now migrates earlier Ask LLM installations: it replaces an `ask-llm` entry started through `npx` or a bare `ask-llm-mcp` after a preview, removes proven owned split provider entries after confirmation once Ask LLM is registered in that host, and leaves custom or unverified entries in place with guidance. Codex list projections and all Pi npm registrations receive guidance only; their settings and Pi's plugin bridge remain unchanged. Antigravity is now registered by editing only the `ask-llm` entry in `~/.gemini/config/mcp_config.json` instead of `agy mcp add`, which rewrote the whole file and dropped other servers' empty `args`; every other server keeps its exact settings.
+
+### Patch Changes
+
+- [#378](https://github.com/Lykhoyda/ask-llm/pull/378) [`a7ce87d`](https://github.com/Lykhoyda/ask-llm/commit/a7ce87d7bbc70837344590099e301df1a536465c) Thanks [@Lykhoyda](https://github.com/Lykhoyda)! - codex-pair reviews no longer time out at once when `ASK_CODEX_TIMEOUT_MS` is empty, non-numeric, zero, negative or infinite (they use the 800s default), and a debounced review keeps the timeout it was scheduled with when the frontmatter `timeoutMs` changes during the settle window.
+
+- [#383](https://github.com/Lykhoyda/ask-llm/pull/383) [`cd8a4c5`](https://github.com/Lykhoyda/ask-llm/commit/cd8a4c56bc651d3eeca1eb0ec95ef5d32cbb755e) Thanks [@Lykhoyda](https://github.com/Lykhoyda)! - Report Cursor catalog startup connection refusal as backend unavailability with endpoint and proxy guidance, while preserving mixed account, model, quota, and safety failures.
+
+- [#384](https://github.com/Lykhoyda/ask-llm/pull/384) [`9764c3d`](https://github.com/Lykhoyda/ask-llm/commit/9764c3dcbbdd99350f56ff5917766112bfb0356d) Thanks [@Lykhoyda](https://github.com/Lykhoyda)! - Recognize the current Cursor CLI backend-startup diagnostic and remove ANSI escapes from human errors, preserving failure precedence and no fallback.
+
+- [#386](https://github.com/Lykhoyda/ask-llm/pull/386) [`47d7c76`](https://github.com/Lykhoyda/ask-llm/commit/47d7c76fe1896572227f3ab813ae2f98ed098f6c) Thanks [@Lykhoyda](https://github.com/Lykhoyda)! - `ask-llm setup` now reads Grok Build entries in the form `grok mcp add` writes them: an `args` list split over several lines, so `npx -y @ask-llm/mcp` and split provider entries are replaced or retired automatically, and an `env` table from `grok mcp add -e`, which counts as custom settings, so such an entry gets guidance and a change made during confirmation is reported as a conflict instead of a failure. Host version probes and commands now run in their own process group, and the whole group is stopped only on timeout or interruption, so a host that relaunches itself, such as Gemini CLI, no longer leaves processes behind after a probe timeout.
+
+- [#380](https://github.com/Lykhoyda/ask-llm/pull/380) [`16ddec1`](https://github.com/Lykhoyda/ask-llm/commit/16ddec114dc7b7964176b24ddf546b036ea602da) Thanks [@Lykhoyda](https://github.com/Lykhoyda)! - The Grok CLI harness now reports a read-only sandbox that cannot start (for example an unreachable Docker socket) as a harness environment failure naming the sandbox, instead of a safety refusal.
+
 ## 1.1.0
 
 ### Minor Changes
