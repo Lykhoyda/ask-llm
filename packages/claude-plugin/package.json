@@ -1,6 +1,6 @@
 {
   "name": "@ask-llm/plugin",
-  "version": "0.19.4",
+  "version": "0.19.5",
   "description": "Ask LLM review, comparison, brainstorming, image, verification, and pairing workflows for Claude Code, Cursor Agent, and Pi",
   "type": "module",
   "main": "dist/index.js",
@@ -54,7 +54,7 @@
     ]
   },
   "dependencies": {
-    "@ask-llm/mcp": "^1.1.0"
+    "@ask-llm/mcp": "^1.2.0"
   },
   "peerDependencies": {
     "@earendil-works/pi-ai": "*",

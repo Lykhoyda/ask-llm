@@ -1,5 +1,12 @@
 # @ask-llm/plugin
 
+## 0.19.5
+
+### Patch Changes
+
+- Updated dependencies [[`a7ce87d`](https://github.com/Lykhoyda/ask-llm/commit/a7ce87d7bbc70837344590099e301df1a536465c), [`cd8a4c5`](https://github.com/Lykhoyda/ask-llm/commit/cd8a4c56bc651d3eeca1eb0ec95ef5d32cbb755e), [`9764c3d`](https://github.com/Lykhoyda/ask-llm/commit/9764c3dcbbdd99350f56ff5917766112bfb0356d), [`47d7c76`](https://github.com/Lykhoyda/ask-llm/commit/47d7c76fe1896572227f3ab813ae2f98ed098f6c), [`16ddec1`](https://github.com/Lykhoyda/ask-llm/commit/16ddec114dc7b7964176b24ddf546b036ea602da), [`6dd1dd6`](https://github.com/Lykhoyda/ask-llm/commit/6dd1dd6ad4116c21b3fbd5f84b7a74b9cf5ccf2b), [`162238f`](https://github.com/Lykhoyda/ask-llm/commit/162238fc6cd18bea39480773cbb2cc59f2f1234b), [`457298d`](https://github.com/Lykhoyda/ask-llm/commit/457298d09a98fea224709a3d324f2f600cc2860c)]:
+  - @ask-llm/mcp@1.2.0
+
 ## 0.19.4
 
 ### Patch Changes
