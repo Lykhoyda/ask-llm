@@ -94,7 +94,8 @@ export function backupConfig(file: string | undefined): string | undefined {
     if ((error as NodeJS.ErrnoException).code === "ENOENT") return undefined;
     throw error;
   }
-  const backup = `${resolved}.ask-llm-backup-${new Date().toISOString().replace(/[:.]/g, "-")}`;
+  const base = `${resolved}.ask-llm-backup-${new Date().toISOString().replace(/[:.]/g, "-")}`;
+  let backup = base;
   let source: number;
   try {
     source = openSync(resolved, constants.O_RDONLY | constants.O_NOFOLLOW);
@@ -112,11 +113,20 @@ export function backupConfig(file: string | undefined): string | undefined {
     }
     if (stat && !stat.isFile()) throw new Error("config is not a regular file");
     if (stat) mode = stat.mode & 0o7777;
-    const target = openSync(
-      backup,
-      constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | constants.O_NOFOLLOW,
-      0o600,
-    );
+    let target: number;
+    for (let suffix = 1; ; suffix++) {
+      try {
+        target = openSync(
+          backup,
+          constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | constants.O_NOFOLLOW,
+          0o600,
+        );
+        break;
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
+        backup = `${base}-${suffix}`;
+      }
+    }
     try {
       const buffer = Buffer.alloc(64 * 1024);
       let length = readSync(source, buffer, 0, buffer.length, null);

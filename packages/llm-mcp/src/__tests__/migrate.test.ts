@@ -895,6 +895,66 @@ describe("migration of existing installations", () => {
     expect(readHostFile(home, "agy")).toBe(settled);
   });
 
+  it("retires two Antigravity entries in one millisecond with distinct unchanged backups", async () => {
+    install("agy");
+    const unrelated = { command: "/bin/false", args: [] };
+    const canonical = { command: SERVER, args: [] };
+    const file = join(home, HOST_FILES.agy);
+    mkdirSync(join(file, ".."), { recursive: true });
+    writeFileSync(
+      file,
+      JSON.stringify(
+        {
+          mcpServers: {
+            "ask-llm": canonical,
+            codex: { command: "npx", args: ["-y", "@ask-llm/codex-mcp"] },
+            gemini: { command: "ask-gemini-mcp" },
+            unrelated,
+          },
+        },
+        null,
+        2,
+      ),
+    );
+    const original = readFileSync(file);
+    const hosts = await detectHosts(env);
+    const findings = await planMigration(hosts, ["agy"], env);
+    expect(findings.map(({ entry, action }) => [entry, action])).toEqual([
+      ["codex", "retire"],
+      ["gemini", "retire"],
+    ]);
+    const registrations = await applySetup(hosts, SERVER, ["agy"], yes, env);
+    expect(registrations.map(({ status }) => status)).toEqual(["up-to-date"]);
+    const beforeChanges: Buffer[] = [];
+    const confirm = async () => {
+      beforeChanges.push(readFileSync(file));
+      return true;
+    };
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-10-10T12:00:00.000Z"));
+    try {
+      const migrated = await applyMigration(findings, hosts, SERVER, registrations, confirm, env);
+      expect(migrated.map(({ status }) => status)).toEqual(["retired", "retired"]);
+      expect(beforeChanges).toHaveLength(2);
+      expect(beforeChanges[0]).toEqual(original);
+      expect(JSON.parse(beforeChanges[1].toString()).mcpServers).toStrictEqual({
+        "ask-llm": canonical,
+        gemini: { command: "ask-gemini-mcp" },
+        unrelated,
+      });
+      const backups = migrated.map(({ backup }) => backup);
+      expect(new Set(backups).size).toBe(2);
+      for (const [index, backup] of backups.entries()) {
+        expect(backup).toBeDefined();
+        expect(readFileSync(backup as string)).toEqual(beforeChanges[index]);
+      }
+      expect(readdirSync(join(file, "..")).filter((name) => name.includes(".ask-llm-backup-"))).toHaveLength(2);
+      expect(JSON.parse(readHostFile(home, "agy")).mcpServers).toStrictEqual({ "ask-llm": canonical, unrelated });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("keeps split entries when Ask LLM did not get registered in that host", async () => {
     install("claude");
     seedServers(home, "claude", { codex: { command: ["npx", "-y", "@ask-llm/codex-mcp"] } });
