@@ -243,21 +243,24 @@ it("keeps the config mode on the backup", async () => {
   expect(statSync(applied.backup as string).mode & 0o7777).toBe(0o640);
 });
 
-it("does not overwrite an existing backup or run the host", async () => {
+it("preserves an existing backup and uses a distinct backup before running the host", async () => {
   writeRegistration(home, "grok", SERVER);
+  const before = readFileSync(join(home, FAKE_HOSTS.grok.file));
   const backup = `${join(home, FAKE_HOSTS.grok.file)}.ask-llm-backup-2026-09-29T12-00-00-000Z`;
   writeFileSync(backup, "keep this backup", { mode: 0o600 });
   const clock = vi.spyOn(Date.prototype, "toISOString").mockReturnValue("2026-09-29T12:00:00.000Z");
   try {
     expect(await applyRegistrar(await detected("grok"), "remove", SERVER, env)).toMatchObject({
-      outcome: "failed",
-      detail: expect.stringContaining("cannot back up"),
+      outcome: "changed",
+      backup: `${backup}-1`,
     });
   } finally {
     clock.mockRestore();
   }
   expect(readFileSync(backup, "utf8")).toBe("keep this backup");
-  expect(fakeArgv(home, "grok")).toEqual([]);
+  expect(readFileSync(`${backup}-1`)).toEqual(before);
+  expect(fakeArgv(home, "grok")).toEqual([ARGV.grok.remove]);
+  expect((await detected("grok")).registered).toBe(false);
 });
 
 it("backs up beside a symlinked config's real file before registration", async () => {
