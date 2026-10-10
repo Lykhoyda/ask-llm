@@ -125,24 +125,52 @@ function readJsonKey(file: string, keyPath: string[], jsonc?: string): Registrat
   return state(value !== undefined, entryCommand(value), customSettings(value));
 }
 
+// Grok Build writes an args list of two or more elements one per line, and `-e` settings as a nested
+// `env` table; the env values are skipped, only their names are reported.
 function readTomlTable(file: string, table: string): RegistrationState {
   const name = table.slice("mcp_servers.".length);
   const text = readText(file);
   if (text === undefined) return { registered: false };
   let currentTable = "";
   let inTable = false;
+  let inEnv = false;
   let found = false;
   let command: string | undefined;
   let args: unknown = [];
   let enabled: unknown;
+  let env: Record<string, true> | undefined;
+  let array: string | undefined;
+  const assign = (key: string, value: unknown) => {
+    if (key === "command") command = value as string;
+    if (key === "args") args = value;
+    if (key === "enabled") enabled = value;
+  };
   for (const line of text.split(/\r?\n/)) {
     const trimmed = line.trim();
+    if (array) {
+      if (trimmed.includes("\\")) throw new Error(`unsupported Grok TOML escape for ${name}`);
+      if (!trimmed || trimmed.startsWith("#")) continue;
+      array += trimmed;
+      if (!trimmed.endsWith("]")) continue;
+      try {
+        args = JSON.parse(array.replace(/,\s*\]$/, "]"));
+      } catch {
+        throw new Error(`unsupported Grok TOML multiline array for ${name}`);
+      }
+      array = undefined;
+      continue;
+    }
     if (trimmed.startsWith("[")) {
       inTable = trimmed === `[${table}]` || trimmed === `[mcp_servers."${name}"]`;
+      inEnv = trimmed === `[${table}.env]` || trimmed === `[mcp_servers."${name}".env]`;
       if (inTable) {
         if (found) throw new Error(`unsupported Grok TOML duplicate ${name} table`);
         found = true;
         currentTable = table;
+      } else if (inEnv) {
+        if (!found || env) throw new Error(`unsupported Grok TOML nested ${name} table`);
+        env = Object.create(null);
+        currentTable = `${table}.env`;
       } else {
         const header =
           /^\[([A-Za-z0-9_-]+(?:\.[A-Za-z0-9_-]+)*)\]$|^\[\[([A-Za-z0-9_-]+(?:\.[A-Za-z0-9_-]+)*)\]\]$/.exec(trimmed);
@@ -158,10 +186,21 @@ function readTomlTable(file: string, table: string): RegistrationState {
       const rootKey = /^([A-Za-z0-9_-]+)\s*=/.exec(trimmed);
       if (!rootKey || rootKey[1] === "mcp_servers") throw new Error("unsupported Grok TOML root key");
     }
+    if (inEnv && env) {
+      // A single-line basic or literal string; its value never leaves this function.
+      const setting = /^([A-Za-z0-9_-]+)\s*=\s*(?:"(?:[^"\\]|\\.)*"|'[^']*')$/.exec(trimmed);
+      if (!setting) throw new Error(`unsupported Grok TOML env syntax for ${name}`);
+      env[setting[1]] = true;
+      continue;
+    }
     if (!inTable) continue;
     if (trimmed.includes("\\")) throw new Error(`unsupported Grok TOML escape for ${name}`);
     const pair = /^(command|args|enabled)\s*=\s*(.+)$/.exec(trimmed);
     if (!pair) throw new Error(`unsupported Grok TOML key syntax for ${name}`);
+    if (pair[1] === "args" && pair[2] === "[") {
+      array = "[";
+      continue;
+    }
     let value: unknown;
     try {
       value = JSON.parse(pair[2]);
@@ -175,11 +214,10 @@ function readTomlTable(file: string, table: string): RegistrationState {
             : "value syntax";
       throw new Error(`unsupported Grok TOML ${form} for ${name}`);
     }
-    if (pair[1] === "command") command = value as string;
-    if (pair[1] === "args") args = value;
-    if (pair[1] === "enabled") enabled = value;
+    assign(pair[1], value);
   }
-  const entry = { command, args, ...(enabled === undefined ? {} : { enabled }) };
+  if (array) throw new Error(`unsupported Grok TOML multiline array for ${name}`);
+  const entry = { command, args, ...(enabled === undefined ? {} : { enabled }), ...(env ? { env } : {}) };
   return state(found, found ? entryCommand(entry) : undefined, customSettings(entry));
 }
 

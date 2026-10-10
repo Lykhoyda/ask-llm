@@ -25,6 +25,14 @@ export const HOST_FILES: Record<MigrationHost, string> = {
   gemini: ".gemini/settings.json",
 };
 
+// Grok Build's `grok mcp add` writes an args list of two or more elements one element per line (the fake
+// CLI script below keeps a copy).
+function grokArgs(args: string[]): string[] {
+  return args.length < 2
+    ? [`args = ${JSON.stringify(args)}`]
+    : ["args = [", ...args.map((arg) => `    ${JSON.stringify(arg)},`), "]"];
+}
+
 const SCRIPT = String.raw`
 import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -43,6 +51,10 @@ const name = rest[0];
 const dash = rest.indexOf("--");
 const command = dash === -1 ? rest.slice(1) : rest.slice(dash + 1);
 mkdirSync(dirname(file), { recursive: true });
+
+function grokArgs(args) {
+  return args.length < 2 ? ["args = " + JSON.stringify(args)] : ["args = [", ...args.map((arg) => "    " + JSON.stringify(arg) + ","), "]"];
+}
 
 function tomlTables(text) {
   const chunks = [];
@@ -66,7 +78,7 @@ function write(entry) {
   const text = read();
   if (host === "grok") {
     const kept = tomlTables(text).filter((chunk) => !belongs(chunk) && chunk.trim());
-    const table = entry ? ["[mcp_servers." + name + "]", "command = " + JSON.stringify(entry[0]), "args = " + JSON.stringify(entry.slice(1))].join("\n") : undefined;
+    const table = entry ? ["[mcp_servers." + name + "]", "command = " + JSON.stringify(entry[0]), ...grokArgs(entry.slice(1))].join("\n") : undefined;
     writeFileSync(file, [...kept.map((chunk) => chunk.trimEnd()), ...(table ? [table] : [])].join("\n\n") + "\n");
     return;
   }
@@ -150,7 +162,7 @@ export function seedServers(home: string, host: MigrationHost, servers: Record<s
       [
         `[mcp_servers.${name}]`,
         `command = ${JSON.stringify(command[0])}`,
-        `args = ${JSON.stringify(command.slice(1))}`,
+        ...grokArgs(command.slice(1)),
         ...(env
           ? ["", `[mcp_servers.${name}.env]`, ...Object.entries(env).map(([k, v]) => `${k} = ${JSON.stringify(v)}`)]
           : []),
@@ -199,14 +211,23 @@ export function serverNames(home: string, host: MigrationHost): Record<string, s
   if (host === "grok") {
     const names: Record<string, string[]> = {};
     let current: string | undefined;
+    let inArgs = false;
     for (const line of text.split("\n")) {
+      if (current && inArgs) {
+        if (line === "]") inArgs = false;
+        else names[current] = [...(names[current] ?? []), JSON.parse(line.trim().replace(/,$/, ""))];
+        continue;
+      }
       const header = /^\[mcp_servers\.([^.\]]+)\]$/.exec(line);
       if (header) current = header[1];
       else if (line.startsWith("[")) current = undefined;
       const command = /^command = (.+)$/.exec(line);
       const args = /^args = (.+)$/.exec(line);
       if (current && command) names[current] = [JSON.parse(command[1]), ...(names[current] ?? [])];
-      if (current && args) names[current] = [...(names[current] ?? []), ...JSON.parse(args[1])];
+      if (current && args) {
+        if (args[1] === "[") inArgs = true;
+        else names[current] = [...(names[current] ?? []), ...JSON.parse(args[1])];
+      }
     }
     return names;
   }
