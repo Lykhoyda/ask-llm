@@ -63,7 +63,6 @@ process.env.ASK_LLM_PATH = path;
 
 const ADD: Record<string, string[]> = {
   claude: ["mcp", "add", "--scope", "user", "ask-llm", "--", installedServer],
-  agy: ["mcp", "add", "ask-llm", installedServer],
   grok: ["mcp", "add", "--scope", "user", "ask-llm", installedServer],
   gemini: ["mcp", "add", "--scope", "user", "ask-llm", installedServer],
 };
@@ -157,8 +156,12 @@ describe("ask-llm setup", () => {
     expect(first.stderr).toBe("");
     expect(first.status).toBe(1);
     expect(first.stdout).toContain("Antigravity skills: manual");
-    expect(calls()).toEqual(Object.fromEntries(HOSTS.map((name) => [name, name === "codex" ? [] : [ADD[name]]])));
+    expect(calls()).toEqual(Object.fromEntries(HOSTS.map((name) => [name, ADD[name] ? [ADD[name]] : []])));
     expect(first.stdout).toContain("Claude Code 2.1.284: registered");
+    expect(first.stdout).toContain("Antigravity 1.2.13: registered");
+    expect(JSON.parse(readFileSync(join(home, FAKE_HOSTS.agy.file), "utf8")).mcpServers).toEqual({
+      "ask-llm": { command: installedServer, args: [] },
+    });
     expect(first.stdout).toContain("start a new session");
     expect(first.stdout).toContain("trusted folders");
     expect(first.stdout).toContain("may reformat its config file");
@@ -170,7 +173,7 @@ describe("ask-llm setup", () => {
     expect(second.stdout).toContain("Claude Code plugin: already installed");
     expect(second.stdout).toContain("Codex CLI skills: already installed");
     expect(second.stdout).toContain("No changes.");
-    expect(calls()).toEqual(Object.fromEntries(HOSTS.map((name) => [name, name === "codex" ? [] : [ADD[name]]])));
+    expect(calls()).toEqual(Object.fromEntries(HOSTS.map((name) => [name, ADD[name] ? [ADD[name]] : []])));
     expect(readFileSync(join(home, "npx-argv"), "utf8").trim().split("\n")).toHaveLength(1);
     expect(readFileSync(join(home, ".fake-claude-plugin-argv"), "utf8").trim().split("\n")).toHaveLength(2);
   });
@@ -686,7 +689,6 @@ describe("ask-llm setup and remove for file hosts", () => {
 describe("ask-llm remove", () => {
   const REMOVE: Record<string, string[]> = {
     claude: ["mcp", "remove", "--scope", "user", "ask-llm"],
-    agy: ["mcp", "remove", "ask-llm"],
     grok: ["mcp", "remove", "--scope", "user", "ask-llm"],
     gemini: ["mcp", "remove", "--scope", "user", "ask-llm"],
   };
@@ -696,7 +698,15 @@ describe("ask-llm remove", () => {
     const codexFile = readFileSync(join(home, FAKE_HOSTS.codex.file), "utf8");
     const result = ask("remove", "-y");
     expect(result.status).toBe(1);
-    expect(calls()).toEqual({ ...Object.fromEntries(Object.entries(REMOVE).map(([k, v]) => [k, [v]])), codex: [] });
+    expect(calls()).toEqual({
+      ...Object.fromEntries(Object.entries(REMOVE).map(([k, v]) => [k, [v]])),
+      codex: [],
+      agy: [],
+    });
+    expect(result.stdout).toContain("Antigravity 1.2.13: removed");
+    expect(JSON.parse(readFileSync(join(home, FAKE_HOSTS.agy.file), "utf8")).mcpServers).toEqual({
+      other: { command: "x" },
+    });
     expect(result.stdout).toContain("Claude Code 2.1.284: removed");
     expect(result.stdout).toContain("Codex CLI 0.158.0: manual");
     expect(readFileSync(join(home, FAKE_HOSTS.codex.file), "utf8")).toBe(codexFile);

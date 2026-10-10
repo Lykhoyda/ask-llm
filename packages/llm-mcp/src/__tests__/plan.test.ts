@@ -53,7 +53,6 @@ describe("buildPlan", () => {
 
   it.each([
     ["claude", ["claude", "mcp", "add", "--scope", "user", "ask-llm", "--", SERVER]],
-    ["agy", ["agy", "mcp", "add", "ask-llm", SERVER]],
     ["grok", ["grok", "mcp", "add", "--scope", "user", "ask-llm", SERVER]],
     ["gemini", ["gemini", "mcp", "add", "--scope", "user", "ask-llm", SERVER]],
     ["pi", ["pi", "install", PACKAGE_ROOT]],
@@ -66,6 +65,7 @@ describe("buildPlan", () => {
   });
 
   it.each([
+    ["agy", "/home/u/.gemini/config/mcp_config.json", ["mcpServers", "ask-llm"], { command: SERVER, args: [] }],
     ["cursor", "/home/u/.cursor/mcp.json", ["mcpServers", "ask-llm"], { command: SERVER, args: [] }],
     [
       "claude-desktop",
@@ -112,9 +112,9 @@ describe("buildPlan", () => {
   });
 
   it("stops with the exact manual command when the CLI version output is unrecognized", () => {
-    expect(entry(detected("agy", { version: undefined, supported: false }))).toMatchObject({
+    expect(entry(detected("grok", { version: undefined, supported: false }))).toMatchObject({
       action: "manual",
-      manual: `agy mcp add ask-llm ${SERVER}`,
+      manual: `grok mcp add --scope user ask-llm ${SERVER}`,
     });
   });
 

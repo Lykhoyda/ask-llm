@@ -56,7 +56,7 @@ Setup works at user scope. In the examples, `<prefix>` is the output of `npm pre
 |---|---|---|
 | Claude Code | `claude mcp add --scope user ask-llm -- npx -y @ask-llm/mcp`, and per-provider entries such as `claude mcp add --scope user codex -- npx -y @ask-llm/codex-mcp` | `claude mcp add --scope user ask-llm -- <prefix>/bin/ask-llm-mcp`; the per-provider entries are removed. The Claude Code plugin (`ask-llm@ask-llm-plugins`) stays installed |
 | Codex CLI | `codex mcp add ask-llm -- npx -y @ask-llm/mcp`, `codex mcp add claude -- npx -y @ask-llm/claude-mcp` | Guidance only; inspect user and project configuration and preserve filters before manually changing either entry |
-| Antigravity | Ask LLM entries in `~/.gemini/config/mcp_config.json`, such as `ask-llm` or `antigravity` running `npx -y @ask-llm/antigravity-mcp` | `agy mcp add ask-llm <prefix>/bin/ask-llm-mcp`; per-provider entries removed with `agy mcp remove` |
+| Antigravity | Ask LLM entries in `~/.gemini/config/mcp_config.json`, such as `ask-llm` or `antigravity` running `npx -y @ask-llm/antigravity-mcp` | `"ask-llm": { "command": "<prefix>/bin/ask-llm-mcp", "args": [] }`; per-provider entries removed; other entries untouched |
 | Grok Build | `[mcp_servers.<name>]` tables in `~/.grok/config.toml` running an Ask LLM package | `grok mcp add --scope user ask-llm <prefix>/bin/ask-llm-mcp`; per-provider tables removed with `grok mcp remove --scope user` |
 | Gemini CLI | `mcpServers` entries in `~/.gemini/settings.json` running an Ask LLM package | `gemini mcp add --scope user ask-llm <prefix>/bin/ask-llm-mcp`; per-provider entries removed with `gemini mcp remove --scope user` |
 | Cursor | `"ask-llm": { "command": "npx", "args": ["-y", "@ask-llm/mcp"] }` in `~/.cursor/mcp.json` | `"ask-llm": { "command": "<prefix>/bin/ask-llm-mcp", "args": [] }`; other entries untouched |
@@ -64,7 +64,7 @@ Setup works at user scope. In the examples, `<prefix>` is the output of `npm pre
 | OpenCode | `"mcp": { "ask-llm": { "type": "local", "command": ["npx", "-y", "@ask-llm/mcp"] } }` in `~/.config/opencode/opencode.json` | `"command": ["<prefix>/bin/ask-llm-mcp"]` |
 | Pi | `pi install npm:@ask-llm/plugin` or `pi install npm:@ask-llm/mcp` | Guidance only; preserve filters and settings, manually register `<prefix>/lib/node_modules/@ask-llm/mcp` and verify the extension before removing the bridge |
 
-Claude Code, Antigravity, Grok Build and Gemini CLI are changed through their own `mcp` commands; setup edits the JSON file only for Cursor, Claude Desktop and OpenCode, which have no such command. Start a new session (or restart Cursor and Claude Desktop) to load the change.
+Claude Code, Grok Build and Gemini CLI are changed through their own `mcp` commands. Setup edits the JSON file for Cursor, Claude Desktop and OpenCode, which have no such command, and for Antigravity, whose `agy mcp add` rewrites the whole file and can drop other servers' settings; only the Ask LLM entries change. Start a new session (or restart Cursor and Claude Desktop) to load the change.
 
 ## Removing old entries by hand
 
@@ -74,10 +74,9 @@ Use these when setup printed guidance, or for entries outside user scope, which 
 |---|---|
 | Claude Code | `claude mcp remove --scope user <name>` (or `--scope project`, `--scope local`) |
 | Codex CLI | `codex mcp remove <name>` |
-| Antigravity | `agy mcp remove <name>` |
 | Grok Build | `grok mcp remove --scope user <name>` |
 | Gemini CLI | `gemini mcp remove --scope user <name>` |
-| Cursor, Claude Desktop, OpenCode | Delete the entry from the JSON file |
+| Antigravity, Cursor, Claude Desktop, OpenCode | Delete the entry from the JSON file |
 | Pi | `pi remove npm:@ask-llm/plugin` |
 
 To keep a setting from a removed entry, such as `XAI_API_KEY` for Grok, set it in your shell profile or add it to the `ask-llm` entry. The unified server reads the same environment variables as the split servers did. For Claude Code, re-create the entry with the variable:

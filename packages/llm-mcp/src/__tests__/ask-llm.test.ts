@@ -200,11 +200,11 @@ describe("host discovery commands", () => {
     }
   });
 
-  it("prints the planned command for an unrecognized host version in doctor", () => {
+  it("prints the planned registration for an unrecognized host version in doctor", () => {
     const agy = join(bin, "agy");
     writeFileSync(agy, "#!/bin/sh\necho changed-version\n", { mode: 0o755 });
     try {
-      const manual = `agy mcp add ask-llm ${server}`;
+      const manual = `add ${JSON.stringify({ command: server, args: [] })} at mcpServers.ask-llm in ${join(home, ".gemini/config/mcp_config.json")}`;
       const setupHost = JSON.parse(ask("setup", "--dry-run", "--json").stdout).hosts.find(
         (host: { id: string }) => host.id === "agy",
       );

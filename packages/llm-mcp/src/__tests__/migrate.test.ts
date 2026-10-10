@@ -154,9 +154,12 @@ describe("migration of existing installations", () => {
   describe.each(MIGRATION_HOSTS.filter((id) => id !== "codex"))("%s compatibility", (id) => {
     const add = () =>
       id === "agy"
-        ? `agy mcp add ask-llm ${SERVER}`
+        ? `add ${JSON.stringify({ command: SERVER, args: [] })} at mcpServers.ask-llm in ${join(home, HOST_FILES.agy)}`
         : `${id} mcp add --scope user ask-llm ${id === "claude" ? "-- " : ""}${SERVER}`;
-    const remove = (entry: string) => `${id} mcp remove ${id === "agy" ? "" : "--scope user "}${entry}`;
+    const remove = (entry: string) =>
+      id === "agy"
+        ? `remove mcpServers.${entry} in ${join(home, HOST_FILES.agy)}`
+        : `${id} mcp remove --scope user ${entry}`;
 
     it.each(["mismatch", "failed"] as const)("preserves owned and sibling entries after a %s probe", async (probe) => {
       installMigrationHost(bin, id, probe);
@@ -281,7 +284,9 @@ describe("migration of existing installations", () => {
               ? remove("ask-llm")
               : action === "replace" && id === "claude"
                 ? `${remove("ask-llm")} && ${add()}`
-                : add();
+                : action === "replace" && id === "agy"
+                  ? `replace mcpServers.ask-llm in ${join(home, HOST_FILES.agy)} with ${JSON.stringify({ command: SERVER, args: [] })}`
+                  : add();
         expect(confirm).toHaveBeenCalledTimes(1);
         expect(results).toEqual([expect.objectContaining({ status: "manual", manual })]);
         expect(readHostFile(home, id)).toBe(before);
@@ -850,6 +855,44 @@ describe("migration of existing installations", () => {
     expect(readHostFile(home, "grok")).toContain('[ui]\ntheme = "dark"');
     expect(serverNames(home, "gemini")).toEqual({ "ask-llm": [SERVER] });
     expect(migrationArgv(home, "grok").at(-1)).toEqual(["mcp", "remove", "--scope", "user", "ollama"]);
+  });
+
+  it.each([
+    ["registers beside", {}, "registered", []],
+    ["replaces", { "ask-llm": { command: "ask-llm-mcp" } }, "replaced", []],
+    ["retires", { antigravity: { command: "ask-antigravity-mcp" } }, "registered", ["retired"]],
+  ])("Antigravity %s other servers without changing them", async (_, seeded, status, retired) => {
+    install("agy");
+    const unrelated = { command: "/bin/false", args: [], unknown: [] };
+    const legacy = { command: "ask-codex-mcp", disabled: false };
+    const syntheticUnknown = { text: "", list: [], object: {}, nothing: null };
+    const file = join(home, HOST_FILES.agy);
+    mkdirSync(join(file, ".."), { recursive: true });
+    writeFileSync(
+      file,
+      JSON.stringify(
+        { mcpServers: { "ask-codex": legacy, ...seeded, "synthetic-unrelated": unrelated }, syntheticUnknown },
+        null,
+        2,
+      ),
+    );
+
+    const { registrations, migrated } = await migrate(["agy"]);
+    expect(registrations.map((result) => result.status)).toEqual([status]);
+    expect(migrated.map((result) => result.status)).toEqual(["manual", ...retired]);
+    const after = JSON.parse(readHostFile(home, "agy"));
+    expect(after.mcpServers["synthetic-unrelated"]).toStrictEqual(unrelated);
+    expect(Object.hasOwn(after.mcpServers["synthetic-unrelated"], "args")).toBe(true);
+    expect(after.mcpServers["ask-codex"]).toStrictEqual(legacy);
+    expect(after.syntheticUnknown).toStrictEqual(syntheticUnknown);
+    expect(Object.keys(after.mcpServers).sort()).toEqual(["ask-codex", "ask-llm", "synthetic-unrelated"]);
+    expect(serverNames(home, "agy")["ask-llm"]).toEqual([SERVER]);
+
+    const settled = readHostFile(home, "agy");
+    const again = await migrate(["agy"]);
+    expect(again.registrations.map((result) => result.status)).toEqual(["up-to-date"]);
+    expect(again.migrated.map((result) => result.status)).toEqual(["manual"]);
+    expect(readHostFile(home, "agy")).toBe(settled);
   });
 
   it("keeps split entries when Ask LLM did not get registered in that host", async () => {

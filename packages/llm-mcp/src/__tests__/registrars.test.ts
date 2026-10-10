@@ -46,7 +46,6 @@ const ARGV = {
     add: ["mcp", "add", "--scope", "user", "ask-llm", "--", SERVER],
     remove: ["mcp", "remove", "--scope", "user", "ask-llm"],
   },
-  agy: { add: ["mcp", "add", "ask-llm", SERVER], remove: ["mcp", "remove", "ask-llm"] },
   grok: {
     add: ["mcp", "add", "--scope", "user", "ask-llm", SERVER],
     remove: ["mcp", "remove", "--scope", "user", "ask-llm"],
@@ -69,7 +68,7 @@ beforeEach(() => {
   mkdirSync(home, { recursive: true });
   mkdirSync(join(root, "global"), { recursive: true });
   writeFileSync(SERVER, "#!/bin/sh\n", { mode: 0o755 });
-  for (const name of Object.keys(ARGV)) installFakeHost(bin, name);
+  for (const name of [...Object.keys(ARGV), "agy"]) installFakeHost(bin, name);
   for (const name of ["agent", "claude-desktop", "opencode"]) {
     writeFileSync(join(bin, name), '#!/bin/sh\necho "1.0.0"\n', { mode: 0o755 });
   }
@@ -292,6 +291,11 @@ it("backs up beside a symlinked config directory's real file before registration
 });
 
 const FILE_HOSTS = {
+  agy: {
+    parent: "mcpServers",
+    own: { command: SERVER, args: [] },
+    other: { command: "/bin/false", args: [], unknown: [] },
+  },
   cursor: { parent: "mcpServers", own: { command: SERVER, args: [] }, other: { command: "npx", args: ["-y", "x"] } },
   "claude-desktop": {
     parent: "mcpServers",

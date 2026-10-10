@@ -81,6 +81,8 @@ function write(entry) {
   config.mcpServers ??= {};
   if (entry) config.mcpServers[name] = host === "claude" ? { type: "stdio", command: entry[0], args: entry.slice(1), env: {} } : { command: entry[0], args: entry.slice(1) };
   else delete config.mcpServers[name];
+  // agy 1.3.2 rewrites the whole file and drops every empty args array, including unrelated servers'.
+  if (host === "agy") for (const server of Object.values(config.mcpServers)) if (Array.isArray(server.args) && server.args.length === 0) delete server.args;
   writeFileSync(file, JSON.stringify(config, null, 2));
 }
 

@@ -139,11 +139,7 @@ export function hostSpecs(env: NodeJS.ProcessEnv = process.env, platform = proce
       configHome: join(home, ".gemini", "config"),
       configFile: agyConfig,
       versionProbe: plainVersion,
-      registration: {
-        kind: "command",
-        argv: (server) => antigravity("add", server),
-        remove: (name) => antigravity("remove", "", name),
-      },
+      registration: { kind: "json", file: agyConfig, edit: antigravity },
       registrationState: { kind: "json", file: agyConfig, keyPath: serverKey },
       // agy reads global skills only from here, which no skills@1.7.0 agent id writes.
       skillsDir: join(home, ".gemini", "config", "skills"),
