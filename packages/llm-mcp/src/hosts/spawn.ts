@@ -39,8 +39,6 @@ function unwatch(): void {
   process.off("exit", killRunning);
 }
 
-// The host runs in its own process group, and the whole group is killed when the run ends: hosts such as
-// Gemini CLI relaunch themselves in a child process, which would outlive a kill of the direct child.
 export function runHost(binary: string, args: string[], env: NodeJS.ProcessEnv, timeout: number): Promise<HostRun> {
   return new Promise((resolve) => {
     let stdout = "";
@@ -62,7 +60,6 @@ export function runHost(binary: string, args: string[], env: NodeJS.ProcessEnv, 
       settled = true;
       clearTimeout(timer);
       if (pid) {
-        killGroup(pid);
         running.delete(pid);
         if (running.size === 0) unwatch();
       }

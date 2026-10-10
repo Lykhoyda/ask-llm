@@ -139,7 +139,7 @@ function readTomlTable(file: string, table: string): RegistrationState {
   let args: unknown = [];
   let enabled: unknown;
   let env: Record<string, true> | undefined;
-  let array: { key: string; text: string } | undefined;
+  let array: string | undefined;
   const assign = (key: string, value: unknown) => {
     if (key === "command") command = value as string;
     if (key === "args") args = value;
@@ -150,15 +150,13 @@ function readTomlTable(file: string, table: string): RegistrationState {
     if (array) {
       if (trimmed.includes("\\")) throw new Error(`unsupported Grok TOML escape for ${name}`);
       if (!trimmed || trimmed.startsWith("#")) continue;
-      array.text += trimmed;
+      array += trimmed;
       if (!trimmed.endsWith("]")) continue;
-      let value: unknown;
       try {
-        value = JSON.parse(array.text.replace(/,\s*\]$/, "]"));
+        args = JSON.parse(array.replace(/,\s*\]$/, "]"));
       } catch {
         throw new Error(`unsupported Grok TOML multiline array for ${name}`);
       }
-      assign(array.key, value);
       array = undefined;
       continue;
     }
@@ -171,7 +169,7 @@ function readTomlTable(file: string, table: string): RegistrationState {
         currentTable = table;
       } else if (inEnv) {
         if (!found || env) throw new Error(`unsupported Grok TOML nested ${name} table`);
-        env = {};
+        env = Object.create(null);
         currentTable = `${table}.env`;
       } else {
         const header =
@@ -199,8 +197,8 @@ function readTomlTable(file: string, table: string): RegistrationState {
     if (trimmed.includes("\\")) throw new Error(`unsupported Grok TOML escape for ${name}`);
     const pair = /^(command|args|enabled)\s*=\s*(.+)$/.exec(trimmed);
     if (!pair) throw new Error(`unsupported Grok TOML key syntax for ${name}`);
-    if (pair[2] === "[") {
-      array = { key: pair[1], text: "[" };
+    if (pair[1] === "args" && pair[2] === "[") {
+      array = "[";
       continue;
     }
     let value: unknown;

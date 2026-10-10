@@ -2,7 +2,7 @@ import { chmodSync, existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } 
 import { tmpdir } from "node:os";
 import { join, relative } from "node:path";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
-import { type DetectedHost, detectHosts } from "../hosts/detect.js";
+import { type DetectedHost, detectHosts, listServers } from "../hosts/detect.js";
 
 const root = mkdtempSync(join(tmpdir(), "ask-llm-detect-"));
 const bin = join(root, "bin");
@@ -300,6 +300,34 @@ describe("detectHosts", () => {
     const grok = host(await detectHosts(env), "grok");
     expect(grok).toMatchObject(expected);
     if (!("custom" in expected)) expect(grok.custom).toBeUndefined();
+  });
+
+  it.each(["ask-llm", '"ask-llm"'])("preserves a Grok env key named __proto__ in %s", async (name) => {
+    write(
+      ".grok/config.toml",
+      `[mcp_servers.${name}]\ncommand = "npx"\nargs = ["-y", "@ask-llm/mcp"]\n` +
+        `[mcp_servers.${name}.env]\n__proto__ = "value"\n`,
+    );
+    const grok = host(await detectHosts(env), "grok");
+    expect(grok).toMatchObject({ registered: true, custom: "env __proto__" });
+    expect(await listServers(grok.spec.registrationState, grok.binary, env)).toEqual([
+      expect.objectContaining({ name: "ask-llm", command: ["npx", "-y", "@ask-llm/mcp"], custom: "env __proto__" }),
+    ]);
+  });
+
+  it.each(["command", "enabled"])("reports a Grok multiline %s array as unknown", async (key) => {
+    write(".grok/config.toml", `[mcp_servers.ask-llm]\n${key} = [\n    "npx",\n    "@ask-llm/mcp",\n]\n`);
+    const grok = host(await detectHosts(env), "grok");
+    expect(grok).toMatchObject({
+      registered: null,
+      error: expect.stringContaining("unsupported Grok TOML multiline array"),
+    });
+    expect(await listServers(grok.spec.registrationState, grok.binary, env)).toEqual([
+      expect.objectContaining({
+        name: "ask-llm",
+        error: expect.stringContaining("unsupported Grok TOML multiline array"),
+      }),
+    ]);
   });
 
   const GROK_TUI_CONFIG =

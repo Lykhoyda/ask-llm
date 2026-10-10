@@ -75,12 +75,19 @@ describe("runHost", () => {
   it.each([
     ["succeeds", 'console.log("1.2.3"); process.exit(0);', 0],
     ["fails", 'console.error("bad flag"); process.exit(3);', 3],
-  ])("leaves no host process behind when the host %s", async (name, child, code) => {
+  ])("returns the result when the relaunched host %s", async (name, child, code) => {
     const binary = relaunchingHost(name, child);
     const run = await runHost(binary, ["--version"], process.env, 10_000);
-    expect(run.code).toBe(code);
-    expect(code === 0 ? run.stdout : run.stderr).toMatch(code === 0 ? /^1\.2\.3/ : /bad flag/);
-    expect(await gone(pids(name))).toBe(true);
+    const [relaunched, stray] = pids(name);
+    try {
+      expect(run.code).toBe(code);
+      expect(code === 0 ? run.stdout : run.stderr).toMatch(code === 0 ? /^1\.2\.3/ : /bad flag/);
+      expect(await gone([relaunched])).toBe(true);
+      expect(alive(stray)).toBe(true);
+    } finally {
+      if (alive(stray)) process.kill(stray, "SIGKILL");
+      expect(await gone([stray])).toBe(true);
+    }
   });
 
   it("stops a running host when the caller is interrupted", async () => {
