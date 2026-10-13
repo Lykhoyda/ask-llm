@@ -7,6 +7,8 @@ import { type HostId, type HostSpec, hostSpecs, type RegistrationSource, SERVER_
 import { runHost } from "./spawn.js";
 
 const PROBE_TIMEOUT_MS = 5000;
+// Gemini startup was measured at 6.9–7.1 seconds under load; allow a little headroom.
+const GEMINI_VERSION_TIMEOUT_MS = 10_000;
 
 export const INCOMPLETE_REGISTRATION =
   "the host list omits persisted settings and may include project overrides; user-scope ownership is unverified";
@@ -33,6 +35,7 @@ export interface DetectedHost extends RegistrationState {
   installed: boolean;
   binary?: string;
   version?: string;
+  versionError?: string;
   supported: boolean;
   leftoverConfig: boolean;
   spec: HostSpec;
@@ -45,8 +48,14 @@ async function run(binary: string, args: string[], env: NodeJS.ProcessEnv): Prom
   return stdout || stderr;
 }
 
-async function probeVersion(spec: HostSpec, binary: string, env: NodeJS.ProcessEnv): Promise<string | undefined> {
-  if (!spec.versionProbe) return undefined;
+async function probeVersion(
+  spec: HostSpec,
+  binary: string,
+  env: NodeJS.ProcessEnv,
+): Promise<Pick<DetectedHost, "version" | "versionError">> {
+  if (!spec.versionProbe) return {};
+  const probe = `\`${[spec.binaries[0], ...spec.versionProbe.args].join(" ")}\``;
+  const timeout = spec.id === "gemini" ? GEMINI_VERSION_TIMEOUT_MS : PROBE_TIMEOUT_MS;
   const probeHome = ["gemini", "grok"].includes(spec.id)
     ? mkdtempSync(join(tmpdir(), "ask-llm-host-probe-"))
     : undefined;
@@ -54,10 +63,22 @@ async function probeVersion(spec: HostSpec, binary: string, env: NodeJS.ProcessE
     const probeEnv = probeHome
       ? { ...env, HOME: probeHome, XDG_CONFIG_HOME: probeHome, XDG_CACHE_HOME: probeHome, GROK_HOME: probeHome }
       : env;
-    const firstLine = (await run(binary, spec.versionProbe.args, probeEnv)).split(/\r?\n/)[0]?.trim() ?? "";
-    return spec.versionProbe.pattern.exec(firstLine)?.[1];
-  } catch {
-    return undefined;
+    const output = await runHost(binary, spec.versionProbe.args, probeEnv, timeout);
+    if (output.timedOut) return { versionError: `${probe} timed out after ${timeout} ms` };
+    if (output.code !== 0) {
+      return {
+        versionError: `${probe} ${output.code === null ? "could not complete (spawn error or signal)" : `exited ${output.code}`}`,
+      };
+    }
+    const text = (output.stdout || output.stderr).trim();
+    if (!text) return { versionError: `${probe} returned no version output` };
+    const firstLine = text.split(/\r?\n/)[0];
+    const version = spec.versionProbe.pattern.exec(firstLine)?.[1];
+    if (version) return { version };
+    if (/^v?\d+(?:\.\d+)?\.?$/.test(firstLine)) return { versionError: `${probe} returned incomplete version output` };
+    return { versionError: `unrecognized ${probe} output` };
+  } catch (error) {
+    return { versionError: `${probe} could not be read: ${(error as Error).message.split("\n")[0].slice(0, 200)}` };
   } finally {
     if (probeHome) rmSync(probeHome, { recursive: true, force: true });
   }
@@ -400,11 +421,11 @@ async function findBinary(spec: HostSpec): Promise<string | undefined> {
 async function detectHost(spec: HostSpec, env: NodeJS.ProcessEnv): Promise<DetectedHost> {
   const binary = await findBinary(spec);
   const installed = binary !== undefined || (spec.apps ?? []).some((app) => existsSync(app));
-  const version = binary ? await probeVersion(spec, binary, env) : undefined;
+  const { version, versionError } = binary ? await probeVersion(spec, binary, env) : {};
   const supported = installed && (!binary || !spec.versionProbe || version !== undefined);
   const registration =
     spec.registrationState.kind === "list" && binary && !supported
-      ? { registered: null, error: "unrecognized version output; list command not run" }
+      ? { registered: null, error: `${versionError ?? "version could not be read"}; list command not run` }
       : await readRegistration(spec.registrationState, binary, env);
   return {
     id: spec.id,
@@ -412,6 +433,7 @@ async function detectHost(spec: HostSpec, env: NodeJS.ProcessEnv): Promise<Detec
     installed,
     binary,
     version,
+    versionError,
     supported,
     leftoverConfig: !installed && existsSync(spec.configHome),
     ...registration,

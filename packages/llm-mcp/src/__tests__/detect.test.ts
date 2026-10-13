@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join, relative } from "node:path";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { type DetectedHost, detectHosts, listServers } from "../hosts/detect.js";
+import { compatibilityReason } from "../plan.js";
 
 const root = mkdtempSync(join(tmpdir(), "ask-llm-detect-"));
 const bin = join(root, "bin");
@@ -52,6 +53,37 @@ function host(hosts: DetectedHost[], id: string): DetectedHost {
 }
 
 describe("detectHosts", () => {
+  it("allows measured Gemini startup longer than five seconds without retrying", async () => {
+    fake("gemini", '/bin/sleep 7; echo "0.46.0"');
+    expect(host(await detectHosts(env), "gemini")).toMatchObject({ version: "0.46.0", supported: true });
+  }, 12_000);
+
+  it("reports a failed version command rather than blaming its output format", async () => {
+    fake("gemini", 'echo "0.46.0"; exit 3');
+    const gemini = host(await detectHosts(env), "gemini");
+    expect(compatibilityReason(gemini)).toContain("`gemini --version` exited 3");
+    expect(gemini.supported).toBe(false);
+  });
+
+  it("reports a Gemini version timeout honestly even after partial stdout", async () => {
+    fake("gemini", 'printf "0.46"; /bin/sleep 15');
+    const gemini = host(await detectHosts(env), "gemini");
+    expect(gemini.supported).toBe(false);
+    expect(compatibilityReason(gemini)).toContain("`gemini --version` timed out after 10000 ms");
+    expect(compatibilityReason(gemini)).not.toContain("unrecognized");
+  }, 15_000);
+
+  it.each([
+    ["", "returned no version output"],
+    ["0.46", "returned incomplete version output"],
+    ["hello", "unrecognized `gemini --version` output"],
+  ])("distinguishes Gemini version output %j", async (output, reason) => {
+    fake("gemini", `printf '%s' '${output}'`);
+    const gemini = host(await detectHosts(env), "gemini");
+    expect(gemini.supported).toBe(false);
+    expect(compatibilityReason(gemini)).toContain(reason);
+  });
+
   it("reports every matrix host as not installed when no binary exists", async () => {
     const hosts = await detectHosts(env);
     expect(hosts.map((entry) => entry.id)).toEqual([

@@ -123,7 +123,7 @@ export function replaceText(host: DetectedHost, server: string): string {
 
 export function compatibilityReason(host: DetectedHost): string {
   const probe = [host.spec.binaries[0], ...(host.spec.versionProbe?.args ?? [])].join(" ");
-  return `unrecognized \`${probe}\` output; check the syntax and run it manually`;
+  return `${host.versionError ?? `unrecognized \`${probe}\` output`}; check the syntax and run it manually`;
 }
 
 function decide(host: DetectedHost, server: string): { action: PlanAction; reason?: string } {

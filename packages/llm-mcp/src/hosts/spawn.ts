@@ -4,6 +4,7 @@ export interface HostRun {
   code: number | null;
   stdout: string;
   stderr: string;
+  timedOut?: boolean;
 }
 
 // Process groups of the hosts still running.
@@ -63,7 +64,12 @@ export function runHost(binary: string, args: string[], env: NodeJS.ProcessEnv, 
         running.delete(pid);
         if (running.size === 0) unwatch();
       }
-      resolve({ code, stdout, stderr: stderr || (code === null ? error : "") });
+      resolve({
+        code,
+        stdout,
+        stderr: stderr || (code === null ? error : ""),
+        ...(timedOut ? { timedOut: true } : {}),
+      });
     };
     child.stdout.setEncoding("utf8").on("data", (chunk: string) => {
       stdout += chunk;
