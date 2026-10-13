@@ -1,174 +1,63 @@
 ---
-description: Frequently asked questions about Ask LLM MCP servers and its Claude Code, Cursor Agent, and Pi host package, covering setup, multi-provider usage, sessions, and troubleshooting.
+description: Accounts, host compatibility, cost, privacy and second-opinion workflows.
 ---
 
-# Frequently Asked Questions
+# Frequently asked questions
 
-## General
+## What is Ask LLM?
 
-### What is Ask LLM?
+Second opinions for coding agents. Get a second opinion on your code or plan, inside your coding assistant, using the model subscriptions you already have. It is for individual developers and small teams who already use a coding assistant and another model account.
 
-A set of MCP servers that bridge your AI client (Claude Code, Codex CLI, Cursor, Warp, Copilot, any of [40+ MCP-compatible clients](https://modelcontextprotocol.io/clients)) with six model providers through explicit API, CLI, or local-HTTP harnesses: OpenAI Codex, Anthropic Claude, xAI Grok, Google Antigravity (`agy`), Ollama, and Google Gemini. Cursor Agent is a separate model-neutral harness. The canonical [`@ask-llm/mcp` package](/plugin/pi) includes one portable skill corpus for Claude Code, Cursor Agent, and Pi, with host-specific agents, tools, hooks, and lifecycle adapters. `@ask-llm/plugin` remains a dependent bridge for existing installations.
+## Do I need every provider?
 
-### Why use this instead of the providers directly?
+No. Install and sign in to the provider you want to consult; Ask LLM configures its connection to your host. You need Node.js 24+ on Linux or macOS. Start at [Install](/start/install).
 
-- **One interface for every provider**: you don't switch between separate CLIs
-- **Multi-provider parallel dispatch**: `multi-llm` and `/compare` send the same prompt to multiple providers in one call
-- **Verified code review**: `/multi-review` cross-checks each finding against source before presenting (catches false positives)
-- **Session continuity across providers**: `sessionId` works across four session-capable providers (Claude, Gemini, Codex, Ollama); Grok and Antigravity are single-turn
-- **Built-in operational hardening**: quota fallback, PATH resolution, stdin handling, stream-json output for live progressive content
-- **Diagnostic surface**: `npx @ask-llm/mcp doctor` and the `diagnose` MCP tool tell you what's wrong before you have to investigate
+## Which package should I choose?
 
-### Is it free?
+There is one install line on [Install](/start/install). Earlier installations have a [migration guide](/reference/migration), rather than a separate onboarding path.
 
-The MCP servers are MIT-licensed and free. Provider costs depend on which provider you use:
-- **Codex**: per OpenAI billing
-- **Claude**: covered by your Claude subscription or Anthropic billing, depending on Claude Code authentication
-- **Grok**: xAI API is metered; Grok CLI follows its authenticated plan. Ask LLM never enables billing/credits/overage and never falls back
-- **Cursor Agent harness**: follows included usage/on-demand spend in your Cursor plan; Ask LLM never changes spend limits
-- **Antigravity**: covered by your Google AI Pro/Ultra subscription (no per-token billing)
-- **Ollama**: free (runs locally on your machine)
-- **Gemini**: requires a Gemini Code Assist Standard/Enterprise seat ([enterprise-gated from 2026-06-18](/providers/gemini))
+## What does a review cost?
 
-### Why is Gemini enterprise-gated, and what should I use instead?
+Calls consume the selected account's quota or billing. Subscription-backed routes need no separate model API key. Grok's xAI API is an explicit metered option requiring a key; Grok Build and Cursor follow their plans. Ollama uses local compute. See [Costs and fallbacks](/operation/costs).
 
-From 2026-06-18, Google restricts Gemini CLI to Gemini Code Assist Standard/Enterprise seats, and free, Google AI Pro, and Ultra accounts lose access. `@ask-llm/gemini-mcp` still installs, but a non-enterprise account will then see actionable guidance instead of output. Use **Codex** (`ask-codex`), **Claude** (`ask-claude` from a non-Claude host), **Antigravity** (`ask-antigravity`, the Google-sanctioned successor, subscription-backed via Google AI Pro/Ultra), **Grok** (`ask-grok`, explicit API/CLI harness with no fallback), or **Ollama** (`ask-ollama`) instead. See [Antigravity](/providers/antigravity).
+## Can Codex ask Claude?
 
-### Does it work on Windows?
+Yes. Claude is available from Codex and other hosts. It is suppressed inside Claude Code because nested Claude sessions are unsupported. Claude consultations use Read, Glob and Grep; your host applies changes.
 
-No. Ask LLM is supported on Linux and macOS. Native Windows is not a supported platform and is not covered by CI.
+## Does model agreement prove correctness?
 
----
+No. Validate claims against source, tests and requirements. [Compare answers](/workflows/compare-answers) preserves raw responses, while [review workflows](/workflows/review-changes) check candidate findings against source.
 
-## Setup
+## Which hosts work?
 
-### Do I need every provider?
+See [Hosts](/compatibility/hosts). Claude Desktop is tools only. Pi uses native tools and needs no MCP config. Antigravity has a manual workflow-copy step. Existing Codex registrations need inspection; OpenCode registration is verified with fixtures only.
 
-No. The orchestrator (`@ask-llm/mcp`) auto-detects which CLIs are installed and only registers tools for available providers. Install one and add others anytime.
+## Why is Gemini restricted?
 
-### What Node.js version do I need?
+The provider requires an eligible Code Assist Standard/Enterprise seat. See [Enterprise environments / Gemini](/advanced/enterprise-gemini) and the unchanged [provider reference](/providers/gemini). Ask LLM cannot grant provider eligibility.
 
-Every Ask LLM package, including `@ask-llm/plugin`, requires Node 24 (the current LTS) or newer. The doctor command (`npx @ask-llm/mcp doctor`) checks the MCP runtime. Gemini CLI 0.36+ uses ES2024 regex features that crash on Node 18.
+## Where does my code go?
 
-### Should I use the orchestrator or per-provider packages?
+To the provider you select, under its policies. Local Ollama inference stays on your local endpoint. Ask LLM sends no telemetry. Host conversations, provider sessions and opt-in pairing state have separate storage; see [Data flow](/operation/data-flow).
 
-| Choose orchestrator (`@ask-llm/mcp`) when | Choose per-provider when |
-|---|---|
-| You want one MCP server, all providers | You only use one provider |
-| You want `multi-llm` parallel dispatch | You need provider-specific tools (`ask-gemini-edit`, `fetch-chunk`) |
-| You want the doctor + REPL CLI subcommands | You want shorter tool names without a `provider` parameter |
+## How do follow-up questions work?
 
-Both can coexist; install whatever fits your workflow.
+Claude, Gemini, Codex and Ollama support sessions. Codex needs `sessionId: ""` on the first call to persist a resumable thread; omitted Codex calls are ephemeral. Grok and Antigravity are single-turn. Follow-ups still consume account quota or billing; see [Tools and schemas](/reference/tools#sessions).
 
-### Can I use this with Claude Code?
+## What is Gemini's @ file syntax?
 
-Yes, that's the primary client. Follow the [Quick Start](https://github.com/Lykhoyda/ask-llm#quick-start) to register it. The Claude Code plugin (`/plugin marketplace add Lykhoyda/ask-llm`) adds slash commands, subagents, and hooks on top.
+The Gemini CLI interprets `@file.ts`, `@src/` and globs as file context. Other providers need relevant code in the prompt or their supported include-directory mechanism. Ask your assistant to bound the context.
 
-### Can I use this with Claude Desktop, Cursor, Warp, etc.?
+## What should I check when a call fails?
 
-Yes, any STDIO MCP client works. See the [Quick Start](/getting-started#2-register-the-mcp-server) for client-specific config.
+Run `ask-llm doctor`. It distinguishes installation, registration, authentication, permission and optional live exercise. Healthy registration alone does not prove a provider call succeeds. See [Troubleshooting](/resources/troubleshooting).
 
-### Can Codex ask Claude for a second opinion?
+## Can I use Ask LLM in automation?
 
-Yes. Register the dedicated provider with `codex mcp add claude -- npx -y @ask-llm/claude-mcp`, then ask Codex to call `ask-claude`. The Claude subprocess is restricted to Read, Glob, and Grep; Codex applies any resulting changes. The provider is not exposed when Claude Code itself is the host because Claude Code rejects nested sessions.
+The product is designed for interactive review. The [CLI reference](/reference/cli) documents the existing machine protocol and scripting flags. Check account eligibility and data policy before automating provider calls.
 
----
+## More questions
 
-## Usage
-
-### What's the `@` syntax?
-
-A Gemini CLI feature for including files in prompts:
-- `@file.js`: single file
-- `@src/*.js`: multiple files
-- `@**/*.ts`: all TypeScript files
-- `@.`: current directory
-
-It works with the `ask-gemini` tool (and the underlying Gemini CLI). Codex and Ollama don't have direct equivalents; quote or paste relevant code into the prompt instead.
-
-### How do multi-turn sessions work?
-
-Every session-capable `ask-*` tool returns a session ID. Pass it back via the `sessionId` parameter to continue. Codex is the privacy-preserving exception: pass `sessionId: ""` on its first call to persist the thread, then resume with the returned ID; an omitted `sessionId` produces an ephemeral, non-resumable call. Claude, Gemini, and Codex use native CLI resume; Ollama uses server-side message replay. See [Multi-Turn Sessions](/usage/multi-turn-sessions) for details.
-
-### How do I send a prompt to multiple providers at once?
-
-Use the `multi-llm` MCP tool:
-
-```text
-Use multi-llm to send "is this thread-safe?" to Gemini and Codex
-```
-
-For an interactive comparison or verified code review, use the [compare or multi-review workflows](/plugin/skills). That reference lists portable names and Claude Code compatibility aliases; see the [Pi host guide](/plugin/pi) for Pi's command syntax, native-tool transport, and limitations.
-
-### Which model should I use?
-
-Defaults are tuned per provider with auto-fallback. Don't override unless you have a specific reason. See [Model Selection](/concepts/models) for the full breakdown.
-
-### Can I track my token spending?
-
-Yes, every `ask-*` response includes `result.structuredContent.usage` with token counts, duration, and fallback flag. For per-session totals, call the `get-usage-stats` MCP tool, read the `usage://current-session` MCP Resource, or type `/usage` in the REPL.
-
-### Can I use this in CI/CD?
-
-The MCP server is designed for interactive development. For CI workflows, you can call the executor packages directly via Node:
-
-```js
-import { executeGeminiCLI } from "@ask-llm/gemini-mcp/executor";
-const result = await executeGeminiCLI({ prompt: "review this diff" });
-```
-
-A dedicated GitHub Action was built and then withdrawn; focus shifted to MCP/plugin usage for CLI workflows. CI integration may return as a future feature.
-
----
-
-## Privacy & Security
-
-### Is my code sent to Google / OpenAI?
-
-Only when you explicitly use `ask-codex` (OpenAI), `ask-claude` (Anthropic), or `ask-gemini` / `ask-antigravity` (Google). For private code, use `ask-ollama`; it runs entirely locally and never makes external network calls.
-
-### Where do session files live?
-
-- **Gemini sessions**: managed by the Gemini CLI in its own storage (`~/.gemini/`)
-- **Codex sessions**: managed by Codex CLI in `~/.codex/`
-- **Claude sessions**: managed by Claude Code CLI in its own local session storage
-- **Ollama sessions**: server-side replay store at `/tmp/ask-llm-sessions/<id>.json`, owner-only permissions (0o600 file / 0o700 dir), 24-hour TTL, atomic temp+rename writes
-
-The Ollama session permissions specifically prevent other users on shared systems from reading your prompts.
-
-### Are my API keys exposed?
-
-Auth is delegated entirely to the provider CLIs (`gemini login`, Codex auth, Ollama doesn't need keys). The MCP server never reads, stores, or transmits your credentials; it just spawns the CLIs and the CLIs handle auth themselves.
-
----
-
-## Troubleshooting
-
-### Why is it slow?
-
-Large-context Gemini calls are inherently slow (the model is reading a lot). The Gemini executor uses `--output-format stream-json` so you see progressive output rather than a frozen wait; incoming text is forwarded to MCP progress notifications. Codex at high reasoning effort can take several minutes; this is normal for the model, not a server issue.
-
-### Where do I get logs?
-
-Set `GMCPT_LOG_LEVEL=debug` in your MCP client's env config to see verbose server logs. They go to stderr; Claude Desktop captures them at `~/Library/Logs/Claude/mcp-server-*.log` (macOS).
-
-### My setup isn't working: what do I check first?
-
-Run the doctor:
-
-```bash
-npx @ask-llm/mcp doctor
-```
-
-It checks Node version, PATH, every provider CLI's presence and version, and key env vars. It works even when MCP itself can't start. 90%+ of setup issues show up here as a clear failed-check line.
-
-If the doctor says everything's fine but tool calls still fail, check the Troubleshooting page for specific error patterns.
-
----
-
-## More Questions?
-
-- [Documentation](/): start here for general usage
-- [GitHub Issues](https://github.com/Lykhoyda/ask-llm/issues): known bugs and feature requests
-- [GitHub Discussions](https://github.com/Lykhoyda/ask-llm/discussions): Q&A and ideas
-- [DECISIONS.md](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md): every architectural decision documented as an ADR
+- [Documentation](/)
+- [GitHub Issues](https://github.com/Lykhoyda/ask-llm/issues)
+- [GitHub Discussions](https://github.com/Lykhoyda/ask-llm/discussions)

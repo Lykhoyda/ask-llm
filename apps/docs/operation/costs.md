@@ -1,0 +1,113 @@
+---
+description: Choose the right model across providers. Default models, fallback behavior (Gemini/Codex/Claude/Antigravity), and per-provider overrides.
+---
+
+# Costs and Fallbacks
+
+Hosted CLI providers (Gemini, Codex, Claude, Antigravity) auto-select a sensible default model with automatic fallback on provider-specific conditions — quota/rate-limit exhaustion, and for Antigravity also a rejected shipped model slug (see the table below). Grok and Ollama never substitute another model: Grok sends the selected API or Grok CLI catalog ID unchanged, while Ollama uses exactly the model you pull. **Most users should never override the model parameter**; the defaults are tuned for quality.
+
+## Defaults & Fallbacks
+
+<FallbackChain provider="codex" />
+
+| Provider | Default | Fallback | Trigger |
+|---|---|---|---|
+| Gemini | `gemini-3.1-pro-preview` | `gemini-3.8-flash` | `RESOURCE_EXHAUSTED` quota error or "exhausted your capacity" pattern |
+| Codex | `gpt-6-astra` | `gpt-5.6-terra` | Quota errors (`rate_limit_exceeded`, `429`, `insufficient_quota`) |
+| Claude | `opus` (Opus 5.5, `claude-opus-5-5`) | `sonnet` | Claude Code native fallback when Opus is overloaded or unavailable |
+| Grok | `grok-4.7` (`reasoning.effort=high`) | none | Every error is terminal; requested ID is sent unchanged |
+| Antigravity | `gemini-3.1-pro` (`--effort high`) | `gemini-3.8-flash`; one model-less retry when agy rejects a model whose value equals `gemini-3.1-pro` or `gemini-3.8-flash` (reported as `agy default`). Both retain the effective effort (`high`, or the `ASK_ANTIGRAVITY_EFFORT` override) | Subscription rate limit; model-unavailable (shipped slug values only — other rejected models fail actionably) |
+| Ollama | `qwen3.8:27b` | none | Local, no fallback; a missing model returns a clear `ollama pull` error |
+
+For Gemini, Codex, Claude, and Antigravity, fallback is automatic and structured output exposes the actual model plus `usage.fellBack`. Antigravity reports `gemini-3.8-flash` after a rate-limit fallback, or the literal `agy default` after a model-less recovery (agy does not reveal which model it picked). Grok and Ollama never fall back, so their `fellBack` values are always `false`.
+
+`codex-pair` defaults to `gpt-6-sol` at `medium` reasoning effort and still quota-falls back to `gpt-5.6-terra`. Unpinned Codex consultations stay on `gpt-6-astra`.
+
+Codex uses `medium` reasoning effort for ordinary calls to preserve the previous default behavior. The quality-first `/ask-llm-review` and `/ask-llm-brainstorm` skills use `high`. Direct `ask-llm` with `provider: "codex"` calls can override this with `reasoningEffort` (`low`, `medium`, `high`, `xhigh`, `max`, or `ultra`). `ultra` is opt-in only: Codex's catalog describes it as maximum reasoning with automatic task delegation, so review and brainstorm defaults stay at `high`.
+
+## Account costs
+
+Review calls consume the quota or billing of the provider account you authenticate. Ask LLM does not enable billing, buy credits, or alter spending limits. Grok's metered xAI API is an explicit option requiring `XAI_API_KEY`; Grok Build and Cursor routes follow their own plans. Ollama uses local compute. Model agreement does not prove correctness.
+
+## Choosing a Provider
+
+Different providers excel at different things. Pick by what you're doing, not by which is "best":
+
+| Task | Suggested provider | Why |
+|---|---|---|
+| Targeted code reasoning, refactor critique | **Codex** | GPT-6 Astra is the flagship; `codex-pair` uses GPT-6 Sol; Terra keeps the fallback balanced |
+| Claude second opinion while working in Codex | **Claude** | Opus 5.5 (`opus`) review through Claude Code CLI, with native session continuation and read-only file access |
+| Grok 4.7 independent critique | **Grok** | Exact model selection, configurable reasoning depth, structured JSON Schema output |
+| Private / air-gapped analysis | **Ollama** | Runs locally, nothing leaves your machine |
+| Subscription-backed second opinion, larger context | **Antigravity** | `agy` via your Google AI Pro/Ultra plan, the Gemini CLI successor |
+| Whole-codebase review (enterprise seats) | **Gemini** | 1M+ token context fits what others can't ([enterprise-gated from 2026-06-18](/providers/gemini)) |
+| "What do they all think?" comparison | **Multi-LLM** (`multi-llm` tool or `/ask-llm-compare` skill) | Parallel dispatch, see all responses side-by-side |
+| Code review with verified findings | **`/ask-llm-multi-review` skill** | Antigravity + Codex in parallel, then verifies each finding against source |
+
+## Overriding the Model
+
+Pass `model` explicitly when you have a reason to:
+
+```text
+Use ask-llm with provider gemini and model gemini-3.8-flash to quickly check this CSS file
+```
+
+Or programmatically:
+
+```json
+{ "name": "ask-llm", "arguments": { "provider": "gemini", "model": "gemini-3.8-flash", "prompt": "..." } }
+```
+
+For Grok, choose the harness first. Discover API IDs with authenticated `GET https://api.x.ai/v1/models`, or CLI IDs with `grok models`, then pass the desired ID unchanged. Reasoning depth is a separate `reasoningEffort` parameter (`low`, `medium`, `high`, `xhigh`), not a model suffix. There is no harness or model fallback. Cursor Agent is separate and model-neutral: `ask-cursor-agent` requires a canonical provider family (`claude`, `codex`, `gemini`, `grok`) plus an exact account ID from `agent --list-models` (for example a Cursor Grok ID may differ from xAI's API ID); the ID must belong to that family, and Cursor Auto or other noncanonical IDs are refused.
+
+For Codex, common overrides:
+
+```text
+Use ask-llm with provider codex and model gpt-5.6-terra to summarize this commit
+```
+
+For Ollama, you can request any model you've pulled:
+
+```bash
+ollama pull deepseek-coder:6.7b
+```
+
+```text
+Use ask-llm with provider ollama and model deepseek-coder:6.7b to review this implementation
+```
+
+For Antigravity, `ask-antigravity` requires `agy` ≥1.1.5 and has no per-call `model` argument — configure it via env vars:
+
+- `ASK_ANTIGRAVITY_MODEL` — an agy model slug from `agy models` (e.g. `claude-sonnet-4-6`). Legacy effort-carrying display strings like `Gemini 3.1 Pro (High)` still resolve for backward compatibility.
+- `ASK_ANTIGRAVITY_EFFORT` — reasoning effort, `low` | `medium` | `high` (default `high`). Invalid values log a warning and fall back to the default behavior. Note agy limits tiers per model (`gemini-3.1-pro` has no `medium`), and effort-carrying model names reject `--effort` entirely — so the default effort is only sent with the shipped base slugs and model-less recovery runs, while an explicitly set value is always sent.
+
+## Token Limits & Cost
+
+| Provider | Context window | Cost model |
+|---|---|---|
+| Gemini Pro | ~1M tokens (~250k LOC) | Gemini Code Assist Standard/Enterprise seat (from 2026-06-18) |
+| Gemini Flash | ~1M tokens | Same account eligibility; fallback target for quota relief |
+| Codex GPT-6 Astra / GPT-6 Sol | Per OpenAI's published context window | Your authenticated account’s quota/billing |
+| Grok 4.7 | 500k tokens on xAI API | API is metered; Grok CLI follows its authenticated plan |
+| Cursor Agent harness | Per selected catalog model | Included usage/on-demand spend follows the user's Cursor plan; Ask LLM never changes spend settings |
+| Codex GPT-5.6 Terra | Per OpenAI's published context window | Balanced fallback target |
+| Ollama | Per model (e.g., 256k for qwen3.8) | Local compute and hardware |
+
+## Track What You're Spending
+
+Token usage is exposed live via:
+
+- **Per-call**: `result.structuredContent.usage` on `ask-*` tool responses (provider, model, inputTokens, outputTokens, cachedTokens, thinkingTokens, durationMs, fellBack). Antigravity reads these values from agy's JSON envelope; cached tokens are unavailable on agy 1.1.5.
+- **Per-session aggregate**: call the `get-usage-stats` MCP tool, or read the `usage://current-session` MCP Resource for a JSON snapshot
+- **In the REPL**: type `/usage` for a markdown-formatted breakdown
+
+This is in-memory only; no persistence to disk, resets when the MCP server restarts.
+
+## Recommendations by Use Case
+
+- **General code review** → defaults are correct; let the fallback chain handle quota
+- **Whole-codebase analysis** → `ask-gemini` (Pro) if you have an enterprise seat, otherwise `ask-antigravity` for large-context reads without per-token billing
+- **Quick fixes, fast iteration** → request Flash or `gpt-5.6-terra` explicitly to skip the flagship→fallback round-trip
+- **Grok consultation** → `ask-grok`; confirm xAI pricing and data transfer first, then use exact model IDs with no fallback
+- **Privacy-sensitive code** → `ask-ollama`, never leaves your machine
+- **Multi-perspective debate** → `multi-llm` or `/ask-llm-brainstorm` skill; Claude weighs verified vs inferred

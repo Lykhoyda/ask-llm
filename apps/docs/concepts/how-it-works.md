@@ -1,58 +1,11 @@
 ---
-description: Architecture and execution flow of Ask LLM, from natural language prompts through the MCP protocol to Codex, Claude, Grok, Antigravity, Ollama, and Gemini providers.
+description: Moved to Data flow.
+head:
+  - - meta
+    - http-equiv: refresh
+      content: "0; url=/ask-llm/operation/data-flow.html"
 ---
 
-# How It Works
+# Moved
 
-Ask LLM is a set of MCP servers that bridge your AI client (Claude Code, Codex CLI, Cursor, etc.) with six LLM providers through explicit API, CLI, or local-HTTP harnesses: OpenAI Codex, Anthropic Claude, xAI Grok, Google Antigravity (`agy`), Ollama, and Google Gemini. Cursor Agent is a separate model-neutral harness, not a seventh provider. Your client decides when to delegate work to one or more providers based on what you ask. Provider and host are separate roles: Claude can host a Codex consultation, and Codex can host a Claude consultation.
-
-Claude Code does not allow a nested Claude Code subprocess. When the MCP host is Claude Code, the unified server therefore suppresses the Claude provider; it remains available from Codex and other clients.
-
-<PairLoop />
-
-## Natural Language Workflow
-
-Your client (typically Claude) decides when to call the MCP tools based on context:
-
-- `🔍 comparative analysis`: different AI perspectives for validation (`multi-llm`, `/compare`)
-- `📋 code review & big changes`: second opinions on implementation (`/gemini-review`, `/codex-review`, `/multi-review`)
-- `📚 large-context analysis`: Gemini's 1M+ token window for whole-codebase reads
-- `💡 creative problem solving`: `/brainstorm` for multi-LLM ideation with Claude Opus as a peer
-- `🔒 private analysis`: Ollama for code that can't leave the machine
-
-This intelligent selection happens automatically; you just ask in natural language.
-
-## Request Flow
-
-<RequestFlow />
-
-For a single-provider call (`ask-llm` with `provider: "gemini"`), only one of the provider lanes fires. For `multi-llm`, both fire in parallel via `Promise.all` inside the MCP server process; per-provider failures are isolated, so one provider hitting quota doesn't fail the whole call.
-
-## What's Inside the MCP Server
-
-Each provider's executor wraps the underlying CLI with operational hardening that took multiple ADRs to get right:
-
-- **Quota fallback**: Gemini Pro → Flash on `RESOURCE_EXHAUSTED`; Codex `gpt-6-astra` → `gpt-5.6-terra` on quota errors
-- **Stdin handling**: Codex needs an EOF-terminated pipe rather than `/dev/null`, otherwise it errors out
-- **PATH resolution**: macOS GUI clients (Claude Desktop) don't inherit your shell's PATH; the server resolves it from your login shell at startup
-- **Live progressive output**: Gemini's `--output-format stream-json` deltas are parsed and forwarded to MCP progress notifications, so users see Gemini's prose unfolding rather than a frozen wait
-- **Session continuity**: Claude, Gemini, Codex, and Ollama support multi-turn via the `sessionId` parameter; Codex requires `sessionId: ""` on turn one to persist a resumable thread, while an omitted value stays ephemeral (Grok and Antigravity are single-turn)
-- **Read-only Claude consultations**: `ask-claude` uses safe mode and exposes only Read, Glob, and Grep; the MCP host performs any edits
-- **Structured responses**: every `ask-*` tool returns both human-readable text AND a structured `AskResponse` (provider, response, model, sessionId, usage) via MCP `outputSchema` so programmatic clients don't have to parse the response footer
-
-You don't need to think about any of this; it's just the infrastructure that makes the natural-language flow work reliably.
-
-## When to Use Which Tool
-
-| Situation | Tool |
-|---|---|
-| Single-provider question, want it to work | `ask-llm` (orchestrator routes by `provider` param) |
-| Compare what multiple providers say | `multi-llm` (or `/compare` skill in Claude Code) |
-| Code review with verified findings | `/multi-review` skill (verifies each finding against source) |
-| Brainstorm with multi-LLM consensus | `/brainstorm` skill (Claude Opus as peer participant) |
-| Large-context analysis (whole codebase) | `ask-gemini` directly (1M+ token context) |
-| Structured code edits to apply | `ask-gemini-edit` (returns OLD/NEW blocks) |
-| Air-gapped / private | `ask-llm` with `provider: "ollama"` |
-| Diagnose setup problems | `npx @ask-llm/mcp doctor` (CLI) or `diagnose` (MCP tool) |
-
-See [How to Ask](/usage/how-to-ask) for full parameter reference and [Strategies & Examples](/usage/strategies-and-examples) for proven workflow patterns.
+Continue to [Data flow](/operation/data-flow).

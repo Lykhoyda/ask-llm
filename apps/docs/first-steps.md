@@ -1,14 +1,11 @@
 ---
-description: Moved. First steps now live in the Quick Start.
+description: Moved to First review.
 head:
   - - meta
     - http-equiv: refresh
-      content: "0; url=/ask-llm/getting-started.html"
-  - - link
-    - rel: canonical
-      href: https://lykhoyda.github.io/ask-llm/getting-started.html
+      content: "0; url=/ask-llm/start/first-review.html"
 ---
 
 # Moved
 
-First steps now live in the [Quick Start](/getting-started#3-verify).
+Continue to [First review](/start/first-review).

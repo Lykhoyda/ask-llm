@@ -1,20 +1,10 @@
-<div align="center">
-
 # Ask LLM
 
-**Give your AI coding assistant a second opinion — from a different model.**
+**Second opinions for coding agents.**
 
-Claude Code, Codex CLI, Cursor, Claude Desktop, or any of [40+ MCP clients](https://modelcontextprotocol.io/clients) can call Codex, Claude, Grok, Antigravity, Ollama, or Gemini to review a diff, debate a plan, or catch the bug the first model missed. Standard [MCP](https://modelcontextprotocol.io/); no prompt hacks.
+Get a second opinion on your code or plan, inside your coding assistant, using the model subscriptions you already have.
 
-[![CI](https://img.shields.io/github/actions/workflow/status/Lykhoyda/ask-llm/ci.yml?branch=main&label=CI&logo=github)](https://github.com/Lykhoyda/ask-llm/actions/workflows/ci.yml)
-[![Release](https://img.shields.io/github/actions/workflow/status/Lykhoyda/ask-llm/release.yml?branch=main&label=release&logo=npm)](https://github.com/Lykhoyda/ask-llm/actions/workflows/release.yml)
-[![GitHub Release](https://img.shields.io/github/v/release/Lykhoyda/ask-llm?logo=github&label=release)](https://github.com/Lykhoyda/ask-llm/releases)
-[![npm](https://img.shields.io/npm/v/@ask-llm/mcp?label=%40ask-llm%2Fmcp&logo=npm)](https://www.npmjs.com/package/@ask-llm/mcp)
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
-
-[Quick Start](#quick-start) · [Choose a reviewer](#choose-your-reviewer) · [Claude Code plugin](#the-ask-llm-plugin-claude-code-cursor-agent-pi) · [Docs](https://lykhoyda.github.io/ask-llm/) · [Packages](#packages)
-
-</div>
+For individual developers and small teams who already use a coding assistant and pay for another model subscription: ask a different vendor's model to **review your changes** or **challenge your plan**, without API keys, copy-paste, or leaving the session.
 
 ```text
 You:    ask codex to review src/auth.ts for security issues
@@ -23,259 +13,70 @@ Codex:  ⚠ verifyToken() compares tokens with === — not timing-safe (line 42)
 Claude: Good catches — applying both fixes to src/auth.ts.
 ```
 
-One prompt. A second model reviews independently; your assistant applies the fix. No copy-pasting between tools.
+## Install
 
-## Why a second opinion?
+You need Node.js 24+ on Linux or macOS. Before your first review, both your coding assistant (for example Claude Code) and the provider you will consult (for example Codex) must be installed and signed in. Ask LLM configures the connection; it does not install providers or sign you in. If a provider CLI such as Codex has never been signed in on this machine, sign in first and rerun setup.
 
-Your primary AI is confident, but confidence isn't correctness. A second model with no stake in the first answer catches what it glossed over.
+```bash
+npm i -g @ask-llm/mcp && ask-llm setup
+```
 
-| You want to… | Ask LLM does |
+Setup asks you to confirm each detected host and workflow. Inspect the preview, confirm your assistant's registration and workflows, decline the others, then follow any printed manual steps. Restart your assistant or start a new session in your project.
+
+## Your first review
+
+With both Claude Code and Codex installed and signed in, open Claude Code in your project and ask:
+
+```text
+Ask Codex to review my staged changes for bugs and missing error handling. Check each finding against the source before proposing fixes.
+```
+
+Working in Codex with a Claude subscription? Ask Claude instead. Choose a provider from a different vendor than your current assistant. A successful review names the reviewer and model, cites relevant code, and reports findings or says it found none. Your assistant applies changes after you decide what to accept. If the request fails, run `ask-llm doctor` and follow the [troubleshooting guide](https://lykhoyda.github.io/ask-llm/resources/troubleshooting) for your selected assistant and reviewer. Warnings about providers you do not use do not require installing them or adding API keys.
+
+For plans, try: “Ask Claude to challenge this plan: what assumptions could fail, and what simpler approach would fit our constraints?”
+
+After an on-demand review, [pair review](https://lykhoyda.github.io/ask-llm/advanced/codex-pair) can add ongoing feedback. Pairing requires explicit opt-in; setup leaves it off.
+
+## Supported hosts
+
+A host is the assistant you work in; a provider is the model you consult.
+
+| Host | Experience |
 |---|---|
-| **Review a diff** | A different model analyzes your changes and surfaces issues your primary AI missed |
-| **Debate a plan** | Send an architecture proposal for critique, alternatives, and trade-off analysis |
-| **Get a second opinion on code** | Have another model review an approach independently before you commit to it |
-| **Read more than fits** | Gemini and Antigravity ingest whole codebases in one call (1M+ tokens) |
-| **Keep it local** | Route reviews through Ollama when nothing can leave your machine |
-| **Compare models side by side** | `multi-llm` fans one prompt out to several providers in parallel |
+| Claude Code | Reviews, plan critique, comparisons; isolated reviewers and opt-in per-edit pairing |
+| Codex, Cursor, Grok Build, Gemini CLI | Tools and portable workflows; pairing on demand |
+| Antigravity | Tools; setup prints a manual step for workflows |
+| Pi 0.83.0+ | Native tools and portable workflows; opt-in per-edit pairing |
+| Claude Desktop | Tools only |
+| OpenCode | Tools and portable workflows; setup verified with fixtures only |
 
-## Quick Start
+See [host compatibility](https://lykhoyda.github.io/ask-llm/compatibility/hosts) for the complete matrix and manual setup limits, including existing Codex registrations.
 
-**Prerequisites:** [Node.js](https://nodejs.org/) 24+ (the current LTS), on Linux or macOS, and at least one provider CLI installed and authenticated (see [Provider setup](#provider-setup)).
+## Supported providers
 
-```bash
-npm install -g @ask-llm/mcp
-```
-
-### Claude Code
-
-```bash
-ask-llm setup --host claude
-```
-
-Setup previews the user-scope registration and the workflows it installs (the Claude Code plugin, or the `ask-llm-*` skills on other hosts) and asks before applying them. Then try: `ask codex to review my last commit`. Run `ask-llm doctor` if anything looks off. See [command compatibility](packages/llm-mcp/README.md#command-compatibility) for `-y`, removal, and other hosts.
-
-<details>
-<summary>Advanced: install split provider packages instead</summary>
-
-```bash
-claude mcp add --scope user codex -- npx -y @ask-llm/codex-mcp
-claude mcp add --scope user grok -e XAI_API_KEY="$XAI_API_KEY" -- npx -y @ask-llm/grok-mcp
-claude mcp add --scope user antigravity -- npx -y @ask-llm/antigravity-mcp
-claude mcp add --scope user ollama -- npx -y @ask-llm/ollama-mcp
-claude mcp add --scope user gemini -- npx -y @ask-llm/gemini-mcp
-```
-
-</details>
-
-### Cursor
-
-After the global install above, run `ask-llm setup --host cursor`. It previews the user-scope change to `~/.cursor/mcp.json` and asks before writing. Restart Cursor Agent to load the server. For a project-scoped or manual install, see the [Cursor host guide](https://lykhoyda.github.io/ask-llm/plugin/cursor).
-
-### Codex CLI
-
-```toml
-# ~/.codex/config.toml
-[mcp_servers.ask-llm]
-command = "npx"
-args = ["-y", "@ask-llm/mcp"]
-```
-
-Want Codex to consult Claude specifically? `codex mcp add claude -- npx -y @ask-llm/claude-mcp`
-
-### Claude Desktop
-
-After the global install above, run `ask-llm setup --host claude-desktop`. It previews the user-scope change to `claude_desktop_config.json` and asks before writing. Restart Claude Desktop to load the server. See [command compatibility](packages/llm-mcp/README.md#command-compatibility) for removal, backups, and formats that require manual setup.
-
-### OpenCode
-
-After the global install above, run `ask-llm setup --host opencode`. Setup changes only a plain JSON `opencode.json`; for JSONC it prints the entry to add manually. OpenCode registration has fixture coverage and awaits verification on an installed host.
-
-### Pi
-
-Pi has no built-in MCP client, so it installs the host package instead, which registers [native consultation tools](https://lykhoyda.github.io/ask-llm/plugin/pi#skills-and-tools). After the global Ask LLM install above, install the package and shared skills:
-
-```bash
-ask-llm setup --host pi
-```
-
-Then use `/skill:ask-llm-review`, `/skill:ask-llm-multi-review`, `/skill:ask-llm-compare`, `/skill:ask-llm-brainstorm`, or just describe what you want. See the [Pi host guide](https://lykhoyda.github.io/ask-llm/plugin/pi) for trust, data-transfer, and compatibility details.
-
-<details>
-<summary>Any other MCP client (STDIO)</summary>
-
-```json
-{ "command": "npx", "args": ["-y", "@ask-llm/mcp"] }
-```
-
-Swap `@ask-llm/mcp` for `@ask-llm/codex-mcp`, `@ask-llm/claude-mcp`, `@ask-llm/grok-mcp`, `@ask-llm/antigravity-mcp`, `@ask-llm/ollama-mcp`, or `@ask-llm/gemini-mcp` to install a single provider.
-
-</details>
-
-## Choose your reviewer
-
-The unified `@ask-llm/mcp` server is the recommended install: one registration, every provider you have, and parallel fan-out via `multi-llm`. Each provider is also available standalone.
-
-| Provider | Best for | Model (default → fallback) | Requires |
-|----------|----------|----------------------------|----------|
-| **Codex** | Code reasoning, targeted reviews, architecture critique | `gpt-6-astra` → `gpt-5.6-terra` | OpenAI/Codex account |
-| **Claude** | An independent Claude opinion from Codex or another non-Claude host | `opus` (Opus 5.5) → `sonnet` | Claude Code CLI; read-only workspace tools |
-| **Grok** | Grok 4.7 critique via xAI API or the official Grok CLI | `grok-4.7`, reasoning `high` (no fallback) | `XAI_API_KEY` or Grok CLI; one explicit harness per call |
-| **Antigravity** | Subscription-backed second opinion; large-context reads | `gemini-3.1-pro` → `gemini-3.8-flash` (`--effort high`) | Google AI Pro/Ultra; `agy` CLI. Experimental, one-shot; [MCP execution requires unisolated opt-in](https://lykhoyda.github.io/ask-llm/providers/antigravity) |
-| **Ollama** | Private, offline, zero-cost review | `qwen3.8:27b` (no auto-fallback) | Ollama running locally |
-| **Gemini** | Whole-codebase reads (1M+ tokens) | `gemini-3.1-pro-preview` → `gemini-3.8-flash` | Enterprise Gemini seat (see note) |
-
-> **Gemini CLI is enterprise-only since 2026-06-18.** Google restricted Gemini CLI to Gemini Code Assist Standard/Enterprise seats; free, Google AI Pro, and Ultra accounts lost access. `@ask-llm/gemini-mcp` still installs, but non-enterprise accounts get actionable guidance instead of output. On a subscription plan, use **Antigravity** (Google's sanctioned successor, covered by AI Pro/Ultra), **Codex**, **Claude**, or **Ollama**. [Announcement](https://developers.googleblog.com/an-important-update-transitioning-gemini-cli-to-antigravity-cli/)
-
-Fallbacks fire only under each provider's documented conditions (quota for Gemini/Codex, overload for Claude, rate limit for Antigravity). Grok and Ollama never substitute a model: Grok sends the exact harness catalog ID unchanged, and Ollama returns a clear `ollama pull` error if the requested model isn't local. Full details in [Model Selection](https://lykhoyda.github.io/ask-llm/concepts/models).
-
-## The Ask LLM plugin (Claude Code, Cursor Agent, Pi)
-
-MCP gives your assistant the *tools*. The canonical [`@ask-llm/mcp`](https://www.npmjs.com/package/@ask-llm/mcp) package also owns the *workflows*: slash-command reviews with a validation pipeline, multi-model brainstorming, and opt-in continuous pair review. `@ask-llm/plugin` remains a dependent bridge for existing installs.
-
-`ask-llm setup` installs these workflows for you: the plugin in Claude Code, and the same skills, named `ask-llm-*`, in Codex, Cursor Agent, Grok Build, Gemini CLI, OpenCode and Pi through the pinned `skills` CLI. In Claude Code the earlier names such as `/codex-review` keep working. To install only the Claude Code plugin by hand:
-
-```
-/plugin marketplace add Lykhoyda/ask-llm
-/plugin install ask-llm@ask-llm-plugins
-```
-
-| Command | What it does |
-|:---|:---|
-| <nobr>`/multi-review`</nobr> | Parallel Antigravity + Codex review with a 4-phase validation pipeline and consensus highlighting |
-| <nobr>`/codex-review`</nobr> · <nobr>`/gemini-review`</nobr> · <nobr>`/ollama-review`</nobr> · <nobr>`/antigravity-review`</nobr> | Single-provider reviews with confidence filtering |
-| <nobr>`/sol-review`</nobr> | Model-pinned GPT-6 Sol review through Codex |
-| <nobr>`/grok-review`</nobr> | Metered Grok review through xAI with exact model attribution and no fallback |
-| <nobr>`/fable-review`</nobr> | Isolated, read-only review that requests the native Fable model and discloses runtime verification limits |
-| <nobr>`/brainstorm`</nobr> | Claude Opus researches your real files in parallel with external providers, then synthesizes, weighting verified findings higher. Also supports an exact no-Gemini Grok + GPT-6 Sol panel routed through Cursor Agent |
-| <nobr>`/compare`</nobr> | Raw side-by-side answers from multiple providers, no synthesis |
-| <nobr>**`codex-pair`**</nobr> | Opt-in continuous review on `gpt-6-sol` at medium effort: Codex checks every Edit/Write/MultiEdit when a `.codex-pair/context.md` marker is present |
-
-Review agents follow a 4-phase pipeline inspired by [Anthropic's code-review plugin](https://github.com/anthropics/claude-code/tree/main/plugins/code-review): context gathering, prompt construction with explicit false-positive exclusions, synthesis, and source-level validation of each finding.
-
-<details>
-<summary>Host support matrix</summary>
-
-`@ask-llm/mcp` owns the canonical host assets and skill corpus; `@ask-llm/plugin` is a dependent compatibility bridge. Claude Code loads its marketplace agents and hooks; Cursor Agent loads the adapted `/codex-pair` and `/grok-pair` skills through Agent Skills plus `mcp.json` (`agent --plugin-dir ./packages/llm-mcp`; see the [Cursor Agent host guide](https://lykhoyda.github.io/ask-llm/plugin/cursor)); Pi loads explicit native tools, portable skill adapters, and a thin lifecycle extension.
-
-See the [host feature matrix](https://lykhoyda.github.io/ask-llm/plugin/pi#host-feature-matrix) for workflow availability, pairing modes, and lifecycle limits.
-
-Pi specifics: codex-pair requires the repository marker, Pi project trust, **and** interactive user-owned consent via `/codex-pair`; a committed marker alone never authorizes source transfer or cost. Pi surfaces findings non-blockingly and does not claim Claude's blocking Stop gate or one-shot print parity. `fable-review` is Claude Code-only. Provider CLI authentication is separate from Pi's host-model login. See the Pi guide to [update or remove](https://lykhoyda.github.io/ask-llm/plugin/pi#update-and-remove).
-
-</details>
-
-See the [plugin docs](https://lykhoyda.github.io/ask-llm/plugin/overview) for hooks, agents, and configuration.
-
-## MCP tools
-
-| Tool | Package | Purpose |
-|------|---------|---------|
-| `ask-llm` | `@ask-llm/mcp` | Unified orchestrator: pick a provider per call, or fan out to every installed provider |
-| `multi-llm` | `@ask-llm/mcp` | Send one prompt to multiple providers in parallel; returns per-provider responses and usage in one call |
-| `ask-codex` | `@ask-llm/codex-mcp` | Codex CLI. GPT-6 Astra with Terra fallback. Omit `sessionId` for ephemeral use, or pass `sessionId: ""` first to persist and resume |
-| `ask-claude` | `@ask-llm/claude-mcp` | Claude Code CLI. `opus` (Opus 5.5) with Sonnet fallback; native sessions; Read/Glob/Grep-only workspace access |
-| `ask-grok` | `@ask-llm/grok-mcp` | One-shot Grok prompt through explicit `xai-api` (default) or `grok-cli`; exact harness model ID; no harness/model fallback |
-| `ask-cursor-agent` | `@ask-llm/mcp` | Model-neutral Cursor Agent harness: separate provider (`claude`, `codex`, `gemini`, `grok`) + exact Cursor catalog model verified against that family; read-only ask mode; no force/trust/spend changes or fallback |
-| `ask-antigravity` | `@ask-llm/antigravity-mcp` | Google Antigravity (`agy`) for a subscription-backed second opinion. Experimental; one-shot |
-| `ask-ollama` | `@ask-llm/ollama-mcp` | Local Ollama. Fully private, zero cost. Server-side conversation replay via `sessionId` |
-| `ask-gemini` | `@ask-llm/gemini-mcp` | Gemini CLI with `@` file syntax. 1M+ token context. Live progressive output via `stream-json` |
-| `ask-gemini-edit` | `@ask-llm/gemini-mcp` | Structured OLD/NEW code edit blocks from Gemini |
-| `fetch-chunk` | `@ask-llm/gemini-mcp` | Retrieve chunks from cached large responses |
-| `get-usage-stats` | all | Per-session token totals, fallback counts, breakdowns by provider/model. In-memory only |
-| `diagnose` | `@ask-llm/mcp` | Self-diagnosis: Node version, PATH resolution, provider CLI presence and versions. Read-only |
-| `ping` | all | Connection test |
-
-Session-capable `ask-*` tools accept an optional `sessionId` and return a structured `AskResponse` (provider, response, model, sessionId, usage) via MCP `outputSchema` alongside the human-readable text. Codex requires `sessionId: ""` on the first call for a resumable thread. The orchestrator also exposes `usage://current-session` as an MCP Resource for live JSON snapshots.
-
-### Things to say
-
-```
-ask codex to review the changes in src/auth.ts for security issues
-ask claude for an independent opinion on this architecture        (from Codex or another non-Claude client)
-ask antigravity to debate the plan in docs/design.md
-ask ollama to explain src/config.ts                                 (runs locally, nothing leaves your machine)
-ask gemini to summarize @. the current directory                    (1M+ context; @ syntax is Gemini-only)
-use multi-llm to compare what codex and grok think about this approach
-```
-
-More patterns in [How to Ask](https://lykhoyda.github.io/ask-llm/usage/how-to-ask) and [Multi-Turn Sessions](https://lykhoyda.github.io/ask-llm/usage/multi-turn-sessions).
-
-## CLI
-
-The `@ask-llm/mcp` binary (`ask-llm-mcp`) starts the MCP server when run with no arguments. With arguments it's a CLI. For host registration (`ask-llm setup`, `ask-llm remove`) and host diagnostics, use the separate `ask-llm` command; see [command compatibility](packages/llm-mcp/README.md#command-compatibility).
-
-```bash
-# Diagnose your setup: Node version, PATH, provider CLI versions, env vars
-npx @ask-llm/mcp doctor                       # human-readable
-npx @ask-llm/mcp doctor --json                # full JSON, exit 1 on error
-npx @ask-llm/mcp doctor --format toon         # bounded, versioned agent-facing TOON pilot
-npx @ask-llm/mcp doctor --format toon --full  # full TOON escape hatch
-
-# Interactive multi-provider REPL: switch providers, persist sessions, watch usage live
-npx @ask-llm/mcp repl
-```
-
-The REPL keeps a session per provider (`/provider codex`, `/new`, `/sessions`, `/usage`) and inherits all executor behavior: quota fallback, `stream-json` output for Gemini, native session resume.
-
-## Provider setup
-
-Install and authenticate whichever providers you want to consult. The unified server detects what's present.
-
-| Provider | Setup |
+| Provider | Access |
 |---|---|
-| [Codex CLI](https://github.com/openai/codex) | Install and sign in |
-| [Claude Code CLI](https://docs.anthropic.com/en/docs/claude-code/getting-started) | Install and sign in (for Codex or other clients consulting Claude) |
-| [xAI API](https://docs.x.ai/) / Grok CLI | Set `XAI_API_KEY` for the default metered harness, or install and authenticate official Grok Build and pin `harness: "grok-cli"` per request (or set `ASK_GROK_HARNESS=grok-cli`). No failover between harnesses |
-| [Cursor CLI](https://cursor.com/docs/cli) | Optional model-neutral harness. Authenticate and pick an exact ID from `agent --list-models` |
-| [Antigravity CLI](https://antigravity.google) (`agy`) | Version >= 1.1.5, logged in once (Google AI Pro/Ultra). Verify with `agy --version` |
-| [Ollama](https://ollama.com) | Running locally with a model pulled: `ollama pull qwen3.8:27b` |
-| [Gemini CLI](https://github.com/google-gemini/gemini-cli) | `npm install -g @google/gemini-cli && gemini login`. Enterprise-gated since 2026-06-18 |
+| [Codex](https://lykhoyda.github.io/ask-llm/providers/codex) | Your authenticated Codex CLI/account |
+| [Claude](https://lykhoyda.github.io/ask-llm/providers/claude) | Your authenticated Claude Code account; consult it from a host other than Claude Code |
+| [Grok](https://lykhoyda.github.io/ask-llm/providers/grok) | Authenticated Grok Build, an exact Cursor model, or the explicit metered xAI API option |
+| [Antigravity](https://lykhoyda.github.io/ask-llm/providers/antigravity) | Your authenticated agy subscription; execution is off by default, and opt-in has no read-only guarantee |
+| [Ollama](https://lykhoyda.github.io/ask-llm/providers/ollama) | Local models on your machine |
+| [Gemini](https://lykhoyda.github.io/ask-llm/providers/gemini) | An eligible Gemini Code Assist Standard/Enterprise seat |
 
-## Packages
+Cursor Agent can also consult exact models from your Cursor catalog. It is a connection route, with usage governed by your Cursor plan.
 
-| Package | What it is | Version | Downloads |
-|---------|------------|---------|-----------|
-| [`@ask-llm/mcp`](https://www.npmjs.com/package/@ask-llm/mcp) | **Canonical package**: unified MCP server, provider executors, and Claude Code, Cursor Agent, and Pi host assets | [![npm](https://img.shields.io/npm/v/@ask-llm/mcp)](https://www.npmjs.com/package/@ask-llm/mcp) | [![downloads](https://img.shields.io/npm/dt/@ask-llm/mcp)](https://www.npmjs.com/package/@ask-llm/mcp) |
-| [`@ask-llm/plugin`](https://www.npmjs.com/package/@ask-llm/plugin) | Dependent bridge for existing plugin and Pi installations | [![npm](https://img.shields.io/npm/v/@ask-llm/plugin)](https://www.npmjs.com/package/@ask-llm/plugin) | [![downloads](https://img.shields.io/npm/dt/@ask-llm/plugin)](https://www.npmjs.com/package/@ask-llm/plugin) |
-| [`@ask-llm/codex-mcp`](https://www.npmjs.com/package/@ask-llm/codex-mcp) | Codex-only MCP server | [![npm](https://img.shields.io/npm/v/@ask-llm/codex-mcp)](https://www.npmjs.com/package/@ask-llm/codex-mcp) | [![downloads](https://img.shields.io/npm/dt/@ask-llm/codex-mcp)](https://www.npmjs.com/package/@ask-llm/codex-mcp) |
-| [`@ask-llm/claude-mcp`](https://www.npmjs.com/package/@ask-llm/claude-mcp) | Claude-only MCP server | [![npm](https://img.shields.io/npm/v/@ask-llm/claude-mcp)](https://www.npmjs.com/package/@ask-llm/claude-mcp) | [![downloads](https://img.shields.io/npm/dt/@ask-llm/claude-mcp)](https://www.npmjs.com/package/@ask-llm/claude-mcp) |
-| [`@ask-llm/grok-mcp`](https://www.npmjs.com/package/@ask-llm/grok-mcp) | Grok-only MCP server | [![npm](https://img.shields.io/npm/v/@ask-llm/grok-mcp)](https://www.npmjs.com/package/@ask-llm/grok-mcp) | [![downloads](https://img.shields.io/npm/dt/@ask-llm/grok-mcp)](https://www.npmjs.com/package/@ask-llm/grok-mcp) |
-| [`@ask-llm/antigravity-mcp`](https://www.npmjs.com/package/@ask-llm/antigravity-mcp) | Antigravity-only MCP server | [![npm](https://img.shields.io/npm/v/@ask-llm/antigravity-mcp)](https://www.npmjs.com/package/@ask-llm/antigravity-mcp) | [![downloads](https://img.shields.io/npm/dt/@ask-llm/antigravity-mcp)](https://www.npmjs.com/package/@ask-llm/antigravity-mcp) |
-| [`@ask-llm/ollama-mcp`](https://www.npmjs.com/package/@ask-llm/ollama-mcp) | Ollama-only MCP server | [![npm](https://img.shields.io/npm/v/@ask-llm/ollama-mcp)](https://www.npmjs.com/package/@ask-llm/ollama-mcp) | [![downloads](https://img.shields.io/npm/dt/@ask-llm/ollama-mcp)](https://www.npmjs.com/package/@ask-llm/ollama-mcp) |
-| [`@ask-llm/gemini-mcp`](https://www.npmjs.com/package/@ask-llm/gemini-mcp) | Gemini-only MCP server | [![npm](https://img.shields.io/npm/v/@ask-llm/gemini-mcp)](https://www.npmjs.com/package/@ask-llm/gemini-mcp) | [![downloads](https://img.shields.io/npm/dt/@ask-llm/gemini-mcp)](https://www.npmjs.com/package/@ask-llm/gemini-mcp) |
+## Trust and cost
 
-<details>
-<summary>Migrating from the old package names</summary>
+Review runs use read-only provider controls; the assistant you work in remains the editor. Antigravity refuses execution until explicitly enabled and cannot guarantee read-only access after opt-in. Review only material you are allowed to share with the selected provider.
 
-All public MCP packages now live in the `@ask-llm` npm organization. The old names are deprecated, but executable names are unchanged: update the package argument in your MCP config and commands such as `ask-codex-mcp` and `ask-llm-mcp doctor` keep working after a global install.
+Calls consume your existing provider plan's quota or follow that account's billing. Grok's xAI API is a separate, metered option requiring an API key; Ask LLM never enables billing or overage for you. Ollama supports local inference. Ask LLM sends no telemetry; provider and host data policies still apply.
 
-| Old package | Use instead |
-|-------------|-------------|
-| `ask-llm-mcp` | `@ask-llm/mcp` |
-| `ask-codex-mcp` | `@ask-llm/codex-mcp` |
-| `@anton-lykhoyda/ask-claude-mcp` | `@ask-llm/claude-mcp` |
-| `ask-antigravity-mcp` | `@ask-llm/antigravity-mcp` |
-| `ask-ollama-mcp` | `@ask-llm/ollama-mcp` |
-| `ask-gemini-mcp` | `@ask-llm/gemini-mcp` |
-
-The [installation guide](https://lykhoyda.github.io/ask-llm/installation) has the complete package-to-executable mapping.
-
-</details>
+Agreement between models is not proof of correctness. Validate findings against the code, tests, and your requirements. See [data flow](https://lykhoyda.github.io/ask-llm/operation/data-flow) and [costs and fallbacks](https://lykhoyda.github.io/ask-llm/operation/costs).
 
 ## Migrating from @ask-llm/*
 
-For earlier MCP registrations, split provider servers or Pi npm installations, follow the [migration guide](https://lykhoyda.github.io/ask-llm/reference/migration.html) for the setup command, supported automatic changes and manual steps.
+Follow the [migration guide](https://lykhoyda.github.io/ask-llm/reference/migration.html) before retiring earlier registrations.
 
-## Documentation
+[Upgrade or remove](https://lykhoyda.github.io/ask-llm/start/upgrade-remove) · [Troubleshooting](https://lykhoyda.github.io/ask-llm/resources/troubleshooting) · [Documentation](https://lykhoyda.github.io/ask-llm/)
 
-- **Docs site:** [lykhoyda.github.io/ask-llm](https://lykhoyda.github.io/ask-llm/) — [Getting Started](https://lykhoyda.github.io/ask-llm/getting-started), [How It Works](https://lykhoyda.github.io/ask-llm/concepts/how-it-works), [Troubleshooting](https://lykhoyda.github.io/ask-llm/resources/troubleshooting)
-- **For AI agents:** [llms.txt](https://lykhoyda.github.io/ask-llm/llms.txt) · [llms-full.txt](https://lykhoyda.github.io/ask-llm/llms-full.txt)
-
-## Contributing
-
-Contributions are welcome. Start with the [open issues](https://github.com/Lykhoyda/ask-llm/issues) and [CONTRIBUTING.md](docs/CONTRIBUTING.md).
-
-## License
-
-MIT. See [LICENSE](LICENSE).
-
-**Disclaimer:** Ask LLM is an unofficial, third-party tool and is not affiliated with, endorsed, or sponsored by Anthropic, Google, OpenAI, or xAI.
+Contributions: [CONTRIBUTING.md](docs/CONTRIBUTING.md). Licensed under [MIT](LICENSE).
