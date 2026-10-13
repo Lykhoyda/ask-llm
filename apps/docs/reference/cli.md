@@ -12,7 +12,7 @@ description: Setup, removal, diagnostics and existing server modes.
 | `ask-llm setup --dry-run --json` | Preview only; JSON is available only with `--dry-run` |
 | `ask-llm setup --host claude,cursor` | Limit changes to the named hosts |
 | `ask-llm setup -y --host claude` | Answer confirmations for scripted setup |
-| `ask-llm remove` | Remove only registrations running this installed server; print separate workflow-removal commands |
+| `ask-llm remove` | Follow [Upgrade and remove](/start/upgrade-remove) for registration removal and separate workflow cleanup |
 | `ask-llm doctor` | Host, provider and environment diagnostics without inference |
 | `ask-llm doctor --json` | Full structured report |
 | `ask-llm doctor --live` | Optional quota-consuming provider exercise |
