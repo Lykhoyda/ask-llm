@@ -96,6 +96,8 @@ export interface ProviderSpec {
   name: string;
   command: string;
   versionArgs?: string[];
+  // Set false to locate the executable and read local state without starting its CLI; defaults to true.
+  probeVersion?: boolean;
   installHint?: string;
   probeAvailability?: () => Promise<boolean>;
   availabilitySuccess?: string;
@@ -135,10 +137,12 @@ async function probeCommand(
   command: string,
   versionArgs: string[],
   pathEnv: string,
+  probeVersion = true,
 ): Promise<{ cliPath: string | undefined; version: string | undefined; error: string | undefined }> {
   const env = { ...process.env, PATH: pathEnv };
   const cliPath = resolveSpawnCommand(command, env);
   if (!cliPath) return { cliPath: undefined, version: undefined, error: "not found on PATH" };
+  if (!probeVersion) return { cliPath, version: undefined, error: undefined };
 
   const probeHome = command === "gemini" ? mkdtempSync(join(tmpdir(), "ask-llm-gemini-probe-")) : undefined;
   try {
@@ -226,9 +230,9 @@ export async function runDiagnostics(providers: ProviderSpec[]): Promise<Diagnos
     }
 
     const versionArgs = spec.versionArgs ?? ["--version"];
-    const probe = await probeCommand(spec.command, versionArgs, resolvedPath);
+    const probe = await probeCommand(spec.command, versionArgs, resolvedPath, spec.probeVersion);
     let versionAssessment: ProviderVersionAssessment | undefined;
-    if (probe.cliPath !== undefined && spec.assessVersion) {
+    if (probe.cliPath !== undefined && spec.probeVersion !== false && spec.assessVersion) {
       try {
         versionAssessment = await spec.assessVersion(probe.version, probe.error);
       } catch (error) {
@@ -279,7 +283,7 @@ export async function runDiagnostics(providers: ProviderSpec[]): Promise<Diagnos
       checks.push({
         name: `Provider: ${spec.name}`,
         status: "pass",
-        message: `${probe.version ?? "available"} at ${probe.cliPath}`,
+        message: `${probe.version ?? (spec.probeVersion === false ? "installed (version check skipped)" : "available")} at ${probe.cliPath}`,
       });
     }
   }

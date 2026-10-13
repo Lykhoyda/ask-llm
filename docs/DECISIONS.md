@@ -1,5 +1,15 @@
 # Architectural Decisions
 
+## ADR-186: Doctor gates sandboxed Antigravity quota diagnostics on agy 1.2.13 or newer
+
+**Status:** Accepted (2026-10-13). Addresses slice 1 of #268; extends ADR-178 and ADR-179.
+
+**Context:** [The sandbox-probe evidence](https://github.com/Lykhoyda/ask-llm/pull/366) records `agy -p /quota --output-format json --sandbox` exiting 0 on agy 1.2.13 with `num_turns: 0` and zero token usage. It explicitly leaves the sandboxed probe unverified on 1.1.11–1.2.12. The earlier 1.2.12 no-turn capture omitted `--sandbox`, so it does not establish doctor eligibility.
+
+**Decision:** Only `ask-llm doctor --live` probes Antigravity quota, on agy 1.2.13 or newer. The corrected decision accepts newer releases so each upgrade does not silently disable the probe; the recorded sandboxed no-turn proof remains specific to 1.2.13. Older or unparseable versions are skipped. The gate, skip message, and help share `DOCTOR_QUOTA_MIN_VERSION`. Doctor reuses the executor's quota invocation and tab-separated response parsing, with an unconditional sandbox and a five-second budget. It prints the detected agy version next to quota rows or probe failure/timeout warnings so changes in newer releases are visible, or a plain skip line requiring agy 1.2.13 or newer, and continues the remaining diagnostics. This built-in does not require the model executor's unisolated-execution opt-in; existing live model calls retain their permission rules. Default doctor only locates agy and reads local configuration: both provider and host version probes stay off, so no agy process starts.
+
+**Consequences:** The doctor's minimum version (1.2.13) differs from the unchanged rate-limit-path `QUOTA_COMMAND_MIN_VERSION` (1.1.11); verifying or tightening that historical gate is a follow-up. #268 remains open for model/effort enumeration and remaining rate-limit diagnostics. Linux verification uses recorded fixtures and a fake CLI; real agy acceptance on macOS remains required before merge.
+
 ## ADR-185: `ask-llm setup` migrates earlier installations: reuse, replace, retire or guidance
 
 **Status:** Accepted (2026-10-02). Implements ADR-179's migration rule (slice S8); keeps ADR-180's ownership, backup and reporting rules and ADR-182's file rules. Narrows ADR-183's Pi registration: only the local installed-package path managed by setup proves compatibility; npm package registrations receive guidance.

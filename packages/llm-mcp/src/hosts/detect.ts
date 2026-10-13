@@ -418,10 +418,14 @@ async function findBinary(spec: HostSpec): Promise<string | undefined> {
   return undefined;
 }
 
-async function detectHost(spec: HostSpec, env: NodeJS.ProcessEnv): Promise<DetectedHost> {
+async function detectHost(spec: HostSpec, env: NodeJS.ProcessEnv, skipVersion: boolean): Promise<DetectedHost> {
   const binary = await findBinary(spec);
   const installed = binary !== undefined || (spec.apps ?? []).some((app) => existsSync(app));
-  const { version, versionError } = binary ? await probeVersion(spec, binary, env) : {};
+  const { version, versionError } = binary
+    ? skipVersion
+      ? { versionError: "version check skipped (requires --live)" }
+      : await probeVersion(spec, binary, env)
+    : {};
   const supported = installed && (!binary || !spec.versionProbe || version !== undefined);
   const registration =
     spec.registrationState.kind === "list" && binary && !supported
@@ -441,7 +445,14 @@ async function detectHost(spec: HostSpec, env: NodeJS.ProcessEnv): Promise<Detec
   };
 }
 
-export async function detectHosts(env: NodeJS.ProcessEnv = process.env): Promise<DetectedHost[]> {
+export async function detectHosts(
+  env: NodeJS.ProcessEnv = process.env,
+  options: { skipVersionFor?: HostId[] } = {},
+): Promise<DetectedHost[]> {
   const spawnEnv = { ...env, PATH: getSpawnEnv().PATH };
-  return Promise.all(hostSpecs(env).map((spec) => detectHost(spec, { ...spawnEnv, ...spec.env })));
+  return Promise.all(
+    hostSpecs(env).map((spec) =>
+      detectHost(spec, { ...spawnEnv, ...spec.env }, options.skipVersionFor?.includes(spec.id) ?? false),
+    ),
+  );
 }

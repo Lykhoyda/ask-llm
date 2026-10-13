@@ -40,6 +40,8 @@ TOON is explicit opt-in. It changes only this CLI rendering; MCP tools/resources
 
 After a global install, `ask-llm doctor` adds host installation, registration and restart guidance to text and JSON output; unreadable registrations are unknown, and unrecognized versions show a manual step. Each installed host also gets the rows from the [host parity matrix](https://github.com/Lykhoyda/ask-llm/blob/main/docs/HOST-PARITY.md), printed beneath its text entry and included in its JSON `parity` object; hosts that are not installed omit these rows. TOON remains provider-only. Each provider reports `installed`, `authenticated` and `permitted` from local signals (`unknown` means the signal is inconclusive; `permitted` is `no` only when Ask LLM gates the provider, currently Antigravity). By default, `exercised` is `not-run` and no model call is made. Explicit `ask-llm doctor --live` (text or `--json`, not TOON) sends one minimal real prompt to each ready provider, may spend provider quota, and reports `exercised` as `yes` or `no` with the failure in the checks.
 
+`--live` also checks Antigravity quota on agy 1.2.13 or newer. See [Antigravity quota diagnostics](https://lykhoyda.github.io/ask-llm/providers/antigravity#quota-diagnostics) for sandboxing, version reporting, skipped checks, warnings, and default doctor's process boundary.
+
 ## Machine Protocol
 
 The [CLI reference](https://lykhoyda.github.io/ask-llm/reference/cli#machine-protocol) owns the stdin request/result contract, schema bundle, module exports and exit codes.
