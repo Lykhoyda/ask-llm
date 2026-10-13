@@ -111,20 +111,23 @@ describe("doctor Antigravity quota", () => {
     },
   );
 
-  it.each(["1.2.13", "1.2.14", "2.0.0"])("reports sandboxed quota with the detected version in JSON (%s)", async (version) => {
-    writeFileSync(join(home, "version"), version);
-    await runDoctorCli(["--live", "--json"], "/nonexistent/ask-llm.js");
-    expect(JSON.parse(output).checks).toContainEqual({
-      name: "Quota: Antigravity",
-      status: "pass",
-      message: `agy ${version}: Gemini Models Five Hour Limit Remaining: 0% (resets 2026-09-27T20:10:40Z)`,
-    });
-    expect(spawn).toHaveBeenCalledWith(
-      "agy",
-      ["-p", "/quota", "--output-format", "json", "--sandbox"],
-      expect.any(Object),
-    );
-  });
+  it.each(["1.2.13", "1.2.14", "2.0.0"])(
+    "reports sandboxed quota with the detected version in JSON (%s)",
+    async (version) => {
+      writeFileSync(join(home, "version"), version);
+      await runDoctorCli(["--live", "--json"], "/nonexistent/ask-llm.js");
+      expect(JSON.parse(output).checks).toContainEqual({
+        name: "Quota: Antigravity",
+        status: "pass",
+        message: `agy ${version}: Gemini Models Five Hour Limit Remaining: 0% (resets 2026-09-27T20:10:40Z)`,
+      });
+      expect(spawn).toHaveBeenCalledWith(
+        "agy",
+        ["-p", "/quota", "--output-format", "json", "--sandbox"],
+        expect.any(Object),
+      );
+    },
+  );
 
   it("reports probe failure without failing the rest of doctor", async () => {
     writeFileSync(join(home, "failure"), "sandbox unavailable");
@@ -149,7 +152,9 @@ describe("doctor Antigravity quota", () => {
     const quota = JSON.parse(readFileSync(join(home, "quota"), "utf8"));
     writeFileSync(join(home, "quota"), JSON.stringify({ ...quota, status: "TIMEOUT" }));
     expect(await runDoctorCli(["--live"], "/nonexistent/ask-llm.js")).toBe(0);
-    expect(output).toContain("Quota: Antigravity: agy 1.2.13: quota check failed: agy /quota returned truncated output");
+    expect(output).toContain(
+      "Quota: Antigravity: agy 1.2.13: quota check failed: agy /quota returned truncated output",
+    );
   });
 
   it.each(["not JSON", '{"response":"not quota rows"}'])("reports malformed probe output (%s)", async (quota) => {
