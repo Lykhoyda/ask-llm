@@ -199,7 +199,9 @@ async function runRegistrar(
 ): Promise<Changed | Applied> {
   const run = await runHost(host.binary as string, argv.slice(1), spawnEnv, HOST_COMMAND_TIMEOUT_MS);
   const output = `${run.stderr}\n${run.stdout}`;
-  const benign = (op === "add" ? ALREADY_EXISTS : NOT_FOUND).test(output);
+  // Package commands may emit unrelated provider diagnostics, not MCP registrar results.
+  const benign =
+    host.spec.registrationState.kind !== "packages" && (op === "add" ? ALREADY_EXISTS : NOT_FOUND).test(output);
   if (run.code !== 0 && !benign) {
     return {
       outcome: "failed",

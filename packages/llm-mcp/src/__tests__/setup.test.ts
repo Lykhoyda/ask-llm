@@ -131,6 +131,9 @@ if (${JSON.stringify(mode)} === "fail") { console.error("install failed"); proce
 if (${JSON.stringify(mode)} === "silent") process.exit(0);
 if (args.length !== 2 || (args[0] !== "install" && args[0] !== "remove")) process.exit(9);
 if (args[0] === "remove") {
+  if (${JSON.stringify(mode)} === "provider-warnings") {
+    console.error("[GMCPT] Provider Gemini (gemini) — Gemini (gemini) was not found on PATH.");
+  }
   const file = join(process.env.PI_CODING_AGENT_DIR || join(process.env.HOME, ".pi/agent"), "settings.json");
   const settings = JSON.parse(readFileSync(file, "utf8"));
   settings.packages = settings.packages.filter((entry) => {
@@ -303,10 +306,14 @@ describe("ask-llm setup", () => {
     expect(result.stdout).toContain("Gemini CLI: skipped (not installed)");
   });
 
-  it.each([{ selection: [] }, { selection: ["--host", "pi"] }])(
-    "installs Pi from this package with setup -y $selection",
-    ({ selection }) => {
-      installPi();
+  it.each([
+    { selection: [], mode: "ok" },
+    { selection: ["--host", "pi"], mode: "ok" },
+    { selection: ["--host", "pi"], mode: "provider-warnings" },
+  ])(
+    "installs Pi from this package with setup -y $selection ($mode)",
+    ({ selection, mode }) => {
+      installPi(mode);
       const settings = join(home, ".pi/agent/settings.json");
       const original = JSON.stringify({ theme: "dark", packages: ["npm:other"] });
       mkdirSync(join(settings, ".."), { recursive: true });
@@ -340,12 +347,14 @@ describe("ask-llm setup", () => {
       expect(second.stdout).toContain("Pi 0.87.1: already registered");
       expect(second.stdout).toContain("Pi skills: already installed");
       const removed = ask("remove", "-y", "--host", "pi");
+      expect(removed.status).toBe(0);
+      expect(JSON.parse(readFileSync(settings, "utf8"))).toEqual({ theme: "dark", packages: ["npm:other"] });
       expect(removed.stdout).toContain("Pi 0.87.1: removed");
+      expect(removed.stdout).not.toContain("No changes.");
       expect(fakeArgv(home, "pi")).toEqual([
         ["install", packageRoot],
         ["remove", packageRoot],
       ]);
-      expect(JSON.parse(readFileSync(settings, "utf8"))).toEqual({ theme: "dark", packages: ["npm:other"] });
     },
   );
 
