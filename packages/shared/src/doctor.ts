@@ -96,7 +96,7 @@ export interface ProviderSpec {
   name: string;
   command: string;
   versionArgs?: string[];
-  // Locate the executable and read local state without starting its CLI.
+  // Set false to locate the executable and read local state without starting its CLI; defaults to true.
   probeVersion?: boolean;
   installHint?: string;
   probeAvailability?: () => Promise<boolean>;

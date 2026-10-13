@@ -27,6 +27,8 @@ Ordinary diagnostics do not make paid inference calls. The host report includes 
 
 `ask-llm doctor --live` exercises ready, permitted providers with a small prompt in a temporary directory. It may consume quota or incur provider charges. Run it only when you choose to test that boundary. Skipped providers are not reported as successful. It does not run a review of your project.
 
+It also checks [Antigravity quota](/providers/antigravity#quota-diagnostics); that reference explains the version gate, sandboxing and why default doctor leaves agy's version unchecked.
+
 ## Formats
 
 ```bash
