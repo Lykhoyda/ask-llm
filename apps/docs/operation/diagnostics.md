@@ -34,6 +34,6 @@ ask-llm doctor --format toon
 ask-llm doctor --format toon --full
 ```
 
-JSON remains the full automation interface; TOON is a bounded, versioned agent-facing presentation. Doctor exits 1 on an error, 0 on an OK or warning report, and 2 on invalid arguments. The existing server's `doctor` mode is provider-only; the `ask-llm doctor` command adds hosts.
+JSON remains the full automation interface; TOON is a bounded, versioned, provider-only presentation and cannot be combined with `--live`. Doctor exits 1 on an error, 0 on an OK or warning report, and 2 on invalid arguments. The existing server's `doctor` mode is provider-only; `ask-llm doctor` adds hosts in text and JSON formats.
 
 Use `ask-llm doctor --help` for the exact options. If the report is healthy but a call fails, inspect [authentication](/operation/authentication), the provider's limits, and [troubleshooting](/resources/troubleshooting).

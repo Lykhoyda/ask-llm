@@ -21,7 +21,7 @@ function walk(directory: string, extension: string, exceptions: boolean) {
     if (exceptions && ["reference", "providers"].includes(entry.name)) continue;
     if (entry.name.startsWith(".")) continue;
     const path = join(directory, entry.name);
-    if (entry.isDirectory()) walk(path, extension, exceptions);
+    if (entry.isDirectory()) walk(path, extension, false);
     else if (entry.name.endsWith(extension)) check(path);
   }
 }

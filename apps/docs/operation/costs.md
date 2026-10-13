@@ -63,7 +63,7 @@ For Grok, choose the harness first. Discover API IDs with authenticated `GET htt
 For Codex, common overrides:
 
 ```text
-Use ask-codex with model gpt-5.6-terra to summarize this commit
+Use ask-llm with provider codex and model gpt-5.6-terra to summarize this commit
 ```
 
 For Ollama, you can request any model you've pulled:
@@ -73,7 +73,7 @@ ollama pull deepseek-coder:6.7b
 ```
 
 ```text
-Use ask-ollama with model deepseek-coder:6.7b to review this implementation
+Use ask-llm with provider ollama and model deepseek-coder:6.7b to review this implementation
 ```
 
 For Antigravity, `ask-antigravity` requires `agy` ≥1.1.5 and has no per-call `model` argument — configure it via env vars:

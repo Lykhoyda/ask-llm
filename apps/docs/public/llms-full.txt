@@ -572,7 +572,7 @@ ask-llm doctor --format toon
 ask-llm doctor --format toon --full
 ```
 
-JSON remains the full automation interface; TOON is a bounded, versioned agent-facing presentation. Doctor exits 1 on an error, 0 on an OK or warning report, and 2 on invalid arguments. The existing server's `doctor` mode is provider-only; the `ask-llm doctor` command adds hosts.
+JSON remains the full automation interface; TOON is a bounded, versioned, provider-only presentation and cannot be combined with `--live`. Doctor exits 1 on an error, 0 on an OK or warning report, and 2 on invalid arguments. The existing server's `doctor` mode is provider-only; `ask-llm doctor` adds hosts in text and JSON formats.
 
 Use `ask-llm doctor --help` for the exact options. If the report is healthy but a call fails, inspect [authentication](https://lykhoyda.github.io/ask-llm/operation/authentication), the provider's limits, and [troubleshooting](https://lykhoyda.github.io/ask-llm/resources/troubleshooting).
 
@@ -699,7 +699,7 @@ For Grok, choose the harness first. Discover API IDs with authenticated `GET htt
 For Codex, common overrides:
 
 ```text
-Use ask-codex with model gpt-5.6-terra to summarize this commit
+Use ask-llm with provider codex and model gpt-5.6-terra to summarize this commit
 ```
 
 For Ollama, you can request any model you've pulled:
@@ -709,7 +709,7 @@ ollama pull deepseek-coder:6.7b
 ```
 
 ```text
-Use ask-ollama with model deepseek-coder:6.7b to review this implementation
+Use ask-llm with provider ollama and model deepseek-coder:6.7b to review this implementation
 ```
 
 For Antigravity, `ask-antigravity` requires `agy` ≥1.1.5 and has no per-call `model` argument — configure it via env vars:
@@ -1155,7 +1155,7 @@ ask-llm doctor --format toon         # bounded, versioned agent-facing TOON pilo
 ask-llm doctor --format toon --full  # full TOON escape hatch
 ```
 
-After a global install, use `ask-llm doctor` for host and provider states. The optional `--live` check may spend provider quota; see [Doctor output formats](https://github.com/Lykhoyda/ask-llm/blob/main/packages/llm-mcp/README.md#doctor-output-formats) for the state meanings and output formats.
+After a global install, use `ask-llm doctor` for host and provider states. The optional `--live` check may spend provider quota; see [Diagnostics / doctor](https://lykhoyda.github.io/ask-llm/operation/diagnostics) for the state meanings and output formats.
 
 
 
