@@ -27,6 +27,11 @@ it.each([
   ["<scr</TroubleshootingModal>ipt>", "<scr\nipt>"],
   ["before<SCRIPT>hidden</SCRIPT>after", "before\nafter"],
   ["before<ScRiPt setup>hidden</sCrIpT>after", "before\nafter"],
+  ["before<script>hidden</script >after", "before\nafter"],
+  ["before<script setup>hidden</script\t\r\n>after", "before\nafter"],
+  ["before<SCRIPT>hidden</ScRiPt/>after", "before\nafter"],
+  ['before<script>hidden</script ignored="value">after', "before\nafter"],
+  ["before<script>hidden</scripture>still hidden</script>after", "before\nafter"],
   [
     '<TroubleshootingModal title="Missing CLI" preview="Install the provider">\nRun setup.\n</TroubleshootingModal>',
     "### Missing CLI\n\nInstall the provider\nRun setup.",

@@ -74,7 +74,7 @@ export function llmsFiles(): Record<string, string> {
           "See the install command above; select your host, inspect the preview, and confirm.",
         )
         .replace(/<[A-Z][^>]*\/>/g, "\n")
-        .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, "\n")
+        .replace(/<script\b[^>]*>[\s\S]*?<\/script\b[^>]*>/gi, "\n")
         .replace(/<!--[\s\S]*?-->/g, "\n")
         .replace(/<TroubleshootingModal\b([^>]*)>/g, (_, attributes: string) => {
           const { title, preview } = Object.fromEntries(
