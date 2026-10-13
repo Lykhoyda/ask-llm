@@ -1,3 +1,4 @@
+import { DOCTOR_QUOTA_VERIFIED_VERSIONS } from "@ask-llm/antigravity-mcp/executor";
 import { type DiagnosticReport, formatDiagnosticReport, type ProviderProbe } from "@ask-llm/shared";
 import { decode, encode } from "@toon-format/toon";
 
@@ -182,7 +183,7 @@ export function doctorHelp(includeHosts = false): string {
       ? [
           "  --live        Opt-in, never the default: spends provider quota by sending one",
           "                minimal real prompt to each ready provider (text/JSON only)",
-          "                Also checks sandboxed Antigravity quota on agy >=1.2.13.",
+          `                Also checks sandboxed Antigravity quota; verified only on agy ${DOCTOR_QUOTA_VERIFIED_VERSIONS.join(", ")}.`,
           "                Without --live, doctor never starts agy (including --version).",
         ]
       : []),

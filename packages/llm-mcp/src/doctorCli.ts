@@ -1,7 +1,7 @@
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { DOCTOR_QUOTA_MIN_VERSION, isVersionAtLeast, probeAntigravityQuota } from "@ask-llm/antigravity-mcp/executor";
+import { DOCTOR_QUOTA_VERIFIED_VERSIONS, probeAntigravityQuota } from "@ask-llm/antigravity-mcp/executor";
 import {
   type DiagnosticCheck,
   type DiagnosticReport,
@@ -34,8 +34,12 @@ async function antigravityQuotaCheck(report: DiagnosticReport): Promise<Diagnost
   const provider = report.providers.find((provider) => provider.command === "agy");
   if (!provider) return undefined;
   const name = "Quota: Antigravity";
-  if (!isVersionAtLeast(provider.cliVersion ?? "", DOCTOR_QUOTA_MIN_VERSION)) {
-    return { name, status: "skip", message: `quota check skipped; needs agy >=${DOCTOR_QUOTA_MIN_VERSION}` };
+  if (!DOCTOR_QUOTA_VERIFIED_VERSIONS.some((version) => version === provider.cliVersion)) {
+    return {
+      name,
+      status: "skip",
+      message: `quota check skipped; verified only on agy ${DOCTOR_QUOTA_VERIFIED_VERSIONS.join(", ")}`,
+    };
   }
   try {
     return { name, status: "pass", message: await probeAntigravityQuota() };

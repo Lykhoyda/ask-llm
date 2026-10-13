@@ -84,7 +84,7 @@ export const ANTIGRAVITY = {
   QUOTA_COMMAND: "/quota",
   QUOTA_COMMAND_MIN_VERSION: "1.1.11",
   // https://github.com/Lykhoyda/ask-llm/pull/366 records sandboxed /quota with num_turns 0 and zero usage on 1.2.13 only.
-  DOCTOR_QUOTA_MIN_VERSION: "1.2.13",
+  DOCTOR_QUOTA_VERIFIED_VERSIONS: ["1.2.13"],
   // agy >=1.2.6 prints this stderr line on a failed headless turn and exits 3.
   STRUCTURED_ERROR_PREFIX: "AGY_ERROR:",
   // Lowercased substrings; isRateLimitError() lowercases the message first.

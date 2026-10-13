@@ -2,8 +2,8 @@ import { EXECUTION, executeCommand, Logger, resolveTimeoutMs, type UsageStats } 
 import { ANTIGRAVITY, CLI, ERROR_MESSAGES, MODELS, OUTPUT_FORMATS, READ_ONLY_PREAMBLE } from "../constants.js";
 import { assertSupportedAgyVersion, isVersionAtLeast } from "./agyVersion.js";
 
-export { assessAgyVersion, isVersionAtLeast, probeAgySupport } from "./agyVersion.js";
-export const DOCTOR_QUOTA_MIN_VERSION = ANTIGRAVITY.DOCTOR_QUOTA_MIN_VERSION;
+export { assessAgyVersion, probeAgySupport } from "./agyVersion.js";
+export const DOCTOR_QUOTA_VERIFIED_VERSIONS = ANTIGRAVITY.DOCTOR_QUOTA_VERIFIED_VERSIONS;
 
 export interface AntigravityExecutorOptions {
   prompt: string;

@@ -38,7 +38,7 @@ Or install globally: `npm install -g @ask-llm/antigravity-mcp`
 
 ## Quota diagnostics
 
-`ask-llm doctor --live` also reports Antigravity's remaining quota and reset times via the sandboxed `/quota` built-in on agy ≥ 1.2.13. Older or unparseable versions skip the quota check with the required version; failures and a five-second timeout are warnings. The quota probe needs no unisolated-execution opt-in and always uses `--sandbox`. The flag still permits minimal model calls to other ready providers, which may spend quota. Without `--live`, doctor starts no agy process, including version probes.
+`ask-llm doctor --live` also reports Antigravity's remaining quota and reset times via the sandboxed `/quota` built-in only on explicitly verified agy versions (currently 1.2.13). Every other version, older, newer, or unparseable, skips the quota check with a line listing the verified versions; failures and a five-second timeout are warnings. The quota probe needs no unisolated-execution opt-in and always uses `--sandbox`. The flag still permits minimal model calls to other ready providers, which may spend quota. Without `--live`, doctor starts no agy process, including version probes.
 
 ## Models
 

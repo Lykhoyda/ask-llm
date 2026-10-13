@@ -84,6 +84,12 @@ describe("doctor Antigravity quota", () => {
     vi.unstubAllEnvs();
   });
 
+  it("lists the verified quota versions in help without starting agy", async () => {
+    expect(await runDoctorCli(["--help"], "/nonexistent/ask-llm.js")).toBe(0);
+    expect(output).toContain("Also checks sandboxed Antigravity quota; verified only on agy 1.2.13.");
+    expect(existsSync(join(home, "argv"))).toBe(false);
+  });
+
   it.each([[], ["--json"], ["--format", "toon"]])(
     "never enters the agy spawn path without --live (%j)",
     async (...args) => {
@@ -94,23 +100,26 @@ describe("doctor Antigravity quota", () => {
     },
   );
 
-  it.each(["1.1.11", "1.2.12", "1.2.13-beta.1", "unparseable"])(
-    "skips quota on %s and states the minimum",
+  it.each(["1.1.11", "1.2.12", "1.2.13-beta.1", "1.2.14", "2.0.0", "unparseable", ""])(
+    "skips quota on %s and states the verified versions",
     async (version) => {
       writeFileSync(join(home, "version"), version);
       await runDoctorCli(["--live"], "/nonexistent/ask-llm.js");
-      expect(output).toContain("Quota: Antigravity: quota check skipped; needs agy >=1.2.13");
+      expect(output).toContain("Quota: Antigravity: quota check skipped; verified only on agy 1.2.13");
       expect(vi.mocked(spawn).mock.calls.every(([, args]) => !args?.includes("/quota"))).toBe(true);
       expect(readFileSync(join(home, "argv"), "utf8")).not.toContain("/quota");
     },
   );
 
-  it.each(["1.2.14", "2.0.0"])("accepts versions above the minimum (%s)", async (version) => {
+  it.each(["1.2.14", "2.0.0"])("reports newer versions as skipped in JSON (%s)", async (version) => {
     writeFileSync(join(home, "version"), version);
     await runDoctorCli(["--live", "--json"], "/nonexistent/ask-llm.js");
-    expect(JSON.parse(output).checks).toContainEqual(
-      expect.objectContaining({ name: "Quota: Antigravity", status: "pass" }),
-    );
+    expect(JSON.parse(output).checks).toContainEqual({
+      name: "Quota: Antigravity",
+      status: "skip",
+      message: "quota check skipped; verified only on agy 1.2.13",
+    });
+    expect(vi.mocked(spawn).mock.calls.every(([, args]) => !args?.includes("/quota"))).toBe(true);
   });
 
   it("reports probe failure without failing the rest of doctor", async () => {
