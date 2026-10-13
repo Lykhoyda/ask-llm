@@ -113,7 +113,7 @@ See the [host parity matrix](https://github.com/Lykhoyda/ask-llm/blob/main/docs/
 
 ## Update and remove
 
-See [Upgrade and remove](/start/upgrade-remove). For the setup-managed local package, `pi list` shows the path to pass to `pi remove`. Skills and user-owned pairing state remain until explicitly removed or revoked. Earlier npm sources remain unchanged; follow [Migration](/reference/migration) before retiring them.
+Follow [Upgrade and remove](/start/upgrade-remove) for Pi package removal, workflow cleanup and retained user state, and [Migration](/reference/migration) for earlier npm installations.
 
 ## Troubleshooting
 

@@ -3,10 +3,10 @@ import { detectHosts } from "./hosts/detect.js";
 import { type HostId, hostSpecs } from "./hosts/registry.js";
 import { applyMigration, MIGRATION_GUIDE, type MigrationFinding, planMigration } from "./migrate.js";
 import { buildPlan, commandText, genericSnippet, type PlanEntry, resolveServerPath, type ServerPath } from "./plan.js";
-import { installPlugins, type PluginPlan, planPlugins } from "./plugins.js";
+import { installPlugins, type PluginPlan, planPlugins, pluginRemovalNotes } from "./plugins.js";
 import { applyRemove } from "./remove.js";
 import { applySetup, type Confirm, type HostResult, type HostStatus, UNSUCCESSFUL } from "./setup.js";
-import { installSkills, planSkills, SKILLS_CLI_VERSION, type SkillsPlan, type WorkflowResult } from "./skills.js";
+import { installSkills, planSkills, type SkillsPlan, skillsRemovalNotes, type WorkflowResult } from "./skills.js";
 
 const HOST_IDS = hostSpecs().map(({ id }) => id);
 
@@ -55,6 +55,10 @@ export function removeHelp(): string {
     "Remove the ask-llm entries that run this ask-llm-mcp, through each host's own command",
     "or from its config file.",
     "Entries that run anything else are left in place.",
+    "Pi removes only this installed package's local entry through pi remove; other",
+    "package entries and local entries with custom filters are left in place.",
+    "Workflows stay installed. Matching skill copies get separate cleanup commands;",
+    "the Claude Code plugin gets no uninstall command because setup records no ownership.",
     "",
     "Options:",
     "  -y, --yes      Remove without asking (for scripts)",
@@ -167,8 +171,6 @@ function formatPreview(
     "",
   ].join("\n");
 }
-
-const REMOVE_WORKFLOWS_NOTE = `Workflows are left installed. To remove them: \`claude plugin uninstall ask-llm@ask-llm-plugins\` and \`npx -y skills@${SKILLS_CLI_VERSION} remove -g -y <ask-llm-* skill names>\`.`;
 
 const REFORMAT_NOTICE =
   "The host's own command may reformat its config file, and a JSON file setup edits is rewritten with its indentation kept; unrelated entries keep their meaning. Each backup may contain credentials, stays next to the original with the same permissions, and remains until you delete it.";
@@ -355,6 +357,7 @@ export async function runRemoveCli(args: string[], ownCli: string): Promise<numb
   const results = await withConfirm(options.yes, (confirm) =>
     applyRemove(hosts, server.path, options.hosts, confirm, process.env),
   );
-  process.stdout.write(`${REMOVE_WORKFLOWS_NOTE}\n`);
+  for (const note of [...pluginRemovalNotes(hosts, options.hosts), ...skillsRemovalNotes(hosts, options.hosts)])
+    process.stdout.write(`${note}\n`);
   return report(results, ["removed"]);
 }

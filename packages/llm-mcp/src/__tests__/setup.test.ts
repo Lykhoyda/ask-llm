@@ -19,6 +19,7 @@ import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { detectHosts } from "../hosts/detect.js";
 import { type HostId, hostSpecs } from "../hosts/registry.js";
 import { commandText } from "../plan.js";
+import { applyRemove } from "../remove.js";
 import { applySetup } from "../setup.js";
 import {
   FAKE_HOSTS,
@@ -53,6 +54,7 @@ const env = {
   XDG_CACHE_HOME: join(home, ".cache"),
   XDG_DATA_HOME: join(home, ".local/share"),
   XDG_STATE_HOME: join(home, ".local/state"),
+  PI_CODING_AGENT_DIR: join(home, ".pi/agent"),
   PATH: path,
   ASK_LLM_PATH: path,
 };
@@ -121,7 +123,7 @@ function installPi(mode = "ok"): void {
     join(bin, "pi"),
     `#!${process.execPath}
 import { appendFileSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { join, relative } from "node:path";
+import { dirname, join, relative, resolve } from "node:path";
 const args = process.argv.slice(2);
 if (args[0] === "--version") { console.log("0.87.1"); process.exit(0); }
 appendFileSync(join(process.env.HOME, ".fake-pi-argv"), args.join("\\t") + "\\t\\n");
@@ -129,9 +131,15 @@ if (${JSON.stringify(mode)} === "fail") { console.error("install failed"); proce
 if (${JSON.stringify(mode)} === "silent") process.exit(0);
 if (args.length !== 2 || (args[0] !== "install" && args[0] !== "remove")) process.exit(9);
 if (args[0] === "remove") {
+  if (${JSON.stringify(mode)} === "provider-warnings") {
+    console.error("[GMCPT] Provider Gemini (gemini) — Gemini (gemini) was not found on PATH.");
+  }
   const file = join(process.env.PI_CODING_AGENT_DIR || join(process.env.HOME, ".pi/agent"), "settings.json");
   const settings = JSON.parse(readFileSync(file, "utf8"));
-  settings.packages = settings.packages.filter((entry) => entry !== args[1]);
+  settings.packages = settings.packages.filter((entry) => {
+    const source = typeof entry === "string" ? entry : entry.source;
+    return /^(npm|git|https?):/.test(source) || resolve(dirname(file), source) !== args[1];
+  });
   writeFileSync(file, JSON.stringify(settings));
   process.exit(0);
 }
@@ -298,48 +306,54 @@ describe("ask-llm setup", () => {
     expect(result.stdout).toContain("Gemini CLI: skipped (not installed)");
   });
 
-  it.each([{ selection: [] }, { selection: ["--host", "pi"] }])(
-    "installs Pi from this package with setup -y $selection",
-    ({ selection }) => {
-      installPi();
-      const settings = join(home, ".pi/agent/settings.json");
-      const original = JSON.stringify({ theme: "dark", packages: ["npm:other"] });
-      mkdirSync(join(settings, ".."), { recursive: true });
-      writeFileSync(settings, original);
+  it.each([
+    { selection: [], mode: "ok" },
+    { selection: ["--host", "pi"], mode: "ok" },
+    { selection: ["--host", "pi"], mode: "provider-warnings" },
+  ])("installs Pi from this package with setup -y $selection ($mode)", ({ selection, mode }) => {
+    installPi(mode);
+    const settings = join(home, ".pi/agent/settings.json");
+    const original = JSON.stringify({ theme: "dark", packages: ["npm:other"] });
+    mkdirSync(join(settings, ".."), { recursive: true });
+    writeFileSync(settings, original);
 
-      const preview = ask("setup", "--dry-run", "--json", "--host", "pi");
-      const plan = JSON.parse(preview.stdout);
-      expect(plan.hosts[0].registration.argv).toEqual(["pi", "install", packageRoot]);
-      expect(plan.workflows.skills.source).toEqual({ dir: packageRoot, version: INSTALLED_VERSION });
-      expect(fakeArgv(home, "pi")).toEqual([]);
-      expect(readFileSync(settings, "utf8")).toBe(original);
+    const preview = ask("setup", "--dry-run", "--json", "--host", "pi");
+    const plan = JSON.parse(preview.stdout);
+    expect(plan.hosts[0].registration.argv).toEqual(["pi", "install", packageRoot]);
+    expect(plan.workflows.skills.source).toEqual({ dir: packageRoot, version: INSTALLED_VERSION });
+    expect(fakeArgv(home, "pi")).toEqual([]);
+    expect(readFileSync(settings, "utf8")).toBe(original);
 
-      const result = ask("setup", "-y", ...selection);
-      expect(result.status, result.stderr).toBe(selection.length ? 0 : 1);
-      expect(result.stdout).toContain("Pi 0.87.1: registered");
-      expect(result.stdout).toContain("Pi skills: installed");
-      expect(result.stdout).not.toContain("Run it manually: pi install");
-      expect(fakeArgv(home, "pi")).toEqual([["install", packageRoot]]);
-      expect(readFileSync(join(home, ".fake-pi-version"), "utf8")).toBe(INSTALLED_VERSION);
-      const installed = readFileSync(settings, "utf8");
-      expect(JSON.parse(installed)).toEqual({
-        theme: "dark",
-        packages: ["npm:other", relative(join(home, ".pi/agent"), packageRoot)],
-      });
-      const backup = backups().find((file) => file.startsWith(".pi/agent/settings.json.ask-llm-backup-"));
-      expect(backup).toBeDefined();
-      expect(readFileSync(join(home, backup as string), "utf8")).toBe(original);
+    const result = ask("setup", "-y", ...selection);
+    expect(result.status, result.stderr).toBe(selection.length ? 0 : 1);
+    expect(result.stdout).toContain("Pi 0.87.1: registered");
+    expect(result.stdout).toContain("Pi skills: installed");
+    expect(result.stdout).not.toContain("Run it manually: pi install");
+    expect(fakeArgv(home, "pi")).toEqual([["install", packageRoot]]);
+    expect(readFileSync(join(home, ".fake-pi-version"), "utf8")).toBe(INSTALLED_VERSION);
+    const installed = readFileSync(settings, "utf8");
+    expect(JSON.parse(installed)).toEqual({
+      theme: "dark",
+      packages: ["npm:other", relative(join(home, ".pi/agent"), packageRoot)],
+    });
+    const backup = backups().find((file) => file.startsWith(".pi/agent/settings.json.ask-llm-backup-"));
+    expect(backup).toBeDefined();
+    expect(readFileSync(join(home, backup as string), "utf8")).toBe(original);
 
-      const second = ask("setup", "-y", "--host", "pi");
-      expect(second.status).toBe(0);
-      expect(second.stdout).toContain("Pi 0.87.1: already registered");
-      expect(second.stdout).toContain("Pi skills: already installed");
-      const removed = ask("remove", "-y", "--host", "pi");
-      expect(removed.stdout).toContain("remove does not handle Pi yet");
-      expect(fakeArgv(home, "pi")).toEqual([["install", packageRoot]]);
-      expect(readFileSync(settings, "utf8")).toBe(installed);
-    },
-  );
+    const second = ask("setup", "-y", "--host", "pi");
+    expect(second.status).toBe(0);
+    expect(second.stdout).toContain("Pi 0.87.1: already registered");
+    expect(second.stdout).toContain("Pi skills: already installed");
+    const removed = ask("remove", "-y", "--host", "pi");
+    expect(removed.status).toBe(0);
+    expect(JSON.parse(readFileSync(settings, "utf8"))).toEqual({ theme: "dark", packages: ["npm:other"] });
+    expect(removed.stdout).toContain("Pi 0.87.1: removed");
+    expect(removed.stdout).not.toContain("No changes.");
+    expect(fakeArgv(home, "pi")).toEqual([
+      ["install", packageRoot],
+      ["remove", packageRoot],
+    ]);
+  });
 
   it.each(["fail", "silent"])("reports Pi install mode %s as failed with the local manual command", (mode) => {
     installPi(mode);
@@ -687,6 +701,215 @@ describe("ask-llm setup and remove for file hosts", () => {
 });
 
 describe("ask-llm remove", () => {
+  it("rechecks Pi ownership after confirmation before spawning removal", async () => {
+    installPi();
+    const hosts = await detectHosts(env);
+    const pi = hosts.find(({ id }) => id === "pi");
+    if (pi?.spec.registrationState.kind !== "packages") throw new Error("missing Pi package source");
+    const { file, localDir } = pi.spec.registrationState;
+    mkdirSync(join(home, ".pi/agent"), { recursive: true });
+    writeFileSync(file, JSON.stringify({ packages: [localDir] }));
+    const edited = JSON.stringify({ packages: [{ source: localDir, extensions: [] }] });
+    const results = await applyRemove(
+      hosts,
+      server,
+      ["pi"],
+      async () => {
+        writeFileSync(file, edited);
+        return true;
+      },
+      env,
+    );
+    expect(results).toEqual([expect.objectContaining({ id: "pi", status: "not-owned" })]);
+    expect(readFileSync(file, "utf8")).toBe(edited);
+    expect(fakeArgv(home, "pi")).toEqual([]);
+    expect(backups()).toEqual([]);
+  });
+
+  it("reports empty version output honestly in the preview and doctor", () => {
+    writeFileSync(join(bin, "gemini"), "#!/bin/sh\nexit 0\n", { mode: 0o755 });
+    expect(ask("setup", "--dry-run", "--host", "gemini").stdout).toContain(
+      "`gemini --version` returned no version output",
+    );
+    expect(ask("doctor").stdout).toContain("`gemini --version` returned no version output");
+  });
+
+  it("prints no workflow note when workflows are absent", () => {
+    const removed = ask("remove", "-y");
+    expect(removed.stdout).not.toContain("left installed");
+    expect(removed.stdout).not.toContain("skills@1.7.0 remove");
+    expect(removed.stdout).not.toContain("plugin uninstall");
+  });
+
+  it("does not report a project-scoped plugin as user-installed", () => {
+    const dir = join(home, ".claude/plugins");
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(
+      join(dir, "installed_plugins.json"),
+      JSON.stringify({ plugins: { "ask-llm@ask-llm-plugins": [{ scope: "project" }] } }),
+    );
+    expect(ask("remove", "-y", "--host", "claude").stdout).not.toContain("plugin is left installed");
+  });
+
+  it("reports unreadable plugin state without an uninstall command", () => {
+    const dir = join(home, ".claude/plugins");
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, "installed_plugins.json"), "{");
+    const removed = ask("remove", "-y", "--host", "claude");
+    expect(removed.stdout).toContain("Claude Code plugin state could not be inspected");
+    expect(removed.stdout).not.toContain("plugin uninstall");
+  });
+
+  it("suggests no skill command for modified private or canonical copies", () => {
+    cpSync(join(packageRoot, "skills/ask-llm-review"), join(home, ".grok/skills/ask-llm-review"), { recursive: true });
+    const shared = join(home, ".agents/skills/ask-llm-review");
+    mkdirSync(shared, { recursive: true });
+    writeFileSync(join(shared, "SKILL.md"), "user changes");
+    expect(ask("remove", "-y", "--host", "grok").stdout).not.toContain("skills@1.7.0 remove");
+    cpSync(join(packageRoot, "skills/ask-llm-review"), shared, { recursive: true });
+    const privateDir = join(home, ".gemini/skills/ask-llm-review");
+    mkdirSync(privateDir, { recursive: true });
+    writeFileSync(join(privateDir, "SKILL.md"), "private changes");
+    expect(ask("remove", "-y", "--host", "gemini").stdout).not.toContain("skills@1.7.0 remove");
+  });
+
+  it("groups matching shared skills by selected agents and leaves unselected workflows out", () => {
+    cpSync(join(packageRoot, "skills/ask-llm-review"), join(home, ".agents/skills/ask-llm-review"), {
+      recursive: true,
+    });
+    const removed = ask("remove", "-y", "--host", "gemini,cursor");
+    expect(removed.stdout).toContain("--skill ask-llm-review -a cursor gemini-cli");
+    expect(removed.stdout).not.toContain("-a codex");
+    expect(removed.stdout).not.toContain("Claude Code plugin");
+  });
+
+  it("prints an exact folder command for matching manually installed Antigravity skills", () => {
+    const dir = join(home, ".gemini/config/skills/ask-llm-review");
+    cpSync(join(packageRoot, "skills/ask-llm-review"), dir, { recursive: true });
+    const removed = ask("remove", "-y", "--host", "agy");
+    expect(removed.stdout).toContain(
+      `Antigravity skills are left installed. To remove matching copies: \`rm -rf -- ${dir}\``,
+    );
+  });
+
+  it("prints scoped skills cleanup with only matching installed names", () => {
+    const dir = join(home, ".agents/skills");
+    for (const name of ["ask-llm-review", "ask-llm-compare"]) {
+      cpSync(join(packageRoot, "skills", name), join(dir, name), { recursive: true });
+    }
+    writeFileSync(join(dir, "ask-llm-compare/SKILL.md"), "user changes");
+    const removed = ask("remove", "-y", "--host", "gemini");
+    expect(removed.stdout).toContain(
+      "DISABLE_TELEMETRY=1 npx -y skills@1.7.0 remove -g -y --skill ask-llm-review -a gemini-cli",
+    );
+    expect(removed.stdout).not.toContain("ask-llm-compare");
+    expect(removed.stdout).not.toContain("<ask-llm-*");
+    expect(readFileSync(join(dir, "ask-llm-compare/SKILL.md"), "utf8")).toBe("user changes");
+  });
+
+  it.each(["setup-installed", "pre-existing"])(
+    "reports the %s Claude plugin without suggesting uninstall",
+    (history) => {
+      if (history === "setup-installed") ask("setup", "-y", "--host", "claude");
+      else {
+        const dir = join(home, ".claude/plugins");
+        mkdirSync(dir, { recursive: true });
+        writeFileSync(
+          join(dir, "installed_plugins.json"),
+          JSON.stringify({ plugins: { "ask-llm@ask-llm-plugins": [{ scope: "user" }] } }),
+        );
+      }
+      const file = join(home, ".claude/plugins/installed_plugins.json");
+      const before = readFileSync(file, "utf8");
+      const removed = ask("remove", "-y", "--host", "claude");
+      expect(removed.stdout).toContain(
+        "Claude Code plugin is left installed; setup ownership cannot be established, so no uninstall command is suggested.",
+      );
+      expect(removed.stdout).not.toContain("plugin uninstall");
+      expect(readFileSync(file, "utf8")).toBe(before);
+    },
+  );
+
+  it.each(["string", "object"])(
+    "removes only Pi's local %s package entry beside foreign and legacy entries",
+    (form) => {
+      installPi();
+      const dir = join(home, ".pi/agent");
+      mkdirSync(dir, { recursive: true });
+      const foreign = [
+        "/opt/other/package",
+        "npm:@ask-llm/mcp@1.0.0",
+        { source: "npm:@ask-llm/plugin", extensions: [] },
+      ];
+      const settings = join(dir, "settings.json");
+      const source = relative(dir, packageRoot);
+      const own = form === "object" ? { source } : source;
+      const before = JSON.stringify({ theme: "dark", packages: [...foreign, own] });
+      writeFileSync(settings, before);
+      const removed = ask("remove", "-y", "--host", "pi");
+      expect(removed.status, removed.stdout + removed.stderr).toBe(0);
+      expect(removed.stdout).toContain("Pi 0.87.1: removed");
+      expect(fakeArgv(home, "pi")).toEqual([["remove", packageRoot]]);
+      expect(JSON.parse(readFileSync(settings, "utf8"))).toEqual({ theme: "dark", packages: foreign });
+      expect(backups()).toHaveLength(1);
+      expect(readFileSync(join(home, backups()[0]), "utf8")).toBe(before);
+    },
+  );
+
+  it("leaves Pi's own entry byte-identical when removal is declined", async () => {
+    installPi();
+    const hosts = await detectHosts(env);
+    const pi = hosts.find(({ id }) => id === "pi");
+    if (pi?.spec.registrationState.kind !== "packages") throw new Error("missing Pi package source");
+    const { file, localDir } = pi.spec.registrationState;
+    mkdirSync(join(home, ".pi/agent"), { recursive: true });
+    const before = JSON.stringify({ packages: [localDir], theme: "dark" });
+    writeFileSync(file, before);
+    const questions: string[] = [];
+    const results = await applyRemove(
+      hosts,
+      server,
+      ["pi"],
+      async (question) => {
+        questions.push(question);
+        return false;
+      },
+      env,
+    );
+    expect(results).toEqual([expect.objectContaining({ id: "pi", status: "declined" })]);
+    expect(questions).toEqual([`Remove Ask LLM from Pi? Runs: ${commandText(["pi", "remove", localDir as string])}`]);
+    expect(readFileSync(file, "utf8")).toBe(before);
+    expect(fakeArgv(home, "pi")).toEqual([]);
+    expect(backups()).toEqual([]);
+  });
+
+  it.each([
+    ["npm:@ask-llm/mcp", "npm:@ask-llm/plugin", "/opt/other/package"],
+    [{ source: packageRoot, extensions: [] }],
+  ])("leaves unowned or filtered Pi entries %j untouched", (...packages) => {
+    installPi();
+    const dir = join(home, ".pi/agent");
+    mkdirSync(dir, { recursive: true });
+    const file = join(dir, "settings.json");
+    const before = JSON.stringify({ packages });
+    writeFileSync(file, before);
+    expect(ask("remove", "-y", "--host", "pi").status).toBe(0);
+    expect(readFileSync(file, "utf8")).toBe(before);
+    expect(fakeArgv(home, "pi")).toEqual([]);
+    expect(backups()).toEqual([]);
+  });
+
+  it("prints a runnable Pi command if its version cannot be recognized", () => {
+    installPi();
+    writeFileSync(join(bin, "pi"), '#!/bin/sh\necho "unknown pi version"\n', { mode: 0o755 });
+    mkdirSync(join(home, ".pi/agent"), { recursive: true });
+    writeFileSync(join(home, ".pi/agent/settings.json"), JSON.stringify({ packages: [packageRoot] }));
+    const removed = ask("remove", "-y", "--host", "pi");
+    expect(removed.status).toBe(1);
+    expect(removed.stdout).toContain(`Run it manually: ${commandText(["pi", "remove", packageRoot])}`);
+    expect(fakeArgv(home, "pi")).toEqual([]);
+  });
+
   const REMOVE: Record<string, string[]> = {
     claude: ["mcp", "remove", "--scope", "user", "ask-llm"],
     grok: ["mcp", "remove", "--scope", "user", "ask-llm"],

@@ -1,5 +1,5 @@
-import { type Applied, applyRegistrar, canRemove, changeText } from "./hosts/apply.js";
-import type { DetectedHost } from "./hosts/detect.js";
+import { type Applied, applyRegistrar, canRemove, changeText, hostEnv } from "./hosts/apply.js";
+import { type DetectedHost, readRegistration } from "./hosts/detect.js";
 import type { HostId } from "./hosts/registry.js";
 import { isOwnRegistration, UNUSABLE_ENTRY } from "./plan.js";
 import { type Confirm, type HostResult, type HostStatus, inScope, nextStep, result } from "./setup.js";
@@ -16,6 +16,20 @@ function foreign(host: DetectedHost): string {
   return `an ask-llm entry runs \`${host.command?.join(" ") ?? "an unknown command"}\`, not this ask-llm-mcp; left in place`;
 }
 
+async function removalHost(host: DetectedHost, env: NodeJS.ProcessEnv): Promise<DetectedHost> {
+  const source = host.spec.registrationState;
+  if (source.kind !== "packages") return host;
+  // Removal targets only this local install. Other npm sources and their filters are left in place;
+  // filters on the owned local entry still prevent removal, including on the pre-spawn fresh read.
+  const registrationState = { ...source, sources: [], legacySources: [] };
+  return {
+    ...host,
+    custom: undefined,
+    ...(await readRegistration(registrationState, host.binary, hostEnv(host, env))),
+    spec: { ...host.spec, registrationState },
+  };
+}
+
 export async function applyRemove(
   hosts: DetectedHost[],
   server: string,
@@ -24,7 +38,8 @@ export async function applyRemove(
   env: NodeJS.ProcessEnv,
 ): Promise<HostResult[]> {
   const results: HostResult[] = [];
-  for (const host of hosts.filter((candidate) => inScope(candidate, selected))) {
+  for (const candidate of hosts.filter((host) => inScope(host, selected))) {
+    const host = await removalHost(candidate, env);
     const manual = changeText(host, "remove", server);
     if (!canRemove(host)) {
       results.push(

@@ -49,6 +49,21 @@ function unreadable(name: string, error: unknown): string {
     .slice(0, 200)}`;
 }
 
+export function pluginRemovalNotes(hosts: DetectedHost[], selected: HostId[] | undefined): string[] {
+  return hosts.flatMap(({ id, name, spec }) => {
+    if ((selected && !selected.includes(id)) || !spec.pluginInstall) return [];
+    try {
+      return pluginState(spec.configHome).installed
+        ? [
+            `${name} plugin is left installed; setup ownership cannot be established, so no uninstall command is suggested.`,
+          ]
+        : [];
+    } catch (error) {
+      return [`${name} plugin state could not be inspected: ${unreadable(name, error)}`];
+    }
+  });
+}
+
 // Only Claude Code takes the plugin: other marketplaces accept it but would also get codex-pair's hooks (ADR-183).
 export function planPlugins(hosts: DetectedHost[], selected: HostId[] | undefined): PluginPlan[] {
   const plans: PluginPlan[] = [];

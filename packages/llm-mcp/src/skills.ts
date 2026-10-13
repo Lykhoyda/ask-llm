@@ -1,4 +1,4 @@
-import { readdirSync, readFileSync, statSync } from "node:fs";
+import { lstatSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { firstLine } from "./hosts/apply.js";
 import type { DetectedHost } from "./hosts/detect.js";
@@ -67,6 +67,92 @@ function sameContents(source: string, target: string): boolean {
   } catch {
     return false;
   }
+}
+
+function absent(path: string): boolean {
+  try {
+    lstatSync(path);
+    return false;
+  } catch (error) {
+    return (error as NodeJS.ErrnoException).code === "ENOENT";
+  }
+}
+
+// skills@1.7.0 remove also cleans a universal agent's older private folder and can
+// delete the canonical shared copy. Inspect all those paths before suggesting it.
+function removalDirs(agent: string, env: NodeJS.ProcessEnv): string[] {
+  const home = env.HOME ?? "";
+  const shared = join(home, ".agents/skills");
+  const privateDirs: Record<string, string> = {
+    codex: join(env.CODEX_HOME ?? join(home, ".codex"), "skills"),
+    cursor: join(home, ".cursor/skills"),
+    "gemini-cli": join(home, ".gemini/skills"),
+    opencode: join(env.XDG_CONFIG_HOME ?? join(home, ".config"), "opencode/skills"),
+    grok: join(env.GROK_HOME ?? join(home, ".grok"), "skills"),
+  };
+  return [shared, privateDirs[agent]];
+}
+
+export function skillsRemovalNotes(
+  hosts: DetectedHost[],
+  selected: HostId[] | undefined,
+  env: NodeJS.ProcessEnv = process.env,
+  packageDir = PACKAGE_DIR,
+): string[] {
+  const skillsDir = join(packageDir, "skills");
+  const names = portableSkills(skillsDir);
+  const bySkill = new Map<string, Set<string>>();
+  const notes: string[] = [];
+  for (const { id, name, spec } of hosts) {
+    const { skillsDir: dir, skillsAgent: agent } = spec;
+    if ((selected && !selected.includes(id)) || spec.pluginInstall || !dir) continue;
+    const matching = names.filter((skill) => sameContents(join(skillsDir, skill), join(dir, skill)));
+    if (!agent) {
+      if (matching.length > 0)
+        notes.push(
+          `${name} skills are left installed. To remove matching copies: \`${commandText(["rm", "-rf", "--", ...matching.map((skill) => join(dir, skill))])}\`.`,
+        );
+      continue;
+    }
+    for (const skill of matching) {
+      if (
+        !removalDirs(agent, env).every(
+          (folder) => absent(join(folder, skill)) || sameContents(join(skillsDir, skill), join(folder, skill)),
+        )
+      )
+        continue;
+      const agents = bySkill.get(skill) ?? new Set<string>();
+      agents.add(agent);
+      bySkill.set(skill, agents);
+    }
+  }
+  const groups = new Map<string, string[]>();
+  for (const skill of names) {
+    const agents = bySkill.get(skill);
+    if (!agents) continue;
+    const key = [...agents].sort().join(" ");
+    const skills = groups.get(key) ?? [];
+    skills.push(skill);
+    groups.set(key, skills);
+  }
+  for (const [agents, skills] of groups) {
+    const command = commandText([
+      "npx",
+      "-y",
+      `skills@${SKILLS_CLI_VERSION}`,
+      "remove",
+      "-g",
+      "-y",
+      "--skill",
+      ...skills,
+      "-a",
+      ...agents.split(" "),
+    ]);
+    notes.push(
+      `Matching Ask LLM skills are left installed. To remove them (shared folders may affect other hosts): \`DISABLE_TELEMETRY=1 ${command}\`.`,
+    );
+  }
+  return notes;
 }
 
 export function planSkills(

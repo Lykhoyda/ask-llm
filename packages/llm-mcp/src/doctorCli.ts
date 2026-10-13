@@ -157,7 +157,11 @@ function formatHost(host: DoctorHost): string[] {
     if (host.manual) lines.push(`      exact manual command: ${host.manual}`);
     return lines;
   }
-  const version = host.version ? ` (${host.version})` : host.supported ? "" : " (unrecognized version)";
+  const version = host.version
+    ? ` (${host.version})`
+    : host.supported
+      ? ""
+      : ` (${host.versionError ?? "unrecognized version"})`;
   let registration = "not registered";
   if (host.registered === null) registration = host.error ?? "registration unknown";
   else if (host.registered && host.ownServer) registration = "registered to this ask-llm-mcp";
