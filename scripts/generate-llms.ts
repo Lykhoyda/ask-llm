@@ -51,6 +51,15 @@ function title(source: string): string {
   return source.match(/^# (.+)$/m)?.[1] ?? "Ask LLM";
 }
 
+function removeScriptBlocksAndComments(source: string): string {
+  let previous: string;
+  do {
+    previous = source;
+    source = source.replace(/<script\b[^>]*>[\s\S]*?<\/script\b[^>]*>/gi, "\n").replace(/<!--[\s\S]*?-->/g, "\n");
+  } while (source !== previous);
+  return source;
+}
+
 // Regenerate text from canonical pages; old routes remain redirects, not a second corpus.
 export function llmsFiles(): Record<string, string> {
   const intro = `# Ask LLM\n\n> Second opinions for coding agents. ${promise}\n\nFor individual developers and small teams who already use a coding assistant and another model subscription. Review changes or challenge a plan without API keys, copy-paste, or leaving the session.\n\nInstall on Linux or macOS with Node.js 24+, then select your host and confirm the preview:\n\n\`\`\`bash\nnpm i -g @ask-llm/mcp && ask-llm setup\n\`\`\`\n\nInstall and sign in to the provider separately. Then ask: “Ask Codex to review my staged changes for bugs and missing error handling.” Choose a reviewer from a different vendor. Calls consume account quota or billing; Grok's metered API is explicit. Local Ollama models are supported. Antigravity refuses by default and opt-in has no read-only guarantee. Ask LLM sends no telemetry. Agreement between models is not proof of correctness.\n`;
@@ -68,14 +77,14 @@ export function llmsFiles(): Record<string, string> {
         full += link;
         continue;
       }
-      const readable = source
-        .replace(
-          /<SetupTabs\s*\/>/g,
-          "See the install command above; select your host, inspect the preview, and confirm.",
-        )
-        .replace(/<[A-Z][^>]*\/>/g, "\n")
-        .replace(/<script\b[^>]*>[\s\S]*?<\/script\b[^>]*>/gi, "\n")
-        .replace(/<!--[\s\S]*?-->/g, "\n")
+      const readable = removeScriptBlocksAndComments(
+        source
+          .replace(
+            /<SetupTabs\s*\/>/g,
+            "See the install command above; select your host, inspect the preview, and confirm.",
+          )
+          .replace(/<[A-Z][^>]*\/>/g, "\n"),
+      )
         .replace(/<TroubleshootingModal\b([^>]*)>/g, (_, attributes: string) => {
           const { title, preview } = Object.fromEntries(
             Array.from(attributes.matchAll(/\b(title|preview)=(["'])(.*?)\2/gs), (match) => [match[1], match[3]]),
