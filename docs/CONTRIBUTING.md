@@ -36,12 +36,18 @@ See [`CLAUDE.md`](../CLAUDE.md) for the full architecture.
 
 1. **Open an issue first.** Describe the bug or feature so we can agree on scope before code is written. Saves rework.
 2. **Branch from `main`.** Forks aren't required.
-3. **Run the checks.** Before pushing:
+3. **Run the checks.** After editing documentation, run `node scripts/generate-llms.ts`
+   and commit any generated changes to `apps/docs/public/llms*.txt`; `yarn lint`
+   checks for drift. Before pushing:
    ```bash
    yarn build   # Build dependency-ordered workspace output used by tests
    yarn lint    # Biome + tsc --noEmit across all packages
    yarn test    # Run all Vitest projects
+   yarn docs:build
+   node scripts/check-docs-links.ts
+   node scripts/check-docs-onboarding.ts
    ```
+   The link and onboarding checks require the built docs and also run in CI.
    CI splits `yarn test` into five deterministic file batches. To reproduce one locally,
    run `yarn test:batch 1/5` (replace `1` with the failing batch number).
    Claude does not review every PR in CI. Mention `@claude` on an issue or PR when you
