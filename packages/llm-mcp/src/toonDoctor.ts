@@ -182,6 +182,8 @@ export function doctorHelp(includeHosts = false): string {
       ? [
           "  --live        Opt-in, never the default: spends provider quota by sending one",
           "                minimal real prompt to each ready provider (text/JSON only)",
+          "                Also checks sandboxed Antigravity quota on agy >=1.2.13.",
+          "                Without --live, doctor never starts agy (including --version).",
         ]
       : []),
     "  -h, --help    Show this help",

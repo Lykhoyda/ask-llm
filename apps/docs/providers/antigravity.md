@@ -12,7 +12,7 @@ Bridge Claude with Google's Antigravity CLI (`agy`), Google's successor to Gemin
 > **Not for:** fine-grained per-edit automation; it's one-shot and experimental. For continuous review, use Codex via `codex-pair`.
 
 ::: warning Experimental
-Requires `agy` ≥ 1.1.5. Unified discovery, doctor, and ping report older or unparseable installations as detected but unusable and exclude them from dispatch; the executor repeats the version check before every model invocation. It reads the headless `-p` response from `agy`'s `--output-format json` stdout (supported across the whole ≥ 1.1.5 range). Single-turn only (no multi-turn); defaults to the **gemini-3.1-pro** model at **high** reasoning effort, falling back to **gemini-3.8-flash** on a rate limit.
+Requires `agy` ≥ 1.1.5. Unified discovery, `doctor --live`, and ping report older or unparseable installations as detected but unusable and exclude them from dispatch; the executor repeats the version check before every model invocation. Default doctor locates agy without starting it, so its version is unchecked. It reads the headless `-p` response from `agy`'s `--output-format json` stdout (supported across the whole ≥ 1.1.5 range). Single-turn only (no multi-turn); defaults to the **gemini-3.1-pro** model at **high** reasoning effort, falling back to **gemini-3.8-flash** on a rate limit.
 :::
 
 ## Installation
@@ -35,6 +35,10 @@ Or install globally: `npm install -g @ask-llm/antigravity-mcp`
 | `ping` | Connection test; reports whether `agy` is supported, unsupported, unusable, or missing |
 
 `ask-antigravity` returns both human-readable text and a structured `AskResponse` (provider, response, model, sessionId, usage) via MCP `outputSchema`. Token usage — including cached and thinking tokens when agy reports them — comes from the JSON envelope's `usage` object (`cache_read_tokens` requires agy ≥ 1.1.7).
+
+## Quota diagnostics
+
+`ask-llm doctor --live` also reports Antigravity's remaining quota and reset times via the sandboxed `/quota` built-in on agy ≥ 1.2.13. Older or unparseable versions skip the quota check with the required version; failures and a five-second timeout are warnings. The quota probe needs no unisolated-execution opt-in and always uses `--sandbox`. The flag still permits minimal model calls to other ready providers, which may spend quota. Without `--live`, doctor starts no agy process, including version probes.
 
 ## Models
 

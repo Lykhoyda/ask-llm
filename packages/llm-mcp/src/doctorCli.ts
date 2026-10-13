@@ -1,6 +1,7 @@
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { DOCTOR_QUOTA_MIN_VERSION, isVersionAtLeast, probeAntigravityQuota } from "@ask-llm/antigravity-mcp/executor";
 import {
   type DiagnosticCheck,
   type DiagnosticReport,
@@ -28,6 +29,21 @@ import { buildProviderSpecs } from "./utils/providerSpecs.js";
 
 const LIVE_PROMPT = "Reply with exactly: OK";
 const LIVE_TIMEOUT_MS = 120_000;
+
+async function antigravityQuotaCheck(report: DiagnosticReport): Promise<DiagnosticCheck | undefined> {
+  const provider = report.providers.find((provider) => provider.command === "agy");
+  if (!provider) return undefined;
+  const name = "Quota: Antigravity";
+  if (!isVersionAtLeast(provider.cliVersion ?? "", DOCTOR_QUOTA_MIN_VERSION)) {
+    return { name, status: "skip", message: `quota check skipped; needs agy >=${DOCTOR_QUOTA_MIN_VERSION}` };
+  }
+  try {
+    return { name, status: "pass", message: await probeAntigravityQuota() };
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : String(error);
+    return { name, status: "warn", message: `quota check failed: ${detail.slice(0, 300)}` };
+  }
+}
 
 type ExecutorLoader = (key: string) => Promise<ExecutorFn | undefined>;
 
@@ -130,12 +146,12 @@ type DoctorHost = Omit<DetectedHost, "spec"> & {
   parity?: Record<ParityRow, string>;
 };
 
-async function doctorHosts(ownCli: string): Promise<DoctorHost[]> {
+async function doctorHosts(ownCli: string, live: boolean): Promise<DoctorHost[]> {
   const server = await resolveServerPath(ownCli).then(
     ({ path }) => path,
     () => undefined,
   );
-  const hosts = await detectHosts();
+  const hosts = await detectHosts(process.env, { skipVersionFor: live ? [] : ["agy"] });
   const plan = server ? buildPlan(hosts, server) : undefined;
   return hosts.map(({ spec, ...host }, index) => {
     const needsManual = host.registered === null || (host.installed && !host.supported);
@@ -188,13 +204,25 @@ async function runDoctor(options: DoctorCliOptions, ownCli?: string): Promise<nu
     return 0;
   }
 
-  const specs: ProviderSpec[] = await buildProviderSpecs();
+  const specs: ProviderSpec[] = (await buildProviderSpecs()).map((spec) =>
+    spec.key === "antigravity" && !options.live ? { ...spec, probeVersion: false } : spec,
+  );
   const [probed, hosts] = await Promise.all([
     runDiagnostics(specs),
-    ownCli && options.format !== "toon" ? doctorHosts(ownCli) : Promise.resolve(undefined),
+    ownCli && options.format !== "toon" ? doctorHosts(ownCli, options.live) : Promise.resolve(undefined),
   ]);
 
-  const report = options.live ? await exerciseProviders(probed, specs) : probed;
+  let report = options.live ? await exerciseProviders(probed, specs) : probed;
+  if (options.live) {
+    const quota = await antigravityQuotaCheck(probed);
+    if (quota) {
+      report = {
+        ...report,
+        checks: [...report.checks, quota],
+        status: quota.status === "warn" && report.status === "ok" ? "warning" : report.status,
+      };
+    }
+  }
   process.stdout.write(hosts ? formatWithHosts(report, hosts, options) : formatDoctorOutput(report, options));
 
   return report.status === "error" ? 1 : 0;

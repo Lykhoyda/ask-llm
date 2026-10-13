@@ -2,7 +2,8 @@ import { EXECUTION, executeCommand, Logger, resolveTimeoutMs, type UsageStats } 
 import { ANTIGRAVITY, CLI, ERROR_MESSAGES, MODELS, OUTPUT_FORMATS, READ_ONLY_PREAMBLE } from "../constants.js";
 import { assertSupportedAgyVersion, isVersionAtLeast } from "./agyVersion.js";
 
-export { assessAgyVersion, probeAgySupport } from "./agyVersion.js";
+export { assessAgyVersion, isVersionAtLeast, probeAgySupport } from "./agyVersion.js";
+export const DOCTOR_QUOTA_MIN_VERSION = ANTIGRAVITY.DOCTOR_QUOTA_MIN_VERSION;
 
 export interface AntigravityExecutorOptions {
   prompt: string;
@@ -151,34 +152,41 @@ function parseStdoutJson(raw: string): StdoutParse {
   return { kind: "answer", response, usage, ...meta };
 }
 
-// /quota answered without an agent turn or quota use on agy 1.2.12 and 1.2.13.
+// Sandboxed /quota answered without a turn or quota use on agy 1.2.13 (https://github.com/Lykhoyda/ask-llm/pull/366).
+// Callers own their version gate; the rate-limit path retains its historical minimum.
+export async function probeAntigravityQuota(signal?: AbortSignal): Promise<string> {
+  const args = [
+    CLI.FLAGS.PRINT,
+    ANTIGRAVITY.QUOTA_COMMAND,
+    CLI.FLAGS.OUTPUT_FORMAT,
+    OUTPUT_FORMATS.JSON,
+    CLI.FLAGS.SANDBOX,
+  ];
+  const raw = await executeCommand(
+    CLI.COMMANDS.AGY,
+    args,
+    undefined,
+    undefined,
+    undefined,
+    ANTIGRAVITY.VERSION_CHECK_TIMEOUT_MS,
+    undefined,
+    signal,
+  );
+  const parsed = parseStdoutJson(raw);
+  if (parsed.kind !== "answer") throw new Error("agy /quota returned no quota answer");
+  if (parsed.truncated) throw new Error("agy /quota returned truncated output");
+  const lines = parsed.response
+    .split("\n")
+    .map((line) => line.split("\t"))
+    .filter((cells) => cells.length === 4)
+    .map(([group, bucket, remaining, reset]) => `${group} ${bucket}: ${remaining} (resets ${reset})`);
+  if (lines.length === 0) throw new Error("agy /quota returned no quota rows");
+  return lines.join("; ");
+}
+
 async function describeQuota(signal?: AbortSignal): Promise<string | undefined> {
   try {
-    const args = [
-      CLI.FLAGS.PRINT,
-      ANTIGRAVITY.QUOTA_COMMAND,
-      CLI.FLAGS.OUTPUT_FORMAT,
-      OUTPUT_FORMATS.JSON,
-      CLI.FLAGS.SANDBOX,
-    ];
-    const raw = await executeCommand(
-      CLI.COMMANDS.AGY,
-      args,
-      undefined,
-      undefined,
-      undefined,
-      ANTIGRAVITY.VERSION_CHECK_TIMEOUT_MS,
-      undefined,
-      signal,
-    );
-    const parsed = parseStdoutJson(raw);
-    if (parsed.kind !== "answer") return undefined;
-    const lines = parsed.response
-      .split("\n")
-      .map((line) => line.split("\t"))
-      .filter((cells) => cells.length === 4)
-      .map(([group, bucket, remaining, reset]) => `${group} ${bucket}: ${remaining} (resets ${reset})`);
-    return lines.length > 0 ? lines.join("; ") : undefined;
+    return await probeAntigravityQuota(signal);
   } catch (error) {
     if (signal?.aborted) throw error;
     return undefined;
