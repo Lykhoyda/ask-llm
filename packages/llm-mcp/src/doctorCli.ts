@@ -1,7 +1,7 @@
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { DOCTOR_QUOTA_VERIFIED_VERSIONS, probeAntigravityQuota } from "@ask-llm/antigravity-mcp/executor";
+import { DOCTOR_QUOTA_MIN_VERSION, isVersionAtLeast, probeAntigravityQuota } from "@ask-llm/antigravity-mcp/executor";
 import {
   type DiagnosticCheck,
   type DiagnosticReport,
@@ -34,18 +34,18 @@ async function antigravityQuotaCheck(report: DiagnosticReport): Promise<Diagnost
   const provider = report.providers.find((provider) => provider.command === "agy");
   if (!provider) return undefined;
   const name = "Quota: Antigravity";
-  if (!DOCTOR_QUOTA_VERIFIED_VERSIONS.some((version) => version === provider.cliVersion)) {
+  if (!isVersionAtLeast(provider.cliVersion ?? "", DOCTOR_QUOTA_MIN_VERSION)) {
     return {
       name,
       status: "skip",
-      message: `quota check skipped; verified only on agy ${DOCTOR_QUOTA_VERIFIED_VERSIONS.join(", ")}`,
+      message: `quota check skipped; requires agy ${DOCTOR_QUOTA_MIN_VERSION} or newer`,
     };
   }
   try {
-    return { name, status: "pass", message: await probeAntigravityQuota() };
+    return { name, status: "pass", message: `agy ${provider.cliVersion}: ${await probeAntigravityQuota()}` };
   } catch (error) {
     const detail = error instanceof Error ? error.message : String(error);
-    return { name, status: "warn", message: `quota check failed: ${detail.slice(0, 300)}` };
+    return { name, status: "warn", message: `agy ${provider.cliVersion}: quota check failed: ${detail.slice(0, 300)}` };
   }
 }
 
