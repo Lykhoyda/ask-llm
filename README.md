@@ -15,23 +15,23 @@ Claude: Good catches — applying both fixes to src/auth.ts.
 
 ## Install
 
-You need Node.js 24+ on Linux or macOS, a coding assistant, and a provider you have installed and signed in to. Ask LLM configures the connection; it does not install providers or sign you in.
+You need Node.js 24+ on Linux or macOS. Before your first review, both your coding assistant (for example Claude Code) and the provider you will consult (for example Codex) must be installed and signed in. Ask LLM configures the connection; it does not install providers or sign you in. If a provider CLI such as Codex has never been signed in on this machine, sign in first and rerun setup.
 
 ```bash
 npm i -g @ask-llm/mcp && ask-llm setup
 ```
 
-Choose your coding assistant, inspect the preview, and confirm the changes. Follow any manual steps printed by setup, then restart your assistant or start a new session in your project.
+Setup asks you to confirm each detected host and workflow. Inspect the preview, confirm your assistant's registration and workflows, decline the others, then follow any printed manual steps. Restart your assistant or start a new session in your project.
 
 ## Your first review
 
-In Claude Code, with an authenticated Codex account, ask:
+With both Claude Code and Codex installed and signed in, open Claude Code in your project and ask:
 
 ```text
 Ask Codex to review my staged changes for bugs and missing error handling. Check each finding against the source before proposing fixes.
 ```
 
-Working in Codex with a Claude subscription? Ask Claude instead. Choose a provider from a different vendor than your current assistant. A successful review names the reviewer and model, cites relevant code, and reports findings or says it found none. Your assistant applies changes after you decide what to accept. If the request fails, run `ask-llm doctor` and follow the [troubleshooting guide](https://lykhoyda.github.io/ask-llm/resources/troubleshooting).
+Working in Codex with a Claude subscription? Ask Claude instead. Choose a provider from a different vendor than your current assistant. A successful review names the reviewer and model, cites relevant code, and reports findings or says it found none. Your assistant applies changes after you decide what to accept. If the request fails, run `ask-llm doctor` and follow the [troubleshooting guide](https://lykhoyda.github.io/ask-llm/resources/troubleshooting) for your selected assistant and reviewer. Warnings about providers you do not use do not require installing them or adding API keys.
 
 For plans, try: “Ask Claude to challenge this plan: what assumptions could fail, and what simpler approach would fit our constraints?”
 

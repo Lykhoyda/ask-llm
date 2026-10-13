@@ -8,13 +8,13 @@ Get a second opinion on your code or plan, inside your coding assistant, using t
 
 ## Before you start
 
-Use Node.js 24+ on Linux or macOS. You need a coding assistant and at least one other provider installed and signed in. Ask LLM configures their connection; it does not install providers or sign you in. See [authentication](/operation/authentication) if your provider is not ready.
+Use Node.js 24+ on Linux or macOS. Before your first review, both your coding assistant (for example Claude Code) and the provider you will consult (for example Codex) must be installed and signed in. Ask LLM configures their connection; it does not install providers or sign you in. If a provider CLI such as Codex has never been signed in on this machine, sign in first and rerun setup. See [authentication](/operation/authentication) if either account is not ready.
 
 ## Install and connect
 
 <SetupTabs />
 
-Setup discovers hosts separately from providers. Select the assistant you want to use, review the command or file preview, and confirm each change. Setup works at user scope, preserves unrelated entries, and prints backup locations and restart instructions. It also previews workflow installation. Pairing remains off.
+Setup discovers hosts separately from providers and asks you to confirm each detected host and workflow. Review the command or file preview, confirm your assistant's registration and workflows, and decline the others. Setup works at user scope, preserves unrelated entries, and prints backup locations and restart instructions. Pairing remains off.
 
 Follow any manual guidance in the output before continuing. Existing Codex registrations require manual inspection because the host's inventory does not prove user-scope ownership. Antigravity needs the printed workflow-copy step. OpenCode registration is tested with fixtures only. See [host compatibility](/compatibility/hosts) and [migration](/reference/migration).
 

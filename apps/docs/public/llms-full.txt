@@ -22,13 +22,13 @@ Get a second opinion on your code or plan, inside your coding assistant, using t
 
 ## Before you start
 
-Use Node.js 24+ on Linux or macOS. You need a coding assistant and at least one other provider installed and signed in. Ask LLM configures their connection; it does not install providers or sign you in. See [authentication](https://lykhoyda.github.io/ask-llm/operation/authentication) if your provider is not ready.
+Use Node.js 24+ on Linux or macOS. Before your first review, both your coding assistant (for example Claude Code) and the provider you will consult (for example Codex) must be installed and signed in. Ask LLM configures their connection; it does not install providers or sign you in. If a provider CLI such as Codex has never been signed in on this machine, sign in first and rerun setup. See [authentication](https://lykhoyda.github.io/ask-llm/operation/authentication) if either account is not ready.
 
 ## Install and connect
 
 See the install command above; select your host, inspect the preview, and confirm.
 
-Setup discovers hosts separately from providers. Select the assistant you want to use, review the command or file preview, and confirm each change. Setup works at user scope, preserves unrelated entries, and prints backup locations and restart instructions. It also previews workflow installation. Pairing remains off.
+Setup discovers hosts separately from providers and asks you to confirm each detected host and workflow. Review the command or file preview, confirm your assistant's registration and workflows, and decline the others. Setup works at user scope, preserves unrelated entries, and prints backup locations and restart instructions. Pairing remains off.
 
 Follow any manual guidance in the output before continuing. Existing Codex registrations require manual inspection because the host's inventory does not prove user-scope ownership. Antigravity needs the printed workflow-copy step. OpenCode registration is tested with fixtures only. See [host compatibility](https://lykhoyda.github.io/ask-llm/compatibility/hosts) and [migration](https://lykhoyda.github.io/ask-llm/reference/migration).
 
@@ -48,7 +48,9 @@ If no supported assistant is found, use [manual configuration](https://lykhoyda.
 
 Source: https://lykhoyda.github.io/ask-llm/start/first-review.html
 
-Open a project with a small staged change. In Claude Code, with Codex installed and authenticated, ask:
+Before your first review, both your coding assistant (for example Claude Code) and the provider you will consult (for example Codex) must be installed and signed in. Ask LLM configures the connection; it does not install providers or sign you in. If a provider CLI such as Codex has never been signed in on this machine, sign in first and rerun `ask-llm setup`.
+
+Open a project with a small staged change. With both Claude Code and Codex signed in, ask in Claude Code:
 
 ```text
 Ask Codex to review my staged changes for bugs and missing error handling. Check each finding against the source before proposing fixes.
@@ -58,7 +60,7 @@ If Codex is your host, ask Claude instead. You can name any [provider](https://l
 
 A successful response identifies the reviewer and model and cites code supporting its findings, or says it found none. Your assistant stays responsible for editing. Review the evidence and decide which fixes to apply; agreement between models is not proof of correctness.
 
-If you get a missing-tool or authentication error, run `ask-llm doctor` in your terminal, follow its remediation, and restart the host. [Troubleshooting](https://lykhoyda.github.io/ask-llm/resources/troubleshooting) covers common failures. Registration alone does not prove a provider can answer.
+If you get a missing-tool or authentication error, run `ask-llm doctor` in your terminal, follow its remediation for your selected assistant and reviewer, and restart the host. Warnings about providers you do not use do not require installing them or adding API keys. [Troubleshooting](https://lykhoyda.github.io/ask-llm/resources/troubleshooting) covers common failures. Registration alone does not prove a provider can answer.
 
 Next, [review a larger change](https://lykhoyda.github.io/ask-llm/workflows/review-changes) or [challenge a plan](https://lykhoyda.github.io/ask-llm/workflows/challenge-plan).
 
@@ -1151,7 +1153,7 @@ Sandbox capabilities depend on your Gemini CLI version and Gemini account. See t
 
 Source: https://lykhoyda.github.io/ask-llm/resources/troubleshooting.html
 
-> **Run the doctor first.** `ask-llm doctor` checks Node version, PATH, every provider CLI's presence + version, and env vars. It works even when MCP can't start. Follow the failed-check remediation in the report.
+> **Run the doctor first.** `ask-llm doctor` checks Node version, PATH, every provider CLI's presence + version, and env vars. It works even when MCP can't start. Follow the failed-check remediation for your selected assistant and reviewer. Warnings about providers you do not use do not require installing them or adding API keys.
 
 ```bash
 ask-llm doctor                       # human-readable

@@ -4,7 +4,7 @@ description: Common issues and solutions for Ask LLM MCP servers. Connection err
 
 # Troubleshooting
 
-> **Run the doctor first.** `ask-llm doctor` checks Node version, PATH, every provider CLI's presence + version, and env vars. It works even when MCP can't start. Follow the failed-check remediation in the report.
+> **Run the doctor first.** `ask-llm doctor` checks Node version, PATH, every provider CLI's presence + version, and env vars. It works even when MCP can't start. Follow the failed-check remediation for your selected assistant and reviewer. Warnings about providers you do not use do not require installing them or adding API keys.
 
 ```bash
 ask-llm doctor                       # human-readable
