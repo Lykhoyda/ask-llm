@@ -56,7 +56,7 @@ Create a request file without putting its content in the command line:
 Then dispatch it through stdin:
 
 ```bash
-npx -y ask-llm-mcp machine < request.json
+ask-llm-mcp machine < request.json
 ```
 
 A valid dispatch returns a typed success or provider-failure envelope:
@@ -97,7 +97,7 @@ All machine dispatches request `readOnly: true` and pass read-only options to th
 Use `machine-schema` to retrieve the stable canonical request/result schema bundle and its digest:
 
 ```bash
-npx -y ask-llm-mcp machine-schema > machine-schema.json
+ask-llm-mcp machine-schema > machine-schema.json
 ```
 
 ```json
@@ -113,4 +113,4 @@ npx -y ask-llm-mcp machine-schema > machine-schema.json
 
 The whole bundle is authoritative. Validate a document against its Draft 2020-12 `request`, `result`, or `failure` schema first, then run `validateMachineSchemaRefinements(target, document, bundle.refinements)`. The portable refinement descriptors cover sibling-field equality rules that standard JSON Schema cannot express, including self-review and fallback provenance checks. The digest covers every base schema, role payload schema, and refinement descriptor.
 
-`machine-schema` is provider-independent: it neither detects nor loads a provider and does not require a provider CLI to be installed. The refinement interpreter and its `MachineSchemaRefinement`, `MachineSchemaRefinementSet`, `MachineSchemaRefinementViolation`, and `MachineSchemaTarget` types are exported from `ask-llm-mcp/machine` and the package root.
+`machine-schema` is provider-independent: it neither detects nor loads a provider and does not require a provider CLI to be installed. The refinement interpreter and its `MachineSchemaRefinement`, `MachineSchemaRefinementSet`, `MachineSchemaRefinementViolation`, and `MachineSchemaTarget` types are exported from `@ask-llm/mcp/machine` and the package root.

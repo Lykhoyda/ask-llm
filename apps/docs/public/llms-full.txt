@@ -1161,7 +1161,9 @@ After a global install, use `ask-llm doctor` for host and provider states. The o
 
 ## Installation Issues
 
+### "Command not found: gemini" / "codex" / "ollama"
 
+Provider CLI is not installed or not on PATH
 
 A provider CLI is missing or not on PATH. Install:
 
@@ -1189,7 +1191,9 @@ If `ask-llm doctor` reports a CLI as "not found on PATH" but `which <cli>` works
 
 
 
+### "PATH issue": CLI works in terminal but MCP server says "not found"
 
+macOS GUI apps don't inherit your shell PATH
 
 macOS GUI applications (Claude Desktop, Cursor, etc.) don't source `.zshrc` / `.bashrc`, so nvm / Homebrew / Volta paths aren't visible to the MCP server. Ask LLM resolves this automatically by extracting the real PATH from your login shell at startup.
 
@@ -1216,7 +1220,9 @@ If it's still failing:
 
 
 
+### MCP server not responding (Claude Desktop cannot connect)
 
+Server fails to start or connection drops
 
 **Step-by-step:**
 
@@ -1238,7 +1244,9 @@ If it's still failing:
 
 
 
+### EUNSUPPORTEDPROTOCOL workspace:* in an earlier npx registration
 
+An earlier cached installation can fail before the server starts
 
 Earlier cache-based registrations can contain stale package metadata. Use [Migration](https://lykhoyda.github.io/ask-llm/reference/migration) to replace a verified old entry with the durable installed path. Preserve customised environment variables and filters first. Primary onboarding does not depend on an npx server cache.
 
@@ -1246,7 +1254,9 @@ Earlier cache-based registrations can contain stale package metadata. Use [Migra
 
 ## Connection & Auth
 
+### "Authentication failed" / "401 Unauthorized"
 
+Provider CLI isn't authenticated
 
 Each provider has its own auth flow:
 
@@ -1264,7 +1274,9 @@ curl http://localhost:11434/api/tags    # Ollama
 
 
 
+### Quota / rate limit errors (Gemini RESOURCE_EXHAUSTED, Codex 429)
 
+Provider quota exhausted
 
 **The executor handles this automatically**: Gemini falls back from `gemini-3.1-pro-preview` to `gemini-3.8-flash`, and Codex falls back from `gpt-6-astra` to `gpt-5.6-terra`. You'll see `usage.fellBack: true` in the structured response.
 
@@ -1275,7 +1287,9 @@ If both Pro and Flash (or both GPT-6 Astra and Terra) hit quota, the call fails 
 
 
 
+### "Command timed out after Xs"
 
+Provider call exceeded the per-provider wall-clock timeout
 
 Defaults differ by provider: **codex 800s** (reasoning models routinely take 5–10 min on substantive prompts), **gemini 210s** (stream-json emits tokens incrementally, usually fast enough). Resolution ladder: per-provider env var > `GMCPT_TIMEOUT_MS` > provider default.
 
@@ -1308,7 +1322,9 @@ To check the resolved per-provider timeouts on your machine, run `ask-llm:diagno
 
 ## Tool & API Issues
 
+### "Provider X is not available" / tool call rejects provider
 
+The orchestrator didn't detect the provider at startup
 
 Ask LLM detects available providers at startup. If a provider you expected isn't there:
 
@@ -1319,7 +1335,9 @@ Ask LLM detects available providers at startup. If a provider you expected isn't
 
 
 
+### "Sub-agent silently produces 0-byte output" / brainstorm coordinator hang
 
+Provider process killed by sub-agent lifecycle
 
 This is a known bug class: Claude Code sub-agents can't own background processes that outlive their turn, so `(cmd &) && wait` patterns or `run_in_background: true` on dispatch calls cause processes to be SIGKILLed silently.
 
@@ -1329,7 +1347,9 @@ The brainstorm-coordinator agent uses the correct pattern (single foreground blo
 
 ## Model & Response Issues
 
+### Response gets cut off mid-stream
 
+MCP message size limits or executor timeout
 
 For Gemini, large responses are chunked automatically; Claude can call `fetch-chunk` to retrieve subsequent chunks from the cached response.
 
@@ -1343,7 +1363,9 @@ For Codex / Ollama, very large responses can hit the MCP message limit. Workarou
 
 ## Plugin Issues
 
+### Plugin slash commands not appearing in Claude Code
 
+Plugin not installed or not loaded
 
 Verify the plugin is installed and active:
 
