@@ -1,5 +1,11 @@
 # @ask-llm/mcp
 
+## 1.2.1
+
+### Patch Changes
+
+- [#392](https://github.com/Lykhoyda/ask-llm/pull/392) [`9e20d1f`](https://github.com/Lykhoyda/ask-llm/commit/9e20d1f330423f96c473c98259bdcfa51b5b2e04) Thanks [@Lykhoyda](https://github.com/Lykhoyda)! - Present Ask LLM as second opinions for coding agents with one install-and-setup command, workflow-first documentation, compatibility notes and migration links.
+
 ## 1.2.0
 
 ### Minor Changes

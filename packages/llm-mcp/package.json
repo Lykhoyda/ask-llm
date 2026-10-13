@@ -1,6 +1,6 @@
 {
   "name": "@ask-llm/mcp",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "mcpName": "io.github.Lykhoyda/ask-llm",
   "description": "Get a second opinion on your code or plan, inside your coding assistant, using the model subscriptions you already have.",
   "type": "module",
