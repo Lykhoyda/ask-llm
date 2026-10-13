@@ -73,16 +73,16 @@ export function llmsFiles(): Record<string, string> {
           /<SetupTabs\s*\/>/g,
           "See the install command above; select your host, inspect the preview, and confirm.",
         )
-        .replace(/<[A-Z][^>]*\/>/g, "")
-        .replace(/<script\b[^>]*>[\s\S]*?<\/script>/g, "")
-        .replace(/<!--[\s\S]*?-->/g, "")
+        .replace(/<[A-Z][^>]*\/>/g, "\n")
+        .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, "\n")
+        .replace(/<!--[\s\S]*?-->/g, "\n")
         .replace(/<TroubleshootingModal\b([^>]*)>/g, (_, attributes: string) => {
           const { title, preview } = Object.fromEntries(
             Array.from(attributes.matchAll(/\b(title|preview)=(["'])(.*?)\2/gs), (match) => [match[1], match[3]]),
           );
           return `### ${title}\n\n${preview}`;
         })
-        .replace(/<\/TroubleshootingModal>/g, "")
+        .replace(/<\/TroubleshootingModal>/g, "\n")
         .replace(/\]\(\/(?!\/)([^)]+)\)/g, `](${site}/$1)`);
       full += `### ${title(source)}\n\nSource: ${site}/${path}.html\n\n${readable.replace(/^# .+\n/, "").trim()}\n\n`;
     }

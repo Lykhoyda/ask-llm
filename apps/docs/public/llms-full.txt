@@ -141,6 +141,7 @@ Use providers your host can consult; Claude is unavailable inside Claude Code. T
 
 
 
+
 One provider failure does not erase the others' answers. Keep failures visible and attribute surviving insights only to providers that answered. Compare evidence and disagreements, not vote counts: agreement between models is not proof of correctness.
 
 For a report that checks findings against the code, use [Review changes](https://lykhoyda.github.io/ask-llm/workflows/review-changes). For research and synthesis, use [Brainstorm](https://lykhoyda.github.io/ask-llm/workflows/brainstorm).
@@ -200,6 +201,7 @@ Source: https://lykhoyda.github.io/ask-llm/compatibility/hosts.html
 A host is the coding assistant you work in. A provider is the model you consult. The matrix below is kept equal to the canonical [HOST-PARITY matrix](https://github.com/Lykhoyda/ask-llm/blob/main/docs/HOST-PARITY.md); `ask-llm doctor` prints the rows for installed hosts.
 
 
+
 | | Claude Code | Codex | Cursor | Antigravity | Grok Build | Gemini | Pi | Claude Desktop | OpenCode |
 |---|---|---|---|---|---|---|---|---|---|
 | tools | MCP: ask-llm, multi-llm, ask-cursor-agent, ping, get-usage-stats, diagnose | MCP: ask-llm, multi-llm, ask-cursor-agent, ping, get-usage-stats, diagnose | MCP: ask-llm, multi-llm, ask-cursor-agent, ping, get-usage-stats, diagnose | MCP: ask-llm, multi-llm, ask-cursor-agent, ping, get-usage-stats, diagnose | MCP: ask-llm, multi-llm, ask-cursor-agent, ping, get-usage-stats, diagnose | MCP: ask-llm, multi-llm, ask-cursor-agent, ping, get-usage-stats, diagnose | native ask-llm, multi-llm, ask-cursor-agent with the MCP input schemas; ask-codex, ask-gemini, ask-grok, ask-ollama, ask-antigravity, ask-multi as deprecated aliases | MCP: ask-llm, multi-llm, ask-cursor-agent, ping, get-usage-stats, diagnose | MCP: ask-llm, multi-llm, ask-cursor-agent, ping, get-usage-stats, diagnose |
@@ -209,6 +211,7 @@ A host is the coding assistant you work in. A provider is the model you consult.
 | pairing | per-edit codex-pair hooks from the plugin, off until `/codex-pair` consent | on demand through the `ask-llm-codex-pair` skill; no per-edit review | on demand through the `ask-llm-codex-pair` skill; no per-edit review | on demand through the `ask-llm-codex-pair` skill; no per-edit review | on demand through the `ask-llm-codex-pair` skill; no per-edit review | on demand through the `ask-llm-codex-pair` skill; no per-edit review | per-edit codex-pair extension, off until project trust, the marker and `/codex-pair` consent | none | on demand through the `ask-llm-codex-pair` skill; no per-edit review |
 | subagents | isolated reviewer agents from the plugin | none; reviews run inline | none; reviews run inline | none; reviews run inline | none; reviews run inline | none; reviews run inline | none; reviews run inline | none | none; reviews run inline |
 | Stop gate | blocks the turn on a HIGH codex-pair finding only with `blockOn: HIGH` | none | none | none | none | none | none; codex-pair findings are non-blocking | none | none |
+
 
 ## Setup limits
 
@@ -614,6 +617,7 @@ Ask LLM sends no telemetry. Selected hosted providers receive your prompts and c
 
 
 
+
 For a single-provider call (`ask-llm` with `provider: "gemini"`), only one of the provider lanes fires. For `multi-llm`, both fire in parallel via `Promise.all` inside the Ask LLM process; per-provider failures are isolated, so one provider hitting quota doesn't fail the whole call.
 
 ## Connection details
@@ -643,6 +647,7 @@ Source: https://lykhoyda.github.io/ask-llm/operation/costs.html
 Hosted CLI providers (Gemini, Codex, Claude, Antigravity) auto-select a sensible default model with automatic fallback on provider-specific conditions — quota/rate-limit exhaustion, and for Antigravity also a rejected shipped model slug (see the table below). Grok and Ollama never substitute another model: Grok sends the selected API or Grok CLI catalog ID unchanged, while Ollama uses exactly the model you pull. **Most users should never override the model parameter**; the defaults are tuned for quality.
 
 ## Defaults & Fallbacks
+
 
 
 
@@ -1159,6 +1164,7 @@ After a global install, use `ask-llm doctor` for host and provider states. The o
 
 
 
+
 ## Installation Issues
 
 ### "Command not found: gemini" / "codex" / "ollama"
@@ -1191,6 +1197,7 @@ If `ask-llm doctor` reports a CLI as "not found on PATH" but `which <cli>` works
 
 
 
+
 ### "PATH issue": CLI works in terminal but MCP server says "not found"
 
 macOS GUI apps don't inherit your shell PATH
@@ -1220,6 +1227,7 @@ If it's still failing:
 
 
 
+
 ### MCP server not responding (Claude Desktop cannot connect)
 
 Server fails to start or connection drops
@@ -1244,11 +1252,13 @@ Server fails to start or connection drops
 
 
 
+
 ### EUNSUPPORTEDPROTOCOL workspace:* in an earlier npx registration
 
 An earlier cached installation can fail before the server starts
 
 Earlier cache-based registrations can contain stale package metadata. Use [Migration](https://lykhoyda.github.io/ask-llm/reference/migration) to replace a verified old entry with the durable installed path. Preserve customised environment variables and filters first. Primary onboarding does not depend on an npx server cache.
+
 
 
 
@@ -1274,6 +1284,7 @@ curl http://localhost:11434/api/tags    # Ollama
 
 
 
+
 ### Quota / rate limit errors (Gemini RESOURCE_EXHAUSTED, Codex 429)
 
 Provider quota exhausted
@@ -1284,6 +1295,7 @@ If both Pro and Flash (or both GPT-6 Astra and Terra) hit quota, the call fails 
 
 - Switch to a different provider for the meantime: `Use ask-llm with provider codex ...` instead of Gemini
 - Use Ollama locally: `Use ask-llm with provider ollama ...`
+
 
 
 
@@ -1320,6 +1332,7 @@ To check the resolved per-provider timeouts on your machine, run `ask-llm:diagno
 
 
 
+
 ## Tool & API Issues
 
 ### "Provider X is not available" / tool call rejects provider
@@ -1335,6 +1348,7 @@ Ask LLM detects available providers at startup. If a provider you expected isn't
 
 
 
+
 ### "Sub-agent silently produces 0-byte output" / brainstorm coordinator hang
 
 Provider process killed by sub-agent lifecycle
@@ -1342,6 +1356,7 @@ Provider process killed by sub-agent lifecycle
 This is a known bug class: Claude Code sub-agents can't own background processes that outlive their turn, so `(cmd &) && wait` patterns or `run_in_background: true` on dispatch calls cause processes to be SIGKILLed silently.
 
 The brainstorm-coordinator agent uses the correct pattern (single foreground blocking Bash with direct backgrounding + per-PID wait + `timeout: 600000`). If you're seeing this in custom skills you're writing, follow the same pattern; see the agent prompt in `packages/llm-mcp/agents/brainstorm-coordinator.md` for the canonical template.
+
 
 
 
@@ -1361,6 +1376,7 @@ For Codex / Ollama, very large responses can hit the MCP message limit. Workarou
 
 
 
+
 ## Plugin Issues
 
 ### Plugin slash commands not appearing in Claude Code
@@ -1376,6 +1392,7 @@ Verify the plugin is installed and active:
 If `ask-llm` is missing, run `ask-llm setup --host claude`, follow its guidance, and fully restart Claude Code. Inspect `/mcp` after restart. The Claude adapter bundles Codex; setup also connects the user-scoped server for other providers.
 
 If the registration is present but disconnected, run `ask-llm doctor`. A missing registration, disconnected service, and an older schema have different remediation. The review workflow discloses any CLI fallback. Legacy installation commands are retained in [Migration](https://lykhoyda.github.io/ask-llm/reference/migration#earlier-installation-recipes).
+
 
 
 
