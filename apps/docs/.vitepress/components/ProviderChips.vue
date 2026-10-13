@@ -9,9 +9,6 @@
     >
       {{ doc.name }}<span class="pc-note">{{ annotation(doc) }}</span>
     </a>
-    <a :href="withBase(unified.docPath)" class="pc-chip pc-unified">
-      unified: all of them →
-    </a>
   </section>
 </template>
 
@@ -24,7 +21,6 @@ import {
 } from "../theme/providers";
 
 const supporting = SUPPORTING_IDS.map((id) => PROVIDER_DOCS[id]);
-const unified = PROVIDER_DOCS.unified;
 
 // Short display annotation per supporting provider. Mapped explicitly by id:
 // Antigravity ships via the `agy` CLI; Ollama runs local; Gemini is

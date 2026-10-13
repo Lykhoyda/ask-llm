@@ -1,0 +1,228 @@
+---
+description: Slash commands for AI code review, brainstorming, and side-by-side comparison, including native /fable-review, model-pinned /sol-review, provider reviews, /multi-review, /brainstorm, and /compare.
+---
+
+# Skills
+
+Skills use the portable `ask-llm-*` names: `codex-review` becomes `ask-llm-review`, and every other earlier name gains the `ask-llm-` prefix. The examples below use Claude Code's retained compatibility aliases; on other hosts use the portable names, including `/skill:ask-llm-review` in Pi. See the [setup reference](https://github.com/Lykhoyda/ask-llm/blob/main/packages/llm-mcp/README.md#command-compatibility) for installation and the [Cursor](/compatibility/cursor) and [Pi](/compatibility/pi) guides for host-specific command surfaces.
+
+Each skill contains its portable contract and host adapters. The detailed agent-based workflows below describe Claude Code; other hosts follow their own adapters. Claude can use isolated reviewer agents; Pi runs workflows inline with native tools and does not claim isolated context. Other hosts use the [shared transport contract](https://github.com/Lykhoyda/ask-llm/blob/main/packages/llm-mcp/skills/ask-llm-review/transport.md).
+
+> `/fable-review` requires native isolated Claude Code execution and is excluded from setup's portable installation. On Pi, provider skills use native tools rather than MCP configuration. Claude Code's plugin bundles Codex; other provider reviewers can use the unified server registered by setup or optional split provider servers. See [Claude Code host notes](/compatibility/claude-code).
+
+## Native Model Review Skills
+
+### `/fable-review`
+
+Review the current diff directly with a read-only agent pinned to Fable. Findings are checked against the source and filtered at 80% confidence.
+
+```text
+/fable-review
+```
+
+### `/sol-review`
+
+Run the same independent review contract with an isolated coordinator that explicitly requests `gpt-6-sol` at high reasoning from the Codex provider. `/codex-review` instead follows the configured Codex default.
+
+```text
+/sol-review
+```
+
+`/fable-review` requires a Claude Code runtime/account that exposes Fable. `/sol-review` requires an installed, authenticated Codex CLI; the plugin still bundles the Codex MCP registration used by `/sol-review` and `/codex-review`. The skill reads Claude's active MCP inventory and prefers any exact `ask-codex` leaf, then a fully pinned unified `ask-llm` call (`provider: "codex"` plus model, reasoning effort, include directories, preferred, and sandbox), then the disclosed `codex exec` fallback. Missing registration, disconnected service, and an older unified schema that cannot honor those Codex options receive different remediation; the skill never omits fields to make a stale schema succeed. If Sol falls back to Terra on quota, the result says so explicitly.
+
+## Provider Review Skills
+
+Provider review skills follow the same pattern:
+
+1. Gather staged and unstaged git changes
+2. Read project conventions from `CLAUDE.md`
+3. Send the diff + context to the provider
+4. Return findings filtered by confidence (80%+ threshold)
+5. Group results: **Critical** (90%+) vs **Important** (80-89%)
+
+### `/gemini-review`
+
+Get a second opinion from Google Gemini on your current code changes.
+
+```text
+/gemini-review
+```
+
+Uses Gemini's 1M+ token context window, making it ideal for reviewing changes that touch many files or require understanding a large codebase. Requires an enterprise Gemini seat ([gated from 2026-06-18](/providers/gemini)); on other plans use `/codex-review` or `/antigravity-review`.
+
+### `/codex-review`
+
+Get a second opinion from OpenAI Codex (GPT-6 Astra) on your current changes.
+
+```text
+/codex-review
+```
+
+Falls back to GPT-5.6 Terra automatically if you hit quota limits.
+
+### `/grok-review`
+
+Get a Grok second opinion through the explicitly selected `xai-api` (default) or `grok-cli` harness.
+
+```text
+/grok-review
+```
+
+The API path requires `XAI_API_KEY` and can incur xAI charges; the CLI path requires official Grok Build login or API-key auth. Both use exact harness catalog model IDs and never fall back. See [Grok setup and cost safety](/providers/grok).
+
+### `/ollama-review`
+
+Get a second opinion from a local Ollama model. No API keys needed; all processing stays on your machine.
+
+```text
+/ollama-review
+```
+
+Requires Ollama running locally with a model pulled (e.g., `qwen3.8:27b`).
+
+### `/antigravity-review`
+
+Get a **subscription-backed** second opinion from Google Antigravity (`agy`): uses your Google AI Pro/Ultra plan, no per-token API billing.
+
+```text
+/antigravity-review
+```
+
+Experimental and one-shot (no multi-turn). Requires `agy` installed + logged in once and a provider transport from the [Claude Code host notes](/compatibility/claude-code#connection-details).
+
+## Brainstorm Skills
+
+### `/brainstorm`
+
+Send a topic to an explicit multi-model panel, ground it with independent Claude Opus research, then synthesize the findings. Provider, harness, requested catalog ID, independently observed served model (direct xAI API / Grok CLI only; a disclosed same-product alias/snapshot stays eligible), and Cursor's optional reported display label remain separate. Cursor Agent and Codex CLI echo the requested ID, so those attributions are selected-only and unverifiable rather than an actual model. The coordinator agent runs:
+
+1. **Phase 3B: Claude Opus research.** Claude reads actual files, traces real code paths, fetches referenced docs, and forms findings tagged Verified or Inferred. In standard mode Claude is a participant. In the exact Grok + Sol mode it is a non-voting evidence verifier, so the requested panel remains exactly two models.
+2. **Phase 3A: External dispatch.** A single foreground blocking Bash call sends the topic to each requested external provider in parallel and waits for all of them. Up to 10 minutes total (Bash tool max). It's a foreground blocking call, not a background-job dispatch, because sub-agents can't own processes that outlive their turn.
+3. **Phase 4: Synthesis.** Combines Claude's findings with the external responses:
+
+- Consensus points (where multiple participants agree; Claude verified + external = highest confidence)
+- Unique insights (findings from only one participant)
+- Contradictions (verified findings outrank inferred ones)
+- Actionable recommendations (prioritized by impact and confidence)
+
+```text
+# Default external providers (Antigravity + Codex), plus Claude Opus always
+/brainstorm Should we use a monorepo or polyrepo for this project?
+
+# Custom external providers
+/brainstorm gemini,codex,ollama Review this authentication approach
+
+# Architect panel: exactly Grok + GPT-6 Sol via Cursor Agent; Gemini excluded
+/brainstorm grok@cursor-agent:grok-4.7-high,codex@cursor-agent:gpt-6-sol-high "review this architecture"
+
+# Explicit direct-Grok alternative; never pivots away from Grok Build
+/brainstorm grok@grok-cli:grok-4.7,codex@cursor-agent:gpt-6-sol-high "review this architecture"
+```
+
+**Default external providers:** `antigravity,codex` (avoids unnecessary Ollama calls). Antigravity follows the [execution gate](/providers/antigravity). Compatible bare provider lists remain supported. For predictable routing use `provider@harness:exact-model-id`; the preferred Grok path is Cursor Agent. A list is either all bare names or all routed specs—mixing them (for example `grok@cursor-agent:grok-4.7-high,antigravity`) is refused before any provider is called, with no rerouting or substitution; generalized mixed panels are deferred to a future ADR. Exact IDs come from the selected harness catalog (`agent --list-models`, `grok models`, or xAI `/v1/models`) and are never translated between catalogs.
+
+The architect panel invokes only the two listed Cursor participants: `provider: "grok"` with `model: "grok-4.7-high"`, and `provider: "codex"` with `model: "gpt-6-sol-high"`. It never calls Gemini or Cursor `Auto`. If registration, authentication, model availability, or route support fails for either participant, the result is **partial** and surviving insights are attributed only to the model that answered—never called two-model consensus. Claude's evidence can verify claims but cannot supply the missing vote.
+
+The `grok-cli` form is supported only when the installed official Grok Build exposes Ask LLM's required headless JSON/read-only contract. A direct-route failure is terminal for that participant; there is no silent pivot among Cursor Agent, Grok CLI, or xAI API.
+
+### `/brainstorm-all`
+
+Shortcut for `/brainstorm gemini,codex,grok,ollama,antigravity <topic>`. Requests all five external providers plus the always-on Claude Opus research phase; Antigravity may be skipped by its [execution gate](/providers/antigravity).
+
+```text
+/brainstorm-all What's the best caching strategy for our API?
+```
+
+Requires Ollama running locally since it includes the local provider.
+
+## Multi-Provider Review Skills
+
+### `/multi-review`
+
+Run independent code reviews from Antigravity and Codex in parallel, **verify** each finding against the source, then present combined consensus / unique / rejected findings. (Gemini via `/gemini-review` or the `gemini-reviewer` agent.)
+
+```text
+/multi-review
+```
+
+Pipeline:
+
+1. **Gather and prepare the diff**: `git status` first; `git add -N` for untracked files; pathspec exclusion of docs/binaries (`:!docs/` `:!*.md` `:!yarn.lock` `:!*.png`); 3-tier size policy (`<50KB` send as-is, `50–150KB` warn about expected wall time, `>150KB` ask before sending).
+2. **Dispatch with fallback**: preferred path is the `antigravity-reviewer` and `codex-reviewer` agents in parallel; falls back to direct Bash dispatch via the plugin's `dist/antigravity-run.js` and `dist/codex-run.js` runners using the [ADR-050](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md) dispatch pattern when agents are unavailable.
+3. **Verify each finding**: for every finding above 80/100 confidence, Read the file at the cited line and check whether the claim is actually true. Classifies as **VERIFIED** (claim holds), **REJECTED** (false positive), or **UNVERIFIABLE** (cannot confirm without runtime). This step exists specifically because confidence scores aren't an oracle.
+4. **Resilient failure handling**: when a provider fails (timeout, exit ≠ 0, 0-byte output), surface the failure inline with stderr instead of silently dropping. Partial results are explicit.
+5. **Synthesis**: combined output with `Verified by both`, `Verified by Antigravity only`, `Verified by Codex only`, `Rejected (false positives)`, `Unverifiable`, and per-provider stats including verification counts.
+
+The verification step protects against the failure mode where one provider returns a high-confidence claim that's contradicted by the actual source; caught and rejected before reaching the user.
+
+### `/compare`
+
+Side-by-side raw responses from multiple providers. **No synthesis**, no consensus extraction, no validation pipeline; just verbatim outputs so you can compare directly.
+
+```text
+/compare what's the difference between Server-Sent Events and WebSockets?
+/compare gemini and codex review @src/auth.ts
+```
+
+Use when:
+- You want to see how each provider phrases the same answer (style, depth, confidence framing)
+- You want a sanity check before picking one provider's recommendation
+- You explicitly want to AVOID Claude synthesizing or weighting the responses
+
+If you want consensus extraction → use `/brainstorm` instead.
+If you're reviewing a code diff → use `/multi-review` instead.
+
+## Pair Programming
+
+### `/grok-pair`: explicit Grok reviewer lifecycle
+
+Claude Code's `/grok-pair` selects one immutable Grok route: `cursor-agent` (preferred when configured with an exact Grok-family ID from `agent --list-models`), `xai-api`, or `grok-cli`. Before provider work it shows provider, harness, exact model, reasoning semantics, bounded files/include directories, session support, and cost boundary for consent. Claude remains the editor; Grok feedback is relayed and verified at each checkpoint. Cancellation, partial failure, and final attribution are explicit; Auto, model rewriting, and provider/harness fallback are forbidden.
+
+```text
+/grok-pair route=cursor-agent model=grok-4.7-high include=packages/api review this change
+/grok-pair route=xai-api model=grok-4.7 effort=xhigh review this change
+```
+
+On Claude Code the Cursor and direct Grok tools come from user-scoped registrations (`claude mcp add --scope user ask-llm -- npx -y @ask-llm/mcp`, optionally `claude mcp add --scope user grok -- npx -y @ask-llm/grok-mcp`); the plugin itself bundles only Codex. The unified `ask-llm` tool is used only with provider, harness, exact model, and effort pinned. When Cursor itself hosts `/grok-pair`, it avoids recursive Cursor invocation and offers only explicit API/CLI routes through `ask-grok` or that fully pinned unified form; missing tools produce `.cursor/mcp.json` plus Cursor Tools & MCP reload guidance, never Claude-only setup commands.
+
+### `codex-pair`: host lifecycle + dashboard
+
+`codex-pair` has two surfaces:
+
+- **Claude Code:** the PostToolUse hook fires after `Edit` / `Write` / `MultiEdit` when a marker exists.
+- **Pi:** the extension observes successful built-in `tool_result` edit/write events and additionally requires project trust plus user-owned allowlist consent through `/codex-pair`. A committed marker alone is never consent. Findings use non-triggering `steer` delivery and are non-blocking; print-mode asynchronous pairing is unsupported.
+- **Cursor Agent:** the supported Agent Skills surface runs an on-demand consent-gated pair session through a user-installed `ask-codex` leaf when exposed, otherwise the fully pinned unified `ask-llm`; the first call creates a persisted Thread ID with model, effort, and include directories, and follow-ups resume it without claiming Claude hooks are active. See [Cursor Agent Host](/compatibility/cursor).
+- **`/codex-pair`**: a user-invocable slash command that shows current status (active / paused / not configured) and runs interactive setup on first use. Use this when you want to enable codex-pair on a new project (auto-detects context from your README + manifests, drafts the marker, asks you to confirm) or check whether it's currently running. Pairs with `/codex-pair-pause` and `/codex-pair-resume` (the imperative toggles).
+
+> This is the "hidden" surface of the plugin: the hook ships in every install but is disabled by default until a project opts in. The full mechanism, env vars, and cost characteristics live in [Codex Pair](/advanced/codex-pair).
+
+**Quick enable**: either run `/codex-pair` (recommended; it auto-detects your project and asks before writing) or create the marker manually:
+
+```bash
+mkdir -p .codex-pair
+cat > .codex-pair/context.md <<'EOF'
+# .codex-pair/context.md
+
+<one-paragraph project-purpose summary>
+
+## Domain invariants Codex can't infer from a single file
+
+- <invariant 1: something the model can't see by reading one file>
+- <invariant 2: a written spec or protocol your code implements>
+- <invariant 3: a concurrency or state-coordination rule>
+EOF
+```
+
+Once the marker exists at the project root, every file edit triggers a Codex review with the marker's content as project context. `rm -rf .codex-pair/` to disable.
+
+**How it differs from `/codex-review`**: in a four-task benchmark recorded in the project's [decision log](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md) (four structurally different task types: CRUD, URL parsing, RFC-spec implementation, stateful business logic, picked so the result would generalize across domains): Claude alone caught **2 of 10** probes; Claude + `/codex-review` caught **7 of 10**; Claude + `codex-pair` caught **10 of 10**. The three probes `/codex-review` missed exemplified the "looks fine, runs wrong" class its ≥80-confidence filter structurally suppresses; code that compiles and type-checks but produces wrong results at runtime. **The recall improvement is task-agnostic**; the two surfaces are complementary, not competing.
+
+The decision about when to use the hook is about **code characteristics**, not project domain:
+
+| Use `/codex-review` (precision-first) | Use `codex-pair` (recall-first) |
+|---|---|
+| Routine PR review | Code with hidden invariants the model can't infer from one file |
+| Glue code, simple CRUD, refactors | Code where latent bugs cost more than per-edit review (~$0.04–0.07) |
+| You want one comprehensive report | Code evolving fast under written constraints (spec, protocol, ADR) |
+| You're cost-sensitive (~$0.04 per review) | State coordination, concurrency, anything order-sensitive |
+| Default for everything | The "looks fine, runs wrong" failure mode would be expensive to catch later |

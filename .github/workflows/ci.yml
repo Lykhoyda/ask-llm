@@ -29,6 +29,12 @@ jobs:
     - name: Guard — bundled source changes must changeset the canonical MCP (ADR-119)
       if: github.event_name == 'pull_request'
       run: node scripts/check-shared-changeset.ts
+    - name: Build documentation (includes VitePress dead-link check)
+      run: yarn docs:build
+    - name: Check documentation links and primary onboarding
+      run: |
+        node scripts/check-docs-links.ts
+        node scripts/check-docs-onboarding.ts
     - name: Archive platform setup
       run: tar -czf test-setup.tgz node_modules packages .yarn/install-state.gz
     - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

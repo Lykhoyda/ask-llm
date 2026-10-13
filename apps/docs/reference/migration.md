@@ -14,11 +14,10 @@ Ask LLM is now one package, `@ask-llm/mcp`, with one command, `ask-llm`. Start m
 - **Setup registers a durable path.** `ask-llm setup` registers the absolute path of the globally installed `ask-llm-mcp`, so hosts no longer start the server through an `npx` cache.
 - **One server covers every provider.** The `ask-llm` tool takes a `provider` (`codex`, `claude`, `grok`, `antigravity`, `ollama`, `gemini`), so a separate server per provider is no longer needed.
 
-## The one command
+## Install and migrate
 
 ```bash
-npm install -g @ask-llm/mcp
-ask-llm setup
+npm i -g @ask-llm/mcp && ask-llm setup
 ```
 
 Preview first if you like; `--dry-run` writes nothing:
@@ -40,7 +39,7 @@ Automatic migration requires a complete persisted user-scope record with a known
 
 Unverified executable paths and all Pi npm registrations receive guidance. This includes `npm:@ask-llm/mcp` and `npm:@ask-llm/plugin`, pinned or unpinned, as strings or source objects. Setup leaves those packages and the plugin bridge unchanged because their source names do not prove installed compatibility. Only the local installed-package registration managed by setup proves compatibility.
 
-Unrelated entries are not migration findings and are never changed; an unrelated command occupying the `ask-llm` name is reported as a conflict. See the [command compatibility reference](https://github.com/Lykhoyda/ask-llm/blob/main/packages/llm-mcp/README.md#command-compatibility) for backup timing, collision-safe filenames and security precautions. If a replacement fails in Claude Code, which removes the old entry before adding the new one, setup attempts to restore the earlier entry through `claude mcp add` only while that name is still absent. A new entry or edits elsewhere in the file are preserved, and a failed restoration reports the backup path. Re-running `ask-llm setup` preserves migrated registrations and repeats outstanding guidance; it may still refresh changed skills.
+Unrelated entries are not migration findings and are never changed; an unrelated command occupying the `ask-llm` name is reported as a conflict. See the [CLI reference](/reference/cli) for backup timing, collision-safe filenames and security precautions. If a replacement fails in Claude Code, which removes the old entry before adding the new one, setup attempts to restore the earlier entry through `claude mcp add` only while that name is still absent. A new entry or edits elsewhere in the file are preserved, and a failed restoration reports the backup path. Re-running `ask-llm setup` preserves migrated registrations and repeats outstanding guidance; it may still refresh changed skills.
 
 `-y` answers yes to every question and `--host claude,codex` limits setup to the named hosts:
 
@@ -96,3 +95,38 @@ For later removal of this installation, see the [command compatibility reference
 - The Claude Code plugin keeps working and keeps updating through its marketplace; setup installs it for you when it is missing.
 - In Pi, `npm:@ask-llm/plugin` keeps loading until you migrate, and the earlier `ask-codex`, `ask-gemini`, `ask-grok`, `ask-ollama`, `ask-antigravity` and `ask-multi` tools remain as aliases.
 - The unified server's tools (`ask-llm`, `multi-llm`, `ask-cursor-agent`, `diagnose`, `ping`, `get-usage-stats`) and their schemas are unchanged.
+
+## Earlier installation recipes
+
+These are retained for existing installations, not as alternatives for new users. Start with [Install](/start/install); setup handles the connection and workflow installation. Inspect customised entries before retiring them.
+
+### Earlier Claude Code marketplace installation
+
+```text
+/plugin marketplace add Lykhoyda/ask-llm
+/plugin install ask-llm@ask-llm-plugins
+```
+
+The marketplace remains setup's implementation mechanism on Claude Code. An already installed compatible plugin is reused. Hooks and reviewer agents are documented in [Claude Code host notes](/compatibility/claude-code); the [workflow catalogue](/reference/skills) retains earlier command names.
+
+### Earlier split-provider registrations
+
+```bash
+claude mcp add --scope user codex -- npx -y @ask-llm/codex-mcp
+claude mcp add --scope user grok -e XAI_API_KEY="$XAI_API_KEY" -- npx -y @ask-llm/grok-mcp
+claude mcp add --scope user antigravity -- npx -y @ask-llm/antigravity-mcp
+claude mcp add --scope user ollama -- npx -y @ask-llm/ollama-mcp
+claude mcp add --scope user gemini -- npx -y @ask-llm/gemini-mcp
+codex mcp add claude -- npx -y @ask-llm/claude-mcp
+```
+
+These packages remain installable for compatibility. They are not a package choice in current onboarding. The six provider pages remain unchanged as per-provider reference, including their earlier examples. Current configuration uses [the installed executable](/advanced/manual-configuration).
+
+### Earlier Pi npm installation
+
+```bash
+pi install npm:@ask-llm/plugin
+pi install npm:@ask-llm/mcp
+```
+
+Setup leaves existing Pi npm sources unchanged with guidance. Preserve filters and settings, verify the locally registered extension, and only then remove an earlier source. See [Pi host notes](/compatibility/pi).

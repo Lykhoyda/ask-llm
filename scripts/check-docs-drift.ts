@@ -1,6 +1,7 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { llmsFiles } from "./generate-llms.ts";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const packagesDir = join(root, "packages");
@@ -16,19 +17,26 @@ const publishedPackages = readdirSync(packagesDir)
   .map((manifest) => manifest.name)
   .sort();
 
-const requiredPackageSurfaces = [
-  "README.md",
-  "docs/SECURITY.md",
-  "apps/docs/public/llms.txt",
-  "apps/docs/public/llms-full.txt",
-];
-const errors = [];
+const errors: string[] = [];
 
-for (const relative of requiredPackageSurfaces) {
+// Package enumeration belongs in security and migration reference, not onboarding.
+for (const relative of ["docs/SECURITY.md", "apps/docs/reference/migration.md"]) {
   const source = readFileSync(join(root, relative), "utf8");
   for (const packageName of publishedPackages) {
     if (!source.includes(packageName)) errors.push(`${relative} is missing published package ${packageName}`);
   }
+}
+
+for (const [relative, expected] of Object.entries(llmsFiles())) {
+  if (readFileSync(join(root, relative), "utf8") !== expected) {
+    errors.push(`${relative} is stale; run node scripts/generate-llms.ts`);
+  }
+}
+
+const paritySource = readFileSync(join(root, "docs/HOST-PARITY.md"), "utf8");
+const parityTable = paritySource.match(/<!-- HOST-PARITY:START[\s\S]*?<!-- HOST-PARITY:END -->/)?.[0];
+if (!parityTable || !readFileSync(join(root, "apps/docs/compatibility/hosts.md"), "utf8").includes(parityTable)) {
+  errors.push("apps/docs/compatibility/hosts.md differs from the canonical HOST-PARITY matrix");
 }
 
 const providersSource = readFileSync(join(root, "packages/shared/src/providers.ts"), "utf8");
@@ -99,10 +107,8 @@ const geminiFallback = readFileSync(join(root, "packages/gemini-mcp/src/constant
 const geminiFallbackSurfaces = [
   ".github/routines/model-version-watch.md",
   "AGENTS.md",
-  "README.md",
-  "apps/docs/concepts/models.md",
+  "apps/docs/operation/costs.md",
   "apps/docs/providers/gemini.md",
-  "apps/docs/public/llms.txt",
   "apps/docs/public/llms-full.txt",
   "apps/docs/resources/troubleshooting.md",
   "docs/PROVIDER-PARITY.md",
@@ -137,11 +143,9 @@ if (!codexFactoryDefault) {
 }
 
 const codexDefaultSurfaces = [
-  "README.md",
-  "apps/docs/concepts/how-it-works.md",
-  "apps/docs/concepts/models.md",
+  "apps/docs/operation/data-flow.md",
+  "apps/docs/operation/costs.md",
   "apps/docs/providers/codex.md",
-  "apps/docs/public/llms.txt",
   "apps/docs/public/llms-full.txt",
   "apps/docs/resources/troubleshooting.md",
   "docs/PROVIDER-PARITY.md",

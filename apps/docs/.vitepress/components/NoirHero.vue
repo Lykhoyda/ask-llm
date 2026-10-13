@@ -1,17 +1,17 @@
 <template>
   <section class="noir-hero">
     <p class="command">
-      <span class="visually-hidden">claude mcp add ask-llm -- npx -y @ask-llm/mcp</span>
+      <span class="visually-hidden">npm i -g @ask-llm/mcp && ask-llm setup</span>
       <span aria-hidden="true">$ {{ typed }}</span><span class="cursor" aria-hidden="true">▌</span>
     </p>
-    <h1>Every diff deserves<br />a second opinion.</h1>
+    <h1>Ask LLM<br />Second opinions for coding agents.</h1>
     <p class="sub">
-      Your coding agent consults another frontier model over MCP. Independent
-      reviews, plan debates, fresh eyes.
+      Get a second opinion on your code or plan, inside your coding assistant,
+      using the model subscriptions you already have.
     </p>
     <p class="ctas">
-      <a class="cta primary" :href="withBase('/getting-started')">Quick Start</a>
-      <a class="cta alt" :href="withBase('/plugin/overview')">Install Plugin</a>
+      <a class="cta primary" :href="withBase('/start/install')">Install</a>
+      <a class="cta alt" :href="withBase('/start/first-review')">First review</a>
     </p>
   </section>
 </template>
@@ -20,7 +20,7 @@
 import { onBeforeUnmount, onMounted, ref } from "vue";
 import { withBase } from "vitepress";
 
-const FULL = "claude mcp add ask-llm -- npx -y @ask-llm/mcp";
+const FULL = "npm i -g @ask-llm/mcp && ask-llm setup";
 const typed = ref("");
 let timer: ReturnType<typeof setInterval> | undefined;
 

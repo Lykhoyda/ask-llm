@@ -1,14 +1,11 @@
 ---
-description: Moved. Installation now lives in the Quick Start.
+description: Moved to Install.
 head:
   - - meta
     - http-equiv: refresh
-      content: "0; url=/ask-llm/getting-started.html"
-  - - link
-    - rel: canonical
-      href: https://lykhoyda.github.io/ask-llm/getting-started.html
+      content: "0; url=/ask-llm/start/install.html"
 ---
 
 # Moved
 
-Installation now lives in the [Quick Start](/getting-started).
+Continue to [Install](/start/install).

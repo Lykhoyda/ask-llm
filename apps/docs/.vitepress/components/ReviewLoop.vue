@@ -13,7 +13,7 @@
       >
         <span class="rl-title">▮ {{ claude.name }}</span>
         <span class="rl-tagline">{{ claude.tagline }}</span>
-        <span class="rl-cmd">$ npx {{ claude.pkg }}</span>
+        <span class="rl-cmd">Ask Claude to challenge my plan</span>
         <span class="rl-model">
           default {{ claude.defaultModel }} → fallback {{ claude.fallbackModel }}
         </span>
@@ -29,7 +29,7 @@
       >
         <span class="rl-title">▮ {{ codex.name }}</span>
         <span class="rl-tagline">{{ codex.tagline }}</span>
-        <span class="rl-cmd">$ npx {{ codex.pkg }}</span>
+        <span class="rl-cmd">Ask Codex to review my changes</span>
         <span class="rl-model">
           default {{ codex.defaultModel }} → fallback {{ codex.fallbackModel }}
         </span>

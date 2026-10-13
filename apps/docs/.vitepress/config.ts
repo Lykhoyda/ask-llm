@@ -4,7 +4,8 @@ import { withMermaid } from "vitepress-plugin-mermaid";
 const SITE_URL = "https://lykhoyda.github.io/ask-llm";
 const SITE_HOSTNAME = "https://lykhoyda.github.io/ask-llm/";
 const SITE_TITLE = "Ask LLM";
-const SITE_DESCRIPTION = "MCP servers and a Claude Code + Cursor Agent + Pi host package for AI-to-AI collaboration";
+const SITE_DESCRIPTION =
+  "Get a second opinion on your code or plan, inside your coding assistant, using the model subscriptions you already have.";
 
 export default withMermaid(
   defineConfig({
@@ -102,101 +103,191 @@ export default withMermaid(
       siteTitle: "Ask LLM",
 
       nav: [
-        { text: "Home", link: "/" },
-        { text: "Guide", link: "/getting-started" },
         {
-          text: "Providers",
-          items: [
-            { text: "Codex", link: "/providers/codex" },
-            { text: "Claude", link: "/providers/claude" },
-            { text: "Grok", link: "/providers/grok" },
-            { text: "Antigravity", link: "/providers/antigravity" },
-            { text: "Ollama", link: "/providers/ollama" },
-            { text: "Gemini", link: "/providers/gemini" },
-            { text: "Unified", link: "/providers/unified" },
-          ],
+          text: "Home",
+          link: "/",
         },
         {
-          text: "Host Packages",
-          items: [
-            { text: "Claude Code", link: "/plugin/overview" },
-            { text: "Cursor Agent", link: "/plugin/cursor" },
-            { text: "Pi", link: "/plugin/pi" },
-            { text: "Codex Pair", link: "/plugin/codex-pair" },
-          ],
+          text: "Start",
+          link: "/start/install",
+        },
+        {
+          text: "Workflows",
+          link: "/workflows/review-changes",
+        },
+        {
+          text: "Compatibility",
+          link: "/compatibility/hosts",
         },
       ],
 
       sidebar: [
         {
-          text: "Getting Started",
+          text: "Start",
           collapsed: false,
           items: [
-            { text: "Overview", link: "/" },
-            { text: "Quick Start", link: "/getting-started" },
-          ],
-        },
-        {
-          text: "Providers",
-          collapsed: false,
-          items: [
-            { text: "Codex", link: "/providers/codex" },
-            { text: "Claude", link: "/providers/claude" },
-            { text: "Grok", link: "/providers/grok" },
-            { text: "Antigravity", link: "/providers/antigravity" },
-            { text: "Ollama", link: "/providers/ollama" },
-            { text: "Gemini", link: "/providers/gemini" },
-            { text: "Unified (ask-llm)", link: "/providers/unified" },
-          ],
-        },
-        {
-          text: "Host Package",
-          collapsed: false,
-          items: [
-            { text: "Claude Code", link: "/plugin/overview" },
-            { text: "Cursor Agent", link: "/plugin/cursor" },
-            { text: "Pi", link: "/plugin/pi" },
-            { text: "Codex Pair", link: "/plugin/codex-pair" },
-            { text: "Skills", link: "/plugin/skills" },
-            { text: "Hooks", link: "/plugin/hooks" },
-            { text: "Agents", link: "/plugin/agents" },
-          ],
-        },
-        {
-          text: "Core Concepts",
-          collapsed: false,
-          items: [
-            { text: "How It Works", link: "/concepts/how-it-works" },
-            { text: "Model Selection", link: "/concepts/models" },
-            { text: "Sandbox Mode", link: "/concepts/sandbox" },
-          ],
-        },
-        {
-          text: "User Guide",
-          collapsed: false,
-          items: [
-            { text: "How to Ask", link: "/usage/how-to-ask" },
             {
-              text: "Multi-Turn Sessions",
-              link: "/usage/multi-turn-sessions",
+              text: "Install",
+              link: "/start/install",
             },
             {
-              text: "Strategies & Examples",
-              link: "/usage/strategies-and-examples",
+              text: "First review",
+              link: "/start/first-review",
+            },
+            {
+              text: "Upgrade and remove",
+              link: "/start/upgrade-remove",
+            },
+          ],
+        },
+        {
+          text: "Workflows",
+          collapsed: false,
+          items: [
+            {
+              text: "Review changes",
+              link: "/workflows/review-changes",
+            },
+            {
+              text: "Challenge a plan",
+              link: "/workflows/challenge-plan",
+            },
+            {
+              text: "Compare answers",
+              link: "/workflows/compare-answers",
+            },
+            {
+              text: "Brainstorm",
+              link: "/workflows/brainstorm",
+            },
+          ],
+        },
+        {
+          text: "Compatibility",
+          collapsed: false,
+          items: [
+            {
+              text: "Hosts",
+              link: "/compatibility/hosts",
+            },
+            {
+              text: "Providers",
+              items: [
+                {
+                  text: "Codex",
+                  link: "/providers/codex",
+                },
+                {
+                  text: "Claude",
+                  link: "/providers/claude",
+                },
+                {
+                  text: "Grok",
+                  link: "/providers/grok",
+                },
+                {
+                  text: "Antigravity",
+                  link: "/providers/antigravity",
+                },
+                {
+                  text: "Ollama",
+                  link: "/providers/ollama",
+                },
+                {
+                  text: "Gemini",
+                  link: "/providers/gemini",
+                },
+              ],
+            },
+          ],
+        },
+        {
+          text: "Operation",
+          collapsed: false,
+          items: [
+            {
+              text: "Diagnostics / doctor",
+              link: "/operation/diagnostics",
+            },
+            {
+              text: "Authentication",
+              link: "/operation/authentication",
+            },
+            {
+              text: "Data flow",
+              link: "/operation/data-flow",
+            },
+            {
+              text: "Costs and fallbacks",
+              link: "/operation/costs",
+            },
+          ],
+        },
+        {
+          text: "Advanced",
+          collapsed: false,
+          items: [
+            {
+              text: "Pair review",
+              items: [
+                {
+                  text: "Codex pair",
+                  link: "/advanced/codex-pair",
+                },
+                {
+                  text: "Grok pair",
+                  link: "/advanced/grok-pair",
+                },
+              ],
+            },
+            {
+              text: "Manual MCP configuration",
+              link: "/advanced/manual-configuration",
+            },
+            {
+              text: "Enterprise environments / Gemini",
+              link: "/advanced/enterprise-gemini",
             },
           ],
         },
         {
           text: "Reference",
           collapsed: false,
-          items: [{ text: "Migrating from @ask-llm/*", link: "/reference/migration" }],
+          items: [
+            {
+              text: "Tools and schemas",
+              link: "/reference/tools",
+            },
+            {
+              text: "CLI",
+              link: "/reference/cli",
+            },
+            {
+              text: "Environment variables",
+              link: "/reference/environment-variables",
+            },
+            {
+              text: "Workflow catalogue",
+              link: "/reference/skills",
+            },
+            {
+              text: "Migration from @ask-llm/*",
+              link: "/reference/migration",
+            },
+          ],
         },
         {
           text: "Resources",
-          collapsed: true,
+          collapsed: false,
           items: [
-            { text: "Troubleshooting", link: "/resources/troubleshooting" },
-            { text: "FAQ", link: "/resources/faq" },
+            {
+              text: "Troubleshooting",
+              link: "/resources/troubleshooting",
+            },
+            {
+              text: "FAQ",
+              link: "/resources/faq",
+            },
           ],
         },
       ],
@@ -205,7 +296,7 @@ export default withMermaid(
 
       footer: {
         message: "Released under the MIT License.",
-        copyright: "Making AI collaboration simple, one tool at a time.",
+        copyright: "Second opinions for coding agents.",
       },
 
       search: {

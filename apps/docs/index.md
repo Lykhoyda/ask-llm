@@ -1,37 +1,41 @@
 ---
 layout: home
-description: MCP servers for AI-to-AI collaboration. Claude and Codex review each other's work; Grok, Antigravity, Ollama, and Gemini extend the bench.
+description: Get a second opinion on your code or plan, inside your coding assistant, using the model subscriptions you already have.
 ---
 
 <div class="vp-doc home-content">
 
 <NoirHero />
 
+<p>For individual developers and small teams who already use a coding assistant and pay for another model subscription. Review your changes or challenge your plan with a different vendor's model, without API keys, copy-paste, or leaving the session.</p>
+
 <ReviewLoop />
+
+<h2 class="home-h2">Install and connect</h2>
+
+<p class="home-verify">Use Node.js 24+ on Linux or macOS. Install and sign in to a provider first; Ask LLM configures the connection, not the provider account.</p>
+
+<SetupTabs />
+
+<h2 class="home-h2">Your first review</h2>
+
+<p class="home-verify">In Claude Code with authenticated Codex, ask: <code>Ask Codex to review my staged changes for bugs and missing error handling. Check each finding against the source before proposing fixes.</code> Working in Codex? Ask Claude instead.</p>
 
 <ProviderChips />
 
-<h2 class="home-h2">How a request flows</h2>
+<h2 class="home-h2">Trust and cost</h2>
 
-<RequestFlow />
-
-<h2 class="home-h2">Quick start</h2>
-
-<p class="home-verify">Prerequisite: at least one provider CLI installed and authenticated. The <a href="/ask-llm/getting-started">Quick Start</a> covers that in step 1.</p>
-
-<SetupTabs provider="unified" />
-
-<p class="home-verify">Then ask your agent: <code>Use ask-llm ping to test the connection</code>. A <em>Pong!</em> reply lists every provider it detected. Something off? Run <code>npx @ask-llm/mcp doctor</code>.</p>
+<p>Review routes use read-only controls; your assistant remains the editor. Antigravity refuses execution by default and opt-in has no read-only guarantee. Calls follow the selected account's quota or billing. Grok's metered API is an explicit option; Ollama supports local models. Ask LLM sends no telemetry. Agreement between models is not proof of correctness.</p>
 
 <h2 class="home-h2">Explore</h2>
 
 <ul class="home-explore">
-  <li><a href="/ask-llm/concepts/how-it-works">How It Works</a> <span>request flow in depth</span></li>
-  <li><a href="/ask-llm/usage/how-to-ask">How to Ask</a> <span>usage patterns and examples</span></li>
-  <li><a href="/ask-llm/concepts/models">Model Selection</a> <span>defaults, fallbacks, overrides</span></li>
-  <li><a href="/ask-llm/usage/multi-turn-sessions">Multi-Turn Sessions</a> <span>continue conversations across calls</span></li>
-  <li><a href="/ask-llm/plugin/overview">Claude Code Plugin</a> <span>reviews, brainstorming, hooks</span></li>
-  <li><a href="/ask-llm/resources/troubleshooting">Troubleshooting</a> <span>common issues and fixes</span></li>
+  <li><a href="/ask-llm/start/first-review">First review</a> <span>get a useful result</span></li>
+  <li><a href="/ask-llm/workflows/challenge-plan">Challenge a plan</a> <span>test assumptions before implementation</span></li>
+  <li><a href="/ask-llm/compatibility/hosts">Hosts</a> <span>compatibility and deliberate limits</span></li>
+  <li><a href="/ask-llm/operation/data-flow">Data flow</a> <span>code, credentials and sessions</span></li>
+  <li><a href="/ask-llm/advanced/codex-pair">Pair review</a> <span>explicit opt-in after an on-demand review</span></li>
+  <li><a href="/ask-llm/resources/troubleshooting">Troubleshooting</a> <span>diagnose connection failures</span></li>
 </ul>
 
 </div>
