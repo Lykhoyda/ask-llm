@@ -6,6 +6,7 @@ import { join, relative, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
 const COMMIT_PATTERN = /^[0-9a-f]{40}$/;
+const NPM_GITHEAD_RETRY_DELAYS_MS = [5_000, 10_000, 20_000, 30_000, 60_000, 60_000];
 
 interface CommandOptions {
   cwd?: string;
@@ -177,17 +178,33 @@ export class NpmGitHeadMismatchError extends Error {
 export function verifyNpmGitHead(
   packageInfo: Pick<PackageInfo, "name" | "version">,
   target: string,
-  { cwd, npm = defaultNpm }: { cwd?: string; npm?: CommandRunner } = {},
+  {
+    cwd,
+    npm = defaultNpm,
+    sleep = (ms) => {
+      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+    },
+  }: { cwd?: string; npm?: CommandRunner; sleep?: (ms: number) => void } = {},
 ): void {
   const identity = `${packageInfo.name}@${packageInfo.version}`;
-  const result = npm(["view", identity, "gitHead", "--json"], { cwd });
-  if (result.status !== 0) {
+  for (let attempt = 0; ; attempt += 1) {
+    const result = npm(["view", identity, "gitHead", "--json"], { cwd, allowFailure: true });
+    if (result.status === 0) {
+      const gitHead = parseJson<string>(result.stdout, `npm gitHead for ${identity}`);
+      if (!COMMIT_PATTERN.test(gitHead)) throw new Error(`npm ${identity} has no valid gitHead`);
+      if (gitHead !== target) throw new NpmGitHeadMismatchError(identity, target, gitHead);
+      return;
+    }
+    const notFound = /"code"\s*:\s*"E404"|^npm (?:ERR!|error) (?:code )?E404\b/m.test(
+      `${result.stdout}\n${result.stderr}`,
+    );
+    if (notFound && attempt < NPM_GITHEAD_RETRY_DELAYS_MS.length) {
+      sleep(NPM_GITHEAD_RETRY_DELAYS_MS[attempt]);
+      continue;
+    }
     const detail = (result.stderr || result.stdout || "").trim();
     throw new Error(`npm view ${identity} gitHead failed${detail ? `: ${detail}` : ""}`);
   }
-  const gitHead = parseJson<string>(result.stdout, `npm gitHead for ${identity}`);
-  if (!COMMIT_PATTERN.test(gitHead)) throw new Error(`npm ${identity} has no valid gitHead`);
-  if (gitHead !== target) throw new NpmGitHeadMismatchError(identity, target, gitHead);
 }
 
 export function lookupRemoteTag(
