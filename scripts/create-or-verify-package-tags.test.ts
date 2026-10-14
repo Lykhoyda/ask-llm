@@ -9,6 +9,7 @@ import {
   createOrVerifyPackageTags,
   findVersionIntroducingCommit,
   lookupRemoteTag,
+  NpmGitHeadMismatchError,
   parseArguments,
   pushMissingTag,
   verifyNpmGitHead,
@@ -249,13 +250,78 @@ test("a duplicate push race is accepted only when the remote winner has the expe
 test("npm gitHead cross-check detects a wrong release commit", () => {
   const packageInfo = { name: "@ask-llm/one", version: "1.0.0" };
   const target = "a".repeat(40);
-  const npm = (): { status: number; stdout: string; stderr: string } => ({
-    status: 0,
-    stdout: `"${"b".repeat(40)}"\n`,
-    stderr: "",
-  });
+  let calls = 0;
+  const sleeps: number[] = [];
+  const npm = () => {
+    calls += 1;
+    return { status: 0, stdout: `"${"b".repeat(40)}"\n`, stderr: "" };
+  };
 
-  assert.throws(() => verifyNpmGitHead(packageInfo, target, { npm }), /npm gitHead mismatch/);
+  assert.throws(
+    () => verifyNpmGitHead(packageInfo, target, { npm, sleep: (ms) => sleeps.push(ms) }),
+    NpmGitHeadMismatchError,
+  );
+  assert.equal(calls, 1);
+  assert.deepEqual(sleeps, []);
+});
+
+test.each([
+  { stdout: "", stderr: "npm error code E404\nnpm error 404 No match found for version 1.0.0" },
+  { stdout: '{"error":{"code":"E404","summary":"No match found for version 1.0.0"}}', stderr: "" },
+])("npm gitHead verification retries a not-yet-visible version then succeeds: %j", (failure) => {
+  const target = "a".repeat(40);
+  let calls = 0;
+  const sleeps: number[] = [];
+  verifyNpmGitHead({ name: "@ask-llm/one", version: "1.0.0" }, target, {
+    cwd: "/test-project",
+    npm: (args, options) => {
+      assert.deepEqual(args, ["view", "@ask-llm/one@1.0.0", "gitHead", "--json"]);
+      assert.deepEqual(options, { cwd: "/test-project", allowFailure: true });
+      calls += 1;
+      return calls === 1 ? { status: 1, ...failure } : { status: 0, stdout: JSON.stringify(target), stderr: "" };
+    },
+    sleep: (ms) => sleeps.push(ms),
+  });
+  assert.equal(calls, 2);
+  assert.deepEqual(sleeps, [5_000]);
+});
+
+test("npm gitHead verification fails with the existing error after bounded E404 retries", () => {
+  let calls = 0;
+  const sleeps: number[] = [];
+  assert.throws(
+    () =>
+      verifyNpmGitHead({ name: "@ask-llm/one", version: "1.0.0" }, "a".repeat(40), {
+        npm: () => {
+          calls += 1;
+          return { status: 1, stdout: "", stderr: "npm ERR! code E404" };
+        },
+        sleep: (ms) => sleeps.push(ms),
+      }),
+    { message: "npm view @ask-llm/one@1.0.0 gitHead failed: npm ERR! code E404" },
+  );
+  assert.equal(calls, 7);
+  assert.deepEqual(sleeps, [5_000, 10_000, 20_000, 30_000, 60_000, 60_000]);
+  assert.equal(
+    sleeps.reduce((total, ms) => total + ms, 0),
+    185_000,
+  );
+});
+
+test.each(["E401", "E403", "E503", "ENOTFOUND"])("npm gitHead verification does not retry %s", (code) => {
+  let calls = 0;
+  const sleeps: number[] = [];
+  assert.throws(() =>
+    verifyNpmGitHead({ name: "@ask-llm/one", version: "1.0.0" }, "a".repeat(40), {
+      npm: () => {
+        calls += 1;
+        return { status: 1, stdout: "", stderr: `npm error code ${code}` };
+      },
+      sleep: (ms) => sleeps.push(ms),
+    }),
+  );
+  assert.equal(calls, 1);
+  assert.deepEqual(sleeps, []);
 });
 
 test("an npm gitHead mismatch skips only the affected package, still tags consistent packages, and fails the run", () => {
