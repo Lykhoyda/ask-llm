@@ -65,7 +65,7 @@ Codex calls are ephemeral when `sessionId` is omitted. Pass `sessionId: ""` on t
 | Model | Use Case |
 |-------|----------|
 | `gpt-6-astra` | Default — Codex bundled flagship (`codex` >= 0.153.0) |
-| `gpt-6.1-sol` | `codex-pair` default (`high` effort), `/sol-review` pin, and Cursor brainstorm pin (`gpt-6.1-sol-high`). Also selectable via `ASK_CODEX_MODEL` or per-call `model` |
+| `gpt-6.1-sol` | `codex-pair` default (`high` effort), `/sol-review` pin, and direct Codex brainstorm pin. For Cursor catalog IDs, see [Brainstorm](https://lykhoyda.github.io/ask-llm/workflows/brainstorm). Also selectable via `ASK_CODEX_MODEL` or per-call `model` |
 | `gpt-6.1-terra` | Automatic cheaper, faster fallback on quota errors |
 
 ## Environment variables

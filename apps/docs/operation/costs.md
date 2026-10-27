@@ -35,7 +35,7 @@ Different providers excel at different things. Pick by what you're doing, not by
 
 | Task | Suggested provider | Why |
 |---|---|---|
-| Targeted code reasoning, refactor critique | **Codex** | GPT-6 Astra is the flagship; `codex-pair` uses GPT-6 Sol; Terra keeps the fallback balanced |
+| Targeted code reasoning, refactor critique | **Codex** | GPT-6 Astra is the flagship; see [Codex Pair](/advanced/codex-pair#configuration-knobs) for pair-review defaults |
 | Claude second opinion while working in Codex | **Claude** | Opus 5.5 (`opus`) review through Claude Code CLI, with native session continuation and read-only file access |
 | Grok 4.7 independent critique | **Grok** | Exact model selection, configurable reasoning depth, structured JSON Schema output |
 | Private / air-gapped analysis | **Ollama** | Runs locally, nothing leaves your machine |
@@ -87,7 +87,7 @@ For Antigravity, `ask-antigravity` requires `agy` ≥1.1.5 and has no per-call `
 |---|---|---|
 | Gemini Pro | ~1M tokens (~250k LOC) | Gemini Code Assist Standard/Enterprise seat (from 2026-06-18) |
 | Gemini Flash | ~1M tokens | Same account eligibility; fallback target for quota relief |
-| Codex GPT-6 Astra / GPT-6 Sol | Per OpenAI's published context window | Your authenticated account’s quota/billing |
+| Codex GPT-6 Astra / GPT-6.1 Sol | Per OpenAI's published context window | Your authenticated account’s quota/billing |
 | Grok 4.7 | 500k tokens on xAI API | API is metered; Grok CLI follows its authenticated plan |
 | Cursor Agent harness | Per selected catalog model | Included usage/on-demand spend follows the user's Cursor plan; Ask LLM never changes spend settings |
 | Codex GPT-6.1 Terra | Per OpenAI's published context window | Cheaper, faster fallback target |

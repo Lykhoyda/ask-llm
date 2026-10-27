@@ -203,7 +203,7 @@ codex-pair status — <MARKER_DIR>
   Marker model:    <model from frontmatter of context.md, or "default (gpt-6.1-sol)">
   Reasoning effort: high (override with ASK_CODEX_REASONING_EFFORT)
   Surface threshold: <surfaceThreshold from frontmatter, or "med">
-  Cost/review:     varies by Codex plan and workload / ~13–50s wall-clock
+  Cost/review:     varies by Codex plan and workload
 
   Recent reviews (last 5):
   <timestamp>  <verdict>  <file>  <H#/M#/L# concerns>
@@ -233,9 +233,9 @@ The decision is about **code characteristics**, not project domain. Any project 
 | Use `/codex-review` (precision-first) | Use codex-pair (recall-first) |
 |---|---|
 | Routine PR review | Code with hidden invariants the model can't infer from one file |
-| Glue code, simple CRUD, refactors | Code where latent bugs cost more than per-edit review (~$0.04–0.07) |
+| Glue code, simple CRUD, refactors | Code where latent bugs cost more than per-edit review |
 | You want one comprehensive report | Code evolving fast under written constraints (spec, protocol, ADR) |
-| You're cost-sensitive (~$0.04/review) | State coordination, concurrency, anything order-sensitive |
+| You're cost-sensitive | State coordination, concurrency, anything order-sensitive |
 | Default for everything | The "looks fine, runs wrong" failure mode would be expensive to catch later |
 
 The empirical finding from the 4-task benchmark (four structurally different task types — CRUD, parsing, RFC-spec implementation, stateful logic): `/codex-review`'s "confidence ≥ 80" filter structurally suppresses **looks-fine-runs-wrong** bugs — code that compiles, lints, and type-checks but produces wrong results at runtime because of an implicit invariant the model couldn't infer from a single file. codex-pair's HIGH/MED/LOW threshold catches them. Different classes of bug, not the same class with different completeness. **The recall improvement is task-agnostic** — measured across all four task types, not just one.
@@ -308,13 +308,7 @@ Claude edits src/billing/charge.ts
 
 ## Cost characteristics
 
-- Usage varies by Codex plan and workload (`gpt-6.1-sol` at `high` effort with reasoning tokens)
-- ~13–50s per file wall-clock
-- Files >20 KB skipped (override with `CODEX_PAIR_MAX_FILE_BYTES`)
-- node_modules, dist, lockfiles, images skipped automatically
-- A 50-edit session = ~$2–3.50 + ~10–40 cumulative minutes of codex latency
-
-For the typical opted-in project (small surface where review depth matters), this is acceptable. For routine refactor work, leave the marker file out.
+See [Codex Pair cost characteristics](https://lykhoyda.github.io/ask-llm/advanced/codex-pair#cost-characteristics) for usage, file-size handling, and caching.
 
 ## Output format
 
@@ -336,7 +330,7 @@ Use integer minor units such as `priceCents: z.number().int().nonnegative()`.
 | Variable | Default | Effect |
 |---|---|---|
 | `CODEX_PAIR_DISABLED` | unset | Set to `1` to bypass the hook entirely (kill switch) |
-| `CODEX_PAIR_MAX_FILE_BYTES` | `20000` | Skip files larger than this many bytes |
+| `CODEX_PAIR_MAX_FILE_BYTES` | `20000` | See [Codex Pair configuration](https://lykhoyda.github.io/ask-llm/advanced/codex-pair#configuration-knobs) for adaptive partial-view reviews above this size. |
 | `ASK_CODEX_TIMEOUT_MS` | `800000` | See [Codex Pair configuration](https://lykhoyda.github.io/ask-llm/plugin/codex-pair#configuration-knobs) for the broker and direct review budgets. |
 | `ASK_CODEX_REASONING_EFFORT` | `high` | Codex reasoning effort for continuous per-edit reviews (`reasoningEffort` in `codex-pair-defaults.json`). |
 | `ASK_CODEX_DEBOUNCE_MS` | `15000` | Settle window: a burst of edits to one file within this window is collapsed into a single review of the settled state (ADR-112). Set to `0` to disable debounce and review every edit synchronously. |

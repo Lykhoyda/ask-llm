@@ -40,8 +40,9 @@ Known deliberate NON-alignments to leave alone unless a user asks:
 - **Codex review/brainstorm model:** Unpinned Codex CLI calls (`/codex-review`,
   `/multi-review`, and the raw `ask-codex` default) use `gpt-6-astra` and fall
   back to `gpt-6.1-terra` on quota. `codex-pair` defaults to `gpt-6.1-sol`
-  (`CODEX_PAIR_MODEL`) at `high` reasoning effort, with that same Terra fallback. The exact `/brainstorm`
-  architect panel uses `codex@cursor-agent:gpt-6.1-sol-high`. `/sol-review` pins `gpt-6.1-sol` and
+  (`CODEX_PAIR_MODEL`) at `high` reasoning effort, with that same Terra fallback.
+  See [Brainstorm](../apps/docs/workflows/brainstorm.md) for the exact architect
+  panel and its catalog verification requirements. `/sol-review` pins `gpt-6.1-sol` and
   `/astra-review` pins `gpt-6-astra`, both at `high` (ADR-187).
   `ASK_CODEX_PREFERRED_MODEL` remains a compatibility escape hatch; the raw
   `ask-codex` tool only attempts it separately when `preferred: true` and its

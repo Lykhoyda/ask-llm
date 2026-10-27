@@ -424,7 +424,8 @@ function parseArgs(args: string[]): ParsedArgs {
     else if (arg === "--mcp-failed") parsed.mcpFailed = true;
     else if (arg === "--model") {
       const model = args[++index] ?? "";
-      if (!REVIEW_MODELS.has(model)) throw new Error(`Unsupported --model ${model}; expected one of ${[...REVIEW_MODELS].join(", ")}`);
+      if (!REVIEW_MODELS.has(model))
+        throw new Error(`Unsupported --model ${model}; expected one of ${[...REVIEW_MODELS].join(", ")}`);
       parsed.model = model;
     } else if (arg === "--tool") parsed.tools.push(args[++index] ?? "");
     else if (arg === "--cli-path") parsed.cliPath = args[++index] ?? "";

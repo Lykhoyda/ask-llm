@@ -121,11 +121,10 @@ When the hook pauses itself (provider quota exhausted, or 3 consecutive review f
 
 ### Cost characteristics
 
-- ~$0.04–0.07 per file reviewed (Codex GPT-6 Sol with reasoning tokens)
-- ~13–50s per file wall-clock
+- Usage varies by the selected model, reasoning effort, and workload; see [Account costs](/operation/costs#account-costs).
 - Files over the size cap fall back to an adaptive partial-view review (header + git diff against HEAD, OR head + tail)
 - `node_modules/`, `dist/`, lockfiles, fonts, archives, sourcemaps, snapshots, minified assets skipped automatically
-- A 50-edit session is roughly $2–3.50 plus ~10–40 minutes of cumulative Codex latency; significantly less after the content-hash cache warms
+- The content-hash cache skips unchanged review inputs; changing reasoning effort causes a cache miss.
 
 For typical opted-in projects (small surface where review depth matters), the cost is acceptable. For routine refactor work across a whole repo, leave the marker file out and use `/codex-review` on demand instead.
 
@@ -175,7 +174,7 @@ Once enabled, the hook checks at turn-end whether any HIGH findings in `log.json
 
 ### In-flight reviews block too
 
-With the default 15s debounce plus 13–50s of review latency, a review is often still running when the turn ends; the log alone can't see it. When `blockOn: HIGH` is set, the gate also blocks (once per turn) while any review for a recent edit is still in flight (a settling debounce window, including a worker waiting for an earlier review of the same file, or a running Codex call), telling Claude to wait for the verdict before finishing. The `stop_hook_active` loop guard means a turn is never blocked twice for the same reason.
+With the default 15s debounce plus model review latency, a review is often still running when the turn ends; the log alone can't see it. When `blockOn: HIGH` is set, the gate also blocks (once per turn) while any review for a recent edit is still in flight (a settling debounce window, including a worker waiting for an earlier review of the same file, or a running Codex call), telling Claude to wait for the verdict before finishing. The `stop_hook_active` loop guard means a turn is never blocked twice for the same reason.
 
 ### Queued verdicts drain at turn-end
 
