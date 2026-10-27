@@ -1,6 +1,7 @@
 ---
-"@ask-llm/mcp": patch
-"@ask-llm/codex-mcp": patch
+"@ask-llm/mcp": minor
+"@ask-llm/codex-mcp": minor
+"@ask-llm/plugin": minor
 ---
 
-Default codex-pair reviews to `gpt-6.1-sol` at `high` reasoning effort with a `gpt-6.1-terra` quota fallback.
+Move codex-pair (now at `high` effort), `/sol-review`, and the brainstorm Codex leg to `gpt-6.1-sol`, make `gpt-6.1-terra` the Codex quota fallback, and add an Astra-pinned `/astra-review` skill.

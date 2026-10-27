@@ -60,7 +60,7 @@ async function installFakes(): Promise<void> {
     `${fakePreamble()}
 if (args.includes("--help")) { console.log("--output-format --mode --model"); process.exit(0); }
 if (args.includes("--list-models")) {
-  console.log("Available models\\n${config.model} - Fixture primary\\n${config.secondaryModel ?? "gpt-6-sol-high"} - Fixture secondary");
+  console.log("Available models\\n${config.model} - Fixture primary\\n${config.secondaryModel ?? "gpt-6.1-sol-high"} - Fixture secondary");
   process.exit(0);
 }
 const model = args[args.indexOf("--model") + 1];

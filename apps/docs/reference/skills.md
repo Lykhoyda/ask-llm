@@ -1,5 +1,5 @@
 ---
-description: Slash commands for AI code review, brainstorming, and side-by-side comparison, including native /fable-review, model-pinned /sol-review, provider reviews, /multi-review, /brainstorm, and /compare.
+description: Slash commands for AI code review, brainstorming, and side-by-side comparison, including native /fable-review, model-pinned /sol-review and /astra-review, provider reviews, /multi-review, /brainstorm, and /compare.
 ---
 
 # Skills
@@ -22,13 +22,21 @@ Review the current diff directly with a read-only agent pinned to Fable. Finding
 
 ### `/sol-review`
 
-Run the same independent review contract with an isolated coordinator that explicitly requests `gpt-6-sol` at high reasoning from the Codex provider. `/codex-review` instead follows the configured Codex default.
+Run the same independent review contract with an isolated coordinator that explicitly requests `gpt-6.1-sol` at high reasoning from the Codex provider. `/codex-review` instead follows the configured Codex default.
 
 ```text
 /sol-review
 ```
 
-`/fable-review` requires a Claude Code runtime/account that exposes Fable. `/sol-review` requires an installed, authenticated Codex CLI; the plugin still bundles the Codex MCP registration used by `/sol-review` and `/codex-review`. The skill reads Claude's active MCP inventory and prefers any exact `ask-codex` leaf, then a fully pinned unified `ask-llm` call (`provider: "codex"` plus model, reasoning effort, include directories, preferred, and sandbox), then the disclosed `codex exec` fallback. Missing registration, disconnected service, and an older unified schema that cannot honor those Codex options receive different remediation; the skill never omits fields to make a stale schema succeed. If Sol falls back to Terra on quota, the result says so explicitly.
+### `/astra-review`
+
+Run the same contract pinned to `gpt-6-astra`, Codex's flagship, at high reasoning. It reviews the current diff or a plan you name, read-only, and reports only source-verified findings. It requires Codex CLI 0.153.0 or later.
+
+```text
+/astra-review
+```
+
+`/fable-review` requires a Claude Code runtime/account that exposes Fable. `/sol-review` requires an installed, authenticated Codex CLI; the plugin still bundles the Codex MCP registration used by `/sol-review` and `/codex-review`. The skill reads Claude's active MCP inventory and prefers any exact `ask-codex` leaf, then a fully pinned unified `ask-llm` call (`provider: "codex"` plus model, reasoning effort, include directories, preferred, and sandbox), then the disclosed `codex exec` fallback. Missing registration, disconnected service, and an older unified schema that cannot honor those Codex options receive different remediation; the skill never omits fields to make a stale schema succeed. If Sol falls back to Terra on quota, the result says so explicitly. `/astra-review` uses the same transport ladder and disclosure rules.
 
 ## Provider Review Skills
 
@@ -58,7 +66,7 @@ Get a second opinion from OpenAI Codex (GPT-6 Astra) on your current changes.
 /codex-review
 ```
 
-Falls back to GPT-5.6 Terra automatically if you hit quota limits.
+Falls back to GPT-6.1 Terra automatically if you hit quota limits.
 
 ### `/grok-review`
 
@@ -113,15 +121,15 @@ Send a topic to an explicit multi-model panel, ground it with independent Claude
 /brainstorm gemini,codex,ollama Review this authentication approach
 
 # Architect panel: exactly Grok + GPT-6 Sol via Cursor Agent; Gemini excluded
-/brainstorm grok@cursor-agent:grok-4.7-high,codex@cursor-agent:gpt-6-sol-high "review this architecture"
+/brainstorm grok@cursor-agent:grok-4.7-high,codex@cursor-agent:gpt-6.1-sol-high "review this architecture"
 
 # Explicit direct-Grok alternative; never pivots away from Grok Build
-/brainstorm grok@grok-cli:grok-4.7,codex@cursor-agent:gpt-6-sol-high "review this architecture"
+/brainstorm grok@grok-cli:grok-4.7,codex@cursor-agent:gpt-6.1-sol-high "review this architecture"
 ```
 
 **Default external providers:** `antigravity,codex` (avoids unnecessary Ollama calls). Antigravity follows the [execution gate](/providers/antigravity). Compatible bare provider lists remain supported. For predictable routing use `provider@harness:exact-model-id`; the preferred Grok path is Cursor Agent. A list is either all bare names or all routed specs—mixing them (for example `grok@cursor-agent:grok-4.7-high,antigravity`) is refused before any provider is called, with no rerouting or substitution; generalized mixed panels are deferred to a future ADR. Exact IDs come from the selected harness catalog (`agent --list-models`, `grok models`, or xAI `/v1/models`) and are never translated between catalogs.
 
-The architect panel invokes only the two listed Cursor participants: `provider: "grok"` with `model: "grok-4.7-high"`, and `provider: "codex"` with `model: "gpt-6-sol-high"`. It never calls Gemini or Cursor `Auto`. If registration, authentication, model availability, or route support fails for either participant, the result is **partial** and surviving insights are attributed only to the model that answered—never called two-model consensus. Claude's evidence can verify claims but cannot supply the missing vote.
+The architect panel invokes only the two listed Cursor participants: `provider: "grok"` with `model: "grok-4.7-high"`, and `provider: "codex"` with `model: "gpt-6.1-sol-high"`. It never calls Gemini or Cursor `Auto`. If registration, authentication, model availability, or route support fails for either participant, the result is **partial** and surviving insights are attributed only to the model that answered—never called two-model consensus. Claude's evidence can verify claims but cannot supply the missing vote.
 
 The `grok-cli` form is supported only when the installed official Grok Build exposes Ask LLM's required headless JSON/read-only contract. A direct-route failure is terminal for that participant; there is no silent pivot among Cursor Agent, Grok CLI, or xAI API.
 

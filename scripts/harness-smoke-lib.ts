@@ -195,10 +195,10 @@ export const SCENARIOS: readonly Scenario[] = Object.freeze([
 
 const EXACT_DRY_MODELS = Object.freeze({
   CLAUDE: "claude-opus-5-5",
-  CURSOR_HOST: "gpt-6-sol-high",
+  CURSOR_HOST: "gpt-6.1-sol-high",
   CURSOR_GROK: "grok-4.7-high",
-  CURSOR_CODEX: "gpt-6-sol-high",
-  PI: "openai-codex/gpt-6-sol",
+  CURSOR_CODEX: "gpt-6.1-sol-high",
+  PI: "openai-codex/gpt-6.1-sol",
   CODEX: "gpt-6-astra",
   CODEX_PAIR: "gpt-6.1-sol",
   GROK: "grok-4.7",

@@ -49,29 +49,29 @@ function evaluate(overrides: Partial<EvaluateInvocationOptions> = {}) {
   invariant(directCodex, "direct Codex scenario missing");
   return evaluateInvocation({
     scenario: directCodex,
-    requestedModel: "gpt-6-sol",
-    observedModel: "gpt-6-sol",
-    output: smokeMarker(directCodex, "gpt-6-sol"),
+    requestedModel: "gpt-6.1-sol",
+    observedModel: "gpt-6.1-sol",
+    output: smokeMarker(directCodex, "gpt-6.1-sol"),
     exitCode: 0,
     timedOut: false,
     mutated: false,
-    args: ["exec", "--sandbox", "read-only", "--model", "gpt-6-sol"],
+    args: ["exec", "--sandbox", "read-only", "--model", "gpt-6.1-sol"],
     ...overrides,
   } as EvaluateInvocationOptions);
 }
 
 describe("authoritative local catalog discovery", () => {
   it("parses exact Cursor, Pi, Grok, and Codex catalog IDs without normalization", () => {
-    expect(parseCatalog("agent", "Available models\ngrok-4.7-high - Grok 4.7\ngpt-6-sol-high - GPT Sol\n")).toEqual([
+    expect(parseCatalog("agent", "Available models\ngrok-4.7-high - Grok 4.7\ngpt-6.1-sol-high - GPT Sol\n")).toEqual([
       "grok-4.7-high",
-      "gpt-6-sol-high",
+      "gpt-6.1-sol-high",
     ]);
     expect(
-      parseCatalog("pi", "provider model context\nopenai-codex gpt-6-sol 272K\nanthropic claude-opus-5-5 200K\n"),
-    ).toEqual(["openai-codex/gpt-6-sol", "anthropic/claude-opus-5-5"]);
+      parseCatalog("pi", "provider model context\nopenai-codex gpt-6.1-sol 272K\nanthropic claude-opus-5-5 200K\n"),
+    ).toEqual(["openai-codex/gpt-6.1-sol", "anthropic/claude-opus-5-5"]);
     expect(parseCatalog("grok", "Available models\ngrok-4.7 default\n")).toEqual(["grok-4.7"]);
-    expect(parseCatalog("codex", JSON.stringify({ models: [{ slug: "gpt-6-sol" }, { id: "gpt-5.6-terra" }] }))).toEqual(
-      ["gpt-6-sol", "gpt-5.6-terra"],
+    expect(parseCatalog("codex", JSON.stringify({ models: [{ slug: "gpt-6.1-sol" }, { id: "gpt-5.6-terra" }] }))).toEqual(
+      ["gpt-6.1-sol", "gpt-5.6-terra"],
     );
   });
 
@@ -83,7 +83,7 @@ describe("authoritative local catalog discovery", () => {
       env: {
         ...process.env,
         ASK_LLM_HARNESS_SMOKE_AUTHORIZED: directCodex.id,
-        ASK_LLM_HARNESS_SMOKE_CODEX_MODEL: "gpt-6-sol",
+        ASK_LLM_HARNESS_SMOKE_CODEX_MODEL: "gpt-6.1-sol",
       },
       scenarios: [directCodex],
       discovery: { codex: { available: true, catalogAuthorized: false, reason: "catalog unparseable", catalog: [] } },
@@ -144,7 +144,7 @@ describe("structured fallback, routing, and attribution", () => {
   ])("detects fallback disclosure %s", (output) => {
     invariant(directCodex, "direct Codex scenario missing");
     expect(hasFallbackDisclosure(output)).toBe(true);
-    expect(evaluate({ output: `${smokeMarker(directCodex, "gpt-6-sol")}\n${output}` })).toMatchObject({
+    expect(evaluate({ output: `${smokeMarker(directCodex, "gpt-6.1-sol")}\n${output}` })).toMatchObject({
       status: RESULTS.FAIL,
       reason: expect.stringContaining("forbidden fallback"),
     });
@@ -152,7 +152,7 @@ describe("structured fallback, routing, and attribution", () => {
 
   it("keeps provider identity separate from exact Cursor model identity", async () => {
     await expect(validateCursorProviderFamily("grok", "grok-4.7-high")).resolves.toBe("grok");
-    await expect(validateCursorProviderFamily("grok", "gpt-6-sol-high")).rejects.toThrow(
+    await expect(validateCursorProviderFamily("grok", "gpt-6.1-sol-high")).rejects.toThrow(
       /belongs to provider codex, not grok/,
     );
   });
@@ -165,16 +165,16 @@ describe("structured fallback, routing, and attribution", () => {
       env: {
         ...process.env,
         ASK_LLM_HARNESS_SMOKE_AUTHORIZED: cursorBrainstorm.id,
-        ASK_LLM_HARNESS_SMOKE_CURSOR_HOST_MODEL: "gpt-6-sol-high",
-        ASK_LLM_HARNESS_SMOKE_CURSOR_GROK_MODEL: "gpt-6-sol-high",
-        ASK_LLM_HARNESS_SMOKE_CURSOR_CODEX_MODEL: "gpt-6-sol-high",
+        ASK_LLM_HARNESS_SMOKE_CURSOR_HOST_MODEL: "gpt-6.1-sol-high",
+        ASK_LLM_HARNESS_SMOKE_CURSOR_GROK_MODEL: "gpt-6.1-sol-high",
+        ASK_LLM_HARNESS_SMOKE_CURSOR_CODEX_MODEL: "gpt-6.1-sol-high",
       },
       scenarios: [cursorBrainstorm],
       discovery: {
         agent: {
           available: true,
           catalogAuthorized: true,
-          catalog: ["gpt-6-sol-high"],
+          catalog: ["gpt-6.1-sol-high"],
           reason: "fixture catalog",
         },
       },
@@ -193,8 +193,8 @@ describe("structured fallback, routing, and attribution", () => {
     [{ observedModel: "gpt-5.6-terra" }, /model mismatch/],
     [{ mutated: true }, /repository changed/],
     [{ args: ["exec", "--sandbox", "read-only"] }, /model option was lost/],
-    [{ args: ["exec", "--model", "gpt-6-sol", "--sandbox", "WORKSPACE-WRITE"] }, /mutation\/trust flag/],
-    [{ args: ["--model", "gpt-6-sol", "--trust"] }, /mutation\/trust flag/],
+    [{ args: ["exec", "--model", "gpt-6.1-sol", "--sandbox", "WORKSPACE-WRITE"] }, /mutation\/trust flag/],
+    [{ args: ["--model", "gpt-6.1-sol", "--trust"] }, /mutation\/trust flag/],
   ])("fails closed for %j", (overrides, reason) => {
     expect(evaluate(overrides)).toMatchObject({ status: RESULTS.FAIL, reason: expect.stringMatching(reason) });
   });
@@ -205,9 +205,9 @@ describe("exact live skill prompts", () => {
     invariant(cursorBrainstorm, "Cursor brainstorm scenario missing");
     const prompt = buildLivePrompt(cursorBrainstorm, {
       model: "grok-4.7-high",
-      secondaryModel: "gpt-6-sol-high",
+      secondaryModel: "gpt-6.1-sol-high",
     });
-    expect(prompt).toContain("/brainstorm grok@cursor-agent:grok-4.7-high,codex@cursor-agent:gpt-6-sol-high");
+    expect(prompt).toContain("/brainstorm grok@cursor-agent:grok-4.7-high,codex@cursor-agent:gpt-6.1-sol-high");
     expect(prompt).toContain("consent=confirmed");
   });
 
@@ -231,7 +231,7 @@ describe("authorization and availability accounting", () => {
       mode: "live",
       env: { ...process.env, ASK_LLM_HARNESS_SMOKE_AUTHORIZED: "" },
       scenarios: [directCodex],
-      discovery: { codex: { available: true, catalogAuthorized: true, catalog: ["gpt-6-sol"] } },
+      discovery: { codex: { available: true, catalogAuthorized: true, catalog: ["gpt-6.1-sol"] } },
     });
     expect(report.results).toEqual([
       expect.objectContaining({ id: directCodex.id, status: RESULTS.SKIP_NOT_AUTHORIZED }),

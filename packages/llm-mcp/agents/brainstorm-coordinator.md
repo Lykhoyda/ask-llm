@@ -127,7 +127,7 @@ The user specifies which external providers to use. Default is `antigravity,code
 Participant specs use `provider@harness:exact-model-id`. The preferred Grok route is Cursor Agent. The supported exact architect panel is:
 
 - `grok@cursor-agent:grok-4.7-high`
-- `codex@cursor-agent:gpt-6-sol-high`
+- `codex@cursor-agent:gpt-6.1-sol-high`
 
 Account catalogs can change; an unavailable exact ID is a clear failure, not permission to choose Auto or another ID. Grok Build remains explicit as `grok@grok-cli:grok-4.7` when the installed CLI supports the canonical contract. The exact panel contains no Gemini and must never launch a Gemini process/tool.
 
@@ -147,7 +147,7 @@ PROMPT_EOF
 
 node "${CLAUDE_PLUGIN_ROOT}/dist/brainstorm-run.js" \
   --participant 'grok@cursor-agent:grok-4.7-high' \
-  --participant 'codex@cursor-agent:gpt-6-sol-high' \
+  --participant 'codex@cursor-agent:gpt-6.1-sol-high' \
   < "$workdir/prompt.md" > "$workdir/panel.json" 2> "$workdir/panel.err"
 rc_panel=$?
 echo "===== GROK + GPT-5.6 SOL PANEL (rc=$rc_panel) ====="
@@ -210,12 +210,12 @@ pid_gemini=$!
 # Only include this block if codex was requested (in the default set).
 # GPT-6 Astra at high effort is the quality-first default for unpinned
 # brainstorming; Terra preserves the lower-cost fallback role. The exact Cursor
-# architect panel stays gpt-6-sol-high (ADR-148). ASK_CODEX_PREFERRED_MODEL and
+# architect panel stays gpt-6.1-sol-high (ADR-148). ASK_CODEX_PREFERRED_MODEL and
 # ASK_CODEX_REASONING_EFFORT remain escape hatches. prompt.md is a FILE (not a
 # pipe), so both attempts can re-read it. The whole `{ ...; }` group is
 # backgrounded as one job so pid_codex/`wait` capture the final code.
 codex_model="${ASK_CODEX_PREFERRED_MODEL:-${ASK_CODEX_MODEL:-gpt-6-astra}}"
-codex_fallback="${ASK_CODEX_FALLBACK_MODEL:-gpt-5.6-terra}"
+codex_fallback="${ASK_CODEX_FALLBACK_MODEL:-gpt-6.1-terra}"
 codex_effort="${ASK_CODEX_REASONING_EFFORT:-high}"
 # Keep the raw env override aligned with ask-codex's public enum so malformed
 # config fragments never reach the Codex CLI.
@@ -319,7 +319,7 @@ Surface this grade as the first line of the synthesis output (see Output Format 
 ### Participants Consulted
 - ℹ️ Claude Opus: non-voting evidence verifier (exact two-model mode; verified against real files: path/to/a, path/to/b)
 - ✅ Grok via Cursor Agent — requested `grok-4.7-high` (selected-unverified: Cursor echoes the requested ID); reported display label `Grok 4.7` (label, not a catalog ID)
-- ✅ Codex via Cursor Agent — requested `gpt-6-sol-high` (selected-unverified); reported display label `GPT-6 Sol 1M High`
+- ✅ Codex via Cursor Agent — requested `gpt-6.1-sol-high` (selected-unverified); reported display label `GPT-6.1 Sol 1M High`
 - (direct route example) ✅ Grok via xAI API — requested `grok-4.7`; observed served `grok-4.7-<snapshot>` (observed-alias, disclosed same-product resolution)
 - 🚫 Gemini: explicitly excluded (not called)
 - (bare-provider mode, Antigravity requested without the opt-in) ⏭️ Antigravity: skipped — agy is not isolated from the working copy (ADR-177, #283); set ASK_ANTIGRAVITY_ALLOW_UNISOLATED=1 to include it without a read-only guarantee.

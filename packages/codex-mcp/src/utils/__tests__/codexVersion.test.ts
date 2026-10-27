@@ -91,7 +91,7 @@ describe("assertCodexSupportsModel", () => {
 
     await expect(assertCodexSupportsModel("gpt-6-astra")).rejects.toThrow(
       new RegExp(
-        `Codex CLI 0\\.152\\.1 was detected but is too old for gpt-6-astra.*codex >=${ASTRA_MIN_CODEX_VERSION} is required.*ASK_CODEX_MODEL=gpt-6-sol`,
+        `Codex CLI 0\\.152\\.1 was detected but is too old for gpt-6-astra.*codex >=${ASTRA_MIN_CODEX_VERSION} is required.*ASK_CODEX_MODEL=gpt-6\\.1-sol`,
         "s",
       ),
     );

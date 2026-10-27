@@ -8,6 +8,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   ASK_CODEX_PACKAGE,
   ASK_LLM_PACKAGE,
+  ASTRA_MODEL,
   classifySolReviewTransport,
   codexFallbackArgs,
   executeCodex,
@@ -327,7 +328,7 @@ describe("sol-review CLI fallback", () => {
     expect(codexFallbackArgs(SOL_MODEL)).toEqual([
       "exec",
       "-m",
-      "gpt-6-sol",
+      "gpt-6.1-sol",
       "-c",
       'model_reasoning_effort="high"',
       "-s",
@@ -337,6 +338,31 @@ describe("sol-review CLI fallback", () => {
       "--skip-git-repo-check",
     ]);
     expect(result).toEqual({ response: review, diagnostics: "", model: SOL_MODEL, fellBack: false });
+  });
+
+  it("runs the pinned Astra model for astra-review with the same Terra quota ladder", async () => {
+    const execute = vi
+      .fn()
+      .mockResolvedValueOnce({ code: 1, stdout: "", stderr: "rate_limit_exceeded" })
+      .mockResolvedValueOnce({ code: 0, stdout: "validated Terra finding\n", stderr: "" });
+
+    const result = await runCliFallback({ prompt: "review", model: ASTRA_MODEL, execute });
+
+    expect(ASTRA_MODEL).toBe("gpt-6-astra");
+    expect(execute).toHaveBeenNthCalledWith(1, { command: "codex", model: ASTRA_MODEL, prompt: "review" });
+    expect(execute).toHaveBeenNthCalledWith(2, { command: "codex", model: TERRA_MODEL, prompt: "review" });
+    expect(result).toMatchObject({ model: TERRA_MODEL, fellBack: true });
+  });
+
+  it("rejects a --model outside the pinned review models", () => {
+    const result = spawnSync(
+      process.execPath,
+      [path.join(PLUGIN_ROOT, "scripts", "sol-review-transport.mjs"), "--model", "gpt-5.2", "--mcp-list", ""],
+      { encoding: "utf8" },
+    );
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("Unsupported --model gpt-5.2");
   });
 
   it("uses Terra only for a quota failure and still relays the fallback result", async () => {
@@ -419,7 +445,7 @@ describe("clean Claude installation reproduction", () => {
   const script = path.join(PLUGIN_ROOT, "scripts", "sol-review-transport.mjs");
   const liveClaudePrompt = [
     "Call the authoritative Ask LLM Codex ask-codex MCP tool exactly once",
-    "with model gpt-6-sol, reasoningEffort high, sandbox read-only,",
+    "with model gpt-6.1-sol, reasoningEffort high, sandbox read-only,",
     'and prompt "Reply with ONLY: MCP_TOOL_EXECUTED_276".',
     "Do not use Bash and do not fall back. Then return its exact response.",
   ].join(" ");

@@ -18,7 +18,7 @@ description: Provider defaults, route selection, timeouts and execution gates.
 | ASK_GEMINI_FALLBACK_MODEL | gemini-3.8-flash | Override the Gemini quota fallback model |
 | ASK_CODEX_MODEL | gpt-6-astra | Override the Codex default model |
 | ASK_CODEX_PREFERRED_MODEL | gpt-6-astra | Legacy review-tier escape hatch; only attempted separately when it differs from ASK_CODEX_MODEL |
-| ASK_CODEX_FALLBACK_MODEL | gpt-5.6-terra | Override the Codex quota fallback model |
+| ASK_CODEX_FALLBACK_MODEL | gpt-6.1-terra | Override the Codex quota fallback model |
 | ASK_CODEX_REASONING_EFFORT | medium | Default Codex reasoning effort; per-call reasoningEffort wins |
 | ASK_CLAUDE_MODEL | opus | Override the Claude default model |
 | ASK_CLAUDE_FALLBACK_MODEL | sonnet | Override Claude Code's native fallback model |

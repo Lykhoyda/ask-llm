@@ -970,6 +970,7 @@ async function main() {
     // A content-hash cache hit skips the Codex call.
     const cacheKey = computeCacheKey({
         model: config.model,
+        reasoningEffort: DEFAULT_REASONING_EFFORT,
         prompt,
         fileContent: promptContent,
         surfaceThreshold: config.surfaceThreshold,

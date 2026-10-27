@@ -26,7 +26,7 @@ export const ERROR_MESSAGES = {
   // A pinned ASK_CODEX_FALLBACK_MODEL can be structurally unavailable on some
   // account types — e.g. gpt-5.5-mini is rejected with a 400 ("not supported when
   // using Codex with a ChatGPT account") on ChatGPT-plan accounts. The built-in
-  // GPT-5.6 Terra fallback avoids that legacy pin, while this guard keeps any
+  // GPT-6.1 Terra fallback avoids that legacy pin, while this guard keeps any
   // user-pinned-incompatible fallback graceful. Matched only on the FALLBACK leg
   // after a primary quota error → the ladder is broken (same "no usable model"
   // exhaustion). Ports MODEL_UNAVAILABLE_SIGNALS from codex-pair-watch.mjs
@@ -50,9 +50,9 @@ export const STATUS_MESSAGES = {
 // tool descriptions and drift-guard tests reference this, not the live value.
 // gpt-6-astra is Codex's own bundled default from 0.153.4 (#311 / ADR-163).
 export const FACTORY_DEFAULT_MODEL = "gpt-6-astra";
-// codex-pair-defaults.json mirrors these (drift-guarded); ask-codex keeps FACTORY_DEFAULT_MODEL and MODELS.FALLBACK (ADR-187).
+// Pairing, /sol-review, and the Cursor brainstorm participant use GPT-6.1 Sol.
+// Unpinned ask-codex and /codex-review stay on FACTORY_DEFAULT_MODEL (ADR-187).
 export const CODEX_PAIR_MODEL = "gpt-6.1-sol";
-export const CODEX_PAIR_FALLBACK_MODEL = "gpt-6.1-terra";
 export const ASTRA_MIN_CODEX_VERSION = "0.153.0";
 export const CODEX_VERSION_CHECK_TIMEOUT_MS = 5_000;
 
@@ -77,10 +77,9 @@ export const MODELS = {
   // Preferred collapses to DEFAULT unless ASK_CODEX_PREFERRED_MODEL differs.
   // The executor then skips the extra preferred attempt.
   PREFERRED: process.env.ASK_CODEX_PREFERRED_MODEL || FACTORY_DEFAULT_MODEL,
-  // Terra remains the balanced/lower-cost GPT-5.6 quota fallback. No GPT-6
-  // cheaper sibling is -m-selectable in the Codex catalog (#311). Users can
-  // still pin another supported model through ASK_CODEX_FALLBACK_MODEL.
-  FALLBACK: process.env.ASK_CODEX_FALLBACK_MODEL || "gpt-5.6-terra",
+  // GPT-6.1 Terra is the cheaper, faster -m-selectable quota fallback (ADR-187).
+  // Users can still pin another supported model through ASK_CODEX_FALLBACK_MODEL.
+  FALLBACK: process.env.ASK_CODEX_FALLBACK_MODEL || "gpt-6.1-terra",
 };
 
 export const CLI = {

@@ -411,13 +411,15 @@ describe("scripts/codex-pair-watch.mjs — structural invariants (ADR-077)", () 
     expect(libState).toMatch(/CACHE_MAX_ENTRIES\s*=\s*50/);
   });
 
-  it("cache key includes model + prompt + fileContent + surfaceThreshold (ADR-088 unit test)", async () => {
+  it("cache key includes model + effort + prompt + fileContent + surfaceThreshold (ADR-088 unit test)", async () => {
     const { computeCacheKey } = await import("../../scripts/lib/state.mjs");
-    const base = { model: "gpt-5.5", prompt: "p", fileContent: "c", surfaceThreshold: "med" };
+    const base = { model: "gpt-5.5", reasoningEffort: "high", prompt: "p", fileContent: "c", surfaceThreshold: "med" };
     const k1 = computeCacheKey(base);
     expect(k1).toHaveLength(64); // sha256 hex
     // Different model → different key
     expect(computeCacheKey({ ...base, model: "gpt-5.5-mini" })).not.toBe(k1);
+    // Different reasoning effort → different key
+    expect(computeCacheKey({ ...base, reasoningEffort: "medium" })).not.toBe(k1);
     // Different prompt → different key
     expect(computeCacheKey({ ...base, prompt: "p2" })).not.toBe(k1);
     // Different fileContent → different key
@@ -682,9 +684,8 @@ describe("scripts/codex-pair-watch.mjs — structural invariants (ADR-077)", () 
     const constantsPath = path.join(PLUGIN_ROOT, "..", "codex-mcp", "src", "constants.ts");
     const constantsSource = fs.readFileSync(constantsPath, "utf-8");
 
-    // Pairing uses the CODEX_PAIR_* constants. ask-codex stays on FACTORY_DEFAULT_MODEL and MODELS.FALLBACK.
+    // Pairing uses CODEX_PAIR_MODEL. ask-codex stays on FACTORY_DEFAULT_MODEL.
     const pairMatch = constantsSource.match(/export const CODEX_PAIR_MODEL = "([^"]+)"/);
-    const pairFallbackMatch = constantsSource.match(/export const CODEX_PAIR_FALLBACK_MODEL = "([^"]+)"/);
     const factoryMatch = constantsSource.match(/export const FACTORY_DEFAULT_MODEL = "([^"]+)"/);
     const defaultWiring = constantsSource.match(
       /DEFAULT:\s*process\.env\.ASK_CODEX_MODEL\s*\|\|\s*FACTORY_DEFAULT_MODEL/,
@@ -694,16 +695,14 @@ describe("scripts/codex-pair-watch.mjs — structural invariants (ADR-077)", () 
     );
 
     expect(pairMatch).toBeTruthy();
-    expect(pairFallbackMatch).toBeTruthy();
     expect(factoryMatch).toBeTruthy();
     expect(defaultWiring).toBeTruthy();
     expect(fallbackMatch).toBeTruthy();
     expect(defaults.model).toBe(pairMatch?.[1]);
     expect(defaults.model).toBe("gpt-6.1-sol");
-    expect(defaults.fallbackModel).toBe(pairFallbackMatch?.[1]);
-    expect(defaults.fallbackModel).toBe("gpt-6.1-terra");
     expect(factoryMatch?.[1]).toBe("gpt-6-astra");
-    expect(fallbackMatch?.[1]).toBe("gpt-5.6-terra");
+    expect(defaults.fallbackModel).toBe(fallbackMatch?.[1]);
+    expect(defaults.fallbackModel).toBe("gpt-6.1-terra");
   });
 
   it("skips node_modules, dist, .git, lockfiles, and common image assets", () => {

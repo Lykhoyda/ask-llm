@@ -20,14 +20,14 @@ import {
 
 const cursorPanel = [
   parseBrainstormParticipant("grok@cursor-agent:grok-4.7-high"),
-  parseBrainstormParticipant("codex@cursor-agent:gpt-6-sol-high"),
+  parseBrainstormParticipant("codex@cursor-agent:gpt-6.1-sol-high"),
 ];
 
 function cursorResult(provider: "grok" | "codex", model: string, response = `${provider} answer`) {
   return {
     provider,
     model,
-    reportedModel: provider === "grok" ? "Grok 4.7" : "GPT-6 Sol 1M High",
+    reportedModel: provider === "grok" ? "Grok 4.7" : "GPT-6.1 Sol 1M High",
     response,
     harness: "cursor-agent",
     usage: { provider, model, fellBack: false },
@@ -55,7 +55,7 @@ beforeEach(() => {
   calls.grok.mockResolvedValue(grokResult("grok-4.7", "grok-cli"));
   calls.codex.mockResolvedValue({
     response: "direct sol answer",
-    usage: { provider: "codex", model: "gpt-6-sol", fellBack: false },
+    usage: { provider: "codex", model: "gpt-6.1-sol", fellBack: false },
   });
 });
 
@@ -66,10 +66,10 @@ describe("Grok + GPT-6 Sol brainstorm participant contract", () => {
       harness: "cursor-agent",
       model: "grok-4.7-high",
     });
-    expect(parseBrainstormParticipant("codex@cursor-agent:gpt-6-sol-high")).toEqual({
+    expect(parseBrainstormParticipant("codex@cursor-agent:gpt-6.1-sol-high")).toEqual({
       provider: "codex",
       harness: "cursor-agent",
-      model: "gpt-6-sol-high",
+      model: "gpt-6.1-sol-high",
     });
   });
 
@@ -82,7 +82,19 @@ describe("Grok + GPT-6 Sol brainstorm participant contract", () => {
         parseBrainstormParticipant("grok@cursor-agent:grok-4.7-high"),
         parseBrainstormParticipant("codex@cursor-agent:gpt-5.6-terra-high"),
       ]),
-    ).toThrow(/exact GPT-6 Sol/);
+    ).toThrow(/exact GPT-6 family Sol/);
+    expect(() =>
+      validateBrainstormPanel([
+        parseBrainstormParticipant("grok@cursor-agent:grok-4.7-high"),
+        parseBrainstormParticipant("codex@cursor-agent:gpt-6.1-terra-high"),
+      ]),
+    ).toThrow(/exact GPT-6 family Sol/);
+    expect(() =>
+      validateBrainstormPanel([
+        parseBrainstormParticipant("grok@cursor-agent:grok-4.7-high"),
+        parseBrainstormParticipant("codex@cursor-agent:gpt-6-sol-high"),
+      ]),
+    ).not.toThrow();
   });
 
   it("requires exactly one Grok and one Codex participant", () => {
@@ -105,14 +117,14 @@ describe("participant list classification", () => {
 
   it("returns the exact routed panel participants for an all-routed list", () => {
     expect(
-      parseBrainstormParticipantList(["grok@cursor-agent:grok-4.7-high", "codex@cursor-agent:gpt-6-sol-high"]),
+      parseBrainstormParticipantList(["grok@cursor-agent:grok-4.7-high", "codex@cursor-agent:gpt-6.1-sol-high"]),
     ).toEqual({ mode: "exact", participants: cursorPanel });
   });
 
   it.each([
     [["grok@cursor-agent:grok-4.7-high", "antigravity"]],
     [["antigravity", "grok@cursor-agent:grok-4.7-high"]],
-    [["codex@cursor-agent:gpt-6-sol-high", "grok"]],
+    [["codex@cursor-agent:gpt-6.1-sol-high", "grok"]],
     [["gemini", "codex", "grok@grok-cli:grok-4.7"]],
   ])("refuses the mixed routed-and-bare list %j before any executor call", (specs) => {
     expect(() => parseBrainstormParticipantList(specs)).toThrow(
@@ -159,7 +171,7 @@ describe("exact panel routing", () => {
     });
     expect(calls.cursor).toHaveBeenNthCalledWith(2, {
       provider: "codex",
-      model: "gpt-6-sol-high",
+      model: "gpt-6.1-sol-high",
       prompt: "same bytes",
       signal: undefined,
       onProgress: undefined,
@@ -172,7 +184,7 @@ describe("exact panel routing", () => {
   it("supports the Grok CLI only as an explicit direct alternative while Sol stays on its selected route", async () => {
     const participants = [
       parseBrainstormParticipant("grok@grok-cli:grok-4.7"),
-      parseBrainstormParticipant("codex@cursor-agent:gpt-6-sol-high"),
+      parseBrainstormParticipant("codex@cursor-agent:gpt-6.1-sol-high"),
     ];
     await runBrainstormPanel({ prompt: "architecture", participants });
 
@@ -184,7 +196,9 @@ describe("exact panel routing", () => {
       signal: undefined,
       onProgress: undefined,
     });
-    expect(calls.cursor).toHaveBeenCalledWith(expect.objectContaining({ provider: "codex", model: "gpt-6-sol-high" }));
+    expect(calls.cursor).toHaveBeenCalledWith(
+      expect.objectContaining({ provider: "codex", model: "gpt-6.1-sol-high" }),
+    );
   });
 
   it("does not pivot from a failed direct Grok route to Cursor, API, Codex, or Gemini", async () => {
@@ -193,7 +207,7 @@ describe("exact panel routing", () => {
       prompt: "architecture",
       participants: [
         parseBrainstormParticipant("grok@grok-cli:grok-4.7"),
-        parseBrainstormParticipant("codex@cursor-agent:gpt-6-sol-high"),
+        parseBrainstormParticipant("codex@cursor-agent:gpt-6.1-sol-high"),
       ],
     });
 
@@ -225,7 +239,7 @@ describe("exact panel routing", () => {
 
     expect(progress).toEqual([
       "[grok via cursor-agent (grok-4.7-high)] still working",
-      "[codex via cursor-agent (gpt-6-sol-high)] still working",
+      "[codex via cursor-agent (gpt-6.1-sol-high)] still working",
     ]);
     expect(progress.join(" ")).not.toContain("Grok 4.7");
   });
@@ -269,8 +283,8 @@ describe("truthful model attribution", () => {
       expect.objectContaining({
         provider: "codex",
         harness: "cursor-agent",
-        requestedModel: "gpt-6-sol-high",
-        reportedModel: "GPT-6 Sol 1M High",
+        requestedModel: "gpt-6.1-sol-high",
+        reportedModel: "GPT-6.1 Sol 1M High",
         modelVerification: "selected-unverified",
         status: "fulfilled",
       }),
@@ -288,7 +302,7 @@ describe("truthful model attribution", () => {
       prompt: "architecture",
       participants: [
         parseBrainstormParticipant("grok@grok-cli:grok-4.7"),
-        parseBrainstormParticipant("codex@cursor-agent:gpt-6-sol-high"),
+        parseBrainstormParticipant("codex@cursor-agent:gpt-6.1-sol-high"),
       ],
     });
 
@@ -307,7 +321,7 @@ describe("truthful model attribution", () => {
       prompt: "architecture",
       participants: [
         parseBrainstormParticipant("grok@grok-cli:grok-4.7"),
-        parseBrainstormParticipant("codex@cursor-agent:gpt-6-sol-high"),
+        parseBrainstormParticipant("codex@cursor-agent:gpt-6.1-sol-high"),
       ],
     });
 
@@ -328,7 +342,7 @@ describe("truthful model attribution", () => {
       prompt: "architecture",
       participants: [
         parseBrainstormParticipant("grok@xai-api:grok-4-latest"),
-        parseBrainstormParticipant("codex@cursor-agent:gpt-6-sol-high"),
+        parseBrainstormParticipant("codex@cursor-agent:gpt-6.1-sol-high"),
       ],
     });
 
@@ -348,7 +362,7 @@ describe("truthful model attribution", () => {
       prompt: "architecture",
       participants: [
         parseBrainstormParticipant("grok@xai-api:grok-4.6"),
-        parseBrainstormParticipant("codex@cursor-agent:gpt-6-sol-high"),
+        parseBrainstormParticipant("codex@cursor-agent:gpt-6.1-sol-high"),
       ],
     });
 
@@ -370,7 +384,7 @@ describe("truthful model attribution", () => {
       prompt: "architecture",
       participants: [
         parseBrainstormParticipant("grok@xai-api:grok-4.6"),
-        parseBrainstormParticipant("codex@cursor-agent:gpt-6-sol-high"),
+        parseBrainstormParticipant("codex@cursor-agent:gpt-6.1-sol-high"),
       ],
     });
 
@@ -408,22 +422,22 @@ describe("truthful model attribution", () => {
   it("rejects a direct Codex fallback instead of attributing Terra as Sol", async () => {
     calls.codex.mockResolvedValueOnce({
       response: "terra answered",
-      usage: { provider: "codex", model: "gpt-5.6-terra", fellBack: true },
+      usage: { provider: "codex", model: "gpt-6.1-terra", fellBack: true },
     });
     const report = await runBrainstormPanel({
       prompt: "architecture",
       participants: [
         parseBrainstormParticipant("grok@grok-cli:grok-4.7"),
-        parseBrainstormParticipant("codex@codex-cli:gpt-6-sol"),
+        parseBrainstormParticipant("codex@codex-cli:gpt-6.1-sol"),
       ],
     });
 
     expect(report.participants[1]).toMatchObject({
       provider: "codex",
-      requestedModel: "gpt-6-sol",
+      requestedModel: "gpt-6.1-sol",
       modelVerification: "fallback",
       status: "rejected",
-      error: expect.stringContaining('fallback to "gpt-5.6-terra" for requested "gpt-6-sol"'),
+      error: expect.stringContaining('fallback to "gpt-6.1-terra" for requested "gpt-6.1-sol"'),
     });
     expect(report.participants[1]).not.toHaveProperty("response");
     expect(report.consensusEligible).toBe(false);
@@ -435,7 +449,7 @@ describe("truthful model attribution", () => {
       prompt: "architecture",
       participants: [
         parseBrainstormParticipant("grok@grok-cli:grok-4.7"),
-        parseBrainstormParticipant("codex@codex-cli:gpt-6-sol"),
+        parseBrainstormParticipant("codex@codex-cli:gpt-6.1-sol"),
       ],
     });
 
@@ -443,7 +457,7 @@ describe("truthful model attribution", () => {
     expect(report.participants[1]).toMatchObject({
       provider: "codex",
       harness: "codex-cli",
-      requestedModel: "gpt-6-sol",
+      requestedModel: "gpt-6.1-sol",
       modelVerification: "selected-unverified",
       response: "cached sol answer",
       status: "fulfilled",
@@ -461,14 +475,14 @@ describe("truthful model attribution", () => {
       prompt: "architecture",
       participants: [
         parseBrainstormParticipant("grok@grok-cli:grok-4.7"),
-        parseBrainstormParticipant("codex@codex-cli:gpt-6-sol"),
+        parseBrainstormParticipant("codex@codex-cli:gpt-6.1-sol"),
       ],
     });
 
     expect(report.participants[1]).toMatchObject({
       modelVerification: "mismatch",
       status: "rejected",
-      error: expect.stringContaining('ran "gpt-5.6" instead of requested "gpt-6-sol"'),
+      error: expect.stringContaining('ran "gpt-5.6" instead of requested "gpt-6.1-sol"'),
     });
     expect(report.status).toBe("partial");
   });

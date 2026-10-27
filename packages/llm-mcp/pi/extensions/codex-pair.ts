@@ -677,6 +677,7 @@ export function registerCodexPair(pi: ExtensionAPI): void {
       });
       const cacheKey = computeCacheKey({
         model: config.model,
+        reasoningEffort: "high",
         prompt,
         fileContent: view.content,
         surfaceThreshold: config.surfaceThreshold,

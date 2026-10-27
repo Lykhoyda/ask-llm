@@ -3,6 +3,7 @@ import { listFiles, listSubdirs, parseMarkdownFrontmatter, readFile } from "./_h
 
 const oldSkillNames = [
   "antigravity-review",
+  "astra-review",
   "brainstorm",
   "brainstorm-all",
   "codex-image",
@@ -35,6 +36,7 @@ const allowedAgentSkillFields = new Set([
 
 const expectedAgents = [
   "antigravity-reviewer.md",
+  "astra-reviewer.md",
   "brainstorm-coordinator.md",
   "codex-reviewer.md",
   "codex-verifier.md",
@@ -128,6 +130,7 @@ describe("agents/", () => {
       "antigravity-reviewer.md",
       "fable-reviewer.md",
       "sol-reviewer.md",
+      "astra-reviewer.md",
     ];
     for (const file of reviewerAgents) {
       const { frontmatter } = parseMarkdownFrontmatter(readFile(`agents/${file}`));
@@ -143,14 +146,15 @@ describe("agents/", () => {
     }
   });
 
-  it("pins the native models and effort for Fable and Sol reviewers", () => {
+  it("pins the native models and effort for Fable, Sol, and Astra reviewers", () => {
     const fable = parseMarkdownFrontmatter(readFile("agents/fable-reviewer.md")).frontmatter;
-    const solContent = readFile("agents/sol-reviewer.md");
-    const sol = parseMarkdownFrontmatter(solContent).frontmatter;
     expect(fable.model).toBe("fable");
     expect(fable.effort).toBe("high");
-    expect(sol.model).toBe("opus");
-    expect(sol.effort).toBe("high");
+    for (const file of ["agents/sol-reviewer.md", "agents/astra-reviewer.md"]) {
+      const coordinator = parseMarkdownFrontmatter(readFile(file)).frontmatter;
+      expect(coordinator.model).toBe("opus");
+      expect(coordinator.effort).toBe("high");
+    }
   });
 
   it("codex-reviewer grants split, plugin-bundled, and unified MCP tool identities", () => {
@@ -161,11 +165,27 @@ describe("agents/", () => {
     expect(tools).toContain("mcp__ask-llm__ask-llm");
   });
 
-  it("sol-reviewer inherits deferred MCP tools while denying write tools", () => {
-    const solContent = readFile("agents/sol-reviewer.md");
-    const frontmatter = parseMarkdownFrontmatter(solContent).frontmatter;
-    expect(frontmatter.tools).toBeUndefined();
-    expect(frontmatter.disallowedTools).toEqual(expect.arrayContaining(["Edit", "Write", "NotebookEdit"]));
+  it.each(["sol-reviewer.md", "astra-reviewer.md"])(
+    "%s inherits deferred MCP tools while denying write tools",
+    (file) => {
+      const frontmatter = parseMarkdownFrontmatter(readFile(`agents/${file}`)).frontmatter;
+      expect(frontmatter.tools).toBeUndefined();
+      expect(frontmatter.disallowedTools).toEqual(expect.arrayContaining(["Edit", "Write", "NotebookEdit"]));
+    },
+  );
+
+  it.each([
+    ["agents/sol-reviewer.md", "gpt-6.1-sol", ""],
+    ["agents/astra-reviewer.md", "gpt-6-astra", "--model gpt-6-astra"],
+    ["skills/ask-llm-sol-review/SKILL.md", "gpt-6.1-sol", ""],
+    ["skills/ask-llm-astra-review/SKILL.md", "gpt-6-astra", "--model gpt-6-astra"],
+  ])("%s pins %s at high effort read-only", (file, model, runnerFlag) => {
+    const content = readFile(file);
+    expect(content).toContain(`model: "${model}"`);
+    expect(content).toContain('reasoningEffort: "high"');
+    expect(content).toContain('sandbox: "read-only"');
+    expect(content).toContain(`codex exec -m ${model} -c model_reasoning_effort="high" -s read-only`);
+    if (runnerFlag) expect(content).toContain(runnerFlag);
   });
 });
 

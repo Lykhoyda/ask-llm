@@ -125,9 +125,9 @@ export function validateBrainstormPanel(participants: BrainstormParticipant[]): 
         `Unsupported brainstorm route ${participant.provider}@${participant.harness}. No provider or harness fallback was attempted.`,
       );
     }
-    if (participant.provider === "codex" && !participant.model.toLowerCase().includes("gpt-6-sol")) {
+    if (participant.provider === "codex" && !/gpt-6(\.\d+)?-sol/.test(participant.model.toLowerCase())) {
       throw new Error(
-        `The Codex participant must request an exact GPT-6 Sol model ID; received "${participant.model}". No model substitution was attempted.`,
+        `The Codex participant must request an exact GPT-6 family Sol model ID; received "${participant.model}". No model substitution was attempted.`,
       );
     }
   }

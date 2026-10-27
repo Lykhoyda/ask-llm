@@ -35,7 +35,7 @@ Representative commands:
 /skill:ask-llm-multi-review
 /skill:ask-llm-compare gemini,codex explain this API design
 /skill:ask-llm-brainstorm antigravity,codex review this architecture
-/skill:ask-llm-brainstorm grok@cursor-agent:grok-4.7-high,codex@cursor-agent:gpt-6-sol-high review this architecture
+/skill:ask-llm-brainstorm grok@cursor-agent:grok-4.7-high,codex@cursor-agent:gpt-6.1-sol-high review this architecture
 /skill:ask-llm-codex-image create a monochrome architecture diagram
 /skill:ask-llm-codex-verify
 /skill:ask-llm-codex-pair
