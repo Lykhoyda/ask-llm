@@ -129,7 +129,7 @@ Participant specs use `provider@harness:exact-model-id`. The preferred Grok rout
 - `grok@cursor-agent:grok-4.7-high`
 - `codex@cursor-agent:gpt-6.1-sol-high`
 
-Account catalogs can change; an unavailable exact ID is a clear failure, not permission to choose Auto or another ID. Grok Build remains explicit as `grok@grok-cli:grok-4.7` when the installed CLI supports the canonical contract. The exact panel contains no Gemini and must never launch a Gemini process/tool.
+The Cursor `gpt-6.1-sol-high` example follows the `<codex-slug>-high` naming but is unverified; confirm the exact ID with `agent --list-models` before use. An unavailable exact ID is a clear failure, not permission to choose Auto or another ID. Grok Build remains explicit as `grok@grok-cli:grok-4.7` when the installed CLI supports the canonical contract. The exact panel contains no Gemini and must never launch a Gemini process/tool.
 
 A list that mixes routed specs with bare provider names (for example `grok@cursor-agent:grok-4.7-high,antigravity`) is unsupported: stop before Phase 3A, report `Mixed brainstorm participant lists are not supported: routed "<spec>" cannot be combined with bare "<provider>". Use either an all-bare provider list or the exact routed Grok + GPT-6 Sol panel. No participant was substituted, rerouted, or dispatched.`, and dispatch nothing. Never downgrade a routed spec to `grok-run.js`/`codex-run.js` or promote a bare name into a routed spec; `brainstorm-run.js` refuses such lists with the same error. Generalized mixed panels are deferred to a future ADR.
 

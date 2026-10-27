@@ -57,7 +57,7 @@ Consult an explicitly selected panel on a topic, then synthesize the responses a
 /brainstorm grok@cursor-agent:grok-4.7-high,codex@cursor-agent:gpt-6.1-sol-high "review this architecture"
 ```
 
-These IDs are exact catalog examples verified for this workflow; account catalogs can change, so use `agent --list-models` and replace an unavailable ID explicitly. The coordinator must not call Gemini, the direct Grok runner, xAI API, Grok Build, or Codex CLI for this invocation.
+The Cursor `gpt-6.1-sol-high` example follows the `<codex-slug>-high` naming but is unverified; confirm the exact ID with `agent --list-models` before use. Confirm the Grok ID against the same catalog. The coordinator must not call Gemini, the direct Grok runner, xAI API, Grok Build, or Codex CLI for this invocation.
 
 **Explicit Grok Build alternative (still no Gemini):**
 

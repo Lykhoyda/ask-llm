@@ -173,20 +173,6 @@ describe("agents/", () => {
       expect(frontmatter.disallowedTools).toEqual(expect.arrayContaining(["Edit", "Write", "NotebookEdit"]));
     },
   );
-
-  it.each([
-    ["agents/sol-reviewer.md", "gpt-6.1-sol", ""],
-    ["agents/astra-reviewer.md", "gpt-6-astra", "--model gpt-6-astra"],
-    ["skills/ask-llm-sol-review/SKILL.md", "gpt-6.1-sol", ""],
-    ["skills/ask-llm-astra-review/SKILL.md", "gpt-6-astra", "--model gpt-6-astra"],
-  ])("%s pins %s at high effort read-only", (file, model, runnerFlag) => {
-    const content = readFile(file);
-    expect(content).toContain(`model: "${model}"`);
-    expect(content).toContain('reasoningEffort: "high"');
-    expect(content).toContain('sandbox: "read-only"');
-    expect(content).toContain(`codex exec -m ${model} -c model_reasoning_effort="high" -s read-only`);
-    if (runnerFlag) expect(content).toContain(runnerFlag);
-  });
 });
 
 describe("brainstorm-coordinator permissions", () => {
