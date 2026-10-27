@@ -70,9 +70,9 @@ describe("authoritative local catalog discovery", () => {
       parseCatalog("pi", "provider model context\nopenai-codex gpt-6.1-sol 272K\nanthropic claude-opus-5-5 200K\n"),
     ).toEqual(["openai-codex/gpt-6.1-sol", "anthropic/claude-opus-5-5"]);
     expect(parseCatalog("grok", "Available models\ngrok-4.7 default\n")).toEqual(["grok-4.7"]);
-    expect(parseCatalog("codex", JSON.stringify({ models: [{ slug: "gpt-6.1-sol" }, { id: "gpt-5.6-terra" }] }))).toEqual(
-      ["gpt-6.1-sol", "gpt-5.6-terra"],
-    );
+    expect(
+      parseCatalog("codex", JSON.stringify({ models: [{ slug: "gpt-6.1-sol" }, { id: "gpt-5.6-terra" }] })),
+    ).toEqual(["gpt-6.1-sol", "gpt-5.6-terra"]);
   });
 
   it("fails closed when a successful catalog command parses no exact IDs", async () => {

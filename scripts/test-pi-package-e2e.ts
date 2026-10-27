@@ -195,7 +195,9 @@ await mkdir(project, { recursive: true });
 await mkdir(bin, { recursive: true });
 if (!process.env.ASK_LLM_PI_SKILLS_DIR) {
   const corpus = join(root, "packages", "llm-mcp", "skills");
-  const seeded = (await readdir(corpus)).filter((name) => name.startsWith("ask-llm-") && name !== "ask-llm-fable-review");
+  const seeded = (await readdir(corpus)).filter(
+    (name) => name.startsWith("ask-llm-") && name !== "ask-llm-fable-review",
+  );
   for (const name of seeded) await cp(join(corpus, name), join(skillsDir, name), { recursive: true });
 }
 await mkdir(join(project, ".codex-pair"), { recursive: true });
