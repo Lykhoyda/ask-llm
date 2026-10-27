@@ -97,7 +97,7 @@ By default HIGH and MED concerns are surfaced; LOW concerns and all timing/skip 
 | `CODEX_PAIR_DISABLED` | unset | Set to `1` to bypass the hook entirely; beats marker file |
 | `CODEX_PAIR_MAX_FILE_BYTES` | `20000` | Files larger than this many UTF-8 bytes get an adaptive **partial-view** review (header + git diff, or head+tail), not a full-content one. Still a Codex call; use `.codex-pair/ignore` to skip calls for excluded files |
 | `ASK_CODEX_TIMEOUT_MS` | `800000` | Fallback review timeout in milliseconds; empty, non-numeric, non-positive, or infinite values use the default. Set `timeoutMs` in `.codex-pair/context.md` frontmatter to override it for this project. A debounced review retains the timeout resolved when its worker was scheduled, even if frontmatter changes during the settle window; the worker uses that timeout for its review process and in-flight lock. An enabled broker gets half the review budget, leaving the remainder for direct fallback |
-| `ASK_CODEX_REASONING_EFFORT` | `medium` | Reasoning effort for `gpt-6-sol` pair reviews. `/codex-review` and `/brainstorm` stay at `high` |
+| `ASK_CODEX_REASONING_EFFORT` | `high` | Reasoning effort for `gpt-6.1-sol` pair reviews |
 | `ASK_CODEX_BROKER` | disabled | Set to `1` to opt in to the broker unless the project sets `broker: false`; otherwise use per-edit `codex exec` |
 | `ASK_CODEX_DEBOUNCE_MS` | `15000` | Settle window: an edit burst to one file coalesces into a single review of the settled state. `0` = synchronous per-edit review. Also settable per-marker via `debounceMs` frontmatter |
 | `ASK_CODEX_DEBOUNCE_MAX_MS` | `60000` | Hard cap from a burst's first edit; forces a review even under a continuous edit stream. Frontmatter: `debounceMaxMs` |

@@ -38,7 +38,7 @@ Or install globally: `npm install -g @ask-llm/codex-mcp`
 <FallbackChain provider="codex" />
 
 - **Default:** `gpt-6-astra` (GPT-6 Astra flagship; requires Codex CLI >= 0.153.0)
-- **codex-pair:** `gpt-6-sol` (GPT-6 Sol). Quota fallback stays Terra
+- **codex-pair:** `gpt-6.1-sol` (GPT-6.1 Sol) at `high` effort. Quota fallback is `gpt-6.1-terra` (Pi: `gpt-5.6-terra`)
 - **Quota fallback:** `gpt-5.6-terra`, the balanced GPT-5.6 tier
 - **Overrides:** `ASK_CODEX_MODEL`, `ASK_CODEX_FALLBACK_MODEL`, or the per-call `model` parameter
 

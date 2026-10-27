@@ -58,7 +58,7 @@ describe("scripts/codex-pair-watch.mjs — structural invariants (ADR-077)", () 
     expect(script).toMatch(/stdin\.on\(["']error["']/);
   });
 
-  it("preserves quota fallback (gpt-6-sol → gpt-5.6-terra on rate_limit_exceeded)", () => {
+  it("preserves quota fallback (gpt-6.1-sol → gpt-6.1-terra on rate_limit_exceeded)", () => {
     expect(script).toMatch(/isQuotaError/);
     expect(script).toMatch(/rate_limit_exceeded/);
     expect(script).toMatch(/FALLBACK_MODEL/);
@@ -655,12 +655,13 @@ describe("scripts/codex-pair-watch.mjs — structural invariants (ADR-077)", () 
     );
     expect(script).toMatch(/configuredReasoningEffort\s*=\s*process\.env\.ASK_CODEX_REASONING_EFFORT/);
     expect(script).toMatch(
-      /DEFAULT_REASONING_EFFORT\s*=[\s\S]{0,100}CODEX_REASONING_EFFORTS\.has\(configuredReasoningEffort\)[\s\S]{0,100}\?\s*configuredReasoningEffort[\s\S]{0,100}:\s*"medium"/,
+      /DEFAULT_REASONING_EFFORT\s*=[\s\S]{0,100}CODEX_REASONING_EFFORTS\.has\(configuredReasoningEffort\)[\s\S]{0,100}\?\s*configuredReasoningEffort[\s\S]{0,100}:\s*CODEX_REASONING_EFFORTS\.has\(CODEX_PAIR_DEFAULTS\.reasoningEffort\)[\s\S]{0,100}\?\s*CODEX_PAIR_DEFAULTS\.reasoningEffort[\s\S]{0,100}:\s*"high"/,
     );
+    expect(script).toMatch(/reasoningEffort: "high"/);
     expect(script).toMatch(/model_reasoning_effort="\$\{DEFAULT_REASONING_EFFORT\}"/);
   });
 
-  it("codex-pair-defaults.json exists and contains model+fallbackModel keys", () => {
+  it("codex-pair-defaults.json exists and contains model+fallbackModel+reasoningEffort keys", () => {
     const defaultsPath = path.join(PLUGIN_ROOT, "codex-pair-defaults.json");
     expect(fs.existsSync(defaultsPath)).toBe(true);
     const defaults = JSON.parse(fs.readFileSync(defaultsPath, "utf-8"));
@@ -668,6 +669,7 @@ describe("scripts/codex-pair-watch.mjs — structural invariants (ADR-077)", () 
     expect(typeof defaults.fallbackModel).toBe("string");
     expect(defaults.model.length).toBeGreaterThan(0);
     expect(defaults.fallbackModel.length).toBeGreaterThan(0);
+    expect(defaults.reasoningEffort).toBe("high");
   });
 
   it("codex-pair-defaults.json values match codex-mcp constants.ts MODELS (drift guard)", () => {
@@ -680,8 +682,9 @@ describe("scripts/codex-pair-watch.mjs — structural invariants (ADR-077)", () 
     const constantsPath = path.join(PLUGIN_ROOT, "..", "codex-mcp", "src", "constants.ts");
     const constantsSource = fs.readFileSync(constantsPath, "utf-8");
 
-    // Pairing uses CODEX_PAIR_MODEL. ask-codex stays on FACTORY_DEFAULT_MODEL.
+    // Pairing uses the CODEX_PAIR_* constants. ask-codex stays on FACTORY_DEFAULT_MODEL and MODELS.FALLBACK.
     const pairMatch = constantsSource.match(/export const CODEX_PAIR_MODEL = "([^"]+)"/);
+    const pairFallbackMatch = constantsSource.match(/export const CODEX_PAIR_FALLBACK_MODEL = "([^"]+)"/);
     const factoryMatch = constantsSource.match(/export const FACTORY_DEFAULT_MODEL = "([^"]+)"/);
     const defaultWiring = constantsSource.match(
       /DEFAULT:\s*process\.env\.ASK_CODEX_MODEL\s*\|\|\s*FACTORY_DEFAULT_MODEL/,
@@ -691,13 +694,16 @@ describe("scripts/codex-pair-watch.mjs — structural invariants (ADR-077)", () 
     );
 
     expect(pairMatch).toBeTruthy();
+    expect(pairFallbackMatch).toBeTruthy();
     expect(factoryMatch).toBeTruthy();
     expect(defaultWiring).toBeTruthy();
     expect(fallbackMatch).toBeTruthy();
     expect(defaults.model).toBe(pairMatch?.[1]);
-    expect(defaults.model).toBe("gpt-6-sol");
+    expect(defaults.model).toBe("gpt-6.1-sol");
+    expect(defaults.fallbackModel).toBe(pairFallbackMatch?.[1]);
+    expect(defaults.fallbackModel).toBe("gpt-6.1-terra");
     expect(factoryMatch?.[1]).toBe("gpt-6-astra");
-    expect(defaults.fallbackModel).toBe(fallbackMatch?.[1]);
+    expect(fallbackMatch?.[1]).toBe("gpt-5.6-terra");
   });
 
   it("skips node_modules, dist, .git, lockfiles, and common image assets", () => {

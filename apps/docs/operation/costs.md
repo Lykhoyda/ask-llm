@@ -21,7 +21,7 @@ Hosted CLI providers (Gemini, Codex, Claude, Antigravity) auto-select a sensible
 
 For Gemini, Codex, Claude, and Antigravity, fallback is automatic and structured output exposes the actual model plus `usage.fellBack`. Antigravity reports `gemini-3.8-flash` after a rate-limit fallback, or the literal `agy default` after a model-less recovery (agy does not reveal which model it picked). Grok and Ollama never fall back, so their `fellBack` values are always `false`.
 
-`codex-pair` defaults to `gpt-6-sol` at `medium` reasoning effort and still quota-falls back to `gpt-5.6-terra`. Unpinned Codex consultations stay on `gpt-6-astra`.
+`codex-pair` defaults to `gpt-6.1-sol` at `high` reasoning effort and quota-falls back to `gpt-6.1-terra` (Pi pairing falls back to `gpt-5.6-terra`). Unpinned Codex consultations stay on `gpt-6-astra`.
 
 Codex uses `medium` reasoning effort for ordinary calls to preserve the previous default behavior. The quality-first `/ask-llm-review` and `/ask-llm-brainstorm` skills use `high`. Direct `ask-llm` with `provider: "codex"` calls can override this with `reasoningEffort` (`low`, `medium`, `high`, `xhigh`, `max`, or `ultra`). `ultra` is opt-in only: Codex's catalog describes it as maximum reasoning with automatic task delegation, so review and brainstorm defaults stay at `high`.
 

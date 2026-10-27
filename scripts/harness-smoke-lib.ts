@@ -55,7 +55,7 @@ export const SCENARIOS: readonly Scenario[] = Object.freeze([
     modelKey: "CODEX_PAIR",
     provider: "codex",
     harness: "codex-cli",
-    effort: "medium",
+    effort: "high",
   },
   {
     id: "claude:/grok-pair",
@@ -88,7 +88,7 @@ export const SCENARIOS: readonly Scenario[] = Object.freeze([
     modelKey: "CODEX_PAIR",
     provider: "codex",
     harness: "codex-cli",
-    effort: "medium",
+    effort: "high",
   },
   {
     id: "cursor-agent:/grok-pair",
@@ -121,7 +121,7 @@ export const SCENARIOS: readonly Scenario[] = Object.freeze([
     modelKey: "CODEX_PAIR",
     provider: "codex",
     harness: "codex-cli",
-    effort: "medium",
+    effort: "high",
     liveSupported: false,
     liveUnavailableReason: "Pi codex-pair requires TUI/RPC/long-lived JSON plus project trust and a user allowlist",
   },
@@ -162,7 +162,7 @@ export const SCENARIOS: readonly Scenario[] = Object.freeze([
     modelKey: "CODEX_PAIR",
     provider: "codex",
     harness: "codex-cli",
-    effort: "medium",
+    effort: "high",
   },
   {
     id: "grok-cli:/brainstorm-route",
@@ -200,7 +200,7 @@ const EXACT_DRY_MODELS = Object.freeze({
   CURSOR_CODEX: "gpt-6-sol-high",
   PI: "openai-codex/gpt-6-sol",
   CODEX: "gpt-6-astra",
-  CODEX_PAIR: "gpt-6-sol",
+  CODEX_PAIR: "gpt-6.1-sol",
   GROK: "grok-4.7",
 } as const);
 

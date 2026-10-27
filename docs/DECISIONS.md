@@ -1,5 +1,15 @@
 # Architectural Decisions
 
+## ADR-187: Pair on GPT-6.1 Sol at high effort with GPT-6.1 Terra fallback
+
+**Status:** Accepted (2026-10-27). Supersedes the pair model and effort parts of ADR-164.
+
+**Context:** Codex CLI 0.164.0 (`codex debug models`) lists `gpt-6.1-sol` (`visibility: "list"`, priority 1) and `gpt-6.1-terra` (priority 3). Both offer the `low` through `ultra` effort ladder and set no `minimal_client_version`. `gpt-6-sol` is now priority 4. GPT-6.1 Terra is cheaper and faster, but it scores lower on coding than Sol. The per-edit reviewer used `gpt-6-sol` at `medium` effort with the shared `gpt-5.6-terra` fallback.
+
+**Decision:** `codex-pair-defaults.json` sets `model: "gpt-6.1-sol"`, `fallbackModel: "gpt-6.1-terra"` and `reasoningEffort: "high"`. The watch script's inline literal matches it. It reads effort as `ASK_CODEX_REASONING_EFFORT` when valid, then the JSON value when valid, then `high`. `CODEX_PAIR_MODEL` moves to `gpt-6.1-sol`, and a new `CODEX_PAIR_FALLBACK_MODEL = "gpt-6.1-terra"` anchors the JSON drift guard in place of `MODELS.FALLBACK`. Pi pairing uses `gpt-6.1-sol` at `high`. No Codex CLI floor is added. `FACTORY_DEFAULT_MODEL` (`gpt-6-astra`), `MODELS.FALLBACK` (`gpt-5.6-terra`), the general `medium` effort, the `/sol-review` pin and the brainstorm pins are unchanged.
+
+**Consequences:** Claude Code per-edit reviews cost more per call at `high` effort and fall back to GPT-6.1 Terra on quota. Pi pairing calls the shared executor, which has no per-call fallback option, so its quota fallback stays `gpt-5.6-terra`. This difference is documented in `docs/PI-COMPATIBILITY.md` rather than solved with a new executor option. The Pi review cache key does not include effort. A project that pins `model:` in its marker can reuse a cached medium-effort result for an unchanged file once.
+
 ## ADR-186: Doctor gates sandboxed Antigravity quota diagnostics on agy 1.2.13 or newer
 
 **Status:** Accepted (2026-10-13). Addresses slice 1 of #268; extends ADR-178 and ADR-179.

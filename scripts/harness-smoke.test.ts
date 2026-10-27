@@ -212,7 +212,7 @@ describe("exact live skill prompts", () => {
   });
 
   it.each([
-    ["cursor-agent:/codex-pair", "/codex-pair model=gpt-6-sol effort=medium", "gpt-6-sol"],
+    ["cursor-agent:/codex-pair", "/codex-pair model=gpt-6.1-sol effort=high", "gpt-6.1-sol"],
     ["claude:/grok-pair", "/grok-pair route=grok-cli model=grok-4.7 effort=high", "grok-4.7"],
   ])("pins route/model/effort/consent for %s", (id, expected, model) => {
     const scenario = SCENARIOS.find((entry) => entry.id === id);

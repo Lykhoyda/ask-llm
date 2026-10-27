@@ -15,7 +15,7 @@ The first Codex call (`ask-codex` when user-installed, otherwise the fully pinne
 Example:
 
 ```text
-/codex-pair model=gpt-6-sol effort=medium include=packages/api,packages/shared review this migration
+/codex-pair model=gpt-6.1-sol effort=high include=packages/api,packages/shared review this migration
 ```
 
 With the plugin loaded, the unified `ask-llm` tool is the bundled transport: `/codex-pair` uses it with `provider: "codex"` and every option pinned; unsupported combinations (including `includeDirs` on a resumed thread) are rejected instead of stripped. A separately user-installed `ask-codex` leaf is preferred when exposed. If neither transport is present, run `ask-llm setup --host cursor`, follow any printed guidance, authenticate Codex, and reload from **Cursor Settings → Tools & MCP** or restart Cursor Agent. Earlier registrations are covered by [Migration](/reference/migration).

@@ -216,8 +216,8 @@ describe("Pi codex-pair lifecycle", () => {
     await eventually(() => expect(instance.messages).toHaveLength(1));
     expect(executeCodexCLI).toHaveBeenCalledTimes(1);
     expect(executeCodexCLI.mock.calls[0][0]).toMatchObject({
-      model: "gpt-6-sol",
-      reasoningEffort: "medium",
+      model: "gpt-6.1-sol",
+      reasoningEffort: "high",
       sandbox: "read-only",
       signal: expect.any(AbortSignal),
     });

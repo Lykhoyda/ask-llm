@@ -382,7 +382,7 @@ The first Codex call (`ask-codex` when user-installed, otherwise the fully pinne
 Example:
 
 ```text
-/codex-pair model=gpt-6-sol effort=medium include=packages/api,packages/shared review this migration
+/codex-pair model=gpt-6.1-sol effort=high include=packages/api,packages/shared review this migration
 ```
 
 With the plugin loaded, the unified `ask-llm` tool is the bundled transport: `/codex-pair` uses it with `provider: "codex"` and every option pinned; unsupported combinations (including `includeDirs` on a resumed thread) are rejected instead of stripped. A separately user-installed `ask-codex` leaf is preferred when exposed. If neither transport is present, run `ask-llm setup --host cursor`, follow any printed guidance, authenticate Codex, and reload from **Cursor Settings → Tools & MCP** or restart Cursor Agent. Earlier registrations are covered by [Migration](https://lykhoyda.github.io/ask-llm/reference/migration).
@@ -666,7 +666,7 @@ Hosted CLI providers (Gemini, Codex, Claude, Antigravity) auto-select a sensible
 
 For Gemini, Codex, Claude, and Antigravity, fallback is automatic and structured output exposes the actual model plus `usage.fellBack`. Antigravity reports `gemini-3.8-flash` after a rate-limit fallback, or the literal `agy default` after a model-less recovery (agy does not reveal which model it picked). Grok and Ollama never fall back, so their `fellBack` values are always `false`.
 
-`codex-pair` defaults to `gpt-6-sol` at `medium` reasoning effort and still quota-falls back to `gpt-5.6-terra`. Unpinned Codex consultations stay on `gpt-6-astra`.
+`codex-pair` defaults to `gpt-6.1-sol` at `high` reasoning effort and quota-falls back to `gpt-6.1-terra` (Pi pairing falls back to `gpt-5.6-terra`). Unpinned Codex consultations stay on `gpt-6-astra`.
 
 Codex uses `medium` reasoning effort for ordinary calls to preserve the previous default behavior. The quality-first `/ask-llm-review` and `/ask-llm-brainstorm` skills use `high`. Direct `ask-llm` with `provider: "codex"` calls can override this with `reasoningEffort` (`low`, `medium`, `high`, `xhigh`, `max`, or `ultra`). `ultra` is opt-in only: Codex's catalog describes it as maximum reasoning with automatic task delegation, so review and brainstorm defaults stay at `high`.
 
@@ -857,7 +857,7 @@ By default HIGH and MED concerns are surfaced; LOW concerns and all timing/skip 
 | `CODEX_PAIR_DISABLED` | unset | Set to `1` to bypass the hook entirely; beats marker file |
 | `CODEX_PAIR_MAX_FILE_BYTES` | `20000` | Files larger than this many UTF-8 bytes get an adaptive **partial-view** review (header + git diff, or head+tail), not a full-content one. Still a Codex call; use `.codex-pair/ignore` to skip calls for excluded files |
 | `ASK_CODEX_TIMEOUT_MS` | `800000` | Fallback review timeout in milliseconds; empty, non-numeric, non-positive, or infinite values use the default. Set `timeoutMs` in `.codex-pair/context.md` frontmatter to override it for this project. A debounced review retains the timeout resolved when its worker was scheduled, even if frontmatter changes during the settle window; the worker uses that timeout for its review process and in-flight lock. An enabled broker gets half the review budget, leaving the remainder for direct fallback |
-| `ASK_CODEX_REASONING_EFFORT` | `medium` | Reasoning effort for `gpt-6-sol` pair reviews. `/codex-review` and `/brainstorm` stay at `high` |
+| `ASK_CODEX_REASONING_EFFORT` | `high` | Reasoning effort for `gpt-6.1-sol` pair reviews |
 | `ASK_CODEX_BROKER` | disabled | Set to `1` to opt in to the broker unless the project sets `broker: false`; otherwise use per-edit `codex exec` |
 | `ASK_CODEX_DEBOUNCE_MS` | `15000` | Settle window: an edit burst to one file coalesces into a single review of the settled state. `0` = synchronous per-edit review. Also settable per-marker via `debounceMs` frontmatter |
 | `ASK_CODEX_DEBOUNCE_MAX_MS` | `60000` | Hard cap from a burst's first edit; forces a review even under a continuous edit stream. Frontmatter: `debounceMaxMs` |
