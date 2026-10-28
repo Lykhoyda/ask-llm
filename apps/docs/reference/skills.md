@@ -187,33 +187,17 @@ On Claude Code the Cursor and direct Grok tools come from user-scoped registrati
 
 ### `codex-pair`: host lifecycle + dashboard
 
-`codex-pair` has two surfaces:
+`codex-pair` uses host-specific review lifecycles:
 
 - **Claude Code:** the PostToolUse hook fires after `Edit` / `Write` / `MultiEdit` when a marker exists.
+- **Grok CLI:** see [Grok per-edit pairing](/advanced/codex-pair#grok-cli) for manual hook registration, reviewer selection and coverage limits.
 - **Pi:** the extension observes successful built-in `tool_result` edit/write events and additionally requires project trust plus user-owned allowlist consent through `/codex-pair`. A committed marker alone is never consent. Findings use non-triggering `steer` delivery and are non-blocking; print-mode asynchronous pairing is unsupported.
 - **Cursor Agent:** the supported Agent Skills surface runs an on-demand consent-gated pair session through a user-installed `ask-codex` leaf when exposed, otherwise the fully pinned unified `ask-llm`; the first call creates a persisted Thread ID with model, effort, and include directories, and follow-ups resume it without claiming Claude hooks are active. See [Cursor Agent Host](/compatibility/cursor).
 - **`/codex-pair`**: a user-invocable slash command that shows current status (active / paused / not configured) and runs interactive setup on first use. Use this when you want to enable codex-pair on a new project (auto-detects context from your README + manifests, drafts the marker, asks you to confirm) or check whether it's currently running. Pairs with `/codex-pair-pause` and `/codex-pair-resume` (the imperative toggles).
 
 > This is the "hidden" surface of the plugin: the hook ships in every install but is disabled by default until a project opts in. The full mechanism, env vars, and cost characteristics live in [Codex Pair](/advanced/codex-pair).
 
-**Quick enable**: either run `/codex-pair` (recommended; it auto-detects your project and asks before writing) or create the marker manually:
-
-```bash
-mkdir -p .codex-pair
-cat > .codex-pair/context.md <<'EOF'
-# .codex-pair/context.md
-
-<one-paragraph project-purpose summary>
-
-## Domain invariants Codex can't infer from a single file
-
-- <invariant 1: something the model can't see by reading one file>
-- <invariant 2: a written spec or protocol your code implements>
-- <invariant 3: a concurrency or state-coordination rule>
-EOF
-```
-
-Once the marker exists at the project root, every file edit triggers a Codex review with the marker's content as project context. `rm -rf .codex-pair/` to disable.
+For enablement, marker configuration and pause/resume, follow the host-specific instructions in [Codex Pair](/advanced/codex-pair). A marker alone does not install Grok's hook or satisfy Pi's consent requirements.
 
 **How it differs from `/codex-review`**: in a four-task benchmark recorded in the project's [decision log](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md) (four structurally different task types: CRUD, URL parsing, RFC-spec implementation, stateful business logic, picked so the result would generalize across domains): Claude alone caught **2 of 10** probes; Claude + `/codex-review` caught **7 of 10**; Claude + `codex-pair` caught **10 of 10**. The three probes `/codex-review` missed exemplified the "looks fine, runs wrong" class its ≥80-confidence filter structurally suppresses; code that compiles and type-checks but produces wrong results at runtime. **The recall improvement is task-agnostic**; the two surfaces are complementary, not competing.
 

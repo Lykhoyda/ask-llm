@@ -44,7 +44,8 @@ A host is the assistant you work in; a provider is the model you consult.
 | Host | Experience |
 |---|---|
 | Claude Code | Reviews, plan critique, comparisons; isolated reviewers and opt-in per-edit pairing |
-| Codex, Cursor, Grok Build, Gemini CLI | Tools and portable workflows; pairing on demand |
+| Codex, Cursor, Gemini CLI | Tools and portable workflows; pairing on demand |
+| Grok Build | Tools and portable workflows; opt-in [per-edit pairing](https://lykhoyda.github.io/ask-llm/advanced/codex-pair#grok-cli) |
 | Antigravity | Tools; setup prints a manual step for workflows |
 | Pi 0.83.0+ | Native tools and portable workflows; opt-in per-edit pairing |
 | Claude Desktop | Tools only |
