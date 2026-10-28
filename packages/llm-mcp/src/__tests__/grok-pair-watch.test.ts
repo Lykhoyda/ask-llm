@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { adaptGrokPayload } from "../../scripts/lib/grok-payload.mjs";
 import { resolveReviewer } from "../../scripts/lib/pair-reviewer.mjs";
 import { addAck, hashConcernBody } from "../../scripts/lib/state.mjs";
+import { collectBlockingHighs } from "../../scripts/lib/stop-gate.mjs";
 import { PLUGIN_ROOT } from "./_helpers.js";
 
 describe("Grok payload adapter", () => {
@@ -95,7 +96,8 @@ process.stdin.on('data', chunk => prompt += chunk);
 process.stdin.on('end', () => {
   fs.appendFileSync(process.env.CAPTURE, JSON.stringify({name: ${JSON.stringify(name)}, args: process.argv.slice(2), prompt}) + '\\n');
   if (process.env.REVIEW_FAIL === '1') { console.log(JSON.stringify({is_error:true, result:'review unavailable'})); return; }
-  const result = JSON.stringify({verdict:'needs-attention', findings:[{severity:'high',title:'Review note',body:'Check the invariant',file:'file.ts',line_start:1}]});
+  const findings = process.env.REVIEW_FINDINGS ? JSON.parse(process.env.REVIEW_FINDINGS) : [{severity:'high',title:'Review note',body:'Check the invariant',file:'file.ts',line_start:1}];
+  const result = JSON.stringify({verdict:'needs-attention', findings});
   console.log(JSON.stringify(${JSON.stringify(name)} === 'codex' ? {type:'item.completed',item:{type:'agent_message',text:result}} : {subtype:'success',result}));
 });
 `,
@@ -109,7 +111,6 @@ process.stdin.on('end', () => {
       GROK_HOME: join(root, "home/.grok"),
       CAPTURE: join(root, "calls.jsonl"),
       CODEX_PAIR_DISABLED: "0",
-      CODEX_PAIR_REVIEWER: "codex",
       CODEX_PAIR_HOST: "",
       CODEX_PAIR_FORCE_SYNC: "0",
       ASK_CODEX_BROKER: "0",
@@ -167,12 +168,6 @@ process.stdin.on('end', () => {
     expect(call.prompt).toContain("export const x = 1;");
   });
 
-  it("honors the environment reviewer setting", () => {
-    env.CODEX_PAIR_REVIEWER = "claude";
-    expect(run()).toContain("claude-opus-5-5");
-    expect(calls()[0].name).toBe("claude");
-  });
-
   it("reviews command text without reading a synthetic file or running the command", () => {
     const command = "printf unsafe > never-executed.txt";
     expect(run("run_terminal_command", { command })).toContain("Review note");
@@ -201,26 +196,77 @@ process.stdin.on('end', () => {
       .trim()
       .split("\n")
       .map((line) => JSON.parse(line));
-    const body = log.at(-1).concerns.high[0];
-    addAck(root, hashConcernBody(`file.ts:${body}`), { reason: "accepted for this fixture" });
+    addAck(root, log.at(-1).concernHashes.high[0], { reason: "accepted for this fixture" });
     writeFileSync(join(root, "file.ts"), "export const x = 4;");
     expect(run()).not.toContain("REPEATED-IGNORED");
   });
 
+  it.each(["codex", "claude"])("acknowledges long findings from live and cached %s logs", (reviewer) => {
+    writeFileSync(
+      join(root, ".codex-pair/context.md"),
+      `---\nreviewer: ${reviewer}\nsurfaceThreshold: low\n---\nProject context`,
+    );
+    const body = "Long concern ".repeat(100);
+    env.REVIEW_FINDINGS = JSON.stringify(
+      ["high", "medium", "low"].map((severity) => ({ severity, title: severity, body })),
+    );
+    expect(run()).toContain(body.trim());
+    expect(run()).toContain("[cached]");
+    const logs = readFileSync(join(root, ".codex-pair/log.jsonl"), "utf8")
+      .trim()
+      .split("\n")
+      .map((line) => JSON.parse(line))
+      .filter((entry) => entry.concerns);
+    expect(logs.map((entry) => entry.verdict)).toEqual(["concerns", "cached"]);
+    for (const entry of logs) {
+      for (const [bucket, severity] of [
+        ["high", "high"],
+        ["med", "medium"],
+        ["low", "low"],
+      ]) {
+        expect(entry.concerns[bucket][0]).toHaveLength(800);
+        expect(entry.concernHashes[bucket][0]).toBe(hashConcernBody(`file.ts:${severity}\n${body.trim()}`));
+      }
+    }
+    const cached = logs[1];
+    const file = join(root, "file.ts");
+    const gateInput = {
+      entries: [[file, [cached]]] as [string, (typeof cached)[]][],
+      acks: {},
+      existsFn: () => true,
+      hashFn: () => cached.contentHash,
+      gitDirty: null,
+      markerDir: root,
+    };
+    expect(collectBlockingHighs(gateInput)[0].hash).toBe(cached.concernHashes.high[0]);
+    const acks = Object.fromEntries(
+      ["high", "med", "low"].map((bucket) => {
+        const hash = cached.concernHashes[bucket][0];
+        addAck(root, hash, { reason: "accepted long fixture" });
+        return [hash, { reason: "accepted long fixture" }];
+      }),
+    );
+    expect(collectBlockingHighs({ ...gateInput, acks })).toEqual([]);
+    expect(run()).toContain("no concerns");
+    writeFileSync(join(root, "file.ts"), "export const x = 2;");
+    expect(run()).toContain("no concerns");
+    expect(calls()).toHaveLength(2);
+  });
+
   it("refuses Claude reviewing Claude before any reviewer process starts", () => {
-    env.CODEX_PAIR_REVIEWER = "claude";
+    writeFileSync(join(root, ".codex-pair/context.md"), "---\nreviewer: claude\n---\nProject context");
     expect(run("Edit", { file_path: join(root, "file.ts") }, true)).toContain("own model family's edits");
     expect(() => calls()).toThrow();
   });
 
   it("refuses invalid reviewers without falling back to Codex", () => {
-    env.CODEX_PAIR_REVIEWER = "unknown";
+    writeFileSync(join(root, ".codex-pair/context.md"), "---\nreviewer: unknown\n---\nProject context");
     expect(run()).toContain("reviewer must be codex or claude");
     expect(() => calls()).toThrow();
   });
 
   it("reports Claude structured failures rather than a clean review", () => {
-    env.CODEX_PAIR_REVIEWER = "claude";
+    writeFileSync(join(root, ".codex-pair/context.md"), "---\nreviewer: claude\n---\nProject context");
     env.REVIEW_FAIL = "1";
     expect(run()).toContain("review failed: review unavailable");
   });

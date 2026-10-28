@@ -798,7 +798,7 @@ reviewer: codex
 Project invariants for the reviewer.
 ```
 
-`reviewer: codex` is the default (`gpt-6.1-sol`, high effort, existing disclosed Terra quota fallback). `reviewer: claude` opts into pinned `claude-opus-5-5`, read tools only, no model/provider fallback. Marker `reviewer` overrides `CODEX_PAIR_REVIEWER`, then the default. Invalid settings refuse; choosing a reviewer from the writer's own family also refuses (for example Claude reviewing Claude Code). The Claude timeout is marker `timeoutMs`, then `ASK_CLAUDE_TIMEOUT_MS`, then 600 seconds. Existing Codex settings still apply to Codex.
+`reviewer: codex` is the default (`gpt-6.1-sol`, high effort, existing disclosed Terra quota fallback). `reviewer: claude` opts into pinned `claude-opus-5-5`, read tools only, no model/provider fallback. Marker `reviewer` is the sole reviewer setting. Invalid settings refuse; choosing a reviewer from the writer's own family also refuses (for example Claude reviewing Claude Code). The Claude timeout is marker `timeoutMs`, then `ASK_CLAUDE_TIMEOUT_MS`, then 600 seconds. Existing Codex settings still apply to Codex.
 
 Register this yourself in `~/.grok/hooks/ask-llm-pair.json` (or `$GROK_HOME/hooks/ask-llm-pair.json`), using the absolute installed `@ask-llm/mcp` directory as `<package-root>`. Keep a single pair hook registration and remove any duplicate imported Claude pair hook for Grok:
 

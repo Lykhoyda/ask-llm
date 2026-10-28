@@ -38,8 +38,8 @@ export function collectBlockingHighs({ entries, acks, existsFn, hashFn, gitDirty
         const highs = Array.isArray(entry.concerns?.high) ? entry.concerns.high : [];
         if (highs.length === 0)
             continue;
-        for (const text of highs) {
-            const hash = hashConcernBody(`${relative(markerDir, file)}:${text}`); // [E] file-scoped
+        for (const [index, text] of highs.entries()) {
+            const hash = entry.concernHashes?.high?.[index] ?? hashConcernBody(`${relative(markerDir, file)}:${text}`);
             if (!acks[hash])
                 blocking.push({ file, text, hash });
         }

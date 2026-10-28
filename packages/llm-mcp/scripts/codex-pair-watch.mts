@@ -1042,7 +1042,7 @@ async function main() {
   const config = resolveConfig(frontmatter);
   let reviewer: "codex" | "claude";
   try {
-    reviewer = resolveReviewer(frontmatter.reviewer ?? process.env.CODEX_PAIR_REVIEWER, grokHost ? "grok" : "claude");
+    reviewer = resolveReviewer(frontmatter.reviewer, grokHost ? "grok" : "claude");
   } catch (error) {
     const reason = error instanceof Error ? error.message : String(error);
     await appendLog(markerDir, { timestamp: new Date().toISOString(), verdict: "refused", file: filePath, reason });
@@ -1148,8 +1148,16 @@ async function main() {
 
   const acks = grokHost ? readAcks(markerDir) : {};
   const reviewRelativePath = relative(markerDir, filePath);
+  const acknowledgementHash = (body: string) => hashConcernBody(`${reviewRelativePath}:${body}`);
+  function concernHashes(concerns: Concerns): Concerns {
+    return {
+      high: concerns.high.map(acknowledgementHash),
+      med: concerns.med.map(acknowledgementHash),
+      low: concerns.low.map(acknowledgementHash),
+    };
+  }
   function visibleConcerns(concerns: Concerns): Concerns {
-    const visible = (body: string) => !acks[hashConcernBody(`${reviewRelativePath}:${body}`)];
+    const visible = (body: string) => !acks[acknowledgementHash(body)];
     return {
       high: concerns.high.filter(visible),
       med: concerns.med.filter(visible),
@@ -1182,6 +1190,7 @@ async function main() {
       },
       durationMs: cachedDurationMs,
       originalDurationMs: cached.durationMs,
+      concernHashes: concernHashes(cached),
       concerns: {
         high: cached.high.map((c) => c.slice(0, 800)),
         med: cached.med.map((c) => c.slice(0, 800)),
@@ -1356,6 +1365,7 @@ async function main() {
       low: concerns.low.length,
     },
     durationMs,
+    concernHashes: concernHashes(concerns),
     concerns: {
       high: concerns.high.map((c) => c.slice(0, 800)),
       med: concerns.med.map((c) => c.slice(0, 800)),
