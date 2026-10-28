@@ -35,7 +35,7 @@ Working in Codex with a Claude subscription? Ask Claude instead. Choose a provid
 
 For plans, try: “Ask Claude to challenge this plan: what assumptions could fail, and what simpler approach would fit our constraints?”
 
-After an on-demand review, [pair review](https://lykhoyda.github.io/ask-llm/advanced/codex-pair) can add ongoing feedback. Pairing requires explicit opt-in; setup leaves it off.
+After an on-demand review, [pair review](https://lykhoyda.github.io/ask-llm/advanced/codex-pair) can add ongoing feedback. Pairing requires explicit opt-in; setup leaves it off. Grok CLI supports a [per-edit hook](https://lykhoyda.github.io/ask-llm/advanced/codex-pair#grok-cli) with Codex Sol by default or Claude Opus 5.5 via `reviewer: claude`; shell reviews cover command text only.
 
 ## Supported hosts
 

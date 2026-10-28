@@ -17,7 +17,7 @@ Run `/codex-pair-pause` or create the sentinel exactly as described by the porta
 
 ### Other hosts adapter
 
-Apply the portable contract above: create the sentinel file exactly as described. It pauses the codex-pair reviewer that Claude Code or Pi runs for this project.
+Apply the portable contract above: create the sentinel file exactly as described. It pauses the codex-pair reviewer that Claude Code, Pi or Grok CLI runs for this project.
 
 <!-- HOST-ADAPTER:CLAUDE-CODE:START -->
 ### Claude Code adapter

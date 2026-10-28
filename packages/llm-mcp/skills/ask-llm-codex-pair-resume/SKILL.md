@@ -17,7 +17,7 @@ Run `/codex-pair-resume` or remove the sentinel and failure counter exactly as d
 
 ### Other hosts adapter
 
-Apply the portable contract above: remove the sentinel and failure counter exactly as described. It resumes the codex-pair reviewer that Claude Code or Pi runs for this project.
+Apply the portable contract above: remove the sentinel and failure counter exactly as described. It resumes the codex-pair reviewer that Claude Code, Pi or Grok CLI runs for this project.
 
 <!-- HOST-ADAPTER:CLAUDE-CODE:START -->
 ### Claude Code adapter

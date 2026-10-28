@@ -1,15 +1,19 @@
 ---
 name: ask-llm-codex-pair
-description: Pair with Codex using the host's supported lifecycle. On Claude Code and Pi, manages the proven opt-in per-edit review flow; on Cursor Agent, runs an explicit consent-gated iterative reviewer session through an exact ask-codex leaf or fully pinned unified ask-llm without assuming Claude hooks or namespaces.
+description: Pair with Codex using the host's supported lifecycle. On Grok CLI, supports per-edit review by Codex or opt-in Claude; on Claude Code and Pi, manages the proven opt-in per-edit review flow; on Cursor Agent, runs an explicit consent-gated iterative reviewer session through an exact ask-codex leaf or fully pinned unified ask-llm without assuming Claude hooks or namespaces.
 ---
 
 <!-- PORTABLE-CONTRACT:START -->
 ## Portable contract
 
-Use Codex as an explicit read-only reviewer while the host remains the editor. Apply `pairing-contract.md`. Where the host supports the established per-edit integration, set up and report its status: the repository marker carries review context but is not, by itself, authorization on Pi. Preserve bounded file context, include-directory handling, reasoning effort, session continuity where supported, consent, cancellation, actionable relay, failure disclosure, and explicit host lifecycle limitations.
+Use an independent read-only reviewer while the host remains the editor: Codex by default, or opt-in Claude on Grok CLI. Apply `pairing-contract.md`. Where the host supports the established per-edit integration, set up and report its status: the repository marker carries review context but is not, by itself, authorization on Pi. Preserve bounded file context, include-directory handling, reasoning effort, session continuity where supported, consent, cancellation, actionable relay, failure disclosure, and explicit host lifecycle limitations.
 <!-- PORTABLE-CONTRACT:END -->
 
 ## Host adapters
+
+### Grok CLI adapter
+
+Read [grok.md](grok.md) and follow its setup and status steps. Grok uses the shared per-edit hook lifecycle with `reviewer: codex` (default) or `reviewer: claude` (Opus 5.5). The adapter runs reviews in the foreground and emits the note before hook exit. Shell reviews cover command text only. This adapter takes precedence over the on-demand other-host adapter below.
 
 ### Pi adapter
 
@@ -60,7 +64,7 @@ Cursor discovers this `SKILL.md` through its supported Agent Skills surface; `/c
 
 ### Other hosts adapter
 
-Codex, Antigravity, Grok Build, Gemini CLI and OpenCode follow the Cursor Agent adapter above: it needs only the Ask LLM MCP tools and a conversational confirmation. `ask-llm setup` registers the server there, so skip the Cursor `mcp.json` snippet and point to `ask-llm setup` instead.
+Codex, Antigravity, Gemini CLI and OpenCode follow the Cursor Agent adapter above: it needs only the Ask LLM MCP tools and a conversational confirmation. `ask-llm setup` registers the server there, so skip the Cursor `mcp.json` snippet and point to `ask-llm setup` instead.
 
 <!-- HOST-ADAPTER:CLAUDE-CODE:START -->
 ### Claude Code adapter

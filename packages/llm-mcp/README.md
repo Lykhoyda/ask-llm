@@ -94,6 +94,8 @@ See [Claude Code host notes](https://lykhoyda.github.io/ask-llm/compatibility/cl
 
 ## Enabling codex-pair mode
 
+Grok CLI can use the same per-edit reviewer with Codex Sol by default or opt-in Claude Opus 5.5 (`reviewer: claude` in `.codex-pair/context.md`). Register `scripts/grok-pair-watch.mjs` manually as a Grok `PostToolUse` hook; setup leaves real hook and trust files alone. Reviews run before the hook exits; shell calls provide command text only. See the [Grok setup steps](https://lykhoyda.github.io/ask-llm/advanced/codex-pair#grok-cli).
+
 Follow [Codex pair](https://lykhoyda.github.io/ask-llm/advanced/codex-pair) for opt-in, configuration, cost, Stop-gate behavior and troubleshooting. Pi's additional trust and consent requirements are in [Pi host notes](https://lykhoyda.github.io/ask-llm/compatibility/pi#pi-codex-pair-consent).
 
 ## Requirements
