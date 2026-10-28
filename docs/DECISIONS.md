@@ -1,5 +1,15 @@
 # Architectural Decisions
 
+## ADR-187: Move Sol pins to GPT-6.1 Sol, the quota fallback to GPT-6.1 Terra, and add `/astra-review`
+
+**Status:** Accepted (2026-10-28). Supersedes the Sol, Terra, and pair-effort parts of ADR-164.
+
+**Context:** Codex CLI 0.164.0 (`codex debug models`) lists `gpt-6.1-sol` (`visibility: "list"`, priority 1), `gpt-6-astra` (priority 2), and `gpt-6.1-terra` (priority 3). All three offer the `low` through `ultra` effort ladder and set no `minimal_client_version`. `gpt-6-sol` is now priority 4. GPT-6.1 Terra is cheaper and faster, but it scores lower on coding than Sol, so it fits the quota-fallback role and not the reviewer role. Pi's `openai-codex` catalog lists `gpt-6.1-sol`. Grok (`grok-4.7`) and Claude (`claude-opus-5-5`) pins were already current. The Cursor Agent catalog on the machine checked listed no GPT-6 family IDs at all, the existing `gpt-6-sol-high` pin included.
+
+**Decision:** codex-pair defaults to `gpt-6.1-sol` at `high` effort. `codex-pair-defaults.json` carries `reasoningEffort: "high"` beside `model` and `fallbackModel`. The watch script reads effort from `ASK_CODEX_REASONING_EFFORT` when valid, then the JSON value when valid, then `high`. Pi pairing uses the same model and effort. `CODEX_PAIR_MODEL`, the `/sol-review` skill, agent and transport `SOL_MODEL`, and the brainstorm Codex leg (direct `gpt-6.1-sol`, Cursor `gpt-6.1-sol-high`) move to GPT-6.1 Sol. `MODELS.FALLBACK` and every documented Terra fallback move to `gpt-6.1-terra`. `FACTORY_DEFAULT_MODEL` stays `gpt-6-astra`, the newest Astra, and the general `medium` effort is unchanged. The brainstorm validator accepts any GPT-6 family Sol ID (`gpt-6-sol`, `gpt-6.1-sol`, ...), so explicit older pins keep working. The report identifier stays `grok+gpt-6-sol` as a stable contract value. A new `/astra-review` (`ask-llm-astra-review`, `astra-reviewer`) pins `gpt-6-astra` at `high`, read-only. It reuses `sol-review-transport` through an allowlisted `--model` flag that accepts only the Sol and Astra pins.
+
+**Consequences:** Per-edit and `/sol-review` reviews cost more per call at `high` effort on the newer Sol. Quota fallbacks everywhere land on GPT-6.1 Terra. The Cursor `gpt-6.1-sol-high` ID follows the existing `<codex-slug>-high` naming but could not be verified against a live Cursor catalog; the panel's model verification reports it as selected-unverified. The shared pair review cache key (`computeCacheKey`, used by the Claude hook and Pi) now includes reasoning effort, so effort changes never reuse a result from another effort; existing cache entries miss once. The `/astra-review` CLI fallback relays Codex's own rejection on a CLI older than 0.153.0; only the MCP path gives the upgrade diagnostic. Historical ADRs, changelogs and plans keep the earlier IDs.
+
 ## ADR-186: Doctor gates sandboxed Antigravity quota diagnostics on agy 1.2.13 or newer
 
 **Status:** Accepted (2026-10-13). Addresses slice 1 of #268; extends ADR-178 and ADR-179.

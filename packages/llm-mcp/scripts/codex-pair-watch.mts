@@ -75,7 +75,7 @@ const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
 const DEFAULTS_PATH = join(SCRIPT_DIR, "..", "codex-pair-defaults.json");
 
 // Use shared model defaults; malformed or missing JSON falls through to environment and inline defaults.
-let CODEX_PAIR_DEFAULTS = { model: "gpt-6-sol", fallbackModel: "gpt-5.6-terra" };
+let CODEX_PAIR_DEFAULTS = { model: "gpt-6.1-sol", fallbackModel: "gpt-6.1-terra", reasoningEffort: "high" };
 try {
   CODEX_PAIR_DEFAULTS = JSON.parse(readFileSync(DEFAULTS_PATH, "utf8"));
 } catch {
@@ -91,7 +91,9 @@ const configuredReasoningEffort = process.env.ASK_CODEX_REASONING_EFFORT;
 const DEFAULT_REASONING_EFFORT =
   configuredReasoningEffort && CODEX_REASONING_EFFORTS.has(configuredReasoningEffort)
     ? configuredReasoningEffort
-    : "medium";
+    : CODEX_REASONING_EFFORTS.has(CODEX_PAIR_DEFAULTS.reasoningEffort)
+      ? CODEX_PAIR_DEFAULTS.reasoningEffort
+      : "high";
 const DEFAULT_TIMEOUT_MS = positiveMs(process.env.ASK_CODEX_TIMEOUT_MS) ?? 800_000;
 const MAX_FILE_BYTES = Number(process.env.CODEX_PAIR_MAX_FILE_BYTES ?? 20_000);
 const DEBOUNCE_MS = Number(process.env.ASK_CODEX_DEBOUNCE_MS ?? DEFAULT_DEBOUNCE_MS);
@@ -1123,6 +1125,7 @@ async function main() {
   // A content-hash cache hit skips the Codex call.
   const cacheKey = computeCacheKey({
     model: config.model,
+    reasoningEffort: DEFAULT_REASONING_EFFORT,
     prompt,
     fileContent: promptContent,
     surfaceThreshold: config.surfaceThreshold,

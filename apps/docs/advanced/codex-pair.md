@@ -97,7 +97,7 @@ By default HIGH and MED concerns are surfaced; LOW concerns and all timing/skip 
 | `CODEX_PAIR_DISABLED` | unset | Set to `1` to bypass the hook entirely; beats marker file |
 | `CODEX_PAIR_MAX_FILE_BYTES` | `20000` | Files larger than this many UTF-8 bytes get an adaptive **partial-view** review (header + git diff, or head+tail), not a full-content one. Still a Codex call; use `.codex-pair/ignore` to skip calls for excluded files |
 | `ASK_CODEX_TIMEOUT_MS` | `800000` | Fallback review timeout in milliseconds; empty, non-numeric, non-positive, or infinite values use the default. Set `timeoutMs` in `.codex-pair/context.md` frontmatter to override it for this project. A debounced review retains the timeout resolved when its worker was scheduled, even if frontmatter changes during the settle window; the worker uses that timeout for its review process and in-flight lock. An enabled broker gets half the review budget, leaving the remainder for direct fallback |
-| `ASK_CODEX_REASONING_EFFORT` | `medium` | Reasoning effort for `gpt-6-sol` pair reviews. `/codex-review` and `/brainstorm` stay at `high` |
+| `ASK_CODEX_REASONING_EFFORT` | `high` | Reasoning effort for `gpt-6.1-sol` pair reviews |
 | `ASK_CODEX_BROKER` | disabled | Set to `1` to opt in to the broker unless the project sets `broker: false`; otherwise use per-edit `codex exec` |
 | `ASK_CODEX_DEBOUNCE_MS` | `15000` | Settle window: an edit burst to one file coalesces into a single review of the settled state. `0` = synchronous per-edit review. Also settable per-marker via `debounceMs` frontmatter |
 | `ASK_CODEX_DEBOUNCE_MAX_MS` | `60000` | Hard cap from a burst's first edit; forces a review even under a continuous edit stream. Frontmatter: `debounceMaxMs` |
@@ -121,11 +121,10 @@ When the hook pauses itself (provider quota exhausted, or 3 consecutive review f
 
 ### Cost characteristics
 
-- ~$0.04–0.07 per file reviewed (Codex GPT-6 Sol with reasoning tokens)
-- ~13–50s per file wall-clock
+- Usage varies by the selected model, reasoning effort, and workload; see [Account costs](/operation/costs#account-costs).
 - Files over the size cap fall back to an adaptive partial-view review (header + git diff against HEAD, OR head + tail)
 - `node_modules/`, `dist/`, lockfiles, fonts, archives, sourcemaps, snapshots, minified assets skipped automatically
-- A 50-edit session is roughly $2–3.50 plus ~10–40 minutes of cumulative Codex latency; significantly less after the content-hash cache warms
+- The content-hash cache skips unchanged review inputs; changing reasoning effort causes a cache miss.
 
 For typical opted-in projects (small surface where review depth matters), the cost is acceptable. For routine refactor work across a whole repo, leave the marker file out and use `/codex-review` on demand instead.
 
@@ -175,7 +174,7 @@ Once enabled, the hook checks at turn-end whether any HIGH findings in `log.json
 
 ### In-flight reviews block too
 
-With the default 15s debounce plus 13–50s of review latency, a review is often still running when the turn ends; the log alone can't see it. When `blockOn: HIGH` is set, the gate also blocks (once per turn) while any review for a recent edit is still in flight (a settling debounce window, including a worker waiting for an earlier review of the same file, or a running Codex call), telling Claude to wait for the verdict before finishing. The `stop_hook_active` loop guard means a turn is never blocked twice for the same reason.
+With the default 15s debounce plus model review latency, a review is often still running when the turn ends; the log alone can't see it. When `blockOn: HIGH` is set, the gate also blocks (once per turn) while any review for a recent edit is still in flight (a settling debounce window, including a worker waiting for an earlier review of the same file, or a running Codex call), telling Claude to wait for the verdict before finishing. The `stop_hook_active` loop guard means a turn is never blocked twice for the same reason.
 
 ### Queued verdicts drain at turn-end
 

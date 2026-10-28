@@ -1,5 +1,5 @@
 ---
-description: Bridge Claude with OpenAI Codex CLI for GPT-6 Astra code review and analysis. Automatic fallback to GPT-5.6 Terra on quota limits.
+description: Bridge Claude with OpenAI Codex CLI for GPT-6 Astra code review and analysis. Automatic fallback to GPT-6.1 Terra on quota limits.
 ---
 
 # Codex
@@ -20,7 +20,7 @@ Or install globally: `npm install -g @ask-llm/codex-mcp`
 ## Prerequisites
 
 1. **Node.js** v24.0.0 or higher
-2. **[Codex CLI](https://github.com/openai/codex)** >= 0.153.0 installed and authenticated (`gpt-6-astra` is rejected on older CLIs; pin `ASK_CODEX_MODEL=gpt-6-sol` to stay on Sol)
+2. **[Codex CLI](https://github.com/openai/codex)** >= 0.153.0 installed and authenticated (`gpt-6-astra` is rejected on older CLIs; pin `ASK_CODEX_MODEL=gpt-6.1-sol` to stay on Sol)
 
 ## Tools
 
@@ -38,8 +38,8 @@ Or install globally: `npm install -g @ask-llm/codex-mcp`
 <FallbackChain provider="codex" />
 
 - **Default:** `gpt-6-astra` (GPT-6 Astra flagship; requires Codex CLI >= 0.153.0)
-- **codex-pair:** `gpt-6-sol` (GPT-6 Sol). Quota fallback stays Terra
-- **Quota fallback:** `gpt-5.6-terra`, the balanced GPT-5.6 tier
+- **codex-pair:** `gpt-6.1-sol` (GPT-6.1 Sol) at `high` effort. Quota fallback stays Terra
+- **Quota fallback:** `gpt-6.1-terra`, the cheaper, faster GPT-6.1 tier
 - **Overrides:** `ASK_CODEX_MODEL`, `ASK_CODEX_FALLBACK_MODEL`, or the per-call `model` parameter
 
 ## Key Features

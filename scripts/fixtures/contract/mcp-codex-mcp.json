@@ -11,7 +11,7 @@
           "type": "array"
         },
         "model": {
-          "description": "DO NOT set this parameter. The tool automatically uses gpt-6-astra and falls back to gpt-5.6-terra on quota errors. Only set this if the user explicitly requests a specific model.",
+          "description": "DO NOT set this parameter. The tool automatically uses gpt-6-astra and falls back to gpt-6.1-terra on quota errors. Only set this if the user explicitly requests a specific model.",
           "type": "string"
         },
         "preferred": {
@@ -117,7 +117,7 @@
           "type": "array"
         },
         "model": {
-          "description": "DO NOT set this parameter. The tool automatically uses gpt-6-astra and falls back to gpt-5.6-terra on quota errors.",
+          "description": "DO NOT set this parameter. The tool automatically uses gpt-6-astra and falls back to gpt-6.1-terra on quota errors.",
           "type": "string"
         },
         "prompt": {

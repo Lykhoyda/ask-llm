@@ -26,10 +26,11 @@ Classifications: **host-neutral**, **thin host adapter**, **lifecycle integratio
 | `ask-llm-multi-review` | Thin host adapter | One `ask-multi` dispatch followed by host-side source verification. |
 | `ask-llm-ollama-review` | Thin host adapter | Portable review contract runs inline through local native `ask-ollama`. |
 | `ask-llm-sol-review` | Thin host adapter | Native `ask-codex`, explicitly pinned to Sol/high/read-only, with fallback disclosure. |
+| `ask-llm-astra-review` | Thin host adapter | Native `ask-codex`, explicitly pinned to Astra/high/read-only, with fallback disclosure. |
 
 ## Agents and hooks
 
-The nine files under `packages/llm-mcp/agents/` are Claude Code subagent execution surfaces. Their delimited **Portable contract** sections are reusable by Pi; their frontmatter and delimited Claude Code adapters are not. Pi does not spawn nested agent processes and does not claim context isolation.
+The ten files under `packages/llm-mcp/agents/` are Claude Code subagent execution surfaces. Their delimited **Portable contract** sections are reusable by Pi; their frontmatter and delimited Claude Code adapters are not. Pi does not spawn nested agent processes and does not claim context isolation.
 
 Claude hooks remain unchanged and Claude-only as execution surfaces. Pi maps only the product behavior that needs lifecycle support:
 
@@ -41,6 +42,7 @@ Claude hooks remain unchanged and Claude-only as execution surfaces. Pi maps onl
 | SessionEnd cleanup | idempotent `session_shutdown`: close epoch, clear timers, abort provider work, await bounded settlement, release owned locks |
 | `blockOn: HIGH` Stop gate | **unsupported**: findings are loud but non-blocking; Pi has no safe blocking turn-end event |
 | one-shot hook output | **unsupported for asynchronous pairing in print mode**; use TUI, RPC, or a long-lived JSON process |
+| `codex-pair-defaults.json` model, fallback, effort | same `gpt-6.1-sol` default at `high` effort; quota fallback is the shared executor's `gpt-6.1-terra` (or `ASK_CODEX_FALLBACK_MODEL`) |
 | Fable subagent | **unsupported and not loaded** |
 
 ## Security and consent

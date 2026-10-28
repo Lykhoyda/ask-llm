@@ -9,8 +9,10 @@ export const ASK_CODEX_TOOL = "ask-codex";
 export const ASK_LLM_PACKAGE = "@ask-llm/mcp";
 export const ASK_LLM_TOOL = "ask-llm";
 export const UNIFIED_CODEX_OPTION_KEYS = ["reasoningEffort", "includeDirs", "preferred", "sandbox"];
-export const SOL_MODEL = "gpt-6-sol";
-export const TERRA_MODEL = "gpt-5.6-terra";
+export const SOL_MODEL = "gpt-6.1-sol";
+export const ASTRA_MODEL = "gpt-6-astra";
+export const TERRA_MODEL = "gpt-6.1-terra";
+export const REVIEW_MODELS = new Set([SOL_MODEL, ASTRA_MODEL]);
 const MISSING_REGISTRATION_REMEDIATION = "Run `claude mcp add --scope user ask-llm -- npx -y @ask-llm/mcp`, fully restart Claude Code, then verify with `/mcp`. Split Codex remains an advanced optimization: `claude mcp add --scope user codex -- npx -y @ask-llm/codex-mcp`.";
 const SERVICE_REMEDIATION = "Run `npx -y @ask-llm/mcp doctor`, inspect `/mcp`, then fully restart Claude Code.";
 const UPGRADE_UNIFIED_REMEDIATION = "Upgrade `@ask-llm/mcp` with `npx -y @ask-llm/mcp@latest` or `npm install -g @ask-llm/mcp`, fully restart Claude Code, then verify with `/mcp`.";
@@ -234,21 +236,21 @@ export function executeCodex({ command, model, prompt, spawnProcess = spawn, pla
         child.stdin.end(prompt);
     });
 }
-export async function runCliFallback({ prompt, command = process.env.ASK_CODEX_BIN || "codex", fallbackModel = process.env.ASK_CODEX_FALLBACK_MODEL || TERRA_MODEL, execute = executeCodex, }) {
-    const primary = await execute({ command, model: SOL_MODEL, prompt });
+export async function runCliFallback({ prompt, model = SOL_MODEL, command = process.env.ASK_CODEX_BIN || "codex", fallbackModel = process.env.ASK_CODEX_FALLBACK_MODEL || TERRA_MODEL, execute = executeCodex, }) {
+    const primary = await execute({ command, model, prompt });
     if (primary.code === 0) {
-        return { response: primary.stdout, diagnostics: primary.stderr, model: SOL_MODEL, fellBack: false };
+        return { response: primary.stdout, diagnostics: primary.stderr, model, fellBack: false };
     }
     const primaryOutput = `${primary.stderr}\n${primary.stdout}`;
     const normalizedPrimaryOutput = primaryOutput.toLowerCase();
     const quotaFailure = quotaSignals.some((signal) => normalizedPrimaryOutput.includes(signal));
-    if (!quotaFailure || fallbackModel === SOL_MODEL) {
+    if (!quotaFailure || fallbackModel === model) {
         throw new Error(primaryOutput.trim() || `codex exec exited ${primary.code}`);
     }
     const fallback = await execute({ command, model: fallbackModel, prompt });
     if (fallback.code !== 0) {
         const fallbackOutput = `${fallback.stderr}\n${fallback.stdout}`.trim();
-        throw new Error(`Sol review failed and ${fallbackModel} fallback also failed: ${fallbackOutput}`);
+        throw new Error(`${model} review failed and ${fallbackModel} fallback also failed: ${fallbackOutput}`);
     }
     return {
         response: fallback.stdout,
@@ -259,6 +261,7 @@ export async function runCliFallback({ prompt, command = process.env.ASK_CODEX_B
 }
 function parseArgs(args) {
     const parsed = {
+        model: SOL_MODEL,
         tools: [],
         cliPath: "",
         mcpList: null,
@@ -274,6 +277,12 @@ function parseArgs(args) {
             parsed.fallback = true;
         else if (arg === "--mcp-failed")
             parsed.mcpFailed = true;
+        else if (arg === "--model") {
+            const model = args[++index] ?? "";
+            if (!REVIEW_MODELS.has(model))
+                throw new Error(`Unsupported --model ${model}; expected one of ${[...REVIEW_MODELS].join(", ")}`);
+            parsed.model = model;
+        }
         else if (arg === "--tool")
             parsed.tools.push(args[++index] ?? "");
         else if (arg === "--cli-path")
@@ -348,11 +357,11 @@ async function main() {
         for await (const chunk of process.stdin)
             prompt += chunk;
         if (!prompt.trim())
-            throw new Error("Sol review CLI fallback requires a prompt on stdin.");
-        const result = await runCliFallback({ prompt, command: parsed.cliPath });
+            throw new Error("Review CLI fallback requires a prompt on stdin.");
+        const result = await runCliFallback({ prompt, model: parsed.model, command: parsed.cliPath });
         process.stderr.write(`Transport disclosure: review ran through codex exec (${result.model}, high effort, read-only).\n`);
         if (result.fellBack) {
-            process.stderr.write(`Model fallback disclosure: Sol hit quota; review completed on ${result.model}.\n`);
+            process.stderr.write(`Model fallback disclosure: ${parsed.model} hit quota; review completed on ${result.model}.\n`);
         }
         if (result.diagnostics)
             process.stderr.write(result.diagnostics);

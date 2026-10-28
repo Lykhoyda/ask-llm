@@ -315,9 +315,11 @@ export function releaseInflightLock(lockPath) {
         // already gone — fine
     }
 }
-export function computeCacheKey({ model, prompt, fileContent, surfaceThreshold, }) {
+export function computeCacheKey({ model, reasoningEffort, prompt, fileContent, surfaceThreshold, }) {
     const h = createHash("sha256");
     h.update(model);
+    h.update("\0");
+    h.update(reasoningEffort);
     h.update("\0");
     h.update(prompt);
     h.update("\0");

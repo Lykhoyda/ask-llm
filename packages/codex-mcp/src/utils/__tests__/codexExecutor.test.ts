@@ -619,7 +619,7 @@ describe("fallback model structurally unavailable for the account (#196)", () =>
 
       const err = await executeCodexCLI({ prompt: "test" }).catch((e) => e as Error);
       expect(err.message).toMatch(/unset it to use the default/i);
-      expect(err.message).toMatch(/gpt-5\.6-terra/);
+      expect(err.message).toMatch(/gpt-6\.1-terra/);
     });
   });
 });

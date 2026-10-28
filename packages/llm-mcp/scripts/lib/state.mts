@@ -368,17 +368,21 @@ export function releaseInflightLock(lockPath?: string): void {
 
 export function computeCacheKey({
   model,
+  reasoningEffort,
   prompt,
   fileContent,
   surfaceThreshold,
 }: {
   model: string;
+  reasoningEffort: string;
   prompt: string;
   fileContent: string;
   surfaceThreshold: string;
 }): string {
   const h = createHash("sha256");
   h.update(model);
+  h.update("\0");
+  h.update(reasoningEffort);
   h.update("\0");
   h.update(prompt);
   h.update("\0");

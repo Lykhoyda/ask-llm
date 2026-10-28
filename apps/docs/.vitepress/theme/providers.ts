@@ -32,7 +32,7 @@ export const PROVIDER_DOCS: Record<ProviderId, ProviderDoc> = {
     serverName: "codex",
     cliInstall: "npm install -g @openai/codex",
     defaultModel: "gpt-6-astra",
-    fallbackModel: "gpt-5.6-terra",
+    fallbackModel: "gpt-6.1-terra",
     tier: "hero",
     tagline: "GPT-6 Astra workhorse reviewer. Strongest code reasoning for targeted reviews and architecture critique.",
     tools: ["ask-codex", "ask-codex-edit", "get-usage-stats", "ping"],

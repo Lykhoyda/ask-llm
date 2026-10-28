@@ -10,7 +10,7 @@
 
 </div>
 
-An [MCP](https://modelcontextprotocol.io/) server for AI-to-AI collaboration via the Codex CLI. Works with Claude Code, Claude Desktop, Cursor, Warp, Copilot, and [40+ other MCP clients](https://modelcontextprotocol.io/clients). Access GPT-5.5 for code generation, analysis, and review with automatic fallback to GPT-5.4-mini on quota limits.
+An [MCP](https://modelcontextprotocol.io/) server for AI-to-AI collaboration via the Codex CLI. Works with Claude Code, Claude Desktop, Cursor, Warp, Copilot, and [40+ other MCP clients](https://modelcontextprotocol.io/clients). Access GPT-6 Astra for code generation, analysis, and review with automatic fallback to GPT-6.1 Terra on quota limits.
 
 Part of the [Ask LLM](https://github.com/Lykhoyda/ask-llm) monorepo.
 
@@ -65,8 +65,8 @@ Codex calls are ephemeral when `sessionId` is omitted. Pass `sessionId: ""` on t
 | Model | Use Case |
 |-------|----------|
 | `gpt-6-astra` | Default — Codex bundled flagship (`codex` >= 0.153.0) |
-| `gpt-6-sol` | `codex-pair` default, `/sol-review` pin, and Cursor brainstorm pin (`gpt-6-sol-high`). Also selectable via `ASK_CODEX_MODEL` or per-call `model` |
-| `gpt-5.6-terra` | Automatic balanced fallback on quota errors |
+| `gpt-6.1-sol` | `codex-pair` default (`high` effort), `/sol-review` pin, and direct Codex brainstorm pin. For Cursor catalog IDs, see [Brainstorm](https://lykhoyda.github.io/ask-llm/workflows/brainstorm). Also selectable via `ASK_CODEX_MODEL` or per-call `model` |
+| `gpt-6.1-terra` | Automatic cheaper, faster fallback on quota errors |
 
 ## Environment variables
 
@@ -74,7 +74,7 @@ Codex calls are ephemeral when `sessionId` is omitted. Pass `sessionId: ""` on t
 |----------|---------|---------|
 | `ASK_CODEX_MODEL` | `gpt-6-astra` | Override the default model |
 | `ASK_CODEX_PREFERRED_MODEL` | `gpt-6-astra` | Legacy review-tier escape hatch; only attempted separately when it differs from the default |
-| `ASK_CODEX_FALLBACK_MODEL` | `gpt-5.6-terra` | Override the quota-fallback model |
+| `ASK_CODEX_FALLBACK_MODEL` | `gpt-6.1-terra` | Override the quota-fallback model |
 | `ASK_CODEX_REASONING_EFFORT` | `medium` | Default reasoning effort (`low`, `medium`, `high`, `xhigh`, `max`, or `ultra`); per-call `reasoningEffort` wins. `ultra` is opt-in only (maximum reasoning with automatic task delegation) and is not used by `/codex-review` or `/brainstorm` defaults |
 | `ASK_CODEX_LOAD_USER_CONFIG` | _(unset)_ | Set to `1` to opt back into loading `~/.codex/config.toml` (hooks, MCP servers, preferences) and execpolicy `.rules` files. By default the wrapper passes `--ignore-user-config --ignore-rules` so behavior stays deterministic across host machines. Auth credentials in `CODEX_HOME` always load regardless. See ADR-071. |
 | `ASK_CODEX_TIMEOUT_MS` | `800000` | Per-call timeout for the spawned codex process (13.3 min — reasoning models routinely take 5–10 min on substantive prompts; raised in ADR-074) |

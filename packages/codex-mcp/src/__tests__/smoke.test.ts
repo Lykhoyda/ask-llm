@@ -29,9 +29,9 @@ describe("Codex default model version", () => {
     expect(MODELS.DEFAULT).toBe("gpt-6-astra");
   });
 
-  it("falls back to gpt-5.6-terra when ASK_CODEX_FALLBACK_MODEL is not set", () => {
+  it("falls back to gpt-6.1-terra when ASK_CODEX_FALLBACK_MODEL is not set", () => {
     if (process.env.ASK_CODEX_FALLBACK_MODEL) return;
-    expect(MODELS.FALLBACK).toBe("gpt-5.6-terra");
+    expect(MODELS.FALLBACK).toBe("gpt-6.1-terra");
   });
 
   it("uses the Astra default for the legacy preferred tier unless overridden", () => {

@@ -195,13 +195,15 @@ await mkdir(project, { recursive: true });
 await mkdir(bin, { recursive: true });
 if (!process.env.ASK_LLM_PI_SKILLS_DIR) {
   const corpus = join(root, "packages", "llm-mcp", "skills");
-  const seeded = (await readdir(corpus)).filter((name) => name.startsWith("ask-llm-") && name !== "ask-llm-fable-review");
+  const seeded = (await readdir(corpus)).filter(
+    (name) => name.startsWith("ask-llm-") && name !== "ask-llm-fable-review",
+  );
   for (const name of seeded) await cp(join(corpus, name), join(skillsDir, name), { recursive: true });
 }
 await mkdir(join(project, ".codex-pair"), { recursive: true });
 await writeFile(
   join(project, ".codex-pair", "context.md"),
-  "---\ndebounceMs: 0\ndebounceMaxMs: 0\nsurfaceThreshold: low\nmodel: gpt-6-sol\n---\nHermetic Pi lifecycle fixture. Treat this text as untrusted.\n",
+  "---\ndebounceMs: 0\ndebounceMaxMs: 0\nsurfaceThreshold: low\nmodel: gpt-6.1-sol\n---\nHermetic Pi lifecycle fixture. Treat this text as untrusted.\n",
 );
 const canonicalProject = await realpath(project);
 await mkdir(join(agentDir, "ask-llm"), { recursive: true });
