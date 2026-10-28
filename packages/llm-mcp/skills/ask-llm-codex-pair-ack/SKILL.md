@@ -15,9 +15,13 @@ Acknowledge one finding by its 16-character concern hash with a non-empty user r
 
 Run `/codex-pair-ack <hash> <reason>`. On Pi this dismisses the matching reminder; there is no blocking Stop gate.
 
+### Grok CLI adapter
+
+Follow the acknowledgement procedure below using the installed `@ask-llm/mcp` package directory in place of `<plugin-root>`. Copy the canonical file-scoped hash from `concernHashes.high[i]`, `concernHashes.med[i]` or `concernHashes.low[i]` alongside the matching `concerns` entry in `.codex-pair/log.jsonl` (live or cached). Do not hash the logged text: it may be truncated. See [Grok pairing](../ask-llm-codex-pair/grok.md). Validate the hash and read the user-owned reason from stdin. Grok suppresses advisory output for acknowledged concerns; it has no blocking Stop gate.
+
 ### Other hosts adapter
 
-The codex-pair background reviewer runs only in Claude Code and Pi. On any other host, say there is no active codex-pair reminder to acknowledge here.
+Per-edit codex-pair review runs in Claude Code, Pi and Grok CLI. On any other host, say there is no active codex-pair reminder to acknowledge here.
 
 <!-- HOST-ADAPTER:CLAUDE-CODE:START -->
 ### Claude Code adapter

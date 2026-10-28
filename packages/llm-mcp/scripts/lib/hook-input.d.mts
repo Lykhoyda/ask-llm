@@ -3,5 +3,5 @@ export interface HookInput {
   session_id?: string;
   stop_hook_active?: boolean;
   tool_name?: string;
-  tool_input?: { file_path?: string };
+  tool_input?: { file_path?: string; command?: string; cwd?: string };
 }

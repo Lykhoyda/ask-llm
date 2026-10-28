@@ -35,7 +35,7 @@ Working in Codex with a Claude subscription? Ask Claude instead. Choose a provid
 
 For plans, try: “Ask Claude to challenge this plan: what assumptions could fail, and what simpler approach would fit our constraints?”
 
-After an on-demand review, [pair review](https://lykhoyda.github.io/ask-llm/advanced/codex-pair) can add ongoing feedback. Pairing requires explicit opt-in; setup leaves it off.
+After an on-demand review, [pair review](https://lykhoyda.github.io/ask-llm/advanced/codex-pair) can add ongoing feedback. Pairing requires explicit opt-in; setup leaves it off. Grok CLI supports a [per-edit hook](https://lykhoyda.github.io/ask-llm/advanced/codex-pair#grok-cli) with Codex Sol by default or Claude Opus 5.5 via `reviewer: claude`; shell reviews cover command text only.
 
 ## Supported hosts
 
@@ -44,7 +44,8 @@ A host is the assistant you work in; a provider is the model you consult.
 | Host | Experience |
 |---|---|
 | Claude Code | Reviews, plan critique, comparisons; isolated reviewers and opt-in per-edit pairing |
-| Codex, Cursor, Grok Build, Gemini CLI | Tools and portable workflows; pairing on demand |
+| Codex, Cursor, Gemini CLI | Tools and portable workflows; pairing on demand |
+| Grok Build | Tools and portable workflows; opt-in [per-edit pairing](https://lykhoyda.github.io/ask-llm/advanced/codex-pair#grok-cli) |
 | Antigravity | Tools; setup prints a manual step for workflows |
 | Pi 0.83.0+ | Native tools and portable workflows; opt-in per-edit pairing |
 | Claude Desktop | Tools only |

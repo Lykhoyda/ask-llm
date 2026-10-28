@@ -115,7 +115,7 @@
     "dev": "tsdown && node dist/cli.js",
     "test": "vitest run",
     "lint": "biome check src/ pi/ && biome lint scripts/ && tsc --noEmit && tsc --noEmit -p pi/tsconfig.json && tsc -p scripts/tsconfig.json --noEmit",
-    "build:hooks": "tsc -p scripts/tsconfig.json && chmod 755 scripts/benchmark/prompt-ab.mjs scripts/codex-pair-debounce-worker.mjs scripts/codex-pair-log.mjs scripts/codex-pair-prompt-drain.mjs scripts/codex-pair-session.mjs scripts/codex-pair-stop-gate.mjs scripts/codex-pair-watch.mjs"
+    "build:hooks": "tsc -p scripts/tsconfig.json && chmod 755 scripts/benchmark/prompt-ab.mjs scripts/codex-pair-debounce-worker.mjs scripts/codex-pair-log.mjs scripts/codex-pair-prompt-drain.mjs scripts/codex-pair-session.mjs scripts/codex-pair-stop-gate.mjs scripts/codex-pair-watch.mjs scripts/grok-pair-watch.mjs"
   },
   "keywords": [
     "second-opinion",

@@ -54,6 +54,7 @@ export const HOST_PARITY: Record<ParityRow, Record<HostId, string>> = {
   diagnostics: row("`diagnose` tool and `ask-llm doctor`", { pi: "`ask-llm doctor` (no `diagnose` tool)" }),
   pairing: row(SKILL_PAIRING, {
     claude: "per-edit codex-pair hooks from the plugin, off until `/codex-pair` consent",
+    grok: "per-edit pair hook by manual registration; Codex default or opt-in Claude; off without the marker",
     pi: "per-edit codex-pair extension, off until project trust, the marker and `/codex-pair` consent",
     "claude-desktop": "none",
   }),

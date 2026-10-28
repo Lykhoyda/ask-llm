@@ -7,7 +7,7 @@ import { spawn } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { access, readFile } from "node:fs/promises";
 import { homedir } from "node:os";
-import { dirname, join, resolve } from "node:path";
+import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   type BrokerError,
@@ -32,8 +32,10 @@ import {
 } from "./lib/debounce-state.mts";
 import { type Frontmatter, parseFrontmatter } from "./lib/frontmatter.mts";
 import type { HookInput } from "./lib/hook-input.mjs";
+import { CLAUDE_PAIR_MODEL, resolveReviewer, runClaudeReview } from "./lib/pair-reviewer.mts";
 import {
   buildVerdictMessage,
+  type Concerns,
   DEFAULT_SURFACE_THRESHOLD,
   formatDuration,
   parseConcerns,
@@ -60,6 +62,7 @@ import {
   includePath,
   logPath,
   PAIR_ROOT_DIR,
+  readAcks,
   readPauseInfo,
   readPluginVersion,
   recordReviewFailure,
@@ -125,6 +128,8 @@ const TRANSIENT_SIGNALS = [
 
 // Anchor unhandled-error logs to the edited file’s repository, falling back to cwd before payload parsing.
 let markerAnchor: string | null = null;
+let shellReview = false;
+let reviewerLabel: string | null = null;
 
 type ReviewError = BrokerError & { quotaExhausted?: boolean };
 
@@ -192,7 +197,8 @@ let forcedTarget: { markerDir: string; filePath: string } | null = null;
 
 // Send notices to both the transcript and model context, then await stdout flush before exit.
 function emitSystemMessage(text: string, reviewedContentHash?: string, filePath?: string): Promise<void> {
-  if (reviewedContentHash && filePath && reviewedContentHash !== fileContentHash(filePath)) return flushNoticeOnly();
+  if (!shellReview && reviewedContentHash && filePath && reviewedContentHash !== fileContentHash(filePath))
+    return flushNoticeOnly();
   if (forcedTarget) {
     // Forced runs belong to the worker: no stdout to Claude, and the file lock is held.
     if (noticePrefix) writePendingNotice(forcedTarget.markerDir, noticePrefix);
@@ -202,9 +208,9 @@ function emitSystemMessage(text: string, reviewedContentHash?: string, filePath?
     else if (text) writePendingNotice(forcedTarget.markerDir, text);
     return Promise.resolve();
   }
-  let full = text;
+  let full = reviewerLabel ? `[reviewer: ${reviewerLabel}]\n${text}` : text;
   if (noticePrefix) {
-    full = text ? `${noticePrefix}\n\n${text}` : noticePrefix;
+    full = full ? `${noticePrefix}\n\n${full}` : noticePrefix;
     noticePrefix = null;
   }
   return new Promise<void>((resolveWrite) => {
@@ -898,10 +904,15 @@ async function main() {
     process.exit(0);
   }
 
+  const grokHost = process.env.CODEX_PAIR_HOST === "grok";
   const toolName = payload?.tool_name;
-  if (!toolName || !WATCHED_TOOLS.has(toolName)) process.exit(0);
+  const command = grokHost && toolName === "Bash" ? payload?.tool_input?.command : undefined;
+  shellReview = typeof command === "string" && command.length > 0;
+  if (!toolName || (!WATCHED_TOOLS.has(toolName) && !shellReview)) process.exit(0);
 
-  const filePath = payload?.tool_input?.file_path;
+  const filePath = shellReview
+    ? join(payload?.tool_input?.cwd ?? process.cwd(), "[shell command]")
+    : payload?.tool_input?.file_path;
   if (!filePath || typeof filePath !== "string") process.exit(0);
 
   // Resolve from the edited file so cross-repository edits use the right marker and log.
@@ -911,7 +922,7 @@ async function main() {
 
   // Register before skip gates so earlier HIGH findings remain visible across repositories.
   registerMarker(payload?.session_id, markerDir);
-  if (process.env.CODEX_PAIR_FORCE_SYNC === "1") forcedTarget = { markerDir, filePath };
+  if (!grokHost && process.env.CODEX_PAIR_FORCE_SYNC === "1") forcedTarget = { markerDir, filePath };
 
   const pauseInfo = readPauseInfo(markerDir);
   if (pauseInfo) {
@@ -1007,7 +1018,7 @@ async function main() {
 
   // Parse marker config before applying its file-size limit.
   let projectContext = "";
-  let frontmatter = {};
+  let frontmatter: Frontmatter = {};
   let frontmatterMalformed = false;
   try {
     const markerContent = await readFile(contextPath(markerDir), "utf8");
@@ -1029,12 +1040,29 @@ async function main() {
     });
   }
   const config = resolveConfig(frontmatter);
+  let reviewer: "codex" | "claude";
+  try {
+    reviewer = resolveReviewer(frontmatter.reviewer, grokHost ? "grok" : "claude");
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+    await appendLog(markerDir, { timestamp: new Date().toISOString(), verdict: "refused", file: filePath, reason });
+    await emitSystemMessage(reason);
+    process.exit(0);
+  }
+  if (reviewer === "claude") {
+    config.model = CLAUDE_PAIR_MODEL;
+    config.timeoutMs =
+      typeof frontmatter.timeoutMs === "number" && frontmatter.timeoutMs > 0
+        ? frontmatter.timeoutMs
+        : (positiveMs(process.env.ASK_CLAUDE_TIMEOUT_MS) ?? 600_000);
+  }
+  if (grokHost) reviewerLabel = `${reviewer} / ${config.model}`;
   // A forced review keeps the worker's timeout, so a settle-window frontmatter edit cannot outlast its kill deadline.
   const workerTimeoutMs = forcedTarget ? positiveMs(process.env.CP_TIMEOUT_MS) : undefined;
   if (workerTimeoutMs !== undefined) config.timeoutMs = workerTimeoutMs;
 
   // The worker re-invokes forced-sync so the review uses the normal synchronous path.
-  const effectiveDebounceMs = process.env.CODEX_PAIR_FORCE_SYNC === "1" ? 0 : config.debounceMs;
+  const effectiveDebounceMs = grokHost || process.env.CODEX_PAIR_FORCE_SYNC === "1" ? 0 : config.debounceMs;
   if (effectiveDebounceMs > 0) {
     const record = bumpEditRecord(markerDir, filePath, {
       sessionId: payload?.session_id,
@@ -1073,7 +1101,7 @@ async function main() {
 
   let fileContent: string;
   try {
-    fileContent = await readFile(filePath, "utf8");
+    fileContent = shellReview ? (command ?? "") : await readFile(filePath, "utf8");
   } catch (caught) {
     const err = caught as Error;
     await appendLog(markerDir, {
@@ -1094,12 +1122,9 @@ async function main() {
   let partialView = false;
   let contextStrategy = "full";
   if (fileBytes > config.maxFileBytes) {
-    const adaptive = await buildAdaptiveContext({
-      filePath,
-      fileContent,
-      markerDir,
-      maxFileBytes: config.maxFileBytes,
-    });
+    const adaptive = shellReview
+      ? { content: fileContent.slice(0, config.maxFileBytes), strategy: "command-truncated" }
+      : await buildAdaptiveContext({ filePath, fileContent, markerDir, maxFileBytes: config.maxFileBytes });
     promptContent = adaptive.content;
     partialView = true;
     contextStrategy = adaptive.strategy;
@@ -1118,13 +1143,32 @@ async function main() {
     toolName,
     projectContext,
     partialView,
+    commandText: shellReview,
   });
 
+  const acks = grokHost ? readAcks(markerDir) : {};
+  const reviewRelativePath = relative(markerDir, filePath);
+  const acknowledgementHash = (body: string) => hashConcernBody(`${reviewRelativePath}:${body}`);
+  function concernHashes(concerns: Concerns): Concerns {
+    return {
+      high: concerns.high.map(acknowledgementHash),
+      med: concerns.med.map(acknowledgementHash),
+      low: concerns.low.map(acknowledgementHash),
+    };
+  }
+  function visibleConcerns(concerns: Concerns): Concerns {
+    const visible = (body: string) => !acks[acknowledgementHash(body)];
+    return {
+      high: concerns.high.filter(visible),
+      med: concerns.med.filter(visible),
+      low: concerns.low.filter(visible),
+    };
+  }
   const startedAt = Date.now();
 
   // A content-hash cache hit skips the Codex call.
   const cacheKey = computeCacheKey({
-    model: config.model,
+    model: reviewer === "claude" ? `claude:${config.model}` : config.model,
     reasoningEffort: DEFAULT_REASONING_EFFORT,
     prompt,
     fileContent: promptContent,
@@ -1146,6 +1190,7 @@ async function main() {
       },
       durationMs: cachedDurationMs,
       originalDurationMs: cached.durationMs,
+      concernHashes: concernHashes(cached),
       concerns: {
         high: cached.high.map((c) => c.slice(0, 800)),
         med: cached.med.map((c) => c.slice(0, 800)),
@@ -1153,11 +1198,8 @@ async function main() {
       },
     });
     // Cache hits must not advance repetition counts; only live reviews do.
-    const cachedHashes = [
-      ...cached.high.map(hashConcernBody),
-      ...cached.med.map(hashConcernBody),
-      ...cached.low.map(hashConcernBody),
-    ];
+    const visibleCached = visibleConcerns(cached);
+    const cachedHashes = [...visibleCached.high, ...visibleCached.med, ...visibleCached.low].map(hashConcernBody);
     let cachedRepeatedIgnoredCount = 0;
     try {
       const blocking = getBlockingFromShard(markerDir, filePath, cachedHashes);
@@ -1168,7 +1210,7 @@ async function main() {
     await emitSystemMessage(
       buildVerdictMessage({
         filePath,
-        concerns: cached,
+        concerns: visibleCached,
         fellBack: false,
         durationMs: cachedDurationMs,
         surfaceThreshold: config.surfaceThreshold,
@@ -1205,16 +1247,22 @@ async function main() {
   let fellBack = false;
   try {
     // Broker and direct modes share one fallback path.
-    const result = await runCodexWithFallback({
-      prompt,
-      timeoutMs: config.timeoutMs,
-      model: config.model,
-      fallbackModel: config.fallbackModel,
-      markerDir,
-    });
+    const result =
+      reviewer === "claude"
+        ? await runClaudeReview(prompt, config.timeoutMs, markerDir)
+        : await runCodexWithFallback({
+            prompt,
+            timeoutMs: config.timeoutMs,
+            model: config.model,
+            fallbackModel: config.fallbackModel,
+            markerDir,
+          });
     response = result.response;
     fellBack = result.fellBack;
   } catch (err) {
+    if (reviewer === "claude" && isQuotaError(err) && err instanceof Error) {
+      Object.assign(err, { quotaExhausted: true });
+    }
     const reason = err instanceof Error ? err.message : String(err);
     const verdict = verdictFromError(err);
     const prefix = VERDICT_PREFIXES[verdict] ?? VERDICT_PREFIXES.error;
@@ -1310,12 +1358,14 @@ async function main() {
     verdict: total === 0 ? "none" : "concerns",
     contentHash: reviewedContentHash,
     fellBack,
+    ...(grokHost ? { reviewer, model: config.model, coverage: shellReview ? "command-text" : "file" } : {}),
     counts: {
       high: concerns.high.length,
       med: concerns.med.length,
       low: concerns.low.length,
     },
     durationMs,
+    concernHashes: concernHashes(concerns),
     concerns: {
       high: concerns.high.map((c) => c.slice(0, 800)),
       med: concerns.med.map((c) => c.slice(0, 800)),
@@ -1324,6 +1374,10 @@ async function main() {
   });
 
   // Count repeated live findings and surface a blocking banner at the threshold.
+  const surfacedConcerns = visibleConcerns(concerns);
+  const visibleHashes = new Set(
+    [...surfacedConcerns.high, ...surfacedConcerns.med, ...surfacedConcerns.low].map(hashConcernBody),
+  );
   const repetitionHashes = [
     ...concerns.high.map(hashConcernBody),
     ...concerns.med.map(hashConcernBody),
@@ -1332,7 +1386,7 @@ async function main() {
   let repeatedIgnoredCount = 0;
   try {
     const blocking = await updateRepetitions(markerDir, filePath, repetitionHashes);
-    repeatedIgnoredCount = blocking.length;
+    repeatedIgnoredCount = blocking.filter((entry) => visibleHashes.has(entry.hash)).length;
   } catch {
     // best-effort — repetitions are advisory; failure must not break the hook
   }
@@ -1340,7 +1394,7 @@ async function main() {
   await emitSystemMessage(
     buildVerdictMessage({
       filePath,
-      concerns,
+      concerns: surfacedConcerns,
       fellBack,
       durationMs,
       surfaceThreshold: config.surfaceThreshold,

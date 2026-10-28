@@ -1,5 +1,5 @@
 ---
-description: Opt-in pair review, with per-edit feedback on Claude Code and Pi and on-demand review on other hosts. Codex reviews every file edit as Claude makes it, surfacing HIGH/MED concerns on the next turn, with an opt-in Stop gate that blocks turn-end on unaddressed HIGH findings.
+description: Opt-in pair review, with per-edit feedback on Claude Code, Pi and Grok CLI and on-demand review on other hosts. Codex reviews every file edit as Claude makes it, surfacing HIGH/MED concerns on the next turn, with an opt-in Stop gate that blocks turn-end on unaddressed HIGH findings.
 ---
 
 # Codex Pair
@@ -9,6 +9,53 @@ Codex-pair supports each host with a different lifecycle adapter. The detailed d
 **codex-pair** is the plugin's flagship feature: continuous, opt-in code review where Codex reads every file Claude edits. It is the recall-first complement to the on-demand `/codex-review` skill. Setup never enables pairing. The hook is always loaded but **self-gates on a project marker file** and stays completely silent (zero cost, zero Codex calls) until a project opts in. Once enabled, a burst of edits to one file coalesces into a single debounced review of the **settled** file state, run by a detached worker; verdicts surface to Claude on both hook channels (transcript `systemMessage` plus model-visible `additionalContext`) and drain on the next edit, the next user prompt, or at turn end via the Stop hook.
 
 > **Why this exists**: in a four-task benchmark recorded in the project's [decision log](https://github.com/Lykhoyda/ask-llm/blob/main/docs/DECISIONS.md) (four structurally different task types: CRUD endpoint, URL shortener, RFC-spec implementation, stateful business logic, chosen so the result would generalize across domains) Claude alone caught **2 of 10** probes; Claude + `/codex-review` caught **7 of 10**; Claude + `codex-pair` caught **10 of 10**. The three probes `/codex-review` missed exemplified the **"looks fine, runs wrong"** class: code that compiles, lints, and type-checks but produces wrong results because of an implicit invariant the model couldn't infer from a single file. codex-pair's recall-first HIGH/MED/LOW grading catches that class. **The improvement is task-agnostic**, reproduced across all four tasks, not just the headline one. The two surfaces are **complementary, not competing**. (A subsequent lived-experience audit confirms the benchmark holds in real flow on this very repo.)
+
+## Grok CLI
+
+```text
+Grok file edit / shell call -> shared pair hook -> Codex Sol (default)
+                                             └-> Claude Opus 5.5 (opt-in)
+                                                      |
+                                       additionalContext -> next Grok step
+```
+
+Grok CLI 1.0.70 supports the same marker, review prompt, findings format, cache, log and pause/resume/ack state. Reviews run synchronously so the note reaches the model before the hook exits; Grok ignores the guide's `async` field. There is no Grok Stop gate. Existing Claude Code behavior and defaults remain unchanged.
+
+Create `.codex-pair/context.md` with project invariants and optional frontmatter:
+
+```markdown
+---
+reviewer: codex
+---
+Project invariants for the reviewer.
+```
+
+`reviewer: codex` is the default (`gpt-6.1-sol`, high effort, existing disclosed Terra quota fallback). `reviewer: claude` opts into pinned `claude-opus-5-5`, read tools only, no model/provider fallback. Marker `reviewer` is the sole reviewer setting. Invalid settings refuse; choosing a reviewer from the writer's own family also refuses (for example Claude reviewing Claude Code). The Claude timeout is marker `timeoutMs`, then `ASK_CLAUDE_TIMEOUT_MS`, then 600 seconds. Existing Codex settings still apply to Codex.
+
+Register this yourself in `~/.grok/hooks/ask-llm-pair.json` (or `$GROK_HOME/hooks/ask-llm-pair.json`), using the absolute installed `@ask-llm/mcp` directory as `<package-root>`. Keep a single pair hook registration and remove any duplicate imported Claude pair hook for Grok:
+
+```json
+{
+  "hooks": {
+    "PostToolUse": [{
+      "matcher": "search_replace|run_terminal_command",
+      "hooks": [{
+        "type": "command",
+        "command": "node \"<package-root>/scripts/grok-pair-watch.mjs\"",
+        "timeout": 1800
+      }]
+    }]
+  }
+}
+```
+
+Restart Grok and inspect `/hooks`. Global hooks run under headless `grok -p`; project `.grok/hooks/` files need folder trust, which also trusts the folder's other integrations. `ask-llm setup` does not install this hook or change trust files. Tests use isolated `HOME` and `GROK_HOME` only.
+
+File edits review the resulting file. **Shell reviews cover the command text as given, with no diff or resulting file contents**; all shell calls are eligible because commands cannot reliably be classified as writes. The prompt explains this coverage limit. Shell logs and include/ignore filters use a synthetic `[shell command]` path under the event cwd. Oversized commands receive a partial view. Findings are advisory after the edit has already happened.
+
+Use the portable pause, resume and ack skills against the same `.codex-pair/` state. Grok honors the existing file-scoped acknowledgement hash in advisory output; original findings remain in the log. See the [Grok skill adapter](https://github.com/Lykhoyda/ask-llm/blob/main/packages/llm-mcp/skills/ask-llm-codex-pair/grok.md) for setup, acknowledgement hashes and status reporting. Pairing sends file/command context through the selected authenticated reviewer CLI and consumes that account's quota; this adapter never calls the metered xAI API. Cursor Agent per-edit integration and Codex CLI per-edit hooks remain outside this adapter.
+
+The remaining sections describe the Claude Code lifecycle unless another host is named.
 
 ## Setup
 
