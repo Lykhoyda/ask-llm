@@ -1,5 +1,11 @@
 # @ask-llm/codex-mcp
 
+## 0.10.0
+
+### Minor Changes
+
+- [#402](https://github.com/Lykhoyda/ask-llm/pull/402) [`8077680`](https://github.com/Lykhoyda/ask-llm/commit/807768014a0154b5185a60ca33152f038361cc54) Thanks [@Lykhoyda](https://github.com/Lykhoyda)! - Move codex-pair (now at `high` effort), `/sol-review`, and the brainstorm Codex leg to `gpt-6.1-sol`, make `gpt-6.1-terra` the Codex quota fallback, and add an Astra-pinned `/astra-review` skill.
+
 ## 0.9.0
 
 ### Minor Changes
