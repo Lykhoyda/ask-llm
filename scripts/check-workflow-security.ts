@@ -55,23 +55,6 @@ if (
 if (/Deprecate legacy|npm deprecate/.test(release)) {
   errors.push("Release workflow must not keep a deprecated/legacy-package path");
 }
-if (
-  !/- name: Ensure Ask LLM packages are public on npm\n\s+if: steps\.changesets\.outputs\.published == 'true'/.test(
-    release,
-  )
-) {
-  errors.push("Registry recovery dispatches must not require npm access mutations");
-}
-if (
-  !release.includes("already public") ||
-  !release.includes("cannot change access") ||
-  !/E403|403 Forbidden/.test(release) ||
-  /npm access set status=public "\$pkg"\n\s+test "\$\(npm access get status/.test(release)
-) {
-  errors.push(
-    "npm public-access step must not fail the release when packages are already public or the token cannot mutate access",
-  );
-}
 if (!release.includes("Create or verify unified GitHub Release")) {
   errors.push("Registry recovery must create or verify the unified GitHub release");
 }
@@ -81,22 +64,17 @@ if (!/^\s+create-github-releases:\s*false\b/m.test(release) || /^\s+create-githu
 if (!/^\s+push-git-tags:\s*false\b/m.test(release) || /^\s+push-git-tags:\s*true\b/m.test(release)) {
   errors.push("changesets/action must leave per-package Git tags exclusively to the ADR-151 helper");
 }
-const yarnAuthAssignments = [...release.matchAll(/^\s+YARN_NPM_AUTH_TOKEN:\s*(.+)\s*$/gm)].map((match) => match[1]);
-const expectedYarnAuth = "$" + "{{ secrets.NODE_AUTH_TOKEN }}";
-if (yarnAuthAssignments.length < 2 || yarnAuthAssignments.some((value) => value !== expectedYarnAuth)) {
-  errors.push(
-    "Yarn Berry publish must receive YARN_NPM_AUTH_TOKEN from secrets.NODE_AUTH_TOKEN on the npm verify and changeset publish steps",
-  );
+if (/NODE_AUTH_TOKEN|YARN_NPM_AUTH_TOKEN|NPM_TOKEN|npm (?:whoami|org ls|access)/.test(release)) {
+  errors.push("Release automation must use npm trusted publishing without long-lived tokens or token-only checks");
 }
-if (!release.includes("yarn npm whoami")) {
-  errors.push("npm authorization preflight must also prove Yarn Berry can authenticate (`yarn npm whoami`)");
+if (!/^\s+id-token:\s*write\b/m.test(release)) {
+  errors.push("Release automation must grant id-token: write for npm and MCP Registry OIDC");
 }
-if (
-  !release.includes("YN0000") ||
-  !release.includes("Done in ") ||
-  /yarn_user=\$\(yarn npm whoami\)\s*\n\s*if \[ "\$user" != "\$yarn_user" \]/.test(release)
-) {
-  errors.push("npm authorization preflight must compare Yarn whoami usernames after stripping YN0000 log noise");
+if (!/^\s+YARN_NPM_PUBLISH_PROVENANCE:\s*"true"\s*$/m.test(release)) {
+  errors.push("Yarn npm publication must generate provenance");
+}
+if (!/^\s+YARN_NPM_PUBLISH_REGISTRY:\s*https:\/\/registry\.npmjs\.org\s*$/m.test(release)) {
+  errors.push("Yarn npm publication must use the npm registry for trusted publishing");
 }
 if (!release.includes("Create or verify per-package Git tags")) {
   errors.push("Normal publication and Registry recovery must create or verify per-package Git tags");

@@ -30,7 +30,6 @@ jobs:
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: "24"
-          registry-url: "https://registry.npmjs.org"
 
       - run: corepack enable
       - run: yarn install --immutable
@@ -46,49 +45,6 @@ jobs:
       # ADR-106/107 (2026-05-27 broken-release incident), #115 (npm 11 global install).
       - name: Preflight — assert no workspace:* in published manifests
         run: node scripts/preflight-no-workspace-protocol.ts
-
-      - name: Verify npm authorization for @ask-llm/plugin without publishing
-        if: github.event_name != 'workflow_dispatch'
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NODE_AUTH_TOKEN }}
-          # Changesets 3 publishes through `yarn npm publish`, which ignores
-          # setup-node's .npmrc / NODE_AUTH_TOKEN (issue #307 / ADR-156).
-          YARN_NPM_AUTH_TOKEN: ${{ secrets.NODE_AUTH_TOKEN }}
-        run: |
-          set -euo pipefail
-          user=$(npm whoami)
-          # Yarn Berry prints "YN0000: <user>" then "YN0000: Done in ...",
-          # often with ANSI color (run 34592614321). Compare usernames only.
-          yarn_whoami_raw=$(yarn npm whoami)
-          yarn_user=$(printf '%s\n' "$yarn_whoami_raw" | sed 's/\x1b\[[0-9;]*m//g' | awk '
-            {
-              line = $0
-              sub(/.*YN0000: /, "", line)
-              if (line ~ /^Done in /) next
-              gsub(/^[ \t]+|[ \t]+$/, "", line)
-              if (line != "") user = line
-            }
-            END { if (user == "") exit 1; print user }
-          ')
-          if [ "$user" != "$yarn_user" ]; then
-            echo "npm whoami ($user) and yarn npm whoami ($yarn_user) disagree; Yarn Berry publish would fail"
-            exit 1
-          fi
-          role=$(npm org ls ask-llm --json | jq -r --arg user "$user" '.[$user] // empty')
-          case "$role" in
-            owner|admin|developer) ;;
-            *) echo "npm user $user lacks an @ask-llm organization publish role (reported: ${role:-none})"; exit 1 ;;
-          esac
-          # A missing package is the expected first-release state. If it already
-          # exists, additionally require collaborator write permission. No
-          # disposable version is ever published for this check.
-          if npm view @ask-llm/plugin version --json >/tmp/plugin-version.json 2>/tmp/plugin-view.err; then
-            permission=$(npm access list collaborators @ask-llm/plugin --json | jq -r --arg user "$user" '.[$user] // empty')
-            case "$permission" in read-write|write) ;; *) echo "npm user $user lacks write access to @ask-llm/plugin"; exit 1 ;; esac
-          elif ! grep -Eq 'E404|Not Found' /tmp/plugin-view.err; then
-            cat /tmp/plugin-view.err; exit 1
-          fi
-          echo "Verified npm and Yarn authorization for @ask-llm/plugin as $user ($role); no version published."
 
       # When pending changesets exist on main: opens/updates the Version Packages PR.
       # When this push IS the merged Version Packages PR: runs `yarn changeset:publish`
@@ -110,45 +66,8 @@ jobs:
           create-github-releases: false   # we create one unified GitHub Release below, not per-package
           push-git-tags: false            # ADR-151 helper exclusively manages remote package source tags
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.NODE_AUTH_TOKEN }}
-          YARN_NPM_AUTH_TOKEN: ${{ secrets.NODE_AUTH_TOKEN }}
-
-      # Scoped packages default to restricted visibility. Keep this explicit even
-      # though every manifest requests public access; a publish can otherwise be
-      # accepted by npm but remain invisible to unauthenticated installs.
-      # Classic tokens that can publish may 403 on access mutations (run
-      # 34600240863 / 2FA-bypass token restriction). Verify first; do not block
-      # Registry/tag/release when the package is already public or the token
-      # cannot change access (ADR-157).
-      - name: Ensure Ask LLM packages are public on npm
-        if: steps.changesets.outputs.published == 'true'
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NODE_AUTH_TOKEN }}
-        run: |
-          set -euo pipefail
-          for pkg in \
-            @ask-llm/mcp \
-            @ask-llm/plugin; do
-            status=""
-            if status_json=$(npm access get status "$pkg" --json 2>/tmp/access-get.err); then
-              status=$(printf '%s' "$status_json" | jq -r --arg pkg "$pkg" '.[$pkg] // empty')
-            fi
-            if [ "$status" = "public" ]; then
-              echo "$pkg is already public on npm"
-              continue
-            fi
-            if npm access set status=public "$pkg" > /tmp/access-set.log 2>&1; then
-              test "$(npm access get status "$pkg" --json | jq -r --arg pkg "$pkg" '.[$pkg]')" = "public"
-              echo "Set $pkg to public on npm"
-              continue
-            fi
-            cat /tmp/access-set.log
-            if grep -Eq 'E403|403 Forbidden|E401|401 Unauthorized' /tmp/access-set.log; then
-              echo "npm token cannot change access for $pkg (status=${status:-unknown}); not blocking publish"
-              continue
-            fi
-            exit 1
-          done
+          YARN_NPM_PUBLISH_REGISTRY: https://registry.npmjs.org
+          YARN_NPM_PUBLISH_PROVENANCE: "true"
 
       # Registry steps run after a real npm publish or a main-branch dispatch.
       # Ordinary main pushes with no published versions still skip them.
@@ -270,7 +189,7 @@ jobs:
               `- npm, GitHub, or MCP Registry outage`,
               ``,
               `**Fix path:**`,
-              `1. Open the run above and identify the first failed step; do not infer NODE_AUTH_TOKEN failure from this issue template.`,
+              `1. Open the run above and identify the first failed step; check npm trusted-publisher configuration only when publication reports an OIDC authentication error.`,
               `2. Check npm and MCP Registry state before retrying because npm publication may have succeeded before a later Registry failure.`,
               `3. Correct the reported auth, validation, mismatch, or service failure. Registry retries verify existing exact versions and publish only missing versions.`,
               `4. Run the Release workflow on main. Dispatch has no inputs; it does not re-enter npm publication and creates or verifies Registry records, the unified GitHub Release, and package tags.`,

@@ -322,9 +322,9 @@ These are speculative — listed for completeness, not for immediate scheduling:
 - **ADR-077 four-task corpus integration into ADR-100** — vendor the `experiment/codex-pair-poc` fixtures into `scripts/benchmark/fixtures/` so the Karpathy baseline gets cross-validated against the original recall benchmark.
 - **Goal-Driven Execution (Karpathy rule 4) → CLAUDE.md** rather than the review prompt — explicitly out-of-scope for ADR-099 since it's metaprocess, but worth a small ADR if lived experience shows the editing agent benefits.
 - **Severity-vs-urgency prompt refactor** — breaking change to grading prompt + parser; gated on cross-validating with ADR-100's harness before merging.
-- **OIDC trusted-publishing migration** — eliminate `NODE_AUTH_TOKEN` dependency entirely; the 2026-05-27 npm 2FA debugging showed the token path has multiple failure modes (404, EOTP, account-wide enforcement). OIDC removes the token.
+- **OIDC trusted-publishing migration** — workflow implemented in ADR-189 with Yarn OIDC and provenance; npm trusted-publisher configuration and the first authorized publication remain release-owner checks.
 
-**ADRs to author when these land:** ADR-101 (LLM-judge mode), ADR-102 (CI benchmark gating), ADR-103 (CLAUDE.md Karpathy rule 4 integration), ADR-104 (severity-vs-urgency refactor), ADR-105 (OIDC publishing), ADR-106 (zod resolution / publish-tarball hardening, gated on #115 root cause), ADR-107 (codex-pair next-turn surface fix, gated on #96 Bug 1 repro).
+**ADRs to author when these land:** ADR-101 (LLM-judge mode), ADR-102 (CI benchmark gating), ADR-103 (CLAUDE.md Karpathy rule 4 integration), ADR-104 (severity-vs-urgency refactor), ADR-106 (zod resolution / publish-tarball hardening, gated on #115 root cause), ADR-107 (codex-pair next-turn surface fix, gated on #96 Bug 1 repro).
 
 ### Recently shipped (post-Tier 2 follow-ons)
 

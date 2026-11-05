@@ -1,5 +1,15 @@
 # Architectural Decisions
 
+## ADR-189: Publish npm packages through Yarn OIDC with provenance
+
+**Status:** Accepted (2026-11-05). Supersedes ADR-156's token mapping and ADR-157's npm access mutation.
+
+**Context:** The October 28 Release runs passed build, lint and tests, then `npm whoami` returned `E401` before Changesets could refresh the version PR. [Yarn 4.10.0 introduced GitHub Actions OIDC authentication](https://github.com/yarnpkg/berry/releases/tag/%40yarnpkg/cli/4.10.0); the pinned [4.18.0 publish command](https://github.com/yarnpkg/berry/blob/%40yarnpkg/cli/4.18.0/packages/plugin-npm-cli/sources/commands/npm/publish.ts) enables it in CI. Switching package managers is unnecessary.
+
+**Decision:** Keep Changesets versioning, package selection, publication output and tag ownership. Remove the token-only authorization preflight and post-publish npm access mutations. Keep `id-token: write`; set `YARN_NPM_PUBLISH_REGISTRY=https://registry.npmjs.org` and `YARN_NPM_PUBLISH_PROVENANCE=true` on the Changesets action. Do not inject an npm token or generate a token-based `.npmrc`. Both public manifests already declare `publishConfig.access: public` and the manifest preflight enforces it.
+
+**Consequences:** Each package needs an [npm trusted publisher](https://docs.npmjs.com/trusted-publishers/) for `Lykhoyda/ask-llm`, workflow `release.yml`, no environment, with direct publishing allowed. Yarn exchanges the GitHub identity for a package-scoped credential during publication and signs provenance; a missing or mismatched trust configuration fails publication. Version PR updates need no npm credentials. Manual dispatch remains Registry/release/tag recovery only and never publishes to npm. Real OIDC publication is verified only by a separately authorized release, not by local tests or PR CI.
+
 ## ADR-188: Grok per-edit pairing reuses codex-pair with a selectable independent reviewer
 
 **Status:** Accepted (2026-10-28).
