@@ -117,6 +117,12 @@ Before merging a Version Packages PR:
 
 **Maintainer responsibilities** are minimal: review the Version Packages PR (does the CHANGELOG read sensibly? are the bump types right?), merge it when ready to ship. No manual `git tag` or `package.json` editing. If npm published but Registry, the unified GitHub Release, or package tags did not, Run workflow on `main` — there are no dispatch options. That path repairs those three artifacts and never re-enters npm publication (ADR-139/158). Release recovery uses the same create-or-verify package-tag contract and never retags an existing remote ref. If the release job reports `npm gitHead cross-check failed` for a package (its published tarball came from a commit other than the one that introduced the version, for example after a partial publish completed on a later commit), the other packages are still tagged; recover the affected package by shipping a new version — never by retagging. A main-branch Run workflow cannot repair that mismatch because it never republishes npm.
 
+### npm Trusted Publishing
+
+On npmjs.com, configure a GitHub Actions [trusted publisher](https://docs.npmjs.com/trusted-publishers/) for **each** published package: `@ask-llm/mcp` and `@ask-llm/plugin`. Use user `Lykhoyda`, repository `ask-llm`, workflow filename `release.yml`, leave the environment blank, and allow direct `npm publish`.
+
+Never re-run a failed npm publish job: the same workflow run reuses its provenance identity, and Sigstore can reject the duplicate transparency-log entry with `409`. After fixing the cause, push a fresh commit to `main` through a PR. With no pending changesets, the new Release run attempts to publish any package versions still missing from npm. Publishing an existing version from a later commit can succeed on npm while the Release run fails with `npm gitHead cross-check failed` and leaves that package untagged; restore consistent tags by shipping a new version, never by retagging. Manual dispatch only repairs Registry, GitHub Release and package tags; it does not publish to npm.
+
 ### Deprecating the split packages and the plugin bridge
 
 This runs once, by hand, and never from `release.yml` (ADR-179, ADR-185). Nothing is unpublished, and `@ask-llm/mcp` is never deprecated or shimmed.
