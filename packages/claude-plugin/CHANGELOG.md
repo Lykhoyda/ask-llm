@@ -1,5 +1,16 @@
 # @ask-llm/plugin
 
+## 0.20.0
+
+### Minor Changes
+
+- [#402](https://github.com/Lykhoyda/ask-llm/pull/402) [`8077680`](https://github.com/Lykhoyda/ask-llm/commit/807768014a0154b5185a60ca33152f038361cc54) Thanks [@Lykhoyda](https://github.com/Lykhoyda)! - Move codex-pair (now at `high` effort), `/sol-review`, and the brainstorm Codex leg to `gpt-6.1-sol`, make `gpt-6.1-terra` the Codex quota fallback, and add an Astra-pinned `/astra-review` skill.
+
+### Patch Changes
+
+- Updated dependencies [[`8077680`](https://github.com/Lykhoyda/ask-llm/commit/807768014a0154b5185a60ca33152f038361cc54), [`ba91abc`](https://github.com/Lykhoyda/ask-llm/commit/ba91abcee6e40c3c500cfbeb3492e1992ad00112)]:
+  - @ask-llm/mcp@1.3.0
+
 ## 0.19.7
 
 ### Patch Changes
