@@ -1,5 +1,15 @@
 # Architectural Decisions
 
+## ADR-189: Publish npm packages through Yarn OIDC with provenance
+
+**Status:** Accepted (2026-11-05). Supersedes ADR-156's token mapping and ADR-157's npm access mutation.
+
+**Context:** The October 28 Release runs passed build, lint and tests, then `npm whoami` returned `E401` before Changesets could refresh the version PR. [Yarn 4.10.0 introduced GitHub Actions OIDC authentication](https://github.com/yarnpkg/berry/releases/tag/%40yarnpkg/cli/4.10.0); the pinned [4.18.0 publish command](https://github.com/yarnpkg/berry/blob/%40yarnpkg/cli/4.18.0/packages/plugin-npm-cli/sources/commands/npm/publish.ts) enables it in CI. Switching package managers is unnecessary.
+
+**Decision:** Keep Changesets versioning, package selection, publication output and tag ownership. Remove the token-only authorization preflight and post-publish npm access mutations. Keep `id-token: write`; set `YARN_NPM_PUBLISH_REGISTRY=https://registry.npmjs.org` and `YARN_NPM_PUBLISH_PROVENANCE=true` on the Changesets action. Point publishing and its package-scoped OIDC exchange directly at npm's registry rather than Yarn's registry alias. Do not inject an npm token or generate a token-based `.npmrc`. Both public manifests already declare `publishConfig.access: public` and the manifest preflight enforces it.
+
+**Consequences:** Before merging a Version Packages PR, confirm both packages already exist on npm and each has an [npm trusted publisher](https://docs.npmjs.com/trusted-publishers/) for `Lykhoyda/ask-llm`, workflow `release.yml`, no environment, with direct publishing allowed. Yarn exchanges the GitHub identity for a package-scoped credential during publication and signs provenance; a missing or mismatched trust configuration fails publication. The existing workflow-wide `id-token: write` now lets every step request an identity npm trusts, including dependency install scripts, build and tests. Isolating publication into a separate job with OIDC permission is follow-up hardening. Version PR updates need no npm credentials. Manual dispatch remains Registry/release/tag recovery only and never publishes to npm. Real OIDC publication is verified only by a separately authorized release, not by local tests or PR CI.
+
 ## ADR-188: Grok per-edit pairing reuses codex-pair with a selectable independent reviewer
 
 **Status:** Accepted (2026-10-28).
@@ -341,7 +351,7 @@ The Stop gate uses the latest review of the content on disk; without one there i
 
 ## ADR-157: npm public-access verification must not block on token-denied mutations
 
-**Status:** Accepted (2026-09-11)
+**Status:** Accepted (2026-09-11) Superseded by ADR-189 for npm authentication and access mutations.
 
 **Context:** After ADR-156, [run 34600240863](https://github.com/Lykhoyda/ask-llm/actions/runs/34600240863) authenticated Yarn, published eight packages, then failed at `Ensure Ask LLM packages are public on npm`: `npm access set status=public @ask-llm/gemini-mcp` returned `403 Forbidden` on `POST https://registry.npmjs.org/-/package/@ask-llm%2fgemini-mcp/access`. npm also warned that tokens that bypass 2FA are restricted for account changes and direct publishing. Unauthenticated registry reads showed the already-public packages (including `@ask-llm/gemini-mcp@1.9.0`) as visible; the mutation is an access-control API the classic token can no longer call. That 403 skipped MCP Registry publication, the unified GitHub Release, and per-package tags even though npm publication had succeeded.
 
@@ -351,7 +361,7 @@ The Stop gate uses the latest review of the content on disk; without one there i
 
 ## ADR-156: Yarn Berry publish auth is YARN_NPM_AUTH_TOKEN, not NODE_AUTH_TOKEN
 
-**Status:** Accepted (2026-09-11)
+**Status:** Accepted (2026-09-11) Superseded by ADR-189 for npm authentication and access mutations.
 
 **Context:** Issue #307: every main-branch publish since the Changesets 3 / action v2 migration (ADR-152) failed at `yarn changeset:publish` with `YN0033: No authentication configured for request`, while the preceding `npm whoami` preflight succeeded as `anton-lykhoyda` (owner). Latest evidence: [run 34588029504](https://github.com/Lykhoyda/ask-llm/actions/runs/34588029504) on `79eb582`. After wiring `YARN_NPM_AUTH_TOKEN`, [run 34592614321](https://github.com/Lykhoyda/ask-llm/actions/runs/34592614321) then failed the new preflight because `yarn npm whoami` wraps the same username in `YN0000` log lines and a `Done in` footer. `actions/setup-node` with `registry-url` writes an `.npmrc` that interpolates `NODE_AUTH_TOKEN`; the npm CLI reads that file, so the preflight and later `npm access` / `npm deprecate` steps are authenticated. Changesets 3.0.0 routes publish through the workspace package manager ([release notes](https://github.com/changesets/changesets/releases/tag/%40changesets%2Fcli%403.0.0): "Yarn Berry publishes now let Yarn update workspace protocol ranges as part of the publish process"). Yarn 4's `yarn npm publish` does not read setup-node's `.npmrc` or `NODE_AUTH_TOKEN`; it reads `npmAuthToken`, which maps to `YARN_NPM_AUTH_TOKEN`. ADR-152 preserved tag ownership but did not carry that auth mapping. No package on the unpublished version set reached npm (`@ask-llm/mcp` remains `0.8.0` against local `0.9.2`).
 

@@ -48,7 +48,7 @@ This table is the complete open, Kano-labeled delivery backlog as verified from 
 
 | Issue | Why it remains open | Merge evidence already delivered |
 |-------|---------------------|----------------------------------|
-| [#307 — release workflow failure](https://github.com/Lykhoyda/ask-llm/issues/307) | Closure requires a green main-branch publish plus external npm, MCP Registry, package-tag, and unified-release verification | ADR-156 wires `YARN_NPM_AUTH_TOKEN` so Changesets 3's `yarn npm publish` can authenticate; #257 is the previous closed tracker |
+| [#307 — release workflow failure](https://github.com/Lykhoyda/ask-llm/issues/307) | Closure requires a green main-branch publish plus external npm, MCP Registry, package-tag, and unified-release verification | ADR-156 added Yarn's token mapping; ADR-189 replaces it with OIDC and provenance; #257 is the previous closed tracker |
 | [#272 — weekly default-model tracker](https://github.com/Lykhoyda/ask-llm/issues/272) | This is the rolling issue for recurring model-watch runs, not a one-shot delivery item | [PR #275](https://github.com/Lykhoyda/ask-llm/pull/275) restored the missing routine specification that had blocked the recorded run |
 
 The prior 2026-06-14 snapshot is delivery history, not a live queue: its sole tracker, [#183](https://github.com/Lykhoyda/ask-llm/issues/183), is closed and shipped. Current priorities are owned by [`docs/ROADMAP.md`](ROADMAP.md); this file owns label meaning and the evidence-backed backlog view.

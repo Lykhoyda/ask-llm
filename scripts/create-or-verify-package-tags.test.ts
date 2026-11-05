@@ -16,15 +16,17 @@ import {
 } from "./create-or-verify-package-tags.ts";
 
 interface WorkflowStep {
+  id?: string;
   name: string;
   if: string;
   run: string;
-  uses: string;
+  uses?: string;
   env: Record<string, string>;
   with: Record<string, unknown>;
 }
 
 interface Workflow {
+  permissions: Record<string, string>;
   on: {
     workflow_dispatch?: { inputs?: unknown };
   };
@@ -508,9 +510,6 @@ test("manual dispatch has no inputs and on main is always registry/release/tag r
   const skipNpm = "github.event_name != 'workflow_dispatch'";
   const recoveryGate =
     "steps.changesets.outputs.published == 'true' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')";
-  const verifyStep = steps.find(
-    (step) => step.name === "Verify npm authorization for @ask-llm/plugin without publishing",
-  ) as WorkflowStep;
   const changesetsStep = steps.find((step) => step.name === "Create Release PR or Publish") as WorkflowStep;
   const publisherStep = steps.find((step) => step.name === "Install mcp-publisher") as WorkflowStep;
   const syncStep = steps.find(
@@ -526,7 +525,6 @@ test("manual dispatch has no inputs and on main is always registry/release/tag r
 
   assert.ok(Object.hasOwn(workflow.on, "workflow_dispatch"));
   assert.equal(dispatch == null ? undefined : dispatch.inputs, undefined);
-  assert.equal(verifyStep.if, skipNpm);
   assert.equal(changesetsStep.if, skipNpm);
   assert.equal(publisherStep.if, recoveryGate);
   assert.equal(syncStep.if, recoveryGate);
@@ -534,51 +532,25 @@ test("manual dispatch has no inputs and on main is always registry/release/tag r
   assert.equal(canonicalVersionStep.if, recoveryGate);
   assert.equal(unifiedStep.if, recoveryGate);
   assert.equal(tagStep.if, recoveryGate);
-  assert.match(failureStep.uses, /actions\/github-script@/);
+  assert.match(failureStep.uses ?? "", /actions\/github-script@/);
 });
 
-test("publish authenticates Yarn Berry; npm whoami is not sufficient after Changesets 3", () => {
-  const workflow = parseYaml(
-    readFileSync(join(import.meta.dirname, "../.github/workflows/release.yml"), "utf8"),
-  ) as Workflow;
-  const steps = workflow.jobs.release.steps;
-  const verifyStep = steps.find(
-    (step) => step.name === "Verify npm authorization for @ask-llm/plugin without publishing",
-  ) as WorkflowStep;
-  const changesetsStep = steps.find((step) => step.name === "Create Release PR or Publish") as WorkflowStep;
-  const token = "$" + "{{ secrets.NODE_AUTH_TOKEN }}";
+test("publish uses Yarn OIDC with provenance and no token-only preflight or access mutations", () => {
+  const source = readFileSync(join(import.meta.dirname, "../.github/workflows/release.yml"), "utf8");
+  const workflow = parseYaml(source) as Workflow;
+  const changesetsStep = workflow.jobs.release.steps.find((step) => step.id === "changesets");
 
-  assert.equal(verifyStep.env.NODE_AUTH_TOKEN, token);
-  assert.equal(verifyStep.env.YARN_NPM_AUTH_TOKEN, token);
-  assert.match(verifyStep.run, /yarn npm whoami/);
-  // Yarn Berry wraps the username in YN0000 log lines plus a "Done in"
-  // footer (run 34592614321). Comparing raw stdout treats a successful
-  // whoami as a mismatch even when the user is the same.
-  assert.match(verifyStep.run, /YN0000/);
-  assert.match(verifyStep.run, /Done in /);
-  assert.doesNotMatch(verifyStep.run, /yarn_user=\$\(yarn npm whoami\)\s*\n\s*if \[ "\$user" != "\$yarn_user" \]/);
-  assert.equal(changesetsStep.env.NODE_AUTH_TOKEN, token);
-  assert.equal(changesetsStep.env.YARN_NPM_AUTH_TOKEN, token);
-});
-
-test("public-access step does not fail the release when packages are already public or the token cannot mutate access", () => {
-  const workflow = parseYaml(
-    readFileSync(join(import.meta.dirname, "../.github/workflows/release.yml"), "utf8"),
-  ) as Workflow;
-  const publicStep = workflow.jobs.release.steps.find(
-    (step) => step.name === "Ensure Ask LLM packages are public on npm",
-  ) as WorkflowStep;
-
-  assert.equal(publicStep.if, "steps.changesets.outputs.published == 'true'");
-  assert.equal(publicStep.env.NODE_AUTH_TOKEN, "$" + "{{ secrets.NODE_AUTH_TOKEN }}");
-  assert.match(publicStep.run, /npm access get status/);
-  assert.match(publicStep.run, /npm access set status=public/);
-  assert.match(publicStep.run, /already public/);
-  assert.match(publicStep.run, /cannot change access/);
-  assert.match(publicStep.run, /E403|403 Forbidden/);
-  // A bare mutating set that always runs would 403 on already-public packages
-  // (run 34600240863) and skip Registry/tag/release.
-  assert.doesNotMatch(publicStep.run, /npm access set status=public "\$pkg"\n\s+test "\$\(npm access get status/);
+  assert.equal(workflow.permissions["id-token"], "write");
+  assert.ok(changesetsStep);
+  assert.equal(changesetsStep.with["publish-script"], "yarn changeset:publish");
+  assert.deepEqual(changesetsStep.env, {
+    YARN_NPM_PUBLISH_REGISTRY: "https://registry.npmjs.org",
+    YARN_NPM_PUBLISH_PROVENANCE: "true",
+  });
+  assert.doesNotMatch(source, /NODE_AUTH_TOKEN|YARN_NPM_AUTH_TOKEN|NPM_TOKEN|npm (?:whoami|org ls|access)/);
+  const setupNode = workflow.jobs.release.steps.find((step) => step.uses?.startsWith("actions/setup-node@"));
+  assert.ok(setupNode);
+  assert.equal(setupNode.with["registry-url"], undefined);
 });
 
 test("selects only the canonical package and dependent bridge from the real workspace", async () => {
