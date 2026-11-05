@@ -20,7 +20,7 @@ interface WorkflowStep {
   name: string;
   if: string;
   run: string;
-  uses: string;
+  uses?: string;
   env: Record<string, string>;
   with: Record<string, unknown>;
 }
@@ -532,7 +532,7 @@ test("manual dispatch has no inputs and on main is always registry/release/tag r
   assert.equal(canonicalVersionStep.if, recoveryGate);
   assert.equal(unifiedStep.if, recoveryGate);
   assert.equal(tagStep.if, recoveryGate);
-  assert.match(failureStep.uses, /actions\/github-script@/);
+  assert.match(failureStep.uses ?? "", /actions\/github-script@/);
 });
 
 test("publish uses Yarn OIDC with provenance and no token-only preflight or access mutations", () => {

@@ -16,7 +16,7 @@ permissions:
   contents: write       # changesets/action commits version bumps; explicit package tags + unified release write refs
   pull-requests: write  # changesets/action opens the Version Packages PR
   issues: write         # failure reporter opens/comments on release-broken issues
-  id-token: write       # OIDC for mcp-publisher (no token required)
+  id-token: write       # OIDC for npm trusted publishing and mcp-publisher
 
 jobs:
   release:
@@ -189,7 +189,7 @@ jobs:
               `- npm, GitHub, or MCP Registry outage`,
               ``,
               `**Fix path:**`,
-              `1. Open the run above and identify the first failed step; check npm trusted-publisher configuration only when publication reports an OIDC authentication error.`,
+              `1. Open the run above and identify the first failed step; check npm trusted-publisher configuration when publication reports an OTP, 2FA, or authentication failure.`,
               `2. Check npm and MCP Registry state before retrying because npm publication may have succeeded before a later Registry failure.`,
               `3. Correct the reported auth, validation, mismatch, or service failure. Registry retries verify existing exact versions and publish only missing versions.`,
               `4. Run the Release workflow on main. Dispatch has no inputs; it does not re-enter npm publication and creates or verifies Registry records, the unified GitHub Release, and package tags.`,
