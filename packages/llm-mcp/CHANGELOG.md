@@ -1,5 +1,13 @@
 # @ask-llm/mcp
 
+## 1.2.2
+
+### Patch Changes
+
+- [#397](https://github.com/Lykhoyda/ask-llm/pull/397) [`da481b2`](https://github.com/Lykhoyda/ask-llm/commit/da481b21c16cf471d179a60c82651031c6806767) Thanks [@Lykhoyda](https://github.com/Lykhoyda)! - Show sandboxed Antigravity quota diagnostics with `ask-llm doctor --live` on agy 1.2.13 or newer, show the detected version next to quota results, skip older or unparseable versions with the minimum-version line, and avoid spawning agy in default doctor.
+
+- [#394](https://github.com/Lykhoyda/ask-llm/pull/394) [`bea4672`](https://github.com/Lykhoyda/ask-llm/commit/bea46724805856c2addbfe8c4c9ebaacf40961f3) Thanks [@Lykhoyda](https://github.com/Lykhoyda)! - Remove Pi's owned local package registration, suggest cleanup only for matching installed skills, preserve plugins without proven setup ownership, and report version-probe failures accurately.
+
 ## 1.2.1
 
 ### Patch Changes
