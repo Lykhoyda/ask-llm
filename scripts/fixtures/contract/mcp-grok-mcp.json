@@ -5,7 +5,10 @@
       "properties": {
         "harness": {
           "description": "Execution harness, kept separate from the Grok model selection: xai-api or grok-cli. Defaults to xai-api; no harness fallback is attempted.",
-          "enum": ["xai-api", "grok-cli"],
+          "enum": [
+            "xai-api",
+            "grok-cli"
+          ],
           "type": "string"
         },
         "model": {
@@ -20,11 +23,18 @@
         },
         "reasoningEffort": {
           "description": "Reasoning depth: low, medium, high, xhigh. Defaults to high; this is a request parameter, not a model-name suffix.",
-          "enum": ["low", "medium", "high", "xhigh"],
+          "enum": [
+            "low",
+            "medium",
+            "high",
+            "xhigh"
+          ],
           "type": "string"
         }
       },
-      "required": ["prompt"],
+      "required": [
+        "prompt"
+      ],
       "type": "object"
     },
     "name": "ask-grok",
@@ -33,14 +43,25 @@
       "additionalProperties": false,
       "properties": {
         "harness": {
-          "enum": ["xai-api", "grok-cli", "cursor-agent"],
+          "enum": [
+            "xai-api",
+            "grok-cli",
+            "cursor-agent"
+          ],
           "type": "string"
         },
         "model": {
           "type": "string"
         },
         "provider": {
-          "enum": ["gemini", "codex", "claude", "grok", "ollama", "antigravity"],
+          "enum": [
+            "gemini",
+            "codex",
+            "claude",
+            "grok",
+            "ollama",
+            "antigravity"
+          ],
           "type": "string"
         },
         "reportedModel": {
@@ -74,18 +95,34 @@
               "type": "number"
             },
             "provider": {
-              "enum": ["gemini", "codex", "claude", "grok", "ollama", "antigravity"],
+              "enum": [
+                "gemini",
+                "codex",
+                "claude",
+                "grok",
+                "ollama",
+                "antigravity"
+              ],
               "type": "string"
             },
             "thinkingTokens": {
               "type": "number"
             }
           },
-          "required": ["provider", "model", "durationMs", "fellBack"],
+          "required": [
+            "provider",
+            "model",
+            "durationMs",
+            "fellBack"
+          ],
           "type": "object"
         }
       },
-      "required": ["provider", "response", "model"],
+      "required": [
+        "provider",
+        "response",
+        "model"
+      ],
       "type": "object"
     }
   },
@@ -226,7 +263,10 @@
       "properties": {
         "harness": {
           "description": "Harness whose exact model catalog should be listed",
-          "enum": ["xai-api", "grok-cli"],
+          "enum": [
+            "xai-api",
+            "grok-cli"
+          ],
           "type": "string"
         },
         "message": {

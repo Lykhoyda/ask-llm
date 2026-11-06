@@ -25,7 +25,9 @@
           "type": "string"
         }
       },
-      "required": ["prompt"],
+      "required": [
+        "prompt"
+      ],
       "type": "object"
     },
     "name": "ask-claude",
@@ -34,14 +36,25 @@
       "additionalProperties": false,
       "properties": {
         "harness": {
-          "enum": ["xai-api", "grok-cli", "cursor-agent"],
+          "enum": [
+            "xai-api",
+            "grok-cli",
+            "cursor-agent"
+          ],
           "type": "string"
         },
         "model": {
           "type": "string"
         },
         "provider": {
-          "enum": ["gemini", "codex", "claude", "grok", "ollama", "antigravity"],
+          "enum": [
+            "gemini",
+            "codex",
+            "claude",
+            "grok",
+            "ollama",
+            "antigravity"
+          ],
           "type": "string"
         },
         "reportedModel": {
@@ -75,18 +88,34 @@
               "type": "number"
             },
             "provider": {
-              "enum": ["gemini", "codex", "claude", "grok", "ollama", "antigravity"],
+              "enum": [
+                "gemini",
+                "codex",
+                "claude",
+                "grok",
+                "ollama",
+                "antigravity"
+              ],
               "type": "string"
             },
             "thinkingTokens": {
               "type": "number"
             }
           },
-          "required": ["provider", "model", "durationMs", "fellBack"],
+          "required": [
+            "provider",
+            "model",
+            "durationMs",
+            "fellBack"
+          ],
           "type": "object"
         }
       },
-      "required": ["provider", "response", "model"],
+      "required": [
+        "provider",
+        "response",
+        "model"
+      ],
       "type": "object"
     }
   },

@@ -2,6 +2,7 @@
 // Private build inputs need an explicit canonical changeset because devDependency bumps do not cascade.
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
+import { format } from "oxfmt";
 
 const REQUIRED = ["@ask-llm/mcp"];
 const BUNDLED_PACKAGES = [
@@ -15,9 +16,11 @@ const BUNDLED_PACKAGES = [
 ];
 const base = process.env.GITHUB_BASE_REF ? `origin/${process.env.GITHUB_BASE_REF}` : "origin/main";
 
+let mergeBase: string;
 let changed: string[];
 try {
-  changed = execFileSync("git", ["diff", "--name-only", `${base}...HEAD`], { encoding: "utf8" })
+  mergeBase = execFileSync("git", ["merge-base", base, "HEAD"], { encoding: "utf8" }).trim();
+  changed = execFileSync("git", ["diff", "--name-only", mergeBase, "HEAD"], { encoding: "utf8" })
     .split("\n")
     .filter(Boolean);
 } catch {
@@ -26,23 +29,26 @@ try {
   );
   process.exit(1);
 }
-function isFormattingOnly(file: string): boolean {
+const formatOptions = JSON.parse(fs.readFileSync(new URL("../.oxfmtrc.json", import.meta.url), "utf8"));
+async function isFormattingOnly(file: string): Promise<boolean> {
   if (!fs.existsSync(file)) return false;
   try {
-    const normalize = (text: string) => text.replace(/,(\s*[)\]}])/g, "$1").replace(/\s+/g, "");
-    const before = execFileSync("git", ["show", `${base}:${file}`], { encoding: "utf8" });
-    const after = fs.readFileSync(file, "utf8");
-    return normalize(before) === normalize(after);
+    const before = execFileSync("git", ["show", `${mergeBase}:${file}`], { encoding: "utf8", stdio: "pipe" });
+    const formatted = await format(file, before, formatOptions);
+    return formatted.errors.length === 0 && formatted.code === fs.readFileSync(file, "utf8");
   } catch {
     return false;
   }
 }
 
-if (
-  !changed.some(
-    (file) => BUNDLED_PACKAGES.some((name) => file.startsWith(`packages/${name}/src/`)) && !isFormattingOnly(file),
-  )
-) {
+let bundledChanged = false;
+for (const file of changed) {
+  if (BUNDLED_PACKAGES.some((name) => file.startsWith(`packages/${name}/src/`)) && !(await isFormattingOnly(file))) {
+    bundledChanged = true;
+    break;
+  }
+}
+if (!bundledChanged) {
   console.log("[shared-changeset] no bundled src changes — OK");
   process.exit(0);
 }

@@ -26,13 +26,23 @@
         },
         "reasoningEffort": {
           "description": "Codex reasoning effort for this call. Defaults to medium; /codex-review and /brainstorm use high for quality-first work.",
-          "enum": ["low", "medium", "high", "xhigh", "max", "ultra"],
+          "enum": [
+            "low",
+            "medium",
+            "high",
+            "xhigh",
+            "max",
+            "ultra"
+          ],
           "type": "string"
         },
         "sandbox": {
           "default": "read-only",
           "description": "Codex sandbox mode for this call. Defaults to 'read-only', which enforces the core review contract (Codex reads and proposes, the MCP client edits). Set 'workspace-write' ONLY as an explicit opt-out for flows that need Codex to write files itself, e.g. image generation. Review, second-opinion, and analysis flows must never set this.",
-          "enum": ["read-only", "workspace-write"],
+          "enum": [
+            "read-only",
+            "workspace-write"
+          ],
           "type": "string"
         },
         "sessionId": {
@@ -40,7 +50,9 @@
           "type": "string"
         }
       },
-      "required": ["prompt"],
+      "required": [
+        "prompt"
+      ],
       "type": "object"
     },
     "name": "ask-codex",
@@ -49,14 +61,25 @@
       "additionalProperties": false,
       "properties": {
         "harness": {
-          "enum": ["xai-api", "grok-cli", "cursor-agent"],
+          "enum": [
+            "xai-api",
+            "grok-cli",
+            "cursor-agent"
+          ],
           "type": "string"
         },
         "model": {
           "type": "string"
         },
         "provider": {
-          "enum": ["gemini", "codex", "claude", "grok", "ollama", "antigravity"],
+          "enum": [
+            "gemini",
+            "codex",
+            "claude",
+            "grok",
+            "ollama",
+            "antigravity"
+          ],
           "type": "string"
         },
         "reportedModel": {
@@ -90,18 +113,34 @@
               "type": "number"
             },
             "provider": {
-              "enum": ["gemini", "codex", "claude", "grok", "ollama", "antigravity"],
+              "enum": [
+                "gemini",
+                "codex",
+                "claude",
+                "grok",
+                "ollama",
+                "antigravity"
+              ],
               "type": "string"
             },
             "thinkingTokens": {
               "type": "number"
             }
           },
-          "required": ["provider", "model", "durationMs", "fellBack"],
+          "required": [
+            "provider",
+            "model",
+            "durationMs",
+            "fellBack"
+          ],
           "type": "object"
         }
       },
-      "required": ["provider", "response", "model"],
+      "required": [
+        "provider",
+        "response",
+        "model"
+      ],
       "type": "object"
     }
   },
@@ -131,7 +170,9 @@
           "type": "string"
         }
       },
-      "required": ["prompt"],
+      "required": [
+        "prompt"
+      ],
       "type": "object"
     },
     "name": "ask-codex-edit"

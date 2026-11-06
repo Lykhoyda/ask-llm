@@ -17,11 +17,20 @@
               "type": "string"
             },
             "status": {
-              "enum": ["pass", "warn", "fail", "skip"],
+              "enum": [
+                "pass",
+                "warn",
+                "fail",
+                "skip"
+              ],
               "type": "string"
             }
           },
-          "required": ["name", "status", "message"],
+          "required": [
+            "name",
+            "status",
+            "message"
+          ],
           "type": "object"
         },
         "type": "array"
@@ -114,14 +123,23 @@
                         "type": "string"
                       },
                       "status": {
-                        "enum": ["pass", "warn", "fail", "skip"],
+                        "enum": [
+                          "pass",
+                          "warn",
+                          "fail",
+                          "skip"
+                        ],
                         "type": "string"
                       },
                       "summary": {
                         "type": "string"
                       }
                     },
-                    "required": ["name", "status", "summary"],
+                    "required": [
+                      "name",
+                      "status",
+                      "summary"
+                    ],
                     "type": "object"
                   },
                   "type": "array"
@@ -130,11 +148,19 @@
                   "type": "string"
                 },
                 "overall": {
-                  "enum": ["ok", "warning", "error"],
+                  "enum": [
+                    "ok",
+                    "warning",
+                    "error"
+                  ],
                   "type": "string"
                 }
               },
-              "required": ["heading", "overall", "checks"],
+              "required": [
+                "heading",
+                "overall",
+                "checks"
+              ],
               "type": "object"
             },
             "error": {
@@ -147,37 +173,75 @@
               "additionalProperties": false,
               "properties": {
                 "authenticated": {
-                  "enum": ["yes", "no", "unknown", "not-required"],
+                  "enum": [
+                    "yes",
+                    "no",
+                    "unknown",
+                    "not-required"
+                  ],
                   "type": "string"
                 },
                 "exercised": {
-                  "enum": ["yes", "no", "not-run"],
+                  "enum": [
+                    "yes",
+                    "no",
+                    "not-run"
+                  ],
                   "type": "string"
                 },
                 "installed": {
-                  "enum": ["yes", "no", "unknown", "not-required"],
+                  "enum": [
+                    "yes",
+                    "no",
+                    "unknown",
+                    "not-required"
+                  ],
                   "type": "string"
                 },
                 "permitted": {
-                  "enum": ["yes", "no", "unknown", "not-required"],
+                  "enum": [
+                    "yes",
+                    "no",
+                    "unknown",
+                    "not-required"
+                  ],
                   "type": "string"
                 }
               },
-              "required": ["installed", "authenticated", "permitted", "exercised"],
+              "required": [
+                "installed",
+                "authenticated",
+                "permitted",
+                "exercised"
+              ],
               "type": "object"
             }
           },
-          "required": ["name", "command", "available"],
+          "required": [
+            "name",
+            "command",
+            "available"
+          ],
           "type": "object"
         },
         "type": "array"
       },
       "status": {
-        "enum": ["ok", "warning", "error"],
+        "enum": [
+          "ok",
+          "warning",
+          "error"
+        ],
         "type": "string"
       }
     },
-    "required": ["status", "generatedAt", "environment", "providers", "checks"],
+    "required": [
+      "status",
+      "generatedAt",
+      "environment",
+      "providers",
+      "checks"
+    ],
     "type": "object"
   },
   "unavailable": {

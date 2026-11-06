@@ -20,7 +20,9 @@
           "type": "string"
         }
       },
-      "required": ["prompt"],
+      "required": [
+        "prompt"
+      ],
       "type": "object"
     }
   },
@@ -52,18 +54,30 @@
           "type": "string"
         },
         "reasoningEffort": {
-          "enum": ["low", "medium", "high", "xhigh", "max", "ultra"],
+          "enum": [
+            "low",
+            "medium",
+            "high",
+            "xhigh",
+            "max",
+            "ultra"
+          ],
           "type": "string"
         },
         "sandbox": {
-          "enum": ["read-only", "workspace-write"],
+          "enum": [
+            "read-only",
+            "workspace-write"
+          ],
           "type": "string"
         },
         "sessionId": {
           "type": "string"
         }
       },
-      "required": ["prompt"],
+      "required": [
+        "prompt"
+      ],
       "type": "object"
     }
   },
@@ -93,7 +107,12 @@
         },
         "provider": {
           "description": "Canonical provider family of the selected Cursor model (claude, codex, gemini, grok); kept separate from the cursor-agent harness and verified against the requested and CLI-reported model ID.",
-          "enum": ["claude", "codex", "gemini", "grok"],
+          "enum": [
+            "claude",
+            "codex",
+            "gemini",
+            "grok"
+          ],
           "type": "string"
         },
         "sessionId": {
@@ -101,7 +120,11 @@
           "type": "string"
         }
       },
-      "required": ["provider", "model", "prompt"],
+      "required": [
+        "provider",
+        "model",
+        "prompt"
+      ],
       "type": "object"
     }
   },
@@ -123,7 +146,9 @@
           "type": "string"
         }
       },
-      "required": ["prompt"],
+      "required": [
+        "prompt"
+      ],
       "type": "object"
     }
   },
@@ -132,7 +157,10 @@
     "parameters": {
       "properties": {
         "harness": {
-          "enum": ["xai-api", "grok-cli"],
+          "enum": [
+            "xai-api",
+            "grok-cli"
+          ],
           "type": "string"
         },
         "model": {
@@ -146,11 +174,18 @@
           "type": "string"
         },
         "reasoningEffort": {
-          "enum": ["low", "medium", "high", "xhigh"],
+          "enum": [
+            "low",
+            "medium",
+            "high",
+            "xhigh"
+          ],
           "type": "string"
         }
       },
-      "required": ["prompt"],
+      "required": [
+        "prompt"
+      ],
       "type": "object"
     }
   },
@@ -161,7 +196,11 @@
       "properties": {
         "harness": {
           "description": "Execution harness, separate from provider/model. xai-api and grok-cli require provider=grok. Use ask-cursor-agent for Cursor's model-neutral harness. No harness fallback is attempted.",
-          "enum": ["provider-default", "xai-api", "grok-cli"],
+          "enum": [
+            "provider-default",
+            "xai-api",
+            "grok-cli"
+          ],
           "type": "string"
         },
         "includeDirs": {
@@ -188,17 +227,34 @@
         },
         "provider": {
           "description": "Which LLM provider to use. Available: \"gemini\" (Gemini, default model: gemini-3.1-pro-preview), \"codex\" (Codex, default model: gpt-6-astra), \"claude\" (Claude, default model: opus), \"grok\" (Grok, default model: grok-4.7), \"ollama\" (Ollama, default model: qwen3.8:27b), \"antigravity\" (Antigravity, default model: gemini-3.1-pro)",
-          "enum": ["gemini", "codex", "claude", "grok", "ollama", "antigravity"],
+          "enum": [
+            "gemini",
+            "codex",
+            "claude",
+            "grok",
+            "ollama",
+            "antigravity"
+          ],
           "type": "string"
         },
         "reasoningEffort": {
           "description": "Provider-native reasoning effort. Codex accepts low/medium/high/xhigh/max/ultra; Grok accepts low/medium/high/xhigh. Unsupported provider/effort combinations are rejected, never stripped.",
-          "enum": ["low", "medium", "high", "xhigh", "max", "ultra"],
+          "enum": [
+            "low",
+            "medium",
+            "high",
+            "xhigh",
+            "max",
+            "ultra"
+          ],
           "type": "string"
         },
         "sandbox": {
           "description": "Codex-only sandbox. Defaults to the executor's read-only review contract when omitted. Set workspace-write only for explicit write flows such as image generation. Unsupported on other providers; never silently stripped.",
-          "enum": ["read-only", "workspace-write"],
+          "enum": [
+            "read-only",
+            "workspace-write"
+          ],
           "type": "string"
         },
         "sessionId": {
@@ -206,7 +262,10 @@
           "type": "string"
         }
       },
-      "required": ["provider", "prompt"],
+      "required": [
+        "provider",
+        "prompt"
+      ],
       "type": "object"
     }
   },
@@ -251,11 +310,21 @@
                   "type": "boolean"
                 },
                 "reasoningEffort": {
-                  "enum": ["low", "medium", "high", "xhigh", "max", "ultra"],
+                  "enum": [
+                    "low",
+                    "medium",
+                    "high",
+                    "xhigh",
+                    "max",
+                    "ultra"
+                  ],
                   "type": "string"
                 },
                 "sandbox": {
-                  "enum": ["read-only", "workspace-write"],
+                  "enum": [
+                    "read-only",
+                    "workspace-write"
+                  ],
                   "type": "string"
                 },
                 "sessionId": {
@@ -279,7 +348,10 @@
             "grok": {
               "properties": {
                 "harness": {
-                  "enum": ["xai-api", "grok-cli"],
+                  "enum": [
+                    "xai-api",
+                    "grok-cli"
+                  ],
                   "type": "string"
                 },
                 "model": {
@@ -287,7 +359,12 @@
                   "type": "string"
                 },
                 "reasoningEffort": {
-                  "enum": ["low", "medium", "high", "xhigh"],
+                  "enum": [
+                    "low",
+                    "medium",
+                    "high",
+                    "xhigh"
+                  ],
                   "type": "string"
                 }
               },
@@ -317,7 +394,13 @@
         "providers": {
           "description": "Two to five unique providers. Results preserve this input order.",
           "items": {
-            "enum": ["codex", "gemini", "grok", "ollama", "antigravity"],
+            "enum": [
+              "codex",
+              "gemini",
+              "grok",
+              "ollama",
+              "antigravity"
+            ],
             "type": "string"
           },
           "maxItems": 5,
@@ -325,7 +408,10 @@
           "type": "array"
         }
       },
-      "required": ["prompt", "providers"],
+      "required": [
+        "prompt",
+        "providers"
+      ],
       "type": "object"
     }
   },
@@ -347,7 +433,9 @@
           "type": "string"
         }
       },
-      "required": ["prompt"],
+      "required": [
+        "prompt"
+      ],
       "type": "object"
     }
   },
@@ -365,14 +453,23 @@
         "providers": {
           "description": "Which providers to dispatch to. Available: gemini, codex, claude, grok, ollama, antigravity. Defaults to all available providers.",
           "items": {
-            "enum": ["gemini", "codex", "claude", "grok", "ollama", "antigravity"],
+            "enum": [
+              "gemini",
+              "codex",
+              "claude",
+              "grok",
+              "ollama",
+              "antigravity"
+            ],
             "type": "string"
           },
           "minItems": 1,
           "type": "array"
         }
       },
-      "required": ["prompt"],
+      "required": [
+        "prompt"
+      ],
       "type": "object"
     }
   }
