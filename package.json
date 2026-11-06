@@ -39,5 +39,8 @@
   "engines": {
     "node": ">=24.0.0"
   },
-  "packageManager": "yarn@4.18.0"
+  "packageManager": "yarn@4.18.0",
+  "resolutions": {
+    "@earendil-works/pi-coding-agent@npm:0.84.2/undici": "^8.12.2"
+  }
 }
