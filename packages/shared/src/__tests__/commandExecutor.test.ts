@@ -50,7 +50,7 @@ describe("quoteArgsForWindows", () => {
       let current = "";
       let inQuotes = false;
       let pending = false;
-      for (let i = 0; i < line.length; ) {
+      for (let i = 0; i < line.length;) {
         if (line[i] === "\\") {
           let count = 0;
           while (line[i] === "\\") {

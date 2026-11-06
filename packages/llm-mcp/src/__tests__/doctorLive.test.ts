@@ -46,15 +46,12 @@ describe("exerciseProviders", () => {
   it("exercises only ready providers read-only from an empty directory and records each outcome", async () => {
     const cwd = process.cwd();
     const seen: Array<{ key: string; options: Parameters<ExecutorFn>[0]; cwd: string }> = [];
-    const loadExecutor = vi.fn(
-      async (key: string): Promise<ExecutorFn> =>
-        async (options) => {
-          seen.push({ key, options, cwd: realpathSync(process.cwd()) });
-          expect(readdirSync(process.cwd())).toEqual([]);
-          if (key === "gemini") throw new Error("quota exhausted");
-          return { response: "OK", model: `${key}-model` };
-        },
-    );
+    const loadExecutor = vi.fn(async (key: string): Promise<ExecutorFn> => async (options) => {
+      seen.push({ key, options, cwd: realpathSync(process.cwd()) });
+      expect(readdirSync(process.cwd())).toEqual([]);
+      if (key === "gemini") throw new Error("quota exhausted");
+      return { response: "OK", model: `${key}-model` };
+    });
     const result = await exerciseProviders(
       report([
         provider("Codex"),

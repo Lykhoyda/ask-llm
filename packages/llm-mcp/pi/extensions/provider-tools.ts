@@ -25,9 +25,7 @@ import { Type } from "typebox";
 const providerNames = ["codex", "gemini", "grok", "ollama", "antigravity"] as const;
 type ProviderName = (typeof providerNames)[number];
 
-type CanonicalResult =
-  | string
-  | { text: string; structuredContent: Record<string, unknown> };
+type CanonicalResult = string | { text: string; structuredContent: Record<string, unknown> };
 type CanonicalExecute = (
   toolName: string,
   args: Record<string, unknown>,
@@ -123,9 +121,15 @@ async function invokeProvider(
 ): Promise<{ text: string; details: Record<string, unknown> }> {
   let usage: unknown;
   const canonical = executors[provider];
-  const result = await canonical.execute(canonical.tool, args, onProgress, (next) => {
-    usage = next;
-  }, signal);
+  const result = await canonical.execute(
+    canonical.tool,
+    args,
+    onProgress,
+    (next) => {
+      usage = next;
+    },
+    signal,
+  );
   const rawText = typeof result === "string" ? result : result.text;
   const output = bounded(rawText);
   return {

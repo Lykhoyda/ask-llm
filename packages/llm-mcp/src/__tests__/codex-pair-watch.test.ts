@@ -3323,9 +3323,8 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
   // ADR-095 debt-paydown — codex-pair-flagged bugs verified + fixed.
 
   it("ADR-168 lifecycle: a deep project path still gets a short socket inside the isolated home", async () => {
-    const { bootstrapBroker, clearStaleBrokerState, removeIsolatedBrokerHome } = await import(
-      "../../scripts/lib/broker-lifecycle.mts"
-    );
+    const { bootstrapBroker, clearStaleBrokerState, removeIsolatedBrokerHome } =
+      await import("../../scripts/lib/broker-lifecycle.mts");
     const deep = path.join(tempDir, "d".repeat(120));
     fs.mkdirSync(path.join(deep, ".codex-pair"), { recursive: true });
     fs.writeFileSync(path.join(tempDir, "auth.json"), "{}");
@@ -3770,9 +3769,8 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
 
   it("M4: isBrokerEnabled returns TRUE when all gates pass (env, descriptor, protocol, pid)", async () => {
     const { isBrokerEnabled } = await import("../../scripts/lib/broker.mts");
-    const { createIsolatedBrokerHome, removeIsolatedBrokerHome } = await import(
-      "../../scripts/lib/broker-lifecycle.mts"
-    );
+    const { createIsolatedBrokerHome, removeIsolatedBrokerHome } =
+      await import("../../scripts/lib/broker-lifecycle.mts");
     fs.mkdirSync(path.join(tempDir, ".codex-pair", "state"), { recursive: true });
     fs.writeFileSync(path.join(tempDir, ".codex-pair", "context.md"), "# project");
     fs.writeFileSync(path.join(tempDir, "auth.json"), "{}");
@@ -3823,9 +3821,7 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
       request: async (method: string) => {
         if (method === "thread/start")
           return {
-            thread: {
-              /* missing id */
-            },
+            thread: {/* missing id */},
           };
         return {};
       },
@@ -4221,9 +4217,8 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
   it("ADR-097: sweepStaleRepetitions drops shards older than TTL", async () => {
     // Closes finding #2 (unbounded growth). Probabilistic TTL sweep
     // amortizes O(N_files) cleanup cost across ~20 updates.
-    const { hashConcernBody, updateRepetitions, sweepStaleRepetitions, repetitionsShardPath } = await import(
-      "../../scripts/lib/state.mjs"
-    );
+    const { hashConcernBody, updateRepetitions, sweepStaleRepetitions, repetitionsShardPath } =
+      await import("../../scripts/lib/state.mjs");
     const fresh = "/abs/src/fresh.ts";
     const stale = "/abs/src/stale.ts";
     await updateRepetitions(tempDir, fresh, [hashConcernBody("fresh")]);
@@ -4242,9 +4237,8 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
     // The cache-hit path uses getBlockingFromShard, not updateRepetitions,
     // so content-identical undo/redo cycles can't push a finding to
     // BLOCKING without a real new flag from a live review.
-    const { hashConcernBody, updateRepetitions, getBlockingFromShard, loadRepetitionsForFile } = await import(
-      "../../scripts/lib/state.mjs"
-    );
+    const { hashConcernBody, updateRepetitions, getBlockingFromShard, loadRepetitionsForFile } =
+      await import("../../scripts/lib/state.mjs");
     const file = "/abs/src/billing.ts";
     const h = hashConcernBody("persistent");
     // Prime count to 1.
@@ -4259,9 +4253,8 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
   });
 
   it("ADR-097: getBlockingFromShard returns entries already over threshold without mutation", async () => {
-    const { hashConcernBody, updateRepetitions, getBlockingFromShard, loadRepetitionsForFile } = await import(
-      "../../scripts/lib/state.mjs"
-    );
+    const { hashConcernBody, updateRepetitions, getBlockingFromShard, loadRepetitionsForFile } =
+      await import("../../scripts/lib/state.mjs");
     const file = "/abs/src/x.ts";
     const h = hashConcernBody("c");
     // Drive count to 3 via live updates.

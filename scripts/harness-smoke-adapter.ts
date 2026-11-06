@@ -174,9 +174,8 @@ async function runGrok() {
 
 async function runBrainstorm() {
   invariant(config.secondaryModel, "exact brainstorm panel requires a secondary Sol model");
-  const { parseBrainstormParticipant, runBrainstormPanel } = await import(
-    "../packages/llm-mcp/src/brainstorm-panel.js"
-  );
+  const { parseBrainstormParticipant, runBrainstormPanel } =
+    await import("../packages/llm-mcp/src/brainstorm-panel.js");
   const report = await runBrainstormPanel({
     prompt: `${config.livePrompt}\nprobe=${Date.now()}`,
     participants: [
