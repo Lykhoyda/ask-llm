@@ -26,6 +26,77 @@ describe("quoteArgsForWindows", () => {
     expect(quoteArgsForWindows(['say "hello"'])).toEqual(['"say \\"hello\\""']);
   });
 
+  // Alert 19 (js/incomplete-sanitization): escaping only `"` left backslashes that precede a
+  // quote, or end a quoted arg, able to consume the closing quote.
+  it("doubles a trailing backslash so it cannot escape the closing quote", () => {
+    // Previously '"C:\\path with space\\"': `\"` read as a literal quote, leaving the arg open.
+    expect(quoteArgsForWindows(["C:\\path with space\\"])).toEqual(['"C:\\path with space\\\\"']);
+  });
+
+  it("escapes backslashes that precede an embedded quote", () => {
+    // Previously '"a\\\\"b c"': the doubled backslash ended the quoting early at `b`.
+    expect(quoteArgsForWindows(['a\\"b c'])).toEqual(['"a\\\\\\"b c"']);
+  });
+
+  it("leaves backslashes that do not precede a quote untouched", () => {
+    expect(quoteArgsForWindows(["C:\\Program Files\\app"])).toEqual(['"C:\\Program Files\\app"']);
+  });
+
+  it("round-trips through Windows command-line parsing", () => {
+    // CommandLineToArgvW rules: 2N backslashes + `"` -> N backslashes and a quote toggle;
+    // 2N+1 backslashes + `"` -> N backslashes and a literal quote; other backslashes literal.
+    const parseWindowsCommandLine = (line: string): string[] => {
+      const parsed: string[] = [];
+      let current = "";
+      let inQuotes = false;
+      let pending = false;
+      for (let i = 0; i < line.length; ) {
+        if (line[i] === "\\") {
+          let count = 0;
+          while (line[i] === "\\") {
+            count++;
+            i++;
+          }
+          if (line[i] === '"') {
+            current += "\\".repeat(Math.floor(count / 2));
+            if (count % 2 === 1) {
+              current += '"';
+              i++;
+            }
+          } else {
+            current += "\\".repeat(count);
+          }
+          pending = true;
+        } else if (line[i] === '"') {
+          inQuotes = !inQuotes;
+          pending = true;
+          i++;
+        } else if (line[i] === " " && !inQuotes) {
+          if (pending) parsed.push(current);
+          current = "";
+          pending = false;
+          i++;
+        } else {
+          current += line[i];
+          pending = true;
+          i++;
+        }
+      }
+      if (pending) parsed.push(current);
+      return parsed;
+    };
+    const args = [
+      "-p",
+      "C:\\path with space\\",
+      'a\\"b c',
+      'x\\\\" & y',
+      'say "hi"\\\\',
+      "C:\\Program Files\\app",
+      "plain",
+    ];
+    expect(parseWindowsCommandLine(quoteArgsForWindows(args).join(" "))).toEqual(args);
+  });
+
   it("quotes args containing shell metacharacters", () => {
     expect(quoteArgsForWindows(["foo & bar"])).toEqual(['"foo & bar"']);
     expect(quoteArgsForWindows(["a | b"])).toEqual(['"a | b"']);

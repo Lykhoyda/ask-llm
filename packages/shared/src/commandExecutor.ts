@@ -101,10 +101,30 @@ export function resolveTimeoutMs(providerEnvVar: string, fallbackDefault: number
   return fallbackDefault;
 }
 
+// Wraps an argument in double quotes using the Windows (MSVCRT CommandLineToArgvW) rules:
+// backslashes are literal unless they precede a `"`, so a run of N backslashes before an
+// embedded quote becomes 2N+1 backslashes plus the quote, and a run at the very end (before the
+// closing quote) becomes 2N. Escaping only the quotes let `foo\"` or a trailing `\` swallow the
+// closing quote and spill the rest of the argument into the next one (code-scanning
+// js/incomplete-sanitization alert 19).
+function quoteWindowsArg(arg: string): string {
+  let quoted = '"';
+  let backslashes = 0;
+  for (const ch of arg) {
+    if (ch === "\\") {
+      backslashes++;
+      continue;
+    }
+    quoted += ch === '"' ? `${"\\".repeat(backslashes * 2 + 1)}"` : `${"\\".repeat(backslashes)}${ch}`;
+    backslashes = 0;
+  }
+  return `${quoted}${"\\".repeat(backslashes * 2)}"`;
+}
+
 export function quoteArgsForWindows(args: string[]): string[] {
   return args.map((a) => {
     if (a.includes(" ") || a.includes('"') || a.includes("&") || a.includes("|") || a.includes("^")) {
-      return `"${a.replace(/"/g, '\\"')}"`;
+      return quoteWindowsArg(a);
     }
     return a;
   });
