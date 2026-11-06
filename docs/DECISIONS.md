@@ -1801,7 +1801,7 @@ Roadmap/tracker: [`docs/plans/2026-05-30-upstream-issue-consolidation.md`](plans
 
 ## ADR-010: Configure Biome for Linting and Formatting
 - **Date:** 2026-02-23
-- **Status:** Accepted
+- **Status:** Superseded (2026-11-06): Biome was replaced by oxfmt + oxlint with the same formatting settings and ported rules; see `.oxfmtrc.json` and `.oxlintrc.json`.
 - **Context:** The project had no linter or formatter — only `tsc --noEmit` for type checking. Code style was inconsistent (mixed single/double quotes across files). CLAUDE.md requires explicit type imports (`import type { ... }`), but this was not enforced by tooling. ESLint + Prettier is the traditional combo but requires extensive configuration and plugin management. Biome is a single tool that handles both linting and formatting with fast native performance.
 - **Decision:** Add Biome v2.4.4 as a dev dependency. Configure with: 2-space indent, 120 line width, double quotes, semicolons always, trailing commas all. Enable recommended lint rules plus `useImportType: "error"`. Suppress `noStaticOnlyClass` (refactoring Logger to plain functions is deferred). Scope to `src/**` only (skip docs, dist, scripts). Update `lint` script to run `biome check` before `tsc --noEmit`.
 - **Consequences:** Consistent code style enforced automatically. Type import violations caught at lint time. Single fast tool instead of ESLint + Prettier + plugins. All 14 source files normalized in initial formatting pass. Minor code fixes applied: `node:` protocol for builtins, template literals over concatenation, typed regex match variables.
