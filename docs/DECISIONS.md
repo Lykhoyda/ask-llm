@@ -1,5 +1,15 @@
 # Architectural Decisions
 
+## ADR-190: Replace Biome with oxfmt and oxlint
+
+**Status:** Accepted (2026-11-06). Supersedes ADR-010.
+
+**Context:** Biome ^2.5.10 was the only formatter and linter. The repository moved to oxfmt (formatting) and oxlint (linting). Versions are pinned at oxfmt ^0.76.0 and oxlint ^1.91.0 because 0.77.0 and 1.92.0 were still inside Yarn 4.18.1's default 24-hour `npmMinimalAgeGate` when the migration landed.
+
+**Decision:** `.oxfmtrc.json` keeps Biome's layout (2-space indent, 120 columns, double quotes, semicolons, trailing commas everywhere). It formats TypeScript only and ignores the generated `packages/llm-mcp/scripts/**/*.mjs`, benchmark fixtures and the Markdown, JSON, YAML, Vue and CSS files Biome never formatted. `.oxlintrc.json` turns off oxlint's default categories and enables an explicit port of every enforced Biome recommended JS/TS rule. `useImportType` maps to `typescript/consistent-type-imports` (`disallowTypeAnnotations: false`). The `noStaticOnlyClass` suppression maps to `unicorn/no-static-only-class` and `typescript/no-extraneous-class` both off. `biome-ignore` comments became `oxlint-disable` comments. Every root and workspace `lint` script runs oxfmt check, oxlint and `tsc --noEmit`, plus `format`/`format:check` scripts. CI, Release and `.husky/pre-push` run them. `scripts/check-shared-changeset.ts` waives the ADR-119 changeset when a bundled `packages/*/src/` file at HEAD equals the merge-base copy run through oxfmt with the repo config. Any other change, including whitespace inside a literal, still requires the changeset.
+
+**Consequences:** These Biome recommended rules have no non-type-aware oxlint equivalent and are no longer enforced: `complexity/noEmptyTypeParameters`, `noThisInStatic`, `noUselessContinue`, `noUselessStringRaw`, `noUselessUndefinedInitialization`, `useOptionalChain`, `useSimpleNumberKeys`; `correctness/noInvalidUseBeforeDeclaration`, `noStringCaseMismatch`, `noVoidTypeReturn`; `performance/noDynamicNamespaceImportAccess`; `style/useExportType`; `suspicious/noDuplicateParameters`, `noImplicitAnyLet`, `noOctalEscape`, `noRedundantUseStrict`. `tsc` still catches some of them (duplicate parameters, implicit `any`, use-before-declaration). JSON is no longer formatted by tooling, so contract fixtures keep the `JSON.stringify(..., null, 2)` layout their writer emits.
+
 ## ADR-189: Publish npm packages through Yarn OIDC with provenance
 
 **Status:** Accepted (2026-11-05). Supersedes ADR-156's token mapping and ADR-157's npm access mutation.
@@ -1801,7 +1811,7 @@ Roadmap/tracker: [`docs/plans/2026-05-30-upstream-issue-consolidation.md`](plans
 
 ## ADR-010: Configure Biome for Linting and Formatting
 - **Date:** 2026-02-23
-- **Status:** Superseded (2026-11-06): Biome was replaced by oxfmt + oxlint with the same formatting settings and ported rules; see `.oxfmtrc.json` and `.oxlintrc.json`.
+- **Status:** Superseded by ADR-190 (2026-11-06).
 - **Context:** The project had no linter or formatter — only `tsc --noEmit` for type checking. Code style was inconsistent (mixed single/double quotes across files). CLAUDE.md requires explicit type imports (`import type { ... }`), but this was not enforced by tooling. ESLint + Prettier is the traditional combo but requires extensive configuration and plugin management. Biome is a single tool that handles both linting and formatting with fast native performance.
 - **Decision:** Add Biome v2.4.4 as a dev dependency. Configure with: 2-space indent, 120 line width, double quotes, semicolons always, trailing commas all. Enable recommended lint rules plus `useImportType: "error"`. Suppress `noStaticOnlyClass` (refactoring Logger to plain functions is deferred). Scope to `src/**` only (skip docs, dist, scripts). Update `lint` script to run `biome check` before `tsc --noEmit`.
 - **Consequences:** Consistent code style enforced automatically. Type import violations caught at lint time. Single fast tool instead of ESLint + Prettier + plugins. All 14 source files normalized in initial formatting pass. Minor code fixes applied: `node:` protocol for builtins, template literals over concatenation, typed regex match variables.
