@@ -38,7 +38,7 @@ function isWhitespace(text: string, i: number): boolean {
 // The characters regex `.` refuses without the `s` flag.
 function isLineTerminator(text: string, i: number): boolean {
   const ch = text[i];
-  return ch === "\n" || ch === "\r" || ch === " " || ch === " ";
+  return ch === "\n" || ch === "\r" || ch === "\u2028" || ch === "\u2029";
 }
 
 function isDigit(text: string, i: number): boolean {
