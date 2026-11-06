@@ -10,7 +10,9 @@
     "build": "yarn workspaces foreach -A --topological-dev run build",
     "test": "vitest run",
     "test:batch": "node scripts/run-test-batch.ts",
-    "lint": "node scripts/check-workflow-security.ts && node scripts/check-docs-drift.ts && node scripts/sync-plugin-manifests.ts --check && biome lint scripts/ apps/docs/.vitepress/ && tsc --noEmit -p scripts/tsconfig.json && yarn workspaces foreach -A run lint",
+    "lint": "node scripts/check-workflow-security.ts && node scripts/check-docs-drift.ts && node scripts/sync-plugin-manifests.ts --check && oxfmt --check scripts/ apps/docs/.vitepress/ && oxlint scripts/ apps/docs/.vitepress/ && tsc --noEmit -p scripts/tsconfig.json && yarn workspaces foreach -A run lint",
+    "format": "oxfmt",
+    "format:check": "oxfmt --check",
     "smoke:harness": "node scripts/harness-smoke.ts --dry-run",
     "prepr:harness": "bash scripts/pre-pr-harness-smoke.sh",
     "docs:dev": "yarn workspace docs run dev",
@@ -25,12 +27,13 @@
     "prepare": "husky"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.5.10",
     "@changesets/changelog-github": "^1.0.0",
     "@changesets/cli": "^3.0.1",
     "@types/node": "^24.13.6",
     "husky": "^9.1.7",
     "js-tiktoken": "^1.0.21",
+    "oxfmt": "^0.76.0",
+    "oxlint": "^1.91.0",
     "tsx": "^4.23.12",
     "typescript": "^7.0.2",
     "vitest": "^4.1.11",
@@ -39,7 +42,7 @@
   "engines": {
     "node": ">=24.0.0"
   },
-  "packageManager": "yarn@4.18.0",
+  "packageManager": "yarn@4.18.1",
   "resolutions": {
     "@earendil-works/pi-coding-agent@npm:0.84.2/undici": "^8.12.2"
   }

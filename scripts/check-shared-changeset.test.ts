@@ -24,6 +24,11 @@ it("requires a canonical changeset when a private bundled provider changes", () 
     git("add", ".");
     git("commit", "-m", "baseline");
     git("update-ref", "refs/remotes/origin/main", git("rev-parse", "HEAD").trim());
+    writeFileSync(join(root, "packages/codex-mcp/src/executor.ts"), "export const value =\n  1;\n");
+    git("add", ".");
+    git("commit", "-m", "reformat only");
+    const formattedOnly = check();
+    expect(formattedOnly.status, formattedOnly.stdout + formattedOnly.stderr).toBe(0);
     writeFileSync(join(root, "packages/codex-mcp/src/executor.ts"), "export const value = 2;\n");
     git("add", ".");
     git("commit", "-m", "provider fix");

@@ -26,7 +26,23 @@ try {
   );
   process.exit(1);
 }
-if (!changed.some((file) => BUNDLED_PACKAGES.some((name) => file.startsWith(`packages/${name}/src/`)))) {
+function isFormattingOnly(file: string): boolean {
+  if (!fs.existsSync(file)) return false;
+  try {
+    const normalize = (text: string) => text.replace(/,(\s*[)\]}])/g, "$1").replace(/\s+/g, "");
+    const before = execFileSync("git", ["show", `${base}:${file}`], { encoding: "utf8" });
+    const after = fs.readFileSync(file, "utf8");
+    return normalize(before) === normalize(after);
+  } catch {
+    return false;
+  }
+}
+
+if (
+  !changed.some(
+    (file) => BUNDLED_PACKAGES.some((name) => file.startsWith(`packages/${name}/src/`)) && !isFormattingOnly(file),
+  )
+) {
   console.log("[shared-changeset] no bundled src changes — OK");
   process.exit(0);
 }

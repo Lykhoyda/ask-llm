@@ -2536,7 +2536,7 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
     // Empty args → no rpc/connection/prompt — must reject with a clear message.
     // Implementation landed in M3; the stub-throws test from M2 PR 1 is now
     // obsolete and replaced by argument-validation pins.
-    // biome-ignore lint/suspicious/noExplicitAny: explicit empty-args test
+    // oxlint-disable-next-line typescript/no-explicit-any -- explicit empty-args test
     await expect(submitReview({} as any)).rejects.toThrow(/rpc client required/);
   });
 
@@ -2720,7 +2720,7 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
     const { createRpcClient, __testing__ } = await import("../../scripts/lib/broker-rpc.mts");
     __testing__.resetIdCounter();
     const mock = createMockConnection();
-    // biome-ignore lint/suspicious/noExplicitAny: mock connection shape
+    // oxlint-disable-next-line typescript/no-explicit-any -- mock connection shape
     const rpc = createRpcClient(mock.conn as any, { defaultTimeoutMs: 1000 });
     const p = rpc.request("model/list", undefined);
     // The sent envelope should have id=1 (counter reset)
@@ -2737,7 +2737,7 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
     const { createRpcClient, __testing__ } = await import("../../scripts/lib/broker-rpc.mts");
     __testing__.resetIdCounter();
     const mock = createMockConnection();
-    // biome-ignore lint/suspicious/noExplicitAny: mock connection shape
+    // oxlint-disable-next-line typescript/no-explicit-any -- mock connection shape
     const rpc = createRpcClient(mock.conn as any, { defaultTimeoutMs: 1000 });
     const p = rpc.request("bad/method", undefined);
     mock.pushMessage(JSON.stringify({ id: 1, error: { code: -32601, message: "Method not found" } }));
@@ -2748,7 +2748,7 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
     const { createRpcClient, __testing__ } = await import("../../scripts/lib/broker-rpc.mts");
     __testing__.resetIdCounter();
     const mock = createMockConnection();
-    // biome-ignore lint/suspicious/noExplicitAny: mock connection shape
+    // oxlint-disable-next-line typescript/no-explicit-any -- mock connection shape
     const rpc = createRpcClient(mock.conn as any, { defaultTimeoutMs: 50 });
     const p = rpc.request("hangs", undefined);
     await expect(p).rejects.toThrow(/timeout after 50ms/);
@@ -2758,7 +2758,7 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
     const { createRpcClient, __testing__ } = await import("../../scripts/lib/broker-rpc.mts");
     __testing__.resetIdCounter();
     const mock = createMockConnection();
-    // biome-ignore lint/suspicious/noExplicitAny: mock connection shape
+    // oxlint-disable-next-line typescript/no-explicit-any -- mock connection shape
     const rpc = createRpcClient(mock.conn as any, { defaultTimeoutMs: 1000 });
     const p = rpc.request("model/list", undefined);
     // No jsonrpc field — codex's actual response shape per ADR-093
@@ -2771,7 +2771,7 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
     const mock = createMockConnection();
     const notifications: Array<{ method: string; params: unknown }> = [];
     createRpcClient(
-      // biome-ignore lint/suspicious/noExplicitAny: mock connection shape
+      // oxlint-disable-next-line typescript/no-explicit-any -- mock connection shape
       mock.conn as any,
       { onNotification: (n) => notifications.push({ method: n.method, params: n.params }) },
     );
@@ -2783,7 +2783,7 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
     const { createRpcClient, __testing__ } = await import("../../scripts/lib/broker-rpc.mts");
     __testing__.resetIdCounter();
     const mock = createMockConnection();
-    // biome-ignore lint/suspicious/noExplicitAny: mock connection shape
+    // oxlint-disable-next-line typescript/no-explicit-any -- mock connection shape
     const rpc = createRpcClient(mock.conn as any, { defaultTimeoutMs: 5000 });
     const p1 = rpc.request("a", undefined);
     const p2 = rpc.request("b", undefined);
@@ -2880,9 +2880,9 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
             close: () => {
               connectionClosed = true;
             },
-            // biome-ignore lint/suspicious/noExplicitAny: test mock
+            // oxlint-disable-next-line typescript/no-explicit-any -- test mock
           } as any,
-          // biome-ignore lint/suspicious/noExplicitAny: test mock
+          // oxlint-disable-next-line typescript/no-explicit-any -- test mock
           rpc: {} as any,
           initializeResult: {
             get codexHome() {
@@ -2922,10 +2922,10 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
       budgetMs: 200,
       sourceHome: tempDir,
       injectDeps: {
-        // biome-ignore lint/suspicious/noExplicitAny: test mock
+        // oxlint-disable-next-line typescript/no-explicit-any -- test mock
         spawnBroker: () => fakeChild as any,
         pollSocketReachable: async () => false,
-        // biome-ignore lint/suspicious/noExplicitAny: test mock
+        // oxlint-disable-next-line typescript/no-explicit-any -- test mock
         initializeBroker: (async () => ({})) as any,
         readCodexVersion: () => "x",
       },
@@ -2944,7 +2944,7 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
     const result = await bootstrapBroker(tempDir, {
       sourceHome: tempDir,
       injectDeps: {
-        // biome-ignore lint/suspicious/noExplicitAny: test mock
+        // oxlint-disable-next-line typescript/no-explicit-any -- test mock
         spawnBroker: () => fakeChild as any,
         pollSocketReachable: async () => true,
         initializeBroker: async () => {
@@ -2970,11 +2970,11 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
       injectDeps: {
         spawnBroker: () => {
           spawnAttempted = true;
-          // biome-ignore lint/suspicious/noExplicitAny: test mock
+          // oxlint-disable-next-line typescript/no-explicit-any -- test mock
           return {} as any;
         },
         pollSocketReachable: async () => true,
-        // biome-ignore lint/suspicious/noExplicitAny: test mock
+        // oxlint-disable-next-line typescript/no-explicit-any -- test mock
         initializeBroker: (async () => ({})) as any,
         readCodexVersion: () => "x",
       },
@@ -3033,7 +3033,7 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
     expect(__testing__.isPidAlive(process.pid)).toBe(true);
     expect(__testing__.isPidAlive(999999)).toBe(false);
     expect(__testing__.isPidAlive(0)).toBe(false);
-    // biome-ignore lint/suspicious/noExplicitAny: testing bad input
+    // oxlint-disable-next-line typescript/no-explicit-any -- testing bad input
     expect(__testing__.isPidAlive("not a number" as any)).toBe(false);
   });
 
@@ -3302,9 +3302,9 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
         },
         pollSocketReachable: async () => true,
         initializeBroker: async () => ({
-          // biome-ignore lint/suspicious/noExplicitAny: test mock
+          // oxlint-disable-next-line typescript/no-explicit-any -- test mock
           connection: { close: () => {} } as any,
-          // biome-ignore lint/suspicious/noExplicitAny: test mock
+          // oxlint-disable-next-line typescript/no-explicit-any -- test mock
           rpc: {} as any,
           initializeResult: {
             get codexHome() {
@@ -3342,9 +3342,9 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
         },
         pollSocketReachable: async () => true,
         initializeBroker: async () => ({
-          // biome-ignore lint/suspicious/noExplicitAny: test mock
+          // oxlint-disable-next-line typescript/no-explicit-any -- test mock
           connection: { close: () => {} } as any,
-          // biome-ignore lint/suspicious/noExplicitAny: test mock
+          // oxlint-disable-next-line typescript/no-explicit-any -- test mock
           rpc: {} as any,
           initializeResult: { codexHome: spawnedHome },
         }),
@@ -3409,7 +3409,7 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
         return false;
       },
     };
-    // biome-ignore lint/suspicious/noExplicitAny: mock connection shape
+    // oxlint-disable-next-line typescript/no-explicit-any -- mock connection shape
     const rpc = createRpcClient(mock as any, { defaultTimeoutMs: 1000 });
     const waiter = rpc.waitFor("turn/completed", (n) => (n.params as { threadId?: string })?.threadId === "T1", 1000);
     for (const cb of listeners.message)
@@ -3430,14 +3430,14 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
         return false;
       },
     };
-    // biome-ignore lint/suspicious/noExplicitAny: mock connection shape
+    // oxlint-disable-next-line typescript/no-explicit-any -- mock connection shape
     const rpc = createRpcClient(mock as any, { defaultTimeoutMs: 5000 });
     await expect(rpc.waitFor("turn/completed", null, 50)).rejects.toThrow(/waitFor.*timed out/);
   });
 
   it("ADR-093 M3 submitReview: happy path returns final agentMessage text", async () => {
     const { submitReview } = await import("../../scripts/lib/broker.mts");
-    // biome-ignore lint/suspicious/noExplicitAny: test mock
+    // oxlint-disable-next-line typescript/no-explicit-any -- test mock
     const mockRpc: any = {
       request: async (method: string) => {
         if (method === "thread/start") return { thread: { id: "T1" } };
@@ -3459,7 +3459,7 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
         },
       }),
     };
-    // biome-ignore lint/suspicious/noExplicitAny: test mock
+    // oxlint-disable-next-line typescript/no-explicit-any -- test mock
     const mockConn: any = { close: () => {}, on: () => {}, destroyed: false };
     const result = await submitReview({
       rpc: mockRpc,
@@ -3476,7 +3476,7 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
   it("ADR-093 M3 submitReview: throws code=timeout + sends turn/interrupt on waitFor timeout", async () => {
     const { submitReview } = await import("../../scripts/lib/broker.mts");
     const interruptCalls: Array<{ method: string; params: unknown }> = [];
-    // biome-ignore lint/suspicious/noExplicitAny: test mock
+    // oxlint-disable-next-line typescript/no-explicit-any -- test mock
     const mockRpc: any = {
       request: async (method: string, params: unknown) => {
         if (method === "thread/start") return { thread: { id: "T1" } };
@@ -3492,12 +3492,12 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
         // err.timeout marker, not regex on message. Mock fakes the
         // marker that the real waitFor attaches.
         const e = new Error("broker-rpc: waitFor(turn/completed) timed out after 50ms");
-        // biome-ignore lint/suspicious/noExplicitAny: structured marker
+        // oxlint-disable-next-line typescript/no-explicit-any -- structured marker
         (e as any).timeout = true;
         throw e;
       },
     };
-    // biome-ignore lint/suspicious/noExplicitAny: test mock
+    // oxlint-disable-next-line typescript/no-explicit-any -- test mock
     const mockConn: any = { close: () => {}, on: () => {}, destroyed: false };
     let caught: Error | null = null;
     try {
@@ -3513,7 +3513,7 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
     } catch (err) {
       caught = err as Error;
     }
-    // biome-ignore lint/suspicious/noExplicitAny: test mock
+    // oxlint-disable-next-line typescript/no-explicit-any -- test mock
     expect((caught as any)?.verdict).toBe("timeout");
     expect((caught as Error & { brokerFailure?: boolean })?.brokerFailure).toBe(true);
     expect(interruptCalls).toHaveLength(1);
@@ -3523,7 +3523,7 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
 
   it("ADR-093 M3 submitReview: throws code=error when turn.status is failed", async () => {
     const { submitReview } = await import("../../scripts/lib/broker.mts");
-    // biome-ignore lint/suspicious/noExplicitAny: test mock
+    // oxlint-disable-next-line typescript/no-explicit-any -- test mock
     const mockRpc: any = {
       request: async (method: string) => {
         if (method === "thread/start") return { thread: { id: "T1" } };
@@ -3538,7 +3538,7 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
         },
       }),
     };
-    // biome-ignore lint/suspicious/noExplicitAny: test mock
+    // oxlint-disable-next-line typescript/no-explicit-any -- test mock
     const mockConn: any = { close: () => {}, on: () => {}, destroyed: false };
     let caught: Error | null = null;
     try {
@@ -3553,7 +3553,7 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
     } catch (err) {
       caught = err as Error;
     }
-    // biome-ignore lint/suspicious/noExplicitAny: test mock
+    // oxlint-disable-next-line typescript/no-explicit-any -- test mock
     expect((caught as any)?.verdict).toBe("error");
     expect(caught?.message).toMatch(/quota/);
   });
@@ -3562,7 +3562,7 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
     const { submitReview } = await import("../../scripts/lib/broker.mts");
     let threadStartParams: unknown;
     let turnStartParams: unknown;
-    // biome-ignore lint/suspicious/noExplicitAny: test mock
+    // oxlint-disable-next-line typescript/no-explicit-any -- test mock
     const mockRpc: any = {
       request: async (method: string, params: unknown) => {
         if (method === "thread/start") {
@@ -3583,7 +3583,7 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
         },
       }),
     };
-    // biome-ignore lint/suspicious/noExplicitAny: test mock
+    // oxlint-disable-next-line typescript/no-explicit-any -- test mock
     const mockConn: any = { close: () => {}, on: () => {}, destroyed: false };
     await submitReview({
       rpc: mockRpc,
@@ -3606,7 +3606,7 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
 
   it("M3 hotfix: submitReview errors set err.verdict (hook reads .verdict, not .code)", async () => {
     const { submitReview } = await import("../../scripts/lib/broker.mts");
-    // biome-ignore lint/suspicious/noExplicitAny: test mock
+    // oxlint-disable-next-line typescript/no-explicit-any -- test mock
     const mockRpc: any = {
       request: async (method: string) => {
         if (method === "thread/start") return { thread: { id: "T1" } };
@@ -3618,7 +3618,7 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
         params: { threadId: "T1", turn: { id: "U1", status: "completed", items: [] } },
       }),
     };
-    // biome-ignore lint/suspicious/noExplicitAny: test mock
+    // oxlint-disable-next-line typescript/no-explicit-any -- test mock
     const mockConn: any = { close: () => {}, on: () => {}, destroyed: false };
     let caught: Error | null = null;
     try {
@@ -3633,10 +3633,10 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
     } catch (err) {
       caught = err as Error;
     }
-    // biome-ignore lint/suspicious/noExplicitAny: structured marker
+    // oxlint-disable-next-line typescript/no-explicit-any -- structured marker
     expect((caught as any)?.verdict).toBe("parse_failed");
     // The legacy `code` field is NOT set (hook reads .verdict only)
-    // biome-ignore lint/suspicious/noExplicitAny: structured marker
+    // oxlint-disable-next-line typescript/no-explicit-any -- structured marker
     expect((caught as any)?.code).toBeUndefined();
   });
 
@@ -3669,7 +3669,7 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
         return false;
       },
     };
-    // biome-ignore lint/suspicious/noExplicitAny: mock
+    // oxlint-disable-next-line typescript/no-explicit-any -- mock
     const rpc = createRpcClient(mock as any, { defaultTimeoutMs: 5000 });
     let caught: Error | null = null;
     try {
@@ -3677,7 +3677,7 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
     } catch (err) {
       caught = err as Error;
     }
-    // biome-ignore lint/suspicious/noExplicitAny: structured marker
+    // oxlint-disable-next-line typescript/no-explicit-any -- structured marker
     expect((caught as any)?.timeout).toBe(true);
   });
 
@@ -3692,7 +3692,7 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
         return false;
       },
     };
-    // biome-ignore lint/suspicious/noExplicitAny: mock
+    // oxlint-disable-next-line typescript/no-explicit-any -- mock
     const rpc = createRpcClient(mock as any, { defaultTimeoutMs: 5000 });
     const p = rpc.waitFor("turn/completed", null, 10000);
     // Simulate transport error WITHOUT a subsequent close
@@ -3818,7 +3818,7 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
 
   it("M4: submitReview thread_start failure sets err.brokerFailure (hook will fall back)", async () => {
     const { submitReview } = await import("../../scripts/lib/broker.mts");
-    // biome-ignore lint/suspicious/noExplicitAny: test mock
+    // oxlint-disable-next-line typescript/no-explicit-any -- test mock
     const mockRpc: any = {
       request: async (method: string) => {
         if (method === "thread/start")
@@ -3831,7 +3831,7 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
       },
       waitFor: async () => ({ method: "turn/completed", params: {} }),
     };
-    // biome-ignore lint/suspicious/noExplicitAny: test mock
+    // oxlint-disable-next-line typescript/no-explicit-any -- test mock
     const mockConn: any = { close: () => {}, on: () => {}, destroyed: false };
     let caught: Error | null = null;
     try {
@@ -3846,15 +3846,15 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
     } catch (err) {
       caught = err as Error;
     }
-    // biome-ignore lint/suspicious/noExplicitAny: structured marker
+    // oxlint-disable-next-line typescript/no-explicit-any -- structured marker
     expect((caught as any)?.brokerFailure).toBe(true);
-    // biome-ignore lint/suspicious/noExplicitAny: structured marker
+    // oxlint-disable-next-line typescript/no-explicit-any -- structured marker
     expect((caught as any)?.brokerPhase).toBe("thread_start");
   });
 
   it("M4: submitReview turn.status:failed does NOT set brokerFailure (real codex result, not broker outage)", async () => {
     const { submitReview } = await import("../../scripts/lib/broker.mts");
-    // biome-ignore lint/suspicious/noExplicitAny: test mock
+    // oxlint-disable-next-line typescript/no-explicit-any -- test mock
     const mockRpc: any = {
       request: async (method: string) => {
         if (method === "thread/start") return { thread: { id: "T1" } };
@@ -3866,7 +3866,7 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
         params: { threadId: "T1", turn: { id: "U1", status: "failed", error: { message: "model error" }, items: [] } },
       }),
     };
-    // biome-ignore lint/suspicious/noExplicitAny: test mock
+    // oxlint-disable-next-line typescript/no-explicit-any -- test mock
     const mockConn: any = { close: () => {}, on: () => {}, destroyed: false };
     let caught: Error | null = null;
     try {
@@ -3882,15 +3882,15 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
       caught = err as Error;
     }
     // turn.status:failed is a REAL codex result — must NOT fall back
-    // biome-ignore lint/suspicious/noExplicitAny: structured marker
+    // oxlint-disable-next-line typescript/no-explicit-any -- structured marker
     expect((caught as any)?.brokerFailure).toBeUndefined();
-    // biome-ignore lint/suspicious/noExplicitAny: structured marker
+    // oxlint-disable-next-line typescript/no-explicit-any -- structured marker
     expect((caught as any)?.verdict).toBe("error");
   });
 
   it("M4: submitReview missing-agentMessage sets brokerFailure (protocol-layer failure)", async () => {
     const { submitReview } = await import("../../scripts/lib/broker.mts");
-    // biome-ignore lint/suspicious/noExplicitAny: test mock
+    // oxlint-disable-next-line typescript/no-explicit-any -- test mock
     const mockRpc: any = {
       request: async (method: string) => {
         if (method === "thread/start") return { thread: { id: "T1" } };
@@ -3902,7 +3902,7 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
         params: { threadId: "T1", turn: { id: "U1", status: "completed", items: [] } },
       }),
     };
-    // biome-ignore lint/suspicious/noExplicitAny: test mock
+    // oxlint-disable-next-line typescript/no-explicit-any -- test mock
     const mockConn: any = { close: () => {}, on: () => {}, destroyed: false };
     let caught: Error | null = null;
     try {
@@ -3917,11 +3917,11 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
     } catch (err) {
       caught = err as Error;
     }
-    // biome-ignore lint/suspicious/noExplicitAny: structured marker
+    // oxlint-disable-next-line typescript/no-explicit-any -- structured marker
     expect((caught as any)?.brokerFailure).toBe(true);
-    // biome-ignore lint/suspicious/noExplicitAny: structured marker
+    // oxlint-disable-next-line typescript/no-explicit-any -- structured marker
     expect((caught as any)?.brokerPhase).toBe("protocol");
-    // biome-ignore lint/suspicious/noExplicitAny: structured marker
+    // oxlint-disable-next-line typescript/no-explicit-any -- structured marker
     expect((caught as any)?.verdict).toBe("parse_failed");
   });
 
@@ -3934,7 +3934,7 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
   // real verdicts and must NOT be tagged.
   it("Bug#6: submitReview tags brokerFailure on thread/start request timeout (post-handshake hang)", async () => {
     const { submitReview } = await import("../../scripts/lib/broker.mts");
-    // biome-ignore lint/suspicious/noExplicitAny: test mock
+    // oxlint-disable-next-line typescript/no-explicit-any -- test mock
     const mockRpc: any = {
       request: async (method: string) => {
         if (method === "thread/start") {
@@ -3945,7 +3945,7 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
       },
       waitFor: async () => ({ method: "turn/completed", params: {} }),
     };
-    // biome-ignore lint/suspicious/noExplicitAny: test mock
+    // oxlint-disable-next-line typescript/no-explicit-any -- test mock
     const mockConn: any = { close: () => {}, on: () => {}, destroyed: false };
     let caught: Error | null = null;
     try {
@@ -3960,15 +3960,15 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
     } catch (err) {
       caught = err as Error;
     }
-    // biome-ignore lint/suspicious/noExplicitAny: structured marker
+    // oxlint-disable-next-line typescript/no-explicit-any -- structured marker
     expect((caught as any)?.brokerFailure).toBe(true);
-    // biome-ignore lint/suspicious/noExplicitAny: structured marker
+    // oxlint-disable-next-line typescript/no-explicit-any -- structured marker
     expect((caught as any)?.brokerPhase).toBe("thread_start");
   });
 
   it("Bug#6: submitReview tags brokerFailure on turn/start request timeout (post-handshake hang)", async () => {
     const { submitReview } = await import("../../scripts/lib/broker.mts");
-    // biome-ignore lint/suspicious/noExplicitAny: test mock
+    // oxlint-disable-next-line typescript/no-explicit-any -- test mock
     const mockRpc: any = {
       request: async (method: string) => {
         if (method === "thread/start") return { thread: { id: "T1" } };
@@ -3979,7 +3979,7 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
       },
       waitFor: async () => ({ method: "turn/completed", params: {} }),
     };
-    // biome-ignore lint/suspicious/noExplicitAny: test mock
+    // oxlint-disable-next-line typescript/no-explicit-any -- test mock
     const mockConn: any = { close: () => {}, on: () => {}, destroyed: false };
     let caught: Error | null = null;
     try {
@@ -3994,21 +3994,21 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
     } catch (err) {
       caught = err as Error;
     }
-    // biome-ignore lint/suspicious/noExplicitAny: structured marker
+    // oxlint-disable-next-line typescript/no-explicit-any -- structured marker
     expect((caught as any)?.brokerFailure).toBe(true);
-    // biome-ignore lint/suspicious/noExplicitAny: structured marker
+    // oxlint-disable-next-line typescript/no-explicit-any -- structured marker
     expect((caught as any)?.brokerPhase).toBe("turn_start");
   });
 
   it("submitReview falls back on JSON-RPC invalid params", async () => {
     const { submitReview } = await import("../../scripts/lib/broker.mts");
-    // biome-ignore lint/suspicious/noExplicitAny: test mock
+    // oxlint-disable-next-line typescript/no-explicit-any -- test mock
     const mockRpc: any = {
       request: async (method: string) => {
         if (method === "thread/start") {
           // broker-rpc attaches err.code for real JSON-RPC error envelopes.
           const e = new Error("Invalid params");
-          // biome-ignore lint/suspicious/noExplicitAny: structured marker
+          // oxlint-disable-next-line typescript/no-explicit-any -- structured marker
           (e as any).code = -32602;
           throw e;
         }
@@ -4016,7 +4016,7 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
       },
       waitFor: async () => ({ method: "turn/completed", params: {} }),
     };
-    // biome-ignore lint/suspicious/noExplicitAny: test mock
+    // oxlint-disable-next-line typescript/no-explicit-any -- test mock
     const mockConn: any = { close: () => {}, on: () => {}, destroyed: false };
     let caught: Error | null = null;
     try {
@@ -4031,7 +4031,7 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
     } catch (err) {
       caught = err as Error;
     }
-    // biome-ignore lint/suspicious/noExplicitAny: structured marker
+    // oxlint-disable-next-line typescript/no-explicit-any -- structured marker
     expect((caught as any)?.brokerFailure).toBe(true);
   });
 
@@ -4042,12 +4042,12 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
     // a broker outage mid-session that must tag brokerFailure so the hook falls
     // back. Only a genuine JSON-RPC error response (NUMERIC .code) is a real
     // server-side verdict. So `err.code === undefined` is too narrow.
-    // biome-ignore lint/suspicious/noExplicitAny: test mock
+    // oxlint-disable-next-line typescript/no-explicit-any -- test mock
     const mockRpc: any = {
       request: async (method: string) => {
         if (method === "thread/start") {
           const e = new Error("read ECONNRESET");
-          // biome-ignore lint/suspicious/noExplicitAny: structured marker
+          // oxlint-disable-next-line typescript/no-explicit-any -- structured marker
           (e as any).code = "ECONNRESET";
           throw e;
         }
@@ -4055,7 +4055,7 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
       },
       waitFor: async () => ({ method: "turn/completed", params: {} }),
     };
-    // biome-ignore lint/suspicious/noExplicitAny: test mock
+    // oxlint-disable-next-line typescript/no-explicit-any -- test mock
     const mockConn: any = { close: () => {}, on: () => {}, destroyed: false };
     let caught: Error | null = null;
     try {
@@ -4070,9 +4070,9 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
     } catch (err) {
       caught = err as Error;
     }
-    // biome-ignore lint/suspicious/noExplicitAny: structured marker
+    // oxlint-disable-next-line typescript/no-explicit-any -- structured marker
     expect((caught as any)?.brokerFailure).toBe(true);
-    // biome-ignore lint/suspicious/noExplicitAny: structured marker
+    // oxlint-disable-next-line typescript/no-explicit-any -- structured marker
     expect((caught as any)?.brokerPhase).toBe("thread_start");
   });
 

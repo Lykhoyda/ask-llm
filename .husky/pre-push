@@ -1,3 +1,5 @@
+yarn lint
+
 echo "Running deterministic local harness smoke tests..."
 echo ""
 

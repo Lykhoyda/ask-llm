@@ -35,6 +35,7 @@ jobs:
       - run: yarn install --immutable
       - run: yarn build
       - run: yarn lint
+      - run: yarn format:check
       - run: yarn test
 
       # Preflight gate (ADR-107, rules extended by ADR-119): statically assert no

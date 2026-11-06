@@ -1,4 +1,4 @@
-// biome-ignore-all lint/style/noNonNullAssertion: tests mutate optional manifest fields they set just before
+/* oxlint-disable typescript/no-non-null-assertion -- tests mutate optional manifest fields they set just before */
 import assert from "node:assert/strict";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
