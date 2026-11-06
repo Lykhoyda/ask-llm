@@ -8,9 +8,9 @@ All workspace manifests were audited and the lockfile was re-resolved recursivel
 
 | Surface | Selected stable version |
 | --- | --- |
-| Yarn/Corepack package-manager pin | Yarn 4.18.0 (unchanged; current stable) |
+| Yarn/Corepack package-manager pin | Yarn 4.18.1 |
 | TypeScript / tsdown | TypeScript 7.0.2 / tsdown 0.22.14 (unchanged; current stable) |
-| Biome | 2.5.10 |
+| Oxfmt / Oxlint (replaced Biome 2.5.10) | 0.76.0 / 1.91.0 |
 | Vitest / tsx | 4.1.12 / 4.23.12 |
 | Changesets CLI / GitHub changelog | 3.0.1 / 1.0.0 |
 | MCP TypeScript SDK | 1.32.0 |
@@ -19,7 +19,7 @@ All workspace manifests were audited and the lockfile was re-resolved recursivel
 | Mermaid / VitePress | 11.17.0 / 1.6.4 |
 | MCP Registry publisher | 1.8.1, with the Linux amd64 archive SHA-256 pinned in `release.yml` |
 
-Vulnerable transitives resolve to fixed releases within their parents' declared ranges, including Hono 4.13.13, `@hono/node-server` 2.1.6, `body-parser` 2.4.0, `fast-uri` 3.1.9, `ip-address` 10.7.6, `lodash-es` 4.18.1, `nanoid` 3.3.20, `qs` 6.17.1, `tar` 7.5.22, Vue / `@vue/server-renderer` 3.5.45, Vitest's dev-server Vite 8.3.6, and `undici` 8.12.4 (the last via the root `resolutions` entry described below). The Oxc/Rolldown build chain resolves to `@oxc-project/types` 0.156.0 and Rolldown 1.2.16. Oxlint and Oxfmt are not repository tools: Biome remains the established lint/format contract, so adding parallel linters or formatters would be a migration rather than a dependency refresh.
+Vulnerable transitives resolve to fixed releases within their parents' declared ranges, including Hono 4.13.13, `@hono/node-server` 2.1.6, `body-parser` 2.4.0, `fast-uri` 3.1.9, `ip-address` 10.7.6, `lodash-es` 4.18.1, `nanoid` 3.3.20, `qs` 6.17.1, `tar` 7.5.22, Vue / `@vue/server-renderer` 3.5.45, Vitest's dev-server Vite 8.3.6, and `undici` 8.12.4 (the last via the root `resolutions` entry described below). The Oxc/Rolldown build chain resolves to `@oxc-project/types` 0.156.0 and Rolldown 1.2.16. Biome was later replaced by Oxfmt `^0.76.0` and Oxlint `^1.91.0` as the lint/format contract (with `tsc --noEmit` kept in every lint script); Oxfmt 0.77.0 and Oxlint 1.92.0 were still inside Yarn 4.18.1's default 24-hour `npmMinimalAgeGate` quarantine at migration time.
 
 Non-major release evidence was also reviewed before updating: [MCP SDK 1.30.0](https://github.com/modelcontextprotocol/typescript-sdk/releases/tag/1.30.0), [Biome 2.5.10](https://github.com/biomejs/biome/releases/tag/%40biomejs%2Fbiome%402.5.10), [Mermaid 11.17.0](https://github.com/mermaid-js/mermaid/releases/tag/mermaid%4011.17.0), [Zod 4.4](https://github.com/colinhacks/zod/releases/tag/v4.4.0), and [Pi 0.84.2](https://github.com/earendil-works/pi/releases/tag/v0.84.2). Biome's formatter/rule changes were applied to source instead of disabling new checks; MCP/Zod export and validation compatibility is covered by the complete build and test suite.
 

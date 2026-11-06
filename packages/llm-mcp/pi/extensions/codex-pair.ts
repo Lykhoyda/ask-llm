@@ -1,15 +1,6 @@
 import { createHash, randomUUID } from "node:crypto";
 import { existsSync } from "node:fs";
-import {
-  mkdir,
-  readFile,
-  readdir,
-  realpath,
-  rename,
-  stat,
-  unlink,
-  writeFile,
-} from "node:fs/promises";
+import { mkdir, readFile, readdir, realpath, rename, stat, unlink, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, isAbsolute, join, parse, resolve } from "node:path";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
@@ -37,11 +28,7 @@ import {
   tryAcquireInflightLock,
   writeAutoPause,
 } from "../../scripts/lib/state.mjs";
-import {
-  DEFAULT_SURFACE_THRESHOLD,
-  buildVerdictMessage,
-  parseConcerns,
-} from "../../scripts/lib/parser.mjs";
+import { DEFAULT_SURFACE_THRESHOLD, buildVerdictMessage, parseConcerns } from "../../scripts/lib/parser.mjs";
 
 const DEFAULT_DEBOUNCE_MS = 15_000;
 const DEFAULT_DEBOUNCE_MAX_MS = 60_000;
@@ -56,15 +43,7 @@ const CLAIM_SUFFIX = ".claim";
 const CLAIM_STALE_MS = 30_000;
 const PI_PENDING_DIR = "pi-pending";
 const PI_REVIEWED_DIR = "pi-reviewed";
-const SKIP_PARTS = [
-  "/.git/",
-  "/node_modules/",
-  "/dist/",
-  "/build/",
-  "/.next/",
-  "/coverage/",
-  "/.codex-pair/",
-];
+const SKIP_PARTS = ["/.git/", "/node_modules/", "/dist/", "/build/", "/.next/", "/coverage/", "/.codex-pair/"];
 const SKIP_SUFFIXES = [
   ".lock",
   ".snap",
@@ -317,11 +296,7 @@ function shouldSkip(path: string): boolean {
   );
 }
 
-function deleteScheduledIfOwned(
-  scheduled: Map<string, ScheduledReview>,
-  file: string,
-  generation: number,
-): boolean {
+function deleteScheduledIfOwned(scheduled: Map<string, ScheduledReview>, file: string, generation: number): boolean {
   if (scheduled.get(file)?.generation !== generation) return false;
   scheduled.delete(file);
   return true;
@@ -581,13 +556,7 @@ export function registerCodexPair(pi: ExtensionAPI): void {
     }
   };
 
-  const armReview = (
-    file: string,
-    work: ScheduledReview,
-    delay: number,
-    myEpoch: number,
-    ctx: ExtensionContext,
-  ) => {
+  const armReview = (file: string, work: ScheduledReview, delay: number, myEpoch: number, ctx: ExtensionContext) => {
     if (work.timer) clearTimeout(work.timer);
     work.timer = setTimeout(() => {
       work.timer = undefined;
@@ -605,8 +574,7 @@ export function registerCodexPair(pi: ExtensionAPI): void {
           writeAutoPause(work.markerDir, { kind: "quota", reason });
         } else {
           const failures = recordReviewFailure(work.markerDir, reason);
-          if (failures >= AUTOPAUSE_FAILURE_THRESHOLD)
-            writeAutoPause(work.markerDir, { kind: "failures", reason });
+          if (failures >= AUTOPAUSE_FAILURE_THRESHOLD) writeAutoPause(work.markerDir, { kind: "failures", reason });
         }
         notifyRefusal(ctx, `codex-pair review failed: ${reason}`);
       });
@@ -638,7 +606,11 @@ export function registerCodexPair(pi: ExtensionAPI): void {
     if (closed || myEpoch !== epoch) return;
     const work = scheduled.get(file);
     if (!work || work.generation !== generation) return;
-    if (!(await sessionOwnsProject(ctx, work.markerDir)) || !(await isAllowed(work.markerDir)) || (await pairIsPaused(work.markerDir)))
+    if (
+      !(await sessionOwnsProject(ctx, work.markerDir)) ||
+      !(await isAllowed(work.markerDir)) ||
+      (await pairIsPaused(work.markerDir))
+    )
       return;
 
     const { config, context } = await readConfig(work.markerDir);
@@ -649,8 +621,7 @@ export function registerCodexPair(pi: ExtensionAPI): void {
     );
     if (!lock.acquired) {
       work.firstAt = Date.now();
-      if (scheduled.get(file)?.generation === generation)
-        armReview(file, work, LOCK_CONTENTION_RETRY_MS, myEpoch, ctx);
+      if (scheduled.get(file)?.generation === generation) armReview(file, work, LOCK_CONTENTION_RETRY_MS, myEpoch, ctx);
       return;
     }
 
@@ -786,7 +757,10 @@ export function registerCodexPair(pi: ExtensionAPI): void {
       return;
     }
     if (!(await isAllowed(markerDir))) {
-      notifyRefusal(ctx, "codex-pair marker found, but this project is not in your Pi allowlist. Run /codex-pair to consent.");
+      notifyRefusal(
+        ctx,
+        "codex-pair marker found, but this project is not in your Pi allowlist. Run /codex-pair to consent.",
+      );
       return;
     }
     await schedule(file, markerDir, event.toolName, ctx);
@@ -822,7 +796,10 @@ export function registerCodexPair(pi: ExtensionAPI): void {
     handler: async (args, ctx) => {
       const markerDir = await findMarkerUp(ctx.cwd);
       if (!markerDir) {
-        notifyRefusal(ctx, "No .codex-pair/context.md marker found. Run /skill:ask-llm-codex-pair for setup instructions.");
+        notifyRefusal(
+          ctx,
+          "No .codex-pair/context.md marker found. Run /skill:ask-llm-codex-pair for setup instructions.",
+        );
         return;
       }
       if (args.trim() === "revoke") {
@@ -835,7 +812,10 @@ export function registerCodexPair(pi: ExtensionAPI): void {
         return;
       }
       if (await isAllowed(markerDir)) {
-        ctx.ui.notify(`codex-pair is allowed for ${markerDir}${(await pairIsPaused(markerDir)) ? " (paused)" : ""}`, "info");
+        ctx.ui.notify(
+          `codex-pair is allowed for ${markerDir}${(await pairIsPaused(markerDir)) ? " (paused)" : ""}`,
+          "info",
+        );
         return;
       }
       if (!ctx.hasUI) {
@@ -884,7 +864,10 @@ export function registerCodexPair(pi: ExtensionAPI): void {
       const markerDir = await findMarkerUp(ctx.cwd);
       if (!markerDir) return notifyRefusal(ctx, "No codex-pair marker found.");
       addAck(markerDir, match[1].toLowerCase(), { reason: match[2] });
-      ctx.ui.notify(`Acknowledged ${match[1].toLowerCase()} (suppresses that reminder; it does not block reviews).`, "info");
+      ctx.ui.notify(
+        `Acknowledged ${match[1].toLowerCase()} (suppresses that reminder; it does not block reviews).`,
+        "info",
+      );
     },
   });
 }

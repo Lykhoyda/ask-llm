@@ -2,13 +2,13 @@ import { defineConfig } from "tsdown";
 
 export default defineConfig({
   entry: {
-    "index": "src/index.ts",
-    "cli": "src/cli.ts",
-    "machine": "src/machine.ts",
-    "cursor": "src/cursorAgent.ts",
+    index: "src/index.ts",
+    cli: "src/cli.ts",
+    machine: "src/machine.ts",
+    cursor: "src/cursorAgent.ts",
     "ask-llm": "src/ask-llm.ts",
-    "plugin": "src/plugin.ts",
-    "run": "src/run.ts",
+    plugin: "src/plugin.ts",
+    run: "src/run.ts",
     "codex-run": "src/codex-run.ts",
     "grok-run": "src/grok-run.ts",
     "ollama-run": "src/ollama-run.ts",
@@ -25,8 +25,8 @@ export default defineConfig({
     "ollama-executor": "src/providers/ollama-executor.ts",
     "ollama-register": "src/providers/ollama-register.ts",
     "antigravity-executor": "src/providers/antigravity-executor.ts",
-    "antigravity-register": "src/providers/antigravity-register.ts"
-},
+    "antigravity-register": "src/providers/antigravity-register.ts",
+  },
   format: ["esm"],
   target: "node24",
   sourcemap: true,

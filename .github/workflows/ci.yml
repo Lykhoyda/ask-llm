@@ -31,6 +31,8 @@ jobs:
       run: yarn build
     - name: Lint
       run: yarn lint
+    - name: Format check
+      run: yarn format:check
     - name: Guard — bundled source changes must changeset the canonical MCP (ADR-119)
       if: github.event_name == 'pull_request'
       run: node scripts/check-shared-changeset.ts

@@ -112,7 +112,9 @@ describe("Pi provider tools", () => {
       usage: { provider: "grok", model: "grok-4.7-high", fellBack: false },
     });
     const controller = new AbortController();
-    const result = await (await harness())
+    const result = await (
+      await harness()
+    )
       .byName("ask-cursor-agent")
       .execute("call", { prompt: "review", provider: "grok", model: "grok-4.7-high" }, controller.signal);
 
@@ -141,7 +143,9 @@ describe("Pi provider tools", () => {
       return { text: "ok", structuredContent: { provider: "codex", response: "ok" } };
     });
     const controller = new AbortController();
-    const result = await (await harness())
+    const result = await (
+      await harness()
+    )
       .byName("ask-codex")
       .execute("call", { prompt: "review", sandbox: "read-only" }, controller.signal);
     expect(calls.codex).toHaveBeenCalledWith(

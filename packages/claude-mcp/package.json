@@ -28,7 +28,9 @@
     "start": "node dist/cli.js",
     "dev": "tsdown && node dist/cli.js",
     "test": "vitest run",
-    "lint": "biome check src/ && tsc --noEmit"
+    "lint": "oxfmt --check src/ && oxlint src/ && tsc --noEmit",
+    "format": "oxfmt src/",
+    "format:check": "oxfmt --check src/"
   },
   "keywords": [
     "mcp",
@@ -69,8 +71,9 @@
   },
   "devDependencies": {
     "@ask-llm/shared": "workspace:*",
-    "@biomejs/biome": "^2.5.10",
     "@types/node": "^24.13.6",
+    "oxfmt": "^0.76.0",
+    "oxlint": "^1.91.0",
     "tsdown": "^0.22.14",
     "typescript": "^7.0.2",
     "vitest": "^4.1.11"

@@ -1,0 +1,24 @@
+{
+  "$schema": "./node_modules/oxfmt/configuration_schema.json",
+  "useTabs": false,
+  "tabWidth": 2,
+  "printWidth": 120,
+  "singleQuote": false,
+  "jsxSingleQuote": false,
+  "quoteProps": "as-needed",
+  "trailingComma": "all",
+  "semi": true,
+  "arrowParens": "always",
+  "bracketSameLine": false,
+  "bracketSpacing": true,
+  "ignorePatterns": [
+    "packages/llm-mcp/scripts/benchmark/fixtures/**",
+    "packages/llm-mcp/scripts/**/*.mjs",
+    "**/*.md",
+    "**/*.json",
+    "**/*.yml",
+    "**/*.yaml",
+    "**/*.vue",
+    "**/*.css"
+  ]
+}

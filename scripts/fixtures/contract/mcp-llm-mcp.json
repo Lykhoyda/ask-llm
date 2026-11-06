@@ -24,7 +24,12 @@
         },
         "provider": {
           "description": "Canonical provider family of the selected Cursor model (claude, codex, gemini, grok); kept separate from the cursor-agent harness and verified against the requested and CLI-reported model ID.",
-          "enum": ["claude", "codex", "gemini", "grok"],
+          "enum": [
+            "claude",
+            "codex",
+            "gemini",
+            "grok"
+          ],
           "type": "string"
         },
         "sessionId": {
@@ -32,7 +37,11 @@
           "type": "string"
         }
       },
-      "required": ["provider", "model", "prompt"],
+      "required": [
+        "provider",
+        "model",
+        "prompt"
+      ],
       "type": "object"
     },
     "name": "ask-cursor-agent",
@@ -41,14 +50,25 @@
       "additionalProperties": false,
       "properties": {
         "harness": {
-          "enum": ["xai-api", "grok-cli", "cursor-agent"],
+          "enum": [
+            "xai-api",
+            "grok-cli",
+            "cursor-agent"
+          ],
           "type": "string"
         },
         "model": {
           "type": "string"
         },
         "provider": {
-          "enum": ["gemini", "codex", "claude", "grok", "ollama", "antigravity"],
+          "enum": [
+            "gemini",
+            "codex",
+            "claude",
+            "grok",
+            "ollama",
+            "antigravity"
+          ],
           "type": "string"
         },
         "reportedModel": {
@@ -82,18 +102,34 @@
               "type": "number"
             },
             "provider": {
-              "enum": ["gemini", "codex", "claude", "grok", "ollama", "antigravity"],
+              "enum": [
+                "gemini",
+                "codex",
+                "claude",
+                "grok",
+                "ollama",
+                "antigravity"
+              ],
               "type": "string"
             },
             "thinkingTokens": {
               "type": "number"
             }
           },
-          "required": ["provider", "model", "durationMs", "fellBack"],
+          "required": [
+            "provider",
+            "model",
+            "durationMs",
+            "fellBack"
+          ],
           "type": "object"
         }
       },
-      "required": ["provider", "response", "model"],
+      "required": [
+        "provider",
+        "response",
+        "model"
+      ],
       "type": "object"
     }
   },
@@ -103,7 +139,11 @@
       "properties": {
         "harness": {
           "description": "Execution harness, separate from provider/model. xai-api and grok-cli require provider=grok. Use ask-cursor-agent for Cursor's model-neutral harness. No harness fallback is attempted.",
-          "enum": ["provider-default", "xai-api", "grok-cli"],
+          "enum": [
+            "provider-default",
+            "xai-api",
+            "grok-cli"
+          ],
           "type": "string"
         },
         "includeDirs": {
@@ -130,17 +170,34 @@
         },
         "provider": {
           "description": "Which LLM provider to use. Available: \"gemini\" (Gemini, default model: gemini-3.1-pro-preview), \"codex\" (Codex, default model: gpt-6-astra), \"claude\" (Claude, default model: opus), \"grok\" (Grok, default model: grok-4.7), \"ollama\" (Ollama, default model: qwen3.8:27b), \"antigravity\" (Antigravity, default model: gemini-3.1-pro)",
-          "enum": ["gemini", "codex", "claude", "grok", "ollama", "antigravity"],
+          "enum": [
+            "gemini",
+            "codex",
+            "claude",
+            "grok",
+            "ollama",
+            "antigravity"
+          ],
           "type": "string"
         },
         "reasoningEffort": {
           "description": "Provider-native reasoning effort. Codex accepts low/medium/high/xhigh/max/ultra; Grok accepts low/medium/high/xhigh. Unsupported provider/effort combinations are rejected, never stripped.",
-          "enum": ["low", "medium", "high", "xhigh", "max", "ultra"],
+          "enum": [
+            "low",
+            "medium",
+            "high",
+            "xhigh",
+            "max",
+            "ultra"
+          ],
           "type": "string"
         },
         "sandbox": {
           "description": "Codex-only sandbox. Defaults to the executor's read-only review contract when omitted. Set workspace-write only for explicit write flows such as image generation. Unsupported on other providers; never silently stripped.",
-          "enum": ["read-only", "workspace-write"],
+          "enum": [
+            "read-only",
+            "workspace-write"
+          ],
           "type": "string"
         },
         "sessionId": {
@@ -148,7 +205,10 @@
           "type": "string"
         }
       },
-      "required": ["provider", "prompt"],
+      "required": [
+        "provider",
+        "prompt"
+      ],
       "type": "object"
     },
     "name": "ask-llm",
@@ -157,14 +217,25 @@
       "additionalProperties": false,
       "properties": {
         "harness": {
-          "enum": ["xai-api", "grok-cli", "cursor-agent"],
+          "enum": [
+            "xai-api",
+            "grok-cli",
+            "cursor-agent"
+          ],
           "type": "string"
         },
         "model": {
           "type": "string"
         },
         "provider": {
-          "enum": ["gemini", "codex", "claude", "grok", "ollama", "antigravity"],
+          "enum": [
+            "gemini",
+            "codex",
+            "claude",
+            "grok",
+            "ollama",
+            "antigravity"
+          ],
           "type": "string"
         },
         "reportedModel": {
@@ -198,18 +269,34 @@
               "type": "number"
             },
             "provider": {
-              "enum": ["gemini", "codex", "claude", "grok", "ollama", "antigravity"],
+              "enum": [
+                "gemini",
+                "codex",
+                "claude",
+                "grok",
+                "ollama",
+                "antigravity"
+              ],
               "type": "string"
             },
             "thinkingTokens": {
               "type": "number"
             }
           },
-          "required": ["provider", "model", "durationMs", "fellBack"],
+          "required": [
+            "provider",
+            "model",
+            "durationMs",
+            "fellBack"
+          ],
           "type": "object"
         }
       },
-      "required": ["provider", "response", "model"],
+      "required": [
+        "provider",
+        "response",
+        "model"
+      ],
       "type": "object"
     }
   },
@@ -238,11 +325,20 @@
                 "type": "string"
               },
               "status": {
-                "enum": ["pass", "warn", "fail", "skip"],
+                "enum": [
+                  "pass",
+                  "warn",
+                  "fail",
+                  "skip"
+                ],
                 "type": "string"
               }
             },
-            "required": ["name", "status", "message"],
+            "required": [
+              "name",
+              "status",
+              "message"
+            ],
             "type": "object"
           },
           "type": "array"
@@ -335,14 +431,23 @@
                           "type": "string"
                         },
                         "status": {
-                          "enum": ["pass", "warn", "fail", "skip"],
+                          "enum": [
+                            "pass",
+                            "warn",
+                            "fail",
+                            "skip"
+                          ],
                           "type": "string"
                         },
                         "summary": {
                           "type": "string"
                         }
                       },
-                      "required": ["name", "status", "summary"],
+                      "required": [
+                        "name",
+                        "status",
+                        "summary"
+                      ],
                       "type": "object"
                     },
                     "type": "array"
@@ -351,11 +456,19 @@
                     "type": "string"
                   },
                   "overall": {
-                    "enum": ["ok", "warning", "error"],
+                    "enum": [
+                      "ok",
+                      "warning",
+                      "error"
+                    ],
                     "type": "string"
                   }
                 },
-                "required": ["heading", "overall", "checks"],
+                "required": [
+                  "heading",
+                  "overall",
+                  "checks"
+                ],
                 "type": "object"
               },
               "error": {
@@ -368,37 +481,75 @@
                 "additionalProperties": false,
                 "properties": {
                   "authenticated": {
-                    "enum": ["yes", "no", "unknown", "not-required"],
+                    "enum": [
+                      "yes",
+                      "no",
+                      "unknown",
+                      "not-required"
+                    ],
                     "type": "string"
                   },
                   "exercised": {
-                    "enum": ["yes", "no", "not-run"],
+                    "enum": [
+                      "yes",
+                      "no",
+                      "not-run"
+                    ],
                     "type": "string"
                   },
                   "installed": {
-                    "enum": ["yes", "no", "unknown", "not-required"],
+                    "enum": [
+                      "yes",
+                      "no",
+                      "unknown",
+                      "not-required"
+                    ],
                     "type": "string"
                   },
                   "permitted": {
-                    "enum": ["yes", "no", "unknown", "not-required"],
+                    "enum": [
+                      "yes",
+                      "no",
+                      "unknown",
+                      "not-required"
+                    ],
                     "type": "string"
                   }
                 },
-                "required": ["installed", "authenticated", "permitted", "exercised"],
+                "required": [
+                  "installed",
+                  "authenticated",
+                  "permitted",
+                  "exercised"
+                ],
                 "type": "object"
               }
             },
-            "required": ["name", "command", "available"],
+            "required": [
+              "name",
+              "command",
+              "available"
+            ],
             "type": "object"
           },
           "type": "array"
         },
         "status": {
-          "enum": ["ok", "warning", "error"],
+          "enum": [
+            "ok",
+            "warning",
+            "error"
+          ],
           "type": "string"
         }
       },
-      "required": ["status", "generatedAt", "environment", "providers", "checks"],
+      "required": [
+        "status",
+        "generatedAt",
+        "environment",
+        "providers",
+        "checks"
+      ],
       "type": "object"
     }
   },
@@ -546,14 +697,23 @@
         "providers": {
           "description": "Which providers to dispatch to. Available: gemini, codex, claude, grok, ollama, antigravity. Defaults to all available providers.",
           "items": {
-            "enum": ["gemini", "codex", "claude", "grok", "ollama", "antigravity"],
+            "enum": [
+              "gemini",
+              "codex",
+              "claude",
+              "grok",
+              "ollama",
+              "antigravity"
+            ],
             "type": "string"
           },
           "minItems": 1,
           "type": "array"
         }
       },
-      "required": ["prompt"],
+      "required": [
+        "prompt"
+      ],
       "type": "object"
     },
     "name": "multi-llm",
@@ -614,18 +774,34 @@
                     "type": "number"
                   },
                   "provider": {
-                    "enum": ["gemini", "codex", "claude", "grok", "ollama", "antigravity"],
+                    "enum": [
+                      "gemini",
+                      "codex",
+                      "claude",
+                      "grok",
+                      "ollama",
+                      "antigravity"
+                    ],
                     "type": "string"
                   },
                   "thinkingTokens": {
                     "type": "number"
                   }
                 },
-                "required": ["provider", "model", "durationMs", "fellBack"],
+                "required": [
+                  "provider",
+                  "model",
+                  "durationMs",
+                  "fellBack"
+                ],
                 "type": "object"
               }
             },
-            "required": ["provider", "ok", "durationMs"],
+            "required": [
+              "provider",
+              "ok",
+              "durationMs"
+            ],
             "type": "object"
           },
           "type": "array"
@@ -637,7 +813,13 @@
           "type": "number"
         }
       },
-      "required": ["dispatchedAt", "totalDurationMs", "successCount", "failureCount", "results"],
+      "required": [
+        "dispatchedAt",
+        "totalDurationMs",
+        "successCount",
+        "failureCount",
+        "results"
+      ],
       "type": "object"
     }
   },

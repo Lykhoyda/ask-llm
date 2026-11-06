@@ -1,3 +1,3 @@
-# Force LF in every working tree: biome formats for LF, so a CRLF checkout
+# Force LF in every working tree: oxfmt formats for LF, so a CRLF checkout
 # fails lint on every file. Git still auto-detects binaries via text=auto.
 * text=auto eol=lf
