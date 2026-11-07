@@ -3,7 +3,7 @@ import { ANTIGRAVITY, CLI, ERROR_MESSAGES, MODELS, OUTPUT_FORMATS, READ_ONLY_PRE
 import { assertSupportedAgyVersion, isVersionAtLeast } from "./agyVersion.js";
 
 export { assessAgyVersion, isVersionAtLeast, probeAgySupport } from "./agyVersion.js";
-export const DOCTOR_QUOTA_MIN_VERSION = ANTIGRAVITY.DOCTOR_QUOTA_MIN_VERSION;
+export const DOCTOR_QUOTA_MIN_VERSION = ANTIGRAVITY.QUOTA_COMMAND_MIN_VERSION;
 
 export interface AntigravityExecutorOptions {
   prompt: string;
@@ -153,7 +153,7 @@ function parseStdoutJson(raw: string): StdoutParse {
 }
 
 // Sandboxed /quota answered without a turn or quota use on agy 1.2.13 (https://github.com/Lykhoyda/ask-llm/pull/366).
-// Callers own their version gate; the rate-limit path retains its historical minimum.
+// Both doctor --live and rate-limit recovery gate on QUOTA_COMMAND_MIN_VERSION (>=1.2.13).
 export async function probeAntigravityQuota(signal?: AbortSignal): Promise<string> {
   const args = [
     CLI.FLAGS.PRINT,

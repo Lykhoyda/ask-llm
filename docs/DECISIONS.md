@@ -1,5 +1,15 @@
 # Architectural Decisions
 
+## ADR-191: Gate the Antigravity rate-limit quota probe on agy 1.2.13 or newer
+
+**Status:** Accepted (2026-11-06). Closes the version-gate follow-up in ADR-186; supersedes the 1.1.11 rate-limit quota floor in ADR-178.
+
+**Context:** ADR-186 gated `ask-llm doctor --live` quota diagnostics on agy 1.2.13 or newer because [the sandboxed `/quota` evidence](https://github.com/Lykhoyda/ask-llm/pull/366) verified `num_turns: 0` and zero token usage under `--sandbox` on 1.2.13, leaving 1.1.11–1.2.12 unverified with `--sandbox`. The executor's rate-limit recovery path still gated `describeQuota()` on `QUOTA_COMMAND_MIN_VERSION = "1.1.11"`.
+
+**Decision:** Raise `ANTIGRAVITY.QUOTA_COMMAND_MIN_VERSION` to `"1.2.13"` and derive `DOCTOR_QUOTA_MIN_VERSION` from it so both `ask-llm doctor --live` and rate-limit recovery share one verified floor. Older or unparseable versions never spawn `/quota`; `executeAntigravityCLI` still rejects unsupported (`<1.1.5`) or unparseable `agy --version` output before model execution, keeps its unisolated-execution refusal and warning, runs `/quota` unconditionally with `--sandbox` and a five-second timeout, and falls back to the plain `RATE_LIMITED` message when `/quota` is skipped, fails, times out, truncates, or returns unrecognized rows.
+
+**Consequences:** Antigravity installations on 1.1.11–1.2.12 receive the plain `RATE_LIMITED` error without a `/quota` subprocess when both model tiers are rate limited. Model/effort enumeration under #268 and hard isolation under #283 remain separate follow-up work.
+
 ## ADR-190: Replace Biome with oxfmt and oxlint
 
 **Status:** Accepted (2026-11-06). Supersedes ADR-010.
@@ -42,7 +52,7 @@
 
 ## ADR-186: Doctor gates sandboxed Antigravity quota diagnostics on agy 1.2.13 or newer
 
-**Status:** Accepted (2026-10-13). Addresses slice 1 of #268; extends ADR-178 and ADR-179.
+**Status:** Accepted (2026-10-13). Addresses slice 1 of #268; extends ADR-178 and ADR-179. Its rate-limit `QUOTA_COMMAND_MIN_VERSION` follow-up is closed by ADR-191.
 
 **Context:** [The sandbox-probe evidence](https://github.com/Lykhoyda/ask-llm/pull/366) records `agy -p /quota --output-format json --sandbox` exiting 0 on agy 1.2.13 with `num_turns: 0` and zero token usage. It explicitly leaves the sandboxed probe unverified on 1.1.11–1.2.12. The earlier 1.2.12 no-turn capture omitted `--sandbox`, so it does not establish doctor eligibility.
 
@@ -153,7 +163,7 @@ Afterwards `npm view <package> deprecated` prints the message for each of the se
 
 ## ADR-178: Antigravity adopts live agy 1.2.12 evidence (fallback model, AGY_ERROR, quota)
 
-**Status:** Accepted (2026-09-27). Supersedes the antigravity half of ADR-125/137/155's `gemini-3.5-flash` fallback pin.
+**Status:** Accepted (2026-09-27). Supersedes the antigravity half of ADR-125/137/155's `gemini-3.5-flash` fallback pin. Superseded by ADR-191 for the 1.1.11 rate-limit quota floor.
 
 **Context:** Live agy 1.2.12 rejects the shipped rate-limit fallback: `--model gemini-3.5-flash` fails with `invalid model selection … is not recognized as a known model`, so a rate limit fell into model-unavailable recovery instead of a Flash retry. `agy models` lists only tiered ids (`gemini-3.8-flash-high|medium|low`, `gemini-3.7-…`, `gemini-3.6-…`, `gemini-3.1-pro-high|low`). A tiered id conflicts with any other effort (`--model gemini-3.8-flash-high --effort low` → `conflicts with --effort=low`), while the base slug works with every tier (`gemini-3.8-flash --effort low|medium|high` all answered live) and fails without one (`requires --effort`), the same form as the shipped default `gemini-3.1-pro`.
 

@@ -23,6 +23,7 @@ import { executeCommand, Logger } from "@ask-llm/shared";
 import { assertSupportedAgyVersion } from "../agyVersion.js";
 import {
   buildArgs,
+  DOCTOR_QUOTA_MIN_VERSION,
   executeAntigravityCLI,
   findAgyErrorLine,
   isModelUnavailableError,
@@ -279,6 +280,11 @@ describe("minimum version pin", () => {
   it("gates the exit-0 print-timeout truncation contract at agy 1.1.28", () => {
     expect(ANTIGRAVITY.PRINT_TIMEOUT_SUCCESS_TRUNCATION_MIN_VERSION).toBe("1.1.28");
   });
+
+  it("shares the verified 1.2.13 sandboxed /quota floor between rate-limit recovery and doctor", () => {
+    expect(ANTIGRAVITY.QUOTA_COMMAND_MIN_VERSION).toBe("1.2.13");
+    expect(DOCTOR_QUOTA_MIN_VERSION).toBe(ANTIGRAVITY.QUOTA_COMMAND_MIN_VERSION);
+  });
 });
 
 describe("executeAntigravityCLI argument wiring", () => {
@@ -460,6 +466,115 @@ describe("executeAntigravityCLI rate-limit fallback", () => {
       .mockRejectedValueOnce(new Error("RESOURCE_EXHAUSTED"))
       .mockRejectedValueOnce(new Error("agy crashed during fallback"));
     await expect(executeAntigravityCLI({ prompt: "q" })).rejects.toThrow("agy crashed during fallback");
+  });
+
+  const quotaEnvelope = JSON.stringify({
+    conversation_id: "",
+    status: "SUCCESS",
+    response: "Gemini Models\tFive Hour Limit Remaining\t0%\t2026-09-27T20:10:40Z\n",
+    duration_seconds: 0,
+    num_turns: 0,
+    usage: { input_tokens: 0, output_tokens: 0, thinking_tokens: 0, cache_read_tokens: 0, total_tokens: 0 },
+  });
+
+  it.each(["1.2.13", "1.2.14", "2.0.0"])(
+    "runs the sandboxed /quota probe on agy %s even when review sandboxing is disabled",
+    async (version) => {
+      mockAssertSupportedAgyVersion.mockResolvedValue(version);
+      process.env[ANTIGRAVITY.SANDBOX_ENV_VAR] = "0";
+      mockExec
+        .mockRejectedValueOnce(new Error("429 too many requests"))
+        .mockRejectedValueOnce(new Error("429 too many requests"))
+        .mockResolvedValueOnce(quotaEnvelope);
+
+      const error = await executeAntigravityCLI({ prompt: "q", includeDirs: ["/pkg/a"], readOnly: true }).catch(
+        (err: unknown) => err,
+      );
+      expect(error).toBeInstanceOf(Error);
+      expect((error as Error).message).toBe(
+        `${ERROR_MESSAGES.RATE_LIMITED} Current agy quota: Gemini Models Five Hour Limit Remaining: 0% (resets 2026-09-27T20:10:40Z)`,
+      );
+      expect(Logger.warn).toHaveBeenCalledWith(expect.stringContaining("read-only isolation is not guaranteed"));
+      expect(Logger.warn).toHaveBeenCalledWith(
+        `Antigravity rate limited on "${MODELS.DEFAULT}". Falling back to "${MODELS.FALLBACK}".`,
+      );
+      expect(mockExec).toHaveBeenCalledTimes(3);
+      expect(mockExec.mock.calls[2]).toEqual([
+        CLI.COMMANDS.AGY,
+        ["-p", "/quota", "--output-format", "json", "--sandbox"],
+        undefined,
+        undefined,
+        undefined,
+        ANTIGRAVITY.VERSION_CHECK_TIMEOUT_MS,
+        undefined,
+        undefined,
+      ]);
+    },
+  );
+
+  it("appends /quota diagnostics on agy 1.2.13 when the primary model is already the fallback", async () => {
+    mockAssertSupportedAgyVersion.mockResolvedValue("1.2.13");
+    process.env[ANTIGRAVITY.MODEL_ENV_VAR] = MODELS.FALLBACK;
+    mockExec.mockRejectedValueOnce(new Error("rate limit")).mockResolvedValueOnce(quotaEnvelope);
+
+    await expect(executeAntigravityCLI({ prompt: "q" })).rejects.toThrow(
+      `${ERROR_MESSAGES.RATE_LIMITED} Current agy quota: Gemini Models Five Hour Limit Remaining: 0% (resets 2026-09-27T20:10:40Z)`,
+    );
+    expect(mockExec).toHaveBeenCalledTimes(2);
+    expect(mockExec.mock.calls[1][1]).toEqual(["-p", "/quota", "--output-format", "json", "--sandbox"]);
+  });
+
+  it("appends /quota diagnostics on agy 1.2.13 when a model-less retry hits a rate limit", async () => {
+    mockAssertSupportedAgyVersion.mockResolvedValue("1.2.13");
+    mockExec
+      .mockRejectedValueOnce(unknownModelError(MODELS.DEFAULT))
+      .mockRejectedValueOnce(new Error("429"))
+      .mockResolvedValueOnce(quotaEnvelope);
+
+    await expect(executeAntigravityCLI({ prompt: "q" })).rejects.toThrow(
+      `${ERROR_MESSAGES.RATE_LIMITED} Current agy quota: Gemini Models Five Hour Limit Remaining: 0% (resets 2026-09-27T20:10:40Z)`,
+    );
+    expect(mockExec).toHaveBeenCalledTimes(3);
+    expect(mockExec.mock.calls[2][1]).toEqual(["-p", "/quota", "--output-format", "json", "--sandbox"]);
+  });
+
+  it.each(["1.1.5", "1.1.11", "1.2.11", "1.2.12", "1.2.13-beta.1", "unparseable", ""])(
+    "refuses the /quota probe on %j and preserves the plain rate-limit error",
+    async (version) => {
+      mockAssertSupportedAgyVersion.mockResolvedValue(version);
+      mockExec.mockRejectedValue(new Error("429 too many requests"));
+
+      const error = await executeAntigravityCLI({ prompt: "q" }).catch((err: unknown) => err);
+      expect(error).toBeInstanceOf(Error);
+      expect((error as Error).message).toBe(ERROR_MESSAGES.RATE_LIMITED);
+      expect(Logger.warn).toHaveBeenCalledWith(expect.stringContaining("read-only isolation is not guaranteed"));
+      expect(mockExec).toHaveBeenCalledTimes(2);
+      expect(mockExec.mock.calls.every(([, args]) => !args.includes("/quota"))).toBe(true);
+    },
+  );
+
+  it.each([
+    ["plain text", "Gemini Models: 0%"],
+    ["empty envelope", JSON.stringify({ status: "SUCCESS", response: "" })],
+    [
+      "truncated envelope",
+      JSON.stringify({
+        status: "TIMEOUT",
+        truncated: true,
+        response: "Gemini Models\tFive Hour Limit Remaining\t0%\t2026-09-27T20:10:40Z\n",
+      }),
+    ],
+    ["unrecognized rows", JSON.stringify({ status: "SUCCESS", response: "unexpected\tcolumns\n" })],
+  ])("drops %s /quota output and keeps the plain rate-limit error", async (_kind, probeStdout) => {
+    mockAssertSupportedAgyVersion.mockResolvedValue("1.2.13");
+    mockExec
+      .mockRejectedValueOnce(new Error("429 too many requests"))
+      .mockRejectedValueOnce(new Error("429 too many requests"))
+      .mockResolvedValueOnce(probeStdout);
+
+    const error = await executeAntigravityCLI({ prompt: "q" }).catch((err: unknown) => err);
+    expect(error).toBeInstanceOf(Error);
+    expect((error as Error).message).toBe(ERROR_MESSAGES.RATE_LIMITED);
   });
 });
 
@@ -901,7 +1016,7 @@ describe("AGY_ERROR stderr line (#335)", () => {
   });
 
   it("propagates a cancellation during the /quota probe instead of reporting a rate limit", async () => {
-    mockAssertSupportedAgyVersion.mockResolvedValue("1.2.12");
+    mockAssertSupportedAgyVersion.mockResolvedValue(ANTIGRAVITY.QUOTA_COMMAND_MIN_VERSION);
     const controller = new AbortController();
     const cancelled = new Error("Provider command cancelled");
     mockExec
