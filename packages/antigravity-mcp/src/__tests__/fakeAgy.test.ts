@@ -50,7 +50,8 @@ describe("fake agy 1.2.12", { timeout: 30_000 }, () => {
     writeFileSync(join(dir, name, "stderr.txt"), stderr);
     writeFileSync(join(dir, name, "exit.txt"), String(exit));
   };
-  const installFakeAgy = (primary: Scenario, fallback: Scenario = primary, quota?: Scenario) => {
+  const installFakeAgy = (primary: Scenario, fallback: Scenario = primary, quota?: Scenario, version = "1.2.12") => {
+    writeFileSync(join(dir, "version.txt"), `${version}\n`);
     writeScenario("primary", primary);
     writeScenario("fallback", fallback);
     writeScenario("quota", quota ?? { stdout: "", stderr: "unexpected /quota call", exit: 1 });
@@ -68,9 +69,10 @@ describe("fake agy 1.2.12", { timeout: 30_000 }, () => {
       vi.stubEnv(key, undefined);
     }
     dir = mkdtempSync(join(tmpdir(), "fake-agy-"));
+    writeFileSync(join(dir, "version.txt"), "1.2.12\n");
     const script = [
       "#!/bin/sh",
-      'if [ "$1" = "--version" ]; then echo 1.2.12; exit 0; fi',
+      `if [ "$1" = "--version" ]; then cat '${join(dir, "version.txt")}'; exit 0; fi`,
       `d='${join(dir, "primary")}'`,
       `for a; do case "$a" in ${MODELS.FALLBACK}) d='${join(dir, "fallback")}';; /quota) d='${join(dir, "quota")}';; esac; done`,
       'printf "%s\\n" "$@" > "$d/argv.txt"',
@@ -201,20 +203,45 @@ describe("fake agy 1.2.12", { timeout: 30_000 }, () => {
       stderr: "",
     };
 
-    it("appends agy's live quota and reset times when primary and Flash are both rate limited", async () => {
-      installFakeAgy(rateLimited, rateLimited, quota);
-      const error = await executeAntigravityCLI({ prompt: "q" }).catch((err: unknown) => err);
-      expect((error as Error).message.startsWith(ERROR_MESSAGES.RATE_LIMITED)).toBe(true);
-      expect((error as Error).message).toContain(
-        "Gemini Models Five Hour Limit Remaining: 0% (resets 2026-09-27T20:10:40Z)",
-      );
-      // Live on agy 1.2.13: --sandbox still answers /quota with num_turns 0.
-      expect(argvOf("quota")).toEqual(["-p", "/quota", "--output-format", "json", "--sandbox"]);
-    });
+    it.each(["1.2.13", "1.2.14"])(
+      "appends agy's live quota and reset times on agy %s when primary and Flash are both rate limited",
+      async (version) => {
+        installFakeAgy(rateLimited, rateLimited, quota, version);
+        const error = await executeAntigravityCLI({ prompt: "q" }).catch((err: unknown) => err);
+        expect((error as Error).message.startsWith(ERROR_MESSAGES.RATE_LIMITED)).toBe(true);
+        expect((error as Error).message).toContain(
+          "Gemini Models Five Hour Limit Remaining: 0% (resets 2026-09-27T20:10:40Z)",
+        );
+        // Live on agy 1.2.13: --sandbox still answers /quota with num_turns 0.
+        expect(argvOf("quota")).toEqual(["-p", "/quota", "--output-format", "json", "--sandbox"]);
+      },
+    );
+
+    it.each(["1.1.11", "1.2.11", "1.2.12"])(
+      "skips the /quota probe below 1.2.13 (%s) and keeps the plain rate-limit message",
+      async (version) => {
+        installFakeAgy(rateLimited, rateLimited, quota, version);
+        const error = await executeAntigravityCLI({ prompt: "q" }).catch((err: unknown) => err);
+        expect((error as Error).message).toBe(ERROR_MESSAGES.RATE_LIMITED);
+        expect(existsSync(join(dir, "quota", "argv.txt"))).toBe(false);
+      },
+    );
+
+    it.each(["1.1.4", "Antigravity development build"])(
+      "refuses unsupported or unparseable version %j before model or /quota execution",
+      async (version) => {
+        installFakeAgy(rateLimited, rateLimited, quota, version);
+        await expect(executeAntigravityCLI({ prompt: "q" })).rejects.toThrow(/Update Antigravity CLI/);
+        expect(existsSync(join(dir, "primary", "argv.txt"))).toBe(false);
+        expect(existsSync(join(dir, "quota", "argv.txt"))).toBe(false);
+      },
+    );
 
     it("keeps the plain rate-limit message when the quota probe fails", async () => {
-      installFakeAgy(rateLimited, rateLimited);
-      await expect(executeAntigravityCLI({ prompt: "q" })).rejects.toThrow(ERROR_MESSAGES.RATE_LIMITED);
+      installFakeAgy(rateLimited, rateLimited, undefined, "1.2.13");
+      const error = await executeAntigravityCLI({ prompt: "q" }).catch((err: unknown) => err);
+      expect((error as Error).message).toBe(ERROR_MESSAGES.RATE_LIMITED);
+      expect(existsSync(join(dir, "quota", "argv.txt"))).toBe(true);
     });
   });
 });

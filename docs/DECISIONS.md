@@ -1,5 +1,15 @@
 # Architectural Decisions
 
+## ADR-191: Gate the Antigravity rate-limit quota probe on agy 1.2.13 or newer
+
+**Status:** Accepted (2026-11-06). Closes the version-gate follow-up in ADR-186; supersedes the 1.1.11 rate-limit quota floor in ADR-178.
+
+**Context:** ADR-186 gated `ask-llm doctor --live` quota diagnostics on agy 1.2.13 or newer because [the sandboxed `/quota` evidence](https://github.com/Lykhoyda/ask-llm/pull/366) verified `num_turns: 0` and zero token usage under `--sandbox` on 1.2.13, leaving 1.1.11–1.2.12 unverified with `--sandbox`. The executor's rate-limit recovery path still gated `describeQuota()` on `QUOTA_COMMAND_MIN_VERSION = "1.1.11"`.
+
+**Decision:** Raise `ANTIGRAVITY.QUOTA_COMMAND_MIN_VERSION` to `"1.2.13"` and derive `DOCTOR_QUOTA_MIN_VERSION` from it so both `ask-llm doctor --live` and rate-limit recovery share one verified floor. Older or unparseable versions never spawn `/quota`; `executeAntigravityCLI` still rejects unsupported (`<1.1.5`) or unparseable `agy --version` output before model execution, keeps its unisolated-execution refusal and warning, runs `/quota` unconditionally with `--sandbox` and a five-second timeout, and falls back to the plain `RATE_LIMITED` message when `/quota` is skipped, fails, times out, truncates, or returns unrecognized rows.
+
+**Consequences:** Antigravity installations on 1.1.11–1.2.12 receive the plain `RATE_LIMITED` error without a `/quota` subprocess when both model tiers are rate limited. Model/effort enumeration under #268 and hard isolation under #283 remain separate follow-up work.
+
 ## ADR-190: Replace Biome with oxfmt and oxlint
 
 **Status:** Accepted (2026-11-06). Supersedes ADR-010.
