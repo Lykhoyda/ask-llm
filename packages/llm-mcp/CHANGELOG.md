@@ -1,5 +1,13 @@
 # @ask-llm/mcp
 
+## 1.3.1
+
+### Patch Changes
+
+- [#416](https://github.com/Lykhoyda/ask-llm/pull/416) [`91f7b46`](https://github.com/Lykhoyda/ask-llm/commit/91f7b46184d3025061ba44f26350c4dfe416d109) Thanks [@Lykhoyda](https://github.com/Lykhoyda)! - Gate Antigravity's rate-limit `/quota` probe on agy 1.2.13 or newer, sharing the verified sandboxed no-turn floor used by `ask-llm doctor --live`.
+
+- [#411](https://github.com/Lykhoyda/ask-llm/pull/411) [`b8b30a3`](https://github.com/Lykhoyda/ask-llm/commit/b8b30a3ad77d9cf2d706249e161edcd2343c7899) Thanks [@Lykhoyda](https://github.com/Lykhoyda)! - Parse Gemini change-mode edits in linear time, so crafted model output can no longer stall the server with quadratic regex backtracking, and quote Windows arguments with complete backslash escaping.
+
 ## 1.3.0
 
 ### Minor Changes
