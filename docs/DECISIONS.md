@@ -52,7 +52,7 @@
 
 ## ADR-186: Doctor gates sandboxed Antigravity quota diagnostics on agy 1.2.13 or newer
 
-**Status:** Accepted (2026-10-13). Addresses slice 1 of #268; extends ADR-178 and ADR-179.
+**Status:** Accepted (2026-10-13). Addresses slice 1 of #268; extends ADR-178 and ADR-179. Its rate-limit `QUOTA_COMMAND_MIN_VERSION` follow-up is closed by ADR-191.
 
 **Context:** [The sandbox-probe evidence](https://github.com/Lykhoyda/ask-llm/pull/366) records `agy -p /quota --output-format json --sandbox` exiting 0 on agy 1.2.13 with `num_turns: 0` and zero token usage. It explicitly leaves the sandboxed probe unverified on 1.1.11–1.2.12. The earlier 1.2.12 no-turn capture omitted `--sandbox`, so it does not establish doctor eligibility.
 
@@ -163,7 +163,7 @@ Afterwards `npm view <package> deprecated` prints the message for each of the se
 
 ## ADR-178: Antigravity adopts live agy 1.2.12 evidence (fallback model, AGY_ERROR, quota)
 
-**Status:** Accepted (2026-09-27). Supersedes the antigravity half of ADR-125/137/155's `gemini-3.5-flash` fallback pin.
+**Status:** Accepted (2026-09-27). Supersedes the antigravity half of ADR-125/137/155's `gemini-3.5-flash` fallback pin. Superseded by ADR-191 for the 1.1.11 rate-limit quota floor.
 
 **Context:** Live agy 1.2.12 rejects the shipped rate-limit fallback: `--model gemini-3.5-flash` fails with `invalid model selection … is not recognized as a known model`, so a rate limit fell into model-unavailable recovery instead of a Flash retry. `agy models` lists only tiered ids (`gemini-3.8-flash-high|medium|low`, `gemini-3.7-…`, `gemini-3.6-…`, `gemini-3.1-pro-high|low`). A tiered id conflicts with any other effort (`--model gemini-3.8-flash-high --effort low` → `conflicts with --effort=low`), while the base slug works with every tier (`gemini-3.8-flash --effort low|medium|high` all answered live) and fails without one (`requires --effort`), the same form as the shipped default `gemini-3.1-pro`.
 
