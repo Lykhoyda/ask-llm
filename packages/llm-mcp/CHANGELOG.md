@@ -1,5 +1,13 @@
 # @ask-llm/mcp
 
+## 1.3.2
+
+### Patch Changes
+
+- [#420](https://github.com/Lykhoyda/ask-llm/pull/420) [`3afbb2b`](https://github.com/Lykhoyda/ask-llm/commit/3afbb2b533b2b5d17f642e3e7f3b266130b87c20) Thanks [@Lykhoyda](https://github.com/Lykhoyda)! - Split codex-pair guidance into a short router, host adapters and reference documentation while preserving each host's workflow. Document the existing opt-in `blockOn: HIGH` once-per-turn Stop gate and correct the cross-repository verdict-drain documentation.
+
+- [#417](https://github.com/Lykhoyda/ask-llm/pull/417) [`333e222`](https://github.com/Lykhoyda/ask-llm/commit/333e222f75965cfff660bad456a3ff1235b49e6a) Thanks [@Lykhoyda](https://github.com/Lykhoyda)! - The shared codex-pair review hook scripts (used by Claude Code and Grok CLI) no longer record an unreadable reviewer reply as a clean review. A reply that matches neither the JSON verdict contract nor the legacy `NONE` / `[HIGH]`/`[MED]`/`[LOW]` format is now logged with verdict `unparsed`, surfaced once as `codex-pair UNPARSED`, kept out of the review cache, and counted towards the consecutive-failure auto-pause. Recognised replies are unchanged. The Pi codex-pair extension is unchanged by this release.
+
 ## 1.3.1
 
 ### Patch Changes
