@@ -2,6 +2,8 @@
 
 The hook surfaces HIGH and MED concerns to Claude on the next turn and logs everything to `.codex-pair/log.jsonl`. The hook details below describe Claude Code; use the host adapter for other lifecycles.
 
+The example domains here describe what codex-pair catches in other projects; ask-llm itself is a CLI/MCP bridge with no money or auth code, and codex-pair runs on it for dogfooding (ADR-098).
+
 ## When to use this vs `/codex-review`
 
 The decision is about **code characteristics**, not project domain. Any project — payments, infra, parsers, plugins, this very repo — has both kinds of code; the recall-first hook earns its keep wherever there's a category of bug that "looks fine but runs wrong."
