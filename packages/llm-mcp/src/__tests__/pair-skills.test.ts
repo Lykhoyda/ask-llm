@@ -61,7 +61,10 @@ describe("pair skill structure", () => {
   });
 
   it.each(PAIR_SKILLS)("%s publishes a valid Cursor-native unified MCP setup", (name) => {
-    const cursor = adapterBody(parsePairSkill(name).body, "Cursor Agent");
+    const cursor = adapterBody(
+      name === "ask-llm-codex-pair" ? readFile(`skills/${name}/cursor.md`) : parsePairSkill(name).body,
+      "Cursor Agent",
+    );
     const setup = jsonCodeBlocks(cursor).find(
       (block): block is { mcpServers: Record<string, { command: string; args: string[] }> } =>
         !Array.isArray(block) && typeof block === "object" && block !== null && "mcpServers" in block,
@@ -72,7 +75,7 @@ describe("pair skill structure", () => {
   });
 
   it("codex-pair publishes fully pinned first-call protocol shapes for Cursor", () => {
-    const cursor = adapterBody(parsePairSkill("ask-llm-codex-pair").body, "Cursor Agent");
+    const cursor = adapterBody(readFile("skills/ask-llm-codex-pair/cursor.md"), "Cursor Agent");
     const calls = jsonCodeBlocks(cursor).find(Array.isArray) as
       | Array<{ tool: string; arguments: Record<string, unknown> }>
       | undefined;

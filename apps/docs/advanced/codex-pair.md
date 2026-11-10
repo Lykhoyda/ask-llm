@@ -227,7 +227,7 @@ With the default 15s debounce plus model review latency, a review is often still
 
 ### Queued verdicts drain at turn-end
 
-Debounced verdicts that finished mid-turn used to wait for the *next* edit or user prompt to surface. The Stop hook drains them at turn-end, no `blockOn` opt-in required: as additional context when nothing blocks, or folded into the block message when it does. A queued verdict surfaces only while the file still holds the content it reviewed; a verdict for content that has since changed is dropped. Like every Stop/prompt-scoped hook, the drain resolves the project from the session's working directory; verdicts queued by cross-repo edits (cwd in repo A, edit in repo B) still wait for the next edit or prompt in that repo, tracked in [#209](https://github.com/Lykhoyda/ask-llm/issues/209).
+Debounced verdicts that finished mid-turn used to wait for the *next* edit or user prompt to surface. The Stop hook drains them at turn-end, no `blockOn` opt-in required: as additional context when nothing blocks, or folded into the block message when it does. A queued verdict surfaces only while the file still holds the content it reviewed; a verdict for content that has since changed is dropped. The Stop and user-prompt hooks drain both the working directory's marker and sibling repositories registered by this session's edit hooks. Cross-repository verdicts (cwd in repo A, edit in repo B) can therefore surface at turn-end or on the next user prompt without switching cwd. Each marker's `blockOn` setting controls blocking for that repository. Without a session ID, only the working directory's marker is available.
 
 ### Fail-open behavior
 
