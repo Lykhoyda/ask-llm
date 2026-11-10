@@ -138,7 +138,7 @@
   "bugs": {
     "url": "https://github.com/Lykhoyda/ask-llm/issues"
   },
-  "homepage": "https://github.com/Lykhoyda/ask-llm#readme",
+  "homepage": "https://lykhoyda.github.io/ask-llm/",
   "engines": {
     "node": ">=24.0.0"
   },
