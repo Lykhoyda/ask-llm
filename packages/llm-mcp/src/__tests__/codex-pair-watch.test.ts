@@ -21,6 +21,7 @@ describe("scripts/codex-pair-watch.mjs — structural invariants (ADR-077)", () 
   const script = readFile("scripts/codex-pair-watch.mts");
   // ADR-088: state helpers now live in lib/state.mjs. Tests that previously
   // grepped the hook source for state symbols now read this instead.
+  const configScript = readFile("scripts/lib/pair-config.mts");
   const libState = readFile("scripts/lib/state.mjs");
 
   it("the script file is executable", () => {
@@ -61,7 +62,7 @@ describe("scripts/codex-pair-watch.mjs — structural invariants (ADR-077)", () 
   it("preserves quota fallback (gpt-6.1-sol → gpt-6.1-terra on rate_limit_exceeded)", () => {
     expect(script).toMatch(/isQuotaError/);
     expect(script).toMatch(/rate_limit_exceeded/);
-    expect(script).toMatch(/FALLBACK_MODEL/);
+    expect(script).toMatch(/fallbackModel/);
   });
 
   it("declares the marker filename .codex-pair/context.md (ADR-092)", () => {
@@ -105,8 +106,8 @@ describe("scripts/codex-pair-watch.mjs — structural invariants (ADR-077)", () 
   });
 
   it("caps file size via CODEX_PAIR_MAX_FILE_BYTES (default 20KB)", () => {
-    expect(script).toMatch(/CODEX_PAIR_MAX_FILE_BYTES/);
-    expect(script).toMatch(/20_000|20000/);
+    expect(configScript).toMatch(/CODEX_PAIR_MAX_FILE_BYTES/);
+    expect(configScript).toMatch(/20_000|20000/);
   });
 
   it("watches Edit, Write, and MultiEdit tools only", () => {
@@ -114,15 +115,15 @@ describe("scripts/codex-pair-watch.mjs — structural invariants (ADR-077)", () 
   });
 
   it("resolveConfig exposes debounceMs (default 15000) and debounceMaxMs (default 60000)", () => {
-    expect(script).toMatch(/debounceMs:/);
-    expect(script).toMatch(/debounceMaxMs:/);
-    expect(script).toMatch(/DEFAULT_DEBOUNCE_MS/);
-    expect(script).toMatch(/DEFAULT_DEBOUNCE_MAX_MS/);
+    expect(configScript).toMatch(/debounceMs:/);
+    expect(configScript).toMatch(/debounceMaxMs:/);
+    expect(configScript).toMatch(/DEFAULT_DEBOUNCE_MS/);
+    expect(configScript).toMatch(/DEFAULT_DEBOUNCE_MAX_MS/);
   });
 
   it("debounceMs accepts 0 (>= 0 guard) to restore synchronous review", () => {
     // The frontmatter guard must allow 0 (disable), unlike timeoutMs (> 0).
-    expect(script).toMatch(/typeof\s+fm\.debounceMs\s*===\s*"number"\s*&&\s*fm\.debounceMs\s*>=\s*0/);
+    expect(configScript).toMatch(/typeof\s+fm\.debounceMs\s*===\s*"number"\s*&&\s*fm\.debounceMs\s*>=\s*0/);
   });
 
   it("dispatches to a detached debounce worker when debounceMs > 0", () => {
@@ -271,8 +272,8 @@ describe("scripts/codex-pair-watch.mjs — structural invariants (ADR-077)", () 
   });
 
   it("resolveConfig honors precedence frontmatter > env > default", () => {
-    expect(script).toMatch(/function resolveConfig/);
-    const block = script.match(/function resolveConfig[\s\S]*?^}/m);
+    expect(configScript).toMatch(/function resolveConfig/);
+    const block = configScript.match(/function resolveConfig[\s\S]*?^}/m);
     expect(block).toBeTruthy();
     const body = block?.[0] ?? "";
     // Each key has a typeof guard so invalid types fall through to defaults.
@@ -642,22 +643,11 @@ describe("scripts/codex-pair-watch.mjs — structural invariants (ADR-077)", () 
   });
 
   // Phase 1 item #4: default-model drift guard
-  it("loads model defaults from codex-pair-defaults.json with env + literal fallback", () => {
-    expect(script).toMatch(/codex-pair-defaults\.json/);
-    expect(script).toMatch(/CODEX_PAIR_DEFAULTS/);
-    expect(script).toMatch(/readFileSync/);
-    // Path is resolved from import.meta.url, not cwd
-    expect(script).toMatch(/fileURLToPath\(import\.meta\.url\)/);
-    // DEFAULT_MODEL: env > JSON > inline fallback
-    expect(script).toMatch(/DEFAULT_MODEL\s*=\s*process\.env\.ASK_CODEX_MODEL\s*\?\?\s*CODEX_PAIR_DEFAULTS\.model/);
-    expect(script).toMatch(
-      /FALLBACK_MODEL\s*=\s*process\.env\.ASK_CODEX_FALLBACK_MODEL\s*\?\?\s*CODEX_PAIR_DEFAULTS\.fallbackModel/,
-    );
-    expect(script).toMatch(
-      /CODEX_REASONING_EFFORTS\s*=\s*new Set\(\["low", "medium", "high", "xhigh", "max", "ultra"\]\)/,
-    );
-    expect(script).toMatch(/configuredReasoningEffort\s*=\s*process\.env\.ASK_CODEX_REASONING_EFFORT/);
-    expect(script).toMatch(/model_reasoning_effort="\$\{DEFAULT_REASONING_EFFORT\}"/);
+  it("loads package-relative model defaults and passes resolved effort to Codex", () => {
+    const io = readFile("scripts/lib/pair-config-io.mts");
+    expect(io).toContain('new URL("../../codex-pair-defaults.json", import.meta.url)');
+    expect(script).toContain("resolveConfig(frontmatter, process.env, CODEX_PAIR_DEFAULTS, markerContent)");
+    expect(script).toContain('model_reasoning_effort="${reasoningEffort}"');
   });
 
   it("codex-pair-defaults.json exists and contains model+fallbackModel+reasoningEffort keys", () => {
@@ -1479,6 +1469,45 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
       ...extraEnv,
     });
   }
+
+  it("marker effort reaches direct primary/fallback and changing only effort misses cache", () => {
+    const marker = (effort: string) => `---\nreasoningEffort: ${effort}\ndebounceMs: 0\n---\n# ctx`;
+    setupMarker(tempDir, marker("xhigh"));
+    const filePath = path.join(tempDir, "src.ts");
+    fs.writeFileSync(filePath, "export const x = 1;");
+    const payload = JSON.stringify({ tool_name: "Edit", tool_input: { file_path: filePath } });
+    const argsFile = path.join(tempDir, "args.jsonl");
+    const env = { FAKE_CODEX_ARGS_FILE: argsFile, ASK_CODEX_REASONING_EFFORT: "low", ASK_CODEX_BROKER: "0" };
+    expect(runHookWithFakeCodex(payload, tempDir, "none", env).status).toBe(0);
+    expect(runHookWithFakeCodex(payload, tempDir, "none", env).status).toBe(0);
+    expect(fs.readFileSync(argsFile, "utf8").trim().split("\n")).toHaveLength(1);
+    setupMarker(tempDir, marker("high"));
+    expect(runHookWithFakeCodex(payload, tempDir, "none", env).status).toBe(0);
+    const calls = fs
+      .readFileSync(argsFile, "utf8")
+      .trim()
+      .split("\n")
+      .map((line) => JSON.parse(line));
+    expect(calls).toHaveLength(2);
+    expect(calls[0]).toContain('model_reasoning_effort="xhigh"');
+    expect(calls[1]).toContain('model_reasoning_effort="high"');
+    setupMarker(tempDir, marker("xhigh"));
+    fs.writeFileSync(filePath, "export const x = 2;");
+    expect(
+      runHookWithFakeCodex(payload, tempDir, "quota-plan-recover", {
+        ...env,
+        FAKE_CODEX_ATTEMPT_FILE: path.join(tempDir, "attempts"),
+      }).status,
+    ).toBe(0);
+    const fallbackCalls = fs
+      .readFileSync(argsFile, "utf8")
+      .trim()
+      .split("\n")
+      .slice(2)
+      .map((line) => JSON.parse(line));
+    expect(fallbackCalls).toHaveLength(2);
+    for (const args of fallbackCalls) expect(args).toContain('model_reasoning_effort="xhigh"');
+  });
 
   it("fake-codex fixture: file is executable + present at expected path", () => {
     const fakePath = path.join(FIXTURE_DIR, "codex");

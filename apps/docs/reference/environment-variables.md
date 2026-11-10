@@ -19,7 +19,7 @@ description: Provider defaults, route selection, timeouts and execution gates.
 | ASK_CODEX_MODEL | gpt-6-astra | Override the Codex default model |
 | ASK_CODEX_PREFERRED_MODEL | gpt-6-astra | Legacy review-tier escape hatch; only attempted separately when it differs from ASK_CODEX_MODEL |
 | ASK_CODEX_FALLBACK_MODEL | gpt-6.1-terra | Override the Codex quota fallback model |
-| ASK_CODEX_REASONING_EFFORT | medium | Default Codex reasoning effort; per-call reasoningEffort wins |
+| ASK_CODEX_REASONING_EFFORT | medium | Default Codex reasoning effort; per-call reasoningEffort wins. The shared codex-pair hook uses marker `reasoningEffort`, then this variable, then its own defaults file (`high`) |
 | ASK_CLAUDE_MODEL | opus | Override the Claude default model |
 | ASK_CLAUDE_FALLBACK_MODEL | sonnet | Override Claude Code's native fallback model |
 | ASK_OLLAMA_MODEL | qwen3.8:27b | Override the Ollama model (no fallback) |

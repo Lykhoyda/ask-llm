@@ -8,6 +8,7 @@ import { existsSync, readdirSync, readFileSync, realpathSync, statSync } from "n
 import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { drainPending, fileContentHash, joinPendingForSurface, readDebounceRecords } from "./lib/debounce-state.mts";
+import { markerScalar } from "./lib/pair-config.mts";
 import type { HookInput } from "./lib/hook-input.mjs";
 import { collectSessionMarkers } from "./lib/session-registry.mts";
 import {
@@ -59,10 +60,7 @@ function readMarkerScalar(markerDir: string, key: string): string | null {
   } catch {
     return null;
   }
-  const fm = text.match(/^---\r?\n([\s\S]*?)\r?\n---/); // tolerate CRLF (Windows)
-  if (!fm) return null;
-  const m = fm[1].match(new RegExp(`^\\s*${key}:\\s*(\\S+)\\s*$`, "m"));
-  return m ? m[1].trim() : null;
+  return markerScalar(text, key);
 }
 
 function readBlockOn(markerDir: string): string | null {

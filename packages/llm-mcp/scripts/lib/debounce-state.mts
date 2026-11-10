@@ -18,8 +18,7 @@ export interface EditRecord {
 export const DEBOUNCE_DIR = "debounce";
 export const PENDING_DIR = "pending";
 export const REVIEWED_DIR = "reviewed";
-export const DEFAULT_DEBOUNCE_MS = 15_000;
-export const DEFAULT_DEBOUNCE_MAX_MS = 60_000;
+export { DEFAULT_DEBOUNCE_MS, DEFAULT_DEBOUNCE_MAX_MS } from "./pair-config.mts";
 export const DEBOUNCE_STALE_BUFFER_MS = 300_000;
 
 export const debounceRoot = (markerDir: string): string => join(stateRoot(markerDir), DEBOUNCE_DIR);

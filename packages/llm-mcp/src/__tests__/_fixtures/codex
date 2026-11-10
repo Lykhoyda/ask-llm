@@ -45,6 +45,9 @@ function emitAgentMessage(text) {
 }
 
 async function run() {
+  if (process.env.FAKE_CODEX_ARGS_FILE) {
+    require("node:fs").appendFileSync(process.env.FAKE_CODEX_ARGS_FILE, `${JSON.stringify(process.argv.slice(2))}\n`);
+  }
   if (SCENARIO === "broker-home-probe" && process.argv[2] === "app-server") {
     const { existsSync, readFileSync, writeFileSync } = require("node:fs");
     const { join } = require("node:path");

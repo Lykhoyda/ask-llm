@@ -7,7 +7,16 @@ import { readFileSync, realpathSync } from "node:fs";
 import { access } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
-import { CONTEXT_FILENAME, PAIR_ROOT_DIR, logPath as resolveLogPath } from "./lib/state.mts";
+import { parseFrontmatter } from "./lib/frontmatter.mts";
+import { loadPairDefaults } from "./lib/pair-config-io.mts";
+import { resolveConfig } from "./lib/pair-config.mts";
+import {
+  CONTEXT_FILENAME,
+  PAIR_ROOT_DIR,
+  contextPath,
+  readPauseInfo,
+  logPath as resolveLogPath,
+} from "./lib/state.mts";
 
 interface LogEntry {
   timestamp?: string;
@@ -17,10 +26,11 @@ interface LogEntry {
   counts?: { high: number; med: number; low: number };
   durationMs?: number;
   fellBack?: boolean;
+  reason?: string;
 }
 
 interface Args {
-  cmd: "latest" | "summary" | "file" | "help";
+  cmd: "latest" | "summary" | "file" | "help" | "status";
   n: number;
   file: string | null;
   sinceMs: number | null;
@@ -70,6 +80,8 @@ function parseArgs(argv: string[]): Args {
         args.n = Number(next);
         i++;
       }
+    } else if (a === "--status") {
+      args.cmd = "status";
     } else if (a === "--summary") {
       args.cmd = "summary";
     } else if (a === "--file") {
@@ -221,6 +233,46 @@ function showSummary(entries: LogEntry[]): void {
   }
 }
 
+// Read-only: observing a pause never clears it or starts a reviewer/broker.
+function showStatus(markerDir: string, entries: LogEntry[]): void {
+  const marker = readFileSync(contextPath(markerDir), "utf8");
+  const parsed = parseFrontmatter(marker);
+  const config = resolveConfig(parsed.frontmatter, process.env, loadPairDefaults(), marker);
+  const pause = readPauseInfo(markerDir);
+  const state =
+    process.env.CODEX_PAIR_DISABLED === "1"
+      ? "disabled (CODEX_PAIR_DISABLED=1)"
+      : pause
+        ? `paused (${pause.manual ? "manual" : pause.kind})`
+        : "active";
+  process.stdout.write(
+    [
+      `codex-pair status — ${markerDir}`,
+      `State: ${state}`,
+      `Model: ${config.model}`,
+      `Fallback model: ${config.fallbackModel}`,
+      `Reasoning effort: ${config.reasoningEffort}`,
+      `Guards turn end on: ${config.blockOn ?? "nothing"}`,
+      `Surface threshold: ${config.surfaceThreshold}`,
+      `Timeout: ${config.timeoutMs}ms`,
+      `Max file bytes: ${config.maxFileBytes}`,
+      `Debounce: ${config.debounceMs}ms (max ${config.debounceMaxMs}ms)`,
+      ...(parsed.malformed ? ["Warning: malformed frontmatter; using environment/defaults."] : []),
+      ...(pause?.at ? [`Paused since: ${pause.at}`] : []),
+      ...(pause?.reason ? [`Pause reason: ${pause.reason}`] : []),
+      ...(pause?.resetHint ? [`Resets ~ ${pause.resetHint}`] : []),
+      "Recent reviews (last 5):",
+      "",
+    ].join("\n"),
+  );
+  if (entries.length === 0) process.stdout.write("No reviews recorded.\n");
+  else showLatest(entries, 5);
+  const failure = entries.findLast((e) =>
+    ["error", "spawn_failed", "timeout", "unparsed", "parse_failed"].includes(e.verdict ?? ""),
+  );
+  if (failure?.reason) process.stdout.write(`Recent failure: ${failure.reason}\n`);
+}
+
 function showHelp(): void {
   process.stdout.write(
     [
@@ -230,6 +282,7 @@ function showHelp(): void {
       "",
       "Subcommands:",
       "  --latest [N]      Show last N entries (default 10). Default subcommand.",
+      "  --status         Show resolved configuration, state and last five reviews.",
       "  --summary         Aggregate stats over the log.",
       "  --file <path>     Filter to one file's history.",
       "  --since <dur>     Filter to entries within the last <dur>. Examples: 30m, 24h, 7d.",
@@ -252,6 +305,10 @@ async function main(): Promise<void> {
   }
   const logPath = resolveLogPath(markerDir);
   let entries = loadEntries(logPath);
+  if (args.cmd === "status") {
+    showStatus(markerDir, applySinceFilter(entries, args.sinceMs));
+    return;
+  }
   if (entries.length === 0) {
     process.stdout.write(`codex-pair-log: no entries in ${logPath}\n`);
     return;
