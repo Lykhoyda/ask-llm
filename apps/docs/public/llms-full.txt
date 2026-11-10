@@ -905,7 +905,7 @@ codex-pair is implemented as five hooks working together, all dependency-free wi
 
 By default HIGH and MED concerns are surfaced; LOW concerns and all timing/skip telemetry are logged to `.codex-pair/log.jsonl` alongside the marker file. Set `debounceMs: 0` in the marker frontmatter for synchronous per-edit review.
 
-A reviewer reply that matches neither the JSON verdict contract nor the legacy `NONE` / `[HIGH]`/`[MED]`/`[LOW]` format is never recorded as "no concerns": it is logged with verdict `unparsed` (with a short excerpt of the reply), surfaced once as `codex-pair UNPARSED`, left out of the review cache, and counted towards the consecutive-failure auto-pause.
+In the shared review hook scripts (Claude Code and Grok CLI), a reviewer reply that matches neither the JSON verdict contract nor the legacy `NONE` / `[HIGH]`/`[MED]`/`[LOW]` format is never recorded as "no concerns": it is logged with verdict `unparsed` (with a short excerpt of the reply), surfaced once as `codex-pair UNPARSED`, left out of the review cache, and counted towards the consecutive-failure auto-pause. The Pi extension does not yet apply this handling.
 
 ### Configuration knobs
 
