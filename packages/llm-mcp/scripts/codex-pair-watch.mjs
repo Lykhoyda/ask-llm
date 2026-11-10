@@ -11,7 +11,7 @@ import { initializeBroker, isBrokerDescriptorEligible, isBrokerEnabled, readBrok
 import { bumpEditRecord, contentHash, DEFAULT_DEBOUNCE_MAX_MS, DEFAULT_DEBOUNCE_MS, drainPending, fileContentHash, joinPendingForSurface, markReviewed, sweepStaleDebounce, writePending, writePendingNotice, } from "./lib/debounce-state.mjs";
 import { parseFrontmatter } from "./lib/frontmatter.mjs";
 import { CLAUDE_PAIR_MODEL, resolveReviewer, runClaudeReview } from "./lib/pair-reviewer.mjs";
-import { buildVerdictMessage, DEFAULT_SURFACE_THRESHOLD, formatDuration, parseConcerns, parseResetHint, VALID_THRESHOLDS, VERDICT_PREFIXES, } from "./lib/parser.mjs";
+import { buildVerdictMessage, DEFAULT_SURFACE_THRESHOLD, formatDuration, parseRecognizedConcerns, parseResetHint, VALID_THRESHOLDS, VERDICT_PREFIXES, } from "./lib/parser.mjs";
 import { IS_WINDOWS, terminateProcessTree } from "./lib/process.mjs";
 import { buildReviewPrompt } from "./lib/prompt.mjs";
 import { registerMarker } from "./lib/session-registry.mjs";
@@ -1082,6 +1082,36 @@ async function main() {
         const acquiredLockPath = lockResult.lockPath;
         process.on("exit", () => releaseInflightLock(acquiredLockPath));
     }
+    // Non-quota failures persist one streak across sessions, auto-pause at the threshold, and surface once each.
+    const reportReviewFailure = async (verdict, reason, durationMs, extra = {}) => {
+        const failureCount = recordReviewFailure(markerDir, reason);
+        const entry = {
+            timestamp: new Date().toISOString(),
+            tool: toolName,
+            file: filePath,
+            verdict,
+            contentHash: reviewedContentHash,
+            reason,
+            durationMs,
+            ...extra,
+        };
+        if (failureCount >= AUTOPAUSE_FAILURE_THRESHOLD) {
+            const paused = writeAutoPause(markerDir, { kind: "failures", reason });
+            await appendLog(markerDir, { ...entry, ...(paused ? { autoPaused: "failures" } : {}) });
+            if (paused) {
+                await emitSystemMessage(`codex-pair auto-paused after ${AUTOPAUSE_FAILURE_THRESHOLD} consecutive review failures (last: ${reason}). Resume with /codex-pair-resume.`);
+            }
+            else {
+                // A silent exit must still flush a queued auto-resume notice.
+                await flushNoticeOnly();
+            }
+            process.exit(0);
+        }
+        await appendLog(markerDir, entry);
+        const prefix = VERDICT_PREFIXES[verdict] ?? VERDICT_PREFIXES.error;
+        await emitSystemMessage(`codex-pair ${prefix}: ${filePath} — review failed: ${reason} (${formatDuration(durationMs)}) (failure ${failureCount}/${AUTOPAUSE_FAILURE_THRESHOLD} before auto-pause)`, reviewedContentHash, filePath);
+        process.exit(0);
+    };
     let response;
     let fellBack = false;
     try {
@@ -1104,7 +1134,6 @@ async function main() {
         }
         const reason = err instanceof Error ? err.message : String(err);
         const verdict = verdictFromError(err);
-        const prefix = VERDICT_PREFIXES[verdict] ?? VERDICT_PREFIXES.error;
         const durationMs = Date.now() - startedAt;
         // Quota exhaustion writes one exclusive pause sentinel and stays silent thereafter.
         if (err && typeof err === "object" && "quotaExhausted" in err && err.quotaExhausted) {
@@ -1130,46 +1159,21 @@ async function main() {
             }
             process.exit(0);
         }
-        // Persist non-quota failure streaks across sessions to prevent repeated error spam.
-        const failureCount = recordReviewFailure(markerDir, reason);
-        if (failureCount >= AUTOPAUSE_FAILURE_THRESHOLD) {
-            const paused = writeAutoPause(markerDir, { kind: "failures", reason });
-            await appendLog(markerDir, {
-                timestamp: new Date().toISOString(),
-                tool: toolName,
-                file: filePath,
-                verdict,
-                contentHash: reviewedContentHash,
-                reason,
-                durationMs,
-                ...(paused ? { autoPaused: "failures" } : {}),
-            });
-            if (paused) {
-                await emitSystemMessage(`codex-pair auto-paused after ${AUTOPAUSE_FAILURE_THRESHOLD} consecutive review failures (last: ${reason}). Resume with /codex-pair-resume.`);
-            }
-            else {
-                // A silent exit must still flush a queued auto-resume notice.
-                await flushNoticeOnly();
-            }
-            process.exit(0);
-        }
-        await appendLog(markerDir, {
-            timestamp: new Date().toISOString(),
-            tool: toolName,
-            file: filePath,
-            verdict,
-            contentHash: reviewedContentHash,
-            reason,
-            durationMs,
-        });
-        await emitSystemMessage(`codex-pair ${prefix}: ${filePath} — review failed: ${reason} (${formatDuration(durationMs)}) (failure ${failureCount}/${AUTOPAUSE_FAILURE_THRESHOLD} before auto-pause)`, reviewedContentHash, filePath);
-        process.exit(0);
+        return reportReviewFailure(verdict, reason, durationMs);
     }
-    // Live review succeeded — any failure streak is over (#176 backstop).
-    clearReviewFailures(markerDir);
-    const concerns = parseConcerns(response);
-    const total = concerns.high.length + concerns.med.length + concerns.low.length;
+    // An unrecognised reply is a failed review, never "no concerns": it is not cached and joins the failure streak (W8).
+    const concerns = parseRecognizedConcerns(response);
     const durationMs = Date.now() - startedAt;
+    if (!concerns) {
+        return reportReviewFailure("unparsed", "reviewer response was not recognised as a review", durationMs, {
+            fellBack,
+            ...(grokHost ? { reviewer, model: config.model, coverage: shellReview ? "command-text" : "file" } : {}),
+            responseExcerpt: response.slice(0, 400),
+        });
+    }
+    // Recognised live review — any failure streak is over (#176 backstop).
+    clearReviewFailures(markerDir);
+    const total = concerns.high.length + concerns.med.length + concerns.low.length;
     // Cache-write failure must not break a completed review.
     await setCachedConcerns(markerDir, cacheKey, {
         high: concerns.high,
