@@ -7,6 +7,7 @@ export const VERDICT_PREFIXES = {
     spawn_failed: "SPAWN_FAILED",
     timeout: "TIMEOUT",
     parse_failed: "PARSE_FAILED",
+    unparsed: "UNPARSED",
     cached: "CACHED",
 };
 export const SEVERITY_TO_BUCKET = {
@@ -151,10 +152,13 @@ export function parseConcernsJson(message) {
     }
     return concerns;
 }
+function isLegacyNone(trimmed) {
+    const upper = trimmed.toUpperCase();
+    return upper === "NONE" || upper.startsWith("NONE\n");
+}
 export function parseConcernsLegacy(message) {
     const trimmed = message.trim();
-    const upper = trimmed.toUpperCase();
-    if (upper === "NONE" || upper.startsWith("NONE\n")) {
+    if (isLegacyNone(trimmed)) {
         return { high: [], med: [], low: [] };
     }
     const parts = trimmed.split(/(?=\[(?:HIGH|MED|LOW)\])/);
@@ -176,11 +180,18 @@ export function parseConcernsLegacy(message) {
     }
     return concerns;
 }
-export function parseConcerns(message) {
+// Null means no accepted format matched; a legacy reply is recognised only as NONE or with a labelled concern (W8).
+export function parseRecognizedConcerns(message) {
     const fromJson = parseConcernsJson(message);
     if (fromJson)
         return fromJson;
-    return parseConcernsLegacy(message);
+    if (isLegacyNone(message.trim()))
+        return { high: [], med: [], low: [] };
+    const legacy = parseConcernsLegacy(message);
+    return legacy.high.length + legacy.med.length + legacy.low.length > 0 ? legacy : null;
+}
+export function parseConcerns(message) {
+    return parseRecognizedConcerns(message) ?? { high: [], med: [], low: [] };
 }
 // Display-only quota reset hint (#176, ADR-120); capture stops at "." so "1.5 hours" yields null (accepted).
 const RESET_HINT_PATTERNS = [/try again (?:in|at|after)\s+([^.()\n]+)/i, /\bresets?\s+(?:in|at|after)\s+([^.()\n]+)/i];

@@ -222,7 +222,7 @@ To exclude a file pattern: append to <MARKER_DIR>/.codex-pair/ignore
 To restrict to specific paths: create <MARKER_DIR>/.codex-pair/include
 ```
 
-If recent reviews include any verdicts of `error`, `spawn_failed`, or `timeout`, add a "Recent failures" subsection with the reason field of the most recent failure.
+If recent reviews include any verdicts of `error`, `spawn_failed`, `timeout`, or `unparsed`, add a "Recent failures" subsection with the reason field of the most recent failure.
 
 ## Reference: hook behavior, when to use, configuration
 

@@ -167,6 +167,7 @@ describe("scripts/codex-pair-watch.mjs — structural invariants (ADR-077)", () 
       spawn_failed: "SPAWN_FAILED",
       timeout: "TIMEOUT",
       parse_failed: "PARSE_FAILED",
+      unparsed: "UNPARSED",
       cached: "CACHED",
     });
   });
@@ -711,6 +712,39 @@ describe("scripts/codex-pair-watch.mjs — structural invariants (ADR-077)", () 
     // The router prefers JSON, falls back to legacy
     expect(parseConcerns("NONE")).toEqual({ high: [], med: [], low: [] });
     expect(parseConcerns(legacy).high).toHaveLength(1);
+  });
+
+  it("parseRecognizedConcerns returns null only for replies no accepted format recognises (W8)", async () => {
+    const { parseConcerns, parseRecognizedConcerns } = await import("../../scripts/lib/parser.mjs");
+    const recognised = [
+      "NONE",
+      "none\nnothing to flag",
+      '{"verdict":"clean","findings":[]}',
+      '```json\n{"verdict":"clean","findings":[]}\n```',
+      JSON.stringify({ verdict: "needs-attention", findings: [{ severity: "medium", title: "T", body: "B" }] }),
+      JSON.stringify({ verdict: "needs-attention", findings: [] }),
+      "[HIGH] critical issue\n[MED] watch this\n[LOW] style nit",
+      "Preamble text\n[MED] only a medium concern",
+    ];
+    for (const reply of recognised) {
+      // Recognised replies parse exactly as before.
+      expect(parseRecognizedConcerns(reply)).toEqual(parseConcerns(reply));
+    }
+    const unrecognised = [
+      "",
+      "   ",
+      "I could not review this file, sorry.",
+      "NONE of the above apply, but here are my thoughts",
+      "[HIGH]\n[MED]   ",
+      "definitely not json {][}",
+      '{"type":"thread.started","thread_id":"t"}',
+      '{"verdict":"needs-attention"}',
+    ];
+    for (const reply of unrecognised) {
+      expect(parseRecognizedConcerns(reply)).toBeNull();
+      // The lenient router keeps its accepted formats and empty fallback unchanged.
+      expect(parseConcerns(reply)).toEqual({ high: [], med: [], low: [] });
+    }
   });
 
   it("surfaces HIGH+MED via systemMessage stdout, suppresses LOW (ADR-077/ADR-088)", async () => {
@@ -2091,6 +2125,108 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
     expect(reviewEntry.counts.high).toBe(1);
     expect(reviewEntry.counts.med).toBe(1);
     expect(reviewEntry.counts.low).toBe(1);
+  });
+
+  // W8: a reply no accepted format recognises is a failed review, never a clean one.
+  function unparsedJsonl(text: string): string {
+    return (
+      `${JSON.stringify({ type: "thread.started", thread_id: "t" })}\n` +
+      `${JSON.stringify({ type: "item.completed", item: { type: "agent_message", text } })}\n` +
+      `${JSON.stringify({ type: "turn.completed", usage: { input_tokens: 1, output_tokens: 1, cached_input_tokens: 0 } })}\n`
+    );
+  }
+  function runHookWithRawReply(payload: string, cwd: string, text: string) {
+    return runHook(payload, cwd, {
+      PATH: `${FIXTURE_DIR}:${process.env.PATH}`,
+      FAKE_CODEX_RAW_STDOUT: unparsedJsonl(text),
+      FAKE_CODEX_EXIT_CODE: "0",
+    });
+  }
+  function readLogEntries(dir: string): Array<Record<string, any>> {
+    return fs
+      .readFileSync(path.join(dir, ".codex-pair/log.jsonl"), "utf-8")
+      .trim()
+      .split("\n")
+      .map((l) => JSON.parse(l));
+  }
+  function cacheFiles(dir: string): string[] {
+    const cacheDir = path.join(dir, ".codex-pair", "cache");
+    if (!fs.existsSync(cacheDir)) return [];
+    return (fs.readdirSync(cacheDir, { recursive: true }) as string[]).filter((entry) =>
+      fs.statSync(path.join(cacheDir, entry)).isFile(),
+    );
+  }
+
+  it("W8: an unrecognised reply is logged `unparsed`, not cached, never `none`, and counts as a failure", () => {
+    setupMarker(tempDir, "# ctx");
+    const filePath = path.join(tempDir, "src.ts");
+    fs.writeFileSync(filePath, "export const x = 1;");
+    const payload = JSON.stringify({ tool_name: "Edit", tool_input: { file_path: filePath } });
+    const garbled = "I could not review this file, sorry.";
+
+    const first = runHookWithRawReply(payload, tempDir, garbled);
+    expect(first.status).toBe(0);
+    let entries = readLogEntries(tempDir);
+    expect(entries.some((l) => l.verdict === "none" || l.verdict === "concerns")).toBe(false);
+    const unparsed = entries.filter((l) => l.verdict === "unparsed");
+    expect(unparsed).toHaveLength(1);
+    expect(unparsed[0].file).toBe(filePath);
+    expect(typeof unparsed[0].contentHash).toBe("string");
+    expect(unparsed[0].responseExcerpt).toBe(garbled);
+    expect(unparsed[0].counts).toBeUndefined();
+    expect(unparsed[0].concerns).toBeUndefined();
+    expect(cacheFiles(tempDir)).toEqual([]);
+    const firstOutput = JSON.parse(first.stdout.trim());
+    expect(firstOutput.systemMessage).toMatch(/^codex-pair UNPARSED:/);
+    expect(firstOutput.systemMessage).not.toMatch(/no concerns/);
+    expect(firstOutput.systemMessage).toMatch(/failure 1\/3 before auto-pause/);
+    const failuresFile = path.join(tempDir, ".codex-pair/state/failures.json");
+    expect(JSON.parse(fs.readFileSync(failuresFile, "utf-8")).consecutive).toBe(1);
+
+    // Same content again: no cache hit, a second live attempt, and the streak grows.
+    const second = runHookWithRawReply(payload, tempDir, garbled);
+    entries = readLogEntries(tempDir);
+    expect(entries.some((l) => l.verdict === "cached")).toBe(false);
+    expect(entries.filter((l) => l.verdict === "unparsed")).toHaveLength(2);
+    expect(JSON.parse(second.stdout.trim()).systemMessage).toMatch(/failure 2\/3 before auto-pause/);
+
+    // A third consecutive unparsed reply auto-pauses like any other review failure.
+    const third = runHookWithRawReply(payload, tempDir, garbled);
+    expect(JSON.parse(third.stdout.trim()).systemMessage).toMatch(/auto-paused after 3 consecutive review failures/);
+    const sentinel = JSON.parse(fs.readFileSync(path.join(tempDir, ".codex-pair/state/paused"), "utf-8"));
+    expect(sentinel.kind).toBe("failures");
+    expect(readLogEntries(tempDir).at(-1)).toMatchObject({ verdict: "unparsed", autoPaused: "failures" });
+  });
+
+  it("W8: raw non-JSONL codex output (no agent message) is `unparsed`, not `none`", () => {
+    setupMarker(tempDir, "# ctx");
+    const filePath = path.join(tempDir, "src.ts");
+    fs.writeFileSync(filePath, "export const x = 1;");
+    const payload = JSON.stringify({ tool_name: "Edit", tool_input: { file_path: filePath } });
+    const result = runHookWithFakeCodex(payload, tempDir, "parse-failed");
+    expect(result.status).toBe(0);
+    const entries = readLogEntries(tempDir);
+    expect(entries.some((l) => l.verdict === "none")).toBe(false);
+    expect(entries.some((l) => l.verdict === "unparsed")).toBe(true);
+    expect(cacheFiles(tempDir)).toEqual([]);
+    expect(JSON.parse(result.stdout.trim()).systemMessage).toMatch(/^codex-pair UNPARSED:/);
+  });
+
+  it("W8: a recognised reply after an unparsed one is reviewed live, cached, and clears the streak", () => {
+    setupMarker(tempDir, "# ctx");
+    const filePath = path.join(tempDir, "src.ts");
+    fs.writeFileSync(filePath, "export const x = 1;");
+    const payload = JSON.stringify({ tool_name: "Edit", tool_input: { file_path: filePath } });
+    runHookWithRawReply(payload, tempDir, "garbled reply");
+    const failuresFile = path.join(tempDir, ".codex-pair/state/failures.json");
+    expect(fs.existsSync(failuresFile)).toBe(true);
+
+    const result = runHookWithRawReply(payload, tempDir, '{"verdict":"clean","findings":[]}');
+    const entries = readLogEntries(tempDir);
+    expect(entries.map((l) => l.verdict).filter((v) => v === "unparsed" || v === "none")).toEqual(["unparsed", "none"]);
+    expect(cacheFiles(tempDir).length).toBeGreaterThan(0);
+    expect(fs.existsSync(failuresFile)).toBe(false);
+    expect(JSON.parse(result.stdout.trim()).systemMessage).toMatch(/^codex-pair OK:/);
   });
 
   const itIfPosix = process.platform === "win32" ? it.skip : it;
