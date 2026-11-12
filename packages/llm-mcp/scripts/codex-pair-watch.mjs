@@ -12,7 +12,7 @@ import { bumpEditRecord, contentHash, drainPending, fileContentHash, joinPending
 import { loadPairDefaults } from "./lib/pair-config-io.mjs";
 import { positiveMs, resolveConfig } from "./lib/pair-config.mjs";
 import { parseFrontmatter } from "./lib/frontmatter.mjs";
-import { CLAUDE_PAIR_MODEL, resolveReviewer, runClaudeReview } from "./lib/pair-reviewer.mjs";
+import { runClaudeReview } from "./lib/pair-reviewer.mjs";
 import { buildVerdictMessage, formatDuration, parseRecognizedConcerns, parseResetHint, VERDICT_PREFIXES, } from "./lib/parser.mjs";
 import { IS_WINDOWS, terminateProcessTree } from "./lib/process.mjs";
 import { buildReviewPrompt } from "./lib/prompt.mjs";
@@ -862,10 +862,9 @@ async function main() {
             reason: "malformed frontmatter in .codex-pair/context.md — opener `---` with no matching closer; falling back to defaults",
         });
     }
-    const config = resolveConfig(frontmatter, process.env, CODEX_PAIR_DEFAULTS, markerContent);
-    let reviewer;
+    let config;
     try {
-        reviewer = resolveReviewer(frontmatter.reviewer, grokHost ? "grok" : "claude");
+        config = resolveConfig(frontmatter, process.env, CODEX_PAIR_DEFAULTS, markerContent);
     }
     catch (error) {
         const reason = error instanceof Error ? error.message : String(error);
@@ -873,13 +872,7 @@ async function main() {
         await emitSystemMessage(reason);
         process.exit(0);
     }
-    if (reviewer === "claude") {
-        config.model = CLAUDE_PAIR_MODEL;
-        config.timeoutMs =
-            typeof frontmatter.timeoutMs === "number" && frontmatter.timeoutMs > 0
-                ? frontmatter.timeoutMs
-                : (positiveMs(process.env.ASK_CLAUDE_TIMEOUT_MS) ?? 600_000);
-    }
+    const { reviewer } = config;
     if (grokHost)
         reviewerLabel = `${reviewer} / ${config.model}`;
     // A forced review keeps the worker's timeout, so a settle-window frontmatter edit cannot outlast its kill deadline.

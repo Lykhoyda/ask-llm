@@ -220,24 +220,38 @@ function showSummary(entries) {
 function showStatus(markerDir, entries) {
     const marker = readFileSync(contextPath(markerDir), "utf8");
     const parsed = parseFrontmatter(marker);
-    const config = resolveConfig(parsed.frontmatter, process.env, loadPairDefaults(), marker);
+    let config;
+    let refusal;
+    try {
+        config = resolveConfig(parsed.frontmatter, process.env, loadPairDefaults(), marker);
+    }
+    catch (error) {
+        refusal = error instanceof Error ? error.message : String(error);
+    }
     const pause = readPauseInfo(markerDir);
     const state = process.env.CODEX_PAIR_DISABLED === "1"
         ? "disabled (CODEX_PAIR_DISABLED=1)"
         : pause
             ? `paused (${pause.manual ? "manual" : pause.kind})`
-            : "active";
+            : refusal
+                ? `disabled (${refusal})`
+                : "active";
     process.stdout.write([
         `codex-pair status — ${markerDir}`,
         `State: ${state}`,
-        `Model: ${config.model}`,
-        `Fallback model: ${config.fallbackModel}`,
-        `Reasoning effort: ${config.reasoningEffort}`,
-        `Guards turn end on: ${config.blockOn ?? "nothing"}`,
-        `Surface threshold: ${config.surfaceThreshold}`,
-        `Timeout: ${config.timeoutMs}ms`,
-        `Max file bytes: ${config.maxFileBytes}`,
-        `Debounce: ${config.debounceMs}ms (max ${config.debounceMaxMs}ms)`,
+        ...(config
+            ? [
+                `Reviewer: ${config.reviewer}`,
+                `Model: ${config.model}`,
+                `Fallback model: ${config.reviewer === "codex" ? config.fallbackModel : "not used (Claude reviewer)"}`,
+                `Reasoning effort: ${config.reviewer === "codex" ? config.reasoningEffort : "not used (Claude reviewer)"}`,
+                `Guards turn end on: ${config.blockOn ?? "nothing"}`,
+                `Surface threshold: ${config.surfaceThreshold}`,
+                `Timeout: ${config.timeoutMs}ms`,
+                `Max file bytes: ${config.maxFileBytes}`,
+                `Debounce: ${config.debounceMs}ms (max ${config.debounceMaxMs}ms)`,
+            ]
+            : []),
         ...(parsed.malformed ? ["Warning: malformed frontmatter; using environment/defaults."] : []),
         ...(pause?.at ? [`Paused since: ${pause.at}`] : []),
         ...(pause?.reason ? [`Pause reason: ${pause.reason}`] : []),
