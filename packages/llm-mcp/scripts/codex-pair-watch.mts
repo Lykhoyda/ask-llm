@@ -20,8 +20,6 @@ import {
 import {
   bumpEditRecord,
   contentHash,
-  DEFAULT_DEBOUNCE_MAX_MS,
-  DEFAULT_DEBOUNCE_MS,
   drainPending,
   fileContentHash,
   joinPendingForSurface,
@@ -30,17 +28,17 @@ import {
   writePending,
   writePendingNotice,
 } from "./lib/debounce-state.mts";
+import { loadPairDefaults } from "./lib/pair-config-io.mts";
+import { positiveMs, resolveConfig } from "./lib/pair-config.mts";
 import { type Frontmatter, parseFrontmatter } from "./lib/frontmatter.mts";
 import type { HookInput } from "./lib/hook-input.mjs";
-import { CLAUDE_PAIR_MODEL, resolveReviewer, runClaudeReview } from "./lib/pair-reviewer.mts";
+import { runClaudeReview } from "./lib/pair-reviewer.mts";
 import {
   buildVerdictMessage,
   type Concerns,
-  DEFAULT_SURFACE_THRESHOLD,
   formatDuration,
   parseRecognizedConcerns,
   parseResetHint,
-  VALID_THRESHOLDS,
   VERDICT_PREFIXES,
 } from "./lib/parser.mts";
 import { IS_WINDOWS, terminateProcessTree } from "./lib/process.mts";
@@ -75,32 +73,9 @@ import {
 } from "./lib/state.mts";
 
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
-const DEFAULTS_PATH = join(SCRIPT_DIR, "..", "codex-pair-defaults.json");
-
-// Use shared model defaults; malformed or missing JSON falls through to environment and inline defaults.
-let CODEX_PAIR_DEFAULTS = { model: "gpt-6.1-sol", fallbackModel: "gpt-6.1-terra", reasoningEffort: "high" };
-try {
-  CODEX_PAIR_DEFAULTS = JSON.parse(readFileSync(DEFAULTS_PATH, "utf8"));
-} catch {
-  // intentional fallback to inline defaults
-}
-
+const CODEX_PAIR_DEFAULTS = loadPairDefaults();
 const MARKER_FILE = join(PAIR_ROOT_DIR, CONTEXT_FILENAME);
 const WATCHED_TOOLS = new Set(["Edit", "Write", "MultiEdit"]);
-const DEFAULT_MODEL = process.env.ASK_CODEX_MODEL ?? CODEX_PAIR_DEFAULTS.model;
-const FALLBACK_MODEL = process.env.ASK_CODEX_FALLBACK_MODEL ?? CODEX_PAIR_DEFAULTS.fallbackModel;
-const CODEX_REASONING_EFFORTS = new Set(["low", "medium", "high", "xhigh", "max", "ultra"]);
-const configuredReasoningEffort = process.env.ASK_CODEX_REASONING_EFFORT;
-const DEFAULT_REASONING_EFFORT =
-  configuredReasoningEffort && CODEX_REASONING_EFFORTS.has(configuredReasoningEffort)
-    ? configuredReasoningEffort
-    : CODEX_REASONING_EFFORTS.has(CODEX_PAIR_DEFAULTS.reasoningEffort)
-      ? CODEX_PAIR_DEFAULTS.reasoningEffort
-      : "high";
-const DEFAULT_TIMEOUT_MS = positiveMs(process.env.ASK_CODEX_TIMEOUT_MS) ?? 800_000;
-const MAX_FILE_BYTES = Number(process.env.CODEX_PAIR_MAX_FILE_BYTES ?? 20_000);
-const DEBOUNCE_MS = Number(process.env.ASK_CODEX_DEBOUNCE_MS ?? DEFAULT_DEBOUNCE_MS);
-const DEBOUNCE_MAX_MS = Number(process.env.ASK_CODEX_DEBOUNCE_MAX_MS ?? DEFAULT_DEBOUNCE_MAX_MS);
 const QUOTA_SIGNALS = [
   "rate_limit_exceeded",
   "quota_exceeded",
@@ -411,29 +386,6 @@ function matchesIgnoreRule(filePath: string, markerDir: string, rules: GlobRule[
   return lastMatch;
 }
 
-// Empty, non-numeric, non-positive, and infinite timeouts would make setTimeout fire at once.
-function positiveMs(raw: string | undefined): number | undefined {
-  const ms = Number(raw);
-  return Number.isFinite(ms) && ms > 0 ? ms : undefined;
-}
-
-// Invalid frontmatter values fall through to environment and defaults.
-function resolveConfig(frontmatter: Frontmatter | null | undefined) {
-  const fm = frontmatter ?? {};
-  const surfaceCandidate = typeof fm.surfaceThreshold === "string" ? fm.surfaceThreshold : null;
-  return {
-    model: typeof fm.model === "string" && fm.model.length > 0 ? fm.model : DEFAULT_MODEL,
-    fallbackModel:
-      typeof fm.fallbackModel === "string" && fm.fallbackModel.length > 0 ? fm.fallbackModel : FALLBACK_MODEL,
-    timeoutMs: typeof fm.timeoutMs === "number" && fm.timeoutMs > 0 ? fm.timeoutMs : DEFAULT_TIMEOUT_MS,
-    maxFileBytes: typeof fm.maxFileBytes === "number" && fm.maxFileBytes > 0 ? fm.maxFileBytes : MAX_FILE_BYTES,
-    surfaceThreshold:
-      surfaceCandidate && VALID_THRESHOLDS.has(surfaceCandidate) ? surfaceCandidate : DEFAULT_SURFACE_THRESHOLD,
-    debounceMs: typeof fm.debounceMs === "number" && fm.debounceMs >= 0 ? fm.debounceMs : DEBOUNCE_MS,
-    debounceMaxMs: typeof fm.debounceMaxMs === "number" && fm.debounceMaxMs > 0 ? fm.debounceMaxMs : DEBOUNCE_MAX_MS,
-  };
-}
-
 // Stop marker discovery at the home directory or after 20 levels.
 async function findMarkerUp(startDir: string): Promise<string | null> {
   const home = homedir();
@@ -460,21 +412,13 @@ function buildPrompt(args: Parameters<typeof buildReviewPrompt>[0]): string {
 }
 
 // Pass the prompt on stdin to avoid ARG_MAX for large edited files.
-function buildCodexArgs(model: string): string[] {
+function buildCodexArgs(model: string, reasoningEffort: string): string[] {
   const args = ["exec", "--skip-git-repo-check", "--ephemeral"];
   if (process.env.ASK_CODEX_LOAD_USER_CONFIG !== "1") {
     args.push("--ignore-user-config", "--ignore-rules");
   }
   // The reviewer must not mutate the edited workspace.
-  args.push(
-    "--sandbox",
-    "read-only",
-    "-c",
-    `model_reasoning_effort="${DEFAULT_REASONING_EFFORT}"`,
-    "--json",
-    "-m",
-    model,
-  );
+  args.push("--sandbox", "read-only", "-c", `model_reasoning_effort="${reasoningEffort}"`, "--json", "-m", model);
   return args;
 }
 
@@ -591,12 +535,13 @@ function stderrTail(stderr: string): string {
 interface CodexCall {
   prompt: string;
   model: string;
+  reasoningEffort: string;
   timeoutMs: number;
 }
 
-function spawnCodex({ prompt, model, timeoutMs }: CodexCall): Promise<string> {
+function spawnCodex({ prompt, model, reasoningEffort, timeoutMs }: CodexCall): Promise<string> {
   return new Promise((resolveCall, rejectCall) => {
-    const args = buildCodexArgs(model);
+    const args = buildCodexArgs(model, reasoningEffort);
     const child = spawn("codex", args, {
       stdio: ["pipe", "pipe", "pipe"],
       // A POSIX process group lets termination reach Codex descendants.
@@ -661,11 +606,12 @@ function spawnCodex({ prompt, model, timeoutMs }: CodexCall): Promise<string> {
 async function spawnCodexWithRetry({
   prompt,
   model,
+  reasoningEffort,
   timeoutMs,
   markerDir,
 }: CodexCall & { markerDir: string }): Promise<string> {
   try {
-    return await spawnCodex({ prompt, model, timeoutMs });
+    return await spawnCodex({ prompt, model, reasoningEffort, timeoutMs });
   } catch (err) {
     if (!isTransientError(err)) throw err;
     const reason = err instanceof Error ? err.message : String(err);
@@ -678,7 +624,7 @@ async function spawnCodexWithRetry({
       delayMs: Math.round(delayMs),
     });
     await sleepMs(delayMs);
-    return await spawnCodex({ prompt, model, timeoutMs });
+    return await spawnCodex({ prompt, model, reasoningEffort, timeoutMs });
   }
 }
 
@@ -703,6 +649,7 @@ async function runWithBroker({
   prompt,
   timeoutMs,
   model,
+  reasoningEffort,
   markerDir,
 }: CodexCall & { markerDir: string }): Promise<string> {
   const state = readBrokerState(markerDir);
@@ -741,7 +688,7 @@ async function runWithBroker({
       baseInstructions: "",
       prompt,
       model,
-      effort: DEFAULT_REASONING_EFFORT,
+      effort: reasoningEffort,
       timeoutMs: Math.max(0, deadline - Date.now()),
     });
   } finally {
@@ -764,6 +711,7 @@ async function runCodexWithFallback({
   prompt,
   timeoutMs,
   model,
+  reasoningEffort,
   fallbackModel,
   markerDir,
 }: ReviewCall): Promise<{ response: string; fellBack: boolean; viaBroker?: boolean }> {
@@ -775,7 +723,13 @@ async function runCodexWithFallback({
     try {
       // Half the budget leaves a stalled broker's direct fallback the rest, so the review fits one timeout.
       return {
-        response: await runWithBroker({ prompt, model, timeoutMs: Math.floor(timeoutMs / 2), markerDir }),
+        response: await runWithBroker({
+          prompt,
+          model,
+          reasoningEffort,
+          timeoutMs: Math.floor(timeoutMs / 2),
+          markerDir,
+        }),
         fellBack: false,
         viaBroker: true,
       };
@@ -793,12 +747,20 @@ async function runCodexWithFallback({
       } catch {
         // best-effort; logging failure must never break the hook
       }
-      if (quota) return runFallbackModel(err, { prompt, timeoutMs: directTimeoutMs, model, fallbackModel, markerDir });
+      if (quota)
+        return runFallbackModel(err, {
+          prompt,
+          reasoningEffort,
+          timeoutMs: directTimeoutMs,
+          model,
+          fallbackModel,
+          markerDir,
+        });
       retryPrimary = Boolean(err?.brokerFailure);
     }
   }
   try {
-    const call = { prompt, model, timeoutMs: directTimeoutMs, markerDir };
+    const call = { prompt, model, reasoningEffort, timeoutMs: directTimeoutMs, markerDir };
     return {
       response: retryPrimary ? await spawnCodexWithRetry(call) : await spawnCodex(call),
       fellBack: false,
@@ -809,6 +771,7 @@ async function runCodexWithFallback({
       prompt,
       timeoutMs: directTimeoutMs,
       model,
+      reasoningEffort,
       fallbackModel,
       markerDir,
     });
@@ -817,13 +780,14 @@ async function runCodexWithFallback({
 
 async function runFallbackModel(
   err: ReviewError,
-  { prompt, timeoutMs, model, fallbackModel, markerDir }: ReviewCall,
+  { prompt, timeoutMs, model, reasoningEffort, fallbackModel, markerDir }: ReviewCall,
 ): Promise<{ response: string; fellBack: boolean }> {
   if (model !== fallbackModel) {
     try {
       const response = await spawnCodexWithRetry({
         prompt,
         model: fallbackModel,
+        reasoningEffort,
         timeoutMs,
         markerDir,
       });
@@ -1018,10 +982,11 @@ async function main() {
 
   // Parse marker config before applying its file-size limit.
   let projectContext = "";
+  let markerContent = "";
   let frontmatter: Frontmatter = {};
   let frontmatterMalformed = false;
   try {
-    const markerContent = await readFile(contextPath(markerDir), "utf8");
+    markerContent = await readFile(contextPath(markerDir), "utf8");
     const parsed = parseFrontmatter(markerContent);
     projectContext = parsed.body;
     frontmatter = parsed.frontmatter;
@@ -1039,23 +1004,16 @@ async function main() {
         "malformed frontmatter in .codex-pair/context.md — opener `---` with no matching closer; falling back to defaults",
     });
   }
-  const config = resolveConfig(frontmatter);
-  let reviewer: "codex" | "claude";
+  let config: ReturnType<typeof resolveConfig>;
   try {
-    reviewer = resolveReviewer(frontmatter.reviewer, grokHost ? "grok" : "claude");
+    config = resolveConfig(frontmatter, process.env, CODEX_PAIR_DEFAULTS, markerContent);
   } catch (error) {
     const reason = error instanceof Error ? error.message : String(error);
     await appendLog(markerDir, { timestamp: new Date().toISOString(), verdict: "refused", file: filePath, reason });
     await emitSystemMessage(reason);
     process.exit(0);
   }
-  if (reviewer === "claude") {
-    config.model = CLAUDE_PAIR_MODEL;
-    config.timeoutMs =
-      typeof frontmatter.timeoutMs === "number" && frontmatter.timeoutMs > 0
-        ? frontmatter.timeoutMs
-        : (positiveMs(process.env.ASK_CLAUDE_TIMEOUT_MS) ?? 600_000);
-  }
+  const { reviewer } = config;
   if (grokHost) reviewerLabel = `${reviewer} / ${config.model}`;
   // A forced review keeps the worker's timeout, so a settle-window frontmatter edit cannot outlast its kill deadline.
   const workerTimeoutMs = forcedTarget ? positiveMs(process.env.CP_TIMEOUT_MS) : undefined;
@@ -1169,7 +1127,7 @@ async function main() {
   // A content-hash cache hit skips the Codex call.
   const cacheKey = computeCacheKey({
     model: reviewer === "claude" ? `claude:${config.model}` : config.model,
-    reasoningEffort: DEFAULT_REASONING_EFFORT,
+    reasoningEffort: config.reasoningEffort,
     prompt,
     fileContent: promptContent,
     surfaceThreshold: config.surfaceThreshold,
@@ -1295,6 +1253,7 @@ async function main() {
             prompt,
             timeoutMs: config.timeoutMs,
             model: config.model,
+            reasoningEffort: config.reasoningEffort,
             fallbackModel: config.fallbackModel,
             markerDir,
           });

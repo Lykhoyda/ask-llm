@@ -64,6 +64,9 @@ Run the `/codex-pair` slash command in the project where you want continuous rev
 ```bash
 mkdir -p .codex-pair
 cat > .codex-pair/context.md <<'EOF'
+---
+blockOn: false
+---
 # .codex-pair/context.md
 
 This is a payment-processing service. All currency calculations must
@@ -78,7 +81,7 @@ charge). Concurrent requests are real. URL inputs are untrusted.
 EOF
 ```
 
-On Claude Code, the marker file's *presence* is the switch and its content is review context. On Pi, marker presence is only the repository-side gate: it never authorizes provider transfer/cost without Pi project trust and separate interactive `/codex-pair` consent stored outside the repository.
+On Claude Code, the marker file opts the project into review; `CODEX_PAIR_DISABLED=1` or a pause sentinel still prevents reviews. Its content is review context. New `/codex-pair` markers explicitly set `blockOn: false` for advisory review; an existing marker without `blockOn` remains advisory. On Pi, marker presence is only the repository-side gate: it never authorizes provider transfer/cost without Pi project trust and separate interactive `/codex-pair` consent stored outside the repository.
 
 **Do NOT commit the `.codex-pair/` directory**: gitignore it. Each contributor's review context is their own; one developer iterating on prompt wording shouldn't dirty the shared history. The hook itself is project-policy (it's in the plugin); the marker is per-developer opt-in. Every state artifact (marker, log, cache, `ignore` globs, pause sentinel, inflight locks) nests under the single directory; one `.gitignore` line covers everything:
 
@@ -118,7 +121,7 @@ The `/codex-pair` suite is the human-facing dashboard and controls for the hook.
 
 | Command | What it does |
 |---|---|
-| `/codex-pair` | Status dashboard. Detects whether codex-pair is active, paused, or not yet configured. First run (no marker) offers interactive setup with auto-detected project context. Later runs show current state, recent review activity, and toggle instructions |
+| `/codex-pair` | First run (no marker) offers interactive setup with auto-detected project context. With a marker, shows the [status command](#inspecting-log-activity-the-codex-pair-log-cli)'s output: current configuration, disabled/pause state and recent review activity |
 | `/codex-pair-pause` | Pause the hook for this project without removing the marker. Writes a `.codex-pair/state/paused` sentinel the hook checks on every edit. Use to temporarily silence reviews (noisy refactor, docs-only work) and resume later |
 | `/codex-pair-resume` | Remove the pause sentinel. The hook starts reviewing edits again on the next edit. No-op if no pause sentinel exists |
 | `/codex-pair-ack <hash> "<reason>"` | Acknowledge a HIGH finding without fixing it (known trade-off or tracked in a ticket). The `<hash>` is the content hash shown alongside the finding when the Stop gate blocks. The reason is recorded as a concurrency-safe shard under `.codex-pair/state/acks/` with a timestamp; acknowledged findings are skipped by the gate until the file changes |
@@ -146,12 +149,22 @@ In the shared review hook scripts (Claude Code and Grok CLI), a reviewer reply t
 | `CODEX_PAIR_DISABLED` | unset | Set to `1` to bypass the hook entirely; beats marker file |
 | `CODEX_PAIR_MAX_FILE_BYTES` | `20000` | Files larger than this many UTF-8 bytes get an adaptive **partial-view** review (header + git diff, or head+tail), not a full-content one. Still a Codex call; use `.codex-pair/ignore` to skip calls for excluded files |
 | `ASK_CODEX_TIMEOUT_MS` | `800000` | Fallback review timeout in milliseconds; empty, non-numeric, non-positive, or infinite values use the default. Set `timeoutMs` in `.codex-pair/context.md` frontmatter to override it for this project. A debounced review retains the timeout resolved when its worker was scheduled, even if frontmatter changes during the settle window; the worker uses that timeout for its review process and in-flight lock. An enabled broker gets half the review budget, leaving the remainder for direct fallback |
-| `ASK_CODEX_REASONING_EFFORT` | `high` | Reasoning effort for `gpt-6.1-sol` pair reviews |
+| `ASK_CODEX_REASONING_EFFORT` | `high` | Codex pair reasoning effort; marker `reasoningEffort` takes precedence |
 | `ASK_CODEX_BROKER` | disabled | Set to `1` to opt in to the broker unless the project sets `broker: false`; otherwise use per-edit `codex exec` |
 | `ASK_CODEX_DEBOUNCE_MS` | `15000` | Settle window: an edit burst to one file coalesces into a single review of the settled state. `0` = synchronous per-edit review. Also settable per-marker via `debounceMs` frontmatter |
 | `ASK_CODEX_DEBOUNCE_MAX_MS` | `60000` | Hard cap from a burst's first edit; forces a review even under a continuous edit stream. Frontmatter: `debounceMaxMs` |
 | `CODEX_PAIR_QUOTA_PAUSE_TTL_MS` | `21600000` (6h) | Quota auto-pauses self-heal after this long; the next edit (or session start) retries a live review |
 | `CODEX_PAIR_FAILURES_PAUSE_TTL_MS` | `86400000` (24h) | Failure auto-pauses self-heal after this long, or immediately when the plugin version changed since the pause |
+
+For Codex reviews through the shared Claude Code/Grok hook, marker frontmatter `model` and `fallbackModel` override `ASK_CODEX_MODEL` and `ASK_CODEX_FALLBACK_MODEL`, then `codex-pair-defaults.json`. `reasoningEffort` follows the same precedence: marker, `ASK_CODEX_REASONING_EFFORT`, defaults file, then `high`. Supported effort values are `low`, `medium`, `high`, `xhigh`, `max` and `ultra`; invalid values fall through. The resolved effort applies to direct and broker calls, including retries and quota fallback, and changing it invalidates the review cache. For the pinned Claude reviewer and its timeout, see [Grok CLI](#grok-cli). Pi's separate implementation is unchanged.
+
+```yaml
+---
+model: gpt-6.1-sol
+reasoningEffort: xhigh
+blockOn: false
+---
+```
 
 The broker is opt-in because it links your `auth.json`; a token refresh can rewrite that shared file, and a safer credential strategy has not been established. Set `ASK_CODEX_BROKER=1` to enable it. It runs `codex app-server` in a private temporary Codex home without user hooks, rules, or MCP configuration and with the built-in apps connector disabled. Without an `auth.json` (keyring or environment-key setups) the broker does not start. To disable it for one project, put `broker: false` in `.codex-pair/context.md` frontmatter. `ASK_CODEX_BROKER=0` also disables it.
 
@@ -240,6 +253,9 @@ Any error in the stop-gate hook (missing log, parse error, git unavailable) warn
 Shipped alongside the hook at `packages/llm-mcp/scripts/codex-pair-log.mjs`. Walks up from cwd to find the marker (same gate as the hook), then renders the sibling `.codex-pair/log.jsonl`. Useful for "is the hook actually running" diagnostics and for forensic analysis of what's been reviewed.
 
 ```bash
+# Read-only status: resolved configuration, disable/pause state, last five reviews
+node packages/llm-mcp/scripts/codex-pair-log.mjs --status
+
 # Default: last 10 entries
 node packages/llm-mcp/scripts/codex-pair-log.mjs
 
@@ -253,7 +269,11 @@ node packages/llm-mcp/scripts/codex-pair-log.mjs --file src/billing/charge.ts
 node packages/llm-mcp/scripts/codex-pair-log.mjs --since 24h --latest 50
 ```
 
-Output shape (one line per entry):
+`--status` reads the same resolver as the hook and works before any review is logged; a missing marker produces an error. It reports `disabled (CODEX_PAIR_DISABLED=1)`, `paused (manual|quota|failures)` or `active`. An invalid or same-family reviewer also reports `disabled` with the refusal reason, unless the disable switch or a pause takes precedence. For valid configuration it shows the reviewer, model, fallback, effort, threshold, timeout, file-size limit, debounce settings and `Guards turn end on: HIGH` or `nothing`. Claude review labels fallback and effort as unused.
+
+It observes pause state without clearing expired auto-pauses or starting a reviewer. These are the current process's resolved settings; run it with the hook's environment. For Grok CLI, prefix the command with `CODEX_PAIR_HOST=grok` so reviewer selection uses the Grok writer family. Active means the marker is enabled and unpaused, not proof that a host registered or ran its hook; recent log entries provide that evidence. The Claude Code skill runs this command and shows its output.
+
+Output shape (one line per log entry):
 
 ```
 2026-05-18T15:11:02.341Z  none          /project/src/billing/charge.ts        0H/0M/0L    6.2s

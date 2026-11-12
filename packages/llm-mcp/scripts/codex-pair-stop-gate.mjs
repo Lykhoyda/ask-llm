@@ -6,6 +6,7 @@ import { existsSync, readdirSync, readFileSync, realpathSync, statSync } from "n
 import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { drainPending, fileContentHash, joinPendingForSurface, readDebounceRecords } from "./lib/debounce-state.mjs";
+import { markerScalar } from "./lib/pair-config.mjs";
 import { collectSessionMarkers } from "./lib/session-registry.mjs";
 import { CONTEXT_FILENAME, contextPath, INFLIGHT_TTL_MIN_MS, inflightRoot, logPath, PAIR_ROOT_DIR, readAcks, } from "./lib/state.mjs";
 import { collectBlockingHighs, collectInFlight, formatBlockMessage, formatInFlightMessage, parseGitPorcelain, selectReviewEntries, } from "./lib/stop-gate.mjs";
@@ -40,11 +41,7 @@ function readMarkerScalar(markerDir, key) {
     catch {
         return null;
     }
-    const fm = text.match(/^---\r?\n([\s\S]*?)\r?\n---/); // tolerate CRLF (Windows)
-    if (!fm)
-        return null;
-    const m = fm[1].match(new RegExp(`^\\s*${key}:\\s*(\\S+)\\s*$`, "m"));
-    return m ? m[1].trim() : null;
+    return markerScalar(text, key);
 }
 function readBlockOn(markerDir) {
     return readMarkerScalar(markerDir, "blockOn");

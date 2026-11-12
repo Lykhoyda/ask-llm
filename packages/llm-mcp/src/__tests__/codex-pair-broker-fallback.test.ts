@@ -12,11 +12,19 @@ import {
 } from "../../scripts/lib/broker-lifecycle.mts";
 import { PLUGIN_ROOT } from "./_helpers.js";
 
-type Scenario = "timeout" | "rejection" | "missing_id" | "start_close" | "completion_close" | { failedTurn: string };
+type Scenario =
+  | "success"
+  | "timeout"
+  | "rejection"
+  | "missing_id"
+  | "start_close"
+  | "completion_close"
+  | { failedTurn: string };
 
 interface EditOutcome {
   log: Array<{ verdict: string; fellBack?: boolean; durationMs?: number }>;
   methods: string[];
+  efforts: string[];
   execAttempts: number;
   paused: boolean;
   stderr: string;
@@ -65,6 +73,7 @@ async function runBrokerEdit(
   const transportUrl = chooseTransport(home);
   const sockets = new Set<Socket>();
   const methods: string[] = [];
+  const efforts: string[] = [];
   const gates: EditOutcome["gates"] = [];
   const server = createServer((socket) => {
     sockets.add(socket);
@@ -122,12 +131,21 @@ async function runBrokerEdit(
         if (message.method === "initialize") reply({});
         if (message.method === "thread/start") reply({ thread: { id: "thread-1" } });
         if (message.method === "turn/start") {
+          efforts.push(message.params.effort);
           if (scenario === "rejection") reply(null, { code: -32602, message: "Invalid params" });
           else if (scenario === "missing_id") reply({ turn: {} });
           else if (scenario === "start_close") socket.destroy();
           else {
             reply({ turn: { id: "turn-1" } });
             if (scenario === "timeout" && marker.includes("blockOn")) gates.push(runStopGate(repo));
+            if (scenario === "success")
+              send({
+                method: "turn/completed",
+                params: {
+                  threadId: "thread-1",
+                  turn: { id: "turn-1", status: "completed", items: [{ type: "agentMessage", text: "NONE" }] },
+                },
+              });
             if (scenario === "completion_close") setImmediate(() => socket.destroy());
             if (typeof scenario === "object") {
               send({
@@ -201,6 +219,7 @@ async function runBrokerEdit(
         .split("\n")
         .map((line) => JSON.parse(line)),
       methods,
+      efforts,
       execAttempts: fs.existsSync(attempts) ? Number(fs.readFileSync(attempts, "utf8")) : 0,
       paused: fs.existsSync(path.join(repo, ".codex-pair", "state", "paused")),
       stderr,
@@ -268,3 +287,12 @@ it("finishes a stalled broker turn's direct fallback within one review timeout a
   expect(gates[0]).toMatchObject({ decision: "block", reason: expect.stringMatching(/in flight/i) });
   expect(gates[1]).toMatchObject({ decision: "block", reason: expect.stringMatching(/critical issue summary/) });
 }, 15_000);
+
+it("passes marker effort to the broker instead of the environment/default effort", async () => {
+  const { log, efforts, execAttempts } = await runBrokerEdit("success", "none", {
+    marker: "timeoutMs: 4000\nreasoningEffort: xhigh",
+  });
+  expect(efforts).toEqual(["xhigh"]);
+  expect(execAttempts).toBe(0);
+  expect(log.map((e) => e.verdict)).toEqual(["none"]);
+}, 15000);

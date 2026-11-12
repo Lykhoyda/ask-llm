@@ -8,39 +8,20 @@ import { homedir } from "node:os";
 import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { initializeBroker, isBrokerDescriptorEligible, isBrokerEnabled, readBrokerState, submitReview, } from "./lib/broker.mjs";
-import { bumpEditRecord, contentHash, DEFAULT_DEBOUNCE_MAX_MS, DEFAULT_DEBOUNCE_MS, drainPending, fileContentHash, joinPendingForSurface, markReviewed, sweepStaleDebounce, writePending, writePendingNotice, } from "./lib/debounce-state.mjs";
+import { bumpEditRecord, contentHash, drainPending, fileContentHash, joinPendingForSurface, markReviewed, sweepStaleDebounce, writePending, writePendingNotice, } from "./lib/debounce-state.mjs";
+import { loadPairDefaults } from "./lib/pair-config-io.mjs";
+import { positiveMs, resolveConfig } from "./lib/pair-config.mjs";
 import { parseFrontmatter } from "./lib/frontmatter.mjs";
-import { CLAUDE_PAIR_MODEL, resolveReviewer, runClaudeReview } from "./lib/pair-reviewer.mjs";
-import { buildVerdictMessage, DEFAULT_SURFACE_THRESHOLD, formatDuration, parseRecognizedConcerns, parseResetHint, VALID_THRESHOLDS, VERDICT_PREFIXES, } from "./lib/parser.mjs";
+import { runClaudeReview } from "./lib/pair-reviewer.mjs";
+import { buildVerdictMessage, formatDuration, parseRecognizedConcerns, parseResetHint, VERDICT_PREFIXES, } from "./lib/parser.mjs";
 import { IS_WINDOWS, terminateProcessTree } from "./lib/process.mjs";
 import { buildReviewPrompt } from "./lib/prompt.mjs";
 import { registerMarker } from "./lib/session-registry.mjs";
 import { AUTOPAUSE_FAILURE_THRESHOLD, appendLog, CONTEXT_FILENAME, clearAutoPause, clearReviewFailures, computeCacheKey, contextPath, getBlockingFromShard, getCachedConcerns, hashConcernBody, INFLIGHT_TTL_MIN_MS, ignorePath, includePath, logPath, PAIR_ROOT_DIR, readAcks, readPauseInfo, readPluginVersion, recordReviewFailure, releaseInflightLock, resolveAutoResume, setCachedConcerns, tryAcquireInflightLock, updateRepetitions, writeAutoPause, } from "./lib/state.mjs";
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
-const DEFAULTS_PATH = join(SCRIPT_DIR, "..", "codex-pair-defaults.json");
-// Use shared model defaults; malformed or missing JSON falls through to environment and inline defaults.
-let CODEX_PAIR_DEFAULTS = { model: "gpt-6.1-sol", fallbackModel: "gpt-6.1-terra", reasoningEffort: "high" };
-try {
-    CODEX_PAIR_DEFAULTS = JSON.parse(readFileSync(DEFAULTS_PATH, "utf8"));
-}
-catch {
-    // intentional fallback to inline defaults
-}
+const CODEX_PAIR_DEFAULTS = loadPairDefaults();
 const MARKER_FILE = join(PAIR_ROOT_DIR, CONTEXT_FILENAME);
 const WATCHED_TOOLS = new Set(["Edit", "Write", "MultiEdit"]);
-const DEFAULT_MODEL = process.env.ASK_CODEX_MODEL ?? CODEX_PAIR_DEFAULTS.model;
-const FALLBACK_MODEL = process.env.ASK_CODEX_FALLBACK_MODEL ?? CODEX_PAIR_DEFAULTS.fallbackModel;
-const CODEX_REASONING_EFFORTS = new Set(["low", "medium", "high", "xhigh", "max", "ultra"]);
-const configuredReasoningEffort = process.env.ASK_CODEX_REASONING_EFFORT;
-const DEFAULT_REASONING_EFFORT = configuredReasoningEffort && CODEX_REASONING_EFFORTS.has(configuredReasoningEffort)
-    ? configuredReasoningEffort
-    : CODEX_REASONING_EFFORTS.has(CODEX_PAIR_DEFAULTS.reasoningEffort)
-        ? CODEX_PAIR_DEFAULTS.reasoningEffort
-        : "high";
-const DEFAULT_TIMEOUT_MS = positiveMs(process.env.ASK_CODEX_TIMEOUT_MS) ?? 800_000;
-const MAX_FILE_BYTES = Number(process.env.CODEX_PAIR_MAX_FILE_BYTES ?? 20_000);
-const DEBOUNCE_MS = Number(process.env.ASK_CODEX_DEBOUNCE_MS ?? DEFAULT_DEBOUNCE_MS);
-const DEBOUNCE_MAX_MS = Number(process.env.ASK_CODEX_DEBOUNCE_MAX_MS ?? DEFAULT_DEBOUNCE_MAX_MS);
 const QUOTA_SIGNALS = [
     "rate_limit_exceeded",
     "quota_exceeded",
@@ -326,25 +307,6 @@ function matchesIgnoreRule(filePath, markerDir, rules) {
         return null;
     return lastMatch;
 }
-// Empty, non-numeric, non-positive, and infinite timeouts would make setTimeout fire at once.
-function positiveMs(raw) {
-    const ms = Number(raw);
-    return Number.isFinite(ms) && ms > 0 ? ms : undefined;
-}
-// Invalid frontmatter values fall through to environment and defaults.
-function resolveConfig(frontmatter) {
-    const fm = frontmatter ?? {};
-    const surfaceCandidate = typeof fm.surfaceThreshold === "string" ? fm.surfaceThreshold : null;
-    return {
-        model: typeof fm.model === "string" && fm.model.length > 0 ? fm.model : DEFAULT_MODEL,
-        fallbackModel: typeof fm.fallbackModel === "string" && fm.fallbackModel.length > 0 ? fm.fallbackModel : FALLBACK_MODEL,
-        timeoutMs: typeof fm.timeoutMs === "number" && fm.timeoutMs > 0 ? fm.timeoutMs : DEFAULT_TIMEOUT_MS,
-        maxFileBytes: typeof fm.maxFileBytes === "number" && fm.maxFileBytes > 0 ? fm.maxFileBytes : MAX_FILE_BYTES,
-        surfaceThreshold: surfaceCandidate && VALID_THRESHOLDS.has(surfaceCandidate) ? surfaceCandidate : DEFAULT_SURFACE_THRESHOLD,
-        debounceMs: typeof fm.debounceMs === "number" && fm.debounceMs >= 0 ? fm.debounceMs : DEBOUNCE_MS,
-        debounceMaxMs: typeof fm.debounceMaxMs === "number" && fm.debounceMaxMs > 0 ? fm.debounceMaxMs : DEBOUNCE_MAX_MS,
-    };
-}
 // Stop marker discovery at the home directory or after 20 levels.
 async function findMarkerUp(startDir) {
     const home = homedir();
@@ -372,13 +334,13 @@ function buildPrompt(args) {
     return buildReviewPrompt(args);
 }
 // Pass the prompt on stdin to avoid ARG_MAX for large edited files.
-function buildCodexArgs(model) {
+function buildCodexArgs(model, reasoningEffort) {
     const args = ["exec", "--skip-git-repo-check", "--ephemeral"];
     if (process.env.ASK_CODEX_LOAD_USER_CONFIG !== "1") {
         args.push("--ignore-user-config", "--ignore-rules");
     }
     // The reviewer must not mutate the edited workspace.
-    args.push("--sandbox", "read-only", "-c", `model_reasoning_effort="${DEFAULT_REASONING_EFFORT}"`, "--json", "-m", model);
+    args.push("--sandbox", "read-only", "-c", `model_reasoning_effort="${reasoningEffort}"`, "--json", "-m", model);
     return args;
 }
 function parseCodexJsonl(stdout) {
@@ -478,9 +440,9 @@ function stderrTail(stderr) {
     const tail = lines.slice(-3).join(" | ");
     return tail.length > 500 ? tail.slice(-500) : tail;
 }
-function spawnCodex({ prompt, model, timeoutMs }) {
+function spawnCodex({ prompt, model, reasoningEffort, timeoutMs }) {
     return new Promise((resolveCall, rejectCall) => {
-        const args = buildCodexArgs(model);
+        const args = buildCodexArgs(model, reasoningEffort);
         const child = spawn("codex", args, {
             stdio: ["pipe", "pipe", "pipe"],
             // A POSIX process group lets termination reach Codex descendants.
@@ -539,9 +501,9 @@ function spawnCodex({ prompt, model, timeoutMs }) {
     });
 }
 // Jitter the one transient retry to avoid synchronized hook bursts.
-async function spawnCodexWithRetry({ prompt, model, timeoutMs, markerDir, }) {
+async function spawnCodexWithRetry({ prompt, model, reasoningEffort, timeoutMs, markerDir, }) {
     try {
-        return await spawnCodex({ prompt, model, timeoutMs });
+        return await spawnCodex({ prompt, model, reasoningEffort, timeoutMs });
     }
     catch (err) {
         if (!isTransientError(err))
@@ -556,7 +518,7 @@ async function spawnCodexWithRetry({ prompt, model, timeoutMs, markerDir, }) {
             delayMs: Math.round(delayMs),
         });
         await sleepMs(delayMs);
-        return await spawnCodex({ prompt, model, timeoutMs });
+        return await spawnCodex({ prompt, model, reasoningEffort, timeoutMs });
     }
 }
 // Cache clientInfo for this hook process so handshake metadata remains stable.
@@ -577,7 +539,7 @@ function brokerClientInfo() {
     return _cachedBrokerClientInfo;
 }
 // Broker connection failures are tagged for direct-review fallback.
-async function runWithBroker({ prompt, timeoutMs, model, markerDir, }) {
+async function runWithBroker({ prompt, timeoutMs, model, reasoningEffort, markerDir, }) {
     const state = readBrokerState(markerDir);
     if (!state || !isBrokerDescriptorEligible(state)) {
         const err = new Error("runWithBroker: broker descriptor unavailable");
@@ -615,7 +577,7 @@ async function runWithBroker({ prompt, timeoutMs, model, markerDir, }) {
             baseInstructions: "",
             prompt,
             model,
-            effort: DEFAULT_REASONING_EFFORT,
+            effort: reasoningEffort,
             timeoutMs: Math.max(0, deadline - Date.now()),
         });
     }
@@ -630,7 +592,7 @@ async function runWithBroker({ prompt, timeoutMs, model, markerDir, }) {
         }
     }
 }
-async function runCodexWithFallback({ prompt, timeoutMs, model, fallbackModel, markerDir, }) {
+async function runCodexWithFallback({ prompt, timeoutMs, model, reasoningEffort, fallbackModel, markerDir, }) {
     // Broker failures retry directly; quota uses the fallback model; transients consume one retry.
     let retryPrimary = true;
     let directTimeoutMs = timeoutMs;
@@ -639,7 +601,13 @@ async function runCodexWithFallback({ prompt, timeoutMs, model, fallbackModel, m
         try {
             // Half the budget leaves a stalled broker's direct fallback the rest, so the review fits one timeout.
             return {
-                response: await runWithBroker({ prompt, model, timeoutMs: Math.floor(timeoutMs / 2), markerDir }),
+                response: await runWithBroker({
+                    prompt,
+                    model,
+                    reasoningEffort,
+                    timeoutMs: Math.floor(timeoutMs / 2),
+                    markerDir,
+                }),
                 fellBack: false,
                 viaBroker: true,
             };
@@ -661,12 +629,19 @@ async function runCodexWithFallback({ prompt, timeoutMs, model, fallbackModel, m
                 // best-effort; logging failure must never break the hook
             }
             if (quota)
-                return runFallbackModel(err, { prompt, timeoutMs: directTimeoutMs, model, fallbackModel, markerDir });
+                return runFallbackModel(err, {
+                    prompt,
+                    reasoningEffort,
+                    timeoutMs: directTimeoutMs,
+                    model,
+                    fallbackModel,
+                    markerDir,
+                });
             retryPrimary = Boolean(err?.brokerFailure);
         }
     }
     try {
-        const call = { prompt, model, timeoutMs: directTimeoutMs, markerDir };
+        const call = { prompt, model, reasoningEffort, timeoutMs: directTimeoutMs, markerDir };
         return {
             response: retryPrimary ? await spawnCodexWithRetry(call) : await spawnCodex(call),
             fellBack: false,
@@ -679,17 +654,19 @@ async function runCodexWithFallback({ prompt, timeoutMs, model, fallbackModel, m
             prompt,
             timeoutMs: directTimeoutMs,
             model,
+            reasoningEffort,
             fallbackModel,
             markerDir,
         });
     }
 }
-async function runFallbackModel(err, { prompt, timeoutMs, model, fallbackModel, markerDir }) {
+async function runFallbackModel(err, { prompt, timeoutMs, model, reasoningEffort, fallbackModel, markerDir }) {
     if (model !== fallbackModel) {
         try {
             const response = await spawnCodexWithRetry({
                 prompt,
                 model: fallbackModel,
+                reasoningEffort,
                 timeoutMs,
                 markerDir,
             });
@@ -863,10 +840,11 @@ async function main() {
     }
     // Parse marker config before applying its file-size limit.
     let projectContext = "";
+    let markerContent = "";
     let frontmatter = {};
     let frontmatterMalformed = false;
     try {
-        const markerContent = await readFile(contextPath(markerDir), "utf8");
+        markerContent = await readFile(contextPath(markerDir), "utf8");
         const parsed = parseFrontmatter(markerContent);
         projectContext = parsed.body;
         frontmatter = parsed.frontmatter;
@@ -884,10 +862,9 @@ async function main() {
             reason: "malformed frontmatter in .codex-pair/context.md — opener `---` with no matching closer; falling back to defaults",
         });
     }
-    const config = resolveConfig(frontmatter);
-    let reviewer;
+    let config;
     try {
-        reviewer = resolveReviewer(frontmatter.reviewer, grokHost ? "grok" : "claude");
+        config = resolveConfig(frontmatter, process.env, CODEX_PAIR_DEFAULTS, markerContent);
     }
     catch (error) {
         const reason = error instanceof Error ? error.message : String(error);
@@ -895,13 +872,7 @@ async function main() {
         await emitSystemMessage(reason);
         process.exit(0);
     }
-    if (reviewer === "claude") {
-        config.model = CLAUDE_PAIR_MODEL;
-        config.timeoutMs =
-            typeof frontmatter.timeoutMs === "number" && frontmatter.timeoutMs > 0
-                ? frontmatter.timeoutMs
-                : (positiveMs(process.env.ASK_CLAUDE_TIMEOUT_MS) ?? 600_000);
-    }
+    const { reviewer } = config;
     if (grokHost)
         reviewerLabel = `${reviewer} / ${config.model}`;
     // A forced review keeps the worker's timeout, so a settle-window frontmatter edit cannot outlast its kill deadline.
@@ -1013,7 +984,7 @@ async function main() {
     // A content-hash cache hit skips the Codex call.
     const cacheKey = computeCacheKey({
         model: reviewer === "claude" ? `claude:${config.model}` : config.model,
-        reasoningEffort: DEFAULT_REASONING_EFFORT,
+        reasoningEffort: config.reasoningEffort,
         prompt,
         fileContent: promptContent,
         surfaceThreshold: config.surfaceThreshold,
@@ -1122,6 +1093,7 @@ async function main() {
                 prompt,
                 timeoutMs: config.timeoutMs,
                 model: config.model,
+                reasoningEffort: config.reasoningEffort,
                 fallbackModel: config.fallbackModel,
                 markerDir,
             });

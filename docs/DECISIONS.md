@@ -1,5 +1,15 @@
 # Architectural Decisions
 
+## ADR-192: Resolve hook pairing configuration without running the hook
+
+**Status:** Accepted (2026-11-10). Extends ADR-079 and ADR-187 for the shared Claude Code/Grok hook; Pi is unchanged.
+
+**Context:** Pair effort was resolved separately for execution and caching, and the skill dashboard stated a fixed effort instead of the hook's resolved configuration.
+
+**Decision:** Extract a pure resolver with explicit marker, environment and defaults inputs, with package defaults loading kept in a separate I/O module. Preserve existing scalar validation and precedence, including the Stop gate's exact `blockOn` grammar. Add marker `reasoningEffort` above the existing environment/default effort ladder, and pass its result to direct, retry, fallback and broker calls and the cache key. `codex-pair-log --status` reports current resolved settings, disabled/pause state and recent reviews without mutating state. The Claude Code skill shows that output. Setup explicitly writes `blockOn: false`; missing `blockOn` retains advisory behavior.
+
+**Consequences:** Per-project effort changes no longer require environment changes and never reuse cached reviews from another effort. Status reflects its process environment, rather than historical worker settings, and observes auto-pauses without expiring them. It reports configuration state, not proof of host hook registration. Pi parity, historical attribution and lifecycle commands remain separate work.
+
 ## ADR-191: Gate the Antigravity rate-limit quota probe on agy 1.2.13 or newer
 
 **Status:** Accepted (2026-11-06). Closes the version-gate follow-up in ADR-186; supersedes the 1.1.11 rate-limit quota floor in ADR-178.
