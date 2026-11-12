@@ -141,7 +141,11 @@ describe("pair configuration contract (ADR-079/187/192)", () => {
   });
 
   it("loads shipped defaults through the package-relative public loader", () => {
-    expect(loadPairDefaults()).toEqual({ model: "gpt-6.1-sol", fallbackModel: "gpt-6.1-terra", reasoningEffort: "high" });
+    expect(loadPairDefaults()).toEqual({
+      model: "gpt-6.1-sol",
+      fallbackModel: "gpt-6.1-terra",
+      reasoningEffort: "high",
+    });
   });
 
   it("resolves Claude's fixed model and provider-specific timeout", () => {
