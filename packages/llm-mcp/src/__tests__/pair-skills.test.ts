@@ -107,4 +107,33 @@ describe("shared pairing contract", () => {
     expect(parseMarkdownFrontmatter(contract).frontmatter).toEqual({});
     expect(fs.existsSync(path.join(PLUGIN_ROOT, "skills", "pairing-contract", "SKILL.md"))).toBe(false);
   });
+
+  it("ends Codex-on-Codex pairing before adapter questions or review calls", () => {
+    const applicability = contract.split("## Writer applicability\n")[1]?.split("\n## ")[0];
+    expect(applicability).toContain(
+      "before host-adapter setup, model/effort questions, extra context reads, consent, or review calls",
+    );
+    expect(applicability).toContain("positively identified as a Codex model and the reviewer would be Codex");
+    expect(applicability).toContain("send exactly one message and end");
+    expect(applicability?.match(/^> (.+)$/gm)).toEqual([
+      "> The same family reviewing itself is not an independent review. Use `/grok-pair` for a different reviewer family. completed (not applicable)",
+    ]);
+    expect(applicability).toContain("Ask no question and make no review call on this path");
+
+    const router = parsePairSkill("ask-llm-codex-pair").body;
+    expect(router).toContain("writer applicability before selecting a host adapter");
+    expect(router.indexOf("pairing-contract.md")).toBeLessThan(router.indexOf("## Host adapters"));
+    expect(contract.indexOf("## Writer applicability")).toBeLessThan(contract.indexOf("## Roles and lifecycle"));
+  });
+
+  it("uses the writer family rather than the host and preserves existing adapter paths", () => {
+    const applicability = contract.split("## Writer applicability\n")[1]?.split("\n## ")[0];
+    expect(applicability).toContain("explicit writer-model information, never from the host name");
+    expect(applicability).toContain("Cursor and Pi can run other model families");
+    expect(applicability).toContain(
+      "When the writer family is unknown or is a different provider, follow the existing host adapter unchanged",
+    );
+    expect(applicability).toContain("do not ask a question solely to identify the writer family");
+    expect(applicability).toContain("Pi's native `/codex-pair` command is a separate implementation and is unchanged");
+  });
 });
