@@ -4,7 +4,7 @@ This contract is shared by `/codex-pair` on Cursor Agent and `/grok-pair` on Cla
 
 ## Writer applicability
 
-For the portable `/codex-pair` skill, apply this check before host-adapter setup, model/effort questions, extra context reads, consent, or review calls. When the model writing the code is positively identified as a Codex model and the reviewer would be Codex, send exactly one message and end:
+For the portable `/codex-pair` skill, apply this check before any skill announcement or progress message, host-adapter setup, model/effort questions, extra context reads, consent, or review calls. When the model writing the code is positively identified as a Codex model and the reviewer would be Codex, send exactly one message and end:
 
 > The same family reviewing itself is not an independent review. Use `/grok-pair` for a different reviewer family. completed (not applicable)
 

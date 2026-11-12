@@ -37,4 +37,24 @@ K1–K5 reject the pre-fix behavior that proceeds to setup, questions, or review
 
 Report each case as PASS, FAIL, NOT RUN, or UNAVAILABLE with its observations. A passing known-writer case needs the single final message plus recorded zero questions and zero review attempts; matching sentences in instruction files proves none of those outcomes. An unavailable host or opaque identity fixture is not a pass.
 
-These scenarios have not been run as part of the review fix. Ordinary `pair-skills.test.ts` checks retain discovery metadata and published JSON protocol contracts only; they do not prove model interpretation. No generated final prompt interface is owned by this portable Markdown-only change, so it adds no deterministic prompt-content assertion.
+Ordinary `pair-skills.test.ts` checks retain discovery metadata and published JSON protocol contracts only; they do not prove model interpretation. No generated final prompt interface is owned by this portable Markdown-only change, so it adds no deterministic prompt-content assertion.
+
+## Native Codex evaluation, 2026-11-13
+
+The Test phase used Codex CLI `0.167.0` with the configured ChatGPT subscription login, writer `gpt-6.1-sol`, and `high` effort. A factual developer instruction explicitly identified that actual writer as belonging to the Codex family; it supplied no expected outcome. The actual portable skill directory was copied into a disposable project's `.agents/skills` folder and invoked using Codex's native `$ask-llm-codex-pair` skill syntax. Each invocation used a fresh ephemeral, read-only session, ignored user configuration and project instructions, and exposed a recording `ask-codex` MCP boundary instead of a live reviewer. Authentication was copied into a private disposable runtime inside the worktree and removed after evaluation; no global configuration or installed plugin was changed.
+
+The original authentication blocker reproduced with HTTP 401 in an empty disposable Codex home. Reusing the authorized subscription login reached real model execution and exposed a separate failure: K5 emitted a skill announcement followed by the not-applicable reply, violating the one-message oracle. The skill's discovery description now directs the host to read writer applicability before messaging, and the contract explicitly includes announcements and progress messages in that boundary.
+
+| Case | Result | Observations |
+| --- | --- | --- |
+| K5, before this repair | FAIL | Two assistant messages: a skill announcement, then the correct terminal reply. Zero questions, reviewer attempts, and project mutations. |
+| K5, after this repair | PASS | One message explains the independence issue, points to `/grok-pair`, and ends with `completed (not applicable)`. Zero questions, reviewer attempts, and project mutations. |
+| K5 with explicit reviewer model/effort | PASS | Same single-message result with `model=gpt-6.1-sol effort=high`; zero questions, reviewer attempts, and project mutations. |
+| K5 with explicit reviewer model/effort and private context | PASS | Same single-message result; only the pairing contract was read. Zero questions, private-context reads, reviewer attempts, and project mutations. |
+| K1–K4 | NOT RUN | Native Codex observations do not establish Cursor or Pi interpretation. Their earlier isolated attempts lacked host authentication; this authorization supplied the configured native Codex subscription path. |
+| U1–U3 | NOT RUN | The authenticated native Codex session explicitly identifies the writer family. Relabeling that writer as unknown would be a prompt simulation, not a faithful unknown-writer host context. No authenticated host with an unknown writer context was available. |
+| O1–O2 | NOT RUN | No authenticated other-provider writer context was available through the authorized native Codex path. Selecting a Codex reviewer does not establish another-provider writer behavior. |
+
+The focused artifact check `corepack yarn test packages/llm-mcp/src/__tests__/pair-skills.test.ts` passed all seven tests after the repair (exit 0).
+
+Evidence is retained under `/home/fm/.no-mistakes/evidence/01M791KGRC6TEQ4S9FBF0KYQC8/`: `subscription-repro.jsonl`, `native-K5*.jsonl`, and the corresponding `*-result.json` records. The JSONL contains actual assistant messages and shell commands; separate `*-reviewer.jsonl` records contain MCP discovery and any attempted reviewer calls. Workspace content was compared before and after each invocation. These are development observations, not prompt simulations or deterministic CI assertions. Overall behavioral acceptance remains incomplete for unknown writers, other-provider writers, Cursor, and Pi.

@@ -1,6 +1,6 @@
 ---
 name: ask-llm-codex-pair
-description: "Codex pair review: set up, check or report per-edit review of your edits by Codex. Use for /codex-pair or when asked to pair with Codex."
+description: "Codex pair review: set up, check or report per-edit review of your edits by Codex. Use for /codex-pair or when asked to pair with Codex. Read pairing-contract.md for writer applicability before sending any message."
 ---
 
 <!-- PORTABLE-CONTRACT:START -->
