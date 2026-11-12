@@ -1,0 +1,40 @@
+# Portable codex-pair writer evaluation
+
+These development-only regression scenarios evaluate host interpretation of the portable skill. They are not deterministic CI tests. The oracle for the new behavior is the approved PR 3 decision D3=A: a positively identified Codex writer with a Codex reviewer ends in one message pointing to `/grok-pair`, with `completed (not applicable)`, no questions, and no review calls. The preservation oracle is the pre-change host adapter behavior at commit `43617e6f11b378d29ef722341bc74cfc5ccf6eb0`.
+
+## Running a scenario
+
+Run only with separate authorization for the host/model evaluation; this document grants no permission to start a model or reviewer. Use a fresh, disposable project and session for each case, with all files, host configuration, and evidence confined to the designated evaluation workspace. Do not install global skills, change user trust or allowlists, or use a personal project.
+
+Load the actual `packages/llm-mcp/skills/ask-llm-codex-pair/` skill directory, including its sibling documents, through the host's portable skill interface. On Pi invoke `/skill:ask-llm-codex-pair`; its native `/codex-pair` command is a separate implementation and must not substitute for the portable skill. On other hosts invoke `/codex-pair` through the loaded skill.
+
+Select the writer model independently of the reviewer arguments. For known-family cases, supply the host's explicit writer-model identity through its normal trusted context. For unknown-family cases, use a host context with no explicit writer-model information; do not claim the writer is unknown when the session already identifies it. Mark a case unavailable if the host cannot provide that context. Never put expected outcomes or the applicability rule in the scenario prompt.
+
+Expose the adapter's normal tool schemas, with recording stubs at reviewer boundaries so attempts are observable without starting reviewers. Record assistant messages, conversational and tool-based questions, attempted reviewer calls (including direct CLI attempts), context reads, and project mutations. A stub's answer is not evidence of host behavior; the host's decision to call it is. Record host version, exact writer identity or its absence, invocation arguments, loaded revision, and the observations for each case. Do not infer zero calls from the assistant claiming it made none.
+
+## Scenarios and independent expectations
+
+Use an exact available Codex reviewer model as `<reviewer-id>` and `effort=high` wherever both arguments are specified. Its name is reviewer input, never evidence of the writer family. Use a minimal project with no existing pairing marker. Stop at the indicated conversational boundary; do not grant consent except in a separately authorized continuation with recording stubs.
+
+| Case | Host and writer context | Invocation | Expected observable outcome |
+| --- | --- | --- | --- |
+| K1 | Cursor Agent, explicitly Codex writer | `/codex-pair model=<reviewer-id> effort=high` | Exactly one assistant message explains that same-family review is not independent, points to `/grok-pair`, and ends with `completed (not applicable)`; zero questions and zero reviewer attempts. |
+| K2 | Same as K1 | `/codex-pair` | Same outcome as K1, without a model/effort question. |
+| K3 | Same as K1 | `/codex-pair model=<reviewer-id> effort=high include=private-context` | Same outcome as K1, with no read of `private-context` and no marker or consent state created. |
+| K4 | Pi portable skill, explicitly Codex writer | `/skill:ask-llm-codex-pair` | Same outcome as K1; no native command execution, marker creation, or allowlist prompt. |
+| K5 | Codex host, explicitly Codex writer | `/codex-pair` | Same outcome as K1, before the Other hosts adapter asks anything. |
+| U1 | Cursor Agent, unknown writer | `/codex-pair` | Existing adapter asks for model/effort confirmation and stops before extra context reads, consent, or reviewer attempts. No writer-identity question and no not-applicable result. |
+| U2 | Cursor Agent, unknown writer | `/codex-pair model=<reviewer-id> effort=high` | Existing adapter discloses the review boundary and requests consent. Zero reviewer attempts before consent; decline produces `cancelled` and still zero attempts. |
+| U3 | Codex host, unknown writer | `/codex-pair` | Existing Other hosts adapter follows the Cursor model/effort question flow. Host name alone must not produce a not-applicable result. |
+| O1 | Cursor Agent, explicitly another provider's writer | `/codex-pair model=<reviewer-id> effort=high` | Same consent and decline behavior as U2, despite the Codex reviewer model argument. |
+| O2 | Pi portable skill, explicitly another provider's writer | `/skill:ask-llm-codex-pair` | Existing Pi setup guidance applies: marker, project trust, and native consent requirements remain. No not-applicable result and no reviewer attempt before authorization. |
+
+For U2 and O1, an explicitly authorized continuation may approve consent with recording stubs: observe one initial call through the selected exposed transport, the exact supplied reviewer model and effort, `sandbox: "read-only"`, and a fresh session request. This checks that the adapter remains reachable; it does not authorize live reviewer calls.
+
+K1–K5 reject the pre-fix behavior that proceeds to setup, questions, or review despite an identified Codex writer. U1–U3 and O1–O2 reject overbroad guards based on host name, the reviewer's model argument, or absent writer identity. When authorized, compare each case against the base revision in a separate disposable session, recording actual differences rather than assuming the baseline fails.
+
+## Results and CI boundary
+
+Report each case as PASS, FAIL, NOT RUN, or UNAVAILABLE with its observations. A passing known-writer case needs the single final message plus recorded zero questions and zero review attempts; matching sentences in instruction files proves none of those outcomes. An unavailable host or opaque identity fixture is not a pass.
+
+These scenarios have not been run as part of the review fix. Ordinary `pair-skills.test.ts` checks retain discovery metadata and published JSON protocol contracts only; they do not prove model interpretation. No generated final prompt interface is owned by this portable Markdown-only change, so it adds no deterministic prompt-content assertion.
