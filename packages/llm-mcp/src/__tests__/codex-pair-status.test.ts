@@ -24,9 +24,12 @@ function status(dir: string, extra: Record<string, string | undefined> = {}) {
     env: {
       ...process.env,
       CODEX_PAIR_DISABLED: undefined,
+      CODEX_PAIR_HOST: undefined,
       ASK_CODEX_MODEL: undefined,
       ASK_CODEX_FALLBACK_MODEL: undefined,
       ASK_CODEX_REASONING_EFFORT: undefined,
+      ASK_CODEX_TIMEOUT_MS: undefined,
+      ASK_CLAUDE_TIMEOUT_MS: undefined,
       ...extra,
     },
     timeout: 5000,
@@ -62,6 +65,42 @@ it("reports the hook defaults, environment overrides and marker overrides, witho
     "Surface threshold: low",
   ])
     expect(pinned).toContain(value);
+});
+it("reports the effective Claude reviewer rather than unused Codex settings", () => {
+  const dir = fixture("---\nreviewer: claude\nmodel: ignored\n---\n# ctx");
+  const env = {
+    CODEX_PAIR_HOST: "grok",
+    ASK_CODEX_MODEL: "unused-model",
+    ASK_CODEX_FALLBACK_MODEL: "unused-fallback",
+    ASK_CODEX_REASONING_EFFORT: "ultra",
+    ASK_CODEX_TIMEOUT_MS: "1234",
+  };
+  const output = status(dir, env);
+  expect(output.status).toBe(0);
+  for (const value of [
+    "State: active",
+    "Reviewer: claude",
+    "Model: claude-opus-5-5",
+    "Timeout: 600000ms",
+    "Fallback model: not used (Claude reviewer)",
+    "Reasoning effort: not used (Claude reviewer)",
+  ])
+    expect(output.stdout).toContain(value);
+  expect(output.stdout).not.toContain("unused-");
+  expect(status(dir, { ...env, ASK_CLAUDE_TIMEOUT_MS: "5678" }).stdout).toContain("Timeout: 5678ms");
+  writeFileSync(join(dir, ".codex-pair", "context.md"), "---\nreviewer: claude\ntimeoutMs: 42\n---\n# ctx");
+  expect(status(dir, { ...env, ASK_CLAUDE_TIMEOUT_MS: "5678" }).stdout).toContain("Timeout: 42ms");
+});
+it.each([
+  ["claude", undefined, "claude cannot review its own model family's edits (claude writer)"],
+  ["invalid", undefined, "reviewer must be codex or claude"],
+  ["invalid", "grok", "reviewer must be codex or claude"],
+])("does not report active when reviewer %s is refused on host %s", (reviewer, host, reason) => {
+  const dir = fixture(`---\nreviewer: ${reviewer}\n---\n# ctx`);
+  const output = status(dir, { CODEX_PAIR_HOST: host });
+  expect(output.status).toBe(0);
+  expect(output.stdout).toContain(`State: disabled (codex-pair refused: ${reason})`);
+  expect(output.stdout).not.toContain("State: active");
 });
 it("a marker respects disable and every pause kind; status does not mutate state", () => {
   const dir = fixture();

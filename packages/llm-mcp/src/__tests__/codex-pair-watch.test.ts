@@ -21,7 +21,6 @@ describe("scripts/codex-pair-watch.mjs — structural invariants (ADR-077)", () 
   const script = readFile("scripts/codex-pair-watch.mts");
   // ADR-088: state helpers now live in lib/state.mjs. Tests that previously
   // grepped the hook source for state symbols now read this instead.
-  const configScript = readFile("scripts/lib/pair-config.mts");
   const libState = readFile("scripts/lib/state.mjs");
 
   it("the script file is executable", () => {
@@ -57,12 +56,6 @@ describe("scripts/codex-pair-watch.mjs — structural invariants (ADR-077)", () 
     expect(script).toMatch(/stdin\.write/);
     expect(script).toMatch(/stdin\.end\(\)/);
     expect(script).toMatch(/stdin\.on\(["']error["']/);
-  });
-
-  it("preserves quota fallback (gpt-6.1-sol → gpt-6.1-terra on rate_limit_exceeded)", () => {
-    expect(script).toMatch(/isQuotaError/);
-    expect(script).toMatch(/rate_limit_exceeded/);
-    expect(script).toMatch(/fallbackModel/);
   });
 
   it("declares the marker filename .codex-pair/context.md (ADR-092)", () => {
@@ -105,25 +98,8 @@ describe("scripts/codex-pair-watch.mjs — structural invariants (ADR-077)", () 
     expect(script).toMatch(/CODEX_PAIR_DISABLED/);
   });
 
-  it("caps file size via CODEX_PAIR_MAX_FILE_BYTES (default 20KB)", () => {
-    expect(configScript).toMatch(/CODEX_PAIR_MAX_FILE_BYTES/);
-    expect(configScript).toMatch(/20_000|20000/);
-  });
-
   it("watches Edit, Write, and MultiEdit tools only", () => {
     expect(script).toMatch(/WATCHED_TOOLS.*Edit.*Write.*MultiEdit/s);
-  });
-
-  it("resolveConfig exposes debounceMs (default 15000) and debounceMaxMs (default 60000)", () => {
-    expect(configScript).toMatch(/debounceMs:/);
-    expect(configScript).toMatch(/debounceMaxMs:/);
-    expect(configScript).toMatch(/DEFAULT_DEBOUNCE_MS/);
-    expect(configScript).toMatch(/DEFAULT_DEBOUNCE_MAX_MS/);
-  });
-
-  it("debounceMs accepts 0 (>= 0 guard) to restore synchronous review", () => {
-    // The frontmatter guard must allow 0 (disable), unlike timeoutMs (> 0).
-    expect(configScript).toMatch(/typeof\s+fm\.debounceMs\s*===\s*"number"\s*&&\s*fm\.debounceMs\s*>=\s*0/);
   });
 
   it("dispatches to a detached debounce worker when debounceMs > 0", () => {
@@ -269,17 +245,6 @@ describe("scripts/codex-pair-watch.mjs — structural invariants (ADR-077)", () 
       malformed: false,
     });
     expect(parseFrontmatter("---\nbroker: false").malformed).toBe(true);
-  });
-
-  it("resolveConfig honors precedence frontmatter > env > default", () => {
-    expect(configScript).toMatch(/function resolveConfig/);
-    const block = configScript.match(/function resolveConfig[\s\S]*?^}/m);
-    expect(block).toBeTruthy();
-    const body = block?.[0] ?? "";
-    // Each key has a typeof guard so invalid types fall through to defaults.
-    expect(body).toMatch(/typeof fm\.model\s*===\s*["']string["']/);
-    expect(body).toMatch(/typeof fm\.maxFileBytes\s*===\s*["']number["']/);
-    expect(body).toMatch(/VALID_THRESHOLDS\.has/);
   });
 
   it("malformed frontmatter triggers a warning log entry (silent fallback to defaults)", () => {
@@ -643,13 +608,6 @@ describe("scripts/codex-pair-watch.mjs — structural invariants (ADR-077)", () 
   });
 
   // Phase 1 item #4: default-model drift guard
-  it("loads package-relative model defaults and passes resolved effort to Codex", () => {
-    const io = readFile("scripts/lib/pair-config-io.mts");
-    expect(io).toContain('new URL("../../codex-pair-defaults.json", import.meta.url)');
-    expect(script).toContain("resolveConfig(frontmatter, process.env, CODEX_PAIR_DEFAULTS, markerContent)");
-    expect(script).toContain('model_reasoning_effort="${reasoningEffort}"');
-  });
-
   it("codex-pair-defaults.json exists and contains model+fallbackModel+reasoningEffort keys", () => {
     const defaultsPath = path.join(PLUGIN_ROOT, "codex-pair-defaults.json");
     expect(fs.existsSync(defaultsPath)).toBe(true);

@@ -32,7 +32,7 @@ import { loadPairDefaults } from "./lib/pair-config-io.mts";
 import { positiveMs, resolveConfig } from "./lib/pair-config.mts";
 import { type Frontmatter, parseFrontmatter } from "./lib/frontmatter.mts";
 import type { HookInput } from "./lib/hook-input.mjs";
-import { CLAUDE_PAIR_MODEL, resolveReviewer, runClaudeReview } from "./lib/pair-reviewer.mts";
+import { runClaudeReview } from "./lib/pair-reviewer.mts";
 import {
   buildVerdictMessage,
   type Concerns,
@@ -1004,23 +1004,16 @@ async function main() {
         "malformed frontmatter in .codex-pair/context.md — opener `---` with no matching closer; falling back to defaults",
     });
   }
-  const config = resolveConfig(frontmatter, process.env, CODEX_PAIR_DEFAULTS, markerContent);
-  let reviewer: "codex" | "claude";
+  let config: ReturnType<typeof resolveConfig>;
   try {
-    reviewer = resolveReviewer(frontmatter.reviewer, grokHost ? "grok" : "claude");
+    config = resolveConfig(frontmatter, process.env, CODEX_PAIR_DEFAULTS, markerContent);
   } catch (error) {
     const reason = error instanceof Error ? error.message : String(error);
     await appendLog(markerDir, { timestamp: new Date().toISOString(), verdict: "refused", file: filePath, reason });
     await emitSystemMessage(reason);
     process.exit(0);
   }
-  if (reviewer === "claude") {
-    config.model = CLAUDE_PAIR_MODEL;
-    config.timeoutMs =
-      typeof frontmatter.timeoutMs === "number" && frontmatter.timeoutMs > 0
-        ? frontmatter.timeoutMs
-        : (positiveMs(process.env.ASK_CLAUDE_TIMEOUT_MS) ?? 600_000);
-  }
+  const { reviewer } = config;
   if (grokHost) reviewerLabel = `${reviewer} / ${config.model}`;
   // A forced review keeps the worker's timeout, so a settle-window frontmatter edit cannot outlast its kill deadline.
   const workerTimeoutMs = forcedTarget ? positiveMs(process.env.CP_TIMEOUT_MS) : undefined;
