@@ -1,5 +1,11 @@
 # @ask-llm/mcp
 
+## 1.4.0
+
+### Minor Changes
+
+- [#421](https://github.com/Lykhoyda/ask-llm/pull/421) [`43617e6`](https://github.com/Lykhoyda/ask-llm/commit/43617e6f11b378d29ef722341bc74cfc5ccf6eb0) Thanks [@Lykhoyda](https://github.com/Lykhoyda)! - Support per-project codex-pair reasoning effort and read-only `codex-pair-log --status` output using the hook's shared configuration resolver. Claude Code setup explicitly keeps new markers advisory with `blockOn: false` and shows the status command's output.
+
 ## 1.3.2
 
 ### Patch Changes
