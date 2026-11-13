@@ -1,6 +1,6 @@
 ---
 name: ask-llm-codex-pair
-description: "Codex pair review: set up, check or report per-edit review of your edits by Codex. Use for /codex-pair or when asked to pair with Codex. Read pairing-contract.md for writer applicability before sending any message."
+description: "Codex pair review: set up, check or report per-edit review of your edits by Codex. Use for /codex-pair or when asked to pair with Codex. For a positively identified Codex writer with a Codex reviewer, send only one message explaining that same-family review is not independent, pointing to /grok-pair, and ending with completed (not applicable); then stop without questions or review calls. Otherwise read pairing-contract.md before setup."
 ---
 
 <!-- PORTABLE-CONTRACT:START -->
