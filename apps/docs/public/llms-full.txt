@@ -247,7 +247,7 @@ Reviews, plan critique, comparisons and brainstorming use the same portable work
 
 ## Connection details
 
-The Claude Code plugin itself still ships only the Codex MCP registration used by review and pairing commands. Fully restart Claude Code after installation or upgrade, then run `/mcp`; `plugin:ask-llm:codex` should be connected and expose the exact `ask-codex` capability. Plugin agents and skills prefer that bundled `ask-codex` leaf, then a fully pinned unified `ask-llm` call (`provider: "codex"` plus model and Codex options), then the disclosed `codex exec` fallback.
+The Claude Code plugin itself still ships only the Codex MCP registration used by review and pairing commands. It starts the Codex server with `node` from the plugin's own `@ask-llm/mcp` release, pinned to the plugin version, as a single process per session. A plugin installed from the repository has no build of its own, so on its first start it installs that exact release once into `~/.cache/ask-llm/servers` (`$XDG_CACHE_HOME/ask-llm/servers` when set, or `ASK_LLM_SERVER_CACHE`); later starts use that copy without contacting npm. If the release cannot be installed, the server reports the manual install command and does not start, and the workflows below use their disclosed fallback. Fully restart Claude Code after installation or upgrade, then run `/mcp`; `plugin:ask-llm:codex` should be connected and expose the exact `ask-codex` capability. Plugin agents and skills prefer that bundled `ask-codex` leaf, then a fully pinned unified `ask-llm` call (`provider: "codex"` plus model and Codex options), then the disclosed `codex exec` fallback.
 
 ## Hooks
 
@@ -404,7 +404,7 @@ If neither direct transport is exposed, run `ask-llm setup --host cursor` and re
 | Capability | Claude Code | Cursor Agent |
 |---|---|---|
 | `/codex-pair` | Marker-gated continuous hooks plus dashboard | On-demand skill-backed persisted reviewer session |
-| Registration | Claude plugin + `.mcp.json` (Codex only) | Cursor Plugin Agent Skills + `mcp.json` (unified `ask-llm` only; split servers user-installed) |
+| Registration | Claude plugin + `.mcp.json` (Codex only) | Cursor Plugin Agent Skills + `mcp.json` (unified `ask-llm` only, started with `node` from the plugin's own pinned `@ask-llm/mcp` release; split servers user-installed) |
 | Include directories | Per-edit context from marker/project | Explicit safe relative `includeDirs` on first Codex call |
 | Completion gate | Optional Claude Stop hook | Explicit completed/cancelled/failed session report |
 | Cancellation | Claude hook/provider process lifecycle | Cursor MCP AbortSignal/interrupt |

@@ -10,7 +10,7 @@ Reviews, plan critique, comparisons and brainstorming use the same portable work
 
 ## Connection details
 
-The Claude Code plugin itself still ships only the Codex MCP registration used by review and pairing commands. Fully restart Claude Code after installation or upgrade, then run `/mcp`; `plugin:ask-llm:codex` should be connected and expose the exact `ask-codex` capability. Plugin agents and skills prefer that bundled `ask-codex` leaf, then a fully pinned unified `ask-llm` call (`provider: "codex"` plus model and Codex options), then the disclosed `codex exec` fallback.
+The Claude Code plugin itself still ships only the Codex MCP registration used by review and pairing commands. It starts the Codex server with `node` from the plugin's own `@ask-llm/mcp` release, pinned to the plugin version, as a single process per session. A plugin installed from the repository has no build of its own, so on its first start it installs that exact release once into `~/.cache/ask-llm/servers` (`$XDG_CACHE_HOME/ask-llm/servers` when set, or `ASK_LLM_SERVER_CACHE`); later starts use that copy without contacting npm. If the release cannot be installed, the server reports the manual install command and does not start, and the workflows below use their disclosed fallback. Fully restart Claude Code after installation or upgrade, then run `/mcp`; `plugin:ask-llm:codex` should be connected and expose the exact `ask-codex` capability. Plugin agents and skills prefer that bundled `ask-codex` leaf, then a fully pinned unified `ask-llm` call (`provider: "codex"` plus model and Codex options), then the disclosed `codex exec` fallback.
 
 ## Hooks
 
