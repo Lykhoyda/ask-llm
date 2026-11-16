@@ -15,27 +15,33 @@ Consult Grok through one of two explicit harnesses: xAI's supported **Responses 
 
 1. Create an xAI API key at [console.x.ai](https://console.x.ai/team/default/api-keys).
 2. Review current [xAI pricing](https://docs.x.ai/developers/pricing) and fund/configure the xAI team yourself if you choose to use it. Ask LLM never enables billing, buys credits, requests paid capacity, enables overage, or selects priority processing.
-3. Export the key only in the MCP server environment:
+3. Connect Ask LLM to your assistant with [setup](/start/install), which registers the unified server; it consults Grok through the `ask-llm` tool with `provider: "grok"`:
 
 ```bash
-export XAI_API_KEY="..."
-claude mcp add --scope user grok -e XAI_API_KEY="$XAI_API_KEY" -- npx -y @ask-llm/grok-mcp
+npm i -g @ask-llm/mcp && ask-llm setup
 ```
 
-For Codex CLI:
+4. Make `XAI_API_KEY` available to that server. Setup does not copy the key into any configuration. Set it in your shell profile, or add it to the `ask-llm` entry. In Claude Code, re-create the entry setup registered:
 
 ```bash
-codex mcp add grok --env XAI_API_KEY="$XAI_API_KEY" -- npx -y @ask-llm/grok-mcp
+claude mcp remove --scope user ask-llm
+claude mcp add --scope user ask-llm -e XAI_API_KEY="$XAI_API_KEY" -- "$(npm prefix -g)/bin/ask-llm-mcp"
 ```
 
-Generic JSON MCP configuration:
+In Codex CLI, setup prints the registration command instead of running it. Add the key when you run it:
+
+```bash
+codex mcp add ask-llm --env XAI_API_KEY="$XAI_API_KEY" -- "$(npm prefix -g)/bin/ask-llm-mcp"
+```
+
+For a JSON MCP client, replace the placeholder with the path `command -v ask-llm-mcp` prints:
 
 ```json
 {
   "mcpServers": {
-    "grok": {
-      "command": "npx",
-      "args": ["-y", "@ask-llm/grok-mcp"],
+    "ask-llm": {
+      "command": "/absolute/path/to/ask-llm-mcp",
+      "args": [],
       "env": { "XAI_API_KEY": "${XAI_API_KEY}" }
     }
   }
@@ -62,6 +68,8 @@ agent --list-models
 ```
 
 ## Tools
+
+The tools below belong to the standalone `@ask-llm/grok-mcp` server, kept for earlier installations; the setup registration reaches Grok through `ask-llm` with `provider: "grok"`. See [Migration](/reference/migration).
 
 | Tool | Purpose |
 |---|---|

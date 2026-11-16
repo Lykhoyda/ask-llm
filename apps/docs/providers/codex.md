@@ -6,7 +6,7 @@ description: Bridge Claude with OpenAI Codex CLI for GPT-6 Astra code review and
 
 <ProviderStatus provider="codex" />
 
-OpenAI's Codex CLI is the workhorse reviewer of the pair: strongest code reasoning for targeted reviews, architecture critique, and diff analysis. Claude asks Codex; Codex asks Claude back through [`@ask-llm/claude-mcp`](/providers/claude).
+OpenAI's Codex CLI is the workhorse reviewer of the pair: strongest code reasoning for targeted reviews, architecture critique, and diff analysis. Claude asks Codex; Codex asks [Claude](/providers/claude) back through the same Ask LLM installation.
 
 > **Best for:** targeted code reasoning, architecture critique, and security review of specific files, the default workhorse reviewer.
 > **Not for:** whole-repository reads beyond its context window (use Gemini or Antigravity), or fully offline/air-gapped use (it's a hosted model; use Ollama).
@@ -15,7 +15,7 @@ OpenAI's Codex CLI is the workhorse reviewer of the pair: strongest code reasoni
 
 <InstallSnippet provider="codex" />
 
-Or install globally: `npm install -g @ask-llm/codex-mcp`
+Setup registers the unified Ask LLM server, which consults Codex through the `ask-llm` tool with `provider: "codex"`. In Claude Code, the plugin that setup installs also connects the `ask-codex` tool. In Codex itself, setup installs the workflows and prints the `codex mcp add` command for you to run; see [Install](/start/install). The tools listed below belong to the standalone `@ask-llm/codex-mcp` server, kept for earlier installations; see [Migration](/reference/migration) to move to the setup registration.
 
 ## Prerequisites
 

@@ -30,7 +30,7 @@ See the install command above; select your host, inspect the preview, and confir
 
 Setup discovers hosts separately from providers and asks you to confirm each detected host and workflow. Review the command or file preview, confirm your assistant's registration and workflows, and decline the others. Setup works at user scope, preserves unrelated entries, and prints backup locations and restart instructions. Pairing remains off.
 
-Follow any manual guidance in the output before continuing. Existing Codex registrations require manual inspection because the host's inventory does not prove user-scope ownership. Antigravity needs the printed workflow-copy step. OpenCode registration is tested with fixtures only. See [host compatibility](https://lykhoyda.github.io/ask-llm/compatibility/hosts) and [migration](https://lykhoyda.github.io/ask-llm/reference/migration).
+Follow any manual guidance in the output before continuing. Codex registration is always a manual step: setup installs the Codex workflows and prints the exact `codex mcp add ask-llm -- <path>` command, but does not run it, because Codex's server list omits persisted settings and can include project overrides. Check `~/.codex/config.toml` and project configuration for an existing `ask-llm` entry, then run the printed command. Antigravity needs the printed workflow-copy step. OpenCode registration is tested with fixtures only. See [host compatibility](https://lykhoyda.github.io/ask-llm/compatibility/hosts) and [migration](https://lykhoyda.github.io/ask-llm/reference/migration).
 
 Start a new session in your project or restart your assistant, then [ask for your first review](https://lykhoyda.github.io/ask-llm/start/first-review).
 
@@ -219,7 +219,7 @@ A host is the coding assistant you work in. A provider is the model you consult.
 
 ## Setup limits
 
-Claude Desktop is tools only. Antigravity needs the workflow-copy step printed by setup. Existing Codex registrations require manual inspection of user and project configuration, including filters. OpenCode registration is tested with fixtures only. See [Migration](https://lykhoyda.github.io/ask-llm/reference/migration) when setup leaves an earlier entry unchanged.
+Claude Desktop is tools only. Antigravity needs the workflow-copy step printed by setup. Codex registration is a manual step: setup installs the workflows and prints the `codex mcp add` command without running it; inspect user and project configuration, including filters, before you run it. OpenCode registration is tested with fixtures only. See [Migration](https://lykhoyda.github.io/ask-llm/reference/migration) when setup leaves an earlier entry unchanged.
 
 ## Claude Code
 
@@ -1136,7 +1136,7 @@ Source: https://lykhoyda.github.io/ask-llm/advanced/manual-configuration.html
 
 MCP is the connection protocol used by most hosts. Pi uses a native extension instead; see [Pi host notes](https://lykhoyda.github.io/ask-llm/compatibility/pi). Primary onboarding uses [setup](https://lykhoyda.github.io/ask-llm/start/install), which registers a durable installed path.
 
-Use manual configuration only when setup prints guidance, your host requires project scope, or your client is outside the supported host list. Start with the exact entry setup prints and keep unrelated servers intact. The installed executable is `ask-llm-mcp`; use `command -v ask-llm-mcp` to find its absolute path.
+Use manual configuration only when setup prints guidance (it always does for Codex), your host requires project scope, or your client is outside the supported host list. Start with the exact entry setup prints and keep unrelated servers intact. The installed executable is `ask-llm-mcp`; use `command -v ask-llm-mcp` to find its absolute path.
 
 ## JSON clients
 
@@ -1164,7 +1164,7 @@ claude mcp add --scope user ask-llm -- /absolute/path/to/ask-llm-mcp
 codex mcp add ask-llm -- /absolute/path/to/ask-llm-mcp
 ```
 
-Inspect both user and project configuration before manually changing an existing Codex entry; preserve filters and custom options. Restart the host after registration. Run `ask-llm doctor`, then request a [first review](https://lykhoyda.github.io/ask-llm/start/first-review); a registration check alone is not a successful provider call.
+For a default global install, the path is `"$(npm prefix -g)/bin/ask-llm-mcp"`, which is what setup prints. Inspect both user and project configuration before adding or changing a Codex entry; preserve filters and custom options. Restart the host after registration. Run `ask-llm doctor`, then request a [first review](https://lykhoyda.github.io/ask-llm/start/first-review); a registration check alone is not a successful provider call.
 
 Legacy cache-based registrations and marketplace commands are retained in [Migration](https://lykhoyda.github.io/ask-llm/reference/migration#earlier-installation-recipes). See [CLI](https://lykhoyda.github.io/ask-llm/reference/cli) and [authentication](https://lykhoyda.github.io/ask-llm/operation/authentication) for diagnostics and credentials.
 
@@ -1536,7 +1536,7 @@ No. Validate claims against source, tests and requirements. [Compare answers](ht
 
 ## Which hosts work?
 
-See [Hosts](https://lykhoyda.github.io/ask-llm/compatibility/hosts). Claude Desktop is tools only. Pi uses native tools and needs no MCP config. Antigravity has a manual workflow-copy step. Existing Codex registrations need inspection; OpenCode registration is verified with fixtures only.
+See [Hosts](https://lykhoyda.github.io/ask-llm/compatibility/hosts). Claude Desktop is tools only. Pi uses native tools and needs no MCP config. Antigravity has a manual workflow-copy step. In Codex, setup prints the registration command for you to run after checking existing entries; OpenCode registration is verified with fixtures only.
 
 ## Why is Gemini restricted?
 

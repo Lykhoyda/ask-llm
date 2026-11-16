@@ -120,7 +120,7 @@ claude mcp add --scope user gemini -- npx -y @ask-llm/gemini-mcp
 codex mcp add claude -- npx -y @ask-llm/claude-mcp
 ```
 
-These packages remain installable for compatibility. They are not a package choice in current onboarding. The six provider pages remain unchanged as per-provider reference, including their earlier examples. Current configuration uses [the installed executable](/advanced/manual-configuration).
+These packages remain installable for compatibility. They are not a package choice in current onboarding. The six provider pages lead with setup and keep the split packages' tool tables as reference for these installations. Current configuration uses [the installed executable](/advanced/manual-configuration).
 
 ### Earlier Pi npm installation
 
