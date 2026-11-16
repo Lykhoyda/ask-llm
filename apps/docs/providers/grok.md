@@ -21,7 +21,13 @@ Consult Grok through one of two explicit harnesses: xAI's supported **Responses 
 npm i -g @ask-llm/mcp && ask-llm setup
 ```
 
-4. Make `XAI_API_KEY` available to that server. Setup does not copy the key into any configuration. Set it in your shell profile, or add it to the `ask-llm` entry. In Claude Code, re-create the entry setup registered:
+4. Make `XAI_API_KEY` available to that server. Setup does not copy the key into any configuration. Replace `...` with your xAI API key and export it:
+
+```bash
+export XAI_API_KEY="..."
+```
+
+Set it in your shell profile, or add it to the `ask-llm` entry. In Claude Code, re-create the entry setup registered:
 
 ```bash
 claude mcp remove --scope user ask-llm
