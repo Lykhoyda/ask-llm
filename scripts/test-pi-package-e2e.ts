@@ -236,7 +236,7 @@ const fakeAgy = `#!/usr/bin/env node
 const fs = require("node:fs");
 const args = process.argv.slice(2);
 fs.appendFileSync(process.env.ASK_LLM_PI_INVOCATION_LOG, JSON.stringify({ provider: "antigravity", args }) + "\\n");
-if (args.includes("--version")) { console.log("agy version 1.1.9"); process.exit(0); }
+if (args.includes("--version")) { console.log("agy version 1.5.9"); process.exit(0); }
 if (args.join(" ").includes("FAKE_FAIL")) { console.error("agy fixture unavailable"); process.exit(7); }
 console.log(JSON.stringify({ conversation_id: "fake", status: "SUCCESS", response: "FAKE_ANTIGRAVITY_RESPONSE", usage: { input_tokens: 4, output_tokens: 3, total_tokens: 7 } }));
 `;
