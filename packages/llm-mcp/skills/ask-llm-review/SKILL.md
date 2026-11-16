@@ -17,7 +17,7 @@ Call the native `ask-codex` tool with `reasoningEffort: "high"` and apply the po
 
 ### Other hosts adapter
 
-Codex, Cursor Agent, Antigravity, Grok Build, Gemini CLI and OpenCode get this skill from their skills folder, not from a plugin. Apply the portable contract above inline, with the Codex call from `transport.md` (next to this file): `model: "gpt-6-astra"`, `reasoningEffort: "high"`, `sandbox: "read-only"`. There is no isolated reviewer subagent on these hosts; do not claim one.
+Codex, Cursor Agent, Antigravity, Grok Build, Gemini CLI and OpenCode get this skill from their skills folder, not from a plugin. Apply the portable contract above inline, with the Codex call from `transport.md` (next to this file): `model: "gpt-6.1-sol"`, `reasoningEffort: "high"`, `sandbox: "read-only"`. There is no isolated reviewer subagent on these hosts; do not claim one.
 
 <!-- HOST-ADAPTER:CLAUDE-CODE:START -->
 ### Claude Code adapter
@@ -51,6 +51,6 @@ For **recall-first** review on hot-path code (money handling, security paths, sp
 
 2. If the diff is empty, inform the user there are no changes to review.
 
-3. Launch the `codex-reviewer` agent with the diff content. The agent handles the Codex prompt structure and output formatting, using GPT-6 Astra at `high` reasoning effort with automatic Terra fallback.
+3. Launch the `codex-reviewer` agent with the diff content. The agent handles the Codex prompt structure and output formatting, using GPT-6.1 Sol at `high` reasoning effort with automatic Terra fallback.
 
 <!-- HOST-ADAPTER:CLAUDE-CODE:END -->

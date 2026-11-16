@@ -1,5 +1,15 @@
 # Architectural Decisions
 
+## ADR-193: Follow Codex's verified GPT-6.1 Sol bundled default
+
+**Status:** Accepted (2026-11-16)
+
+**Context:** Ask LLM still selected `gpt-6-astra` for unpinned consultations after the pairing pins moved to Sol in ADR-187. Codex CLI 0.167.0's read-only `codex debug models --bundled` lists `gpt-6.1-sol` with priority 1 and `gpt-6-astra` with priority 2. An isolated, unauthenticated `codex app-server` `model/list` using an empty temporary `CODEX_HOME` reports `gpt-6.1-sol` with `isDefault: true`; Astra and `gpt-6.1-terra` remain selectable. A live call through Ask LLM's built executor, from a throwaway directory with no explicit model or model environment override, completed with the existing Astra selection and no fallback: Ask LLM always passes `-m`, so an upstream default change does not update our pin. The [official Codex changelog](https://learn.chatgpt.com/docs/changelog) lists two bug fixes for 0.162.1 and does not establish that release as the first Sol default. The pin follows the installed 0.167.0 evidence, without assigning an unverified introduction version.
+
+**Decision:** Set `FACTORY_DEFAULT_MODEL` and its unified registry, public tool-schema descriptions, current docs, portable consultation instructions, deterministic harness model and tests to `gpt-6.1-sol`. Keep `CODEX_PAIR_MODEL` at `gpt-6.1-sol`, `MODELS.FALLBACK` at `gpt-6.1-terra`, ordinary reasoning effort at `medium`, and review effort at `high`. Keep model/environment overrides and the explicit `/astra-review` route with its Astra-only 0.153.0 guard. The 0.167.0 bundled catalog sets no client-version floor for Sol or Terra, so introduce no global CLI floor.
+
+**Consequences:** Unpinned `ask-codex`, `ask-codex-edit`, unified Codex consultations, `/codex-review`, verification/image workflows and the raw brainstorm route now select Sol; quota fallback stays Terra. Explicit Astra requests remain available. Existing docs-model and emitted tool-contract drift guards cover the new default. Linux live executor acceptance and macOS acceptance are separate checks; a Linux result does not establish the macOS result.
+
 ## ADR-192: Resolve hook pairing configuration without running the hook
 
 **Status:** Accepted (2026-11-10). Extends ADR-079 and ADR-187 for the shared Claude Code/Grok hook; Pi is unchanged.

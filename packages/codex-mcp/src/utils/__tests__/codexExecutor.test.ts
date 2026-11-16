@@ -1011,7 +1011,7 @@ describe("configured preferred model tier", () => {
   };
 
   beforeEach(() => {
-    // Astra is both DEFAULT and PREFERRED out of the box. Give the legacy
+    // Sol is both DEFAULT and PREFERRED out of the box. Give the legacy
     // escape hatch a distinct value so this suite continues to exercise its
     // opt-in downgrade and cache-isolation behavior.
     MODELS.PREFERRED = "test-preferred-model";

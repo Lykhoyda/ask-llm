@@ -60,7 +60,7 @@ Uses Gemini's 1M+ token context window, making it ideal for reviewing changes th
 
 ### `/codex-review`
 
-Get a second opinion from OpenAI Codex (GPT-6 Astra) on your current changes.
+Get a second opinion from OpenAI Codex (GPT-6.1 Sol) on your current changes.
 
 ```text
 /codex-review
