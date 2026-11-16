@@ -160,7 +160,7 @@ function parseStdoutJson(raw: string): StdoutParse {
 }
 
 // Sandboxed /quota answered without a turn or quota use on agy 1.2.13 (https://github.com/Lykhoyda/ask-llm/pull/366).
-// Both doctor --live and rate-limit recovery gate on QUOTA_COMMAND_MIN_VERSION (>=1.2.13).
+// Both doctor --live and rate-limit recovery gate on QUOTA_COMMAND_MIN_VERSION (ADR-193).
 export async function probeAntigravityQuota(signal?: AbortSignal): Promise<string> {
   const args = [
     CLI.FLAGS.PRINT,

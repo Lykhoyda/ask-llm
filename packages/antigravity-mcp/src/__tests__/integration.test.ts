@@ -174,12 +174,24 @@ describe.skipIf(!SMOKE || process.env.ASK_ANTIGRAVITY_ALLOW_UNISOLATED !== "1")(
         "--log-file",
         join(root, "agy.log"),
       ];
+      // agy's public event stream attributes each denial to its tool and target;
+      // the diagnostic log does not include tool errors on every backend.
+      args[args.indexOf("--output-format") + 1] = "stream-json";
       const { stdout } = await promisify(execFile)("agy", args, {
         cwd: workspace,
         timeout: EXECUTOR_TIMEOUT_MS + 10_000,
         maxBuffer: 16 * 1024 * 1024,
       });
-      return { stdout, log: readFileSync(join(root, "agy.log"), "utf8") };
+      const events = stdout
+        .trim()
+        .split(/\r?\n/)
+        .map((line) => JSON.parse(line));
+      const result = events.findLast((event) => event.event === "result")?.result;
+      expect(result?.status).toBe("SUCCESS");
+      const deniedSteps = events
+        .filter((event) => event.event === "step_update" && event.step_update?.state === "ERROR")
+        .map((event) => event.step_update.tool_info);
+      return { result, deniedSteps, log: readFileSync(join(root, "agy.log"), "utf8") };
     };
 
     it(
@@ -187,7 +199,7 @@ describe.skipIf(!SMOKE || process.env.ASK_ANTIGRAVITY_ALLOW_UNISOLATED !== "1")(
       async () => {
         const trees = [workspace, added, outside].map(hashTree);
         const settingsBefore = fileHash(AGY_USER_SETTINGS);
-        const { stdout, log } = await runAgy(
+        const { result, deniedSteps, log } = await runAgy(
           [
             "Attempt every step in order even if earlier actions are denied, and report the outcome of every step:",
             "1. Use your file-writing tool to create overlay-write.txt containing the word written.",
@@ -202,17 +214,26 @@ describe.skipIf(!SMOKE || process.env.ASK_ANTIGRAVITY_ALLOW_UNISOLATED !== "1")(
         expect(fileHash(AGY_USER_SETTINGS)).toBe(settingsBefore);
         expect(log).toContain("Deny:[write_file(*) command(*)]");
         expect(log).not.toMatch(/SetCycleMode called: auto/);
-        const denials = log.split(/\r?\n/).filter((line) => line.includes("Matches user-configured deny rule"));
-        for (const [tool, target] of [
-          ["write_file", "overlay-write.txt"],
-          ["write_file", "overlay-added.txt"],
-          ["command", "touch overlay-touch.txt"],
-          ["command", `touch ${join(outside, "overlay-outside.txt")}`],
-          ["command", "curl -sS -o overlay-net.html https://example.com"],
+        for (const [tool, parameters] of [
+          ["write_file", { Path: join(workspace, "overlay-write.txt") }],
+          ["write_file", { Path: join(added, "overlay-added.txt") }],
+          ["run_command", { CommandLine: "touch overlay-touch.txt" }],
+          ["run_command", { CommandLine: `touch ${join(outside, "overlay-outside.txt")}` }],
+          ["run_command", { CommandLine: "curl -sS -o overlay-net.html https://example.com" }],
         ]) {
-          expect(denials.filter((line) => line.includes(tool) && line.includes(target))).not.toEqual([]);
+          expect(deniedSteps).toEqual(
+            expect.arrayContaining([
+              expect.objectContaining({
+                name: tool,
+                parameters: expect.objectContaining(parameters),
+                error: expect.objectContaining({
+                  message: expect.stringContaining("Matches user-configured deny rule"),
+                }),
+              }),
+            ]),
+          );
         }
-        expect(JSON.parse(stdout).response.trim().length).toBeGreaterThan(0);
+        expect(result.response.trim().length).toBeGreaterThan(0);
       },
       TIMEOUT,
     );
@@ -221,11 +242,11 @@ describe.skipIf(!SMOKE || process.env.ASK_ANTIGRAVITY_ALLOW_UNISOLATED !== "1")(
       "still reads files and answers a review",
       async () => {
         const settingsBefore = fileHash(AGY_USER_SETTINGS);
-        const { stdout } = await runAgy(
+        const { result } = await runAgy(
           `Read README.md and ${join(added, "lib.txt")}. Reply with the number both files mention, and nothing else.`,
         );
         expect(fileHash(AGY_USER_SETTINGS)).toBe(settingsBefore);
-        expect(JSON.parse(stdout).response).toContain("42");
+        expect(result.response).toContain("42");
       },
       TIMEOUT,
     );
