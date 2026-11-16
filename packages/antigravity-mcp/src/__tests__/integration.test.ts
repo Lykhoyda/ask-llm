@@ -135,7 +135,7 @@ const AGY_USER_SETTINGS = join(homedir(), ".gemini", "antigravity-cli", "setting
 const fileHash = (path: string) =>
   existsSync(path) ? createHash("sha256").update(readFileSync(path)).digest("hex") : "absent";
 
-// Live proof for ADR-193 on a real, logged-in agy >=1.5.9. The task deliberately omits the
+// Live proof for ADR-194 on a real, logged-in agy >=1.5.9. The task deliberately omits the
 // read-only preamble so the model attempts the actions and agy's deny rules, not the model, refuse them.
 describe.skipIf(!SMOKE || process.env.ASK_ANTIGRAVITY_ALLOW_UNISOLATED !== "1")(
   "Antigravity (agy) live settings overlay",

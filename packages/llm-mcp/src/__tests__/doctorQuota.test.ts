@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { runDoctorCli } from "../doctorCli.js";
 
-// Pinned literally: the session-only overlay every agy spawn carries (ADR-193).
+// Pinned literally: the session-only overlay every agy spawn carries (ADR-194).
 const SESSION_SETTINGS_OVERLAY = '{"agentMode":"","permissions":{"deny":["write_file(*)","command(*)"]}}';
 
 vi.mock("node:child_process", async (original) => {

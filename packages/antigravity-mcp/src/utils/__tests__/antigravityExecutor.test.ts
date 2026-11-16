@@ -286,7 +286,7 @@ describe("executeAntigravityCLI slash-command hardening", () => {
   });
 });
 
-describe("session settings overlay (ADR-193)", () => {
+describe("session settings overlay (ADR-194)", () => {
   const overlayOf = (args: readonly string[]) => {
     const flags = args.filter((arg) => arg === CLI.FLAGS.SETTINGS);
     expect(flags).toHaveLength(1);
@@ -354,7 +354,7 @@ describe("session settings overlay (ADR-193)", () => {
 });
 
 describe("minimum version pin", () => {
-  // 1.5.9 is the oldest agy verified live to enforce the --settings overlay (ADR-193);
+  // 1.5.9 is the oldest agy verified live to enforce the --settings overlay (ADR-194);
   // do not lower it without new live evidence.
   it("pins the exact overlay bytes verified live on agy 1.5.9", () => {
     expect(SESSION_SETTINGS_OVERLAY).toBe('{"agentMode":"","permissions":{"deny":["write_file(*)","command(*)"]}}');

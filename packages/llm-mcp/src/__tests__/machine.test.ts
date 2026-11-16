@@ -349,7 +349,7 @@ describe("runMachineRequest", () => {
       provider: "codex" as const,
       writerProvider: "claude" as const,
       actualModel: "gpt-5.5-mini",
-      requestedModel: "gpt-6-astra",
+      requestedModel: "gpt-6.1-sol",
     },
     {
       provider: "claude" as const,

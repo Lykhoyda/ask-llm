@@ -70,7 +70,7 @@ describe("Antigravity tool and machine isolation", { timeout: 5_000 }, () => {
     expect(argv).toContain("--version");
     expect(argv).toContain("-p");
     expect(argv).not.toContain("--dangerously-skip-permissions");
-    // Every model spawn carries the enforced deny overlay; plan mode is no longer passed (ADR-193).
+    // Every model spawn carries the enforced deny overlay; plan mode is no longer passed (ADR-194).
     const spawns = mockExec.mock.calls.map(([, args]) => args).filter((args) => args[0] === "-p");
     expect(spawns.length).toBeGreaterThan(0);
     for (const args of spawns) {

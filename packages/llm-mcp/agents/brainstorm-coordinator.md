@@ -195,7 +195,7 @@ PROMPT_EOF
 # fallback does NOT apply to this raw path. The long --model flag works under -p
 # (only the short -m hangs). Run `agy models`.
 # --settings is the session-only overlay @ask-llm/antigravity-mcp passes on every
-# spawn (ADR-193): Default agent mode plus agy-enforced deny rules for file writes
+# spawn (ADR-194): Default agent mode plus agy-enforced deny rules for file writes
 # and commands; agy never saves it to the user's settings.
 if [ "${ASK_ANTIGRAVITY_ALLOW_UNISOLATED:-}" = "1" ]; then
   agy_version=$(agy --version 2> "$workdir/antigravity.err")
@@ -222,13 +222,13 @@ gemini -p "@$workdir/prompt.md" > "$workdir/gemini.out" 2> "$workdir/gemini.err"
 pid_gemini=$!
 
 # Only include this block if codex was requested (in the default set).
-# GPT-6 Astra at high effort is the quality-first default for unpinned
+# GPT-6.1 Sol at high effort is the default for unpinned
 # brainstorming; Terra preserves the lower-cost fallback role. The exact Cursor
 # architect panel stays gpt-6.1-sol-high (ADR-148). ASK_CODEX_PREFERRED_MODEL and
 # ASK_CODEX_REASONING_EFFORT remain escape hatches. prompt.md is a FILE (not a
 # pipe), so both attempts can re-read it. The whole `{ ...; }` group is
 # backgrounded as one job so pid_codex/`wait` capture the final code.
-codex_model="${ASK_CODEX_PREFERRED_MODEL:-${ASK_CODEX_MODEL:-gpt-6-astra}}"
+codex_model="${ASK_CODEX_PREFERRED_MODEL:-${ASK_CODEX_MODEL:-gpt-6.1-sol}}"
 codex_fallback="${ASK_CODEX_FALLBACK_MODEL:-gpt-6.1-terra}"
 codex_effort="${ASK_CODEX_REASONING_EFFORT:-high}"
 # Keep the raw env override aligned with ask-codex's public enum so malformed

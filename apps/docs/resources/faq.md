@@ -30,11 +30,11 @@ No. Validate claims against source, tests and requirements. [Compare answers](/w
 
 ## Which hosts work?
 
-See [Hosts](/compatibility/hosts). Claude Desktop is tools only. Pi uses native tools and needs no MCP config. Antigravity has a manual workflow-copy step. Existing Codex registrations need inspection; OpenCode registration is verified with fixtures only.
+See [Hosts](/compatibility/hosts). Claude Desktop is tools only. Pi uses native tools and needs no MCP config. Antigravity has a manual workflow-copy step. In Codex, setup prints the registration command for you to run after checking existing entries; OpenCode registration is verified with fixtures only.
 
 ## Why is Gemini restricted?
 
-The provider requires an eligible Code Assist Standard/Enterprise seat. See [Enterprise environments / Gemini](/advanced/enterprise-gemini) and the unchanged [provider reference](/providers/gemini). Ask LLM cannot grant provider eligibility.
+The provider requires an eligible Code Assist Standard/Enterprise seat. See [Enterprise environments / Gemini](/advanced/enterprise-gemini) and the [provider reference](/providers/gemini). Ask LLM cannot grant provider eligibility.
 
 ## Where does my code go?
 

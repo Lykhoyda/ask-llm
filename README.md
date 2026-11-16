@@ -23,6 +23,12 @@ npm i -g @ask-llm/mcp && ask-llm setup
 
 Setup asks you to confirm each detected host and workflow. Inspect the preview, confirm your assistant's registration and workflows, decline the others, then follow any printed manual steps. Restart your assistant or start a new session in your project.
 
+In Codex, setup installs the workflows and prints the registration command for you to run. [Inspect existing user and project configuration](https://lykhoyda.github.io/ask-llm/advanced/manual-configuration#command-hosts) before running it. For a default global install it is:
+
+```bash
+codex mcp add ask-llm -- "$(npm prefix -g)/bin/ask-llm-mcp"
+```
+
 ## Your first review
 
 With both Claude Code and Codex installed and signed in, open Claude Code in your project and ask:
@@ -44,14 +50,15 @@ A host is the assistant you work in; a provider is the model you consult.
 | Host | Experience |
 |---|---|
 | Claude Code | Reviews, plan critique, comparisons; isolated reviewers and opt-in per-edit pairing |
-| Codex, Cursor, Gemini CLI | Tools and portable workflows; pairing on demand |
+| Codex | Tools and portable workflows; pairing on demand; you run the printed registration command |
+| Cursor, Gemini CLI | Tools and portable workflows; pairing on demand |
 | Grok Build | Tools and portable workflows; opt-in [per-edit pairing](https://lykhoyda.github.io/ask-llm/advanced/codex-pair#grok-cli) |
 | Antigravity | Tools; setup prints a manual step for workflows |
 | Pi 0.83.0+ | Native tools and portable workflows; opt-in per-edit pairing |
 | Claude Desktop | Tools only |
 | OpenCode | Tools and portable workflows; setup verified with fixtures only |
 
-See [host compatibility](https://lykhoyda.github.io/ask-llm/compatibility/hosts) for the complete matrix and manual setup limits, including existing Codex registrations.
+See [host compatibility](https://lykhoyda.github.io/ask-llm/compatibility/hosts) for the complete matrix and manual setup limits, including the Codex registration step.
 
 ## Supported providers
 

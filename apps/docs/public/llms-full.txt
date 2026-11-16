@@ -30,7 +30,7 @@ See the install command above; select your host, inspect the preview, and confir
 
 Setup discovers hosts separately from providers and asks you to confirm each detected host and workflow. Review the command or file preview, confirm your assistant's registration and workflows, and decline the others. Setup works at user scope, preserves unrelated entries, and prints backup locations and restart instructions. Pairing remains off.
 
-Follow any manual guidance in the output before continuing. Existing Codex registrations require manual inspection because the host's inventory does not prove user-scope ownership. Antigravity needs the printed workflow-copy step. OpenCode registration is tested with fixtures only. See [host compatibility](https://lykhoyda.github.io/ask-llm/compatibility/hosts) and [migration](https://lykhoyda.github.io/ask-llm/reference/migration).
+Follow any manual guidance in the output before continuing. Codex registration is always a manual step: setup installs the Codex workflows and prints the exact `codex mcp add ask-llm -- <path>` command, but does not run it, because Codex's server list omits persisted settings and can include project overrides. Check `~/.codex/config.toml` and project configuration for an existing `ask-llm` entry, then run the printed command. Antigravity needs the printed workflow-copy step. OpenCode registration is tested with fixtures only. See [host compatibility](https://lykhoyda.github.io/ask-llm/compatibility/hosts) and [migration](https://lykhoyda.github.io/ask-llm/reference/migration).
 
 Start a new session in your project or restart your assistant, then [ask for your first review](https://lykhoyda.github.io/ask-llm/start/first-review).
 
@@ -219,7 +219,7 @@ A host is the coding assistant you work in. A provider is the model you consult.
 
 ## Setup limits
 
-Claude Desktop is tools only. Antigravity needs the workflow-copy step printed by setup. Existing Codex registrations require manual inspection of user and project configuration, including filters. OpenCode registration is tested with fixtures only. See [Migration](https://lykhoyda.github.io/ask-llm/reference/migration) when setup leaves an earlier entry unchanged.
+Claude Desktop is tools only. Antigravity needs the workflow-copy step printed by setup. Codex registration is a manual step: setup installs the workflows and prints the `codex mcp add` command without running it; inspect user and project configuration, including filters, before you run it. OpenCode registration is tested with fixtures only. See [Migration](https://lykhoyda.github.io/ask-llm/reference/migration) when setup leaves an earlier entry unchanged.
 
 ## Claude Code
 
@@ -323,7 +323,7 @@ Provider-backed review agents use a 3-phase workflow with confidence-based filte
 
 #### `codex-reviewer`
 
-Sends code changes to OpenAI Codex (GPT-6 Astra) for review. Automatic fallback to GPT-6.1 Terra on quota limits.
+Sends code changes to OpenAI Codex (GPT-6.1 Sol) for review. Automatic fallback to GPT-6.1 Terra on quota limits.
 
 #### `antigravity-reviewer`
 
@@ -636,7 +636,7 @@ For a single-provider call (`ask-llm` with `provider: "gemini"`), only one of th
 
 Provider executors apply their own controls:
 
-- **Quota fallback**: Gemini Pro → Flash on `RESOURCE_EXHAUSTED`; Codex `gpt-6-astra` → `gpt-6.1-terra` on quota errors
+- **Quota fallback**: Gemini Pro → Flash on `RESOURCE_EXHAUSTED`; Codex `gpt-6.1-sol` → `gpt-6.1-terra` on quota errors
 - **Stdin handling**: Codex needs an EOF-terminated pipe rather than `/dev/null`, otherwise it errors out
 - **PATH resolution**: macOS GUI clients (Claude Desktop) don't inherit your shell's PATH; the server resolves it from your login shell at startup
 - **Live progressive output**: Gemini's `--output-format stream-json` deltas are parsed and forwarded to MCP progress notifications, so users see Gemini's prose unfolding rather than a frozen wait
@@ -666,7 +666,7 @@ Hosted CLI providers (Gemini, Codex, Claude, Antigravity) auto-select a sensible
 | Provider | Default | Fallback | Trigger |
 |---|---|---|---|
 | Gemini | `gemini-3.1-pro-preview` | `gemini-3.8-flash` | `RESOURCE_EXHAUSTED` quota error or "exhausted your capacity" pattern |
-| Codex | `gpt-6-astra` | `gpt-6.1-terra` | Quota errors (`rate_limit_exceeded`, `429`, `insufficient_quota`) |
+| Codex | `gpt-6.1-sol` | `gpt-6.1-terra` | Quota errors (`rate_limit_exceeded`, `429`, `insufficient_quota`) |
 | Claude | `opus` (Opus 5.5, `claude-opus-5-5`) | `sonnet` | Claude Code native fallback when Opus is overloaded or unavailable |
 | Grok | `grok-4.7` (`reasoning.effort=high`) | none | Every error is terminal; requested ID is sent unchanged |
 | Antigravity | `gemini-3.1-pro` (`--effort high`) | `gemini-3.8-flash`; one model-less retry when agy rejects a model whose value equals `gemini-3.1-pro` or `gemini-3.8-flash` (reported as `agy default`). Both retain the effective effort (`high`, or the `ASK_ANTIGRAVITY_EFFORT` override) | Subscription rate limit; model-unavailable (shipped slug values only — other rejected models fail actionably) |
@@ -674,7 +674,7 @@ Hosted CLI providers (Gemini, Codex, Claude, Antigravity) auto-select a sensible
 
 For Gemini, Codex, Claude, and Antigravity, fallback is automatic and structured output exposes the actual model plus `usage.fellBack`. Antigravity reports `gemini-3.8-flash` after a rate-limit fallback, or the literal `agy default` after a model-less recovery (agy does not reveal which model it picked). Grok and Ollama never fall back, so their `fellBack` values are always `false`.
 
-`codex-pair` defaults to `gpt-6.1-sol` at `high` reasoning effort and quota-falls back to `gpt-6.1-terra`. Unpinned Codex consultations stay on `gpt-6-astra`.
+`codex-pair` defaults to `gpt-6.1-sol` at `high` reasoning effort and quota-falls back to `gpt-6.1-terra`. Unpinned Codex consultations also use `gpt-6.1-sol`.
 
 Codex uses `medium` reasoning effort for ordinary calls to preserve the previous default behavior. The quality-first `/ask-llm-review` and `/ask-llm-brainstorm` skills use `high`. Direct `ask-llm` with `provider: "codex"` calls can override this with `reasoningEffort` (`low`, `medium`, `high`, `xhigh`, `max`, or `ultra`). `ultra` is opt-in only: Codex's catalog describes it as maximum reasoning with automatic task delegation, so review and brainstorm defaults stay at `high`.
 
@@ -688,7 +688,7 @@ Different providers excel at different things. Pick by what you're doing, not by
 
 | Task | Suggested provider | Why |
 |---|---|---|
-| Targeted code reasoning, refactor critique | **Codex** | GPT-6 Astra is the flagship; see [Codex Pair](https://lykhoyda.github.io/ask-llm/advanced/codex-pair#configuration-knobs) for pair-review defaults |
+| Targeted code reasoning, refactor critique | **Codex** | GPT-6.1 Sol is the default; see [Codex Pair](https://lykhoyda.github.io/ask-llm/advanced/codex-pair#configuration-knobs) for pair-review defaults |
 | Claude second opinion while working in Codex | **Claude** | Opus 5.5 (`opus`) review through Claude Code CLI, with native session continuation and read-only file access |
 | Grok 4.7 independent critique | **Grok** | Exact model selection, configurable reasoning depth, structured JSON Schema output |
 | Private / air-gapped analysis | **Ollama** | Runs locally, nothing leaves your machine |
@@ -1136,7 +1136,7 @@ Source: https://lykhoyda.github.io/ask-llm/advanced/manual-configuration.html
 
 MCP is the connection protocol used by most hosts. Pi uses a native extension instead; see [Pi host notes](https://lykhoyda.github.io/ask-llm/compatibility/pi). Primary onboarding uses [setup](https://lykhoyda.github.io/ask-llm/start/install), which registers a durable installed path.
 
-Use manual configuration only when setup prints guidance, your host requires project scope, or your client is outside the supported host list. Start with the exact entry setup prints and keep unrelated servers intact. The installed executable is `ask-llm-mcp`; use `command -v ask-llm-mcp` to find its absolute path.
+Use manual configuration only when setup prints guidance (it always does for Codex), your host requires project scope, or your client is outside the supported host list. Start with the exact entry setup prints and keep unrelated servers intact. The installed executable is `ask-llm-mcp`; use `command -v ask-llm-mcp` to find its absolute path.
 
 ## JSON clients
 
@@ -1164,7 +1164,7 @@ claude mcp add --scope user ask-llm -- /absolute/path/to/ask-llm-mcp
 codex mcp add ask-llm -- /absolute/path/to/ask-llm-mcp
 ```
 
-Inspect both user and project configuration before manually changing an existing Codex entry; preserve filters and custom options. Restart the host after registration. Run `ask-llm doctor`, then request a [first review](https://lykhoyda.github.io/ask-llm/start/first-review); a registration check alone is not a successful provider call.
+For a default global install, the path is `"$(npm prefix -g)/bin/ask-llm-mcp"`, which is what setup prints. Inspect both user and project configuration before adding or changing a Codex entry; preserve filters and custom options. Restart the host after registration. Run `ask-llm doctor`, then request a [first review](https://lykhoyda.github.io/ask-llm/start/first-review); a registration check alone is not a successful provider call.
 
 Legacy cache-based registrations and marketplace commands are retained in [Migration](https://lykhoyda.github.io/ask-llm/reference/migration#earlier-installation-recipes). See [CLI](https://lykhoyda.github.io/ask-llm/reference/cli) and [authentication](https://lykhoyda.github.io/ask-llm/operation/authentication) for diagnostics and credentials.
 
@@ -1172,7 +1172,7 @@ Legacy cache-based registrations and marketplace commands are retained in [Migra
 
 Source: https://lykhoyda.github.io/ask-llm/advanced/enterprise-gemini.html
 
-Gemini CLI requires an eligible Code Assist Standard/Enterprise seat. Installing Ask LLM does not grant account access. Check your organisation's data-transfer policy before sending project material. See the unchanged [Gemini provider reference](https://lykhoyda.github.io/ask-llm/providers/gemini) for account eligibility and failure behavior.
+Gemini CLI requires an eligible Code Assist Standard/Enterprise seat. Installing Ask LLM does not grant account access. Check your organisation's data-transfer policy before sending project material. See the [Gemini provider reference](https://lykhoyda.github.io/ask-llm/providers/gemini) for account eligibility and failure behavior.
 
 Ask LLM normally supplies Gemini workspace-trust settings for the current directory. Set `ASK_GEMINI_REQUIRE_WORKSPACE_TRUST=1` to require explicit workspace trust instead; untrusted directories then block. User-scope Gemini registrations load only in trusted folders. See [environment variables](https://lykhoyda.github.io/ask-llm/reference/environment-variables).
 
@@ -1369,9 +1369,9 @@ curl http://localhost:11434/api/tags    # Ollama
 
 Provider quota exhausted
 
-**The executor handles this automatically**: Gemini falls back from `gemini-3.1-pro-preview` to `gemini-3.8-flash`, and Codex falls back from `gpt-6-astra` to `gpt-6.1-terra`. You'll see `usage.fellBack: true` in the structured response.
+**The executor handles this automatically**: Gemini falls back from `gemini-3.1-pro-preview` to `gemini-3.8-flash`, and Codex falls back from `gpt-6.1-sol` to `gpt-6.1-terra`. You'll see `usage.fellBack: true` in the structured response.
 
-If both Pro and Flash (or both GPT-6 Astra and Terra) hit quota, the call fails with both errors surfaced. Wait for the quota window to reset, or:
+If both Pro and Flash (or both GPT-6.1 Sol and Terra) hit quota, the call fails with both errors surfaced. Wait for the quota window to reset, or:
 
 - Switch to a different provider for the meantime: `Use ask-llm with provider codex ...` instead of Gemini
 - Use Ollama locally: `Use ask-llm with provider ollama ...`
@@ -1536,11 +1536,11 @@ No. Validate claims against source, tests and requirements. [Compare answers](ht
 
 ## Which hosts work?
 
-See [Hosts](https://lykhoyda.github.io/ask-llm/compatibility/hosts). Claude Desktop is tools only. Pi uses native tools and needs no MCP config. Antigravity has a manual workflow-copy step. Existing Codex registrations need inspection; OpenCode registration is verified with fixtures only.
+See [Hosts](https://lykhoyda.github.io/ask-llm/compatibility/hosts). Claude Desktop is tools only. Pi uses native tools and needs no MCP config. Antigravity has a manual workflow-copy step. In Codex, setup prints the registration command for you to run after checking existing entries; OpenCode registration is verified with fixtures only.
 
 ## Why is Gemini restricted?
 
-The provider requires an eligible Code Assist Standard/Enterprise seat. See [Enterprise environments / Gemini](https://lykhoyda.github.io/ask-llm/advanced/enterprise-gemini) and the unchanged [provider reference](https://lykhoyda.github.io/ask-llm/providers/gemini). Ask LLM cannot grant provider eligibility.
+The provider requires an eligible Code Assist Standard/Enterprise seat. See [Enterprise environments / Gemini](https://lykhoyda.github.io/ask-llm/advanced/enterprise-gemini) and the [provider reference](https://lykhoyda.github.io/ask-llm/providers/gemini). Ask LLM cannot grant provider eligibility.
 
 ## Where does my code go?
 

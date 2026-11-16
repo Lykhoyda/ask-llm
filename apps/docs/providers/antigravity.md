@@ -19,7 +19,7 @@ Requires a [supported agy version](#prerequisites). Unified discovery, `doctor -
 
 <InstallSnippet provider="antigravity" />
 
-Or install globally: `npm install -g @ask-llm/antigravity-mcp`
+Setup registers the unified Ask LLM server, which consults Antigravity through the `ask-llm` tool with `provider: "antigravity"`. Execution stays off until you set `ASK_ANTIGRAVITY_ALLOW_UNISOLATED=1` for the server. The tools listed below belong to the standalone `@ask-llm/antigravity-mcp` server, kept for earlier installations; see [Migration](/reference/migration) to move to the setup registration.
 
 ## Prerequisites
 

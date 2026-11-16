@@ -76,7 +76,7 @@ pinned model still valid?" (`docs/ROUTINES.md` rule 5; the #244 lesson).
 | Provider | Authoritative sources |
 |---|---|
 | gemini | Google model catalog (ai.google.dev/gemini-api/docs/models): tier defaults, GA vs preview status, deprecation notices |
-| codex | OpenAI models documentation (platform.openai.com/docs/models) + openai/codex release notes for the CLI's shipped default |
+| codex | Installed `codex --version`, `codex debug models --bundled` (catalog priority), and isolated `codex app-server` `model/list` (`isDefault`); corroborate with OpenAI models documentation and Codex release notes. The verified 0.167.0 bundled default is `gpt-6.1-sol` (ADR-193); catalog availability and the exact release that first changed a default are separate claims |
 | claude | Anthropic models overview (docs.anthropic.com). Note: this repo pins the floating aliases `opus`/`sonnet` — record which concrete version each alias currently resolves to |
 | ollama | ollama.com library page for the pinned model family (availability only; there is no provider-side default) |
 | antigravity | `agy models` CLI output is the ONLY acceptable evidence (ADR-137). If `agy` is not runnable in this environment, mark antigravity UNVERIFIED — never infer agy slugs from Google's web catalog |

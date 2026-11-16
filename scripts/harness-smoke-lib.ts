@@ -199,7 +199,7 @@ const EXACT_DRY_MODELS = Object.freeze({
   CURSOR_GROK: "grok-4.7-high",
   CURSOR_CODEX: "gpt-6.1-sol-high",
   PI: "openai-codex/gpt-6.1-sol",
-  CODEX: "gpt-6-astra",
+  CODEX: "gpt-6.1-sol",
   CODEX_PAIR: "gpt-6.1-sol",
   GROK: "grok-4.7",
 } as const);
@@ -873,11 +873,11 @@ export async function runHarnessSuite(options: RunHarnessSuiteOptions = {}): Pro
     const discovery = new Map<string, Discovery>();
     if (mode === "live") {
       const tools = new Set(
-        scenarios
-          .filter(
-            (scenario) => scenario.supported !== false && scenario.liveSupported !== false && !scenario.setupPreview,
-          )
-          .flatMap((scenario) => [scenario.tool, routeTool(scenario)]),
+        scenarios.flatMap((scenario) =>
+          scenario.supported !== false && scenario.liveSupported !== false && !scenario.setupPreview
+            ? [scenario.tool, routeTool(scenario)]
+            : [],
+        ),
       );
       for (const tool of tools) {
         discovery.set(

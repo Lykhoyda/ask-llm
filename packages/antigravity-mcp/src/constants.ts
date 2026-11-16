@@ -1,7 +1,7 @@
-// The oldest agy verified live to enforce SESSION_SETTINGS_OVERLAY (ADR-193); older agy is refused.
+// The oldest agy verified live to enforce SESSION_SETTINGS_OVERLAY (ADR-194); older agy is refused.
 export const MINIMUM_AGY_VERSION = "1.5.9";
 
-// Session-only agy settings passed with --settings on every headless spawn; agy never saves them (ADR-193).
+// Session-only agy settings passed with --settings on every headless spawn; agy never saves them (ADR-194).
 // agentMode "" keeps Default mode instead of agy 1.5.7+'s headless Auto, and the deny rules refuse
 // file writes and every command. This is agy-enforced policy, not OS isolation.
 export const SESSION_SETTINGS_OVERLAY = JSON.stringify({
@@ -91,7 +91,7 @@ export const ANTIGRAVITY = {
   ],
   QUOTA_COMMAND: "/quota",
   // Sandboxed /quota answered with num_turns 0 on 1.2.13 (https://github.com/Lykhoyda/ask-llm/pull/366); with the
-  // --settings overlay it is verified on 1.5.9, so it shares the overlay floor (ADR-193).
+  // --settings overlay it is verified on 1.5.9, so it shares the overlay floor (ADR-194).
   QUOTA_COMMAND_MIN_VERSION: MINIMUM_AGY_VERSION,
   // agy >=1.2.6 prints this stderr line on a failed headless turn and exits 3.
   STRUCTURED_ERROR_PREFIX: "AGY_ERROR:",

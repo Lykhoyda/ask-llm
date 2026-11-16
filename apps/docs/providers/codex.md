@@ -1,12 +1,12 @@
 ---
-description: Bridge Claude with OpenAI Codex CLI for GPT-6 Astra code review and analysis. Automatic fallback to GPT-6.1 Terra on quota limits.
+description: Bridge Claude with OpenAI Codex CLI for GPT-6.1 Sol code review and analysis. Automatic fallback to GPT-6.1 Terra on quota limits.
 ---
 
 # Codex
 
 <ProviderStatus provider="codex" />
 
-OpenAI's Codex CLI is the workhorse reviewer of the pair: strongest code reasoning for targeted reviews, architecture critique, and diff analysis. Claude asks Codex; Codex asks Claude back through [`@ask-llm/claude-mcp`](/providers/claude).
+OpenAI's Codex CLI is the workhorse reviewer of the pair: code reasoning for targeted reviews, architecture critique, and diff analysis. Claude asks Codex; Codex asks [Claude](/providers/claude) back through the same Ask LLM installation.
 
 > **Best for:** targeted code reasoning, architecture critique, and security review of specific files, the default workhorse reviewer.
 > **Not for:** whole-repository reads beyond its context window (use Gemini or Antigravity), or fully offline/air-gapped use (it's a hosted model; use Ollama).
@@ -15,12 +15,12 @@ OpenAI's Codex CLI is the workhorse reviewer of the pair: strongest code reasoni
 
 <InstallSnippet provider="codex" />
 
-Or install globally: `npm install -g @ask-llm/codex-mcp`
+Setup registers the unified Ask LLM server, which consults Codex through the `ask-llm` tool with `provider: "codex"`. In Claude Code, the plugin that setup installs also connects the `ask-codex` tool. In Codex itself, setup installs the workflows and prints the `codex mcp add` command for you to run; see [Install](/start/install). The tools listed below belong to the standalone `@ask-llm/codex-mcp` server, kept for earlier installations; see [Migration](/reference/migration) to move to the setup registration.
 
 ## Prerequisites
 
 1. **Node.js** v24.0.0 or higher
-2. **[Codex CLI](https://github.com/openai/codex)** >= 0.153.0 installed and authenticated (`gpt-6-astra` is rejected on older CLIs; pin `ASK_CODEX_MODEL=gpt-6.1-sol` to stay on Sol)
+2. **[Codex CLI](https://github.com/openai/codex)** installed and authenticated (default verified on 0.167.0; an explicit `gpt-6-astra` pin requires >= 0.153.0)
 
 ## Tools
 
@@ -37,19 +37,20 @@ Or install globally: `npm install -g @ask-llm/codex-mcp`
 
 <FallbackChain provider="codex" />
 
-- **Default:** `gpt-6-astra` (GPT-6 Astra flagship; requires Codex CLI >= 0.153.0)
+- **Default:** `gpt-6.1-sol` (Codex 0.167.0 bundled default)
 - **codex-pair:** `gpt-6.1-sol` (GPT-6.1 Sol) at `high` effort. Quota fallback stays Terra
+- **Explicit Astra:** `gpt-6-astra`, also used by `/astra-review`; requires Codex CLI >= 0.153.0
 - **Quota fallback:** `gpt-6.1-terra`, the cheaper, faster GPT-6.1 tier
 - **Overrides:** `ASK_CODEX_MODEL`, `ASK_CODEX_FALLBACK_MODEL`, or the per-call `model` parameter
 
 ## Key Features
 
-- **GPT-6 Astra access** via the official Codex CLI
+- **GPT-6.1 Sol access** via the official Codex CLI
 - **Reasoning control:** ordinary calls default to `medium`; `/codex-review` and `/brainstorm` use `high`; direct calls can request `low`, `medium`, `high`, `xhigh`, `max`, or `ultra`. `ultra` is opt-in only (maximum reasoning with automatic task delegation) and is not a review default
 - **Native session continuity:** omit `sessionId` for an ephemeral one-off call; pass `sessionId: ""` on turn one to persist a thread, then pass its returned `thread_id` on later turns. Follow-ups use `codex exec resume <id>` with the stable `-c sandbox_mode="<mode>"` grammar (zero replay cost, Codex retains state).
 - **Read-only, non-interactive sandbox:** fresh calls use `codex exec --sandbox read-only`; resumed calls use the equivalent supported config override `-c sandbox_mode="read-only"`. Both keep second-opinion, review, and edit-proposal calls from modifying the workspace. Codex `exec` is non-interactive by definition, so no approval prompt can hang the MCP subprocess. The optional `sandbox: "workspace-write"` parameter is a deliberate opt-out for flows that need Codex to write files (e.g. `/codex-image`); review flows must not set it.
 - **JSONL output parsing** for structured responses + token usage
-- **Automatic quota fallback** from GPT-6 Astra to Terra
+- **Automatic quota fallback** from GPT-6.1 Sol to Terra
 - **Structured AskResponse** via outputSchema for programmatic clients
 - **Standard MCP transport** works with 40+ clients
 

@@ -58,4 +58,4 @@ To start a fresh Ollama session explicitly, pass `sessionId: ""` (empty string);
 
 ## Legacy tool reference
 
-Earlier provider-specific tools and Pi aliases remain documented in the unchanged provider pages and [Migration](/reference/migration). For workflow command names, see [Skills](/reference/skills).
+Earlier provider-specific tools and Pi aliases remain documented in the provider pages and [Migration](/reference/migration). For workflow command names, see [Skills](/reference/skills).

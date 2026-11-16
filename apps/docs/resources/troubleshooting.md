@@ -144,9 +144,9 @@ curl http://localhost:11434/api/tags    # Ollama
   preview="Provider quota exhausted"
 >
 
-**The executor handles this automatically**: Gemini falls back from `gemini-3.1-pro-preview` to `gemini-3.8-flash`, and Codex falls back from `gpt-6-astra` to `gpt-6.1-terra`. You'll see `usage.fellBack: true` in the structured response.
+**The executor handles this automatically**: Gemini falls back from `gemini-3.1-pro-preview` to `gemini-3.8-flash`, and Codex falls back from `gpt-6.1-sol` to `gpt-6.1-terra`. You'll see `usage.fellBack: true` in the structured response.
 
-If both Pro and Flash (or both GPT-6 Astra and Terra) hit quota, the call fails with both errors surfaced. Wait for the quota window to reset, or:
+If both Pro and Flash (or both GPT-6.1 Sol and Terra) hit quota, the call fails with both errors surfaced. Wait for the quota window to reset, or:
 
 - Switch to a different provider for the meantime: `Use ask-llm with provider codex ...` instead of Gemini
 - Use Ollama locally: `Use ask-llm with provider ollama ...`

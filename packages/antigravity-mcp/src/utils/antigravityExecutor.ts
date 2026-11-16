@@ -54,7 +54,7 @@ export function buildArgs(
   if (disableSlashCommands) args.push(CLI.FLAGS.DISABLE_SLASH_COMMANDS);
   // agy ignores --mode plan beside --disable-slash-commands, so read-only only forces --sandbox.
   if (readOnly || sandbox) args.push(CLI.FLAGS.SANDBOX);
-  // Every spawn (primary and each retry) carries the enforced overlay (ADR-193).
+  // Every spawn (primary and each retry) carries the enforced overlay (ADR-194).
   args.push(CLI.FLAGS.SETTINGS, SESSION_SETTINGS_OVERLAY);
   return args;
 }
@@ -160,7 +160,7 @@ function parseStdoutJson(raw: string): StdoutParse {
 }
 
 // Sandboxed /quota answered without a turn or quota use on agy 1.2.13 (https://github.com/Lykhoyda/ask-llm/pull/366).
-// Both doctor --live and rate-limit recovery gate on QUOTA_COMMAND_MIN_VERSION (ADR-193).
+// Both doctor --live and rate-limit recovery gate on QUOTA_COMMAND_MIN_VERSION (ADR-194).
 export async function probeAntigravityQuota(signal?: AbortSignal): Promise<string> {
   const args = [
     CLI.FLAGS.PRINT,

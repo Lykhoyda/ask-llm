@@ -60,7 +60,7 @@ Uses Gemini's 1M+ token context window, making it ideal for reviewing changes th
 
 ### `/codex-review`
 
-Get a second opinion from OpenAI Codex (GPT-6 Astra) on your current changes.
+Get a second opinion from OpenAI Codex (GPT-6.1 Sol) on your current changes.
 
 ```text
 /codex-review
@@ -183,7 +183,7 @@ Claude Code's `/grok-pair` selects one immutable Grok route: `cursor-agent` (pre
 /grok-pair route=xai-api model=grok-4.7 effort=xhigh review this change
 ```
 
-On Claude Code the Cursor and direct Grok tools come from user-scoped registrations (`claude mcp add --scope user ask-llm -- npx -y @ask-llm/mcp`, optionally `claude mcp add --scope user grok -- npx -y @ask-llm/grok-mcp`); the plugin itself bundles only Codex. The unified `ask-llm` tool is used only with provider, harness, exact model, and effort pinned. When Cursor itself hosts `/grok-pair`, it avoids recursive Cursor invocation and offers only explicit API/CLI routes through `ask-grok` or that fully pinned unified form; missing tools produce `.cursor/mcp.json` plus Cursor Tools & MCP reload guidance, never Claude-only setup commands.
+On Claude Code the Cursor and direct Grok tools come from the user-scoped `ask-llm` registration that `ask-llm setup --host claude` adds (or an optional, separately installed split `grok` server); the plugin itself bundles only Codex. The unified `ask-llm` tool is used only with provider, harness, exact model, and effort pinned. When Cursor itself hosts `/grok-pair`, it avoids recursive Cursor invocation and offers only explicit API/CLI routes through `ask-grok` or that fully pinned unified form; missing tools produce `.cursor/mcp.json` plus Cursor Tools & MCP reload guidance, never Claude-only setup commands.
 
 ### `codex-pair`: host lifecycle + dashboard
 
