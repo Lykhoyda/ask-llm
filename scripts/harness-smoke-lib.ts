@@ -873,11 +873,11 @@ export async function runHarnessSuite(options: RunHarnessSuiteOptions = {}): Pro
     const discovery = new Map<string, Discovery>();
     if (mode === "live") {
       const tools = new Set(
-        scenarios
-          .filter(
-            (scenario) => scenario.supported !== false && scenario.liveSupported !== false && !scenario.setupPreview,
-          )
-          .flatMap((scenario) => [scenario.tool, routeTool(scenario)]),
+        scenarios.flatMap((scenario) =>
+          scenario.supported !== false && scenario.liveSupported !== false && !scenario.setupPreview
+            ? [scenario.tool, routeTool(scenario)]
+            : [],
+        ),
       );
       for (const tool of tools) {
         discovery.set(
