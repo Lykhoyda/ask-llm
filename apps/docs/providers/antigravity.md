@@ -12,7 +12,7 @@ Bridge Claude with Google's Antigravity CLI (`agy`), Google's successor to Gemin
 > **Not for:** fine-grained per-edit automation; it's one-shot and experimental. For continuous review, use Codex via `codex-pair`.
 
 ::: warning Experimental
-Requires `agy` ≥ 1.1.5. Unified discovery, `doctor --live`, and ping report older or unparseable installations as detected but unusable and exclude them from dispatch; the executor repeats the version check before every model invocation. For default doctor, see [Quota diagnostics](#quota-diagnostics). It reads the headless `-p` response from `agy`'s `--output-format json` stdout (supported across the whole ≥ 1.1.5 range). Single-turn only (no multi-turn); defaults to the **gemini-3.1-pro** model at **high** reasoning effort, falling back to **gemini-3.8-flash** on a rate limit.
+Requires `agy` ≥ 1.5.9. Unified discovery, `doctor --live`, and ping report older or unparseable installations as detected but unusable and exclude them from dispatch; the executor repeats the version check before every model invocation. For default doctor, see [Quota diagnostics](#quota-diagnostics). It reads the headless `-p` response from `agy`'s `--output-format json` stdout. Single-turn only (no multi-turn); defaults to the **gemini-3.1-pro** model at **high** reasoning effort, falling back to **gemini-3.8-flash** on a rate limit.
 :::
 
 ## Installation
@@ -24,7 +24,7 @@ Or install globally: `npm install -g @ask-llm/antigravity-mcp`
 ## Prerequisites
 
 1. **Node.js** v24.0.0 or higher
-2. **[Antigravity CLI](https://antigravity.google)** (`agy`) version 1.1.5 or newer installed and **logged in once**: verify with `agy --version`, then run `agy` interactively to complete the Google Sign-In before using the MCP server
+2. **[Antigravity CLI](https://antigravity.google)** (`agy`) version 1.5.9 or newer installed and **logged in once**: verify with `agy --version`, then run `agy` interactively to complete the Google Sign-In before using the MCP server
 
 ## Tools
 
@@ -38,7 +38,7 @@ Or install globally: `npm install -g @ask-llm/antigravity-mcp`
 
 ## Quota diagnostics
 
-`ask-llm doctor --live` also reports Antigravity's remaining quota and reset times via the sandboxed `/quota` built-in on agy 1.2.13 or newer. The detected agy version appears next to the quota result. Older or unparseable versions skip the quota check with a plain minimum-version line; failures and a five-second timeout are warnings and leave other diagnostics running. The quota probe needs no unisolated-execution opt-in and always uses `--sandbox`. The flag still permits minimal model calls to ready, permitted providers, including Antigravity when opted in, which may spend quota. Without `--live`, doctor starts no agy process, including provider and host version probes; it locates the executable and reads local configuration, leaving the version unchecked.
+`ask-llm doctor --live` also reports Antigravity's remaining quota and reset times via the sandboxed `/quota` built-in on agy 1.5.9 or newer. The detected agy version appears next to the quota result. Older or unparseable versions skip the quota check with a plain minimum-version line; failures and a five-second timeout are warnings and leave other diagnostics running. The quota probe needs no unisolated-execution opt-in and always uses `--sandbox` and the [settings overlay](#what-protects-opted-in-runs). The flag still permits minimal model calls to ready, permitted providers, including Antigravity when opted in, which may spend quota. Without `--live`, doctor starts no agy process, including provider and host version probes; it locates the executable and reads local configuration, leaving the version unchecked.
 
 ## Models
 
@@ -46,15 +46,33 @@ Or install globally: `npm install -g @ask-llm/antigravity-mcp`
 
 - **Default:** `gemini-3.1-pro`, passed to `agy` via `--model`, at `high` reasoning effort via `--effort` (agy ≥ 1.1.5 splits the effort tier out of the model name)
 - **Rate-limit fallback:** `gemini-3.8-flash`, retried once on a rate limit
-- **Quota diagnostics:** when a rate limit exhausts the available model attempts, agy ≥ 1.2.13 adds remaining quota percentages and reset times to the error when its sandboxed `/quota` probe succeeds; older versions or a failed probe leave the usual rate-limit error
+- **Quota diagnostics:** when a rate limit exhausts the available model attempts, agy ≥ 1.5.9 adds remaining quota percentages and reset times to the error when its sandboxed `/quota` probe succeeds; older versions or a failed probe leave the usual rate-limit error
 - **Model-unavailable recovery:** if agy rejects a model whose value equals one of the built-in base slugs (upstream drift), the executor retries once **without** a model and lets agy pick its default; any other rejected model fails with an actionable error pointing at `agy models`
 - **Overrides:** `ASK_ANTIGRAVITY_MODEL` and `ASK_ANTIGRAVITY_EFFORT` (run `agy models` for the full list of kebab-case slugs, e.g. `claude-sonnet-4-6`). Legacy effort-carrying display strings like `Gemini 3.1 Pro (High)` are compatibility-only pins that still resolve; the default effort is only sent when the model value equals one of the built-in base slugs, because agy rejects `--effort` next to an effort-carrying name
 
+## What protects opted-in runs
+
+Antigravity runs only when you set `ASK_ANTIGRAVITY_ALLOW_UNISOLATED=1`. Without it, Ask LLM refuses before starting agy.
+
+With the opt-in, every agy call also passes this session-only setting:
+
+```text
+--settings '{"agentMode":"","permissions":{"deny":["write_file(*)","command(*)"]}}'
+```
+
+- `agentMode: ""` keeps agy in Default mode. agy 1.5.7 and newer otherwise start headless runs in Auto mode where agy's terminal sandbox is available (macOS and most Linux). Auto runs commands without asking.
+- The deny rules make agy refuse file writes and every command, including network commands such as `curl`. Reads and the review answer still work.
+- agy applies `--settings` to that session only, so your own agy `settings.json` is never changed.
+
+This needs agy 1.5.9 or newer, the oldest version verified to enforce the overlay. Older agy is refused with an update message rather than run without it. The overlay is enforced by agy, not by the operating system, so the opt-in and its warning remain.
+
+Before Ask LLM added the overlay, opted-in review calls could write files in your project and in any `includeDirs` directory on every supported agy version. From agy 1.5.7, on hosts where agy's terminal sandbox works, they could also run commands. If you set `ASK_ANTIGRAVITY_ALLOW_UNISOLATED=1`, update Ask LLM and agy (1.5.9 or newer).
+
 ## How it works
 
-Provider discovery runs `agy --version` and only makes Antigravity available to default or multi-provider dispatch when version 1.1.5 or newer is confirmed. Older versions remain visible as detected but unsupported, while an unparseable output or failed version probe is reported as detected but unusable. Ping includes the actual version when known, the required minimum, and an upgrade action; doctor behavior is described in [Quota diagnostics](#quota-diagnostics). Execution is refused before the executor version probe unless `ASK_ANTIGRAVITY_ALLOW_UNISOLATED=1`. Under that explicit opt-in, the executor warns that read-only isolation is not guaranteed: agy may modify files, run shell commands, and access the network. The executor then repeats the support check and invokes `agy -p … --output-format json` and reads the answer from the terminal JSON object's `response` key on stdout (a source chain of structured JSON → plain stdout only when the output does not look like JSON → an actionable no-output error). `--print-timeout` is set 5s below `ASK_ANTIGRAVITY_TIMEOUT_MS` so agy expires first. On agy ≥ 1.1.28 that expiry is exit 0 with a truncated answer and a stderr warning; the executor fails closed and names the timeout env var instead of returning the partial as complete. On agy ≥ 1.1.9 it also passes `--disable-slash-commands` so prompt text can never expand as a slash command or skill (older versions reject the flag, so it is version-gated). If the JSON envelope includes `denied_actions` (agy ≥ 1.1.27), a complete answer gets a notice naming the refused actions. Concurrent calls need no serialization — each process's answer arrives on its own stdout. Opted-in runs retain the read-only prompt preamble and sandbox settings as best effort, without `--dangerously-skip-permissions`; machine runs also retain `--mode plan`, which was observed ineffective on agy 1.2.12. None of these settings guarantees isolation.
+Provider discovery runs `agy --version` and only makes Antigravity available to default or multi-provider dispatch when version 1.5.9 or newer is confirmed. Older versions remain visible as detected but unsupported, while an unparseable output or failed version probe is reported as detected but unusable. Ping includes the actual version when known, the required minimum, and an upgrade action; doctor behavior is described in [Quota diagnostics](#quota-diagnostics). Execution is refused before the executor version probe unless `ASK_ANTIGRAVITY_ALLOW_UNISOLATED=1`. Under that explicit opt-in, the executor warns that read-only isolation is not guaranteed: agy may modify files, run shell commands, and access the network. The executor then repeats the support check and invokes `agy -p … --output-format json` and reads the answer from the terminal JSON object's `response` key on stdout (a source chain of structured JSON → plain stdout only when the output does not look like JSON → an actionable no-output error). `--print-timeout` is set 5s below `ASK_ANTIGRAVITY_TIMEOUT_MS` so agy expires first. On agy ≥ 1.1.28 that expiry is exit 0 with a truncated answer and a stderr warning; the executor fails closed and names the timeout env var instead of returning the partial as complete. On agy ≥ 1.1.9 it also passes `--disable-slash-commands` so prompt text can never expand as a slash command or skill (older versions reject the flag, so it is version-gated). If the JSON envelope includes `denied_actions` (agy ≥ 1.1.27), a complete answer gets a notice naming the refused actions. Concurrent calls need no serialization — each process's answer arrives on its own stdout. Every agy call also carries the session-only settings overlay described in [What protects opted-in runs](#what-protects-opted-in-runs). Opted-in runs keep the read-only prompt preamble and `--sandbox`, and never pass `--dangerously-skip-permissions`. `--mode plan` is no longer passed: agy ignores it next to `--disable-slash-commands`.
 
-Claude Code's `/brainstorm` uses a separate raw `agy` call. Without the exact opt-in value `1`, it skips Antigravity and discloses the reason in its synthesis. With opt-in, it warns that read-only isolation is not guaranteed and runs without `--dangerously-skip-permissions`. Its raw path fixes the model, effort, and `--sandbox` flag; it does not inherit the executor's version check, timeout handling, model fallback, or the model, effort, and sandbox overrides below.
+Claude Code's `/brainstorm` uses a separate raw `agy` call. Without the exact opt-in value `1`, it skips Antigravity and discloses the reason in its synthesis. With opt-in, it warns that read-only isolation is not guaranteed and runs without `--dangerously-skip-permissions`. Its raw path fixes the model, effort, `--sandbox` flag and the same settings overlay; it does not inherit the executor's version check, timeout handling, model fallback, or the model, effort, and sandbox overrides below.
 
 ## Config
 
@@ -69,7 +87,7 @@ Claude Code's `/brainstorm` uses a separate raw `agy` call. Without the exact op
 ## Limitations
 
 - **Experimental:** the structured-output contract tracks `agy`'s JSON envelope; JSON-looking output that is corrupt or lacks an answer fails with an actionable error instead of surfacing raw JSON fragments.
-- **Minimum version:** `agy` 1.1.5; older or unverifiable installations are reported but excluded from dispatch.
+- **Minimum version:** `agy` 1.5.9, the oldest version verified to enforce the settings overlay; older or unverifiable installations are reported but excluded from dispatch.
 - **Single-turn:** no multi-turn sessions yet; the executor accepts and ignores `sessionId` (headless resume via agy's JSON `conversation_id` is tracked as follow-up work). Model selection *is* supported via `--model` (defaults to gemini-3.1-pro at high effort, with a gemini-3.8-flash rate-limit fallback; see [Config](#config)); only the short `-m` flag hangs under `-p`.
 - **Timeouts:** on agy ≥ 1.1.28, `--print-timeout` expiry exits 0 with a partial JSON answer; Ask LLM fails closed and asks you to raise `ASK_ANTIGRAVITY_TIMEOUT_MS` or shorten the prompt. Older agy still reports that expiry as a non-zero error.
 

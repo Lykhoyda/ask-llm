@@ -12,7 +12,7 @@ Ask LLM connects your host to the provider accounts you already use. Installing 
 | [Claude](/providers/claude) | Installed Claude Code CLI, authenticated account; a host other than Claude Code |
 | [Grok](/providers/grok) | Authenticated official Grok Build with headless JSON support, or an explicitly configured metered xAI API key |
 | Cursor Agent | Authenticated Cursor CLI and exact model ID from `agent --list-models` |
-| [Antigravity](/providers/antigravity) | Authenticated agy 1.1.5+ and explicit execution opt-in; opt-in has no read-only guarantee |
+| [Antigravity](/providers/antigravity) | Authenticated agy 1.5.9+ and explicit execution opt-in; opt-in has no read-only guarantee |
 | [Ollama](/providers/ollama) | Running local server and the requested model pulled |
 | [Gemini](/providers/gemini) | Authenticated CLI and an eligible Standard/Enterprise seat |
 

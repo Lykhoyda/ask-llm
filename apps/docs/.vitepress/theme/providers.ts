@@ -69,7 +69,7 @@ export const PROVIDER_DOCS: Record<ProviderId, ProviderDoc> = {
     name: "Antigravity",
     pkg: "@ask-llm/antigravity-mcp",
     serverName: "antigravity",
-    cliInstall: "# install agy >=1.1.5 from https://antigravity.google, then log in once",
+    cliInstall: "# install agy >=1.5.9 from https://antigravity.google, then log in once",
     defaultModel: "gemini-3.1-pro",
     fallbackModel: "gemini-3.8-flash",
     defaultEffort: "high",

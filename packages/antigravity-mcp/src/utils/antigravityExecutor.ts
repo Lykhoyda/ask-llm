@@ -1,5 +1,13 @@
 import { EXECUTION, executeCommand, Logger, resolveTimeoutMs, type UsageStats } from "@ask-llm/shared";
-import { ANTIGRAVITY, CLI, ERROR_MESSAGES, MODELS, OUTPUT_FORMATS, READ_ONLY_PREAMBLE } from "../constants.js";
+import {
+  ANTIGRAVITY,
+  CLI,
+  ERROR_MESSAGES,
+  MODELS,
+  OUTPUT_FORMATS,
+  READ_ONLY_PREAMBLE,
+  SESSION_SETTINGS_OVERLAY,
+} from "../constants.js";
 import { assertSupportedAgyVersion, isVersionAtLeast } from "./agyVersion.js";
 
 export { assessAgyVersion, isVersionAtLeast, probeAgySupport } from "./agyVersion.js";
@@ -44,11 +52,10 @@ export function buildArgs(
   args.push(CLI.FLAGS.PRINT_TIMEOUT, `${timeoutSec}s`);
   args.push(CLI.FLAGS.OUTPUT_FORMAT, OUTPUT_FORMATS.JSON);
   if (disableSlashCommands) args.push(CLI.FLAGS.DISABLE_SLASH_COMMANDS);
-  if (readOnly) {
-    args.push(CLI.FLAGS.MODE, CLI.FLAGS.PLAN, CLI.FLAGS.SANDBOX);
-  } else {
-    if (sandbox) args.push(CLI.FLAGS.SANDBOX);
-  }
+  // agy ignores --mode plan beside --disable-slash-commands, so read-only only forces --sandbox.
+  if (readOnly || sandbox) args.push(CLI.FLAGS.SANDBOX);
+  // Every spawn (primary and each retry) carries the enforced overlay (ADR-193).
+  args.push(CLI.FLAGS.SETTINGS, SESSION_SETTINGS_OVERLAY);
   return args;
 }
 
@@ -161,6 +168,8 @@ export async function probeAntigravityQuota(signal?: AbortSignal): Promise<strin
     CLI.FLAGS.OUTPUT_FORMAT,
     OUTPUT_FORMATS.JSON,
     CLI.FLAGS.SANDBOX,
+    CLI.FLAGS.SETTINGS,
+    SESSION_SETTINGS_OVERLAY,
   ];
   const raw = await executeCommand(
     CLI.COMMANDS.AGY,

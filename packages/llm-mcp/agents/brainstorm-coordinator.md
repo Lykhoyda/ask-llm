@@ -194,9 +194,13 @@ PROMPT_EOF
 # back to its own built-in model. Note the executor's gemini-3.8-flash rate-limit
 # fallback does NOT apply to this raw path. The long --model flag works under -p
 # (only the short -m hangs). Run `agy models`.
+# --settings is the session-only overlay @ask-llm/antigravity-mcp passes on every
+# spawn (ADR-193): Default agent mode plus agy-enforced deny rules for file writes
+# and commands; agy never saves it to the user's settings. agy older than 1.5.9
+# rejects or is unverified with it, so this participant then fails closed.
 if [ "${ASK_ANTIGRAVITY_ALLOW_UNISOLATED:-}" = "1" ]; then
   echo "antigravity warning: ASK_ANTIGRAVITY_ALLOW_UNISOLATED=1 permits this run, but read-only isolation is not guaranteed; agy may modify files, run shell commands, and access the network." > "$workdir/antigravity.err"
-  agy -p "$(cat "$workdir/antigravity-prompt.md")" --model "gemini-3.1-pro" --effort high --sandbox > "$workdir/antigravity.out" 2>> "$workdir/antigravity.err" &
+  agy -p "$(cat "$workdir/antigravity-prompt.md")" --model "gemini-3.1-pro" --effort high --sandbox --settings '{"agentMode":"","permissions":{"deny":["write_file(*)","command(*)"]}}' > "$workdir/antigravity.out" 2>> "$workdir/antigravity.err" &
 else
   echo "antigravity skipped: agy is not isolated from the working copy (ADR-177, #283); set ASK_ANTIGRAVITY_ALLOW_UNISOLATED=1 to include it without a read-only guarantee." > "$workdir/antigravity.err"
   false &

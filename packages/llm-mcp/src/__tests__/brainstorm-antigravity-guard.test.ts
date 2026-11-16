@@ -89,6 +89,13 @@ describe.each(shells)("brainstorm antigravity participant under %s", (shell) => 
     expect(result.argv).not.toBeNull();
     expect(result.argv).not.toContain(SKIP_FLAG);
     expect(result.argv).toContain("--sandbox");
+    // The same session-only deny overlay the executor passes (ADR-193), as one argv element.
+    const settings = result.argv?.[result.argv.indexOf("--settings") + 1];
+    expect(JSON.parse(settings ?? "null")).toEqual({
+      agentMode: "",
+      permissions: { deny: ["write_file(*)", "command(*)"] },
+    });
+    expect(result.argv).not.toContain("--mode");
     const prompt = result.argv?.[result.argv.indexOf("-p") + 1];
     expect(prompt).toContain("Read and reason only");
     expect(prompt).toContain("review this");

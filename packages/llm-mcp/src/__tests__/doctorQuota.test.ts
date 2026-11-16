@@ -5,6 +5,9 @@ import { join } from "node:path";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { runDoctorCli } from "../doctorCli.js";
 
+// Pinned literally: the session-only overlay every agy spawn carries (ADR-193).
+const SESSION_SETTINGS_OVERLAY = '{"agentMode":"","permissions":{"deny":["write_file(*)","command(*)"]}}';
+
 vi.mock("node:child_process", async (original) => {
   const actual = await original<typeof import("node:child_process")>();
   return { ...actual, spawn: vi.fn(actual.spawn) };
@@ -48,7 +51,7 @@ describe("doctor Antigravity quota", () => {
     }
     vi.stubEnv("ASK_LLM_PATH", `${bin}:/usr/bin:/bin`);
     vi.stubEnv("ASK_ANTIGRAVITY_ALLOW_UNISOLATED", undefined);
-    writeFileSync(join(home, "version"), "1.2.13");
+    writeFileSync(join(home, "version"), "1.5.9");
     // Recorded quota response from fakeAgy.test.ts; sandboxed no-turn proof is in https://github.com/Lykhoyda/ask-llm/pull/366.
     writeFileSync(
       join(home, "quota"),
@@ -86,7 +89,7 @@ describe("doctor Antigravity quota", () => {
 
   it("states the minimum quota version in help without starting agy", async () => {
     expect(await runDoctorCli(["--help"], "/nonexistent/ask-llm.js")).toBe(0);
-    expect(output).toContain("Also checks sandboxed Antigravity quota on agy 1.2.13 or newer.");
+    expect(output).toContain("Also checks sandboxed Antigravity quota on agy 1.5.9 or newer.");
     expect(existsSync(join(home, "argv"))).toBe(false);
   });
 
@@ -100,18 +103,18 @@ describe("doctor Antigravity quota", () => {
     },
   );
 
-  it.each(["1.1.11", "1.2.12", "1.2.13-beta.1", "unparseable", ""])(
+  it.each(["1.1.11", "1.2.12", "1.2.13", "1.5.8", "1.5.9-beta.1", "unparseable", ""])(
     "skips quota on %s and states the minimum version",
     async (version) => {
       writeFileSync(join(home, "version"), version);
       await runDoctorCli(["--live"], "/nonexistent/ask-llm.js");
-      expect(output).toContain("Quota: Antigravity: quota check skipped; requires agy 1.2.13 or newer");
+      expect(output).toContain("Quota: Antigravity: quota check skipped; requires agy 1.5.9 or newer");
       expect(vi.mocked(spawn).mock.calls.every(([, args]) => !args?.includes("/quota"))).toBe(true);
       expect(readFileSync(join(home, "argv"), "utf8")).not.toContain("/quota");
     },
   );
 
-  it.each(["1.2.13", "1.2.14", "2.0.0"])(
+  it.each(["1.5.9", "1.6.0", "2.0.0"])(
     "reports sandboxed quota with the detected version in JSON (%s)",
     async (version) => {
       writeFileSync(join(home, "version"), version);
@@ -123,7 +126,7 @@ describe("doctor Antigravity quota", () => {
       });
       expect(spawn).toHaveBeenCalledWith(
         "agy",
-        ["-p", "/quota", "--output-format", "json", "--sandbox"],
+        ["-p", "/quota", "--output-format", "json", "--sandbox", "--settings", SESSION_SETTINGS_OVERLAY],
         expect.any(Object),
       );
     },
@@ -136,7 +139,7 @@ describe("doctor Antigravity quota", () => {
     expect(report.checks).toContainEqual({
       name: "Quota: Antigravity",
       status: "warn",
-      message: "agy 1.2.13: quota check failed: sandbox unavailable",
+      message: "agy 1.5.9: quota check failed: sandbox unavailable",
     });
     expect(report.checks).toContainEqual(expect.objectContaining({ name: "Node.js version", status: "pass" }));
   });
@@ -144,7 +147,7 @@ describe("doctor Antigravity quota", () => {
   it("reports the five-second timeout without failing doctor", async () => {
     writeFileSync(join(home, "hang"), "");
     expect(await runDoctorCli(["--live"], "/nonexistent/ask-llm.js")).toBe(0);
-    expect(output).toContain("Quota: Antigravity: agy 1.2.13: quota check failed: Command timed out after 5s");
+    expect(output).toContain("Quota: Antigravity: agy 1.5.9: quota check failed: Command timed out after 5s");
     expect(output).toContain("Node.js version:");
   }, 10_000);
 
@@ -152,9 +155,7 @@ describe("doctor Antigravity quota", () => {
     const quota = JSON.parse(readFileSync(join(home, "quota"), "utf8"));
     writeFileSync(join(home, "quota"), JSON.stringify({ ...quota, status: "TIMEOUT" }));
     expect(await runDoctorCli(["--live"], "/nonexistent/ask-llm.js")).toBe(0);
-    expect(output).toContain(
-      "Quota: Antigravity: agy 1.2.13: quota check failed: agy /quota returned truncated output",
-    );
+    expect(output).toContain("Quota: Antigravity: agy 1.5.9: quota check failed: agy /quota returned truncated output");
   });
 
   it.each(["not JSON", '{"response":"not quota rows"}'])("reports malformed probe output (%s)", async (quota) => {
@@ -165,7 +166,7 @@ describe("doctor Antigravity quota", () => {
     );
   });
 
-  it.each(["1.2.13", "1.2.14", "2.0.0"])(
+  it.each(["1.5.9", "1.6.0", "2.0.0"])(
     "reports sandboxed quota on agy %s without opting into model execution",
     async (version) => {
       writeFileSync(join(home, "version"), version);
@@ -177,7 +178,7 @@ describe("doctor Antigravity quota", () => {
       );
       expect(spawn).toHaveBeenCalledWith(
         "agy",
-        ["-p", "/quota", "--output-format", "json", "--sandbox"],
+        ["-p", "/quota", "--output-format", "json", "--sandbox", "--settings", SESSION_SETTINGS_OVERLAY],
         expect.any(Object),
       );
       expect(readFileSync(join(home, "argv"), "utf8")).not.toContain("Reply with exactly");

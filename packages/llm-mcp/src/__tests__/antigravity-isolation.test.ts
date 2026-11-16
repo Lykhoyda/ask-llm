@@ -27,7 +27,7 @@ describe("Antigravity tool and machine isolation", { timeout: 5_000 }, () => {
   beforeEach(() => {
     mockExec.mockReset();
     mockExec.mockImplementation(async (_command, args) =>
-      args[0] === "--version" ? "1.2.12" : JSON.stringify({ response: JSON.stringify(payload), status: "SUCCESS" }),
+      args[0] === "--version" ? "1.5.9" : JSON.stringify({ response: JSON.stringify(payload), status: "SUCCESS" }),
     );
     vi.stubEnv("ASK_ANTIGRAVITY_ALLOW_UNISOLATED", undefined);
     vi.spyOn(Logger, "warn").mockImplementation(() => {});
@@ -70,6 +70,14 @@ describe("Antigravity tool and machine isolation", { timeout: 5_000 }, () => {
     expect(argv).toContain("--version");
     expect(argv).toContain("-p");
     expect(argv).not.toContain("--dangerously-skip-permissions");
+    // Every model spawn carries the enforced deny overlay; plan mode is no longer passed (ADR-193).
+    const spawns = mockExec.mock.calls.map(([, args]) => args).filter((args) => args[0] === "-p");
+    expect(spawns.length).toBeGreaterThan(0);
+    for (const args of spawns) {
+      const overlay = JSON.parse(args[args.indexOf("--settings") + 1]);
+      expect(overlay).toEqual({ agentMode: "", permissions: { deny: ["write_file(*)", "command(*)"] } });
+      expect(args).not.toContain("--mode");
+    }
     expect(Logger.warn).toHaveBeenCalledWith(expect.stringContaining("read-only isolation is not guaranteed"));
   });
 });

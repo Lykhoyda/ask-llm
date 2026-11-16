@@ -1,5 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { ANTIGRAVITY, CLI, ERROR_MESSAGES, MODELS, OUTPUT_FORMATS, READ_ONLY_PREAMBLE } from "../../constants.js";
+import {
+  ANTIGRAVITY,
+  CLI,
+  ERROR_MESSAGES,
+  MODELS,
+  OUTPUT_FORMATS,
+  READ_ONLY_PREAMBLE,
+  SESSION_SETTINGS_OVERLAY,
+} from "../../constants.js";
 
 vi.mock("@ask-llm/shared", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@ask-llm/shared")>();
@@ -34,6 +42,9 @@ import {
 
 const mockExec = vi.mocked(executeCommand);
 const mockAssertSupportedAgyVersion = vi.mocked(assertSupportedAgyVersion);
+const QUOTA_ARGS = ["-p", "/quota", "--output-format", "json", "--sandbox", "--settings", SESSION_SETTINGS_OVERLAY];
+// Model spawns only; supported agy (>=1.5.9) also runs the /quota probe on a final rate limit.
+const modelSpawns = () => mockExec.mock.calls.filter(([, args]) => !args.includes("/quota"));
 
 // Live-captured agy --output-format json success envelope (2026-08-04 dogfood, #251).
 const jsonStdout = (response: string, usage?: Record<string, number>, extra?: Record<string, unknown>) =>
@@ -106,6 +117,8 @@ describe("buildArgs", () => {
       CLI.FLAGS.OUTPUT_FORMAT,
       OUTPUT_FORMATS.JSON,
       CLI.FLAGS.SANDBOX,
+      CLI.FLAGS.SETTINGS,
+      SESSION_SETTINGS_OVERLAY,
     ]);
   });
 
@@ -124,6 +137,8 @@ describe("buildArgs", () => {
       "100s",
       CLI.FLAGS.OUTPUT_FORMAT,
       OUTPUT_FORMATS.JSON,
+      CLI.FLAGS.SETTINGS,
+      SESSION_SETTINGS_OVERLAY,
     ]);
   });
 
@@ -262,7 +277,8 @@ describe("executeAntigravityCLI slash-command hardening", () => {
     expect(args).toContain(CLI.FLAGS.DISABLE_SLASH_COMMANDS);
   });
 
-  it("omits the flag at the 1.1.5 minimum (hard 'flags provided but not defined' error below 1.1.9)", async () => {
+  it("keeps omitting the flag below 1.1.9 (hard 'flags provided but not defined' error there)", async () => {
+    mockAssertSupportedAgyVersion.mockResolvedValue("1.1.5");
     mockExec.mockResolvedValue(jsonStdout("answer\n"));
     await executeAntigravityCLI({ prompt: "q" });
     const [, args] = mockExec.mock.calls[0];
@@ -270,19 +286,91 @@ describe("executeAntigravityCLI slash-command hardening", () => {
   });
 });
 
+describe("session settings overlay (ADR-193)", () => {
+  const overlayOf = (args: readonly string[]) => {
+    const flags = args.filter((arg) => arg === CLI.FLAGS.SETTINGS);
+    expect(flags).toHaveLength(1);
+    return JSON.parse(args[args.indexOf(CLI.FLAGS.SETTINGS) + 1]);
+  };
+  const expectOverlay = (args: readonly string[]) => {
+    const overlay = overlayOf(args);
+    expect(overlay.agentMode).toBe("");
+    expect(overlay.permissions.deny).toEqual(expect.arrayContaining(["write_file(*)", "command(*)"]));
+    expect(args).not.toContain(CLI.FLAGS.SKIP_PERMISSIONS);
+    expect(args).not.toContain("--mode");
+  };
+
+  it.each([
+    ["review", false, true],
+    ["read-only", true, true],
+    ["unsandboxed review", false, false],
+    ["read-only with sandbox disabled", true, false],
+  ])("buildArgs always carries the overlay on the %s path", (_path, readOnly, sandbox) => {
+    const args = buildArgs("q", ["/pkg"], 100, sandbox, "m", readOnly, "high", true);
+    expectOverlay(args);
+    expect(args.includes(CLI.FLAGS.SANDBOX)).toBe(readOnly || sandbox);
+  });
+
+  it("passes the overlay on the primary spawn, for review and read-only calls", async () => {
+    mockExec.mockResolvedValue(jsonStdout("answer\n"));
+    await executeAntigravityCLI({ prompt: "q", includeDirs: ["/pkg/a"] });
+    await executeAntigravityCLI({ prompt: "q", readOnly: true });
+    expect(mockExec).toHaveBeenCalledTimes(2);
+    for (const [, args] of mockExec.mock.calls) expectOverlay(args);
+  });
+
+  it("passes the overlay on the model-less retry", async () => {
+    mockExec.mockRejectedValueOnce(unknownModelError(MODELS.DEFAULT)).mockResolvedValueOnce(jsonStdout("answer\n"));
+    await executeAntigravityCLI({ prompt: "q" });
+    expect(mockExec).toHaveBeenCalledTimes(2);
+    expect(mockExec.mock.calls[1][1]).not.toContain(CLI.FLAGS.MODEL);
+    for (const [, args] of mockExec.mock.calls) expectOverlay(args);
+  });
+
+  it("passes the overlay on the Flash fallback and the /quota probe", async () => {
+    mockExec.mockRejectedValue(new Error("429 too many requests"));
+    await expect(executeAntigravityCLI({ prompt: "q" })).rejects.toThrow(ERROR_MESSAGES.RATE_LIMITED);
+    const calls = mockExec.mock.calls.map(([, args]) => args);
+    expect(calls).toHaveLength(3);
+    expect(calls[1][calls[1].indexOf(CLI.FLAGS.MODEL) + 1]).toBe(MODELS.FALLBACK);
+    expect(calls[2]).toEqual(QUOTA_ARGS);
+    for (const args of calls) expectOverlay(args);
+  });
+
+  it("refuses before any spawn without the exact opt-in, overlay or not", async () => {
+    vi.stubEnv("ASK_ANTIGRAVITY_ALLOW_UNISOLATED", "");
+    await expect(executeAntigravityCLI({ prompt: "q" })).rejects.toThrow(ERROR_MESSAGES.UNISOLATED_REFUSED);
+    expect(mockAssertSupportedAgyVersion).not.toHaveBeenCalled();
+    expect(mockExec).not.toHaveBeenCalled();
+  });
+
+  it("refuses agy below the overlay floor instead of running without the overlay", async () => {
+    mockAssertSupportedAgyVersion.mockRejectedValue(
+      new Error("Antigravity CLI (agy) 1.5.8 was detected but is unsupported; agy >=1.5.9 is required."),
+    );
+    await expect(executeAntigravityCLI({ prompt: "q" })).rejects.toThrow("agy >=1.5.9 is required");
+    expect(mockExec).not.toHaveBeenCalled();
+  });
+});
+
 describe("minimum version pin", () => {
-  // --output-format json is live-proven on 1.1.5/1.1.7/1.1.8/1.1.9 (#251 dogfood);
-  // structured output needs no version gate, so do not bump without new evidence.
-  it("keeps MINIMUM_AGY_VERSION at the evidence-backed 1.1.5", () => {
-    expect(ANTIGRAVITY.MINIMUM_AGY_VERSION).toBe("1.1.5");
+  // 1.5.9 is the oldest agy verified live to enforce the --settings overlay (ADR-193);
+  // do not lower it without new live evidence.
+  it("pins the exact overlay bytes verified live on agy 1.5.9", () => {
+    expect(SESSION_SETTINGS_OVERLAY).toBe('{"agentMode":"","permissions":{"deny":["write_file(*)","command(*)"]}}');
+  });
+
+  it("pins MINIMUM_AGY_VERSION to the live-verified settings-overlay floor 1.5.9", () => {
+    expect(ANTIGRAVITY.SETTINGS_OVERLAY_MIN_VERSION).toBe("1.5.9");
+    expect(ANTIGRAVITY.MINIMUM_AGY_VERSION).toBe(ANTIGRAVITY.SETTINGS_OVERLAY_MIN_VERSION);
   });
 
   it("gates the exit-0 print-timeout truncation contract at agy 1.1.28", () => {
     expect(ANTIGRAVITY.PRINT_TIMEOUT_SUCCESS_TRUNCATION_MIN_VERSION).toBe("1.1.28");
   });
 
-  it("shares the verified 1.2.13 sandboxed /quota floor between rate-limit recovery and doctor", () => {
-    expect(ANTIGRAVITY.QUOTA_COMMAND_MIN_VERSION).toBe("1.2.13");
+  it("shares the overlay-verified 1.5.9 sandboxed /quota floor between rate-limit recovery and doctor", () => {
+    expect(ANTIGRAVITY.QUOTA_COMMAND_MIN_VERSION).toBe(ANTIGRAVITY.SETTINGS_OVERLAY_MIN_VERSION);
     expect(DOCTOR_QUOTA_MIN_VERSION).toBe(ANTIGRAVITY.QUOTA_COMMAND_MIN_VERSION);
   });
 });
@@ -452,13 +540,13 @@ describe("executeAntigravityCLI rate-limit fallback", () => {
     process.env[ANTIGRAVITY.MODEL_ENV_VAR] = MODELS.FALLBACK;
     mockExec.mockRejectedValue(new Error("rate limit"));
     await expect(executeAntigravityCLI({ prompt: "q" })).rejects.toThrow(ERROR_MESSAGES.RATE_LIMITED);
-    expect(mockExec).toHaveBeenCalledOnce();
+    expect(modelSpawns()).toHaveLength(1);
   });
 
   it("throws the actionable RATE_LIMITED message when both tiers are throttled", async () => {
     mockExec.mockRejectedValue(new Error("429 too many requests"));
     await expect(executeAntigravityCLI({ prompt: "q" })).rejects.toThrow(ERROR_MESSAGES.RATE_LIMITED);
-    expect(mockExec).toHaveBeenCalledTimes(2);
+    expect(modelSpawns()).toHaveLength(2);
   });
 
   it("surfaces a non-rate-limit fallback failure instead of masking it as RATE_LIMITED", async () => {
@@ -477,7 +565,7 @@ describe("executeAntigravityCLI rate-limit fallback", () => {
     usage: { input_tokens: 0, output_tokens: 0, thinking_tokens: 0, cache_read_tokens: 0, total_tokens: 0 },
   });
 
-  it.each(["1.2.13", "1.2.14", "2.0.0"])(
+  it.each(["1.5.9", "1.6.0", "2.0.0"])(
     "runs the sandboxed /quota probe on agy %s even when review sandboxing is disabled",
     async (version) => {
       mockAssertSupportedAgyVersion.mockResolvedValue(version);
@@ -501,7 +589,7 @@ describe("executeAntigravityCLI rate-limit fallback", () => {
       expect(mockExec).toHaveBeenCalledTimes(3);
       expect(mockExec.mock.calls[2]).toEqual([
         CLI.COMMANDS.AGY,
-        ["-p", "/quota", "--output-format", "json", "--sandbox"],
+        QUOTA_ARGS,
         undefined,
         undefined,
         undefined,
@@ -512,8 +600,8 @@ describe("executeAntigravityCLI rate-limit fallback", () => {
     },
   );
 
-  it("appends /quota diagnostics on agy 1.2.13 when the primary model is already the fallback", async () => {
-    mockAssertSupportedAgyVersion.mockResolvedValue("1.2.13");
+  it("appends /quota diagnostics on agy 1.5.9 when the primary model is already the fallback", async () => {
+    mockAssertSupportedAgyVersion.mockResolvedValue("1.5.9");
     process.env[ANTIGRAVITY.MODEL_ENV_VAR] = MODELS.FALLBACK;
     mockExec.mockRejectedValueOnce(new Error("rate limit")).mockResolvedValueOnce(quotaEnvelope);
 
@@ -521,11 +609,11 @@ describe("executeAntigravityCLI rate-limit fallback", () => {
       `${ERROR_MESSAGES.RATE_LIMITED} Current agy quota: Gemini Models Five Hour Limit Remaining: 0% (resets 2026-09-27T20:10:40Z)`,
     );
     expect(mockExec).toHaveBeenCalledTimes(2);
-    expect(mockExec.mock.calls[1][1]).toEqual(["-p", "/quota", "--output-format", "json", "--sandbox"]);
+    expect(mockExec.mock.calls[1][1]).toEqual(QUOTA_ARGS);
   });
 
-  it("appends /quota diagnostics on agy 1.2.13 when a model-less retry hits a rate limit", async () => {
-    mockAssertSupportedAgyVersion.mockResolvedValue("1.2.13");
+  it("appends /quota diagnostics on agy 1.5.9 when a model-less retry hits a rate limit", async () => {
+    mockAssertSupportedAgyVersion.mockResolvedValue("1.5.9");
     mockExec
       .mockRejectedValueOnce(unknownModelError(MODELS.DEFAULT))
       .mockRejectedValueOnce(new Error("429"))
@@ -535,10 +623,10 @@ describe("executeAntigravityCLI rate-limit fallback", () => {
       `${ERROR_MESSAGES.RATE_LIMITED} Current agy quota: Gemini Models Five Hour Limit Remaining: 0% (resets 2026-09-27T20:10:40Z)`,
     );
     expect(mockExec).toHaveBeenCalledTimes(3);
-    expect(mockExec.mock.calls[2][1]).toEqual(["-p", "/quota", "--output-format", "json", "--sandbox"]);
+    expect(mockExec.mock.calls[2][1]).toEqual(QUOTA_ARGS);
   });
 
-  it.each(["1.1.5", "1.1.11", "1.2.11", "1.2.12", "1.2.13-beta.1", "unparseable", ""])(
+  it.each(["1.1.5", "1.1.11", "1.2.12", "1.2.13", "1.5.8", "1.5.9-beta.1", "unparseable", ""])(
     "refuses the /quota probe on %j and preserves the plain rate-limit error",
     async (version) => {
       mockAssertSupportedAgyVersion.mockResolvedValue(version);
@@ -566,7 +654,7 @@ describe("executeAntigravityCLI rate-limit fallback", () => {
     ],
     ["unrecognized rows", JSON.stringify({ status: "SUCCESS", response: "unexpected\tcolumns\n" })],
   ])("drops %s /quota output and keeps the plain rate-limit error", async (_kind, probeStdout) => {
-    mockAssertSupportedAgyVersion.mockResolvedValue("1.2.13");
+    mockAssertSupportedAgyVersion.mockResolvedValue("1.5.9");
     mockExec
       .mockRejectedValueOnce(new Error("429 too many requests"))
       .mockRejectedValueOnce(new Error("429 too many requests"))
@@ -762,7 +850,7 @@ describe("executeAntigravityCLI model-unavailable recovery (#243)", () => {
   it("maps a rate limit on the model-less retry to the actionable RATE_LIMITED message", async () => {
     mockExec.mockRejectedValueOnce(unknownModelError(MODELS.DEFAULT)).mockRejectedValueOnce(new Error("429"));
     await expect(executeAntigravityCLI({ prompt: "q" })).rejects.toThrow(ERROR_MESSAGES.RATE_LIMITED);
-    expect(mockExec).toHaveBeenCalledTimes(2);
+    expect(modelSpawns()).toHaveLength(2);
   });
 
   it("surfaces an unrelated model-less retry failure as-is", async () => {

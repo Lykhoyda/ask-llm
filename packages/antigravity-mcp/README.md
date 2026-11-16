@@ -3,8 +3,8 @@
 MCP server for Google's Antigravity CLI (`agy`). Lets Claude get a
 subscription-backed second opinion / code review from Antigravity.
 
-> **Experimental.** Requires `agy` >=1.1.5 and is validated against 1.1.5 (base
-> model slugs + separate `--effort` flag); discovery and ping report older or
+> **Experimental.** Requires `agy` >=1.5.9, the oldest version verified to
+> enforce the session-only settings overlay below; discovery and ping report older or
 > unverifiable installations as detected but unusable, exclude them from
 > dispatch, and provide an actionable update diagnostic. The executor consumes
 > agy's structured JSON stdout; see the [provider guide](https://lykhoyda.github.io/ask-llm/providers/antigravity)
@@ -16,10 +16,10 @@ subscription-backed second opinion / code review from Antigravity.
 > model and lets agy pick its default; any other rejected model fails with an
 > actionable error naming `agy models`.
 
-This package's review tool and read-only machine execution refuse before probing agy unless `ASK_ANTIGRAVITY_ALLOW_UNISOLATED=1`. Opted-in runs can modify files, run shell commands, and access the network; this package omits `--dangerously-skip-permissions`. See the [provider guide](https://lykhoyda.github.io/ask-llm/providers/antigravity) for the isolation limits.
+This package's review tool and read-only machine execution refuse before probing agy unless `ASK_ANTIGRAVITY_ALLOW_UNISOLATED=1`. Every agy call passes the session-only `--settings '{"agentMode":"","permissions":{"deny":["write_file(*)","command(*)"]}}'` overlay: agy stays in Default mode and refuses file writes and commands, and your agy `settings.json` is never changed. That is agy-enforced policy, not OS isolation, so opted-in runs still carry no read-only guarantee; this package omits `--dangerously-skip-permissions`. See the [provider guide](https://lykhoyda.github.io/ask-llm/providers/antigravity) for the isolation limits.
 
 ## Prerequisites
-- `agy` >=1.1.5 installed and on PATH (`agy --version`), and logged in once (run `agy` interactively). Older versions are not supported.
+- `agy` >=1.5.9 installed and on PATH (`agy --version`), and logged in once (run `agy` interactively). Older versions are not supported.
 
 ## Config
 - `ASK_ANTIGRAVITY_ALLOW_UNISOLATED` — unset by default; only the exact value `1` permits unisolated execution.
