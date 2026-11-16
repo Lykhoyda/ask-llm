@@ -72,7 +72,7 @@ export function llmsFiles(): Record<string, string> {
       const source = page(path);
       const link = `- [${title(source)}](${site}/${path}.html)\n`;
       index += link;
-      // Reference and unchanged provider pages keep legacy instructions at their URLs.
+      // Reference and provider pages keep split-package reference at their URLs.
       if (section === "Reference" || section === "Providers") {
         full += link;
         continue;

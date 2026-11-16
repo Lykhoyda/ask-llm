@@ -1,9 +1,9 @@
 <template>
   <div class="install-snippet">
-    <p class="label">1. Provider CLI</p>
+    <p class="label">1. Provider CLI (install and sign in yourself)</p>
     <pre><code>{{ doc.cliInstall }}</code></pre>
-    <p class="label">{{ registerLabel }}</p>
-    <pre><code>{{ registerCommand }}</code></pre>
+    <p class="label">{{ setupLabel }}</p>
+    <pre><code>npm i -g @ask-llm/mcp &amp;&amp; ask-llm setup</code></pre>
   </div>
 </template>
 
@@ -14,16 +14,10 @@ import { PROVIDER_DOCS, type ProviderId } from "../theme/providers";
 const props = defineProps<{ provider: ProviderId }>();
 const doc = computed(() => PROVIDER_DOCS[props.provider]);
 
-const registerLabel = computed(() =>
+const setupLabel = computed(() =>
   props.provider === "claude"
-    ? "2. Register the MCP server (Codex CLI shown; Claude Code cannot host this provider)"
-    : "2. Register the MCP server (Claude Code shown; see Quick Start for other clients)",
-);
-
-const registerCommand = computed(() =>
-  props.provider === "claude"
-    ? `codex mcp add ${doc.value.serverName} -- npx -y ${doc.value.pkg}`
-    : `claude mcp add --scope user ${doc.value.serverName} -- npx -y ${doc.value.pkg}`,
+    ? "2. Connect Ask LLM to your assistant (any host except Claude Code, which cannot consult this provider)"
+    : "2. Connect Ask LLM to your assistant",
 );
 </script>
 
