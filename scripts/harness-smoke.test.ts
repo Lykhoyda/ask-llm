@@ -109,14 +109,14 @@ describe("real deterministic adapter probes", () => {
     ]);
   }, 30_000);
 
-  it("runs the real Codex adapter on the Astra factory default against fake transports", async () => {
+  it("runs the real Codex adapter on the Sol factory default against fake transports", async () => {
     invariant(directCodex, "direct Codex scenario missing");
     const report = await runIsolatedSuite({ mode: "dry-run", scenarios: [directCodex] });
     expect(report.results).toEqual([
       expect.objectContaining({
         id: directCodex.id,
         status: RESULTS.PASS,
-        reason: expect.stringContaining("gpt-6-astra"),
+        reason: expect.stringContaining("gpt-6.1-sol"),
         detail: expect.stringContaining("invocations"),
       }),
     ]);

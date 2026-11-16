@@ -87,7 +87,7 @@ export interface CodexExecutorOptions {
   model?: string;
   // Per-call Codex Responses reasoning override. Passed through `-c
   // model_reasoning_effort=...`; omitted callers use the behavior-preserving
-  // medium default rather than Astra's lighter CLI default.
+  // medium default rather than Sol's lighter CLI default.
   reasoningEffort?: CodexReasoningEffort;
   sessionId?: string;
   // Additional directories codex may access alongside the workspace (codex

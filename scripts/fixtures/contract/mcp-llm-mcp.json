@@ -169,7 +169,7 @@
           "type": "string"
         },
         "provider": {
-          "description": "Which LLM provider to use. Available: \"gemini\" (Gemini, default model: gemini-3.1-pro-preview), \"codex\" (Codex, default model: gpt-6-astra), \"claude\" (Claude, default model: opus), \"grok\" (Grok, default model: grok-4.7), \"ollama\" (Ollama, default model: qwen3.8:27b), \"antigravity\" (Antigravity, default model: gemini-3.1-pro)",
+          "description": "Which LLM provider to use. Available: \"gemini\" (Gemini, default model: gemini-3.1-pro-preview), \"codex\" (Codex, default model: gpt-6.1-sol), \"claude\" (Claude, default model: opus), \"grok\" (Grok, default model: grok-4.7), \"ollama\" (Ollama, default model: qwen3.8:27b), \"antigravity\" (Antigravity, default model: gemini-3.1-pro)",
           "enum": [
             "gemini",
             "codex",
