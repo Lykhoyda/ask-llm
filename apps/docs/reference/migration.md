@@ -78,12 +78,7 @@ Use these when setup printed guidance, or for entries outside user scope, which 
 | Antigravity, Cursor, Claude Desktop, OpenCode | Delete the entry from the JSON file |
 | Pi | `pi remove npm:@ask-llm/plugin` |
 
-To keep a setting from a removed entry, such as `XAI_API_KEY` for Grok, set it in your shell profile or add it to the `ask-llm` entry. The unified server reads the same environment variables as the split servers did. For Claude Code, re-create the entry with the variable:
-
-```bash
-claude mcp remove --scope user ask-llm
-claude mcp add --scope user ask-llm -e XAI_API_KEY="$XAI_API_KEY" -- "$(npm prefix -g)/bin/ask-llm-mcp"
-```
+The unified server reads the same environment variables as the split servers did. To carry `XAI_API_KEY` into the `ask-llm` entry before retiring a Grok registration, follow [Grok setup](/providers/grok#setup).
 
 For later removal of this installation, see the [command compatibility reference](https://github.com/Lykhoyda/ask-llm/blob/main/packages/llm-mcp/README.md#command-compatibility). Removal does not restore replaced or retired entries.
 

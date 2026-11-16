@@ -23,7 +23,7 @@ npm i -g @ask-llm/mcp && ask-llm setup
 
 Setup asks you to confirm each detected host and workflow. Inspect the preview, confirm your assistant's registration and workflows, decline the others, then follow any printed manual steps. Restart your assistant or start a new session in your project.
 
-In Codex, setup installs the workflows but prints the registration command instead of running it, because Codex's server list omits saved settings and can include project overrides, so setup cannot prove a change is safe. Check `~/.codex/config.toml` for an existing `ask-llm` entry, then run the printed command. For a default global install it is:
+In Codex, setup installs the workflows and prints the registration command for you to run. [Inspect existing user and project configuration](https://lykhoyda.github.io/ask-llm/advanced/manual-configuration#command-hosts) before running it. For a default global install it is:
 
 ```bash
 codex mcp add ask-llm -- "$(npm prefix -g)/bin/ask-llm-mcp"

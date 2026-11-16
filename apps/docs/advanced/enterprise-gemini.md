@@ -4,7 +4,7 @@ description: Gemini eligibility, workspace trust and its provider-specific sandb
 
 # Enterprise environments / Gemini
 
-Gemini CLI requires an eligible Code Assist Standard/Enterprise seat. Installing Ask LLM does not grant account access. Check your organisation's data-transfer policy before sending project material. See the unchanged [Gemini provider reference](/providers/gemini) for account eligibility and failure behavior.
+Gemini CLI requires an eligible Code Assist Standard/Enterprise seat. Installing Ask LLM does not grant account access. Check your organisation's data-transfer policy before sending project material. See the [Gemini provider reference](/providers/gemini) for account eligibility and failure behavior.
 
 Ask LLM normally supplies Gemini workspace-trust settings for the current directory. Set `ASK_GEMINI_REQUIRE_WORKSPACE_TRUST=1` to require explicit workspace trust instead; untrusted directories then block. User-scope Gemini registrations load only in trusted folders. See [environment variables](/reference/environment-variables).
 

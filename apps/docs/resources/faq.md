@@ -34,7 +34,7 @@ See [Hosts](/compatibility/hosts). Claude Desktop is tools only. Pi uses native 
 
 ## Why is Gemini restricted?
 
-The provider requires an eligible Code Assist Standard/Enterprise seat. See [Enterprise environments / Gemini](/advanced/enterprise-gemini) and the unchanged [provider reference](/providers/gemini). Ask LLM cannot grant provider eligibility.
+The provider requires an eligible Code Assist Standard/Enterprise seat. See [Enterprise environments / Gemini](/advanced/enterprise-gemini) and the [provider reference](/providers/gemini). Ask LLM cannot grant provider eligibility.
 
 ## Where does my code go?
 
