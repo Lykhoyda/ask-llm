@@ -361,8 +361,7 @@ describe("minimum version pin", () => {
   });
 
   it("pins MINIMUM_AGY_VERSION to the live-verified settings-overlay floor 1.5.9", () => {
-    expect(ANTIGRAVITY.SETTINGS_OVERLAY_MIN_VERSION).toBe("1.5.9");
-    expect(ANTIGRAVITY.MINIMUM_AGY_VERSION).toBe(ANTIGRAVITY.SETTINGS_OVERLAY_MIN_VERSION);
+    expect(ANTIGRAVITY.MINIMUM_AGY_VERSION).toBe("1.5.9");
   });
 
   it("gates the exit-0 print-timeout truncation contract at agy 1.1.28", () => {
@@ -370,7 +369,7 @@ describe("minimum version pin", () => {
   });
 
   it("shares the overlay-verified 1.5.9 sandboxed /quota floor between rate-limit recovery and doctor", () => {
-    expect(ANTIGRAVITY.QUOTA_COMMAND_MIN_VERSION).toBe(ANTIGRAVITY.SETTINGS_OVERLAY_MIN_VERSION);
+    expect(ANTIGRAVITY.QUOTA_COMMAND_MIN_VERSION).toBe(ANTIGRAVITY.MINIMUM_AGY_VERSION);
     expect(DOCTOR_QUOTA_MIN_VERSION).toBe(ANTIGRAVITY.QUOTA_COMMAND_MIN_VERSION);
   });
 });

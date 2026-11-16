@@ -118,7 +118,7 @@ Dispatch all requested external providers via **a single foreground Bash tool ca
 
 The user specifies which external providers to use. Default is `antigravity,codex`. Only include the requested providers in the Bash call:
 
-- `antigravity` — Google Antigravity, subscription-backed via your Google AI Pro/Ultra plan, via the `agy` CLI (experimental; requires `agy` >=1.1.5 installed + logged in)
+- `antigravity` — Google Antigravity, subscription-backed via your Google AI Pro/Ultra plan, via the `agy` CLI (experimental; requires `agy` >=1.5.9 installed + logged in)
 - `gemini` — Google Gemini (large context, strong at analysis) via the `gemini` CLI
 - `codex` — OpenAI Codex (strong at code reasoning) via `codex exec --sandbox read-only`
 - `grok` — bare Grok remains the compatible canonical-runner path with explicit `ASK_GROK_HARNESS` (`xai-api` default or `grok-cli`); routed Grok uses the exact selected harness/model and never falls back
@@ -196,11 +196,21 @@ PROMPT_EOF
 # (only the short -m hangs). Run `agy models`.
 # --settings is the session-only overlay @ask-llm/antigravity-mcp passes on every
 # spawn (ADR-193): Default agent mode plus agy-enforced deny rules for file writes
-# and commands; agy never saves it to the user's settings. agy older than 1.5.9
-# rejects or is unverified with it, so this participant then fails closed.
+# and commands; agy never saves it to the user's settings.
 if [ "${ASK_ANTIGRAVITY_ALLOW_UNISOLATED:-}" = "1" ]; then
-  echo "antigravity warning: ASK_ANTIGRAVITY_ALLOW_UNISOLATED=1 permits this run, but read-only isolation is not guaranteed; agy may modify files, run shell commands, and access the network." > "$workdir/antigravity.err"
-  agy -p "$(cat "$workdir/antigravity-prompt.md")" --model "gemini-3.1-pro" --effort high --sandbox --settings '{"agentMode":"","permissions":{"deny":["write_file(*)","command(*)"]}}' > "$workdir/antigravity.out" 2>> "$workdir/antigravity.err" &
+  agy_version=$(agy --version 2> "$workdir/antigravity.err")
+  if [ "$?" -eq 0 ] && node -e '
+    const match = process.argv[1].match(/\bv?(\d+)\.(\d+)\.(\d+)(?:-([0-9A-Za-z.-]+))?\b/);
+    if (!match) process.exit(1);
+    const delta = match.slice(1, 4).map((value, index) => Number(value) - [1, 5, 9][index]).find(value => value !== 0) ?? 0;
+    process.exit(delta > 0 || (delta === 0 && !match[4]) ? 0 : 1);
+  ' "$agy_version"; then
+    echo "antigravity warning: ASK_ANTIGRAVITY_ALLOW_UNISOLATED=1 permits this run, but read-only isolation is not guaranteed; agy may modify files, run shell commands, and access the network." > "$workdir/antigravity.err"
+    agy -p "$(cat "$workdir/antigravity-prompt.md")" --model "gemini-3.1-pro" --effort high --sandbox --settings '{"agentMode":"","permissions":{"deny":["write_file(*)","command(*)"]}}' > "$workdir/antigravity.out" 2>> "$workdir/antigravity.err" &
+  else
+    echo "antigravity skipped: agy >=1.5.9 is required for the session-only settings overlay; the installed version is unsupported or unverifiable. Update agy and verify with agy --version." >> "$workdir/antigravity.err"
+    false &
+  fi
 else
   echo "antigravity skipped: agy is not isolated from the working copy (ADR-177, #283); set ASK_ANTIGRAVITY_ALLOW_UNISOLATED=1 to include it without a read-only guarantee." > "$workdir/antigravity.err"
   false &

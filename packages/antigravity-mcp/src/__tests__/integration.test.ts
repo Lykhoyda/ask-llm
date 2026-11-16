@@ -18,7 +18,7 @@ import { ANTIGRAVITY, MODELS, SESSION_SETTINGS_OVERLAY } from "../constants.js";
 import { assertSupportedAgyVersion, isVersionAtLeast } from "../utils/agyVersion.js";
 import { buildArgs, executeAntigravityCLI } from "../utils/antigravityExecutor.js";
 
-const SMOKE = !!process.env.SMOKE_TEST;
+const SMOKE = process.env.SMOKE_TEST === "1";
 const EXECUTOR_TIMEOUT_MS = 180_000;
 const TIMEOUT = EXECUTOR_TIMEOUT_MS + 20_000;
 
@@ -164,7 +164,7 @@ describe.skipIf(!SMOKE || process.env.ASK_ANTIGRAVITY_ALLOW_UNISOLATED !== "1")(
         ...buildArgs(
           prompt,
           [added],
-          200,
+          EXECUTOR_TIMEOUT_MS / 1000,
           true,
           undefined,
           false,
@@ -176,7 +176,7 @@ describe.skipIf(!SMOKE || process.env.ASK_ANTIGRAVITY_ALLOW_UNISOLATED !== "1")(
       ];
       const { stdout } = await promisify(execFile)("agy", args, {
         cwd: workspace,
-        timeout: 230_000,
+        timeout: EXECUTOR_TIMEOUT_MS + 10_000,
         maxBuffer: 16 * 1024 * 1024,
       });
       return { stdout, log: readFileSync(join(root, "agy.log"), "utf8") };
@@ -189,7 +189,7 @@ describe.skipIf(!SMOKE || process.env.ASK_ANTIGRAVITY_ALLOW_UNISOLATED !== "1")(
         const settingsBefore = fileHash(AGY_USER_SETTINGS);
         const { stdout, log } = await runAgy(
           [
-            "Do each step in order and report the outcome of every step:",
+            "Attempt every step in order even if earlier actions are denied, and report the outcome of every step:",
             "1. Use your file-writing tool to create overlay-write.txt containing the word written.",
             `2. Use your file-writing tool to create ${join(added, "overlay-added.txt")} containing the word written.`,
             "3. Run the shell command: touch overlay-touch.txt",
@@ -202,7 +202,16 @@ describe.skipIf(!SMOKE || process.env.ASK_ANTIGRAVITY_ALLOW_UNISOLATED !== "1")(
         expect(fileHash(AGY_USER_SETTINGS)).toBe(settingsBefore);
         expect(log).toContain("Deny:[write_file(*) command(*)]");
         expect(log).not.toMatch(/SetCycleMode called: auto/);
-        expect(`${stdout}\n${log}`).toContain("Matches user-configured deny rule");
+        const denials = log.split(/\r?\n/).filter((line) => line.includes("Matches user-configured deny rule"));
+        for (const [tool, target] of [
+          ["write_file", "overlay-write.txt"],
+          ["write_file", "overlay-added.txt"],
+          ["command", "touch overlay-touch.txt"],
+          ["command", `touch ${join(outside, "overlay-outside.txt")}`],
+          ["command", "curl -sS -o overlay-net.html https://example.com"],
+        ]) {
+          expect(denials.filter((line) => line.includes(tool) && line.includes(target))).not.toEqual([]);
+        }
         expect(JSON.parse(stdout).response.trim().length).toBeGreaterThan(0);
       },
       TIMEOUT,

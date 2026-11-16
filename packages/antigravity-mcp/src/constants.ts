@@ -1,6 +1,5 @@
 // The oldest agy verified live to enforce SESSION_SETTINGS_OVERLAY (ADR-193); older agy is refused.
-export const SETTINGS_OVERLAY_MIN_VERSION = "1.5.9";
-export const MINIMUM_AGY_VERSION = SETTINGS_OVERLAY_MIN_VERSION;
+export const MINIMUM_AGY_VERSION = "1.5.9";
 
 // Session-only agy settings passed with --settings on every spawn; agy never saves them (ADR-193).
 // agentMode "" keeps Default mode instead of agy 1.5.7+'s headless Auto, and the deny rules refuse
@@ -66,7 +65,6 @@ export const MODELS = {
 
 export const ANTIGRAVITY = {
   MINIMUM_AGY_VERSION,
-  SETTINGS_OVERLAY_MIN_VERSION,
   VERSION_CHECK_TIMEOUT_MS: 5_000,
   TIMEOUT_ENV_VAR: "ASK_ANTIGRAVITY_TIMEOUT_MS",
   // A deliberate 5m cap; agy >=1.2.6 defaults --print-timeout to unlimited, and we always pass it.
@@ -94,7 +92,7 @@ export const ANTIGRAVITY = {
   QUOTA_COMMAND: "/quota",
   // Sandboxed /quota answered with num_turns 0 on 1.2.13 (https://github.com/Lykhoyda/ask-llm/pull/366); with the
   // --settings overlay it is verified on 1.5.9, so it shares the overlay floor (ADR-193).
-  QUOTA_COMMAND_MIN_VERSION: SETTINGS_OVERLAY_MIN_VERSION,
+  QUOTA_COMMAND_MIN_VERSION: MINIMUM_AGY_VERSION,
   // agy >=1.2.6 prints this stderr line on a failed headless turn and exits 3.
   STRUCTURED_ERROR_PREFIX: "AGY_ERROR:",
   // Lowercased substrings; isRateLimitError() lowercases the message first.
