@@ -72,7 +72,7 @@ export const STATUS_MESSAGES = {
 
 // The out-of-box default, independent of any ASK_GEMINI_MODEL override —
 // tool descriptions and drift-guard tests reference this, not the live value.
-export const FACTORY_DEFAULT_MODEL = "gemini-3.1-pro-preview";
+export const FACTORY_DEFAULT_MODEL = "gemini-4-argon";
 
 export const MODELS = {
   PRO: process.env.ASK_GEMINI_MODEL || FACTORY_DEFAULT_MODEL,

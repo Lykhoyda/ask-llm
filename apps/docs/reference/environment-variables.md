@@ -14,7 +14,7 @@ description: Provider defaults, route selection, timeouts and execution gates.
 | ASK_GROK_TIMEOUT_MS | 600000 | Grok API/CLI timeout |
 | CURSOR_API_KEY | optional | Cursor CLI credential alternative to agent login |
 | ASK_CURSOR_TIMEOUT_MS | 600000 | Model-neutral Cursor Agent harness timeout |
-| ASK_GEMINI_MODEL | gemini-3.1-pro-preview | Override the Gemini default model |
+| ASK_GEMINI_MODEL | gemini-4-argon | Override the Gemini default model |
 | ASK_GEMINI_FALLBACK_MODEL | gemini-3.8-flash | Override the Gemini quota fallback model |
 | ASK_CODEX_MODEL | gpt-6.1-sol | Override the Codex default model |
 | ASK_CODEX_PREFERRED_MODEL | gpt-6.1-sol | Legacy review-tier escape hatch; only attempted separately when it differs from ASK_CODEX_MODEL |
@@ -23,7 +23,7 @@ description: Provider defaults, route selection, timeouts and execution gates.
 | ASK_CLAUDE_MODEL | opus | Override the Claude default model |
 | ASK_CLAUDE_FALLBACK_MODEL | sonnet | Override Claude Code's native fallback model |
 | ASK_OLLAMA_MODEL | qwen3.8:27b | Override the Ollama model (no fallback) |
-| ASK_ANTIGRAVITY_MODEL | gemini-3.1-pro | Override the Antigravity base model slug |
+| ASK_ANTIGRAVITY_MODEL | gemini-4-argon | Override the Antigravity base model slug |
 | ASK_ANTIGRAVITY_EFFORT | high | Override Antigravity reasoning effort (`low`, `medium`, or `high`) |
 | ASK_GEMINI_TIMEOUT_MS | 210000 (210s) | Gemini process timeout |
 | ASK_CODEX_TIMEOUT_MS | 800000 (800s) | Codex process timeout |

@@ -78,7 +78,7 @@ agent --plugin-dir ./packages/llm-mcp
 
 See [Pi host notes](https://lykhoyda.github.io/ask-llm/compatibility/pi) for installation, native tools, supported workflows, project trust and user-owned pairing consent.
 
-The plugin's `ask-gemini-run`, Gemini reviewer agent/skill, and Pi `ask-gemini` tool all delegate to the canonical Gemini executor: `gemini-3.1-pro-preview` remains primary and quota errors fall back to `gemini-3.8-flash` unless `ASK_GEMINI_FALLBACK_MODEL` overrides it.
+The plugin's `ask-gemini-run`, Gemini reviewer agent/skill, and Pi `ask-gemini` tool all delegate to the canonical Gemini executor: `gemini-4-argon` remains primary and quota errors fall back to `gemini-3.8-flash` unless `ASK_GEMINI_FALLBACK_MODEL` overrides it.
 
 ## Skills
 
