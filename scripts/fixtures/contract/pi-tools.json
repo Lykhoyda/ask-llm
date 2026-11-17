@@ -65,10 +65,59 @@
           "type": "string"
         },
         "sandbox": {
+          "const": "read-only",
+          "type": "string"
+        },
+        "sessionId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "prompt"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "name": "ask-codex-write",
+    "parameters": {
+      "properties": {
+        "includeDirs": {
+          "description": "Relative directories the provider may read in addition to the current workspace.",
+          "items": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 32,
+          "type": "array"
+        },
+        "model": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "preferred": {
+          "type": "boolean"
+        },
+        "prompt": {
+          "description": "Prompt sent to the consulted provider.",
+          "maxLength": 100000,
+          "minLength": 1,
+          "type": "string"
+        },
+        "reasoningEffort": {
           "enum": [
-            "read-only",
-            "workspace-write"
+            "low",
+            "medium",
+            "high",
+            "xhigh",
+            "max",
+            "ultra"
           ],
+          "type": "string"
+        },
+        "sandbox": {
+          "const": "workspace-write",
           "type": "string"
         },
         "sessionId": {
@@ -321,10 +370,7 @@
                   "type": "string"
                 },
                 "sandbox": {
-                  "enum": [
-                    "read-only",
-                    "workspace-write"
-                  ],
+                  "const": "read-only",
                   "type": "string"
                 },
                 "sessionId": {

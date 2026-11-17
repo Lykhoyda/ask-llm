@@ -3,6 +3,7 @@ import {
   createSessionUsage,
   createUsageStatsTool,
   Logger,
+  SERVER_INSTRUCTIONS,
   registerSessionUsageResource,
   registerTools,
 } from "@ask-llm/shared";
@@ -28,7 +29,7 @@ const PROGRESS_MESSAGES = (op: string) => [
   `${op} - Still working (local inference can take a moment)...`,
 ];
 
-const server = new McpServer({ name, version });
+const server = new McpServer({ name, version }, { instructions: SERVER_INSTRUCTIONS });
 const sessionUsage = createSessionUsage();
 toolRegistry.push(createUsageStatsTool(sessionUsage));
 

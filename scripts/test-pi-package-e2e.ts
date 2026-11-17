@@ -97,7 +97,7 @@ function scriptedTool(scenario: string) {
   }
   if (scenario.includes("SMOKE_IMAGE")) {
     return {
-      name: "ask-codex",
+      name: "ask-codex-write",
       arguments: { prompt: `Create the requested image. SMOKE_IMAGE_PATH=${imagePath}`, sandbox: "workspace-write" },
     };
   }
@@ -443,7 +443,7 @@ try {
   }
 
   await newSession();
-  result = await runPrompt("/skill:ask-llm-codex-image SMOKE_IMAGE", "ask-codex");
+  result = await runPrompt("/skill:ask-llm-codex-image SMOKE_IMAGE", "ask-codex-write");
   invariant(!result.toolEnd.isError, "codex-image tool failed");
   invariant(
     (await readFile(imagePath)).subarray(0, 8).toString("hex") === "89504e470d0a1a0a",

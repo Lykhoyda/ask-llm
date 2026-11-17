@@ -3,6 +3,7 @@ import type { HostId } from "./registry.js";
 // Tools Pi registers natively with the input schemas the MCP server advertises.
 export const SHARED_TOOLS = ["ask-llm", "multi-llm", "ask-cursor-agent"] as const;
 export const MCP_ONLY_TOOLS = ["ping", "get-usage-stats", "diagnose"] as const;
+export const PI_ONLY_TOOLS = ["ask-codex-write"] as const;
 export const PI_DEPRECATED_ALIASES = [
   "ask-codex",
   "ask-gemini",
@@ -39,7 +40,7 @@ function row(common: string, overrides: Partial<Record<HostId, string>>): Record
 // Rendered into docs/HOST-PARITY.md and printed by `ask-llm doctor` for each installed host.
 export const HOST_PARITY: Record<ParityRow, Record<HostId, string>> = {
   tools: row(MCP_TOOLS, {
-    pi: `native ${SHARED_TOOLS.join(", ")} with the MCP input schemas; ${PI_DEPRECATED_ALIASES.join(", ")} as deprecated aliases`,
+    pi: `native ${SHARED_TOOLS.join(", ")} with the MCP input schemas; ${PI_ONLY_TOOLS.join(", ")} for file writing; ${PI_DEPRECATED_ALIASES.join(", ")} as deprecated aliases`,
   }),
   skills: row(SHARED_SKILLS, {
     claude: "the Claude plugin, installed by `ask-llm setup`",

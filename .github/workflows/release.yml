@@ -88,16 +88,10 @@ jobs:
           rm "$archive"
           ./mcp-publisher --help >/dev/null
 
-      # server.json + marketplace.json track the same versions as package.json but live in
-      # separate files for the MCP Registry's input schema. Sync them after changesets'
-      # version bump so the Registry publish picks up the freshly-bumped numbers.
-      - name: Sync versions from package.json to server.json and marketplace.json
+      # The version PR commits Registry and plugin metadata before publication.
+      - name: Check release metadata versions
         if: steps.changesets.outputs.published == 'true' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')
-        run: |
-          PKG_VERSION=$(node -p "require('./packages/llm-mcp/package.json').version")
-          file=packages/llm-mcp/server.json
-          jq --arg v "$PKG_VERSION" '(.version = $v) | (.packages[0].version = $v)' "$file" > "$file.tmp" && mv "$file.tmp" "$file"
-          node scripts/sync-plugin-manifests.ts --check
+        run: node scripts/sync-plugin-manifests.ts --check
 
       # The Registry rejects duplicate versions. Verify exact existing records,
       # publish only missing versions, and keep trying independent missing servers

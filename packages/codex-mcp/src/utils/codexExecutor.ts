@@ -417,8 +417,8 @@ export async function executeCodexCLI(options: CodexExecutorOptions): Promise<Co
   // reasons, while the MCP client applies any resulting edits. Default every
   // path to Codex's read-only sandbox so the repository's core "other model
   // reads, Claude edits" boundary is enforced by the sandbox, not prompt wording
-  // (ADR-136). workspace-write stays available only as an explicit machine-
-  // contract opt-in (`sandbox: "workspace-write"`), keeping the tools' advertised
+  // (ADR-136). workspace-write stays available for ask-codex-write and explicit
+  // writable unified/machine calls, keeping read-only tools' advertised
   // readOnlyHint honest.
   const sandboxMode =
     options.sandbox === "workspace-write" ? CLI.FLAGS.SANDBOX_WORKSPACE_WRITE : CLI.FLAGS.SANDBOX_READ_ONLY;

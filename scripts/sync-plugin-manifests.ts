@@ -1,6 +1,6 @@
 #!/usr/bin/env node
-// Mirror the plugin package version to plugin.json, marketplace.json and the server pin in each plugin
-// MCP definition after changesets versioning. Lint uses `--check` to reject stale release metadata, an
+// Mirror the package version to server.json, plugin.json, marketplace.json and each plugin server pin
+// after changesets versioning. Lint uses `--check` to reject stale release metadata, an
 // MCP definition that does not start the pinned server directly, and a skill corpus that disagrees
 // with its manifests.
 
@@ -13,6 +13,7 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const SOURCE = resolve(ROOT, "packages/llm-mcp/package.json");
 const PLUGIN_JSON = resolve(ROOT, "packages/llm-mcp/.claude-plugin/plugin.json");
 const CURSOR_PLUGIN_JSON = resolve(ROOT, "packages/llm-mcp/.cursor-plugin/plugin.json");
+const SERVER_JSON = resolve(ROOT, "packages/llm-mcp/server.json");
 const MARKETPLACE_JSON = resolve(ROOT, ".claude-plugin/marketplace.json");
 // Each plugin MCP definition runs `node <plugin root>/scripts/plugin-mcp-server.mjs <server> <version>`.
 export const MCP_DEFINITIONS = [
@@ -139,6 +140,14 @@ async function main() {
   if (skillErrors.length > 0)
     throw new Error(`skill corpus disagrees with its manifests:\n  ${skillErrors.join("\n  ")}`);
 
+  const server = await readJson(SERVER_JSON);
+  const serverChanged = server.version !== version || server.packages[0].version !== version;
+  if (serverChanged && !CHECK_ONLY) {
+    server.version = version;
+    server.packages[0].version = version;
+    await writeJson(SERVER_JSON, server);
+  }
+
   const pluginChanged = await syncPluginJson(PLUGIN_JSON, version);
   const cursorPluginChanged = await syncPluginJson(CURSOR_PLUGIN_JSON, version);
   const marketplaceChanged = await syncMarketplaceJson(version);
@@ -148,6 +157,7 @@ async function main() {
   }
 
   const changed = [
+    serverChanged ? "packages/llm-mcp/server.json" : null,
     pluginChanged ? ".claude-plugin/plugin.json" : null,
     cursorPluginChanged ? ".cursor-plugin/plugin.json" : null,
     marketplaceChanged ? "marketplace.json" : null,

@@ -48,6 +48,15 @@ const expectedAgents = [
 ];
 
 describe("skills/", () => {
+  it("routes image generation through the writable Codex tool", () => {
+    const skill = readFile("skills/ask-llm-codex-image/SKILL.md");
+    expect(skill).toContain('Call native `ask-codex-write` with `sandbox: "workspace-write"`');
+    expect(skill).toContain("Call an exact `ask-codex-write` leaf");
+    expect(skill).not.toMatch(/`ask-codex`/);
+    const transport = readFile("skills/ask-llm-review/transport.md");
+    expect(transport).toContain('for `sandbox: "workspace-write"`, an exposed `ask-codex-write` tool');
+  });
+
   it("contains the namespaced skills and one old-name pointer for each", () => {
     const dirs = listSubdirs("skills").sort();
     expect(dirs).toEqual([...expectedSkills, ...oldSkillNames].sort());

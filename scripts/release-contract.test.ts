@@ -111,6 +111,16 @@ async function listServer(cli: string) {
   const client = new Client({ name: "release-contract", version: "1.0.0" });
   await client.connect(transport);
   try {
+    const instructions = client.getInstructions();
+    expect(instructions).toBeTruthy();
+    if (!instructions) throw new Error("Server instructions are missing");
+    const core = instructions.slice(0, 512);
+    expect(core).toContain("second opinions");
+    expect(core).toContain("host applies edits");
+    expect(core).toContain("several minutes");
+    expect(core).toContain("Reuse the returned sessionId");
+    expect(core.trim()).toMatch(/\.$/);
+    expect(instructions.length).toBeLessThanOrEqual(512);
     const tools = await listAll(async (params) => {
       const page = await client.listTools(params);
       return { items: page.tools, nextCursor: page.nextCursor };

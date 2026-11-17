@@ -31,6 +31,19 @@ describe("createProgressTracker", () => {
     handle.stop(true);
   });
 
+  it.each([0, ""])("honors valid falsy progress token %j", async (progressToken) => {
+    const extra = createMockExtra();
+    extra._meta = { progressToken };
+    const handle = createProgressTracker("test-op", extra, ["Working..."]);
+    await vi.advanceTimersByTimeAsync(25000);
+    await handle.stop(true);
+    expect(extra.sendNotification.mock.calls.map(([notification]) => notification.params)).toEqual([
+      expect.objectContaining({ progressToken, progress: 0 }),
+      expect.objectContaining({ progressToken, progress: 1 }),
+      expect.objectContaining({ progressToken, progress: 100, total: 100 }),
+    ]);
+  });
+
   it("sends periodic progress notifications", async () => {
     const extra = createMockExtra();
     const handle = createProgressTracker("test-op", extra, ["Message 1", "Message 2"]);

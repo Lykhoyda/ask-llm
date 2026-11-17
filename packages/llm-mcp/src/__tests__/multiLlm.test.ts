@@ -52,8 +52,16 @@ describe("dispatchMultiLlm", () => {
       signal: controller.signal,
     });
 
-    expect(exGrok).toHaveBeenCalledWith({ prompt: "review", signal: controller.signal });
-    expect(exCodex).toHaveBeenCalledWith({ prompt: "review", signal: controller.signal });
+    expect(exGrok).toHaveBeenCalledWith({
+      prompt: "review",
+      signal: controller.signal,
+      onProgress: expect.any(Function),
+    });
+    expect(exCodex).toHaveBeenCalledWith({
+      prompt: "review",
+      signal: controller.signal,
+      onProgress: expect.any(Function),
+    });
   });
 
   it("records usage stats via the recordUsage callback for each successful call", async () => {

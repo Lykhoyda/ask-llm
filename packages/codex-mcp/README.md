@@ -56,7 +56,11 @@ Add to `claude_desktop_config.json`:
 | Tool | Purpose |
 |------|---------|
 | `ask-codex` | Send prompts to Codex CLI. Defaults to GPT-6.1 Sol at medium effort with automatic Terra fallback; optional `reasoningEffort` override |
+| `ask-codex-edit` | Propose edits in a read-only sandbox; the host applies the returned proposals |
+| `ask-codex-write` | Run explicit file-writing tasks, including image generation, with workspace-write permission. Replaces `ask-codex({ sandbox: "workspace-write" })` |
 | `ping` | Connection test — verify MCP setup without using tokens |
+
+`ask-codex` rejects `workspace-write`; use `ask-codex-write` when Codex must create files. All three tools return readable text and a structured `AskResponse` via MCP `outputSchema`.
 
 Codex calls are ephemeral when `sessionId` is omitted. Pass `sessionId: ""` on the first call to persist a resumable thread, then pass its returned Thread ID on follow-up calls.
 
