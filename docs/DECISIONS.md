@@ -1,6 +1,6 @@
 # Architectural Decisions
 
-## ADR-196: Print a derived Codex MCP tool timeout alongside manual registration
+## ADR-197: Print a derived Codex MCP tool timeout alongside manual registration
 
 **Status:** Accepted (2026-11-17).
 
@@ -9,6 +9,16 @@
 **Decision:** Keep registration manual and print a TOML setting alongside the intended `codex mcp add` command in setup's text, JSON and apply guidance, including previews for an uninstalled Codex host. Derive `tool_timeout_sec` from the largest shared default per-attempt limit × `EXECUTION.MAX_PROVIDER_ATTEMPTS` (three, matching the preferred → default → quota-fallback Codex ladder) + 60 seconds of overhead, rounded up to seconds: currently 2,460. The existing full-ladder executor test pins the shared attempt count to actual dispatches. Merge the key into the existing server table; preserve custom settings, tool filters and project overrides. Setup does not write Codex config.
 
 **Consequences:** Manual registration includes an explicit allowance for the complete default request ladder. Users who raise per-attempt limits in the MCP server environment must also raise the Codex setting using the documented formula. This is a host timeout recommendation, not a change to provider limits or recovery policy.
+
+## ADR-196: Move the Gemini and Antigravity default models to Gemini 4 Argon
+
+**Status:** Accepted (2026-11-16). Supersedes the Pro default in ADR-137 (Antigravity `gemini-3.1-pro`) and the Pro factory default carried by ADR-154/155 (Gemini `gemini-3.1-pro-preview`).
+
+**Context:** Live agy 1.5.9 rejects the shipped Antigravity default with exit 1: `invalid model selection (--model "gemini-3.1-pro" --effort "high"): --effort is not supported for model "gemini-3.1-pro"`. `agy models` no longer lists any `gemini-3.1-pro` id; it lists `gemini-4-argon-low|medium|high` and `gemini-3.8-flash-low|medium|high`, among others. The executor treated the rejection as model-unavailable and spent one failed spawn before a model-less retry. The raw `/brainstorm` agy call has no retry, so its Antigravity participant failed. Live on agy 1.5.9, the base slug `gemini-4-argon` answered with `--effort low`, `medium` and `high` and with no `--effort`. agy names its tiers itself (`gemini-4-argon has no "xhigh" effort (available: low, medium, high)`). The tiered `gemini-4-argon-high` and the display name `Gemini 4 Argon (High)` also answered. `gemini-3.8-flash --effort high` still answered. The legacy display name `Gemini 3.1 Pro (High)` is rejected as not recognized. Gemini CLI 0.66.0 (2026-10-27) has no model list of its own for Gemini 4. Its `resolveModel` passes an unrecognized `-m` value through unchanged. Its README says Gemini CLI "has not been optimized for Gemini 4 Argon" and points to Antigravity. Google's Gemini API CLI catalog and SDK enumerate the API id `gemini-4-argon`.
+
+**Decision:** Set the Antigravity `MODELS.DEFAULT` to the base slug `gemini-4-argon`, keeping the ADR-137/178 contract: base slug plus `--effort high` by default, `ASK_ANTIGRAVITY_EFFORT` still honored, no tiered id, so the user's effort is never silently dropped. The `/brainstorm` raw call pins the same slug and effort. Set Gemini's `FACTORY_DEFAULT_MODEL` to `gemini-4-argon` on that API id and Gemini CLI's pass-through, and keep `ASK_GEMINI_MODEL` precedence. Both `gemini-3.8-flash` fallbacks and their independent evidence are unchanged. The two pins land together on separate evidence, not in sympathy. Current-facing docs, tool descriptions, contract fixtures, the generated `llms-full.txt` and the drift guard move with them. Historical ADRs, roadmap entries, bugs, plans and changelogs keep the pins they recorded.
+
+**Consequences:** On agy 1.5.9 the first Antigravity spawn succeeds, and `/brainstorm` no longer loses its Antigravity participant to a retired slug. The model-unavailable recovery and its live 1.5.9 error grammar still cover future slug drift. No live Gemini CLI call was run, because the CLI was not installed on the verification host. Google itself says Gemini CLI is not tuned for Gemini 4, so answer quality and quota behavior on `gemini-4-argon` are unverified until a credentialed Gemini CLI run, including on macOS.
 
 ## ADR-195: Plugin MCP definitions start the plugin's own pinned release with `node`
 

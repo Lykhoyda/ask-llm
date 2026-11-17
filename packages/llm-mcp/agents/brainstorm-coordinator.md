@@ -188,7 +188,7 @@ PROMPT_EOF
 # Only include this block if antigravity was requested (in the default set).
 # Raw agy is unisolated (ADR-177): require exact opt-in and preserve the warning
 # in stderr; `false &` records a skipped participant as a nonzero result.
-# --model gemini-3.1-pro --effort high: pin the same default @ask-llm/antigravity-mcp
+# --model gemini-4-argon --effort high: pin the same default @ask-llm/antigravity-mcp
 # uses (ADR-116; agy >=1.1.5 splits the effort tier into --effort). This raw `agy`
 # call bypasses that executor, so the default must be restated here or agy falls
 # back to its own built-in model. Note the executor's gemini-3.8-flash rate-limit
@@ -206,7 +206,7 @@ if [ "${ASK_ANTIGRAVITY_ALLOW_UNISOLATED:-}" = "1" ]; then
     process.exit(delta > 0 || (delta === 0 && !match[4]) ? 0 : 1);
   ' "$agy_version"; then
     echo "antigravity warning: ASK_ANTIGRAVITY_ALLOW_UNISOLATED=1 permits this run, but read-only isolation is not guaranteed; agy may modify files, run shell commands, and access the network." > "$workdir/antigravity.err"
-    agy -p "$(cat "$workdir/antigravity-prompt.md")" --model "gemini-3.1-pro" --effort high --sandbox --settings '{"agentMode":"","permissions":{"deny":["write_file(*)","command(*)"]}}' > "$workdir/antigravity.out" 2>> "$workdir/antigravity.err" &
+    agy -p "$(cat "$workdir/antigravity-prompt.md")" --model "gemini-4-argon" --effort high --sandbox --settings '{"agentMode":"","permissions":{"deny":["write_file(*)","command(*)"]}}' > "$workdir/antigravity.out" 2>> "$workdir/antigravity.err" &
   else
     echo "antigravity skipped: agy >=1.5.9 is required for the session-only settings overlay; the installed version is unsupported or unverifiable. Update agy and verify with agy --version." >> "$workdir/antigravity.err"
     false &

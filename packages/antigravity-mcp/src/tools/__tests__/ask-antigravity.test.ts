@@ -11,7 +11,7 @@ import { askAntigravityTool } from "../ask-antigravity.tool.js";
 const mockExecuteAntigravityCLI = vi.mocked(executeAntigravityCLI);
 const usage: UsageStats = {
   provider: "antigravity",
-  model: "gemini-3.1-pro",
+  model: "gemini-4-argon",
   inputTokens: 120,
   outputTokens: 30,
   cachedTokens: 20,

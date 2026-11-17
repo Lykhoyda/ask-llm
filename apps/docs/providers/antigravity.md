@@ -12,7 +12,7 @@ Bridge Claude with Google's Antigravity CLI (`agy`), Google's successor to Gemin
 > **Not for:** fine-grained per-edit automation; it's one-shot and experimental. For continuous review, use Codex via `codex-pair`.
 
 ::: warning Experimental
-Requires a [supported agy version](#prerequisites). Unified discovery, `doctor --live`, and ping report older or unparseable installations as detected but unusable and exclude them from dispatch; the executor repeats the version check before every model invocation. For default doctor, see [Quota diagnostics](#quota-diagnostics). It reads the headless `-p` response from `agy`'s `--output-format json` stdout. Single-turn only (no multi-turn); defaults to the **gemini-3.1-pro** model at **high** reasoning effort, falling back to **gemini-3.8-flash** on a rate limit.
+Requires a [supported agy version](#prerequisites). Unified discovery, `doctor --live`, and ping report older or unparseable installations as detected but unusable and exclude them from dispatch; the executor repeats the version check before every model invocation. For default doctor, see [Quota diagnostics](#quota-diagnostics). It reads the headless `-p` response from `agy`'s `--output-format json` stdout. Single-turn only (no multi-turn); defaults to the **gemini-4-argon** model at **high** reasoning effort, falling back to **gemini-3.8-flash** on a rate limit.
 :::
 
 ## Installation
@@ -44,11 +44,11 @@ Setup registers the unified Ask LLM server, which consults Antigravity through t
 
 <FallbackChain provider="antigravity" />
 
-- **Default:** `gemini-3.1-pro`, passed to `agy` via `--model`, at `high` reasoning effort via `--effort`
+- **Default:** `gemini-4-argon`, passed to `agy` via `--model`, at `high` reasoning effort via `--effort`
 - **Rate-limit fallback:** `gemini-3.8-flash`, retried once on a rate limit
 - **Quota diagnostics:** when a rate limit exhausts the available model attempts, a successful sandboxed `/quota` probe adds remaining quota percentages and reset times to the error; a failed probe leaves the usual rate-limit error
 - **Model-unavailable recovery:** if agy rejects a model whose value equals one of the built-in base slugs (upstream drift), the executor retries once **without** a model and lets agy pick its default; any other rejected model fails with an actionable error pointing at `agy models`
-- **Overrides:** `ASK_ANTIGRAVITY_MODEL` and `ASK_ANTIGRAVITY_EFFORT` (run `agy models` for the full list of kebab-case slugs, e.g. `claude-sonnet-4-6`). Legacy effort-carrying display strings like `Gemini 3.1 Pro (High)` are compatibility-only pins that still resolve; the default effort is only sent when the model value equals one of the built-in base slugs, because agy rejects `--effort` next to an effort-carrying name
+- **Overrides:** `ASK_ANTIGRAVITY_MODEL` and `ASK_ANTIGRAVITY_EFFORT` (run `agy models` for the full list of kebab-case slugs, e.g. `claude-sonnet-4-6`). Legacy effort-carrying display strings like `Gemini 4 Argon (High)` are compatibility-only pins that still resolve; the default effort is only sent when the model value equals one of the built-in base slugs, because agy rejects `--effort` next to an effort-carrying name
 
 ## What protects opted-in runs
 
@@ -81,14 +81,14 @@ Claude Code's `/brainstorm` uses a separate raw `agy` call. Without the exact op
 | `ASK_ANTIGRAVITY_TIMEOUT_MS` | `300000` | Process timeout (5 minutes). `agy --print-timeout` is set 5s below this so agy expires first. A mid-turn expiry is a truncated-answer error, not a complete response. |
 | `ASK_ANTIGRAVITY_ALLOW_UNISOLATED` | unset | Only the exact value `1` permits unisolated review/tool, read-only machine, and `/brainstorm` raw agy execution |
 | `ASK_ANTIGRAVITY_SANDBOX` | on | Set `0` to drop `--sandbox` from review calls if it blocks `--add-dir` context reads; the `/quota` diagnostic probe always uses `--sandbox` |
-| `ASK_ANTIGRAVITY_MODEL` | `gemini-3.1-pro` | agy model passed via `--model`; on a rate limit the executor retries once on `gemini-3.8-flash` (run `agy models` for the list of kebab-case slugs, e.g. `claude-sonnet-4-6`; legacy display strings like `Gemini 3.1 Pro (High)` still resolve as compatibility-only pins) |
-| `ASK_ANTIGRAVITY_EFFORT` | `high` | agy reasoning effort passed via `--effort` (`low` \| `medium` \| `high`). The default is paired with the built-in base slugs and with model-less recovery attempts; an explicit value is always passed — note agy limits tiers per model (e.g. `gemini-3.1-pro` has no `medium`). Invalid values warn and fall back to the default behavior |
+| `ASK_ANTIGRAVITY_MODEL` | `gemini-4-argon` | agy model passed via `--model`; on a rate limit the executor retries once on `gemini-3.8-flash` (run `agy models` for the list of kebab-case slugs, e.g. `claude-sonnet-4-6`; legacy display strings like `Gemini 4 Argon (High)` still resolve as compatibility-only pins) |
+| `ASK_ANTIGRAVITY_EFFORT` | `high` | agy reasoning effort passed via `--effort` (`low` \| `medium` \| `high`). The default is paired with the built-in base slugs and with model-less recovery attempts; an explicit value is always passed — note agy limits tiers per model (run `agy models` to see each model's tiers). Invalid values warn and fall back to the default behavior |
 
 ## Limitations
 
 - **Experimental:** the structured-output contract tracks `agy`'s JSON envelope; JSON-looking output that is corrupt or lacks an answer fails with an actionable error instead of surfacing raw JSON fragments.
 - **Minimum version:** see [Prerequisites](#prerequisites); older or unverifiable installations are reported but excluded from dispatch.
-- **Single-turn:** no multi-turn sessions yet; the executor accepts and ignores `sessionId` (headless resume via agy's JSON `conversation_id` is tracked as follow-up work). Model selection *is* supported via `--model` (defaults to gemini-3.1-pro at high effort, with a gemini-3.8-flash rate-limit fallback; see [Config](#config)); only the short `-m` flag hangs under `-p`.
+- **Single-turn:** no multi-turn sessions yet; the executor accepts and ignores `sessionId` (headless resume via agy's JSON `conversation_id` is tracked as follow-up work). Model selection *is* supported via `--model` (defaults to gemini-4-argon at high effort, with a gemini-3.8-flash rate-limit fallback; see [Config](#config)); only the short `-m` flag hangs under `-p`.
 - **Timeouts:** `--print-timeout` expiry exits 0 with a partial JSON answer; Ask LLM fails closed and asks you to raise `ASK_ANTIGRAVITY_TIMEOUT_MS` or shorten the prompt.
 
 ## npm

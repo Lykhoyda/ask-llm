@@ -4,7 +4,7 @@
       "$schema": "http://json-schema.org/draft-07/schema#",
       "properties": {
         "model": {
-          "description": "DO NOT set this parameter. The tool automatically uses gemini-3.1-pro-preview and falls back to gemini-3.8-flash on quota errors. Only set this if the user explicitly requests a specific model.",
+          "description": "DO NOT set this parameter. The tool automatically uses gemini-4-argon and falls back to gemini-3.8-flash on quota errors. Only set this if the user explicitly requests a specific model.",
           "type": "string"
         },
         "prompt": {
@@ -124,7 +124,7 @@
           "type": "array"
         },
         "model": {
-          "description": "DO NOT set this parameter. The tool automatically uses gemini-3.1-pro-preview and falls back to gemini-3.8-flash on quota errors.",
+          "description": "DO NOT set this parameter. The tool automatically uses gemini-4-argon and falls back to gemini-3.8-flash on quota errors.",
           "type": "string"
         },
         "prompt": {

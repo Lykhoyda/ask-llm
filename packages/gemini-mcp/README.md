@@ -149,7 +149,7 @@ Add to `opencode.json` in your project (or `~/.config/opencode/opencode.json` fo
 
 | Model | Use Case |
 |-------|----------|
-| `gemini-3.1-pro-preview` | Default — best quality reasoning |
+| `gemini-4-argon` | Default — best quality reasoning |
 | `gemini-3.8-flash` | Faster responses, large codebases; quota fallback |
 
 The server automatically falls back to Flash when Pro quota is exceeded.
