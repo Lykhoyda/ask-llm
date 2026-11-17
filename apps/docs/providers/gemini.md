@@ -66,6 +66,26 @@ gemini login
 - **Quota fallback:** `gemini-3.8-flash`, automatic on `RESOURCE_EXHAUSTED`
 - **Overrides:** `ASK_GEMINI_MODEL`, `ASK_GEMINI_FALLBACK_MODEL`, or the per-call `model` parameter
 
+### Cheap opt-in: Gemini 3.5 Flash-Lite {#flash-lite}
+
+`gemini-3.5-flash-lite` is an optional lower-cost model with a 1M-token input context. Choose it for cost, not as a quality upgrade; evaluate its answers for your workload before using it for code review. Google's [model catalog](https://ai.google.dev/gemini-api/docs/models/gemini-3.5-flash-lite) lists it as stable, and its [deprecation schedule](https://ai.google.dev/gemini-api/docs/deprecations) lists no shutdown date or replacement (checked 2026-11-17).
+
+Set either variable in your MCP server environment:
+
+```bash
+# Use Flash-Lite for ordinary Gemini calls without a per-call model override:
+ASK_GEMINI_MODEL=gemini-3.5-flash-lite
+```
+
+```bash
+# Or keep the Pro default and use Flash-Lite only for quota fallback:
+ASK_GEMINI_FALLBACK_MODEL=gemini-3.5-flash-lite
+```
+
+Restart your host after changing the server environment. With neither override, the default remains `gemini-4-argon` and the quota fallback remains `gemini-3.8-flash`.
+
+Gemini CLI subscription restrictions, quotas, and free-tier limits apply as for other models. Selecting Flash-Lite does not bypass the [enterprise-only access rules](#_2026-06-18-tier-change) above. API token prices are separate from your CLI plan; consult Google's [current pricing](https://ai.google.dev/gemini-api/docs/pricing#gemini-3.5-flash-lite).
+
 ## Key Features
 
 - **1M+ token context** for analyzing entire codebases

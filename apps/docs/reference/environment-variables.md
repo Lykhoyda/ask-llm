@@ -14,8 +14,8 @@ description: Provider defaults, route selection, timeouts and execution gates.
 | ASK_GROK_TIMEOUT_MS | 600000 | Grok API/CLI timeout |
 | CURSOR_API_KEY | optional | Cursor CLI credential alternative to agent login |
 | ASK_CURSOR_TIMEOUT_MS | 600000 | Model-neutral Cursor Agent harness timeout |
-| ASK_GEMINI_MODEL | gemini-4-argon | Override the Gemini default model |
-| ASK_GEMINI_FALLBACK_MODEL | gemini-3.8-flash | Override the Gemini quota fallback model |
+| ASK_GEMINI_MODEL | gemini-4-argon | Override the Gemini default model; `gemini-3.5-flash-lite` is a [cheap opt-in](/providers/gemini#flash-lite) |
+| ASK_GEMINI_FALLBACK_MODEL | gemini-3.8-flash | Override the Gemini quota fallback model; set `gemini-3.5-flash-lite` for the [cheap fallback opt-in](/providers/gemini#flash-lite) |
 | ASK_CODEX_MODEL | gpt-6.1-sol | Override the Codex default model |
 | ASK_CODEX_PREFERRED_MODEL | gpt-6.1-sol | Legacy review-tier escape hatch; only attempted separately when it differs from ASK_CODEX_MODEL |
 | ASK_CODEX_FALLBACK_MODEL | gpt-6.1-terra | Override the Codex quota fallback model |
