@@ -18,6 +18,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { detectHosts } from "../hosts/detect.js";
 import { type HostId, hostSpecs } from "../hosts/registry.js";
+import { CODEX_TOOL_TIMEOUT_SEC } from "../hosts/registrars/codex.js";
 import { commandText } from "../plan.js";
 import { applyRemove } from "../remove.js";
 import { applySetup } from "../setup.js";
@@ -184,6 +185,23 @@ describe("ask-llm setup", () => {
     expect(calls()).toEqual(Object.fromEntries(HOSTS.map((name) => [name, ADD[name] ? [ADD[name]] : []])));
     expect(readFileSync(join(home, "npx-argv"), "utf8").trim().split("\n")).toHaveLength(1);
     expect(readFileSync(join(home, ".fake-claude-plugin-argv"), "utf8").trim().split("\n")).toHaveLength(2);
+  });
+
+  it("prints the Codex timeout in text, JSON and setup guidance without writing its config", () => {
+    writeConfigFiles();
+    const file = join(home, ".codex/config.toml");
+    const before = readFileSync(file, "utf8");
+    const snippet = `[mcp_servers.ask-llm]\ntool_timeout_sec = ${CODEX_TOOL_TIMEOUT_SEC}`;
+    const preview = JSON.parse(ask("setup", "--dry-run", "--json", "--host", "codex").stdout);
+    expect(preview.hosts.find(({ id }: { id: string }) => id === "codex").manual).toContain(snippet);
+    for (const args of [["--dry-run"], ["-y"]]) {
+      const result = ask("setup", ...args, "--host", "codex");
+      expect(result.stdout).toContain(snippet);
+      expect(result.stdout).toContain(`codex mcp add ask-llm -- ${installedServer}`);
+      expect(result.stdout).toContain(`In ${file}, merge this setting`);
+    }
+    expect(fakeArgv(home, "codex")).toEqual([]);
+    expect(readFileSync(file, "utf8")).toBe(before);
   });
 
   it("installs the Claude plugin in Claude Code and the skills everywhere else, previewed on --dry-run", () => {

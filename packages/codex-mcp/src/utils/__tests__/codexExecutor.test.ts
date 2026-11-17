@@ -26,7 +26,7 @@ vi.mock("../codexVersion.js", async (importOriginal) => {
   };
 });
 
-import { executeCommand, responseCache } from "@ask-llm/shared";
+import { EXECUTION, executeCommand, responseCache } from "@ask-llm/shared";
 import {
   executeCodexCLI,
   isQuotaError,
@@ -1052,7 +1052,7 @@ describe("configured preferred model tier", () => {
       .mockRejectedValueOnce(new Error("rate_limit_exceeded"))
       .mockResolvedValueOnce(AGENT("mini answer"));
     const result = await executeCodexCLI({ prompt: "review", preferred: true });
-    expect(mockExecuteCommand).toHaveBeenCalledTimes(3);
+    expect(mockExecuteCommand).toHaveBeenCalledTimes(EXECUTION.MAX_PROVIDER_ATTEMPTS);
     expect([modelOf(0), modelOf(1), modelOf(2)]).toEqual([MODELS.PREFERRED, MODELS.DEFAULT, MODELS.FALLBACK]);
     expect(result.response).toContain("mini answer");
   });

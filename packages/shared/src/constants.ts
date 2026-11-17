@@ -23,6 +23,9 @@ export const PROTOCOL = {
 } as const;
 
 export const EXECUTION = {
+  // Longest provider ladder: Codex preferred → default → quota fallback.
+  // Antigravity also permits up to three attempts (primary → fallback → model-less).
+  MAX_PROVIDER_ATTEMPTS: 3,
   DEFAULT_TIMEOUT_MS: 210_000,
   // Codex with reasoning models (GPT-5.6 family) frequently needs more than
   // the global default for substantive prompts — the model spends real wall

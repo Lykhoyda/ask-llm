@@ -5,6 +5,7 @@ import { getSpawnEnv } from "@ask-llm/shared";
 import { type DetectedHost, INCOMPLETE_REGISTRATION } from "./hosts/detect.js";
 import { legacyPackage, mentionedPackage } from "./hosts/legacy.js";
 import { type HostId, SERVER_NAME } from "./hosts/registry.js";
+import { codexTimeoutGuidance } from "./hosts/registrars/codex.js";
 import { resolveCommand } from "./utils/availability.js";
 
 export type PlanAction = "register" | "replace" | "up-to-date" | "conflict" | "manual" | "skip";
@@ -174,8 +175,8 @@ export function buildPlan(hosts: DetectedHost[], server: string): PlanEntry[] {
       action,
       reason,
       manual:
-        host.installed && host.spec.registrationState.kind === "list"
-          ? `inspect ${host.spec.configFile} and project overrides; preserve custom settings and tool filters before manually migrating. Intended registration: ${manualText(registration)}`
+        host.id === "codex" && host.spec.configFile
+          ? `inspect ${host.spec.configFile} and project overrides; preserve custom settings and tool filters before manually migrating. Intended registration: ${manualText(registration)}\n${codexTimeoutGuidance(host.spec.configFile)}`
           : action === "conflict" && host.spec.registrationState.kind === "packages" && host.custom
             ? `preserve package filters and custom settings in ${host.spec.configFile} when migrating to @ask-llm/mcp`
             : action === "manual" || (host.installed && !host.supported)
