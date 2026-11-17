@@ -1,5 +1,19 @@
 # @ask-llm/mcp
 
+## 1.5.0
+
+### Minor Changes
+
+- [#426](https://github.com/Lykhoyda/ask-llm/pull/426) [`1de84f1`](https://github.com/Lykhoyda/ask-llm/commit/1de84f1227c56836855d90c24d1b9bdb222de7eb) Thanks [@Lykhoyda](https://github.com/Lykhoyda)! - Pass a session-only agy settings overlay on every Antigravity call: agy stays in Default mode and refuses file writes and commands, and the user's agy `settings.json` is never changed. This covers the review tool, the unified and multi-provider paths, retries, `doctor --live`, the `/quota` probe, and the `/brainstorm` participant. Antigravity now requires agy 1.5.9 or newer, the oldest version verified to enforce the overlay; older agy is refused with an update message. `--mode plan` is no longer passed because agy ignores it. Only users who set `ASK_ANTIGRAVITY_ALLOW_UNISOLATED=1` were affected; that opt-in and its warning are unchanged.
+
+- [#427](https://github.com/Lykhoyda/ask-llm/pull/427) [`5856dd1`](https://github.com/Lykhoyda/ask-llm/commit/5856dd12bca1d5ae8ce6406a0f8bae806ba23d6e) Thanks [@Lykhoyda](https://github.com/Lykhoyda)! - Move the Gemini and Antigravity default models to `gemini-4-argon`. Gemini CLI runs now default to `gemini-4-argon` instead of `gemini-3.1-pro-preview`. Antigravity runs now default to `gemini-4-argon` at `--effort high`, because agy 1.5.9 rejects the old `gemini-3.1-pro` default. Under the old default every Antigravity call failed once before retrying without a model, and the `/brainstorm` Antigravity participant failed outright. `ASK_GEMINI_MODEL`, `ASK_ANTIGRAVITY_MODEL`, `ASK_ANTIGRAVITY_EFFORT`, and both `gemini-3.8-flash` fallbacks are unchanged.
+
+### Patch Changes
+
+- [#429](https://github.com/Lykhoyda/ask-llm/pull/429) [`d9e563b`](https://github.com/Lykhoyda/ask-llm/commit/d9e563bdf6ce6f5b61e2185c336db30ee7cd76cf) Thanks [@Lykhoyda](https://github.com/Lykhoyda)! - Use GPT-6.1 Sol as the default for Codex consultations, matching Codex CLI 0.167.0's bundled default. Keep GPT-6.1 Terra as the quota fallback and preserve explicit Astra reviews.
+
+- [#425](https://github.com/Lykhoyda/ask-llm/pull/425) [`e4f512c`](https://github.com/Lykhoyda/ask-llm/commit/e4f512cb630502e8229849819f3a2a1b9eeefd6b) Thanks [@Lykhoyda](https://github.com/Lykhoyda)! - Plugin MCP servers now start with `node`, pinned to the plugin's own release, instead of through an unpinned `npx`. Each Claude Code and Cursor session runs one server process instead of an `npm exec` wrapper plus the server, and no longer checks the registry for `latest` on every start. The Claude Code plugin's Codex server now comes from `@ask-llm/mcp` itself (same `ask-codex` tools), not the frozen split `@ask-llm/codex-mcp` package. A plugin installed from the repository installs its pinned release once into `~/.cache/ask-llm/servers` (or `ASK_LLM_SERVER_CACHE`) on first start. The release version step keeps the pins in sync.
+
 ## 1.4.0
 
 ### Minor Changes
