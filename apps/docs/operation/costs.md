@@ -46,6 +46,8 @@ Different providers excel at different things. Pick by what you're doing, not by
 
 ## Overriding the Model
 
+For a cheaper Gemini opt-in, see the provider guide's [Flash-Lite configuration, pricing, and account eligibility](/providers/gemini#flash-lite).
+
 Pass `model` explicitly when you have a reason to:
 
 ```text
