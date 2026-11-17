@@ -15,7 +15,7 @@ Run local LLMs via Ollama's HTTP API. No API keys needed, fully private, zero co
 
 <InstallSnippet provider="ollama" />
 
-Or install globally: `npm install -g @ask-llm/ollama-mcp`
+Setup registers the unified Ask LLM server, which consults Ollama through the `ask-llm` tool with `provider: "ollama"`. The tools listed below belong to the standalone `@ask-llm/ollama-mcp` server, kept for earlier installations; see [Migration](/reference/migration) to move to the setup registration.
 
 ## Prerequisites
 

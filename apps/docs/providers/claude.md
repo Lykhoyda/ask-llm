@@ -6,7 +6,7 @@ description: Let Codex and other MCP clients consult Anthropic Claude Code CLI f
 
 <ProviderStatus provider="claude" />
 
-Bridge Codex CLI, Cursor, OpenCode, or another MCP client with Anthropic's Claude Code CLI. This is the reverse collaboration path of the hero pair: Codex asks Claude here, and Claude asks Codex back through [`@ask-llm/codex-mcp`](/providers/codex).
+Bridge Codex CLI, Cursor, OpenCode, or another MCP client with Anthropic's Claude Code CLI. This is the reverse collaboration path of the hero pair: Codex asks Claude here, and Claude asks [Codex](/providers/codex) back through the same Ask LLM installation.
 
 > **Best for:** getting an independent Claude review while Codex or another model is your primary agent.
 > **Not for:** use from inside Claude Code itself. Claude Code rejects nested Claude sessions, so the unified orchestrator suppresses this provider when Claude Code is the MCP host.
@@ -15,7 +15,7 @@ Bridge Codex CLI, Cursor, OpenCode, or another MCP client with Anthropic's Claud
 
 <InstallSnippet provider="claude" />
 
-Or install globally: `npm install -g @ask-llm/claude-mcp`
+Setup registers the unified Ask LLM server, which consults Claude through the `ask-llm` tool with `provider: "claude"`. In Codex, setup installs the workflows and prints the `codex mcp add` command for you to run; see [Install](/start/install). The tools listed below belong to the standalone `@ask-llm/claude-mcp` server, kept for earlier installations; see [Migration](/reference/migration) to move to the setup registration.
 
 ## Prerequisites
 

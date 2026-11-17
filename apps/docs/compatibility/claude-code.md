@@ -86,7 +86,7 @@ Provider-backed review agents use a 3-phase workflow with confidence-based filte
 
 #### `codex-reviewer`
 
-Sends code changes to OpenAI Codex (GPT-6 Astra) for review. Automatic fallback to GPT-6.1 Terra on quota limits.
+Sends code changes to OpenAI Codex (GPT-6.1 Sol) for review. Automatic fallback to GPT-6.1 Terra on quota limits.
 
 #### `antigravity-reviewer`
 

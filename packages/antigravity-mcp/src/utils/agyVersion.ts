@@ -90,7 +90,7 @@ export function assessAgyVersion(output: string | undefined, probeError?: string
       detected: true,
       version: detectedVersion,
       requiredVersion,
-      message: `Antigravity CLI (agy) ${detectedVersion} was detected but is unsupported; agy >=${requiredVersion} is required because ask-llm uses base model slugs with --effort.`,
+      message: `Antigravity CLI (agy) ${detectedVersion} was detected but is unsupported; agy >=${requiredVersion} is required because ask-llm relies on its session-only --settings permission overlay.`,
       remediation: upgradeRemediation(),
     };
   }

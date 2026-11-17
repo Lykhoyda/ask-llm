@@ -13,7 +13,7 @@ Hosted CLI providers (Gemini, Codex, Claude, Antigravity) auto-select a sensible
 | Provider | Default | Fallback | Trigger |
 |---|---|---|---|
 | Gemini | `gemini-3.1-pro-preview` | `gemini-3.8-flash` | `RESOURCE_EXHAUSTED` quota error or "exhausted your capacity" pattern |
-| Codex | `gpt-6-astra` | `gpt-6.1-terra` | Quota errors (`rate_limit_exceeded`, `429`, `insufficient_quota`) |
+| Codex | `gpt-6.1-sol` | `gpt-6.1-terra` | Quota errors (`rate_limit_exceeded`, `429`, `insufficient_quota`) |
 | Claude | `opus` (Opus 5.5, `claude-opus-5-5`) | `sonnet` | Claude Code native fallback when Opus is overloaded or unavailable |
 | Grok | `grok-4.7` (`reasoning.effort=high`) | none | Every error is terminal; requested ID is sent unchanged |
 | Antigravity | `gemini-3.1-pro` (`--effort high`) | `gemini-3.8-flash`; one model-less retry when agy rejects a model whose value equals `gemini-3.1-pro` or `gemini-3.8-flash` (reported as `agy default`). Both retain the effective effort (`high`, or the `ASK_ANTIGRAVITY_EFFORT` override) | Subscription rate limit; model-unavailable (shipped slug values only — other rejected models fail actionably) |
@@ -21,7 +21,7 @@ Hosted CLI providers (Gemini, Codex, Claude, Antigravity) auto-select a sensible
 
 For Gemini, Codex, Claude, and Antigravity, fallback is automatic and structured output exposes the actual model plus `usage.fellBack`. Antigravity reports `gemini-3.8-flash` after a rate-limit fallback, or the literal `agy default` after a model-less recovery (agy does not reveal which model it picked). Grok and Ollama never fall back, so their `fellBack` values are always `false`.
 
-`codex-pair` defaults to `gpt-6.1-sol` at `high` reasoning effort and quota-falls back to `gpt-6.1-terra`. Unpinned Codex consultations stay on `gpt-6-astra`.
+`codex-pair` defaults to `gpt-6.1-sol` at `high` reasoning effort and quota-falls back to `gpt-6.1-terra`. Unpinned Codex consultations also use `gpt-6.1-sol`.
 
 Codex uses `medium` reasoning effort for ordinary calls to preserve the previous default behavior. The quality-first `/ask-llm-review` and `/ask-llm-brainstorm` skills use `high`. Direct `ask-llm` with `provider: "codex"` calls can override this with `reasoningEffort` (`low`, `medium`, `high`, `xhigh`, `max`, or `ultra`). `ultra` is opt-in only: Codex's catalog describes it as maximum reasoning with automatic task delegation, so review and brainstorm defaults stay at `high`.
 
@@ -35,7 +35,7 @@ Different providers excel at different things. Pick by what you're doing, not by
 
 | Task | Suggested provider | Why |
 |---|---|---|
-| Targeted code reasoning, refactor critique | **Codex** | GPT-6 Astra is the flagship; see [Codex Pair](/advanced/codex-pair#configuration-knobs) for pair-review defaults |
+| Targeted code reasoning, refactor critique | **Codex** | GPT-6.1 Sol is the default; see [Codex Pair](/advanced/codex-pair#configuration-knobs) for pair-review defaults |
 | Claude second opinion while working in Codex | **Claude** | Opus 5.5 (`opus`) review through Claude Code CLI, with native session continuation and read-only file access |
 | Grok 4.7 independent critique | **Grok** | Exact model selection, configurable reasoning depth, structured JSON Schema output |
 | Private / air-gapped analysis | **Ollama** | Runs locally, nothing leaves your machine |
@@ -76,7 +76,7 @@ ollama pull deepseek-coder:6.7b
 Use ask-llm with provider ollama and model deepseek-coder:6.7b to review this implementation
 ```
 
-For Antigravity, `ask-antigravity` requires `agy` ≥1.1.5 and has no per-call `model` argument — configure it via env vars:
+For Antigravity, `ask-antigravity` requires a [supported agy version](/providers/antigravity#prerequisites) and has no per-call `model` argument — configure it via env vars:
 
 - `ASK_ANTIGRAVITY_MODEL` — an agy model slug from `agy models` (e.g. `claude-sonnet-4-6`). Legacy effort-carrying display strings like `Gemini 3.1 Pro (High)` still resolve for backward compatibility.
 - `ASK_ANTIGRAVITY_EFFORT` — reasoning effort, `low` | `medium` | `high` (default `high`). Invalid values log a warning and fall back to the default behavior. Note agy limits tiers per model (`gemini-3.1-pro` has no `medium`), and effort-carrying model names reject `--effort` entirely — so the default effort is only sent with the shipped base slugs and model-less recovery runs, while an explicitly set value is always sent.
@@ -97,7 +97,7 @@ For Antigravity, `ask-antigravity` requires `agy` ≥1.1.5 and has no per-call `
 
 Token usage is exposed live via:
 
-- **Per-call**: `result.structuredContent.usage` on `ask-*` tool responses (provider, model, inputTokens, outputTokens, cachedTokens, thinkingTokens, durationMs, fellBack). Antigravity reads these values from agy's JSON envelope; cached tokens are unavailable on agy 1.1.5.
+- **Per-call**: `result.structuredContent.usage` on `ask-*` tool responses (provider, model, inputTokens, outputTokens, cachedTokens, thinkingTokens, durationMs, fellBack). See [Antigravity tools](/providers/antigravity#tools) for agy's usage reporting.
 - **Per-session aggregate**: call the `get-usage-stats` MCP tool, or read the `usage://current-session` MCP Resource for a JSON snapshot
 - **In the REPL**: type `/usage` for a markdown-formatted breakdown
 

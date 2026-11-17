@@ -118,7 +118,7 @@ Dispatch all requested external providers via **a single foreground Bash tool ca
 
 The user specifies which external providers to use. Default is `antigravity,codex`. Only include the requested providers in the Bash call:
 
-- `antigravity` — Google Antigravity, subscription-backed via your Google AI Pro/Ultra plan, via the `agy` CLI (experimental; requires `agy` >=1.1.5 installed + logged in)
+- `antigravity` — Google Antigravity, subscription-backed via your Google AI Pro/Ultra plan, via the `agy` CLI (experimental; requires `agy` >=1.5.9 installed + logged in)
 - `gemini` — Google Gemini (large context, strong at analysis) via the `gemini` CLI
 - `codex` — OpenAI Codex (strong at code reasoning) via `codex exec --sandbox read-only`
 - `grok` — bare Grok remains the compatible canonical-runner path with explicit `ASK_GROK_HARNESS` (`xai-api` default or `grok-cli`); routed Grok uses the exact selected harness/model and never falls back
@@ -194,9 +194,23 @@ PROMPT_EOF
 # back to its own built-in model. Note the executor's gemini-3.8-flash rate-limit
 # fallback does NOT apply to this raw path. The long --model flag works under -p
 # (only the short -m hangs). Run `agy models`.
+# --settings is the session-only overlay @ask-llm/antigravity-mcp passes on every
+# spawn (ADR-194): Default agent mode plus agy-enforced deny rules for file writes
+# and commands; agy never saves it to the user's settings.
 if [ "${ASK_ANTIGRAVITY_ALLOW_UNISOLATED:-}" = "1" ]; then
-  echo "antigravity warning: ASK_ANTIGRAVITY_ALLOW_UNISOLATED=1 permits this run, but read-only isolation is not guaranteed; agy may modify files, run shell commands, and access the network." > "$workdir/antigravity.err"
-  agy -p "$(cat "$workdir/antigravity-prompt.md")" --model "gemini-3.1-pro" --effort high --sandbox > "$workdir/antigravity.out" 2>> "$workdir/antigravity.err" &
+  agy_version=$(agy --version 2> "$workdir/antigravity.err")
+  if [ "$?" -eq 0 ] && node -e '
+    const match = process.argv[1].match(/\bv?(\d+)\.(\d+)\.(\d+)(?:-([0-9A-Za-z.-]+))?\b/);
+    if (!match) process.exit(1);
+    const delta = match.slice(1, 4).map((value, index) => Number(value) - [1, 5, 9][index]).find(value => value !== 0) ?? 0;
+    process.exit(delta > 0 || (delta === 0 && !match[4]) ? 0 : 1);
+  ' "$agy_version"; then
+    echo "antigravity warning: ASK_ANTIGRAVITY_ALLOW_UNISOLATED=1 permits this run, but read-only isolation is not guaranteed; agy may modify files, run shell commands, and access the network." > "$workdir/antigravity.err"
+    agy -p "$(cat "$workdir/antigravity-prompt.md")" --model "gemini-3.1-pro" --effort high --sandbox --settings '{"agentMode":"","permissions":{"deny":["write_file(*)","command(*)"]}}' > "$workdir/antigravity.out" 2>> "$workdir/antigravity.err" &
+  else
+    echo "antigravity skipped: agy >=1.5.9 is required for the session-only settings overlay; the installed version is unsupported or unverifiable. Update agy and verify with agy --version." >> "$workdir/antigravity.err"
+    false &
+  fi
 else
   echo "antigravity skipped: agy is not isolated from the working copy (ADR-177, #283); set ASK_ANTIGRAVITY_ALLOW_UNISOLATED=1 to include it without a read-only guarantee." > "$workdir/antigravity.err"
   false &
@@ -208,13 +222,13 @@ gemini -p "@$workdir/prompt.md" > "$workdir/gemini.out" 2> "$workdir/gemini.err"
 pid_gemini=$!
 
 # Only include this block if codex was requested (in the default set).
-# GPT-6 Astra at high effort is the quality-first default for unpinned
+# GPT-6.1 Sol at high effort is the default for unpinned
 # brainstorming; Terra preserves the lower-cost fallback role. The exact Cursor
 # architect panel stays gpt-6.1-sol-high (ADR-148). ASK_CODEX_PREFERRED_MODEL and
 # ASK_CODEX_REASONING_EFFORT remain escape hatches. prompt.md is a FILE (not a
 # pipe), so both attempts can re-read it. The whole `{ ...; }` group is
 # backgrounded as one job so pid_codex/`wait` capture the final code.
-codex_model="${ASK_CODEX_PREFERRED_MODEL:-${ASK_CODEX_MODEL:-gpt-6-astra}}"
+codex_model="${ASK_CODEX_PREFERRED_MODEL:-${ASK_CODEX_MODEL:-gpt-6.1-sol}}"
 codex_fallback="${ASK_CODEX_FALLBACK_MODEL:-gpt-6.1-terra}"
 codex_effort="${ASK_CODEX_REASONING_EFFORT:-high}"
 # Keep the raw env override aligned with ask-codex's public enum so malformed

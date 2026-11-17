@@ -19,7 +19,7 @@ A host is the coding assistant you work in. A provider is the model you consult.
 <!-- HOST-PARITY:END -->
 ## Setup limits
 
-Claude Desktop is tools only. Antigravity needs the workflow-copy step printed by setup. Existing Codex registrations require manual inspection of user and project configuration, including filters. OpenCode registration is tested with fixtures only. See [Migration](/reference/migration) when setup leaves an earlier entry unchanged.
+Claude Desktop is tools only. Antigravity needs the workflow-copy step printed by setup. Codex registration is a manual step: setup installs the workflows and prints the `codex mcp add` command without running it; inspect user and project configuration, including filters, before you run it. OpenCode registration is tested with fixtures only. See [Migration](/reference/migration) when setup leaves an earlier entry unchanged.
 
 ## Claude Code
 

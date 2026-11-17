@@ -20,13 +20,13 @@ describe.skipIf(!SMOKE)("Codex CLI integration", () => {
   );
 
   it(
-    "answers with gpt-6-astra when no model override is set",
+    "answers with gpt-6.1-sol when no model override is set",
     async () => {
       const result = await executeCodexCLI({
         prompt: "Reply with the single word: ok",
       });
 
-      expect(result.usage?.model).toBe("gpt-6-astra");
+      expect(result.usage?.model).toBe("gpt-6.1-sol");
       expect(result.usage?.fellBack).toBe(false);
     },
     TIMEOUT,

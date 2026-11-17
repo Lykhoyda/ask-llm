@@ -14,7 +14,7 @@ Pi owns your conversation, host model, tools and lifecycle. Ask LLM supplies nat
   - authenticated `codex` CLI for Codex reviews, images, verification, and codex-pair
   - authenticated enterprise `gemini` CLI for Gemini
   - local Ollama server with the requested model pulled
-  - authenticated `agy` 1.1.5+ for Antigravity
+  - authenticated [supported `agy` version](/providers/antigravity#prerequisites) for Antigravity
 
 The published Pi support floor always matches the oldest exact host version exercised by the `pi-package-smoke` CI matrix; currently both the 0.83.0 floor and current 0.84.2 host are tested in isolated environments.
 

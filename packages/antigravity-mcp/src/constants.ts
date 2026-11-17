@@ -1,4 +1,13 @@
-export const MINIMUM_AGY_VERSION = "1.1.5";
+// The oldest agy verified live to enforce SESSION_SETTINGS_OVERLAY (ADR-194); older agy is refused.
+export const MINIMUM_AGY_VERSION = "1.5.9";
+
+// Session-only agy settings passed with --settings on every headless spawn; agy never saves them (ADR-194).
+// agentMode "" keeps Default mode instead of agy 1.5.7+'s headless Auto, and the deny rules refuse
+// file writes and every command. This is agy-enforced policy, not OS isolation.
+export const SESSION_SETTINGS_OVERLAY = JSON.stringify({
+  agentMode: "",
+  permissions: { deny: ["write_file(*)", "command(*)"] },
+});
 
 export const ERROR_MESSAGES = {
   NO_PROMPT_PROVIDED:
@@ -18,7 +27,7 @@ export const STATUS_MESSAGES = {
   ANTIGRAVITY_RESPONSE: "Antigravity response:",
 } as const;
 
-// Prompt and plan/sandbox flags are best effort, not an isolation boundary.
+// The preamble and --sandbox are best effort; SESSION_SETTINGS_OVERLAY is the enforced control.
 export const READ_ONLY_PREAMBLE =
   "You are giving a second opinion / code review. Read and reason only. Do NOT modify, create, or delete files, and do NOT run commands — just analyze and respond.";
 
@@ -32,13 +41,12 @@ export const CLI = {
     ADD_DIR: "--add-dir",
     MODEL: "--model",
     PRINT_TIMEOUT: "--print-timeout",
-    MODE: "--mode",
-    PLAN: "plan",
     SKIP_PERMISSIONS: "--dangerously-skip-permissions",
     SANDBOX: "--sandbox",
     EFFORT: "--effort",
     OUTPUT_FORMAT: "--output-format",
     DISABLE_SLASH_COMMANDS: "--disable-slash-commands",
+    SETTINGS: "--settings",
   },
 } as const;
 
@@ -82,8 +90,9 @@ export const ANTIGRAVITY = {
     "timeout expired",
   ],
   QUOTA_COMMAND: "/quota",
-  // https://github.com/Lykhoyda/ask-llm/pull/366 records sandboxed /quota with num_turns 0 and zero usage on 1.2.13 only.
-  QUOTA_COMMAND_MIN_VERSION: "1.2.13",
+  // Sandboxed /quota answered with num_turns 0 on 1.2.13 (https://github.com/Lykhoyda/ask-llm/pull/366); with the
+  // --settings overlay it is verified on 1.5.9, so it shares the overlay floor (ADR-194).
+  QUOTA_COMMAND_MIN_VERSION: MINIMUM_AGY_VERSION,
   // agy >=1.2.6 prints this stderr line on a failed headless turn and exits 3.
   STRUCTURED_ERROR_PREFIX: "AGY_ERROR:",
   // Lowercased substrings; isRateLimitError() lowercases the message first.

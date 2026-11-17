@@ -31,7 +31,7 @@ export const PROVIDERS: Record<string, ProviderConfig> = {
     command: "codex",
     executorModule: "@ask-llm/codex-mcp/executor",
     executorFn: "executeCodexCLI",
-    defaultModel: "gpt-6-astra",
+    defaultModel: "gpt-6.1-sol",
     modelEnvVar: "ASK_CODEX_MODEL",
     enrichModule: "@ask-llm/codex-mcp/executor",
     enrichFn: "enrichCodexDoctor",
@@ -89,7 +89,7 @@ export const INSTALL_HINTS: Record<string, string> = {
   grok: "Set XAI_API_KEY from https://console.x.ai/team/default/api-keys for xai-api, or install/authenticate Grok Build and verify `grok --help` advertises headless JSON flags for grok-cli; routes never fall back",
   ollama: "https://ollama.com — then: ollama pull qwen3.8:27b",
   antigravity:
-    "Install Google Antigravity (agy) >=1.1.5 from https://antigravity.google, verify with `agy --version`, then run `agy` once to log in",
+    "Install Google Antigravity (agy) >=1.5.9 from https://antigravity.google, verify with `agy --version`, then run `agy` once to log in",
 };
 
 export function isProviderEligible(provider: ProviderConfig): boolean {

@@ -17,7 +17,7 @@ function check(path: string) {
 
 function walk(directory: string, extension: string, exceptions: boolean) {
   for (const entry of readdirSync(directory, { withFileTypes: true })) {
-    // Provider pages are per-provider reference kept unchanged by the S9 plan.
+    // Provider pages lead with setup but keep split-package tool reference for earlier installations.
     if (exceptions && ["reference", "providers"].includes(entry.name)) continue;
     if (entry.name.startsWith(".")) continue;
     const path = join(directory, entry.name);
@@ -36,4 +36,4 @@ if (errors.length) {
   console.error(errors.join("\n"));
   process.exit(1);
 }
-console.log("Onboarding grep passed (Reference/Migration and unchanged provider reference are exempt).");
+console.log("Onboarding grep passed (Reference/Migration and provider reference are exempt).");

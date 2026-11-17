@@ -626,7 +626,7 @@ describe("scripts/codex-pair-watch.mjs — structural invariants (ADR-077)", () 
 
     expect(defaults.model).toBe(CODEX_PAIR_MODEL);
     expect(defaults.model).toBe("gpt-6.1-sol");
-    expect(FACTORY_DEFAULT_MODEL).toBe("gpt-6-astra");
+    expect(FACTORY_DEFAULT_MODEL).toBe("gpt-6.1-sol");
     expect(MODELS.DEFAULT).toBe(process.env.ASK_CODEX_MODEL || FACTORY_DEFAULT_MODEL);
     expect(MODELS.FALLBACK).toBe(process.env.ASK_CODEX_FALLBACK_MODEL || defaults.fallbackModel);
     expect(defaults.fallbackModel).toBe("gpt-6.1-terra");

@@ -16,7 +16,7 @@ Use Node.js 24+ on Linux or macOS. Before your first review, both your coding as
 
 Setup discovers hosts separately from providers and asks you to confirm each detected host and workflow. Review the command or file preview, confirm your assistant's registration and workflows, and decline the others. Setup works at user scope, preserves unrelated entries, and prints backup locations and restart instructions. Pairing remains off.
 
-Follow any manual guidance in the output before continuing. Existing Codex registrations require manual inspection because the host's inventory does not prove user-scope ownership. Antigravity needs the printed workflow-copy step. OpenCode registration is tested with fixtures only. See [host compatibility](/compatibility/hosts) and [migration](/reference/migration).
+Follow any manual guidance in the output before continuing. Codex registration is always a manual step: setup installs the Codex workflows and prints the exact `codex mcp add ask-llm -- <path>` command, but does not run it, because Codex's server list omits persisted settings and can include project overrides. Check `~/.codex/config.toml` and project configuration for an existing `ask-llm` entry, then run the printed command. Antigravity needs the printed workflow-copy step. OpenCode registration is tested with fixtures only. See [host compatibility](/compatibility/hosts) and [migration](/reference/migration).
 
 Start a new session in your project or restart your assistant, then [ask for your first review](/start/first-review).
 

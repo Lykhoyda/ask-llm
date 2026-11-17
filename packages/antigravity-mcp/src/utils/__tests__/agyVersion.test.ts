@@ -18,8 +18,8 @@ beforeEach(() => {
 
 describe("assertSupportedAgyVersion", () => {
   it.each([
-    ["1.1.5", "1.1.5"],
-    ["agy version 1.2.0", "1.2.0"],
+    ["1.5.9", "1.5.9"],
+    ["agy version 1.6.0", "1.6.0"],
     ["Antigravity CLI v2.0.0-beta.1", "2.0.0-beta.1"],
   ])("accepts supported output %j", async (output, expected) => {
     mockExec.mockResolvedValue(output);
@@ -37,16 +37,20 @@ describe("assertSupportedAgyVersion", () => {
     );
   });
 
-  it("rejects an older CLI before model invocation with an actionable diagnostic", async () => {
-    mockExec.mockResolvedValue("1.1.4");
+  // Older agy cannot be given the enforced --settings overlay, so it is refused, never run without it.
+  it.each(["1.1.4", "1.5.7", "1.5.8", "1.5.9-beta.1"])(
+    "rejects %s before model invocation with an actionable diagnostic",
+    async (version) => {
+      mockExec.mockResolvedValue(version);
 
-    await expect(assertSupportedAgyVersion()).rejects.toThrow(
-      new RegExp(
-        `Antigravity CLI \\(agy\\) 1\\.1\\.4 was detected but is unsupported.*agy >=${ANTIGRAVITY.MINIMUM_AGY_VERSION} is required.*Update Antigravity CLI`,
-        "s",
-      ),
-    );
-  });
+      await expect(assertSupportedAgyVersion()).rejects.toThrow(
+        new RegExp(
+          `Antigravity CLI \\(agy\\) ${version.replaceAll(".", "\\.")} was detected but is unsupported.*agy >=${ANTIGRAVITY.MINIMUM_AGY_VERSION} is required.*--settings permission overlay.*Update Antigravity CLI`,
+          "s",
+        ),
+      );
+    },
+  );
 
   it("rejects an unparseable version response actionably", async () => {
     mockExec.mockResolvedValue("Antigravity development build");
@@ -62,11 +66,11 @@ describe("assertSupportedAgyVersion", () => {
 
 describe("assessAgyVersion", () => {
   it("classifies supported, unsupported, and unparseable versions", () => {
-    expect(assessAgyVersion("1.1.5")).toMatchObject({
+    expect(assessAgyVersion("1.5.9")).toMatchObject({
       status: "supported",
       available: true,
       detected: true,
-      version: "1.1.5",
+      version: "1.5.9",
     });
     expect(assessAgyVersion("agy 1.1.4")).toMatchObject({
       status: "unsupported",
