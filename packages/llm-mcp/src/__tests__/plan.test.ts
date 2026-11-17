@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import type { DetectedHost } from "../hosts/detect.js";
 import { type HostId, hostSpecs } from "../hosts/registry.js";
+import { CODEX_TOOL_TIMEOUT_SEC } from "../hosts/registrars/codex.js";
 import { buildPlan, genericSnippet, type PlanEntry, resolveServerPath } from "../plan.js";
 
 const root = realpathSync(mkdtempSync(join(tmpdir(), "ask-llm-plan-")));
@@ -48,7 +49,21 @@ describe("buildPlan", () => {
     const plan = entry(detected("codex", { registered, command: registered ? [SERVER] : undefined }));
     expect(plan.action).toBe("manual");
     expect(plan.manual).toContain("preserve custom settings and tool filters");
+    expect(plan.manual).toContain(`codex mcp add ask-llm -- ${SERVER}`);
+    expect(plan.manual).toContain("In /home/u/.codex/config.toml, merge this setting");
+    expect(plan.manual).toContain(`[mcp_servers.ask-llm]\ntool_timeout_sec = ${CODEX_TOOL_TIMEOUT_SEC}`);
+    expect(plan.manual).toContain("do not append a duplicate table");
+    expect(plan.manual).toContain("largest configured per-attempt limit in ms * 3 / 1000) + 60");
     expect(plan.replace).toBeUndefined();
+  });
+
+  it("includes the Codex timeout even when previewing an uninstalled host with a custom CODEX_HOME", () => {
+    const spec = hostSpecs({ HOME: "/home/u", CODEX_HOME: "/custom/codex" }).find(({ id }) => id === "codex");
+    if (!spec) throw new Error("Codex host spec missing");
+    const plan = entry(detected("codex", { installed: false, spec }));
+    expect(plan.action).toBe("skip");
+    expect(plan.manual).toContain("In /custom/codex/config.toml, merge this setting");
+    expect(plan.manual).toContain(`tool_timeout_sec = ${CODEX_TOOL_TIMEOUT_SEC}`);
   });
 
   it.each([

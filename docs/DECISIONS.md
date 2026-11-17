@@ -1,5 +1,15 @@
 # Architectural Decisions
 
+## ADR-196: Print a derived Codex MCP tool timeout alongside manual registration
+
+**Status:** Accepted (2026-11-17).
+
+**Context:** Issue #431: Codex documents a default 60-second MCP tool timeout, while Ask LLM's per-attempt defaults reach 800 seconds and provider recovery can make three attempts. A 75-second call through the actual unified server on Codex CLI 0.167.0 succeeded with its default host timeout and 25-second progress notifications. The experiment does not isolate silent-call behavior, so progress is not a substitute for an explicit host allowance. ADR-185 keeps Codex registration manual because its list projection cannot establish ownership of persisted configuration.
+
+**Decision:** Keep registration manual and print a TOML setting alongside the intended `codex mcp add` command in setup's text, JSON and apply guidance, including previews for an uninstalled Codex host. Derive `tool_timeout_sec` from the largest shared default per-attempt limit × `EXECUTION.MAX_PROVIDER_ATTEMPTS` (three, matching the preferred → default → quota-fallback Codex ladder) + 60 seconds of overhead, rounded up to seconds: currently 2,460. The existing full-ladder executor test pins the shared attempt count to actual dispatches. Merge the key into the existing server table; preserve custom settings, tool filters and project overrides. Setup does not write Codex config.
+
+**Consequences:** Manual registration includes an explicit allowance for the complete default request ladder. Users who raise per-attempt limits in the MCP server environment must also raise the Codex setting using the documented formula. This is a host timeout recommendation, not a change to provider limits or recovery policy.
+
 ## ADR-195: Plugin MCP definitions start the plugin's own pinned release with `node`
 
 **Status:** Accepted (2026-11-16). Supersedes ADR-185's note that the Claude plugin's `.mcp.json` keeps running `npx -y @ask-llm/codex-mcp`; keeps ADR-142's Codex-only Claude bundle and ADR-147's unified-only Cursor bundle.

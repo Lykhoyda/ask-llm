@@ -21,6 +21,10 @@ A host is the coding assistant you work in. A provider is the model you consult.
 
 Claude Desktop is tools only. Antigravity needs the workflow-copy step printed by setup. Codex registration is a manual step: setup installs the workflows and prints the `codex mcp add` command without running it; inspect user and project configuration, including filters, before you run it. OpenCode registration is tested with fixtures only. See [Migration](/reference/migration) when setup leaves an earlier entry unchanged.
 
+## Codex
+
+After manual registration, merge `tool_timeout_sec = 2460` into the existing `[mcp_servers.ask-llm]` table in `~/.codex/config.toml` (or `$CODEX_HOME/config.toml`). Setup prints this setting without writing it. It covers the largest default per-attempt limit × three attempts + 60 seconds of overhead. If timeout environment variables raise the per-attempt limits, increase this host setting using the [Codex timeout formula](/advanced/manual-configuration#codex-tool-timeout), then start a new Codex session.
+
 ## Claude Code
 
 Claude Code has isolated reviewer agents and hooks. Only its opt-in `blockOn: HIGH` Stop gate can block a turn on pair findings; other hosts do not claim that gate. [Claude Code host notes](/compatibility/claude-code) include the hooks and agents reference.
