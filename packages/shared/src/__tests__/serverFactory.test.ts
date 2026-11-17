@@ -1,4 +1,4 @@
-import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import type { McpServer } from "@modelcontextprotocol/server";
 import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 import type { UnifiedTool } from "../registry.js";
@@ -59,7 +59,7 @@ describe("registerTools duplicate-name guard", () => {
     const handler = registerTool.mock.calls[0][2];
     const controller = new AbortController();
 
-    await handler({}, { signal: controller.signal, sendNotification: vi.fn() });
+    await handler({}, { mcpReq: { signal: controller.signal, notify: vi.fn() } });
 
     expect(executeTool.mock.calls[0][4]).toBe(controller.signal);
   });

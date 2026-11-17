@@ -66,11 +66,12 @@
     "LICENSE"
   ],
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.32.0",
+    "@modelcontextprotocol/server": "2.4.0",
     "zod": "^4.4.3"
   },
   "devDependencies": {
     "@ask-llm/shared": "workspace:*",
+    "@modelcontextprotocol/client": "2.4.0",
     "@types/node": "^24.13.6",
     "oxfmt": "^0.76.0",
     "oxlint": "^1.91.0",

@@ -102,3 +102,5 @@ export { getSpawnEnv, resolveShellPath, resolveSpawnCommand } from "./shellPath.
 export type { ProviderUsageSnapshot, SessionUsage, SessionUsageSnapshot, UsageStats } from "./usage.js";
 export { createSessionUsage, formatSessionUsage, formatUsageStats } from "./usage.js";
 export { SERVER_INSTRUCTIONS } from "./serverInstructions.js";
+export { serveMcpStdio } from "./stdio.js";
+export { mcpSchema } from "./mcpSchema.js";
