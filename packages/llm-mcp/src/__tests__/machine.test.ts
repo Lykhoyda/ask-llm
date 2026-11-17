@@ -414,7 +414,7 @@ describe("runMachineRequest", () => {
       actualModel: "gemini-3.8-flash",
       fallback: {
         occurred: true,
-        requestedModel: "gemini-3.1-pro",
+        requestedModel: "gemini-4-argon",
         actualModel: "gemini-3.8-flash",
       },
     });

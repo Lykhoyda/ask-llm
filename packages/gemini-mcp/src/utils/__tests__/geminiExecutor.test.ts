@@ -270,9 +270,9 @@ describe("executeGeminiCLI quota fallback", () => {
     expect(ERROR_MESSAGES.QUOTA_EXCEEDED_SHORT).toContain(MODELS.FLASH);
   });
 
-  // #312 — 3.8 Flash is a quota fallback, not a Pro replacement.
-  it("does not change the Pro factory default when adopting the 3.8 Flash fallback", () => {
-    expect(FACTORY_DEFAULT_MODEL).toBe("gemini-3.1-pro-preview");
+  // #312 — 3.8 Flash is a quota fallback, not a Pro replacement; Gemini 4 Argon is the Pro default.
+  it("keeps the gemini-4-argon Pro factory default independent of the 3.8 Flash fallback", () => {
+    expect(FACTORY_DEFAULT_MODEL).toBe("gemini-4-argon");
     expect(MODELS.PRO).toBe(FACTORY_DEFAULT_MODEL);
   });
 
@@ -396,7 +396,7 @@ describe("executeGeminiCLI JSON output format", () => {
         response: "some response",
         stats: {
           models: {
-            "gemini-3.1-pro-preview": {
+            "gemini-4-argon": {
               tokens: { input: 1234, candidates: 567, cached: 0, thoughts: 26 },
             },
           },
@@ -409,7 +409,7 @@ describe("executeGeminiCLI JSON output format", () => {
     expect(result.response).toContain("[Gemini stats:");
     expect(result.response).toContain("1,234 input tokens");
     expect(result.response).toContain("567 output tokens");
-    expect(result.response).toContain("gemini-3.1-pro-preview");
+    expect(result.response).toContain("gemini-4-argon");
   });
 
   it("falls back to raw text when output is not valid JSON", async () => {
@@ -667,7 +667,7 @@ describe("executeGeminiCLI stats format (real CLI shape)", () => {
         response: "answer",
         stats: {
           models: {
-            "gemini-3.1-pro-preview": {
+            "gemini-4-argon": {
               tokens: { input: 10891, candidates: 5, cached: 0, thoughts: 26 },
             },
           },
@@ -680,7 +680,7 @@ describe("executeGeminiCLI stats format (real CLI shape)", () => {
     expect(result.response).toContain("[Gemini stats:");
     expect(result.response).toContain("10,891 input tokens");
     expect(result.response).toContain("5 output tokens");
-    expect(result.response).toContain("gemini-3.1-pro-preview");
+    expect(result.response).toContain("gemini-4-argon");
   });
 
   it("includes cached token count when non-zero", async () => {
@@ -689,7 +689,7 @@ describe("executeGeminiCLI stats format (real CLI shape)", () => {
         response: "answer",
         stats: {
           models: {
-            "gemini-3.1-pro-preview": {
+            "gemini-4-argon": {
               tokens: { input: 5000, candidates: 100, cached: 3000, thoughts: 10 },
             },
           },
@@ -708,7 +708,7 @@ describe("executeGeminiCLI stats format (real CLI shape)", () => {
         response: "answer",
         stats: {
           models: {
-            "gemini-3.1-pro-preview": {
+            "gemini-4-argon": {
               tokens: { input: 5000, candidates: 100, cached: 0, thoughts: 10 },
             },
           },
@@ -727,7 +727,7 @@ describe("executeGeminiCLI stats format (real CLI shape)", () => {
         response: "answer",
         stats: {
           models: {
-            "gemini-3.1-pro-preview": {
+            "gemini-4-argon": {
               tokens: { input: 1000, candidates: 50, cached: 0, thoughts: 6666 },
             },
           },
@@ -746,7 +746,7 @@ describe("executeGeminiCLI stats format (real CLI shape)", () => {
         response: "answer",
         stats: {
           models: {
-            "gemini-3.1-pro-preview": {
+            "gemini-4-argon": {
               tokens: { input: 1000, candidates: 50, cached: 0, thoughts: 0 },
             },
           },

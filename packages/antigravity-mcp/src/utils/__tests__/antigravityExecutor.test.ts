@@ -505,9 +505,10 @@ describe("executeAntigravityCLI error handling", () => {
 
 describe("executeAntigravityCLI rate-limit fallback", () => {
   // agy 1.2.12 dropped gemini-3.5-flash; the base slug is proven live with --effort low|medium|high.
-  it("falls back to the live-proven gemini-3.8-flash base slug", () => {
+  // agy 1.5.9 rejects gemini-3.1-pro with any --effort; gemini-4-argon answers with --effort low|medium|high.
+  it("pins the live-proven gemini-4-argon default and gemini-3.8-flash fallback base slugs", () => {
     expect(MODELS.FALLBACK).toBe("gemini-3.8-flash");
-    expect(MODELS.DEFAULT).toBe("gemini-3.1-pro");
+    expect(MODELS.DEFAULT).toBe("gemini-4-argon");
   });
 
   it("redacts the read-only prompt on both primary and fallback command logs", async () => {
@@ -674,6 +675,10 @@ const unknownModelError = (model: string) =>
 const effortSelectionError = new Error(
   'Error: invalid model selection (--model "gemini-3.1-pro" --effort "medium"): gemini-3.1-pro has no "medium" effort (available: low, high)',
 );
+// Live-captured agy 1.5.9 rejection of the retired gemini-3.1-pro pin (2026-11-16).
+const effortUnsupportedError = new Error(
+  'error: invalid model selection (--model "gemini-3.1-pro" --effort "high"): --effort is not supported for model "gemini-3.1-pro"',
+);
 
 describe("buildArgs effort", () => {
   it("emits --effort after --model when provided", () => {
@@ -771,6 +776,10 @@ describe("isModelUnavailableError", () => {
   it("matches the live agy 1.1.5 unknown-model and effort-selection errors", () => {
     expect(isModelUnavailableError(unknownModelError("gemini-3.1-pro").message)).toBe(true);
     expect(isModelUnavailableError(effortSelectionError.message)).toBe(true);
+  });
+
+  it("matches the live agy 1.5.9 effort-unsupported rejection of a retired slug", () => {
+    expect(isModelUnavailableError(effortUnsupportedError.message)).toBe(true);
   });
 
   it("matches the json-mode error envelope carried on stdout", () => {

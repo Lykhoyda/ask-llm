@@ -276,7 +276,7 @@ export async function registerProviderTools(pi: ExtensionAPI): Promise<void> {
     name: "ask-gemini",
     label: "Ask Gemini",
     description:
-      "Deprecated alias for `ask-llm` with provider gemini. Consult Gemini through Ask LLM's canonical executor (`gemini-3.1-pro-preview` → `gemini-3.8-flash` on quota), including validation, sessions, and structured response. Displayed text is bounded to Pi's 50KB/2000-line limits.",
+      "Deprecated alias for `ask-llm` with provider gemini. Consult Gemini through Ask LLM's canonical executor (`gemini-4-argon` → `gemini-3.8-flash` on quota), including validation, sessions, and structured response. Displayed text is bounded to Pi's 50KB/2000-line limits.",
     parameters: geminiSchema,
     provider: "gemini",
   });

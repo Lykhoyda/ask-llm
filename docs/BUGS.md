@@ -296,7 +296,7 @@ The entry below documents the (failed) first attempt at fixing #115 via PR #126.
 - **Severity:** Medium
 - **Upstream:** Issues #6, #26
 - **Description:** MCP tool responses can exceed 45k tokens even for small prompts, consuming excessive context window.
-- **Root cause:** Model-specific bug in `gemini-2.5-pro` — always returned ~45,735 tokens regardless of prompt size. Does not affect `gemini-3.1-pro-preview` (current default) or Flash models.
+- **Root cause:** Model-specific bug in `gemini-2.5-pro` — always returned ~45,735 tokens regardless of prompt size. Does not affect `gemini-3.1-pro-preview` or Flash models.
 - **Mitigation:** Default model changed to `gemini-3.1-pro-preview`. Gemini CLI has no `--max-output-tokens` flag, so server-side truncation would be the only option — deemed unnecessary since the affected model is no longer the default.
 
 ### Missing changelog for v1.1.4

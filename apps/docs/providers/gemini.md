@@ -62,7 +62,7 @@ gemini login
 
 <FallbackChain provider="gemini" />
 
-- **Default:** `gemini-3.1-pro-preview` (latest, highest capability)
+- **Default:** `gemini-4-argon` (Gemini 4 Argon; Gemini CLI passes the id to the API, though Google notes the CLI is not tuned for Gemini 4)
 - **Quota fallback:** `gemini-3.8-flash`, automatic on `RESOURCE_EXHAUSTED`
 - **Overrides:** `ASK_GEMINI_MODEL`, `ASK_GEMINI_FALLBACK_MODEL`, or the per-call `model` parameter
 

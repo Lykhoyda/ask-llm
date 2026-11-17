@@ -24,7 +24,7 @@ export const PROVIDERS: Record<string, ProviderConfig> = {
     command: "gemini",
     executorModule: "@ask-llm/gemini-mcp/executor",
     executorFn: "executeGeminiCLI",
-    defaultModel: "gemini-3.1-pro-preview",
+    defaultModel: "gemini-4-argon",
   },
   codex: {
     name: "Codex",
@@ -73,7 +73,7 @@ export const PROVIDERS: Record<string, ProviderConfig> = {
     command: "agy",
     executorModule: "@ask-llm/antigravity-mcp/executor",
     executorFn: "executeAntigravityCLI",
-    defaultModel: "gemini-3.1-pro",
+    defaultModel: "gemini-4-argon",
     modelEnvVar: "ASK_ANTIGRAVITY_MODEL",
     supportProbeModule: "@ask-llm/antigravity-mcp/executor",
     supportProbeFn: "probeAgySupport",
