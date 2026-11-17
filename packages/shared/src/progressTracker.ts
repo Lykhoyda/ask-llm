@@ -13,7 +13,7 @@ export interface ProgressHandle {
 
 async function sendProgressNotification(extra: ToolExtra, progress: number, total?: number, message?: string) {
   const progressToken = extra._meta?.progressToken;
-  if (!progressToken) return;
+  if (progressToken === undefined) return;
 
   try {
     const params: Record<string, unknown> = { progressToken, progress };

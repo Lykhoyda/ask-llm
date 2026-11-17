@@ -101,3 +101,4 @@ export { appendAndSaveSession, buildPriorMessages, createSessionId, loadSession,
 export { getSpawnEnv, resolveShellPath, resolveSpawnCommand } from "./shellPath.js";
 export type { ProviderUsageSnapshot, SessionUsage, SessionUsageSnapshot, UsageStats } from "./usage.js";
 export { createSessionUsage, formatSessionUsage, formatUsageStats } from "./usage.js";
+export { SERVER_INSTRUCTIONS } from "./serverInstructions.js";

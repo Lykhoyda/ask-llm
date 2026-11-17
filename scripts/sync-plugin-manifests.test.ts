@@ -12,6 +12,7 @@ function fixture(): string {
   copy = mkdtempSync(join(tmpdir(), "ask-llm-skill-agreement-"));
   for (const path of [
     "packages/llm-mcp/package.json",
+    "packages/llm-mcp/server.json",
     "packages/llm-mcp/skills",
     "packages/llm-mcp/src/skills.ts",
     "packages/llm-mcp/.cursor-plugin",
@@ -96,6 +97,12 @@ describe("plugin MCP definition pins", () => {
     }
   });
 
+  it("keeps Registry versions equal to the package version", () => {
+    const server = read("packages/llm-mcp/server.json");
+    expect(server.version).toBe(version);
+    expect(server.packages[0].version).toBe(version);
+  });
+
   it("moves each pin to the new release during the version step and leaves the rest unchanged", () => {
     for (const definition of MCP_DEFINITIONS) {
       const config = read(definition.file);
@@ -174,6 +181,11 @@ describe("plugin MCP definition pins", () => {
         "99.0.0",
       );
     }
+    const server = JSON.parse(readFileSync(join(root, "packages/llm-mcp/server.json"), "utf8"));
+    expect(server.version).toBe("99.0.0");
+    expect(server.packages[0].version).toBe("99.0.0");
     expect(run("--check").status).toBe(0);
+    edit(root, "packages/llm-mcp/server.json", (text) => text.replaceAll("99.0.0", "0.2.0"));
+    expect(run("--check").stderr).toContain("packages/llm-mcp/server.json must match");
   });
 });

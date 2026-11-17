@@ -512,9 +512,7 @@ test("manual dispatch has no inputs and on main is always registry/release/tag r
     "steps.changesets.outputs.published == 'true' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')";
   const changesetsStep = steps.find((step) => step.name === "Create Release PR or Publish") as WorkflowStep;
   const publisherStep = steps.find((step) => step.name === "Install mcp-publisher") as WorkflowStep;
-  const syncStep = steps.find(
-    (step) => step.name === "Sync versions from package.json to server.json and marketplace.json",
-  ) as WorkflowStep;
+  const syncStep = steps.find((step) => step.name === "Check release metadata versions") as WorkflowStep;
   const registryStep = steps.find((step) => step.name === "Publish missing servers to MCP Registry") as WorkflowStep;
   const canonicalVersionStep = steps.find(
     (step) => step.name === "Get canonical version for unified release tag",

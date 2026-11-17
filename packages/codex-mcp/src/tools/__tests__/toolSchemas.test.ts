@@ -27,7 +27,7 @@ describe.each(tools)("%s includeDirs validation (parity with ask-gemini-edit)", 
   });
 });
 
-const EXPECTED_TOOLS = ["ask-codex", "ask-codex-edit", "ping"];
+const EXPECTED_TOOLS = ["ask-codex", "ask-codex-write", "ask-codex-edit", "ping"];
 
 describe("tool contract (drift guards)", () => {
   it("registers exactly the expected tools", () => {
@@ -61,10 +61,10 @@ describe("tool contract (drift guards)", () => {
     expect(askCodexTool.zodSchema.parse({ prompt: "p" }).preferred).toBeUndefined();
   });
 
-  it("ask-codex exposes an optional `sandbox` opt-in (default read-only)", () => {
-    // Omitted → read-only, so the review contract holds unless a caller opts out.
+  it("ask-codex rejects writable sandboxes", () => {
+    // The read-only annotation applies to every accepted call.
     expect(askCodexTool.zodSchema.parse({ prompt: "p" }).sandbox).toBe("read-only");
-    expect(askCodexTool.zodSchema.safeParse({ prompt: "p", sandbox: "workspace-write" }).success).toBe(true);
+    expect(askCodexTool.zodSchema.safeParse({ prompt: "p", sandbox: "workspace-write" }).success).toBe(false);
     expect(askCodexTool.zodSchema.safeParse({ prompt: "p", sandbox: "read-only" }).success).toBe(true);
     expect(askCodexTool.zodSchema.safeParse({ prompt: "p", sandbox: "full-auto" }).success).toBe(false);
   });

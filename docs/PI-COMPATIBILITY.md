@@ -11,7 +11,7 @@ Classifications: **host-neutral**, **thin host adapter**, **lifecycle integratio
 | `ask-llm-antigravity-review` | Thin host adapter | Portable review contract runs inline through native `ask-antigravity`. |
 | `ask-llm-brainstorm` | Thin host adapter | Standard mode commits the current Pi host's independent view before deterministic `ask-multi`. Exact Grok + GPT-6 Sol mode instead calls `ask-cursor-agent` for only the two explicit provider/model pairs, treats the host view as non-voting evidence, excludes Gemini, and never upgrades a partial failure to consensus. |
 | `ask-llm-brainstorm-all` | Thin host adapter | Same as `brainstorm`, with all five external providers. |
-| `ask-llm-codex-image` | Thin host adapter | Native `ask-codex` with explicit `sandbox: "workspace-write"`, followed by filesystem verification. |
+| `ask-llm-codex-image` | Thin host adapter | Native `ask-codex-write` with explicit `sandbox: "workspace-write"`, followed by filesystem verification. |
 | `ask-llm-codex-pair` | Lifecycle integration + thin adapter | Pi command owns consent/status; extension observes successful `tool_result` edit/write events, debounces, reviews, and injects findings. |
 | `ask-llm-codex-pair-ack` | Thin host adapter | Pi command dismisses a finding reminder. Pi has no blocking Stop gate. |
 | `ask-llm-codex-pair-pause` | Host-neutral + thin command | Shared pause sentinel; native Pi command is the convenient adapter. |
@@ -61,4 +61,4 @@ The extension factory detects provider availability before registering tools. Mo
 
 See [HOST-PARITY.md](HOST-PARITY.md) for the native tools' schema and response guarantees, availability rules, and contract test.
 
-`ask-codex`, `ask-gemini`, `ask-grok`, `ask-ollama`, `ask-antigravity` and `ask-multi` remain as deprecated aliases. They invoke each provider package's public `./register` `executeTool` contract so canonical validation, response structure, session behavior, fallbacks, and errors remain provider-owned. `ask-multi` is concrete Pi glue: a bounded `Promise.allSettled` fan-out over two to five unique providers, with per-provider options, stable input-order results and explicit failures.
+`ask-codex`, `ask-gemini`, `ask-grok`, `ask-ollama`, `ask-antigravity` and `ask-multi` remain as deprecated aliases. They invoke each provider package's public `./register` `executeTool` contract so canonical validation, response structure, session behavior, fallbacks, and errors remain provider-owned. `ask-codex-write` is the separate native file-writing tool; `ask-codex` accepts only read-only sandbox requests. `ask-multi` is concrete Pi glue: a bounded `Promise.allSettled` fan-out over two to five unique providers, with per-provider options, stable input-order results and explicit failures.

@@ -1,4 +1,4 @@
-import { relativeDirSchema, type UnifiedTool } from "@ask-llm/shared";
+import { askResponseSchema, relativeDirSchema, type UnifiedTool } from "@ask-llm/shared";
 import { z } from "zod";
 import { ERROR_MESSAGES, MODELS } from "../constants.js";
 import { executeGeminiCLI, processChangeModeOutput } from "../utils/geminiExecutor.js";
@@ -30,6 +30,7 @@ export const askGeminiEditTool: UnifiedTool = {
   description:
     "Send a code edit request to Gemini CLI and get structured OLD/NEW edit blocks back. Gemini analyzes the files and returns precise, applicable code changes. Use this when you want Gemini to suggest specific code modifications rather than just analysis.",
   zodSchema: askGeminiEditArgsSchema,
+  outputSchema: askResponseSchema,
   annotations: {
     title: "Ask Gemini (Edit Mode)",
     readOnlyHint: false,
@@ -60,6 +61,15 @@ export const askGeminiEditTool: UnifiedTool = {
 
     const sessionLine = result.sessionId ? `\n\n[Session ID: ${result.sessionId}]` : "";
     const changeModeOutput = processChangeModeOutput(result.response, undefined, undefined, prompt as string);
-    return `${changeModeOutput}${sessionLine}`;
+    return {
+      text: `${changeModeOutput}${sessionLine}`,
+      structuredContent: {
+        provider: "gemini",
+        response: changeModeOutput,
+        model: result.usage?.model ?? (model as string | undefined) ?? MODELS.PRO,
+        sessionId: result.sessionId,
+        usage: result.usage,
+      },
+    };
   },
 };

@@ -55,7 +55,11 @@ const codexSchema = Type.Object({
   sessionId: Type.Optional(Type.String()),
   includeDirs: Type.Optional(relativeDirs),
   preferred: Type.Optional(Type.Boolean()),
-  sandbox: Type.Optional(StringEnum(["read-only", "workspace-write"] as const)),
+  sandbox: Type.Optional(Type.Literal("read-only")),
+});
+const codexWriteSchema = Type.Object({
+  ...codexSchema.properties,
+  sandbox: Type.Optional(Type.Literal("workspace-write")),
 });
 const geminiSchema = Type.Object({
   prompt,
@@ -118,11 +122,12 @@ async function invokeProvider(
   args: Record<string, unknown>,
   signal: AbortSignal | undefined,
   onProgress?: (text: string) => void,
+  toolName?: string,
 ): Promise<{ text: string; details: Record<string, unknown> }> {
   let usage: unknown;
   const canonical = executors[provider];
   const result = await canonical.execute(
-    canonical.tool,
+    toolName ?? canonical.tool,
     args,
     onProgress,
     (next) => {
@@ -165,6 +170,7 @@ function registerProviderTool<T extends ReturnType<typeof Type.Object>>(
     description: string;
     parameters: T;
     provider: ProviderName;
+    toolName?: string;
   },
 ): void {
   pi.registerTool({
@@ -175,6 +181,7 @@ function registerProviderTool<T extends ReturnType<typeof Type.Object>>(
         params as Record<string, unknown>,
         signal,
         progressForwarder(onUpdate, definition.provider),
+        definition.toolName,
       );
       return { content: [{ type: "text", text: result.text }], details: result.details };
     },
@@ -218,8 +225,13 @@ export async function registerProviderTools(pi: ExtensionAPI): Promise<void> {
     label: "Multi-LLM Parallel Dispatch",
     description: `${MULTI_LLM_DESCRIPTION} Displayed text is bounded to Pi's 50KB/2000-line limits.`,
     parameters: toolInputJsonSchema(multiLlmSchema),
-    async execute(_toolCallId, params: Record<string, unknown>, signal) {
-      const report = await runMultiLlm(multiLlmSchema, params, { available, getExecutor: getLoadedExecutor, signal });
+    async execute(_toolCallId, params: Record<string, unknown>, signal, onUpdate) {
+      const report = await runMultiLlm(multiLlmSchema, params, {
+        available,
+        getExecutor: getLoadedExecutor,
+        signal,
+        onProgress: progressForwarder(onUpdate, "multi-llm"),
+      });
       const output = bounded(formatMultiLlmReport(report));
       return {
         content: [{ type: "text", text: output.text }],
@@ -268,9 +280,18 @@ export async function registerProviderTools(pi: ExtensionAPI): Promise<void> {
     name: "ask-codex",
     label: "Ask Codex",
     description:
-      "Deprecated alias for `ask-llm` with provider codex. Consult OpenAI Codex through Ask LLM's canonical executor. Read-only by default; use workspace-write only for an explicit write flow such as codex-image. Displayed text is bounded to Pi's 50KB/2000-line limits.",
+      "Deprecated alias for `ask-llm` with provider codex. Consult OpenAI Codex through Ask LLM's canonical executor. Read-only; use ask-codex-write for file creation such as codex-image. Displayed text is bounded to Pi's 50KB/2000-line limits.",
     parameters: codexSchema,
     provider: "codex",
+  });
+  registerProviderTool(pi, {
+    name: "ask-codex-write",
+    label: "Ask Codex (Write Files)",
+    description:
+      "Run an explicit Codex file-writing task, including image generation, with workspace-write permission. May create, modify, or delete workspace files.",
+    parameters: codexWriteSchema,
+    provider: "codex",
+    toolName: "ask-codex-write",
   });
   registerProviderTool(pi, {
     name: "ask-gemini",

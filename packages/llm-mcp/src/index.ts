@@ -8,6 +8,7 @@ import {
   createSessionUsage,
   createUsageStatsTool,
   Logger,
+  SERVER_INSTRUCTIONS,
   type ProviderName,
   type ProviderSpec,
   registerSessionUsageResource,
@@ -528,7 +529,7 @@ export async function createAskLlmServer(providerStatus: ProviderStatus): Promis
     .filter((provider) => provider.state === "unsupported" || provider.state === "unusable")
     .map((provider) => provider.key);
 
-  const server = new McpServer({ name, version });
+  const server = new McpServer({ name, version }, { instructions: SERVER_INSTRUCTIONS });
   const sessionUsage = createSessionUsage();
 
   const askLlmSchema = buildAskLlmSchema(available, excludedProviders);
@@ -679,18 +680,25 @@ export async function createAskLlmServer(providerStatus: ProviderStatus): Promis
       },
     },
     async (args: Record<string, unknown>, extra: ToolExtra): Promise<CallToolResult> => {
-      const report = await runMultiLlm(multiLlmInputSchema, args, {
-        available,
-        getExecutor: (name) => loadedExecutors.get(name),
-        recordUsage: (stats) => sessionUsage.record(stats),
-        signal: extra.signal,
-      });
-
-      return {
-        content: [{ type: "text", text: formatMultiLlmReport(report) }],
-        structuredContent: report as unknown as Record<string, unknown>,
-        isError: false,
-      };
+      const progress = createProgressTracker("multi-llm", extra, PROGRESS_MESSAGES("multi-llm"));
+      try {
+        const report = await runMultiLlm(multiLlmInputSchema, args, {
+          available,
+          getExecutor: (name) => loadedExecutors.get(name),
+          recordUsage: (stats) => sessionUsage.record(stats),
+          onProgress: (output) => progress.updateOutput(output),
+          signal: extra.signal,
+        });
+        await progress.stop(report.failureCount === 0);
+        return {
+          content: [{ type: "text", text: formatMultiLlmReport(report) }],
+          structuredContent: report as unknown as Record<string, unknown>,
+          isError: false,
+        };
+      } catch (error) {
+        await progress.stop(false);
+        throw error;
+      }
     },
   );
 

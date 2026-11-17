@@ -30,6 +30,7 @@ import {
   MCP_ONLY_TOOLS,
   PARITY_HOSTS,
   PI_DEPRECATED_ALIASES,
+  PI_ONLY_TOOLS,
   renderParityTable,
   SHARED_TOOLS,
 } from "../hosts/parity.js";
@@ -82,7 +83,7 @@ function divergences(mcp: ToolContract[], pi: ToolContract[]): string[] {
   const mcpNames = mcp.map((tool) => tool.name).sort();
   const piNames = pi.map((tool) => tool.name).sort();
   const expectedMcp = [...SHARED_TOOLS, ...MCP_ONLY_TOOLS].sort();
-  const expectedPi = [...SHARED_TOOLS, ...PI_DEPRECATED_ALIASES].sort();
+  const expectedPi = [...SHARED_TOOLS, ...PI_ONLY_TOOLS, ...PI_DEPRECATED_ALIASES].sort();
   if (JSON.stringify(mcpNames) !== JSON.stringify(expectedMcp)) found.push(`MCP tools: ${mcpNames.join(", ")}`);
   if (JSON.stringify(piNames) !== JSON.stringify(expectedPi)) found.push(`Pi tools: ${piNames.join(", ")}`);
   for (const name of SHARED_TOOLS) {

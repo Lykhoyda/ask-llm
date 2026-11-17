@@ -61,6 +61,7 @@ describe("Pi provider tools", () => {
       "multi-llm",
       "ask-cursor-agent",
       "ask-codex",
+      "ask-codex-write",
       "ask-gemini",
       "ask-grok",
       "ask-ollama",
@@ -99,6 +100,20 @@ describe("Pi provider tools", () => {
     });
     expect(Object.keys(byName("ask-ollama").parameters.properties ?? {})).toEqual(["prompt", "model", "sessionId"]);
     expect(Object.keys(byName("ask-antigravity").parameters.properties ?? {})).toEqual(["prompt", "includeDirs"]);
+  });
+
+  it("routes writable Codex calls to the separate canonical tool", async () => {
+    const { byName } = await harness();
+    expect(byName("ask-codex").parameters.properties?.sandbox).toMatchObject({ const: "read-only" });
+    expect(byName("ask-codex-write").parameters.properties?.sandbox).toMatchObject({ const: "workspace-write" });
+    await byName("ask-codex-write").execute("image", { prompt: "create image" });
+    expect(calls.codex).toHaveBeenCalledWith(
+      "ask-codex-write",
+      { prompt: "create image" },
+      undefined,
+      expect.any(Function),
+      undefined,
+    );
   });
 
   it("keeps Cursor harness, provider, and model attribution separate", async () => {

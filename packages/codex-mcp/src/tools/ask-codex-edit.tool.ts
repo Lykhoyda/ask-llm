@@ -1,4 +1,4 @@
-import { relativeDirSchema, type UnifiedTool } from "@ask-llm/shared";
+import { askResponseSchema, relativeDirSchema, type UnifiedTool } from "@ask-llm/shared";
 import { z } from "zod";
 import { ERROR_MESSAGES, MODELS } from "../constants.js";
 import { executeCodexCLI, processCodexEditOutput } from "../utils/codexExecutor.js";
@@ -36,6 +36,7 @@ export const askCodexEditTool: UnifiedTool = {
   description:
     "Send a code edit request to OpenAI Codex CLI and get structured search/replace edit blocks back (via codex --output-schema). Codex reads the existing files (read-only) and proposes precise, applyable changes for Claude to apply. Use this when you want Codex to suggest specific code modifications to existing files rather than just analysis. Mirrors ask-gemini-edit.",
   zodSchema: askCodexEditArgsSchema,
+  outputSchema: askResponseSchema,
   annotations: {
     title: "Ask Codex (Edit Mode)",
     readOnlyHint: true,
@@ -66,6 +67,16 @@ export const askCodexEditTool: UnifiedTool = {
     if (result.usage) onUsage?.(result.usage);
 
     const threadLine = result.threadId ? `\n\n[Thread ID: ${result.threadId}]` : "";
-    return `${processCodexEditOutput(result.response)}${threadLine}`;
+    const response = processCodexEditOutput(result.response);
+    return {
+      text: `${response}${threadLine}`,
+      structuredContent: {
+        provider: "codex",
+        response,
+        model: result.usage?.model ?? (model as string | undefined) ?? MODELS.DEFAULT,
+        sessionId: result.threadId,
+        usage: result.usage,
+      },
+    };
   },
 };

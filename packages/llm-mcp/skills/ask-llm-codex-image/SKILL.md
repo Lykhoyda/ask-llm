@@ -6,18 +6,18 @@ description: Generate an image via OpenAI's gpt-image-2 model through the Codex 
 <!-- PORTABLE-CONTRACT:START -->
 ## Portable contract
 
-Refine the requested image prompt without changing intent, select an explicit output path, invoke Codex with `sandbox: "workspace-write"` so its image tool may create the file, verify the resulting file on disk, and report the path and provider response. Surface feature, policy, timeout, and filesystem failures verbatim.
+Refine the requested image prompt without changing intent, select an explicit output path, invoke `ask-codex-write` with `sandbox: "workspace-write"` so its image tool may create the file, verify the resulting file on disk, and report the path and provider response. Surface feature, policy, timeout, and filesystem failures verbatim.
 <!-- PORTABLE-CONTRACT:END -->
 
 ## Host adapters
 
 ### Pi adapter
 
-Call native `ask-codex` with `sandbox: "workspace-write"`. After it returns, use Pi's read-only filesystem tools to verify the output file. Do not claim automatic inline rendering in print mode.
+Call native `ask-codex-write` with `sandbox: "workspace-write"`. After it returns, use Pi's read-only filesystem tools to verify the output file. Do not claim automatic inline rendering in print mode.
 
 ### Other hosts adapter
 
-Codex, Cursor Agent, Antigravity, Grok Build, Gemini CLI and OpenCode get this skill from their skills folder, not from a plugin. Use the Codex call from `../ask-llm-review/transport.md` with `sandbox: "workspace-write"` and the exact model the user named (`gpt-6.1-sol` otherwise), then read the output file to confirm it exists.
+Codex, Cursor Agent, Antigravity, Grok Build, Gemini CLI and OpenCode get this skill from their skills folder, not from a plugin. Use the writable Codex call from `../ask-llm-review/transport.md` with `sandbox: "workspace-write"` and the exact model the user named (`gpt-6.1-sol` otherwise), then read the output file to confirm it exists.
 
 <!-- HOST-ADAPTER:CLAUDE-CODE:START -->
 ### Claude Code adapter
@@ -28,7 +28,7 @@ The existing detailed workflow below is the Claude Code adapter. Its Agent, MCP,
 
 # Codex Image Generation
 
-Generate an image by delegating to the `ask-codex` MCP tool with a prompt-engineered template that triggers Codex's built-in `image_generation` tool. The result is saved to disk and the path is returned to the user.
+Generate an image by delegating to the `ask-codex-write` MCP tool with a prompt-engineered template that triggers Codex's built-in `image_generation` tool. The result is saved to disk and the path is returned to the user.
 
 ## Model capabilities (gpt-image-2)
 
@@ -42,7 +42,7 @@ Codex's `image_generation` tool selects the image model server-side; as of 2026-
 
 - `codex-cli` >= 0.125.0 installed and authenticated
 - `image_generation` feature flag enabled (default: stable + true). Verify with `codex features list | grep image_generation`
-- The `ask-codex` MCP tool available (from `@ask-llm/codex-mcp`) or the unified `mcp__ask-llm__ask-llm` tool (from `@ask-llm/mcp`) whose schema includes `sandbox`
+- The `ask-codex-write` MCP tool available (from `@ask-llm/codex-mcp`) or the unified `mcp__ask-llm__ask-llm` tool (from `@ask-llm/mcp`) whose schema includes `sandbox`
 
 ## Instructions
 
@@ -71,7 +71,7 @@ Example slug derivation:
 
 ### Phase 3: Dispatch to Codex
 
-Call an exact `ask-codex` leaf when exposed (NOT raw `codex exec` — that bypasses ADR-044 quota fallback, ADR-042 stdin handling, and ADR-047 PATH resolution). If only unified `mcp__ask-llm__ask-llm` is exposed, use that instead with `provider: "codex"`. If the unified schema lacks `sandbox`, stop and tell the user to upgrade `@ask-llm/mcp` (`npx -y @ask-llm/mcp@latest` or `npm install -g @ask-llm/mcp`); do not omit `sandbox` to make the call succeed. Use this prompt template:
+Call an exact `ask-codex-write` leaf when exposed (NOT raw `codex exec` — that bypasses ADR-044 quota fallback, ADR-042 stdin handling, and ADR-047 PATH resolution). If only unified `mcp__ask-llm__ask-llm` is exposed, use that instead with `provider: "codex"`. If the unified schema lacks `sandbox`, stop and tell the user to upgrade `@ask-llm/mcp` (`npx -y @ask-llm/mcp@latest` or `npm install -g @ask-llm/mcp`); do not omit `sandbox` to make the call succeed. Use this prompt template:
 
 ```
 Use your image_generation tool to create the following image and save it as a PNG file.
@@ -84,15 +84,15 @@ Save the file to this absolute path: <path from Phase 2>
 After saving, confirm the absolute path of the created file and its byte size in your reply. If image_generation fails or the file cannot be written, explain what went wrong and do not invent a fake path.
 ```
 
-**Sandbox:** pass `sandbox: "workspace-write"` on this `ask-codex` or fully pinned `ask-llm({ provider: "codex", ... })` call. Codex defaults to the read-only review sandbox (ADR-136), under which it cannot write the PNG to disk; image generation is the sanctioned exception that needs Codex to write the output file itself. The unified server will not silently strip `sandbox`; an older `@ask-llm/mcp` that cannot honor it must fail closed.
+**Sandbox:** pass `sandbox: "workspace-write"` on this `ask-codex-write` or fully pinned `ask-llm({ provider: "codex", ... })` call. Codex defaults to the read-only review sandbox (ADR-136), under which it cannot write the PNG to disk; image generation is the sanctioned exception that needs Codex to write the output file itself. The unified server will not silently strip `sandbox`; an older `@ask-llm/mcp` that cannot honor it must fail closed.
 
-**Default model:** let `ask-codex` use its default (`gpt-6.1-sol`). The image_generation tool is invoked by the model regardless of which Codex chat model is selected — model selection here is about the orchestrating agent, not the image model itself.
+**Default model:** let `ask-codex-write` use its default (`gpt-6.1-sol`). The image_generation tool is invoked by the model regardless of which Codex chat model is selected — model selection here is about the orchestrating agent, not the image model itself.
 
 **Wall time expectation:** with gpt-image-2, simple images typically render in **under a minute** end-to-end; complex prompts or high-resolution (up to 4K) renders can take a **few minutes** because gpt-image-2's thinking mode plans layout and self-checks before generating. This is normal; do not retry assuming a hang. The first call in a session is slowest because the image_generation tool definitions aren't cached yet; subsequent calls in the same session are faster (Codex CLI prompt-caches aggressively).
 
 ### Phase 4: Verify and present
 
-After `ask-codex` returns:
+After `ask-codex-write` returns:
 
 1. **Run `ls -la <path>`** to confirm the file was created. Do not trust the agent's textual claim alone.
 2. **If file exists**: report the absolute path, byte size, and Codex's response footer (model, sessionId, usage). If the user's environment supports inline image rendering (most Claude Code clients do via the Read tool), Read the image so the user can see it.
@@ -113,7 +113,7 @@ Phase 1 — refined prompt: *minimalist illustration of a cat reading a book, fl
 
 Phase 2 — output: `/tmp/codex-images/2026-04-24/cat-reading-a-book.png`
 
-Phase 3 — `ask-codex` is called with the prompt template above.
+Phase 3 — `ask-codex-write` is called with the prompt template above.
 
 Phase 4 — `ls -la /tmp/codex-images/2026-04-24/cat-reading-a-book.png` shows a 248KB file. Skill returns:
 
