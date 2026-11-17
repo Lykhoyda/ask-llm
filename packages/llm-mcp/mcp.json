@@ -1,10 +1,11 @@
 {
   "mcpServers": {
     "ask-llm": {
-      "command": "npx",
+      "command": "node",
       "args": [
-        "-y",
-        "@ask-llm/mcp"
+        "${CURSOR_PLUGIN_ROOT}/scripts/plugin-mcp-server.mjs",
+        "ask-llm",
+        "1.4.0"
       ]
     }
   }

@@ -72,12 +72,20 @@ export function isAskCodexToolName(name: string): boolean {
   return name === ASK_CODEX_TOOL || /^mcp__.+__ask-codex$/.test(name);
 }
 
+// Plugin MCP definitions start a pinned server as `node <root>/scripts/plugin-mcp-server.mjs <server> <version>`.
+function isPluginLauncherRegistration(args: string[], commandLine: string, server: string): boolean {
+  const launcher = args.findIndex((arg) => /(?:^|[/\\])plugin-mcp-server\.mjs$/.test(arg));
+  if (launcher !== -1 && args[launcher + 1] === server) return true;
+  return new RegExp(`(?:^|[\\s/\\\\])plugin-mcp-server\\.mjs\\s+${server}(?:\\s|$)`).test(commandLine);
+}
+
 export function isAskCodexRegistration(server: McpServer | null | undefined): boolean {
   if (!server || typeof server !== "object") return false;
   const command = typeof server.command === "string" ? server.command : "";
   const args = Array.isArray(server.args) ? server.args.filter((arg) => typeof arg === "string") : [];
   const commandLine = typeof server.commandLine === "string" ? server.commandLine : "";
   return (
+    isPluginLauncherRegistration(args, commandLine, "codex") ||
     /(?:^|[/\\])ask-codex-mcp(?:\.cmd|\.exe)?$/.test(command) ||
     args.includes(ASK_CODEX_PACKAGE) ||
     /(?:^|\s)@ask-llm\/codex-mcp(?:@[^\s]+)?(?:\s|$)/.test(commandLine) ||
@@ -95,6 +103,7 @@ export function isAskLlmRegistration(server: McpServer | null | undefined): bool
   const args = Array.isArray(server.args) ? server.args.filter((arg) => typeof arg === "string") : [];
   const commandLine = typeof server.commandLine === "string" ? server.commandLine : "";
   return (
+    isPluginLauncherRegistration(args, commandLine, "ask-llm") ||
     /(?:^|[/\\])ask-llm-mcp(?:\.cmd|\.exe)?$/.test(command) ||
     args.includes(ASK_LLM_PACKAGE) ||
     /(?:^|\s)@ask-llm\/mcp(?:@[^\s]+)?(?:\s|$)/.test(commandLine) ||

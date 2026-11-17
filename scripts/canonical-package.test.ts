@@ -19,6 +19,7 @@ it("packs the server, command entrypoints, and complete host resources into the 
     for (const path of [
       "dist/index.js",
       "dist/cli.js",
+      "dist/codex-mcp.js",
       "dist/ask-llm.js",
       "dist/machine.js",
       "dist/cursor.js",
@@ -32,6 +33,7 @@ it("packs the server, command entrypoints, and complete host resources into the 
       "pi/extensions/index.ts",
       "prompts/review.txt",
       "scripts/codex-pair-session.mjs",
+      "scripts/plugin-mcp-server.mjs",
       "scripts/lib/state.mjs",
       "codex-pair-defaults.json",
     ]) {

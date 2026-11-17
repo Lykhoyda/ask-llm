@@ -31,7 +31,7 @@ If neither direct transport is exposed, run `ask-llm setup --host cursor` and re
 | Capability | Claude Code | Cursor Agent |
 |---|---|---|
 | `/codex-pair` | Marker-gated continuous hooks plus dashboard | On-demand skill-backed persisted reviewer session |
-| Registration | Claude plugin + `.mcp.json` (Codex only) | Cursor Plugin Agent Skills + `mcp.json` (unified `ask-llm` only; split servers user-installed) |
+| Registration | Claude plugin + `.mcp.json` (Codex only) | Cursor Plugin Agent Skills + `mcp.json` (unified `ask-llm` only, started with `node` from the plugin's own pinned `@ask-llm/mcp` release; split servers user-installed) |
 | Include directories | Per-edit context from marker/project | Explicit safe relative `includeDirs` on first Codex call |
 | Completion gate | Optional Claude Stop hook | Explicit completed/cancelled/failed session report |
 | Cancellation | Claude hook/provider process lifecycle | Cursor MCP AbortSignal/interrupt |

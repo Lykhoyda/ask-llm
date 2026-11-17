@@ -3,6 +3,9 @@ import * as path from "node:path";
 import { describe, expect, it } from "vitest";
 import { listSubdirs, PLUGIN_ROOT, REPO_ROOT, readJson } from "./_helpers.js";
 
+const PACKAGE_VERSION = readJson<{ version: string }>("package.json").version;
+const launcher = (rootVariable: string) => `\${${rootVariable}}/scripts/plugin-mcp-server.mjs`;
+
 interface PluginManifest {
   name: string;
   version: string;
@@ -66,8 +69,8 @@ describe("plugin.json manifest", () => {
       mcpServers: Record<string, { command: string; args: string[] }>;
     };
     expect(mcp.mcpServers.codex).toEqual({
-      command: "npx",
-      args: ["-y", "@ask-llm/codex-mcp"],
+      command: "node",
+      args: [launcher("CLAUDE_PLUGIN_ROOT"), "codex", PACKAGE_VERSION],
     });
   });
 });
@@ -78,9 +81,16 @@ describe("Claude Code MCP manifest", () => {
   }>(".mcp.json");
 
   it("registers only the canonical Ask LLM Codex server; Cursor/Grok routes stay user-installed", () => {
-    expect(mcp.mcpServers).toEqual({
-      codex: { command: "npx", args: ["-y", "@ask-llm/codex-mcp"] },
+    expect(Object.keys(mcp.mcpServers)).toEqual(["codex"]);
+  });
+
+  it("starts the Codex server directly with node, pinned to this plugin's own release", () => {
+    // No npx: an `npm exec` parent would stay resident beside every session's server.
+    expect(mcp.mcpServers.codex).toEqual({
+      command: "node",
+      args: [launcher("CLAUDE_PLUGIN_ROOT"), "codex", PACKAGE_VERSION],
     });
+    expect(fs.existsSync(path.join(PLUGIN_ROOT, "scripts", "plugin-mcp-server.mjs"))).toBe(true);
   });
 });
 
@@ -177,8 +187,12 @@ describe("Cursor plugin adapter", () => {
   });
 
   it("bundles exactly one unified Ask LLM server; split Codex/Grok servers stay user-installed", () => {
+    // Started directly with node and pinned to this plugin's release; Cursor expands CURSOR_PLUGIN_ROOT.
     expect(mcp.mcpServers).toEqual({
-      "ask-llm": { command: "npx", args: ["-y", "@ask-llm/mcp"] },
+      "ask-llm": {
+        command: "node",
+        args: [launcher("CURSOR_PLUGIN_ROOT"), "ask-llm", PACKAGE_VERSION],
+      },
     });
   });
 });

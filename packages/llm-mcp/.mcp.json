@@ -1,8 +1,12 @@
 {
   "mcpServers": {
     "codex": {
-      "command": "npx",
-      "args": ["-y", "@ask-llm/codex-mcp"]
+      "command": "node",
+      "args": [
+        "${CLAUDE_PLUGIN_ROOT}/scripts/plugin-mcp-server.mjs",
+        "codex",
+        "1.4.0"
+      ]
     }
   }
 }

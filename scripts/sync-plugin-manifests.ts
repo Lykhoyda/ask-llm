@@ -1,6 +1,8 @@
 #!/usr/bin/env node
-// Mirror the plugin package version to plugin.json and marketplace.json after changesets versioning.
-// Lint uses `--check` to reject stale release metadata and a skill corpus that disagrees with its manifests.
+// Mirror the plugin package version to plugin.json, marketplace.json and the server pin in each plugin
+// MCP definition after changesets versioning. Lint uses `--check` to reject stale release metadata, an
+// MCP definition that does not start the pinned server directly, and a skill corpus that disagrees
+// with its manifests.
 
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { readFile, writeFile } from "node:fs/promises";
@@ -12,6 +14,11 @@ const SOURCE = resolve(ROOT, "packages/llm-mcp/package.json");
 const PLUGIN_JSON = resolve(ROOT, "packages/llm-mcp/.claude-plugin/plugin.json");
 const CURSOR_PLUGIN_JSON = resolve(ROOT, "packages/llm-mcp/.cursor-plugin/plugin.json");
 const MARKETPLACE_JSON = resolve(ROOT, ".claude-plugin/marketplace.json");
+// Each plugin MCP definition runs `node <plugin root>/scripts/plugin-mcp-server.mjs <server> <version>`.
+export const MCP_DEFINITIONS = [
+  { file: "packages/llm-mcp/.mcp.json", server: "codex", rootVariable: "CLAUDE_PLUGIN_ROOT" },
+  { file: "packages/llm-mcp/mcp.json", server: "ask-llm", rootVariable: "CURSOR_PLUGIN_ROOT" },
+] as const;
 const PLUGIN_NAME = "ask-llm";
 const CHECK_ONLY = process.argv.includes("--check");
 
@@ -44,6 +51,47 @@ async function syncMarketplaceJson(version: string) {
     entry.version = version;
     await writeJson(MARKETPLACE_JSON, marketplace);
   }
+  return true;
+}
+
+type McpDefinition = (typeof MCP_DEFINITIONS)[number];
+
+// Returns the definition's pinned version, or throws when it no longer starts the server directly.
+export function mcpDefinitionPin(definition: McpDefinition, config: unknown): string {
+  const servers = (config as { mcpServers?: Record<string, unknown> } | null)?.mcpServers;
+  const names = servers && typeof servers === "object" ? Object.keys(servers) : [];
+  const entry = servers?.[definition.server] as { command?: unknown; args?: unknown } | undefined;
+  const args = Array.isArray(entry?.args) ? entry.args : [];
+  const launcher = `\${${definition.rootVariable}}/scripts/plugin-mcp-server.mjs`;
+  if (
+    names.length !== 1 ||
+    entry?.command !== "node" ||
+    args.length !== 3 ||
+    args[0] !== launcher ||
+    args[1] !== definition.server ||
+    typeof args[2] !== "string"
+  ) {
+    throw new Error(
+      `${definition.file}: must hold only "${definition.server}" running node ${launcher} ${definition.server} <version>`,
+    );
+  }
+  return args[2];
+}
+
+// Returns the definition pinned to `version`, or null when it already is.
+export function pinMcpDefinition<T>(definition: McpDefinition, config: T, version: string): T | null {
+  if (mcpDefinitionPin(definition, config) === version) return null;
+  // mcpDefinitionPin has validated the shape, so the entry and its three arguments exist.
+  const pinned = structuredClone(config) as { mcpServers: Record<string, { args: string[] }> };
+  (pinned.mcpServers[definition.server] as { args: string[] }).args[2] = version;
+  return pinned as T;
+}
+
+async function syncMcpDefinition(definition: McpDefinition, version: string) {
+  const path = resolve(ROOT, definition.file);
+  const pinned = pinMcpDefinition(definition, await readJson(path), version);
+  if (!pinned) return false;
+  if (!CHECK_ONLY) await writeJson(path, pinned);
   return true;
 }
 
@@ -94,11 +142,16 @@ async function main() {
   const pluginChanged = await syncPluginJson(PLUGIN_JSON, version);
   const cursorPluginChanged = await syncPluginJson(CURSOR_PLUGIN_JSON, version);
   const marketplaceChanged = await syncMarketplaceJson(version);
+  const mcpChanged: string[] = [];
+  for (const definition of MCP_DEFINITIONS) {
+    if (await syncMcpDefinition(definition, version)) mcpChanged.push(definition.file);
+  }
 
   const changed = [
     pluginChanged ? ".claude-plugin/plugin.json" : null,
     cursorPluginChanged ? ".cursor-plugin/plugin.json" : null,
     marketplaceChanged ? "marketplace.json" : null,
+    ...mcpChanged,
   ].filter(Boolean);
 
   if (CHECK_ONLY && changed.length > 0) {

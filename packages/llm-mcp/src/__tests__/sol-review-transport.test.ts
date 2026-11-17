@@ -12,6 +12,8 @@ import {
   classifySolReviewTransport,
   codexFallbackArgs,
   executeCodex,
+  isAskCodexRegistration,
+  isAskLlmRegistration,
   parseClaudeMcpList,
   readActiveMcpServers,
   runCliFallback,
@@ -229,6 +231,55 @@ describe("sol-review transport selection", () => {
     expect(decision.state).toBe("missing-registration");
     expect(decision.transport).toBeNull();
     expect(decision.remediation).toContain("npm install -g @openai/codex");
+  });
+});
+
+describe("plugin launcher registrations", () => {
+  // `claude mcp list` (Claude Code 2.1.325) prints the plugin's expanded command line this way.
+  const launcherLine =
+    "plugin:ask-llm:codex: node /home/u/.claude/plugins/cache/ask-llm-plugins/ask-llm/1.5.0/scripts/plugin-mcp-server.mjs codex 1.5.0 - ✔ Connected\n";
+  const shipped = (file: string, server: string) => {
+    const config = JSON.parse(fs.readFileSync(path.join(PLUGIN_ROOT, file), "utf8"));
+    return config.mcpServers[server] as { command: string; args: string[] };
+  };
+
+  it("recognizes the shipped Claude definition as the Codex registration, not the unified one", () => {
+    const codex = shipped(".mcp.json", "codex");
+    expect(isAskCodexRegistration(codex)).toBe(true);
+    expect(isAskLlmRegistration(codex)).toBe(false);
+  });
+
+  it("recognizes the shipped Cursor definition as the unified registration, not the Codex one", () => {
+    const unified = shipped("mcp.json", "ask-llm");
+    expect(isAskLlmRegistration(unified)).toBe(true);
+    expect(isAskCodexRegistration(unified)).toBe(false);
+  });
+
+  it("selects the plugin's ask-codex leaf from the launcher's claude mcp list line", () => {
+    const decision = classifySolReviewTransport({
+      availableTools: ["mcp__plugin_ask-llm_codex__ask-codex"],
+      mcpServers: parseClaudeMcpList(launcherLine),
+      cliPath: "/usr/local/bin/codex",
+    });
+    expect(decision).toMatchObject({
+      state: "preferred",
+      transport: "mcp",
+      toolName: "mcp__plugin_ask-llm_codex__ask-codex",
+    });
+  });
+
+  it("classifies a failed launcher as an unavailable registration rather than a missing one", () => {
+    const decision = classifySolReviewTransport({
+      availableTools: [],
+      mcpServers: parseClaudeMcpList(launcherLine.replace("✔ Connected", "✘ Failed to connect")),
+      cliPath: "/usr/local/bin/codex",
+    });
+    expect(decision).toMatchObject({ state: "unavailable", transport: "cli" });
+  });
+
+  it("does not treat a launcher for another server as a Codex registration", () => {
+    expect(isAskCodexRegistration({ commandLine: "node /p/scripts/plugin-mcp-server.mjs codexx 1.5.0" })).toBe(false);
+    expect(isAskCodexRegistration({ command: "node", args: ["/p/scripts/other.mjs", "codex", "1.5.0"] })).toBe(false);
   });
 });
 

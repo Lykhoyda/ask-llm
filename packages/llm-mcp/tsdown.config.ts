@@ -4,6 +4,7 @@ export default defineConfig({
   entry: {
     index: "src/index.ts",
     cli: "src/cli.ts",
+    "codex-mcp": "src/codex-mcp.ts",
     machine: "src/machine.ts",
     cursor: "src/cursorAgent.ts",
     "ask-llm": "src/ask-llm.ts",
