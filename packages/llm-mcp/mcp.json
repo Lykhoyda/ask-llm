@@ -5,7 +5,7 @@
       "args": [
         "${CURSOR_PLUGIN_ROOT}/scripts/plugin-mcp-server.mjs",
         "ask-llm",
-        "1.4.0"
+        "1.5.0"
       ]
     }
   }
