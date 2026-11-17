@@ -68,7 +68,7 @@ describe("provider registry drift guard", () => {
 
     expect(assessment?.available).toBe(false);
     expect(assessment?.error).toContain("1.1.4");
-    expect(assessment?.error).toContain("1.1.5");
+    expect(assessment?.error).toContain("1.5.9");
     expect(assessment?.fix).toContain("Update Antigravity CLI");
   });
 });

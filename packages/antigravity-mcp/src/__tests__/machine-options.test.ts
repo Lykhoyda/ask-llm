@@ -1,14 +1,15 @@
 import { describe, expect, it } from "vitest";
-import { CLI, OUTPUT_FORMATS } from "../constants.js";
+import { CLI, OUTPUT_FORMATS, SESSION_SETTINGS_OVERLAY } from "../constants.js";
 import { buildArgs } from "../utils/antigravityExecutor.js";
 
 describe("Antigravity machine options", () => {
-  it("uses plan+sandbox without dangerous permission bypass for machine review", () => {
-    const args = buildArgs("review", [], 295, true, "Gemini 3.1 Pro (High)", true);
+  it("uses sandbox plus the deny overlay, never plan mode or a permission bypass, for machine review", () => {
+    const args = buildArgs("review", [], 295, false, "Gemini 3.1 Pro (High)", true);
 
-    expect(args).toContain("--mode");
-    expect(args).toContain("plan");
-    expect(args).toContain("--sandbox");
+    // agy ignores --mode plan beside --disable-slash-commands, so it is not a read-only control.
+    expect(args).not.toContain("--mode");
+    expect(args).toContain(CLI.FLAGS.SANDBOX);
+    expect(args.slice(-2)).toEqual([CLI.FLAGS.SETTINGS, SESSION_SETTINGS_OVERLAY]);
     expect(args).not.toContain("--dangerously-skip-permissions");
     // legacy display strings carry their own effort tier — pairing --effort would be rejected by agy
     expect(args).not.toContain(CLI.FLAGS.EFFORT);
@@ -27,6 +28,8 @@ describe("Antigravity machine options", () => {
       CLI.FLAGS.OUTPUT_FORMAT,
       OUTPUT_FORMATS.JSON,
       CLI.FLAGS.SANDBOX,
+      CLI.FLAGS.SETTINGS,
+      SESSION_SETTINGS_OVERLAY,
     ]);
   });
 });

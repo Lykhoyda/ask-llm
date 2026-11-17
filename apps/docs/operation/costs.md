@@ -76,7 +76,7 @@ ollama pull deepseek-coder:6.7b
 Use ask-llm with provider ollama and model deepseek-coder:6.7b to review this implementation
 ```
 
-For Antigravity, `ask-antigravity` requires `agy` ≥1.1.5 and has no per-call `model` argument — configure it via env vars:
+For Antigravity, `ask-antigravity` requires a [supported agy version](/providers/antigravity#prerequisites) and has no per-call `model` argument — configure it via env vars:
 
 - `ASK_ANTIGRAVITY_MODEL` — an agy model slug from `agy models` (e.g. `claude-sonnet-4-6`). Legacy effort-carrying display strings like `Gemini 3.1 Pro (High)` still resolve for backward compatibility.
 - `ASK_ANTIGRAVITY_EFFORT` — reasoning effort, `low` | `medium` | `high` (default `high`). Invalid values log a warning and fall back to the default behavior. Note agy limits tiers per model (`gemini-3.1-pro` has no `medium`), and effort-carrying model names reject `--effort` entirely — so the default effort is only sent with the shipped base slugs and model-less recovery runs, while an explicitly set value is always sent.
@@ -97,7 +97,7 @@ For Antigravity, `ask-antigravity` requires `agy` ≥1.1.5 and has no per-call `
 
 Token usage is exposed live via:
 
-- **Per-call**: `result.structuredContent.usage` on `ask-*` tool responses (provider, model, inputTokens, outputTokens, cachedTokens, thinkingTokens, durationMs, fellBack). Antigravity reads these values from agy's JSON envelope; cached tokens are unavailable on agy 1.1.5.
+- **Per-call**: `result.structuredContent.usage` on `ask-*` tool responses (provider, model, inputTokens, outputTokens, cachedTokens, thinkingTokens, durationMs, fellBack). See [Antigravity tools](/providers/antigravity#tools) for agy's usage reporting.
 - **Per-session aggregate**: call the `get-usage-stats` MCP tool, or read the `usage://current-session` MCP Resource for a JSON snapshot
 - **In the REPL**: type `/usage` for a markdown-formatted breakdown
 

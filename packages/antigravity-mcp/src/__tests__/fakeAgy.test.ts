@@ -2,10 +2,10 @@ import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, wr
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
-import { ERROR_MESSAGES, MODELS } from "../constants.js";
+import { ERROR_MESSAGES, MODELS, SESSION_SETTINGS_OVERLAY } from "../constants.js";
 import { executeAntigravityCLI } from "../utils/antigravityExecutor.js";
 
-// Envelopes and stderr live-captured from agy 1.2.12 unless noted.
+// Envelopes and stderr live-captured from agy 1.2.12 unless noted; the fake reports the 1.5.9 floor.
 const envelope = (response: string, usage: Record<string, number>) =>
   JSON.stringify({
     conversation_id: "f8e88b1f-6678-46ab-84df-c0beff2e1347",
@@ -23,7 +23,6 @@ const PONG_USAGE = {
   cache_read_tokens: 0,
   total_tokens: 16109,
 };
-const PLAN_WARNING = "warning: --mode plan has no effect while slash command expansion is disabled.\n";
 const TIMEOUT_NOTE = "[agy] print timeout after 30s with turn in progress; returning partial output\n";
 const PARTIAL = "By the year 1500, it is estimated";
 // agy >=1.2.6 exits 3 with this stderr line; keys are from the agy 1.2.12 binary, not a live failure.
@@ -39,7 +38,7 @@ const errorEnvelope = (error: string) =>
 
 type Scenario = { stdout: string; stderr: string; exit?: number; sleepSec?: number };
 
-describe("fake agy 1.2.12", { timeout: 30_000 }, () => {
+describe("fake agy", { timeout: 30_000 }, () => {
   let dir: string;
 
   const writeScenario = (name: string, { stdout, stderr, exit = 0, sleepSec = 0 }: Scenario) => {
@@ -50,7 +49,7 @@ describe("fake agy 1.2.12", { timeout: 30_000 }, () => {
     writeFileSync(join(dir, name, "stderr.txt"), stderr);
     writeFileSync(join(dir, name, "exit.txt"), String(exit));
   };
-  const installFakeAgy = (primary: Scenario, fallback: Scenario = primary, quota?: Scenario, version = "1.2.12") => {
+  const installFakeAgy = (primary: Scenario, fallback: Scenario = primary, quota?: Scenario, version = "1.5.9") => {
     writeFileSync(join(dir, "version.txt"), `${version}\n`);
     writeScenario("primary", primary);
     writeScenario("fallback", fallback);
@@ -61,6 +60,10 @@ describe("fake agy 1.2.12", { timeout: 30_000 }, () => {
     readFileSync(join(dir, name, "argv.txt"), "utf8")
       .trim()
       .split("\n");
+  const expectOverlay = (argv: string[]) => {
+    expect(argv.slice(-2)).toEqual(["--settings", SESSION_SETTINGS_OVERLAY]);
+    expect(argv).not.toContain("--mode");
+  };
 
   // One executable for the file: macOS can stall seconds scanning each newly written binary.
   beforeAll(() => {
@@ -69,7 +72,7 @@ describe("fake agy 1.2.12", { timeout: 30_000 }, () => {
       vi.stubEnv(key, undefined);
     }
     dir = mkdtempSync(join(tmpdir(), "fake-agy-"));
-    writeFileSync(join(dir, "version.txt"), "1.2.12\n");
+    writeFileSync(join(dir, "version.txt"), "1.5.9\n");
     const script = [
       "#!/bin/sh",
       `if [ "$1" = "--version" ]; then cat '${join(dir, "version.txt")}'; exit 0; fi`,
@@ -93,7 +96,7 @@ describe("fake agy 1.2.12", { timeout: 30_000 }, () => {
 
   describe("print-timeout expiry (#325)", () => {
     it("fails closed instead of serving the exit-0 partial answer as complete", async () => {
-      installFakeAgy({ stdout: envelope(PARTIAL, ZERO_USAGE), stderr: PLAN_WARNING + TIMEOUT_NOTE });
+      installFakeAgy({ stdout: envelope(PARTIAL, ZERO_USAGE), stderr: TIMEOUT_NOTE });
       const error = await executeAntigravityCLI({ prompt: "q", readOnly: true }).catch((err: unknown) => err);
       expect(error).toBeInstanceOf(Error);
       expect((error as Error).message).toContain(ERROR_MESSAGES.TRUNCATED);
@@ -101,14 +104,15 @@ describe("fake agy 1.2.12", { timeout: 30_000 }, () => {
     });
 
     it("reports truncation rather than NO_OUTPUT when the timeout left an empty response", async () => {
-      installFakeAgy({ stdout: envelope("", ZERO_USAGE), stderr: PLAN_WARNING + TIMEOUT_NOTE });
+      installFakeAgy({ stdout: envelope("", ZERO_USAGE), stderr: TIMEOUT_NOTE });
       await expect(executeAntigravityCLI({ prompt: "q", readOnly: true })).rejects.toThrow(ERROR_MESSAGES.TRUNCATED);
     });
 
-    it("still serves a complete answer whose stderr carries only the benign plan warning", async () => {
-      installFakeAgy({ stdout: envelope("pong\n", PONG_USAGE), stderr: PLAN_WARNING });
+    it("still serves a complete answer whose stderr carries only startup warnings", async () => {
+      installFakeAgy({ stdout: envelope("pong\n", PONG_USAGE), stderr: `${STARTUP_WARNINGS}\n` });
       const result = await executeAntigravityCLI({ prompt: "q", readOnly: true });
       expect(result.response).toBe("pong");
+      expectOverlay(argvOf("primary"));
     });
   });
 
@@ -124,7 +128,6 @@ describe("fake agy 1.2.12", { timeout: 30_000 }, () => {
       denied_actions: [{ action: "write_file", display_name: "WriteToFile" }],
     });
     const stderr =
-      PLAN_WARNING +
       'jetski: no output produced — a tool required the "write_file" permission that headless mode cannot prompt for, so it was auto-denied.\n';
     installFakeAgy({ stdout, stderr });
     const error = await executeAntigravityCLI({ prompt: "q", readOnly: true }).catch((err: unknown) => err);
@@ -151,6 +154,8 @@ describe("fake agy 1.2.12", { timeout: 30_000 }, () => {
       expect(result.model).toBe(MODELS.FALLBACK);
       const fallbackArgv = argvOf("fallback");
       expect(fallbackArgv[fallbackArgv.indexOf("--effort") + 1]).toBe("high");
+      expectOverlay(argvOf("primary"));
+      expectOverlay(fallbackArgv);
     });
 
     it("surfaces a non-quota AGY_ERROR without falling back", async () => {
@@ -203,7 +208,7 @@ describe("fake agy 1.2.12", { timeout: 30_000 }, () => {
       stderr: "",
     };
 
-    it.each(["1.2.13", "1.2.14"])(
+    it.each(["1.5.9", "1.6.0"])(
       "appends agy's live quota and reset times on agy %s when primary and Flash are both rate limited",
       async (version) => {
         installFakeAgy(rateLimited, rateLimited, quota, version);
@@ -212,22 +217,21 @@ describe("fake agy 1.2.12", { timeout: 30_000 }, () => {
         expect((error as Error).message).toContain(
           "Gemini Models Five Hour Limit Remaining: 0% (resets 2026-09-27T20:10:40Z)",
         );
-        // Live on agy 1.2.13: --sandbox still answers /quota with num_turns 0.
-        expect(argvOf("quota")).toEqual(["-p", "/quota", "--output-format", "json", "--sandbox"]);
+        // Live on agy 1.5.9: --sandbox plus the overlay still answers /quota with num_turns 0.
+        expect(argvOf("quota")).toEqual([
+          "-p",
+          "/quota",
+          "--output-format",
+          "json",
+          "--sandbox",
+          "--settings",
+          SESSION_SETTINGS_OVERLAY,
+        ]);
       },
     );
 
-    it.each(["1.1.11", "1.2.11", "1.2.12"])(
-      "skips the /quota probe below 1.2.13 (%s) and keeps the plain rate-limit message",
-      async (version) => {
-        installFakeAgy(rateLimited, rateLimited, quota, version);
-        const error = await executeAntigravityCLI({ prompt: "q" }).catch((err: unknown) => err);
-        expect((error as Error).message).toBe(ERROR_MESSAGES.RATE_LIMITED);
-        expect(existsSync(join(dir, "quota", "argv.txt"))).toBe(false);
-      },
-    );
-
-    it.each(["1.1.4", "Antigravity development build"])(
+    // Below the overlay floor agy is refused outright, never run without the overlay.
+    it.each(["1.1.4", "1.2.12", "1.5.7", "1.5.8", "Antigravity development build"])(
       "refuses unsupported or unparseable version %j before model or /quota execution",
       async (version) => {
         installFakeAgy(rateLimited, rateLimited, quota, version);
@@ -238,7 +242,7 @@ describe("fake agy 1.2.12", { timeout: 30_000 }, () => {
     );
 
     it("keeps the plain rate-limit message when the quota probe fails", async () => {
-      installFakeAgy(rateLimited, rateLimited, undefined, "1.2.13");
+      installFakeAgy(rateLimited, rateLimited, undefined, "1.5.9");
       const error = await executeAntigravityCLI({ prompt: "q" }).catch((err: unknown) => err);
       expect((error as Error).message).toBe(ERROR_MESSAGES.RATE_LIMITED);
       expect(existsSync(join(dir, "quota", "argv.txt"))).toBe(true);
