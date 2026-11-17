@@ -46,7 +46,7 @@ Different providers excel at different things. Pick by what you're doing, not by
 
 ## Overriding the Model
 
-For a cost-focused Gemini opt-in, set `ASK_GEMINI_MODEL=gemini-3.5-flash-lite`, or set only `ASK_GEMINI_FALLBACK_MODEL=gemini-3.5-flash-lite` to keep the Pro default and change the quota fallback. Flash-Lite has a 1M-token input context; this is a cost choice, not a quality upgrade. Gemini CLI subscription restrictions, quotas, and free-tier limits still apply, including the current enterprise-only access rules. See [Flash-Lite configuration and account eligibility](/providers/gemini#flash-lite). API token prices do not determine your CLI plan's charges or limits.
+For a cheaper Gemini opt-in, see the provider guide's [Flash-Lite configuration, pricing, and account eligibility](/providers/gemini#flash-lite).
 
 Pass `model` explicitly when you have a reason to:
 
@@ -89,7 +89,6 @@ For Antigravity, `ask-antigravity` requires a [supported agy version](/providers
 |---|---|---|
 | Gemini Pro | ~1M tokens (~250k LOC) | Gemini Code Assist Standard/Enterprise seat (from 2026-06-18) |
 | Gemini Flash | ~1M tokens | Same account eligibility; fallback target for quota relief |
-| Gemini 3.5 Flash-Lite (opt-in) | ~1M tokens | Lower API cost option; same CLI account eligibility and limits |
 | Codex GPT-6 Astra / GPT-6.1 Sol | Per OpenAI's published context window | Your authenticated account’s quota/billing |
 | Grok 4.7 | 500k tokens on xAI API | API is metered; Grok CLI follows its authenticated plan |
 | Cursor Agent harness | Per selected catalog model | Included usage/on-demand spend follows the user's Cursor plan; Ask LLM never changes spend settings |
