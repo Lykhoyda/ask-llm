@@ -11,7 +11,7 @@ import { parseFrontmatter } from "./lib/frontmatter.mts";
 import { loadPairDefaults } from "./lib/pair-config-io.mts";
 import { resolveBlockOn, resolveConfig } from "./lib/pair-config.mts";
 import { type PairLogEntry as LogEntry, buildReport, formatReport } from "./lib/pair-report.mts";
-import { formatSetup, setupFailed, setupMarker } from "./lib/pair-setup.mts";
+import { formatSetup, pairDirectoryIgnored, setupFailed, setupMarker } from "./lib/pair-setup.mts";
 import {
   CONTEXT_FILENAME,
   PAIR_ROOT_DIR,
@@ -245,6 +245,7 @@ function showSummary(entries: LogEntry[]): void {
 
 // Read-only: observing a pause never clears it or starts a reviewer/broker.
 function showStatus(markerDir: string, entries: LogEntry[]): void {
+  const directoryIgnored = pairDirectoryIgnored(markerDir);
   const marker = readFileSync(contextPath(markerDir), "utf8");
   const parsed = parseFrontmatter(marker);
   let config: ReturnType<typeof resolveConfig> | undefined;
@@ -267,6 +268,9 @@ function showStatus(markerDir: string, entries: LogEntry[]): void {
     [
       `codex-pair status — ${markerDir}`,
       `State: ${state}`,
+      ...(directoryIgnored === false
+        ? [`Warning: ${PAIR_ROOT_DIR}/ is not ignored by git; run codex-pair-log setup.`]
+        : []),
       ...(config
         ? [
             `Reviewer: ${config.reviewer}`,

@@ -54,6 +54,16 @@ function ignoredByGit(root, directory) {
         throw err;
     }
 }
+export function pairDirectoryIgnored(markerDir) {
+    let root;
+    try {
+        root = git(markerDir, ["rev-parse", "--show-toplevel"]);
+    }
+    catch {
+        return null;
+    }
+    return ignoredByGit(root, `${join(markerDir, PAIR_ROOT_DIR)}/`);
+}
 export function ensureExcluded(root, marker) {
     try {
         if (!isLocalFilePath(root, marker))
@@ -104,6 +114,9 @@ export function setupMarker(cwd) {
     if (!isLocalFilePath(root, template))
         return { kind: "invalid-template", root, template };
     const marker = join(root, PAIR_ROOT_DIR, CONTEXT_FILENAME);
+    const ignore = ensureExcluded(root, marker);
+    if (ignore.kind === "failed")
+        return { kind: "ignore-failed", reason: ignore.reason };
     mkdirSync(dirname(marker), { recursive: true });
     try {
         copyFileSync(template, marker, constants.COPYFILE_EXCL);
@@ -113,7 +126,7 @@ export function setupMarker(cwd) {
             throw err;
         return { kind: "exists", root, marker, ignore: ensureExcluded(root, marker) };
     }
-    return { kind: "created", root, marker, template, ignore: ensureExcluded(root, marker) };
+    return { kind: "created", root, marker, template, ignore };
 }
 function describeIgnore(ignore) {
     if (ignore.kind === "excluded")
@@ -123,9 +136,9 @@ function describeIgnore(ignore) {
     return `codex-pair: could not add ${PAIR_ROOT_DIR}/ to git's local exclude file: ${ignore.reason}`;
 }
 export function setupFailed(outcome) {
-    if (outcome.kind === "invalid-template" || outcome.kind === "invalid-marker")
+    if (outcome.kind === "invalid-template" || outcome.kind === "invalid-marker" || outcome.kind === "ignore-failed")
         return true;
-    return (outcome.kind === "created" || outcome.kind === "exists") && outcome.ignore.kind === "failed";
+    return outcome.kind === "exists" && outcome.ignore.kind === "failed";
 }
 // The first word of the first line is the outcome the skill branches on.
 export function formatSetup(outcome) {
@@ -141,6 +154,8 @@ export function formatSetup(outcome) {
             return `invalid-template: ${outcome.template} must be a regular file inside the repository without symlinked components; nothing was copied.`;
         case "invalid-marker":
             return `invalid-marker: ${outcome.marker} must be a regular file path inside the repository without symlinked components; nothing was changed.`;
+        case "ignore-failed":
+            return `ignore-failed: ${outcome.reason}; no marker was created.`;
         case "created":
             return [`created: copied ${outcome.template} to ${outcome.marker}`, describeIgnore(outcome.ignore)].join("\n");
         case "exists":

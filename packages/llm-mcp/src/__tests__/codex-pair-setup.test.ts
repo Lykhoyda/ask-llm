@@ -243,15 +243,40 @@ describe("codex-pair-log setup", () => {
       }
       const result = setup(base, root);
       expect(result.status).toBe(1);
-      expect(result.stdout).toMatch(existing ? /^exists: / : /^created: /);
+      expect(result.stdout).toMatch(existing ? /^exists: / : /^ignore-failed: /);
       expect(result.stdout).toContain("is still not ignored by git");
       expect(result.stdout).not.toContain("is ignored through");
-      expect(readFileSync(marker(root), "utf8")).toBe(existing ? "# personal context\n" : TEMPLATE);
       expect(readFileSync(join(root, ".gitignore"), "utf8")).toBe(gitignore);
-      writeFileSync(join(root, ".codex-pair", "log.jsonl"), "private review\n");
-      expect(git(base, root, "status", "--porcelain", "--untracked-files=all")).toContain(".codex-pair/log.jsonl");
+      if (existing) {
+        expect(readFileSync(marker(root), "utf8")).toBe("# personal context\n");
+        writeFileSync(join(root, ".codex-pair", "log.jsonl"), "private review\n");
+        expect(git(base, root, "status", "--porcelain", "--untracked-files=all")).toContain(".codex-pair/log.jsonl");
+      } else {
+        expect(existsSync(join(root, ".codex-pair"))).toBe(false);
+        expect(git(base, root, "status", "--porcelain", "--untracked-files=all")).toBe("");
+      }
     },
   );
+
+  it("leaves no marker after an exclude write failure and creates it on a corrected retry", () => {
+    const base = scratch();
+    const root = repo(base);
+    const exclude = excludeFile(base, root);
+    const before = readFileSync(exclude, "utf8");
+    rmSync(exclude);
+    mkdirSync(exclude);
+    const failed = setup(base, join(root, "src"));
+    expect(failed.status).toBe(1);
+    expect(failed.stdout).toMatch(/^ignore-failed: /);
+    expect(existsSync(join(root, ".codex-pair"))).toBe(false);
+    rmSync(exclude, { recursive: true });
+    writeFileSync(exclude, before);
+    const retry = setup(base, join(root, "src"));
+    expect(retry.status).toBe(0);
+    expect(retry.stdout).toMatch(/^created: /);
+    expect(readFileSync(marker(root), "utf8")).toBe(TEMPLATE);
+    expect(git(base, root, "status", "--porcelain", "--untracked-files=all")).toBe("");
+  });
 
   it("writes nothing outside a git repository", () => {
     const base = scratch();

@@ -9,7 +9,7 @@ import { parseFrontmatter } from "./lib/frontmatter.mjs";
 import { loadPairDefaults } from "./lib/pair-config-io.mjs";
 import { resolveBlockOn, resolveConfig } from "./lib/pair-config.mjs";
 import { buildReport, formatReport } from "./lib/pair-report.mjs";
-import { formatSetup, setupFailed, setupMarker } from "./lib/pair-setup.mjs";
+import { formatSetup, pairDirectoryIgnored, setupFailed, setupMarker } from "./lib/pair-setup.mjs";
 import { CONTEXT_FILENAME, PAIR_ROOT_DIR, addAck, contextPath, pauseManually, readAcks, readPauseInfo, logPath as resolveLogPath, resumeManually, } from "./lib/state.mjs";
 import { canonicalFile, readBlockingHighs } from "./lib/stop-gate-io.mjs";
 const MARKER_FILE = join(PAIR_ROOT_DIR, CONTEXT_FILENAME);
@@ -237,6 +237,7 @@ function showSummary(entries) {
 }
 // Read-only: observing a pause never clears it or starts a reviewer/broker.
 function showStatus(markerDir, entries) {
+    const directoryIgnored = pairDirectoryIgnored(markerDir);
     const marker = readFileSync(contextPath(markerDir), "utf8");
     const parsed = parseFrontmatter(marker);
     let config;
@@ -258,6 +259,9 @@ function showStatus(markerDir, entries) {
     process.stdout.write([
         `codex-pair status — ${markerDir}`,
         `State: ${state}`,
+        ...(directoryIgnored === false
+            ? [`Warning: ${PAIR_ROOT_DIR}/ is not ignored by git; run codex-pair-log setup.`]
+            : []),
         ...(config
             ? [
                 `Reviewer: ${config.reviewer}`,

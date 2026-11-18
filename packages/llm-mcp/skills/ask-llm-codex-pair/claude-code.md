@@ -107,6 +107,8 @@ node "${CLAUDE_PLUGIN_ROOT}/scripts/codex-pair-log.mjs" --status
 
 It resolves the same configuration as the hook, including marker/environment/default effort precedence, `blockOn`, disabled and pause state, and recent reviews. Existing markers stay advisory unless they opt in with `blockOn: HIGH`.
 
+If status warns that `.codex-pair/` is not ignored by git, run `node "${CLAUDE_PLUGIN_ROOT}/scripts/codex-pair-log.mjs" setup` from the same directory to apply the local exclusion while preserving the marker. Show the setup output and stop if it exits non-zero.
+
 Done when the command's output has been shown, including its state, resolved configuration and recent reviews (or the absence of reviews).
 
 ## 4. Report paired work

@@ -21,7 +21,14 @@ export type SetupOutcome =
   | { kind: "no-template"; root: string; template: string }
   | { kind: "invalid-template"; root: string; template: string }
   | { kind: "invalid-marker"; root: string; marker: string }
-  | { kind: "created"; root: string; marker: string; template: string; ignore: IgnoreOutcome }
+  | { kind: "ignore-failed"; reason: string }
+  | {
+      kind: "created";
+      root: string;
+      marker: string;
+      template: string;
+      ignore: Exclude<IgnoreOutcome, { kind: "failed" }>;
+    }
   | { kind: "exists"; root: string; marker: string; ignore: IgnoreOutcome };
 
 function git(cwd: string, args: string[]): string {
@@ -71,6 +78,16 @@ function ignoredByGit(root: string, directory: string): boolean {
   }
 }
 
+export function pairDirectoryIgnored(markerDir: string): boolean | null {
+  let root: string;
+  try {
+    root = git(markerDir, ["rev-parse", "--show-toplevel"]);
+  } catch {
+    return null;
+  }
+  return ignoredByGit(root, `${join(markerDir, PAIR_ROOT_DIR)}/`);
+}
+
 export function ensureExcluded(root: string, marker: string): IgnoreOutcome {
   try {
     if (!isLocalFilePath(root, marker)) return { kind: "failed", reason: `${marker} is not a local regular file path` };
@@ -111,6 +128,8 @@ export function setupMarker(cwd: string): SetupOutcome {
   if (!exists(template)) return { kind: "no-template", root, template };
   if (!isLocalFilePath(root, template)) return { kind: "invalid-template", root, template };
   const marker = join(root, PAIR_ROOT_DIR, CONTEXT_FILENAME);
+  const ignore = ensureExcluded(root, marker);
+  if (ignore.kind === "failed") return { kind: "ignore-failed", reason: ignore.reason };
   mkdirSync(dirname(marker), { recursive: true });
   try {
     copyFileSync(template, marker, constants.COPYFILE_EXCL);
@@ -118,7 +137,7 @@ export function setupMarker(cwd: string): SetupOutcome {
     if ((err as NodeJS.ErrnoException)?.code !== "EEXIST") throw err;
     return { kind: "exists", root, marker, ignore: ensureExcluded(root, marker) };
   }
-  return { kind: "created", root, marker, template, ignore: ensureExcluded(root, marker) };
+  return { kind: "created", root, marker, template, ignore };
 }
 
 function describeIgnore(ignore: IgnoreOutcome): string {
@@ -128,8 +147,9 @@ function describeIgnore(ignore: IgnoreOutcome): string {
 }
 
 export function setupFailed(outcome: SetupOutcome): boolean {
-  if (outcome.kind === "invalid-template" || outcome.kind === "invalid-marker") return true;
-  return (outcome.kind === "created" || outcome.kind === "exists") && outcome.ignore.kind === "failed";
+  if (outcome.kind === "invalid-template" || outcome.kind === "invalid-marker" || outcome.kind === "ignore-failed")
+    return true;
+  return outcome.kind === "exists" && outcome.ignore.kind === "failed";
 }
 
 // The first word of the first line is the outcome the skill branches on.
@@ -146,6 +166,8 @@ export function formatSetup(outcome: SetupOutcome): string {
       return `invalid-template: ${outcome.template} must be a regular file inside the repository without symlinked components; nothing was copied.`;
     case "invalid-marker":
       return `invalid-marker: ${outcome.marker} must be a regular file path inside the repository without symlinked components; nothing was changed.`;
+    case "ignore-failed":
+      return `ignore-failed: ${outcome.reason}; no marker was created.`;
     case "created":
       return [`created: copied ${outcome.template} to ${outcome.marker}`, describeIgnore(outcome.ignore)].join("\n");
     case "exists":
