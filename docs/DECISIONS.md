@@ -1,5 +1,15 @@
 # Architectural Decisions
 
+## ADR-200: Retry Changesets publication after a Rekor duplicate-entry conflict
+
+**Status:** Accepted (2026-11-19). Extends ADR-189.
+
+**Context:** Four Release attempts stopped before uploading `@ask-llm/mcp` to npm. Each 409 named a Rekor entry whose Fulcio certificate identified the same failing run and attempt. Yarn 4.18.1 waits for its Sigstore upload before sending the npm package. When Rekor accepts the entry and the client retries the request, the bundled signing client treats the duplicate response as fatal. The released Yarn and npm CLIs checked still have that behavior. [Sigstore duplicate-entry issue](https://github.com/sigstore/sigstore-js/issues/1708)
+
+**Decision:** After that specific Rekor diagnostic, rerun the default Changesets publish command up to twice, after two and four seconds. Each invocation recomputes the publish plan against the same npm registry it publishes to, skips existing exact versions and signs the remaining packages in a new invocation. Retain Changesets' append-only output for the action across attempts.
+
+**Consequences:** Trusted publishing and provenance still use the pinned Yarn and the existing OIDC permission. Manual dispatch remains Registry, release and tag recovery only. An exhausted retry or another failure still fails the workflow. The next normal release verifies the live OIDC path.
+
 ## ADR-199: Adopt GPT-6.2 Sol and Astra for Codex
 
 **Status:** Accepted (2026-11-18). Updates the Codex default from ADR-193 and the Sol and Astra pins from ADR-187.

@@ -181,6 +181,7 @@ describe("canonical release selection", () => {
     expect(publish.with["create-github-releases"]).toBe(false);
     expect(publish.with["push-git-tags"]).toBe(false);
     expect(publish.env).toEqual({
+      YARN_NPM_REGISTRY_SERVER: "https://registry.npmjs.org",
       YARN_NPM_PUBLISH_REGISTRY: "https://registry.npmjs.org",
       YARN_NPM_PUBLISH_PROVENANCE: "true",
     });

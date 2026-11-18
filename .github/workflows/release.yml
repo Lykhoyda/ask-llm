@@ -50,6 +50,7 @@ jobs:
       # When pending changesets exist on main: opens/updates the Version Packages PR.
       # When this push IS the merged Version Packages PR: runs `yarn changeset:publish`
       # which builds + publishes any packages whose version is ahead of the registry.
+      # A Rekor duplicate-entry failure retries with a fresh Changesets publish plan (ADR-200).
       # Since ADR-119 there are NO pack-time lifecycle hooks — tsdown inlines
       # @ask-llm/shared at build time and manifests publish as-is.
       - name: Create Release PR or Publish
@@ -67,6 +68,7 @@ jobs:
           create-github-releases: false   # we create one unified GitHub Release below, not per-package
           push-git-tags: false            # ADR-151 helper exclusively manages remote package source tags
         env:
+          YARN_NPM_REGISTRY_SERVER: https://registry.npmjs.org
           YARN_NPM_PUBLISH_REGISTRY: https://registry.npmjs.org
           YARN_NPM_PUBLISH_PROVENANCE: "true"
 

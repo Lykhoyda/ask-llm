@@ -76,6 +76,9 @@ if (!/^\s+YARN_NPM_PUBLISH_PROVENANCE:\s*"true"\s*$/m.test(release)) {
 if (!/^\s+YARN_NPM_PUBLISH_REGISTRY:\s*https:\/\/registry\.npmjs\.org\s*$/m.test(release)) {
   errors.push("Yarn npm publication must use the npm registry for trusted publishing");
 }
+if (!/^\s+YARN_NPM_REGISTRY_SERVER:\s*https:\/\/registry\.npmjs\.org\s*$/m.test(release)) {
+  errors.push("Changesets must check existing versions against the same npm registry it publishes to");
+}
 if (!release.includes("Create or verify per-package Git tags")) {
   errors.push("Normal publication and Registry recovery must create or verify per-package Git tags");
 }

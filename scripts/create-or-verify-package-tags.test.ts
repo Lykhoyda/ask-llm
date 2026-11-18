@@ -542,6 +542,7 @@ test("publish uses Yarn OIDC with provenance and no token-only preflight or acce
   assert.ok(changesetsStep);
   assert.equal(changesetsStep.with["publish-script"], "yarn changeset:publish");
   assert.deepEqual(changesetsStep.env, {
+    YARN_NPM_REGISTRY_SERVER: "https://registry.npmjs.org",
     YARN_NPM_PUBLISH_REGISTRY: "https://registry.npmjs.org",
     YARN_NPM_PUBLISH_PROVENANCE: "true",
   });
