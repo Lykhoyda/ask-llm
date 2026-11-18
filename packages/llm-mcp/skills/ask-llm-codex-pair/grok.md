@@ -1,6 +1,6 @@
 # Grok CLI per-edit pairing
 
-Use this adapter on Grok CLI 1.0.70 or newer. The worker is Grok; the reviewer is Codex Sol by default (`gpt-6.1-sol`, high effort), or opt-in Claude Opus 5.5 (`claude-opus-5-5`). This is one hook with a reviewer setting. Cursor Agent's per-edit adapter and Codex CLI per-edit hooks are outside this integration.
+Use this adapter on Grok CLI 1.0.70 or newer. The worker is Grok; the reviewer is Codex Sol by default (`gpt-6.2-sol`, high effort), or opt-in Claude Opus 5.5 (`claude-opus-5-5`). This is one hook with a reviewer setting. Cursor Agent's per-edit adapter and Codex CLI per-edit hooks are outside this integration.
 
 ## Setup
 

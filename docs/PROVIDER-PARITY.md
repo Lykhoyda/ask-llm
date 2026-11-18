@@ -7,7 +7,7 @@ Factory defaults are literals (`FACTORY_DEFAULT_MODEL` in each package's `consta
 | Dimension | Gemini | Codex | Claude | Grok | Ollama | Antigravity |
 |---|---|---|---|---|---|---|
 | Transport | `gemini` CLI spawn | `codex exec --json` spawn | `claude -p --output-format json` spawn; prompt over stdin | Explicit harness (ADR-146): native `fetch` to xAI `POST /v1/responses` (`store:false`, fixed origin; default) or Grok Build headless `grok -p --output-format json`; prompts above `EXECUTION.STDIN_THRESHOLD_BYTES` go to the CLI through a private `--prompt-file` that is removed after the run, only after `grok --help` advertises the flag (official Grok Build 1.0.5 help/embedded docs); a non-advertising CLI fails before spawn with no argv retry; no harness fallback | HTTP `POST /api/chat` (native fetch) | `agy -p --output-format json` spawn after an `agy --version` gate (see [supported versions](../apps/docs/providers/antigravity.md#prerequisites)); unified discovery excludes detected unsupported or unverifiable versions from dispatch; invocation controls are described in the [provider guide](../apps/docs/providers/antigravity.md#how-it-works) |
-| Factory default model | `gemini-4-argon` | `gpt-6.1-sol` (also used by `codex-pair`) | `opus` alias (currently Opus 5.5, `claude-opus-5-5`) | `grok-4.7` for both the xAI API and the CLI harness; CLI IDs come exactly from `grok models` | `qwen3.8:27b` | `gemini-4-argon` + `--effort high` |
+| Factory default model | `gemini-4-argon` | `gpt-6.2-sol` (also used by `codex-pair`) | `opus` alias (currently Opus 5.5, `claude-opus-5-5`) | `grok-4.7` for both the xAI API and the CLI harness; CLI IDs come exactly from `grok models` | `qwen3.8:27b` | `gemini-4-argon` + `--effort high` |
 | Fallback | quota → `gemini-3.8-flash` | quota → `gpt-6.1-terra`, pinned-incompatible 400 → actionable message (ADR-127) | Claude CLI native overload/unavailability fallback → `sonnet` | **none by design** — requested model is sent unchanged; every model/quota/safety failure is terminal and actionable; a served model ID that differs from the requested alias is reported and disclosed, never rewritten | **none by design** — local means the user pulls what they intend to run; actionable `ollama pull` error (#191) | rate-limit → `gemini-3.8-flash` (ADR-125/178); a rejected model whose value equals the shipped default/fallback slug → one model-less retry, any other rejected value fails actionably (#243) |
 | Reasoning effort | provider-managed | `medium` general default; `high` for `/codex-review`, `/brainstorm`, and `codex-pair`; per-call `reasoningEffort` override including opt-in `ultra` (automatic task delegation; not a review default) | provider-managed | `low\|medium\|high\|xhigh`, default `high`; API uses `reasoning.effort`, CLI uses `--effort`; effort is not encoded into IDs. xAI documents `xhigh` for grok-4.6 and later and applies it as `high` elsewhere, so sending `xhigh` emits a disclosure; a 4xx that names the effort is classified as an effort rejection with the supported list | provider-managed | `--effort high` default (emitted with the shipped base slugs and model-less runs); `ASK_ANTIGRAVITY_EFFORT=low\|medium\|high` override, validated with warn-and-default on invalid values (#243) |
 | Timeout default | 210s | **800s** — reasoning models spend real wall time before first output (#45) | 600s — Opus reviews can include several read/tool turns | 600s — Grok 4.7 reasoning at high/xhigh can run for minutes; aborts the underlying HTTP request and body read, or terminates the CLI process | 600s — 27b models load/generate slowly on modest hardware; the bound catches wedged servers, not slow generation | 300s |
@@ -38,14 +38,14 @@ Known deliberate NON-alignments to leave alone unless a user asks:
 - **Grok does not enable xAI storage or server-side tools.** `store:false` and no tools keep API consultations one-shot and cost-bounded. Grok CLI runs one read-only turn. Cursor Agent runs `--mode ask` without `--force` or automatic workspace trust.
 - **Claude host suppression** is intentional: Claude Code rejects nested Claude Code sessions, so `ask-llm-mcp` exposes Claude only to Codex and other non-Claude-Code hosts.
 - **Codex review/brainstorm model:** Unpinned Codex CLI calls (`/codex-review`,
-  `/multi-review`, and the raw `ask-codex` default) use `gpt-6.1-sol` and fall
-  back to `gpt-6.1-terra` on quota. `codex-pair` defaults to `gpt-6.1-sol`
+  `/multi-review`, and the raw `ask-codex` default) use `gpt-6.2-sol` and fall
+  back to `gpt-6.1-terra` on quota. `codex-pair` defaults to `gpt-6.2-sol`
   (`CODEX_PAIR_MODEL`) at `high` reasoning effort, with that same Terra fallback.
   See [Brainstorm](../apps/docs/workflows/brainstorm.md) for the exact architect
-  panel and its catalog verification requirements. `/sol-review` pins `gpt-6.1-sol` and
-  `/astra-review` pins `gpt-6-astra`, both at `high` (ADR-187).
+  panel and its catalog verification requirements. `/sol-review` pins `gpt-6.2-sol` and
+  `/astra-review` pins `gpt-6.2-astra`, both at `high` (ADR-199).
   `ASK_CODEX_PREFERRED_MODEL` remains a compatibility escape hatch; the raw
   `ask-codex` tool only attempts it separately when `preferred: true` and its
-  value differs from `ASK_CODEX_MODEL`. `gpt-6-astra` requires Codex CLI >=
-  0.153.0 (ADR-163). `gpt-6-sol` is selectable on Codex CLI 0.155.1 with no
-  extra version floor (ADR-164), and `gpt-6.1-sol`/`gpt-6.1-terra` on Codex CLI 0.164.0 (ADR-187). The factory default follows the bundled default verified on Codex 0.167.0 (ADR-193).
+  value differs from `ASK_CODEX_MODEL`. Both GPT-6.2 models were verified on
+  Codex CLI 0.167.0 with a ChatGPT subscription. See [Versions](VERSIONS.md)
+  for the legacy Astra version check.

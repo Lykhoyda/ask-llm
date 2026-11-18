@@ -42,7 +42,7 @@ Claude hooks remain unchanged and Claude-only as execution surfaces. Pi maps onl
 | SessionEnd cleanup | idempotent `session_shutdown`: close epoch, clear timers, abort provider work, await bounded settlement, release owned locks |
 | `blockOn: HIGH` Stop gate | **unsupported**: findings are loud but non-blocking; Pi has no safe blocking turn-end event |
 | one-shot hook output | **unsupported for asynchronous pairing in print mode**; use TUI, RPC, or a long-lived JSON process |
-| `codex-pair-defaults.json` model, fallback, effort | same `gpt-6.1-sol` default at `high` effort; quota fallback is the shared executor's `gpt-6.1-terra` (or `ASK_CODEX_FALLBACK_MODEL`) |
+| `codex-pair-defaults.json` model, fallback, effort | same `gpt-6.2-sol` default at `high` effort; quota fallback is the shared executor's `gpt-6.1-terra` (or `ASK_CODEX_FALLBACK_MODEL`) |
 | Fable subagent | **unsupported and not loaded** |
 
 ## Security and consent

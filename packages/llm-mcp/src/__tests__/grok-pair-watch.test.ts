@@ -114,7 +114,7 @@ process.stdin.on('end', () => {
       CODEX_PAIR_HOST: "",
       CODEX_PAIR_FORCE_SYNC: "0",
       ASK_CODEX_BROKER: "0",
-      ASK_CODEX_MODEL: "gpt-6.1-sol",
+      ASK_CODEX_MODEL: "gpt-6.2-sol",
       ASK_CODEX_DEBOUNCE_MS: "15000",
       ASK_CODEX_TIMEOUT_MS: "2000",
       ASK_CLAUDE_TIMEOUT_MS: "2000",
@@ -149,7 +149,7 @@ process.stdin.on('end', () => {
     expect(run()).toContain("Review note");
     const [call] = calls();
     expect(call.name).toBe("codex");
-    expect(call.args).toEqual(expect.arrayContaining(["--sandbox", "read-only", "-m", "gpt-6.1-sol"]));
+    expect(call.args).toEqual(expect.arrayContaining(["--sandbox", "read-only", "-m", "gpt-6.2-sol"]));
     expect(call.prompt).toContain("export const x = 1;");
     expect(run()).toContain("[cached]");
     expect(calls()).toHaveLength(1);

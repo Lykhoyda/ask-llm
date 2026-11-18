@@ -17,7 +17,7 @@ Apply the portable contract above inline and call native `ask-codex` for focused
 
 ### Other hosts adapter
 
-Codex, Cursor Agent, Antigravity, Grok Build, Gemini CLI and OpenCode get this skill from their skills folder, not from a plugin. Apply the portable contract above inline and use the Codex call from `../ask-llm-review/transport.md` for focused claim checks: `model: "gpt-6.1-sol"`, `reasoningEffort: "high"`, `sandbox: "read-only"`. Do not claim an isolated verifier context.
+Codex, Cursor Agent, Antigravity, Grok Build, Gemini CLI and OpenCode get this skill from their skills folder, not from a plugin. Apply the portable contract above inline and use the Codex call from `../ask-llm-review/transport.md` for focused claim checks: `model: "gpt-6.2-sol"`, `reasoningEffort: "high"`, `sandbox: "read-only"`. Do not claim an isolated verifier context.
 
 <!-- HOST-ADAPTER:CLAUDE-CODE:START -->
 ### Claude Code adapter

@@ -179,17 +179,17 @@ Send a topic to an explicit multi-model panel, ground it with independent Claude
 /ask-llm-brainstorm gemini,codex,ollama Review this authentication approach
 
 # Architect panel: exactly Grok + GPT-6 Sol via Cursor Agent; Gemini excluded
-/ask-llm-brainstorm grok@cursor-agent:grok-4.7-high,codex@cursor-agent:gpt-6.1-sol-high "review this architecture"
+/ask-llm-brainstorm grok@cursor-agent:grok-4.7-high,codex@cursor-agent:gpt-6.2-sol-high "review this architecture"
 
 # Explicit direct-Grok alternative; never pivots away from Grok Build
-/ask-llm-brainstorm grok@grok-cli:grok-4.7,codex@cursor-agent:gpt-6.1-sol-high "review this architecture"
+/ask-llm-brainstorm grok@grok-cli:grok-4.7,codex@cursor-agent:gpt-6.2-sol-high "review this architecture"
 ```
 
 **Default external providers:** `antigravity,codex` (avoids unnecessary Ollama calls). Antigravity follows the [execution gate](https://lykhoyda.github.io/ask-llm/providers/antigravity). Compatible bare provider lists remain supported. For predictable routing use `provider@harness:exact-model-id`; the preferred Grok path is Cursor Agent. A list is either all bare names or all routed specs—mixing them (for example `grok@cursor-agent:grok-4.7-high,antigravity`) is refused before any provider is called, with no rerouting or substitution; generalized mixed panels are deferred to a future ADR. Exact IDs come from the selected harness catalog (`agent --list-models`, `grok models`, or xAI `/v1/models`) and are never translated between catalogs.
 
-The Cursor `gpt-6.1-sol-high` example follows the `<codex-slug>-high` naming but is unverified; confirm the exact ID with `agent --list-models` before use.
+The Cursor `gpt-6.2-sol-high` example follows the `<codex-slug>-high` naming but is unverified; confirm the exact ID with `agent --list-models` before use.
 
-The architect panel invokes only the two listed Cursor participants: `provider: "grok"` with `model: "grok-4.7-high"`, and `provider: "codex"` with `model: "gpt-6.1-sol-high"`. It never calls Gemini or Cursor `Auto`. If registration, authentication, model availability, or route support fails for either participant, the result is **partial** and surviving insights are attributed only to the model that answered—never called two-model consensus. Claude's evidence can verify claims but cannot supply the missing vote.
+The architect panel invokes only the two listed Cursor participants: `provider: "grok"` with `model: "grok-4.7-high"`, and `provider: "codex"` with `model: "gpt-6.2-sol-high"`. It never calls Gemini or Cursor `Auto`. If registration, authentication, model availability, or route support fails for either participant, the result is **partial** and surviving insights are attributed only to the model that answered—never called two-model consensus. Claude's evidence can verify claims but cannot supply the missing vote.
 
 The `grok-cli` form is supported only when the installed official Grok Build exposes Ask LLM's required headless JSON/read-only contract. A direct-route failure is terminal for that participant; there is no silent pivot among Cursor Agent, Grok CLI, or xAI API.
 
@@ -302,11 +302,11 @@ Invoke it with `/fable-review`.
 
 #### `sol-reviewer`
 
-This reviewer uses an isolated Opus coordinator to request `gpt-6.1-sol` explicitly at high reasoning, then validates Sol's findings against the source. Invoke it with `/sol-review`. It prefers any exact `ask-codex` leaf (including the plugin-bundled Codex server), otherwise a fully pinned unified `ask-llm` call (`provider: "codex"` plus model and Codex options), otherwise the disclosed `codex exec` fallback. An older unified schema that cannot honor those options is reported rather than stripped. A quota fallback to Terra is disclosed instead of being presented as a Sol result.
+This reviewer uses an isolated Opus coordinator to request `gpt-6.2-sol` explicitly at high reasoning, then validates Sol's findings against the source. Invoke it with `/sol-review`. It prefers any exact `ask-codex` leaf (including the plugin-bundled Codex server), otherwise a fully pinned unified `ask-llm` call (`provider: "codex"` plus model and Codex options), otherwise the disclosed `codex exec` fallback. An older unified schema that cannot honor those options is reported rather than stripped. A quota fallback to Terra is disclosed instead of being presented as a Sol result.
 
 #### `astra-reviewer`
 
-This reviewer follows the same transport ladder as `sol-reviewer` but requests `gpt-6-astra` explicitly at high reasoning, for code changes or a named plan. Invoke it with `/astra-review`. Astra needs Codex CLI 0.153.0 or later, and a quota fallback to Terra is disclosed instead of being presented as an Astra result.
+This reviewer follows the same transport ladder as `sol-reviewer` with an explicit `gpt-6.2-astra` pin at high reasoning. Invoke it with `/astra-review` for code changes or a named plan. A quota fallback is reported as a Terra result.
 
 Provider-backed review agents use a 3-phase workflow with confidence-based filtering:
 
@@ -327,7 +327,7 @@ Provider-backed review agents use a 3-phase workflow with confidence-based filte
 
 #### `codex-reviewer`
 
-Sends code changes to OpenAI Codex (GPT-6.1 Sol) for review. Automatic fallback to GPT-6.1 Terra on quota limits.
+Sends code changes to OpenAI Codex (GPT-6.2 Sol) for review. Automatic fallback to GPT-6.1 Terra on quota limits.
 
 #### `antigravity-reviewer`
 
@@ -392,7 +392,7 @@ The first Codex call (`ask-codex` when user-installed, otherwise the fully pinne
 Example:
 
 ```text
-/codex-pair model=gpt-6.1-sol effort=high include=packages/api,packages/shared review this migration
+/codex-pair model=gpt-6.2-sol effort=high include=packages/api,packages/shared review this migration
 ```
 
 With the plugin loaded, the unified `ask-llm` tool is the bundled transport: `/codex-pair` uses it with `provider: "codex"` and every option pinned; unsupported combinations (including `includeDirs` on a resumed thread) are rejected instead of stripped. A separately user-installed `ask-codex` leaf is preferred when exposed. If neither transport is present, run `ask-llm setup --host cursor`, follow any printed guidance, authenticate Codex, and reload from **Cursor Settings → Tools & MCP** or restart Cursor Agent. Earlier registrations are covered by [Migration](https://lykhoyda.github.io/ask-llm/reference/migration).
@@ -451,13 +451,13 @@ Representative commands:
 /skill:ask-llm-multi-review
 /skill:ask-llm-compare gemini,codex explain this API design
 /skill:ask-llm-brainstorm antigravity,codex review this architecture
-/skill:ask-llm-brainstorm grok@cursor-agent:grok-4.7-high,codex@cursor-agent:gpt-6.1-sol-high review this architecture
+/skill:ask-llm-brainstorm grok@cursor-agent:grok-4.7-high,codex@cursor-agent:gpt-6.2-sol-high review this architecture
 /skill:ask-llm-codex-image create a monochrome architecture diagram
 /skill:ask-llm-codex-verify
 /skill:ask-llm-codex-pair
 ```
 
-The Cursor `gpt-6.1-sol-high` example follows the `<codex-slug>-high` naming but is unverified; confirm the exact ID with `agent --list-models` before use.
+The Cursor `gpt-6.2-sol-high` example follows the `<codex-slug>-high` naming but is unverified; confirm the exact ID with `agent --list-models` before use.
 
 Pi reads these skills from the shared skills folder that `ask-llm setup --host pi` fills; the package itself ships only the extension. `ask-llm-fable-review` is not installed: independent Fable review would require a nested Pi session or provider bridge. `ask-llm-grok-pair` is installed for other hosts and refuses on Pi, because Grok pairing still needs a dedicated Pi consent/lifecycle adapter.
 
@@ -640,7 +640,7 @@ For a single-provider call (`ask-llm` with `provider: "gemini"`), only one of th
 
 Provider executors apply their own controls:
 
-- **Quota fallback**: Gemini Pro → Flash on `RESOURCE_EXHAUSTED`; Codex `gpt-6.1-sol` → `gpt-6.1-terra` on quota errors
+- **Quota fallback**: Gemini Pro → Flash on `RESOURCE_EXHAUSTED`; Codex `gpt-6.2-sol` → `gpt-6.1-terra` on quota errors
 - **Stdin handling**: Codex needs an EOF-terminated pipe rather than `/dev/null`, otherwise it errors out
 - **PATH resolution**: macOS GUI clients (Claude Desktop) don't inherit your shell's PATH; the server resolves it from your login shell at startup
 - **Live progressive output**: Gemini's `--output-format stream-json` deltas are parsed and forwarded to MCP progress notifications, so users see Gemini's prose unfolding rather than a frozen wait
@@ -670,7 +670,7 @@ Hosted CLI providers (Gemini, Codex, Claude, Antigravity) auto-select a sensible
 | Provider | Default | Fallback | Trigger |
 |---|---|---|---|
 | Gemini | `gemini-4-argon` | `gemini-3.8-flash` | `RESOURCE_EXHAUSTED` quota error or "exhausted your capacity" pattern |
-| Codex | `gpt-6.1-sol` | `gpt-6.1-terra` | Quota errors (`rate_limit_exceeded`, `429`, `insufficient_quota`) |
+| Codex | `gpt-6.2-sol` | `gpt-6.1-terra` | Quota errors (`rate_limit_exceeded`, `429`, `insufficient_quota`) |
 | Claude | `opus` (Opus 5.5, `claude-opus-5-5`) | `sonnet` | Claude Code native fallback when Opus is overloaded or unavailable |
 | Grok | `grok-4.7` (`reasoning.effort=high`) | none | Every error is terminal; requested ID is sent unchanged |
 | Antigravity | `gemini-4-argon` (`--effort high`) | `gemini-3.8-flash`; one model-less retry when agy rejects a model whose value equals `gemini-4-argon` or `gemini-3.8-flash` (reported as `agy default`). Both retain the effective effort (`high`, or the `ASK_ANTIGRAVITY_EFFORT` override) | Subscription rate limit; model-unavailable (shipped slug values only — other rejected models fail actionably) |
@@ -678,7 +678,7 @@ Hosted CLI providers (Gemini, Codex, Claude, Antigravity) auto-select a sensible
 
 For Gemini, Codex, Claude, and Antigravity, fallback is automatic and structured output exposes the actual model plus `usage.fellBack`. Antigravity reports `gemini-3.8-flash` after a rate-limit fallback, or the literal `agy default` after a model-less recovery (agy does not reveal which model it picked). Grok and Ollama never fall back, so their `fellBack` values are always `false`.
 
-`codex-pair` defaults to `gpt-6.1-sol` at `high` reasoning effort and quota-falls back to `gpt-6.1-terra`. Unpinned Codex consultations also use `gpt-6.1-sol`.
+`codex-pair` defaults to `gpt-6.2-sol` at `high` reasoning effort and quota-falls back to `gpt-6.1-terra`. Unpinned Codex consultations also use `gpt-6.2-sol`.
 
 Codex uses `medium` reasoning effort for ordinary calls to preserve the previous default behavior. The quality-first `/ask-llm-review` and `/ask-llm-brainstorm` skills use `high`. Direct `ask-llm` with `provider: "codex"` calls can override this with `reasoningEffort` (`low`, `medium`, `high`, `xhigh`, `max`, or `ultra`). `ultra` is opt-in only: Codex's catalog describes it as maximum reasoning with automatic task delegation, so review and brainstorm defaults stay at `high`.
 
@@ -692,7 +692,7 @@ Different providers excel at different things. Pick by what you're doing, not by
 
 | Task | Suggested provider | Why |
 |---|---|---|
-| Targeted code reasoning, refactor critique | **Codex** | GPT-6.1 Sol is the default; see [Codex Pair](https://lykhoyda.github.io/ask-llm/advanced/codex-pair#configuration-knobs) for pair-review defaults |
+| Targeted code reasoning, refactor critique | **Codex** | GPT-6.2 Sol is the default; see [Codex Pair](https://lykhoyda.github.io/ask-llm/advanced/codex-pair#configuration-knobs) for pair-review defaults |
 | Claude second opinion while working in Codex | **Claude** | Opus 5.5 (`opus`) review through Claude Code CLI, with native session continuation and read-only file access |
 | Grok 4.7 independent critique | **Grok** | Exact model selection, configurable reasoning depth, structured JSON Schema output |
 | Private / air-gapped analysis | **Ollama** | Runs locally, nothing leaves your machine |
@@ -746,7 +746,7 @@ For Antigravity, `ask-antigravity` requires a [supported agy version](https://ly
 |---|---|---|
 | Gemini Pro | ~1M tokens (~250k LOC) | Gemini Code Assist Standard/Enterprise seat (from 2026-06-18) |
 | Gemini Flash | ~1M tokens | Same account eligibility; fallback target for quota relief |
-| Codex GPT-6 Astra / GPT-6.1 Sol | Per OpenAI's published context window | Your authenticated account’s quota/billing |
+| Codex GPT-6.2 Astra / GPT-6.2 Sol | Per OpenAI's published context window | Your authenticated account’s quota/billing |
 | Grok 4.7 | 500k tokens on xAI API | API is metered; Grok CLI follows its authenticated plan |
 | Cursor Agent harness | Per selected catalog model | Included usage/on-demand spend follows the user's Cursor plan; Ask LLM never changes spend settings |
 | Codex GPT-6.1 Terra | Per OpenAI's published context window | Cheaper, faster fallback target |
@@ -804,7 +804,7 @@ reviewer: codex
 Project invariants for the reviewer.
 ```
 
-`reviewer: codex` is the default (`gpt-6.1-sol`, high effort, existing disclosed Terra quota fallback). `reviewer: claude` opts into pinned `claude-opus-5-5`, read tools only, no model/provider fallback. Marker `reviewer` is the sole reviewer setting. Invalid settings refuse; choosing a reviewer from the writer's own family also refuses (for example Claude reviewing Claude Code). The Claude timeout is marker `timeoutMs`, then `ASK_CLAUDE_TIMEOUT_MS`, then 600 seconds. Existing Codex settings still apply to Codex.
+`reviewer: codex` is the default (`gpt-6.2-sol`, high effort, existing disclosed Terra quota fallback). `reviewer: claude` opts into pinned `claude-opus-5-5`, read tools only, no model/provider fallback. Marker `reviewer` is the sole reviewer setting. Invalid settings refuse; choosing a reviewer from the writer's own family also refuses (for example Claude reviewing Claude Code). The Claude timeout is marker `timeoutMs`, then `ASK_CLAUDE_TIMEOUT_MS`, then 600 seconds. Existing Codex settings still apply to Codex.
 
 Register this yourself in `~/.grok/hooks/ask-llm-pair.json` (or `$GROK_HOME/hooks/ask-llm-pair.json`), using the absolute installed `@ask-llm/mcp` directory as `<package-root>`. Keep a single pair hook registration and remove any duplicate imported Claude pair hook for Grok:
 
@@ -934,7 +934,7 @@ For Codex reviews through the shared Claude Code/Grok hook, marker frontmatter `
 
 ```yaml
 ---
-model: gpt-6.1-sol
+model: gpt-6.2-sol
 reasoningEffort: xhigh
 blockOn: false
 ---
@@ -1390,9 +1390,9 @@ curl http://localhost:11434/api/tags    # Ollama
 
 Provider quota exhausted
 
-**The executor handles this automatically**: Gemini falls back from `gemini-4-argon` to `gemini-3.8-flash`, and Codex falls back from `gpt-6.1-sol` to `gpt-6.1-terra`. You'll see `usage.fellBack: true` in the structured response.
+**The executor handles this automatically**: Gemini falls back from `gemini-4-argon` to `gemini-3.8-flash`, and Codex falls back from `gpt-6.2-sol` to `gpt-6.1-terra`. You'll see `usage.fellBack: true` in the structured response.
 
-If both Pro and Flash (or both GPT-6.1 Sol and Terra) hit quota, the call fails with both errors surfaced. Wait for the quota window to reset, or:
+If both Pro and Flash (or both GPT-6.2 Sol and Terra) hit quota, the call fails with both errors surfaced. Wait for the quota window to reset, or:
 
 - Switch to a different provider for the meantime: `Use ask-llm with provider codex ...` instead of Gemini
 - Use Ollama locally: `Use ask-llm with provider ollama ...`

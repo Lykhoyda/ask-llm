@@ -379,7 +379,7 @@ describe("sol-review CLI fallback", () => {
     expect(codexFallbackArgs(SOL_MODEL)).toEqual([
       "exec",
       "-m",
-      "gpt-6.1-sol",
+      "gpt-6.2-sol",
       "-c",
       'model_reasoning_effort="high"',
       "-s",
@@ -399,7 +399,7 @@ describe("sol-review CLI fallback", () => {
 
     const result = await runCliFallback({ prompt: "review", model: ASTRA_MODEL, execute });
 
-    expect(ASTRA_MODEL).toBe("gpt-6-astra");
+    expect(ASTRA_MODEL).toBe("gpt-6.2-astra");
     expect(execute).toHaveBeenNthCalledWith(1, { command: "codex", model: ASTRA_MODEL, prompt: "review" });
     expect(execute).toHaveBeenNthCalledWith(2, { command: "codex", model: TERRA_MODEL, prompt: "review" });
     expect(result).toMatchObject({ model: TERRA_MODEL, fellBack: true });
@@ -496,7 +496,7 @@ describe("clean Claude installation reproduction", () => {
   const script = path.join(PLUGIN_ROOT, "scripts", "sol-review-transport.mjs");
   const liveClaudePrompt = [
     "Call the authoritative Ask LLM Codex ask-codex MCP tool exactly once",
-    "with model gpt-6.1-sol, reasoningEffort high, sandbox read-only,",
+    "with model gpt-6.2-sol, reasoningEffort high, sandbox read-only,",
     'and prompt "Reply with ONLY: MCP_TOOL_EXECUTED_276".',
     "Do not use Bash and do not fall back. Then return its exact response.",
   ].join(" ");

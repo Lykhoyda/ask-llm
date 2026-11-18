@@ -1,5 +1,5 @@
 {
-  "model": "gpt-6.1-sol",
+  "model": "gpt-6.2-sol",
   "fallbackModel": "gpt-6.1-terra",
   "reasoningEffort": "high"
 }

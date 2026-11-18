@@ -61,11 +61,11 @@ Invoke it with `/fable-review`.
 
 #### `sol-reviewer`
 
-This reviewer uses an isolated Opus coordinator to request `gpt-6.1-sol` explicitly at high reasoning, then validates Sol's findings against the source. Invoke it with `/sol-review`. It prefers any exact `ask-codex` leaf (including the plugin-bundled Codex server), otherwise a fully pinned unified `ask-llm` call (`provider: "codex"` plus model and Codex options), otherwise the disclosed `codex exec` fallback. An older unified schema that cannot honor those options is reported rather than stripped. A quota fallback to Terra is disclosed instead of being presented as a Sol result.
+This reviewer uses an isolated Opus coordinator to request `gpt-6.2-sol` explicitly at high reasoning, then validates Sol's findings against the source. Invoke it with `/sol-review`. It prefers any exact `ask-codex` leaf (including the plugin-bundled Codex server), otherwise a fully pinned unified `ask-llm` call (`provider: "codex"` plus model and Codex options), otherwise the disclosed `codex exec` fallback. An older unified schema that cannot honor those options is reported rather than stripped. A quota fallback to Terra is disclosed instead of being presented as a Sol result.
 
 #### `astra-reviewer`
 
-This reviewer follows the same transport ladder as `sol-reviewer` but requests `gpt-6-astra` explicitly at high reasoning, for code changes or a named plan. Invoke it with `/astra-review`. Astra needs Codex CLI 0.153.0 or later, and a quota fallback to Terra is disclosed instead of being presented as an Astra result.
+This reviewer follows the same transport ladder as `sol-reviewer` with an explicit `gpt-6.2-astra` pin at high reasoning. Invoke it with `/astra-review` for code changes or a named plan. A quota fallback is reported as a Terra result.
 
 Provider-backed review agents use a 3-phase workflow with confidence-based filtering:
 
@@ -86,7 +86,7 @@ Provider-backed review agents use a 3-phase workflow with confidence-based filte
 
 #### `codex-reviewer`
 
-Sends code changes to OpenAI Codex (GPT-6.1 Sol) for review. Automatic fallback to GPT-6.1 Terra on quota limits.
+Sends code changes to OpenAI Codex (GPT-6.2 Sol) for review. Automatic fallback to GPT-6.1 Terra on quota limits.
 
 #### `antigravity-reviewer`
 

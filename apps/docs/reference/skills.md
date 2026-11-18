@@ -22,7 +22,7 @@ Review the current diff directly with a read-only agent pinned to Fable. Finding
 
 ### `/sol-review`
 
-Run the same independent review contract with an isolated coordinator that explicitly requests `gpt-6.1-sol` at high reasoning from the Codex provider. `/codex-review` instead follows the configured Codex default.
+Run the same independent review contract with an isolated coordinator that explicitly requests `gpt-6.2-sol` at high reasoning from the Codex provider. `/codex-review` instead follows the configured Codex default.
 
 ```text
 /sol-review
@@ -30,7 +30,7 @@ Run the same independent review contract with an isolated coordinator that expli
 
 ### `/astra-review`
 
-Run the same contract pinned to `gpt-6-astra`, Codex's flagship, at high reasoning. It reviews the current diff or a plan you name, read-only, and reports only source-verified findings. It requires Codex CLI 0.153.0 or later.
+Run the same contract pinned to `gpt-6.2-astra` at high reasoning. It reviews the current diff or a plan you name, read-only, and reports only source-verified findings.
 
 ```text
 /astra-review
@@ -60,7 +60,7 @@ Uses Gemini's 1M+ token context window, making it ideal for reviewing changes th
 
 ### `/codex-review`
 
-Get a second opinion from OpenAI Codex (GPT-6.1 Sol) on your current changes.
+Get a second opinion from OpenAI Codex (GPT-6.2 Sol) on your current changes.
 
 ```text
 /codex-review

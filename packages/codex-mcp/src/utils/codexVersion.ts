@@ -1,5 +1,5 @@
 import { executeCommand, isCommandNotFoundError } from "@ask-llm/shared";
-import { ASTRA_MIN_CODEX_VERSION, CLI, CODEX_VERSION_CHECK_TIMEOUT_MS } from "../constants.js";
+import { ASTRA_MIN_CODEX_VERSION, CLI, CODEX_VERSION_CHECK_TIMEOUT_MS, FACTORY_DEFAULT_MODEL } from "../constants.js";
 
 interface SemanticVersion {
   major: number;
@@ -20,7 +20,7 @@ export interface CodexSupportProbe {
   remediation?: string;
 }
 
-export function isAstraModel(model: string): boolean {
+export function isLegacyAstraModel(model: string): boolean {
   return model === "gpt-6-astra";
 }
 
@@ -48,7 +48,7 @@ function normalizeVersion(version: SemanticVersion): string {
 }
 
 function upgradeRemediation(): string {
-  return `Update Codex CLI to ${ASTRA_MIN_CODEX_VERSION} or later, or pin ASK_CODEX_MODEL=gpt-6.1-sol.`;
+  return `Update Codex CLI to ${ASTRA_MIN_CODEX_VERSION} or later, or select another model from your Codex catalog, such as ASK_CODEX_MODEL=${FACTORY_DEFAULT_MODEL}.`;
 }
 
 // Unparseable input gates conservatively (false) so optional floors stay off.
@@ -139,7 +139,7 @@ export async function probeCodexSupport(signal?: AbortSignal): Promise<CodexSupp
 }
 
 export async function assertCodexSupportsModel(model: string, signal?: AbortSignal): Promise<string | undefined> {
-  if (!isAstraModel(model)) return undefined;
+  if (!isLegacyAstraModel(model)) return undefined;
   const probe = await probeCodexSupport(signal);
   if (probe.available && probe.version) return probe.version;
   throw new Error([probe.message, probe.remediation].filter(Boolean).join(" "));
