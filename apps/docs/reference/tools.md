@@ -48,7 +48,9 @@ Unsupported combinations fail validation rather than being stripped. Exact enum 
 
 ## Sessions
 
-**Claude, Gemini, and Codex** use their CLIs' native session-resume features. Sessions live in each provider CLI's own storage. The provider retains prior turns; each follow-up still consumes account quota or billing. Codex persists a fresh thread only when its first call passes `sessionId: ""`; omitted Codex calls stay ephemeral. Claude sessions are intended for Codex and other non-Claude hosts; the unified server suppresses Claude inside Claude Code to prevent unsupported nested sessions.
+**Claude, Gemini, Codex, and Antigravity** use their CLIs' native session-resume features. Sessions live in each provider CLI's own storage. The provider retains prior turns; each follow-up still consumes account quota or billing. Codex persists a fresh thread only when its first call passes `sessionId: ""`; omitted Codex calls stay ephemeral. Claude sessions are intended for Codex and other non-Claude hosts; the unified server suppresses Claude inside Claude Code to prevent unsupported nested sessions.
+
+For Antigravity's follow-up parameters, permission controls and reset behavior, see [Antigravity sessions](/providers/antigravity#sessions).
 
 **Ollama** has no native session support. The MCP server stores conversation history at `/tmp/ask-llm-sessions/<id>.json` with **24-hour TTL**, **40-message cap** (oldest dropped on overflow), **owner-only file permissions** (0o600 file / 0o700 directory), and **atomic temp+rename writes** to avoid partial-read races. Each turn replays the full prior conversation, which costs input tokens proportional to depth, bounded by the 40-message cap and acceptable for local-only inference.
 

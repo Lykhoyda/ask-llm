@@ -42,7 +42,7 @@ To the provider you select, under its policies. Local Ollama inference stays on 
 
 ## How do follow-up questions work?
 
-Claude, Gemini, Codex and Ollama support sessions. Codex needs `sessionId: ""` on the first call to persist a resumable thread; omitted Codex calls are ephemeral. Grok and Antigravity are single-turn. Follow-ups still consume account quota or billing; see [Tools and schemas](/reference/tools#sessions).
+See [Tools and schemas](/reference/tools#sessions) for session-capable providers, first-call requirements and follow-up costs, and [Antigravity sessions](/providers/antigravity#sessions) for its reset behavior.
 
 ## What is Gemini's @ file syntax?
 

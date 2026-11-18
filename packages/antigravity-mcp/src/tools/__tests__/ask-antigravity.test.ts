@@ -44,3 +44,19 @@ describe("ask-antigravity usage accounting", () => {
     });
   });
 });
+
+it("accepts a sessionId and exposes the returned ID in text and structured content", async () => {
+  const args = askAntigravityTool.zodSchema.parse({ prompt: "continue", sessionId: "prior-id" });
+  mockExecuteAntigravityCLI.mockResolvedValue({
+    response: "continued",
+    model: usage.model,
+    sessionId: "actual-id",
+    usage,
+  });
+  const result = await askAntigravityTool.execute(args);
+  expect(mockExecuteAntigravityCLI).toHaveBeenCalledWith(expect.objectContaining({ sessionId: "prior-id" }));
+  expect(result).toMatchObject({
+    text: "Antigravity response:\ncontinued\n\n[Session ID: actual-id]",
+    structuredContent: { provider: "antigravity", response: "continued", sessionId: "actual-id" },
+  });
+});

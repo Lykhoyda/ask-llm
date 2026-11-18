@@ -206,10 +206,10 @@ describe("executeAntigravityCLI response sources", () => {
     await expect(executeAntigravityCLI({ prompt: "q" })).rejects.toThrow(ERROR_MESSAGES.NO_OUTPUT);
   });
 
-  it("returns no sessionId", async () => {
+  it("returns the top-level conversation_id as sessionId", async () => {
     mockExec.mockResolvedValue(jsonStdout("answer\n"));
     const result = await executeAntigravityCLI({ prompt: "q" });
-    expect(result.sessionId).toBeUndefined();
+    expect(result.sessionId).toBe("conversation-1");
   });
 });
 
@@ -1131,5 +1131,114 @@ describe("AGY_ERROR stderr line (#335)", () => {
     );
     await expect(executeAntigravityCLI({ prompt: "q" })).rejects.toThrow(ERROR_MESSAGES.DENIED_WITHOUT_ANSWER);
     expect(mockExec).toHaveBeenCalledOnce();
+  });
+});
+
+describe("Antigravity conversation resume", () => {
+  it.each([undefined, null, "", "   ", 42, {}, ["nested-id"]])(
+    "omits unusable conversation_id %j without borrowing subagent_info's id",
+    async (conversation_id) => {
+      mockExec.mockResolvedValue(
+        jsonStdout("answer", undefined, { conversation_id, subagent_info: { conversation_id: "subagent-only" } }),
+      );
+      expect((await executeAntigravityCLI({ prompt: "q" })).sessionId).toBeUndefined();
+    },
+  );
+
+  it("trims a usable top-level ID and keeps plain-stdout answers sessionless", async () => {
+    mockExec.mockResolvedValueOnce(jsonStdout("answer", undefined, { conversation_id: "  actual-id  " }));
+    expect((await executeAntigravityCLI({ prompt: "q" })).sessionId).toBe("actual-id");
+    mockExec.mockResolvedValueOnce("legacy answer");
+    expect((await executeAntigravityCLI({ prompt: "q", sessionId: "old-id" })).sessionId).toBeUndefined();
+  });
+
+  it.each([undefined, "", "   "])("starts fresh for sessionId %j", async (sessionId) => {
+    mockExec.mockResolvedValue(jsonStdout("answer"));
+    await executeAntigravityCLI({ prompt: "q", sessionId });
+    expect(mockExec.mock.calls[0][1]).not.toContain("--conversation");
+  });
+
+  it("builds a resumed call with all the fresh-call flags and the settings overlay", () => {
+    const fresh = buildArgs("q", ["pkg/a", "pkg/b"], 85, true, MODELS.DEFAULT, true, "medium", true);
+    const resumed = buildArgs("q", ["pkg/a", "pkg/b"], 85, true, MODELS.DEFAULT, true, "medium", true, "  prior-id  ");
+    const index = resumed.indexOf("--conversation");
+    expect(index).toBeGreaterThanOrEqual(0);
+    expect(resumed.splice(index, 2)).toEqual(["--conversation", "prior-id"]);
+    expect(resumed).toEqual(fresh);
+  });
+
+  it.each(["quota", "model"])("keeps the session and overlay on %s recovery", async (failure) => {
+    vi.stubEnv(ANTIGRAVITY.EFFORT_ENV_VAR, "medium");
+    vi.stubEnv(ANTIGRAVITY.TIMEOUT_ENV_VAR, "90000");
+    mockExec
+      .mockRejectedValueOnce(new Error(failure === "quota" ? "429 too many requests" : "invalid model selection"))
+      .mockResolvedValueOnce(jsonStdout("continued answer"));
+    const result = await executeAntigravityCLI({
+      prompt: "follow up",
+      sessionId: "conversation-1",
+      includeDirs: ["pkg/a"],
+      readOnly: true,
+    });
+    expect(result.sessionId).toBe("conversation-1");
+    expect(mockExec).toHaveBeenCalledTimes(2);
+    for (const [, args, , , , timeout] of mockExec.mock.calls) {
+      expect(args.slice(args.indexOf("--conversation"), args.indexOf("--conversation") + 2)).toEqual([
+        "--conversation",
+        "conversation-1",
+      ]);
+      expect(args).toEqual(
+        expect.arrayContaining([
+          "--add-dir",
+          "pkg/a",
+          "--effort",
+          "medium",
+          "--print-timeout",
+          "85s",
+          "--output-format",
+          "json",
+          "--disable-slash-commands",
+          "--sandbox",
+          "--settings",
+          SESSION_SETTINGS_OVERLAY,
+        ]),
+      );
+      expect(args[1]).toContain(READ_ONLY_PREAMBLE);
+      expect(timeout).toBe(90000);
+    }
+    const retryArgs = mockExec.mock.calls[1][1];
+    if (failure === "quota") expect(retryArgs[retryArgs.indexOf("--model") + 1]).toBe(MODELS.FALLBACK);
+    else expect(retryArgs).not.toContain("--model");
+  });
+
+  it("discloses agy's fresh conversation after an unknown ID and returns the actual new ID", async () => {
+    // agy 1.5.10: exit 0, stdout is a normal SUCCESS envelope with a new ID, stderr warns.
+    mockSuccessWithStderr(
+      jsonStdout("fresh answer", undefined, { conversation_id: "new-id" }),
+      'warning: conversation "missing-id" not found\n',
+    );
+    const result = await executeAntigravityCLI({ prompt: "follow up", sessionId: "missing-id" });
+    expect(result.sessionId).toBe("new-id");
+    expect(result.response).toBe(
+      "fresh answer\n\n[agy could not find the requested conversation and started a fresh conversation.]",
+    );
+    expect(mockExec).toHaveBeenCalledOnce();
+  });
+
+  it("propagates a conversation-load failure without model recovery or a fresh-call retry", async () => {
+    mockExec.mockRejectedValue(new Error('could not load conversation "expired-id": conversation not found'));
+    await expect(executeAntigravityCLI({ prompt: "q", sessionId: "expired-id" })).rejects.toThrow(
+      'could not load conversation "expired-id": conversation not found',
+    );
+    expect(mockExec).toHaveBeenCalledOnce();
+    expect(mockExec.mock.calls[0][1]).toContain("expired-id");
+  });
+
+  it("still refuses a resumed call before probing agy without the opt-in", async () => {
+    vi.stubEnv("ASK_ANTIGRAVITY_ALLOW_UNISOLATED", undefined);
+    await expect(executeAntigravityCLI({ prompt: "q", sessionId: "conversation-1" })).rejects.toThrow(
+      ERROR_MESSAGES.UNISOLATED_REFUSED,
+    );
+    expect(mockExec).not.toHaveBeenCalled();
+    expect(mockAssertSupportedAgyVersion).not.toHaveBeenCalled();
   });
 });
