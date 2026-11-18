@@ -46,8 +46,8 @@ export const ASK_CODEX_TOOL = "ask-codex";
 export const ASK_LLM_PACKAGE = "@ask-llm/mcp";
 export const ASK_LLM_TOOL = "ask-llm";
 export const UNIFIED_CODEX_OPTION_KEYS: string[] = ["reasoningEffort", "includeDirs", "preferred", "sandbox"];
-export const SOL_MODEL = "gpt-6.1-sol";
-export const ASTRA_MODEL = "gpt-6-astra";
+export const SOL_MODEL = "gpt-6.2-sol";
+export const ASTRA_MODEL = "gpt-6.2-astra";
 export const TERRA_MODEL = "gpt-6.1-terra";
 export const REVIEW_MODELS: ReadonlySet<string> = new Set([SOL_MODEL, ASTRA_MODEL]);
 

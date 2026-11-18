@@ -1,5 +1,15 @@
 # Architectural Decisions
 
+## ADR-199: Adopt GPT-6.2 Sol and Astra for Codex
+
+**Status:** Accepted (2026-11-18). Updates the Codex default from ADR-193 and the Sol and Astra pins from ADR-187.
+
+**Context:** The refreshed model catalog on Codex CLI 0.167.0 ranks `gpt-6.2-sol` first and `gpt-6.2-astra` second. It lists both with `high` reasoning and no minimum client version. Both exact requests completed via `codex exec` using a ChatGPT subscription and the Ask LLM executor's ephemeral, read-only arguments. The bundled catalog shipped with this CLI still reflects ADR-193. The refreshed catalog and live calls establish availability on 0.167.0.
+
+**Decision:** Set Ask LLM's factory and pairing defaults, `/sol-review`, and the direct Codex brainstorm pin to `gpt-6.2-sol`. Pin `/astra-review` to `gpt-6.2-astra`. Ordinary consultations use `medium` effort and the review pins use `high`. Keep `gpt-6.1-terra` as the quota fallback and preserve model overrides. The existing 0.153.0 version check still applies to explicitly selected legacy Astra (ADR-163).
+
+**Consequences:** Split MCP, unified MCP and Pi expose the same factory default. The Cursor brainstorm example uses `gpt-6.2-sol-high` and requires verification against the user's Cursor catalog. The model watch records refreshed and bundled Codex catalogs separately.
+
 ## ADR-198: Resume Antigravity conversations with the session-only deny overlay
 
 **Status:** Accepted (2026-11-18). Closes ADR-141's headless-resume follow-up; preserves ADR-194's permission controls.

@@ -46,7 +46,7 @@ beforeEach(() => {
   mockExecuteCommand.mockResolvedValue("Codex response");
 });
 
-describe("executeCodexCLI Astra CLI floor", () => {
+describe("executeCodexCLI legacy Astra CLI floor", () => {
   it("checks Codex version support for the resolved model before spawn", async () => {
     await executeCodexCLI({ prompt: "hello" });
 

@@ -38,7 +38,7 @@ function status(dir: string, extra: Record<string, string | undefined> = {}) {
 it("reports the hook defaults, environment overrides and marker overrides, without needing a log", () => {
   const dir = fixture();
   expect(status(dir).stdout).toContain("Reasoning effort: high");
-  expect(status(dir).stdout).toContain("Model: gpt-6.1-sol");
+  expect(status(dir).stdout).toContain("Model: gpt-6.2-sol");
   expect(status(dir).stdout).toContain("Fallback model: gpt-6.1-terra");
   expect(status(dir).stdout).toContain("Guards turn end on: nothing");
   const env = {

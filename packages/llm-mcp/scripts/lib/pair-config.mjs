@@ -3,7 +3,7 @@ import { CLAUDE_PAIR_MODEL, resolveReviewer } from "./pair-reviewer.mjs";
 import { DEFAULT_SURFACE_THRESHOLD, VALID_THRESHOLDS } from "./parser.mjs";
 export const DEFAULT_DEBOUNCE_MS = 15_000;
 export const DEFAULT_DEBOUNCE_MAX_MS = 60_000;
-export const INLINE_PAIR_DEFAULTS = { model: "gpt-6.1-sol", fallbackModel: "gpt-6.1-terra", reasoningEffort: "high" };
+export const INLINE_PAIR_DEFAULTS = { model: "gpt-6.2-sol", fallbackModel: "gpt-6.1-terra", reasoningEffort: "high" };
 // Empty, non-numeric, non-positive, and infinite timeouts would make setTimeout fire at once.
 export function positiveMs(raw) {
     const ms = Number(raw);

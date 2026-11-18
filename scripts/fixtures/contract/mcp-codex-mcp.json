@@ -11,11 +11,11 @@
           "type": "array"
         },
         "model": {
-          "description": "DO NOT set this parameter. The tool automatically uses gpt-6.1-sol and falls back to gpt-6.1-terra on quota errors. Only set this if the user explicitly requests a specific model.",
+          "description": "DO NOT set this parameter. The tool automatically uses gpt-6.2-sol and falls back to gpt-6.1-terra on quota errors. Only set this if the user explicitly requests a specific model.",
           "type": "string"
         },
         "preferred": {
-          "description": "Opt into ASK_CODEX_PREFERRED_MODEL when it is configured to differ from the gpt-6.1-sol default. The built-in preferred value is also gpt-6.1-sol, so normal calls and review skills should leave this unset.",
+          "description": "Opt into ASK_CODEX_PREFERRED_MODEL when it is configured to differ from the gpt-6.2-sol default. The built-in preferred value is also gpt-6.2-sol, so normal calls and review skills should leave this unset.",
           "type": "boolean"
         },
         "prompt": {
@@ -153,7 +153,7 @@
           "type": "array"
         },
         "model": {
-          "description": "DO NOT set this parameter. The tool automatically uses gpt-6.1-sol and falls back to gpt-6.1-terra on quota errors.",
+          "description": "DO NOT set this parameter. The tool automatically uses gpt-6.2-sol and falls back to gpt-6.1-terra on quota errors.",
           "type": "string"
         },
         "prompt": {
@@ -273,11 +273,11 @@
           "type": "array"
         },
         "model": {
-          "description": "DO NOT set this parameter. The tool automatically uses gpt-6.1-sol and falls back to gpt-6.1-terra on quota errors. Only set this if the user explicitly requests a specific model.",
+          "description": "DO NOT set this parameter. The tool automatically uses gpt-6.2-sol and falls back to gpt-6.1-terra on quota errors. Only set this if the user explicitly requests a specific model.",
           "type": "string"
         },
         "preferred": {
-          "description": "Opt into ASK_CODEX_PREFERRED_MODEL when it is configured to differ from the gpt-6.1-sol default. The built-in preferred value is also gpt-6.1-sol, so normal calls and review skills should leave this unset.",
+          "description": "Opt into ASK_CODEX_PREFERRED_MODEL when it is configured to differ from the gpt-6.2-sol default. The built-in preferred value is also gpt-6.2-sol, so normal calls and review skills should leave this unset.",
           "type": "boolean"
         },
         "prompt": {

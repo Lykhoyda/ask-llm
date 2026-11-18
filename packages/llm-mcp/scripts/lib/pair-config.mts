@@ -6,7 +6,7 @@ import { DEFAULT_SURFACE_THRESHOLD, VALID_THRESHOLDS } from "./parser.mts";
 
 export const DEFAULT_DEBOUNCE_MS = 15_000;
 export const DEFAULT_DEBOUNCE_MAX_MS = 60_000;
-export const INLINE_PAIR_DEFAULTS = { model: "gpt-6.1-sol", fallbackModel: "gpt-6.1-terra", reasoningEffort: "high" };
+export const INLINE_PAIR_DEFAULTS = { model: "gpt-6.2-sol", fallbackModel: "gpt-6.1-terra", reasoningEffort: "high" };
 export type PairDefaults = typeof INLINE_PAIR_DEFAULTS;
 
 // Empty, non-numeric, non-positive, and infinite timeouts would make setTimeout fire at once.

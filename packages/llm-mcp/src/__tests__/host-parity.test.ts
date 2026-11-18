@@ -184,7 +184,13 @@ describe("MCP and Pi tool contract", () => {
   });
 
   it.each(["FAKE_CODEX", "x".repeat(70_000)])("returns the same Codex AskResponse (case %#)", async (response) => {
-    const usage = { provider: "codex" as const, model: "gpt-6-astra", inputTokens: 3, durationMs: 7, fellBack: false };
+    const usage = {
+      provider: "codex" as const,
+      model: "gpt-6.2-astra",
+      inputTokens: 3,
+      durationMs: 7,
+      fellBack: false,
+    };
     vi.mocked(executeCodexCLI).mockResolvedValue({ response, threadId: "thread-1", usage });
     const { client, close } = await connectMcp(await detectProviders());
     const args = { provider: "codex", prompt: "review this", reasoningEffort: "high", sandbox: "read-only" };
@@ -200,7 +206,7 @@ describe("MCP and Pi tool contract", () => {
     expect(viaMcp.structuredContent).toEqual({
       provider: "codex",
       response,
-      model: "gpt-6-astra",
+      model: "gpt-6.2-astra",
       sessionId: "thread-1",
       usage,
     });

@@ -24,9 +24,9 @@ describe("MCP server smoke test", () => {
 });
 
 describe("Codex default model version", () => {
-  it("defaults to gpt-6.1-sol when ASK_CODEX_MODEL is not set", () => {
+  it("defaults to gpt-6.2-sol when ASK_CODEX_MODEL is not set", () => {
     if (process.env.ASK_CODEX_MODEL) return;
-    expect(MODELS.DEFAULT).toBe("gpt-6.1-sol");
+    expect(MODELS.DEFAULT).toBe("gpt-6.2-sol");
   });
 
   it("falls back to gpt-6.1-terra when ASK_CODEX_FALLBACK_MODEL is not set", () => {

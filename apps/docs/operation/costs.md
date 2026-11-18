@@ -13,7 +13,7 @@ Hosted CLI providers (Gemini, Codex, Claude, Antigravity) auto-select a sensible
 | Provider | Default | Fallback | Trigger |
 |---|---|---|---|
 | Gemini | `gemini-4-argon` | `gemini-3.8-flash` | `RESOURCE_EXHAUSTED` quota error or "exhausted your capacity" pattern |
-| Codex | `gpt-6.1-sol` | `gpt-6.1-terra` | Quota errors (`rate_limit_exceeded`, `429`, `insufficient_quota`) |
+| Codex | `gpt-6.2-sol` | `gpt-6.1-terra` | Quota errors (`rate_limit_exceeded`, `429`, `insufficient_quota`) |
 | Claude | `opus` (Opus 5.5, `claude-opus-5-5`) | `sonnet` | Claude Code native fallback when Opus is overloaded or unavailable |
 | Grok | `grok-4.7` (`reasoning.effort=high`) | none | Every error is terminal; requested ID is sent unchanged |
 | Antigravity | `gemini-4-argon` (`--effort high`) | `gemini-3.8-flash`; one model-less retry when agy rejects a model whose value equals `gemini-4-argon` or `gemini-3.8-flash` (reported as `agy default`). Both retain the effective effort (`high`, or the `ASK_ANTIGRAVITY_EFFORT` override) | Subscription rate limit; model-unavailable (shipped slug values only — other rejected models fail actionably) |
@@ -21,7 +21,7 @@ Hosted CLI providers (Gemini, Codex, Claude, Antigravity) auto-select a sensible
 
 For Gemini, Codex, Claude, and Antigravity, fallback is automatic and structured output exposes the actual model plus `usage.fellBack`. Antigravity reports `gemini-3.8-flash` after a rate-limit fallback, or the literal `agy default` after a model-less recovery (agy does not reveal which model it picked). Grok and Ollama never fall back, so their `fellBack` values are always `false`.
 
-`codex-pair` defaults to `gpt-6.1-sol` at `high` reasoning effort and quota-falls back to `gpt-6.1-terra`. Unpinned Codex consultations also use `gpt-6.1-sol`.
+`codex-pair` defaults to `gpt-6.2-sol` at `high` reasoning effort and quota-falls back to `gpt-6.1-terra`. Unpinned Codex consultations also use `gpt-6.2-sol`.
 
 Codex uses `medium` reasoning effort for ordinary calls to preserve the previous default behavior. The quality-first `/ask-llm-review` and `/ask-llm-brainstorm` skills use `high`. Direct `ask-llm` with `provider: "codex"` calls can override this with `reasoningEffort` (`low`, `medium`, `high`, `xhigh`, `max`, or `ultra`). `ultra` is opt-in only: Codex's catalog describes it as maximum reasoning with automatic task delegation, so review and brainstorm defaults stay at `high`.
 
@@ -35,7 +35,7 @@ Different providers excel at different things. Pick by what you're doing, not by
 
 | Task | Suggested provider | Why |
 |---|---|---|
-| Targeted code reasoning, refactor critique | **Codex** | GPT-6.1 Sol is the default; see [Codex Pair](/advanced/codex-pair#configuration-knobs) for pair-review defaults |
+| Targeted code reasoning, refactor critique | **Codex** | GPT-6.2 Sol is the default; see [Codex Pair](/advanced/codex-pair#configuration-knobs) for pair-review defaults |
 | Claude second opinion while working in Codex | **Claude** | Opus 5.5 (`opus`) review through Claude Code CLI, with native session continuation and read-only file access |
 | Grok 4.7 independent critique | **Grok** | Exact model selection, configurable reasoning depth, structured JSON Schema output |
 | Private / air-gapped analysis | **Ollama** | Runs locally, nothing leaves your machine |
@@ -89,7 +89,7 @@ For Antigravity, `ask-antigravity` requires a [supported agy version](/providers
 |---|---|---|
 | Gemini Pro | ~1M tokens (~250k LOC) | Gemini Code Assist Standard/Enterprise seat (from 2026-06-18) |
 | Gemini Flash | ~1M tokens | Same account eligibility; fallback target for quota relief |
-| Codex GPT-6 Astra / GPT-6.1 Sol | Per OpenAI's published context window | Your authenticated account’s quota/billing |
+| Codex GPT-6.2 Astra / GPT-6.2 Sol | Per OpenAI's published context window | Your authenticated account’s quota/billing |
 | Grok 4.7 | 500k tokens on xAI API | API is metered; Grok CLI follows its authenticated plan |
 | Cursor Agent harness | Per selected catalog model | Included usage/on-demand spend follows the user's Cursor plan; Ask LLM never changes spend settings |
 | Codex GPT-6.1 Terra | Per OpenAI's published context window | Cheaper, faster fallback target |
