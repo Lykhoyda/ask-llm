@@ -1,9 +1,8 @@
-import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import type { RequestHandlerExtra } from "@modelcontextprotocol/sdk/shared/protocol.js";
-import type { CallToolResult, ServerNotification, ServerRequest } from "@modelcontextprotocol/sdk/types.js";
+import type { McpServer, CallToolResult, ServerContext } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import type { BaseToolArguments } from "./constants.js";
 import { diagnosticReportSchema, formatDiagnosticReport, type ProviderSpec, runDiagnostics } from "./doctor.js";
+import { mcpSchema } from "./mcpSchema.js";
 import { Logger } from "./logger.js";
 import { createProgressTracker } from "./progressTracker.js";
 import type { ToolResult, UnifiedTool } from "./registry.js";
@@ -103,7 +102,7 @@ export function registerSessionUsageResource(server: McpServer, sessionUsage: Se
   );
 }
 
-type ToolExtra = RequestHandlerExtra<ServerRequest, ServerNotification>;
+type ToolExtra = ServerContext;
 
 interface RegisterToolsOptions {
   server: McpServer;
@@ -136,20 +135,19 @@ export function registerTools({
       throw new Error(`Duplicate tool name "${tool.name}" — tool names must be unique within a server`);
     }
     seen.add(tool.name);
-    const shape = (tool.zodSchema as z.ZodObject<z.ZodRawShape>).shape;
-    const outputShape = tool.outputSchema ? (tool.outputSchema as z.ZodObject<z.ZodRawShape>).shape : undefined;
 
     server.registerTool(
       tool.name,
       {
         description: tool.description,
-        inputSchema: shape,
-        ...(outputShape ? { outputSchema: outputShape } : {}),
+        inputSchema: mcpSchema(tool.zodSchema as z.ZodObject<z.ZodRawShape>),
+        ...(tool.outputSchema ? { outputSchema: mcpSchema(tool.outputSchema as z.ZodObject<z.ZodRawShape>) } : {}),
         annotations: tool.annotations,
       },
-      async (args: Record<string, unknown>, extra: ToolExtra): Promise<CallToolResult> => {
+      async (args: Record<string, unknown>, ctx: ToolExtra): Promise<CallToolResult> => {
         const toolName = tool.name;
-        const handle = createProgressTracker(toolName, extra, progressMessages(toolName));
+
+        const handle = createProgressTracker(toolName, ctx, progressMessages(toolName));
 
         try {
           const toolArgs = args as unknown as BaseToolArguments;
@@ -162,7 +160,7 @@ export function registerTools({
               handle.updateOutput(newOutput);
             },
             sessionUsage ? (stats) => sessionUsage.record(stats) : undefined,
-            extra.signal,
+            ctx.mcpReq.signal,
           );
 
           await handle.stop(true);
@@ -196,8 +194,8 @@ export function registerTools({
   for (const tool of tools) {
     if (!tool.prompt) continue;
 
-    server.registerPrompt(tool.name, { description: tool.prompt.description }, async (args: Record<string, string>) => {
-      const promptMessage = getPromptMessage(tool.name, args);
+    server.registerPrompt(tool.name, { description: tool.prompt.description }, async () => {
+      const promptMessage = getPromptMessage(tool.name, {});
       return {
         messages: [
           {

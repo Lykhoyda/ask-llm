@@ -10,6 +10,16 @@
 
 **Consequences:** Split MCP, unified MCP and Pi expose the same factory default. The Cursor brainstorm example uses `gpt-6.2-sol-high` and requires verification against the user's Cursor catalog. The model watch records refreshed and bundled Codex catalogs separately.
 
+## ADR-198: Resume Antigravity conversations with the session-only deny overlay
+
+**Status:** Accepted (2026-11-18). Closes ADR-141's headless-resume follow-up; preserves ADR-194's permission controls.
+
+**Context:** agy 1.5.10 `-p --output-format json` emits `conversation_id` at the top level beside `response` and `usage`, not only inside `subagent_info`. A live follow-up with `--conversation` recalled an earlier marker and kept the same ID. A resumed stream-json probe recorded tool errors matching the user-configured deny rules for `write_file`, `touch` and `curl`; no scratch files were created. An unknown ID exited 0 with `warning: conversation "<id>" not found` on stderr and a SUCCESS envelope carrying a new ID and one turn.
+
+**Decision:** Parse only a nonempty top-level string `conversation_id` into `sessionId`. Standalone `ask-antigravity` accepts and returns it; the unified `ask-llm` route forwards and returns it through its existing session contract. A nonempty input adds `--conversation` to every model attempt, including recovery, while keeping the settings overlay, preamble, model/effort selection, directories, sandbox, slash-command guard and timeouts. Omitted or blank input starts fresh. Preserve agy's unknown-ID behavior, disclose its reset in the answer and return the actual new ID. Other conversation-load failures propagate without a fresh-call retry; missing or malformed output IDs are omitted rather than guessed from input or subagents.
+
+**Consequences:** Antigravity supports multi-turn consultations on both tool surfaces. Resume does not remove the overlay, opt-in or version floor. The live refusal evidence is specific to agy 1.5.10 on Linux; ADR-194's remaining isolation limits still apply. Unknown IDs lose context and spend a fresh turn rather than failing before invocation. Tests cover parsing, argument retention, recovery, reset disclosure, errors and unified/standalone propagation; live calls remain outside CI.
+
 ## ADR-197: Print a derived Codex MCP tool timeout alongside manual registration
 
 **Status:** Accepted (2026-11-17).
@@ -647,9 +657,9 @@ every supported version. Concurrent invocations no longer serialize. The
 plain-stdout rung plus NO_OUTPUT keeps degradation actionable if the json path
 ever regresses (including the untested Windows case). Headless session resume
 via the envelope's top-level `conversation_id` + `--conversation` was proven
-live but ships as follow-up work, as do stream-json progress events and
-`--json-schema` structured output. Evidence and probe commands are recorded in
-the #251 scout report.
+live and is now shipped with the session-only deny overlay reapplied (ADR-198).
+Stream-json progress events and `--json-schema` structured output remain
+follow-up work. Evidence and probe commands are recorded in the #251 scout report.
 
 ## ADR-140: Deterministic five-batch CI test partitioning
 

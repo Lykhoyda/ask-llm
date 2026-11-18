@@ -17,6 +17,10 @@ A host is the coding assistant you work in. A provider is the model you consult.
 | subagents | isolated reviewer agents from the plugin | none; reviews run inline | none; reviews run inline | none; reviews run inline | none; reviews run inline | none; reviews run inline | none; reviews run inline | none | none; reviews run inline |
 | Stop gate | blocks the turn on a HIGH codex-pair finding only with `blockOn: HIGH` | none | none | none | none | none | none; codex-pair findings are non-blocking | none | none |
 <!-- HOST-PARITY:END -->
+## MCP protocol compatibility
+
+Every Ask LLM stdio server accepts both the existing 2025 MCP protocol and [revision 2026-07-28](https://modelcontextprotocol.io/specification/2026-07-28/basic/versioning). The client selects the protocol form; existing registrations continue to work without configuration changes. Tool names, annotations, schemas, structured responses, progress notifications, and session usage remain the same across both forms.
+
 ## Setup limits
 
 Claude Desktop is tools only. Antigravity needs the workflow-copy step printed by setup. Codex registration is a manual step: setup installs the workflows and prints the `codex mcp add` command without running it; inspect user and project configuration, including filters, before you run it. OpenCode registration is tested with fixtures only. See [Migration](/reference/migration) when setup leaves an earlier entry unchanged.

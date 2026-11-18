@@ -18,7 +18,7 @@ export interface AntigravityExecutorOptions {
   includeDirs?: string[];
   // agy model slug; legacy effort-carrying display strings remain compatible.
   model?: string;
-  // Accepted for ExecutorFn compatibility; conversation_id resume remains follow-up work.
+  // Resume the top-level conversation_id returned by agy JSON stdout.
   sessionId?: string;
   readOnly?: boolean;
   onProgress?: (newOutput: string) => void;
@@ -29,7 +29,7 @@ export interface AntigravityExecutorOptions {
 export interface AntigravityExecutorResult {
   response: string;
   model: string;
-  sessionId: undefined;
+  sessionId: string | undefined;
   usage: UsageStats | undefined;
 }
 
@@ -42,11 +42,13 @@ export function buildArgs(
   readOnly = false,
   effort?: string,
   disableSlashCommands = false,
+  sessionId?: string,
 ): string[] {
   const args: string[] = [CLI.FLAGS.PRINT, prompt];
   if (includeDirs?.length) {
     for (const dir of includeDirs) args.push(CLI.FLAGS.ADD_DIR, dir);
   }
+  if (sessionId?.trim()) args.push(CLI.FLAGS.CONVERSATION, sessionId.trim());
   if (model) args.push(CLI.FLAGS.MODEL, model);
   if (effort) args.push(CLI.FLAGS.EFFORT, effort);
   args.push(CLI.FLAGS.PRINT_TIMEOUT, `${timeoutSec}s`);
@@ -68,6 +70,7 @@ interface AgyStdoutUsage {
 }
 
 interface AgyStdoutJson {
+  conversation_id?: unknown;
   response?: unknown;
   usage?: AgyStdoutUsage;
   truncated?: unknown;
@@ -79,6 +82,7 @@ type StdoutParse =
   | {
       kind: "answer";
       response: string;
+      sessionId: string | undefined;
       usage: AgyStdoutUsage | undefined;
       truncated: boolean;
       deniedNotice: string | undefined;
@@ -156,7 +160,8 @@ function parseStdoutJson(raw: string): StdoutParse {
   const response = parsed.response.trimEnd();
   if (response.length === 0) return { kind: "envelope-without-answer", ...meta };
   const usage = parsed.usage && typeof parsed.usage === "object" ? parsed.usage : undefined;
-  return { kind: "answer", response, usage, ...meta };
+  const sessionId = typeof parsed.conversation_id === "string" ? parsed.conversation_id.trim() || undefined : undefined;
+  return { kind: "answer", response, sessionId, usage, ...meta };
 }
 
 // Sandboxed /quota answered without a turn or quota use on agy 1.2.13 (https://github.com/Lykhoyda/ask-llm/pull/366).
@@ -363,6 +368,7 @@ export async function executeAntigravityCLI(options: AntigravityExecutorOptions)
       options.readOnly,
       effortFor(model),
       disableSlashCommands,
+      options.sessionId,
     );
     const startedAt = Date.now();
     const stderrChunks: string[] = [];
@@ -415,10 +421,16 @@ export async function executeAntigravityCLI(options: AntigravityExecutorOptions)
 
     if (parsed.kind === "answer") {
       Logger.debug("antigravity: response from stdout-json");
+      // agy 1.5.10 warns and starts fresh when --conversation cannot be found.
+      const resetNotice =
+        options.sessionId?.trim() && /^warning: conversation ".+" not found$/m.test(stderr)
+          ? "agy could not find the requested conversation and started a fresh conversation."
+          : undefined;
+      if (resetNotice) Logger.warn(`antigravity: ${resetNotice}`);
       return {
-        response: appendDeniedNotice(parsed.response, parsed.deniedNotice),
+        response: appendDeniedNotice(appendDeniedNotice(parsed.response, parsed.deniedNotice), resetNotice),
         model: reportedModel,
-        sessionId: undefined,
+        sessionId: parsed.sessionId,
         usage: buildUsageStats(parsed.usage, reportedModel, durationMs, fellBack),
       };
     }

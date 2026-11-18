@@ -96,7 +96,7 @@ Get a **subscription-backed** second opinion from Google Antigravity (`agy`): us
 /antigravity-review
 ```
 
-Experimental and one-shot (no multi-turn). Requires `agy` installed + logged in once and a provider transport from the [Claude Code host notes](/compatibility/claude-code#connection-details).
+Experimental; see [Antigravity sessions](/providers/antigravity#sessions) for follow-ups. Requires `agy` installed + logged in once and a provider transport from the [Claude Code host notes](/compatibility/claude-code#connection-details).
 
 ## Brainstorm Skills
 

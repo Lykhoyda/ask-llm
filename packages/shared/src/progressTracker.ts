@@ -1,9 +1,8 @@
-import type { RequestHandlerExtra } from "@modelcontextprotocol/sdk/shared/protocol.js";
-import type { ServerNotification, ServerRequest } from "@modelcontextprotocol/sdk/types.js";
+import type { ServerNotification, ServerContext } from "@modelcontextprotocol/server";
 import { PROTOCOL } from "./constants.js";
 import { Logger } from "./logger.js";
 
-type ToolExtra = RequestHandlerExtra<ServerRequest, ServerNotification>;
+type ToolExtra = ServerContext;
 
 export interface ProgressHandle {
   interval: NodeJS.Timeout;
@@ -12,7 +11,7 @@ export interface ProgressHandle {
 }
 
 async function sendProgressNotification(extra: ToolExtra, progress: number, total?: number, message?: string) {
-  const progressToken = extra._meta?.progressToken;
+  const progressToken = extra.mcpReq._meta?.progressToken;
   if (progressToken === undefined) return;
 
   try {
@@ -20,7 +19,7 @@ async function sendProgressNotification(extra: ToolExtra, progress: number, tota
     if (total !== undefined) params.total = total;
     if (message) params.message = message;
 
-    await extra.sendNotification({
+    await extra.mcpReq.notify({
       method: PROTOCOL.NOTIFICATIONS.PROGRESS,
       params,
     } as ServerNotification);

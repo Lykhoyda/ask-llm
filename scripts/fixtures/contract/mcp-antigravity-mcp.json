@@ -15,6 +15,10 @@
           "maxLength": 100000,
           "minLength": 1,
           "type": "string"
+        },
+        "sessionId": {
+          "description": "Prior Antigravity conversation ID to resume. Omit or pass an empty string to start fresh; reuse the returned sessionId on follow-ups.",
+          "type": "string"
         }
       },
       "required": [

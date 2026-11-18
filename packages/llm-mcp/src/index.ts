@@ -8,17 +8,17 @@ import {
   createSessionUsage,
   createUsageStatsTool,
   Logger,
+  mcpSchema,
   SERVER_INSTRUCTIONS,
   type ProviderName,
   type ProviderSpec,
   registerSessionUsageResource,
+  serveMcpStdio,
   relativeDirSchema,
   type UsageStats,
 } from "@ask-llm/shared";
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import type { RequestHandlerExtra } from "@modelcontextprotocol/sdk/shared/protocol.js";
-import type { CallToolResult, ServerNotification, ServerRequest } from "@modelcontextprotocol/sdk/types.js";
+import { McpServer } from "@modelcontextprotocol/server";
+import type { CallToolResult, ServerContext } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import { getEligibleProviderKeys, INSTALL_HINTS, PROVIDERS } from "./constants.js";
 import { executeCursorAgent } from "./cursorAgent.js";
@@ -274,7 +274,7 @@ export function buildAskLlmSchema(availableProviders: string[], excludedProvider
         .string()
         .optional()
         .describe(
-          'Optional session ID. For Codex, pass "" on the first call to create a persisted thread, then pass its returned Thread ID to resume; omitting it makes the call ephemeral. For other session-capable providers, pass a prior Session ID to resume. Claude/Gemini use --resume, Codex uses exec resume, and Ollama uses server-side replay. Grok and Antigravity are one-shot.',
+          'Optional session ID. For Codex, pass "" on the first call to create a persisted thread, then pass its returned Thread ID to resume; omitting it makes the call ephemeral. For other session-capable providers, pass a prior Session ID to resume. Claude/Gemini use --resume, Codex uses exec resume, Antigravity uses --conversation, and Ollama uses server-side replay. Grok is one-shot.',
         ),
       includeDirs: z
         .array(relativeDirSchema)
@@ -485,7 +485,7 @@ export function formatProviderPing(status: ProviderStatus, message?: string): st
   return [`${prefix} Available providers: ${providers}.`, ...detectedIssues].join(" ");
 }
 
-type ToolExtra = RequestHandlerExtra<ServerRequest, ServerNotification>;
+type ToolExtra = ServerContext;
 
 const PROGRESS_MESSAGES = (op: string) => [
   `${op} - Processing your request...`,
@@ -496,15 +496,13 @@ const PROGRESS_MESSAGES = (op: string) => [
 
 export function registerDiagnoseTool(server: McpServer, diagnoseSpecs: ProviderSpec[]): void {
   const diagnoseTool = createDiagnoseTool(diagnoseSpecs);
-  const diagnoseOutputShape = diagnoseTool.outputSchema
-    ? (diagnoseTool.outputSchema as z.ZodObject<z.ZodRawShape>).shape
-    : undefined;
+  const diagnoseOutputSchema = diagnoseTool.outputSchema;
   server.registerTool(
     diagnoseTool.name,
     {
       description: diagnoseTool.description,
-      inputSchema: {},
-      ...(diagnoseOutputShape ? { outputSchema: diagnoseOutputShape } : {}),
+      inputSchema: mcpSchema(z.object({})),
+      ...(diagnoseOutputSchema ? { outputSchema: mcpSchema(diagnoseOutputSchema as z.ZodObject<z.ZodRawShape>) } : {}),
       annotations: diagnoseTool.annotations,
     },
     async (): Promise<CallToolResult> => {
@@ -538,19 +536,19 @@ export async function createAskLlmServer(providerStatus: ProviderStatus): Promis
     "ask-llm",
     {
       description: ASK_LLM_DESCRIPTION,
-      inputSchema: askLlmSchema.shape,
-      outputSchema: askResponseSchema.shape,
+      inputSchema: mcpSchema(askLlmSchema),
+      outputSchema: mcpSchema(askResponseSchema),
       annotations: { title: "Ask LLM", readOnlyHint: false, destructiveHint: false, openWorldHint: true },
     },
-    async (args: Record<string, unknown>, extra: ToolExtra): Promise<CallToolResult> => {
-      const progress = createProgressTracker("ask-llm", extra, PROGRESS_MESSAGES("ask-llm"));
+    async (args: Record<string, unknown>, ctx: ToolExtra): Promise<CallToolResult> => {
+      const progress = createProgressTracker("ask-llm", ctx, PROGRESS_MESSAGES("ask-llm"));
       try {
         const { text, structured, usage } = await runAskLlm(askLlmSchema, args, {
           getExecutor: (provider) => loadedExecutors.get(provider),
           onProgress: (output) => {
             progress.updateOutput(output);
           },
-          signal: extra.signal,
+          signal: ctx.mcpReq.signal,
         });
         if (usage) sessionUsage.record(usage);
         await progress.stop(true);
@@ -570,8 +568,8 @@ export async function createAskLlmServer(providerStatus: ProviderStatus): Promis
     {
       description:
         "Use Cursor Agent as a model-neutral, read-only consultation harness. The provider and exact Cursor catalog model ID are separate required fields. Runs `agent --print --mode ask` without --force/--trust, never changes spend settings, and never falls back to another model or provider.",
-      inputSchema: cursorAgentInputSchema.shape,
-      outputSchema: askResponseSchema.shape,
+      inputSchema: mcpSchema(cursorAgentInputSchema),
+      outputSchema: mcpSchema(askResponseSchema),
       annotations: {
         title: "Ask via Cursor Agent",
         readOnlyHint: true,
@@ -580,14 +578,14 @@ export async function createAskLlmServer(providerStatus: ProviderStatus): Promis
         openWorldHint: true,
       },
     },
-    async (args: Record<string, unknown>, extra: ToolExtra): Promise<CallToolResult> => {
-      const progress = createProgressTracker("ask-cursor-agent", extra, PROGRESS_MESSAGES("ask-cursor-agent"));
+    async (args: Record<string, unknown>, ctx: ToolExtra): Promise<CallToolResult> => {
+      const progress = createProgressTracker("ask-cursor-agent", ctx, PROGRESS_MESSAGES("ask-cursor-agent"));
       try {
         const input = cursorAgentInputSchema.parse(args);
         const result = await executeCursorAgent({
           ...input,
           onProgress: (output) => progress.updateOutput(output),
-          signal: extra.signal,
+          signal: ctx.mcpReq.signal,
         });
         sessionUsage.record(result.usage);
         await progress.stop(true);
@@ -628,7 +626,7 @@ export async function createAskLlmServer(providerStatus: ProviderStatus): Promis
     "ping",
     {
       description: "Test connectivity with the MCP server",
-      inputSchema: pingSchema.shape,
+      inputSchema: mcpSchema(pingSchema),
       annotations: { title: "Ping", readOnlyHint: true, idempotentHint: true, openWorldHint: false },
     },
     async (args: Record<string, unknown>): Promise<CallToolResult> => {
@@ -639,15 +637,13 @@ export async function createAskLlmServer(providerStatus: ProviderStatus): Promis
   );
 
   const usageTool = createUsageStatsTool(sessionUsage);
-  const usageOutputShape = usageTool.outputSchema
-    ? (usageTool.outputSchema as z.ZodObject<z.ZodRawShape>).shape
-    : undefined;
+  const usageOutputSchema = usageTool.outputSchema;
   server.registerTool(
     usageTool.name,
     {
       description: usageTool.description,
-      inputSchema: {},
-      ...(usageOutputShape ? { outputSchema: usageOutputShape } : {}),
+      inputSchema: mcpSchema(z.object({})),
+      ...(usageOutputSchema ? { outputSchema: mcpSchema(usageOutputSchema as z.ZodObject<z.ZodRawShape>) } : {}),
       annotations: usageTool.annotations,
     },
     async (): Promise<CallToolResult> => {
@@ -665,12 +661,13 @@ export async function createAskLlmServer(providerStatus: ProviderStatus): Promis
   registerSessionUsageResource(server, sessionUsage);
 
   const multiLlmInputSchema = buildMultiLlmInputSchema(available, excludedProviders);
+
   server.registerTool(
     "multi-llm",
     {
       description: MULTI_LLM_DESCRIPTION,
-      inputSchema: multiLlmInputSchema.shape,
-      outputSchema: (multiLlmReportSchema as z.ZodObject<z.ZodRawShape>).shape,
+      inputSchema: mcpSchema(multiLlmInputSchema),
+      outputSchema: mcpSchema(multiLlmReportSchema),
       annotations: {
         title: "Multi-LLM Parallel Dispatch",
         readOnlyHint: false,
@@ -679,15 +676,15 @@ export async function createAskLlmServer(providerStatus: ProviderStatus): Promis
         openWorldHint: true,
       },
     },
-    async (args: Record<string, unknown>, extra: ToolExtra): Promise<CallToolResult> => {
-      const progress = createProgressTracker("multi-llm", extra, PROGRESS_MESSAGES("multi-llm"));
+    async (args: Record<string, unknown>, ctx: ToolExtra): Promise<CallToolResult> => {
+      const progress = createProgressTracker("multi-llm", ctx, PROGRESS_MESSAGES("multi-llm"));
       try {
         const report = await runMultiLlm(multiLlmInputSchema, args, {
           available,
           getExecutor: (name) => loadedExecutors.get(name),
           recordUsage: (stats) => sessionUsage.record(stats),
           onProgress: (output) => progress.updateOutput(output),
-          signal: extra.signal,
+          signal: ctx.mcpReq.signal,
         });
         await progress.stop(report.failureCount === 0);
         return {
@@ -712,12 +709,10 @@ export async function startServer() {
   Logger.checkNodeVersion();
   const { version } = readPackageJson();
   const providerStatus = await detectProviders();
-  const server = await createAskLlmServer(providerStatus);
   const { available } = providerStatus;
 
   Logger.warn(`@ask-llm/mcp v${version} — 6 tools, ${available.length} provider(s): ${available.join(", ") || "none"}`);
 
-  const transport = new StdioServerTransport();
-  await server.connect(transport);
+  serveMcpStdio(() => createAskLlmServer(providerStatus));
   Logger.debug("@ask-llm/mcp listening on stdio");
 }
