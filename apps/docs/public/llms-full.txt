@@ -389,7 +389,7 @@ Setup registers the user-scope connection and installs portable workflows into t
 
 ## `/codex-pair` on Cursor
 
-Cursor's `/codex-pair` is an on-demand iterative pair session. Cursor remains the editor; an authenticated Codex CLI is the explicit read-only reviewer. Both `model=<exact ID>` and `effort=low|medium|high|xhigh|max|ultra` are required: the adapter cannot safely infer environment defaults inside a separately spawned MCP server. If either is omitted, pairing stops before extra context is read or consent is requested. Before calling the provider it reports those exact choices, bounded files, relative include directories, quota/data boundary, and asks for consent.
+Apply the [portable writer applicability rule](https://lykhoyda.github.io/ask-llm/advanced/codex-pair) before this adapter. When pairing is applicable, Cursor's `/codex-pair` is an on-demand iterative pair session. Cursor remains the editor; an authenticated Codex CLI is the explicit read-only reviewer. Both `model=<exact ID>` and `effort=low|medium|high|xhigh|max|ultra` are required: the adapter cannot safely infer environment defaults inside a separately spawned MCP server. If either is omitted, pairing stops before extra context is read or consent is requested. Before calling the provider it reports those exact choices, bounded files, relative include directories, quota/data boundary, and asks for consent.
 
 The first Codex call (`ask-codex` when user-installed, otherwise the fully pinned unified `ask-llm` with `provider: "codex"`) passes `sessionId: ""` to create a persisted thread, `sandbox: "read-only"`, and may pass up to 32 safe relative `includeDirs`. Follow-ups reuse the returned structured Thread ID and omit `includeDirs`, because `codex exec resume` does not support `--add-dir`; a resumed call that still passes `includeDirs` is rejected by every Codex transport (split `ask-codex`, unified `ask-llm`) rather than silently dropping the directories. Feedback is relayed and source-verified before Cursor edits. Interrupts cancel the MCP call; unavailable tools/models, incomplete unified schemas, partial failures, and any Codex quota fallback are reported rather than hidden.
 
@@ -464,6 +464,8 @@ Representative commands:
 The Cursor `gpt-6.2-sol-high` example follows the `<codex-slug>-high` naming but is unverified; confirm the exact ID with `agent --list-models` before use.
 
 Pi reads these skills from the shared skills folder that `ask-llm setup --host pi` fills; the package itself ships only the extension. `ask-llm-fable-review` is not installed: independent Fable review would require a nested Pi session or provider bridge. `ask-llm-grok-pair` is installed for other hosts and refuses on Pi, because Grok pairing still needs a dedicated Pi consent/lifecycle adapter.
+
+For `/skill:ask-llm-codex-pair`, check the [portable writer applicability rule](https://lykhoyda.github.io/ask-llm/advanced/codex-pair) first. The native `/codex-pair` commands described below use their separate consent flow.
 
 Native tools (Pi has no MCP client, so the extension registers them with the MCP server's input schemas; see the [host parity matrix](https://github.com/Lykhoyda/ask-llm/blob/main/docs/HOST-PARITY.md)):
 
