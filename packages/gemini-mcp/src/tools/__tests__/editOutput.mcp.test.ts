@@ -1,7 +1,6 @@
 import { registerTools, askResponseSchema } from "@ask-llm/shared";
-import { Client } from "@modelcontextprotocol/sdk/client/index.js";
-import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { InMemoryTransport, McpServer } from "@modelcontextprotocol/server";
+import { Client } from "@modelcontextprotocol/client";
 import { expect, it, vi } from "vitest";
 
 vi.mock("../../utils/geminiExecutor.js", async (original) => ({

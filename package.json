@@ -29,6 +29,8 @@
   "devDependencies": {
     "@changesets/changelog-github": "^1.0.0",
     "@changesets/cli": "^3.0.1",
+    "@modelcontextprotocol/client": "2.4.0",
+    "@modelcontextprotocol/sdk-v1": "npm:@modelcontextprotocol/sdk@1.32.2",
     "@types/node": "^24.13.6",
     "husky": "^9.1.7",
     "js-tiktoken": "^1.0.21",

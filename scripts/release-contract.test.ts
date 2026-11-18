@@ -4,8 +4,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { askResponseSchema, diagnosticReportSchema } from "@ask-llm/shared";
-import { Client } from "@modelcontextprotocol/sdk/client/index.js";
-import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
+import { StdioClientTransport } from "@modelcontextprotocol/client/stdio";
+import { Client } from "@modelcontextprotocol/client";
 import { afterAll, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 import askLlmPiExtension from "../packages/llm-mcp/pi/extensions/index.ts";
@@ -53,6 +53,7 @@ function contract(value: unknown): unknown {
   const record = value as Record<string, unknown>;
   return Object.fromEntries(
     Object.keys(record)
+      .filter((key) => record[key] !== undefined)
       .sort()
       .map((key) => [key, contract(record[key])]),
   );

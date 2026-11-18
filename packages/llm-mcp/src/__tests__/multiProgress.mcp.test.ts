@@ -1,5 +1,4 @@
-import { Client } from "@modelcontextprotocol/sdk/client/index.js";
-import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
+import { Client, InMemoryTransport } from "@modelcontextprotocol/client";
 import { afterEach, expect, it, vi } from "vitest";
 
 vi.mock("../utils/availability.js", () => ({
@@ -40,7 +39,6 @@ it.each([true, false])("sends start, keepalive and terminal progress for multi-l
     vi.useFakeTimers();
     const result = client.callTool(
       { name: "multi-llm", arguments: { prompt: "review", providers: ["codex"] } },
-      undefined,
       { onprogress: (value) => progress.push(value) },
     );
     await vi.waitFor(() => expect(finish).toBeTypeOf("function"));

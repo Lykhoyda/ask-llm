@@ -1,4 +1,4 @@
-import type { ToolAnnotations } from "@modelcontextprotocol/sdk/types.js";
+import type { ToolAnnotations } from "@modelcontextprotocol/server";
 import type { ZodTypeAny } from "zod";
 import { ZodError } from "zod";
 import type { BaseToolArguments } from "./constants.js";
