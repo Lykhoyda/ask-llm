@@ -1,5 +1,17 @@
 # @ask-llm/grok-mcp
 
+## 0.4.0
+
+### Minor Changes
+
+- [#438](https://github.com/Lykhoyda/ask-llm/pull/438) [`4261cce`](https://github.com/Lykhoyda/ask-llm/commit/4261cce50bc6c4443e37c645fb214b12e1235f92) Thanks [@Lykhoyda](https://github.com/Lykhoyda)! - Support both the existing 2025 MCP protocol and the 2026-07-28 protocol on every stdio server using MCP SDK 2. Existing clients and registrations continue to work without user action. Preserve tool names, annotations, draft-07 schemas, structured responses, progress notifications, and session usage accounting.
+
+### Patch Changes
+
+- [#436](https://github.com/Lykhoyda/ask-llm/pull/436) [`9529492`](https://github.com/Lykhoyda/ask-llm/commit/952949265774cef87734f56368f28a7059f5b2e2) Thanks [@Lykhoyda](https://github.com/Lykhoyda)! - Move the Codex file-writing path from `ask-codex({ sandbox: "workspace-write" })` to the separate `ask-codex-write` tool with write-access annotations. `ask-codex` now accepts only a read-only sandbox. Update image-generation skills and Pi's native writing tool accordingly; the unified `ask-llm` writing route remains available.
+  
+  Provide concise MCP server instructions, structured responses on both edit-proposal tools, progress for token 0 and multi-provider dispatch, and Registry version metadata synchronized in the existing release version step.
+
 ## 0.3.0
 
 ### Minor Changes
