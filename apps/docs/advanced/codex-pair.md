@@ -61,7 +61,7 @@ The remaining sections describe the Claude Code lifecycle unless another host is
 
 ## Setup
 
-Run the `/codex-pair` slash command in the project where you want continuous review. On first run (no marker present) on Claude Code it copies a committed `.codex-pair.example/context.md` from the repository root to `.codex-pair/context.md` without asking; it never overwrites an existing marker. Without a template it offers interactive setup with auto-detected project context and writes the marker file for you. Either way it keeps `.codex-pair/` out of git through the local exclude file described below. You can also create the marker by hand:
+Run the `/codex-pair` slash command in the project where you want continuous review. On first run (no marker present) on Claude Code it copies a committed `.codex-pair.example/context.md` from the repository root to `.codex-pair/context.md` at that root without asking; it never overwrites an existing marker. Without a template it offers interactive setup with auto-detected project context and writes `.codex-pair/context.md` in the current directory after confirmation. Setup finds existing markers by walking up from the current directory through the repository root. Either way it keeps `.codex-pair/` out of git through the local exclude file described below. You can also create the marker by hand:
 
 ```bash
 mkdir -p .codex-pair
@@ -91,7 +91,7 @@ On Claude Code, the marker file opts the project into review; `CODEX_PAIR_DISABL
 .codex-pair/
 ```
 
-`/codex-pair` setup on Claude Code appends that line to git's local exclude file, the path `git rev-parse --git-path info/exclude` prints. A linked worktree has a `.git` file rather than a folder, so the path comes from git; all worktrees of a repository share that file. Setup never edits `.gitignore` and skips the exclude entry when git already ignores the marker. Add the line to `.gitignore` or your global ignore file yourself if you prefer.
+`/codex-pair` setup on Claude Code appends that line to git's local exclude file, the path `git rev-parse --git-path info/exclude` prints. A linked worktree has a `.git` file rather than a folder, so the path comes from git; all worktrees of a repository share that file. Setup never edits `.gitignore` and skips the exclude entry when git already ignores the entire `.codex-pair/` directory. It verifies directory-wide exclusion after appending and exits non-zero if higher-priority rules still prevent it. Add the line to `.gitignore` or your global ignore file yourself if you prefer.
 
 For a new contributor or a fresh worktree, commit a template at `.codex-pair.example/context.md` in the repository root: `/codex-pair` copies it with no questions, and each developer can then edit their own copy. You can run the same step directly from the project with `node packages/llm-mcp/scripts/codex-pair-log.mjs setup`. Its first word reports the outcome: `created`, `exists`, `no-template`, `not-git` or `invalid-template` (a template that is not a regular file, such as a symlink, is refused).
 

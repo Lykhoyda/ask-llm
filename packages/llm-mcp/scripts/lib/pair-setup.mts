@@ -18,7 +18,7 @@ export type IgnoreOutcome =
 
 export type SetupOutcome =
   | { kind: "not-git"; reason: string }
-  | { kind: "no-template"; root: string; marker: string; template: string }
+  | { kind: "no-template"; root: string; template: string }
   | { kind: "invalid-template"; root: string; template: string }
   | { kind: "created"; root: string; marker: string; template: string; ignore: IgnoreOutcome }
   | { kind: "exists"; root: string; marker: string; ignore: IgnoreOutcome };
@@ -45,9 +45,9 @@ export function excludeFilePath(root: string): string {
   return resolve(root, git(root, ["rev-parse", "--git-path", "info/exclude"]));
 }
 
-function ignoredByGit(root: string, marker: string): boolean {
+function ignoredByGit(root: string, directory: string): boolean {
   try {
-    git(root, ["check-ignore", "-q", marker]);
+    git(root, ["check-ignore", "-q", directory]);
     return true;
   } catch (err) {
     // Exit 1 means "not ignored"; anything else is a real git failure.
@@ -58,7 +58,8 @@ function ignoredByGit(root: string, marker: string): boolean {
 
 export function ensureExcluded(root: string, marker: string): IgnoreOutcome {
   try {
-    if (ignoredByGit(root, marker)) return { kind: "already-ignored" };
+    const directory = `${dirname(marker)}/`;
+    if (ignoredByGit(root, directory)) return { kind: "already-ignored" };
     const excludeFile = excludeFilePath(root);
     let current = "";
     try {
@@ -68,6 +69,7 @@ export function ensureExcluded(root: string, marker: string): IgnoreOutcome {
     }
     const separator = current.length > 0 && !current.endsWith("\n") ? "\n" : "";
     appendFileSync(excludeFile, `${separator}${EXCLUDE_LINE}\n`);
+    if (!ignoredByGit(root, directory)) return { kind: "failed", reason: `${directory} is still not ignored by git` };
     return { kind: "excluded", excludeFile };
   } catch (err) {
     return { kind: "failed", reason: (err as Error)?.message ?? String(err) };
@@ -81,12 +83,18 @@ export function setupMarker(cwd: string): SetupOutcome {
   } catch (err) {
     return { kind: "not-git", reason: (err as Error)?.message ?? String(err) };
   }
-  const marker = join(root, PAIR_ROOT_DIR, CONTEXT_FILENAME);
+  let directory = resolve(root, git(cwd, ["rev-parse", "--show-prefix"]));
+  while (true) {
+    const marker = join(directory, PAIR_ROOT_DIR, CONTEXT_FILENAME);
+    if (exists(marker)) return { kind: "exists", root, marker, ignore: ensureExcluded(root, marker) };
+    if (directory === root) break;
+    directory = dirname(directory);
+  }
   const template = join(root, TEMPLATE_DIR, CONTEXT_FILENAME);
-  if (exists(marker)) return { kind: "exists", root, marker, ignore: ensureExcluded(root, marker) };
-  if (!exists(template)) return { kind: "no-template", root, marker, template };
+  if (!exists(template)) return { kind: "no-template", root, template };
   // A symlinked template could pull a file from outside the repository into the reviewer's context.
   if (!lstatSync(template).isFile()) return { kind: "invalid-template", root, template };
+  const marker = join(root, PAIR_ROOT_DIR, CONTEXT_FILENAME);
   mkdirSync(dirname(marker), { recursive: true });
   try {
     copyFileSync(template, marker, constants.COPYFILE_EXCL);
@@ -112,11 +120,11 @@ export function setupFailed(outcome: SetupOutcome): boolean {
 export function formatSetup(outcome: SetupOutcome): string {
   switch (outcome.kind) {
     case "not-git":
-      return "not-git: not inside a git repository; draft the marker interactively. Nothing is added to git ignore rules.";
+      return `not-git: not inside a git repository; draft ${PAIR_ROOT_DIR}/${CONTEXT_FILENAME} interactively in the current directory. Nothing is added to git ignore rules.`;
     case "no-template":
       return [
-        `no-template: ${outcome.template} does not exist; draft the marker interactively and write it to ${outcome.marker}.`,
-        `Then run setup again to keep ${PAIR_ROOT_DIR}/ out of git.`,
+        `no-template: ${outcome.template} does not exist; draft ${PAIR_ROOT_DIR}/${CONTEXT_FILENAME} interactively in the current directory.`,
+        `Then run setup again from the same directory to keep ${PAIR_ROOT_DIR}/ out of git.`,
       ].join("\n");
     case "invalid-template":
       return `invalid-template: ${outcome.template} is not a regular file; nothing was copied.`;

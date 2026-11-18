@@ -131,7 +131,7 @@ describe("codex-pair-log setup", () => {
     const result = setup(base, root);
     expect(result.status).toBe(0);
     expect(result.stdout.split("\n")[0]).toMatch(/^no-template: /);
-    expect(result.stdout).toContain(marker(root));
+    expect(result.stdout).toContain("draft .codex-pair/context.md interactively in the current directory");
     expect(existsSync(join(root, ".codex-pair"))).toBe(false);
     expect(readFileSync(excludeFile(base, root), "utf8")).toBe(before);
     // The skill writes the confirmed draft, then runs setup again.
@@ -144,6 +144,115 @@ describe("codex-pair-log setup", () => {
     expect(git(base, root, "status", "--porcelain", "--untracked-files=all")).toBe("");
   });
 
+  it("keeps a no-template interactive draft scoped to its invoking subpackage", () => {
+    const base = scratch();
+    const root = repo(base, { template: false });
+    const project = join(root, "packages", "foo");
+    mkdirSync(project, { recursive: true });
+    const before = readFileSync(excludeFile(base, root), "utf8");
+    const result = setup(base, project);
+    expect(result.status).toBe(0);
+    expect(result.stdout).toMatch(/^no-template: /);
+    expect(result.stdout).toContain("draft .codex-pair/context.md interactively in the current directory");
+    expect(result.stdout).not.toContain(marker(root));
+    expect(existsSync(join(project, ".codex-pair"))).toBe(false);
+    expect(existsSync(join(root, ".codex-pair"))).toBe(false);
+    expect(readFileSync(excludeFile(base, root), "utf8")).toBe(before);
+    mkdirSync(join(project, ".codex-pair"));
+    writeFileSync(marker(project), "# foo context\n");
+    const again = setup(base, project);
+    expect(again.status).toBe(0);
+    expect(again.stdout).toMatch(/^exists: /);
+    expect(again.stdout).toContain(marker(project));
+    expect(readFileSync(marker(project), "utf8")).toBe("# foo context\n");
+    expect(existsSync(join(root, ".codex-pair"))).toBe(false);
+    expect(git(base, root, "status", "--porcelain", "--untracked-files=all")).toBe("");
+  });
+
+  it.each([false, true])("preserves an ancestor subpackage marker with template=%s", (template) => {
+    const base = scratch();
+    const root = repo(base, { template });
+    const project = join(root, "packages", "foo");
+    const nested = join(project, "src");
+    mkdirSync(nested, { recursive: true });
+    mkdirSync(join(project, ".codex-pair"));
+    writeFileSync(marker(project), "# foo context\n");
+    const result = setup(base, nested);
+    expect(result.status).toBe(0);
+    expect(result.stdout).toMatch(/^exists: /);
+    expect(result.stdout).toContain(marker(project));
+    expect(readFileSync(marker(project), "utf8")).toBe("# foo context\n");
+    expect(existsSync(join(root, ".codex-pair"))).toBe(false);
+    writeFileSync(join(project, ".codex-pair", "log.jsonl"), "private review\n");
+    expect(git(base, root, "status", "--porcelain", "--untracked-files=all")).toBe("");
+  });
+
+  it("stops existing-marker discovery at the repository root", () => {
+    const base = scratch();
+    const root = repo(base, { template: false });
+    mkdirSync(join(base, ".codex-pair"));
+    writeFileSync(marker(base), "# outside context\n");
+    const result = setup(base, join(root, "src"));
+    expect(result.status).toBe(0);
+    expect(result.stdout).toMatch(/^no-template: /);
+    expect(existsSync(join(root, ".codex-pair"))).toBe(false);
+    expect(readFileSync(marker(base), "utf8")).toBe("# outside context\n");
+  });
+
+  it.each([false, true])("excludes logs and caches beyond a marker-only ignore rule with existing=%s", (existing) => {
+    const base = scratch();
+    const gitignore = ".codex-pair/context.md\n";
+    const root = repo(base, { gitignore });
+    if (existing) {
+      mkdirSync(join(root, ".codex-pair"));
+      writeFileSync(marker(root), "# personal context\n");
+    }
+    const result = setup(base, root);
+    expect(result.status).toBe(0);
+    expect(result.stdout).toMatch(existing ? /^exists: / : /^created: /);
+    expect(excludeLines(base, root)).toContain(".codex-pair/");
+    expect(readFileSync(marker(root), "utf8")).toBe(existing ? "# personal context\n" : TEMPLATE);
+    writeFileSync(join(root, ".codex-pair", "log.jsonl"), "private review\n");
+    mkdirSync(join(root, ".codex-pair", "state"));
+    writeFileSync(join(root, ".codex-pair", "state", "cache.json"), "{}\n");
+    expect(readFileSync(join(root, ".gitignore"), "utf8")).toBe(gitignore);
+    expect(git(base, root, "status", "--porcelain", "--untracked-files=all")).toBe("");
+  });
+
+  it("leaves local excludes unchanged when git already ignores the whole directory", () => {
+    const base = scratch();
+    const root = repo(base, { gitignore: ".codex-pair/\n" });
+    const before = readFileSync(excludeFile(base, root), "utf8");
+    const result = setup(base, root);
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain("already ignored by git");
+    expect(readFileSync(excludeFile(base, root), "utf8")).toBe(before);
+    writeFileSync(join(root, ".codex-pair", "log.jsonl"), "private review\n");
+    expect(git(base, root, "status", "--porcelain", "--untracked-files=all")).toBe("");
+  });
+
+  it.each([false, true])(
+    "reports ignore failure when a directory negation overrides local excludes with existing=%s",
+    (existing) => {
+      const base = scratch();
+      const gitignore = "!.codex-pair/\n";
+      const root = repo(base, { gitignore });
+      if (existing) {
+        mkdirSync(join(root, ".codex-pair"));
+        writeFileSync(marker(root), "# personal context\n");
+      }
+      const result = setup(base, root);
+      expect(result.status).toBe(1);
+      expect(result.stdout).toMatch(existing ? /^exists: / : /^created: /);
+      expect(result.stdout).toContain("is still not ignored by git");
+      expect(result.stdout).not.toContain("is ignored through");
+      expect(readFileSync(marker(root), "utf8")).toBe(existing ? "# personal context\n" : TEMPLATE);
+      expect(readFileSync(join(root, ".gitignore"), "utf8")).toBe(gitignore);
+      writeFileSync(join(root, ".codex-pair", "log.jsonl"), "private review\n");
+      expect(git(base, root, "status", "--porcelain", "--untracked-files=all")).toContain(".codex-pair/log.jsonl");
+    },
+  );
+
   it("writes nothing outside a git repository", () => {
     const base = scratch();
     const plain = join(base, "plain");
@@ -152,6 +261,7 @@ describe("codex-pair-log setup", () => {
     const result = setup(base, plain);
     expect(result.status).toBe(0);
     expect(result.stdout).toMatch(/^not-git: /);
+    expect(result.stdout).toContain("draft .codex-pair/context.md interactively in the current directory");
     expect(existsSync(join(plain, ".codex-pair"))).toBe(false);
   });
 

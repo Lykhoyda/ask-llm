@@ -83,13 +83,13 @@ Done when the marker search has selected setup or status.
 
    Done when the user has chosen create, edit or cancel.
 
-6. On user confirmation, write the confirmed content to the marker path that item 2's `no-template` output names (`.codex-pair/context.md` in the current directory after `not-git`), creating `.codex-pair/` first.
+6. On user confirmation, create `.codex-pair/` in the current directory and write the confirmed content to `.codex-pair/context.md` there.
 
    Done when the confirmed marker is written.
 
-7. After `no-template`, run the item 2 command again; it leaves the marker as written and reports how `.codex-pair/` is ignored. After `not-git` there is nothing to ignore.
+7. After `no-template`, run the item 2 command again from that same directory; it leaves the marker as written and reports how `.codex-pair/` is ignored. Show the output and stop if it exits non-zero. After `not-git` there is nothing to ignore.
 
-   Done when the second run printed `exists`, or the project is not a git repository.
+   Done when the second run exited zero and printed `exists`, or the project is not a git repository.
 
 8. Run section 3, Show status, for the marker.
 
