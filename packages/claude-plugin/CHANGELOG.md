@@ -1,5 +1,12 @@
 # @ask-llm/plugin
 
+## 0.20.7
+
+### Patch Changes
+
+- Updated dependencies [[`79aaf46`](https://github.com/Lykhoyda/ask-llm/commit/79aaf4697dea3ba12ead136f1689b2249e42ba31)]:
+  - @ask-llm/mcp@1.6.2
+
 ## 0.20.6
 
 ### Patch Changes

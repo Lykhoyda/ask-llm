@@ -1,5 +1,11 @@
 # @ask-llm/mcp
 
+## 1.6.2
+
+### Patch Changes
+
+- [#442](https://github.com/Lykhoyda/ask-llm/pull/442) [`79aaf46`](https://github.com/Lykhoyda/ask-llm/commit/79aaf4697dea3ba12ead136f1689b2249e42ba31) Thanks [@Lykhoyda](https://github.com/Lykhoyda)! - Report print timeouts, interruptions, and failures from Antigravity's JSON output even when the CLI exits successfully. Preserve timeout detection from stderr and tell users how to raise the timeout.
+
 ## 1.6.1
 
 ### Patch Changes
