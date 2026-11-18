@@ -421,17 +421,6 @@ describe("scripts/codex-pair-watch.mjs — structural invariants (ADR-077)", () 
     expect(body).toMatch(/unlink/);
   });
 
-  it("main() checks cache before codex spawn; hit emits [cached] tag, miss writes after success", () => {
-    // Cache check before runCodexWithFallback
-    expect(script).toMatch(/computeCacheKey[\s\S]*?getCachedConcerns[\s\S]*?runCodexWithFallback/);
-    // verdict on hit
-    expect(script).toMatch(/verdict:\s*["']cached["']/);
-    // buildVerdictMessage gets cached:true on hit
-    expect(script).toMatch(/cached:\s*true/);
-    // Write after successful parse
-    expect(script).toMatch(/setCachedConcerns/);
-  });
-
   // Phase 3 item #9: log viewer CLI (in a sibling script, but tested here for proximity)
   it("scripts/codex-pair-log.mjs exists, has shebang, is executable", () => {
     const logCliPath = path.join(PLUGIN_ROOT, "scripts", "codex-pair-log.mjs");
@@ -502,16 +491,6 @@ describe("scripts/codex-pair-watch.mjs — structural invariants (ADR-077)", () 
     // The quota fallback model always goes through the retry wrapper.
     expect(ladder).toMatch(/spawnCodexWithRetry/);
     expect(ladder).not.toMatch(/[^.\w]spawnCodex\(/);
-  });
-
-  it("codex-pair-log CLI declares all four subcommands plus --since filter", () => {
-    const cli = fs.readFileSync(path.join(PLUGIN_ROOT, "scripts", "codex-pair-log.mjs"), "utf-8");
-    expect(cli).toMatch(/--latest/);
-    expect(cli).toMatch(/--summary/);
-    expect(cli).toMatch(/--file/);
-    expect(cli).toMatch(/--since/);
-    // Reuses findMarkerUp logic inline (no import from the hook)
-    expect(cli).toMatch(/function findMarkerUp/);
   });
 
   it("buildVerdictMessage emits [cached] suffix when cached:true (ADR-088 unit test)", async () => {
@@ -729,12 +708,6 @@ describe("scripts/codex-pair-watch.mjs — structural invariants (ADR-077)", () 
     expect(script).not.toMatch(/process\.stderr\.write/);
   });
 
-  it("logs every call to .codex-pair/log.jsonl (ADR-088/092: helper in lib/state.mjs)", () => {
-    expect(libState).toMatch(/LOG_FILENAME\s*=\s*"log\.jsonl"/);
-    expect(libState).toMatch(/export async function appendLog/);
-    expect(script).toMatch(/appendLog/); // hook calls the imported helper
-  });
-
   it("never throws uncaught — has main().catch(...) wrapper", () => {
     expect(script).toMatch(/main\(\)\.catch/);
   });
@@ -764,14 +737,6 @@ describe("scripts/codex-pair-watch.mjs — structural invariants (ADR-077)", () 
     expect(rendered).toMatch(/untrusted data/i);
     // The content is wrapped in XML tags, NOT inside a markdown fence
     expect(rendered).toMatch(/<file_content>\nconst x = 1;\n<\/file_content>/);
-  });
-
-  it("auto-pauses on quota exhaustion and consecutive failures (#176 / ADR-120)", () => {
-    expect(script).toMatch(/quotaExhausted/);
-    expect(script).toMatch(/writeAutoPause/);
-    expect(script).toMatch(/AUTOPAUSE_FAILURE_THRESHOLD/);
-    expect(script).toMatch(/clearReviewFailures/);
-    expect(libState).toMatch(/flag:\s*"wx"/);
   });
 });
 
@@ -1429,7 +1394,8 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
   }
 
   it("marker effort reaches direct primary/fallback and changing only effort misses cache", () => {
-    const marker = (effort: string) => `---\nreasoningEffort: ${effort}\ndebounceMs: 0\n---\n# ctx`;
+    const marker = (effort: string) =>
+      `---\nreasoningEffort: ${effort}\ndebounceMs: 0\nmodel: gpt-6.2-sol\nfallbackModel: gpt-6.1-terra\n---\n# ctx`;
     setupMarker(tempDir, marker("xhigh"));
     const filePath = path.join(tempDir, "src.ts");
     fs.writeFileSync(filePath, "export const x = 1;");
@@ -1457,6 +1423,8 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
         FAKE_CODEX_ATTEMPT_FILE: path.join(tempDir, "attempts"),
       }).status,
     ).toBe(0);
+    // With the same inputs, the cached result must preserve the fallback attribution.
+    expect(runHookWithFakeCodex(payload, tempDir, "none", env).status).toBe(0);
     const fallbackCalls = fs
       .readFileSync(argsFile, "utf8")
       .trim()
@@ -1464,7 +1432,17 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
       .slice(2)
       .map((line) => JSON.parse(line));
     expect(fallbackCalls).toHaveLength(2);
+    expect(fallbackCalls[0]).toContain("gpt-6.2-sol");
+    expect(fallbackCalls[1]).toContain("gpt-6.1-terra");
     for (const args of fallbackCalls) expect(args).toContain('model_reasoning_effort="xhigh"');
+    const entries = readLogEntries(tempDir);
+    expect(entries).toMatchObject([
+      { verdict: "none", reviewer: "codex", model: "gpt-6.2-sol", reasoningEffort: "xhigh", fellBack: false },
+      { verdict: "cached", reviewer: "codex", model: "gpt-6.2-sol", reasoningEffort: "xhigh", fellBack: false },
+      { verdict: "none", reviewer: "codex", model: "gpt-6.2-sol", reasoningEffort: "high", fellBack: false },
+      { verdict: "none", reviewer: "codex", model: "gpt-6.1-terra", reasoningEffort: "xhigh", fellBack: true },
+      { verdict: "cached", reviewer: "codex", model: "gpt-6.1-terra", reasoningEffort: "xhigh", fellBack: true },
+    ]);
   });
 
   it("fake-codex fixture: file is executable + present at expected path", () => {
@@ -1557,7 +1535,13 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
     expect(fs.existsSync(path.join(stateDir, "failures.json"))).toBe(false);
     // Both the transition AND the review are durable in the log
     const log = fs.readFileSync(path.join(tempDir, ".codex-pair/log.jsonl"), "utf-8");
-    expect(log).toMatch(/auto_resumed/);
+    expect(readLogEntries(tempDir)[0]).toMatchObject({
+      verdict: "auto_resumed",
+      event: "resume",
+      pauseKind: "failures",
+      pauseSource: "auto",
+      pauseStartedAt: "2026-06-14T13:23:04.000Z",
+    });
     expect(log).toMatch(/"verdict":"none"/);
     // Single-JSON-object contract: the notice rides as a prefix on the verdict
     const stdoutLines = result.stdout
@@ -1899,7 +1883,12 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
       .trim()
       .split("\n")
       .map((l) => JSON.parse(l));
-    expect(lines.some((l) => l.autoPaused === "quota")).toBe(true);
+    expect(lines.find((l) => l.autoPaused === "quota")).toMatchObject({
+      timestamp: sentinel.at,
+      event: "pause",
+      pauseKind: "quota",
+      pauseSource: "auto",
+    });
   });
 
   it("primary quota + fallback model unavailable (ChatGPT plan) → clean quota auto-pause, NOT the 3-failure backstop", () => {

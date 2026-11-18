@@ -166,6 +166,16 @@ process.stdin.on('end', () => {
     );
     expect(call.args).not.toContain("--fallback-model");
     expect(call.prompt).toContain("export const x = 1;");
+    expect(run()).toContain("[cached]");
+    expect(calls()).toHaveLength(2);
+    const entries = readFileSync(join(root, ".codex-pair/log.jsonl"), "utf8")
+      .trim()
+      .split("\n")
+      .map((line) => JSON.parse(line));
+    expect(entries.slice(-2)).toMatchObject([
+      { verdict: "concerns", reviewer: "claude", model: "claude-opus-5-5", reasoningEffort: "unknown" },
+      { verdict: "cached", reviewer: "claude", model: "claude-opus-5-5", reasoningEffort: "unknown" },
+    ]);
   });
 
   it("reviews command text without reading a synthetic file or running the command", () => {

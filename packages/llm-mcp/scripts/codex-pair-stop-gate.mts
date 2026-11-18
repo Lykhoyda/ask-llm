@@ -3,12 +3,11 @@
 
 // The Stop-gate blocks opted-in HIGH findings but fails open on internal errors.
 
-import { execFileSync } from "node:child_process";
-import { existsSync, readdirSync, readFileSync, realpathSync, statSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
-import { drainPending, fileContentHash, joinPendingForSurface, readDebounceRecords } from "./lib/debounce-state.mts";
-import { markerScalar } from "./lib/pair-config.mts";
+import { drainPending, joinPendingForSurface, readDebounceRecords } from "./lib/debounce-state.mts";
+import { markerScalar, resolveBlockOn } from "./lib/pair-config.mts";
 import type { HookInput } from "./lib/hook-input.mjs";
 import { collectSessionMarkers } from "./lib/session-registry.mts";
 import {
@@ -20,14 +19,8 @@ import {
   PAIR_ROOT_DIR,
   readAcks,
 } from "./lib/state.mts";
-import {
-  collectBlockingHighs,
-  collectInFlight,
-  formatBlockMessage,
-  formatInFlightMessage,
-  parseGitPorcelain,
-  selectReviewEntries,
-} from "./lib/stop-gate.mts";
+import { canonicalFile, readBlockingHighs } from "./lib/stop-gate-io.mts";
+import { collectInFlight, formatBlockMessage, formatInFlightMessage } from "./lib/stop-gate.mts";
 
 const MARKER_FILE = join(PAIR_ROOT_DIR, CONTEXT_FILENAME);
 
@@ -52,60 +45,12 @@ function readStdin() {
   });
 }
 
-// Read only the frontmatter scalars needed by the Stop-gate.
-function readMarkerScalar(markerDir: string, key: string): string | null {
-  let text: string;
+function readMarker(markerDir: string): string {
   try {
-    text = readFileSync(contextPath(markerDir), "utf8");
+    return readFileSync(contextPath(markerDir), "utf8");
   } catch {
-    return null;
+    return "";
   }
-  return markerScalar(text, key);
-}
-
-function readBlockOn(markerDir: string): string | null {
-  return readMarkerScalar(markerDir, "blockOn");
-}
-
-function gitDirtySet(markerDir: string) {
-  // timeout guards against a hung git (locked index, slow FS) wedging turn-end.
-  const opts = {
-    encoding: "utf8" as const,
-    stdio: ["ignore", "pipe", "ignore"] as ("ignore" | "pipe")[],
-    timeout: 5000,
-  };
-  try {
-    const repoRoot = execFileSync("git", ["-C", markerDir, "rev-parse", "--show-toplevel"], opts).trim();
-    // -uall lists files inside untracked dirs; the default collapses them to "?? dir/".
-    const porcelain = execFileSync(
-      "git",
-      ["-C", markerDir, "status", "--porcelain=v1", "-z", "--untracked-files=all"],
-      opts,
-    );
-    return parseGitPorcelain(porcelain, repoRoot);
-  } catch {
-    return null; // not a repo / git missing / timeout → skip the [B] filter
-  }
-}
-
-// A collapsed `?? dir/` record hides which nested files the outer .gitignore ignores; any git failure keeps them.
-function dropIgnoredUnderDirtyDirs(entries: Map<string, unknown>, gitDirty: Set<string> | null, repoDir: string) {
-  if (!gitDirty) return;
-  const dirs = [...gitDirty].filter((path) => path.endsWith("/"));
-  const viaDir = [...entries.keys()].filter((file) => !gitDirty.has(file) && dirs.some((dir) => file.startsWith(dir)));
-  if (viaDir.length === 0) return;
-  let ignored: string;
-  try {
-    ignored = execFileSync("git", ["-C", repoDir, "check-ignore", "-z", "--stdin"], {
-      encoding: "utf8",
-      input: viaDir.join("\0"),
-      stdio: ["pipe", "pipe", "ignore"],
-      timeout: 5000,
-    });
-  } catch {
-    return; // exit 1 = nothing ignored; other failures stay conservative
-  }
-  for (const file of ignored.split("\0")) entries.delete(file);
 }
 
 // Use the raw marker path because the watch hook writes in-flight state there.
@@ -128,7 +73,7 @@ function readInFlightInputs(markerDir: string) {
 
 // Match the watch hook lock TTL so both agree when a review remains in flight.
 function inflightFreshMs(markerDir: string): number {
-  const fmTimeout = Number(readMarkerScalar(markerDir, "timeoutMs"));
+  const fmTimeout = Number(markerScalar(readMarker(markerDir), "timeoutMs"));
   const timeout =
     Number.isFinite(fmTimeout) && fmTimeout > 0 ? fmTimeout : Number(process.env.ASK_CODEX_TIMEOUT_MS ?? 800_000);
   return Math.max(timeout, INFLIGHT_TTL_MIN_MS) + 60_000;
@@ -138,21 +83,12 @@ function writeAndExit(obj: unknown): void {
   process.stdout.write(`${JSON.stringify(obj)}\n`, () => process.exit(0));
 }
 
-// Canonicalize for git paths; macOS may resolve /var to /private/var.
-function canonicalFile(file: string): string {
-  try {
-    return realpathSync(file);
-  } catch {
-    return file; // missing/inaccessible → keep raw; collectBlockingHighs' existsFn drops it
-  }
-}
-
 // Read in-flight state from the raw marker path and canonicalize only for git/log matching.
 function evaluateMarker(markerDir: string) {
   // Aggregate raw verdicts before applying the global surface cap.
   const pending = drainPending(markerDir);
 
-  if (readBlockOn(markerDir) !== "HIGH") {
+  if (resolveBlockOn(readMarker(markerDir)) !== "HIGH") {
     return { pending, blockReason: null };
   }
 
@@ -162,12 +98,7 @@ function evaluateMarker(markerDir: string) {
     freshMs: inflightFreshMs(markerDir),
   });
 
-  let canonical = markerDir;
-  try {
-    canonical = realpathSync(markerDir);
-  } catch {
-    // keep raw on the rare realpath failure
-  }
+  const canonical = canonicalFile(markerDir);
 
   let logText = "";
   try {
@@ -176,17 +107,7 @@ function evaluateMarker(markerDir: string) {
     // no log yet — an in-flight first-ever review can still block below
   }
 
-  const entries = selectReviewEntries(logText, canonicalFile);
-  const gitDirty = gitDirtySet(canonical);
-  dropIgnoredUnderDirtyDirs(entries, gitDirty, canonical);
-  const blocking = collectBlockingHighs({
-    entries,
-    acks: readAcks(canonical),
-    existsFn: existsSync,
-    hashFn: fileContentHash,
-    gitDirty,
-    markerDir: canonical,
-  });
+  const blocking = readBlockingHighs(canonical, logText, readAcks(canonical));
 
   let blockReason = null;
   if (blocking.length > 0) {

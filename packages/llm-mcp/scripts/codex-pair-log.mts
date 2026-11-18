@@ -3,34 +3,31 @@
 
 // CLI viewer for the .codex-pair/log.jsonl the hook writes; run with --help for subcommands.
 
-import { readFileSync, realpathSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { access } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { parseFrontmatter } from "./lib/frontmatter.mts";
 import { loadPairDefaults } from "./lib/pair-config-io.mts";
-import { resolveConfig } from "./lib/pair-config.mts";
+import { resolveBlockOn, resolveConfig } from "./lib/pair-config.mts";
+import { type PairLogEntry as LogEntry, buildReport, formatReport } from "./lib/pair-report.mts";
 import {
   CONTEXT_FILENAME,
   PAIR_ROOT_DIR,
+  addAck,
   contextPath,
+  pauseManually,
+  readAcks,
   readPauseInfo,
   logPath as resolveLogPath,
+  resumeManually,
 } from "./lib/state.mts";
-
-interface LogEntry {
-  timestamp?: string;
-  verdict?: string;
-  level?: string;
-  file?: string;
-  counts?: { high: number; med: number; low: number };
-  durationMs?: number;
-  fellBack?: boolean;
-  reason?: string;
-}
+import { canonicalFile, readBlockingHighs } from "./lib/stop-gate-io.mts";
 
 interface Args {
-  cmd: "latest" | "summary" | "file" | "help" | "status";
+  cmd: "latest" | "summary" | "file" | "help" | "status" | "report" | "ack" | "pause" | "resume";
+  json: boolean;
+  hash: string | null;
   n: number;
   file: string | null;
   sinceMs: number | null;
@@ -70,7 +67,7 @@ function parseDuration(s: string): number | null {
 }
 
 function parseArgs(argv: string[]): Args {
-  const args: Args = { cmd: "latest", n: 10, file: null, sinceMs: null };
+  const args: Args = { cmd: "latest", n: 10, file: null, sinceMs: null, json: false, hash: null };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === "--latest") {
@@ -82,6 +79,15 @@ function parseArgs(argv: string[]): Args {
       }
     } else if (a === "--status") {
       args.cmd = "status";
+    } else if (a === "--report") {
+      args.cmd = "report";
+    } else if (a === "--json") {
+      args.json = true;
+    } else if (i === 0 && a === "ack") {
+      args.cmd = "ack";
+      args.hash = argv[++i] ?? null;
+    } else if (i === 0 && (a === "pause" || a === "resume")) {
+      args.cmd = a;
     } else if (a === "--summary") {
       args.cmd = "summary";
     } else if (a === "--file") {
@@ -104,21 +110,32 @@ function parseArgs(argv: string[]): Args {
       process.exit(2);
     }
   }
+  if (args.json && args.cmd !== "report") {
+    process.stderr.write("codex-pair-log: --json requires --report\n");
+    process.exit(2);
+  }
+  if (args.cmd === "ack" && !/^[0-9a-f]{16}$/.test(args.hash ?? "")) {
+    process.stderr.write("codex-pair-log: ack requires a 16-character lowercase hex hash\n");
+    process.exit(2);
+  }
   return args;
 }
 
-function loadEntries(logPath: string): LogEntry[] {
-  let content: string;
+function readLog(logPath: string): string {
   try {
-    content = readFileSync(logPath, "utf8");
+    return readFileSync(logPath, "utf8");
   } catch {
-    return [];
+    return "";
   }
+}
+
+function loadEntries(content: string): LogEntry[] {
   const entries: LogEntry[] = [];
   for (const line of content.split("\n")) {
     if (line.length === 0) continue;
     try {
-      entries.push(JSON.parse(line));
+      const entry = JSON.parse(line);
+      if (entry && typeof entry === "object" && !Array.isArray(entry)) entries.push(entry);
     } catch {
       // skip malformed lines silently
     }
@@ -161,14 +178,6 @@ function showLatest(entries: LogEntry[], n: number): void {
   }
 }
 
-function canonicalFile(file: string): string {
-  try {
-    return realpathSync(file);
-  } catch {
-    return file;
-  }
-}
-
 // Match any path to the same file; the hook logs canonical paths, older entries may hold aliases.
 function showFile(entries: LogEntry[], filePath: string): void {
   const target = canonicalFile(filePath);
@@ -195,7 +204,7 @@ function showSummary(entries: LogEntry[]): void {
     if (e.file) {
       fileCounts[e.file] = (fileCounts[e.file] || 0) + 1;
     }
-    if (e.fellBack) fallbackCount++;
+    if (e.fellBack && e.verdict !== "cached") fallbackCount++;
     if (e.verdict === "cached") cachedCount++;
     if (e.verdict === "none" || e.verdict === "concerns" || e.verdict === "cached") {
       runCount++;
@@ -278,8 +287,9 @@ function showStatus(markerDir: string, entries: LogEntry[]): void {
       "",
     ].join("\n"),
   );
-  if (entries.length === 0) process.stdout.write("No reviews recorded.\n");
-  else showLatest(entries, 5);
+  const recent = entries.filter((entry) => entry.verdict !== "paused" && entry.verdict !== "resumed");
+  if (recent.length === 0) process.stdout.write("No reviews recorded.\n");
+  else showLatest(recent, 5);
   const failure = entries.findLast((e) =>
     ["error", "spawn_failed", "timeout", "unparsed", "parse_failed"].includes(e.verdict ?? ""),
   );
@@ -297,6 +307,10 @@ function showHelp(): void {
       "  --latest [N]      Show last N entries (default 10). Default subcommand.",
       "  --status         Show resolved configuration, state and last five reviews.",
       "  --summary         Aggregate stats over the log.",
+      "  --report [--json] Report reviews, findings, acknowledgements, current HIGH blockers and pauses.",
+      "  ack <hash>        Record an acknowledgement with the reason read from stdin.",
+      "  pause             Pause this project's hook and record the event.",
+      "  resume            Resume this project's hook, clear failures and record the event.",
       "  --file <path>     Filter to one file's history.",
       "  --since <dur>     Filter to entries within the last <dur>. Examples: 30m, 24h, 7d.",
       "  --help, -h        Show this help.",
@@ -316,8 +330,51 @@ async function main(): Promise<void> {
     process.stderr.write(`codex-pair-log: no .codex-pair/context.md marker found in cwd or parents\n`);
     process.exit(1);
   }
+  if (args.cmd === "ack" && args.hash) {
+    const reason = readFileSync(0, "utf8").trim();
+    if (!reason) {
+      process.stderr.write("codex-pair-log: ack requires a non-empty reason on stdin\n");
+      process.exit(2);
+    }
+    addAck(markerDir, args.hash, { reason });
+    process.stdout.write(`codex-pair: acknowledged ${args.hash}\n`);
+    return;
+  }
+  if (args.cmd === "pause") {
+    const paused = await pauseManually(markerDir);
+    process.stdout.write(`codex-pair ${paused ? "paused" : "already paused"} for ${markerDir}\n`);
+    return;
+  }
+  if (args.cmd === "resume") {
+    const pause = await resumeManually(markerDir);
+    if (!pause) {
+      process.stdout.write(`codex-pair was not paused for ${markerDir}\n`);
+      return;
+    }
+    if (pause.kind) {
+      const detail = [pause.reason, pause.resetHint && `resets ~${pause.resetHint}`].filter(Boolean).join(", ");
+      process.stdout.write(`Previous auto-pause (${pause.kind})${detail ? ` — ${detail}` : ""}\n`);
+    }
+    process.stdout.write(`codex-pair resumed for ${markerDir}. Reviews resume on the next supported edit.\n`);
+    return;
+  }
   const logPath = resolveLogPath(markerDir);
-  let entries = loadEntries(logPath);
+  const log = readLog(logPath);
+  let entries = loadEntries(log);
+  if (args.cmd === "report") {
+    const canonical = canonicalFile(markerDir);
+    const cutoff = args.sinceMs === null ? null : Date.now() - args.sinceMs;
+    if (cutoff !== null && !Number.isFinite(new Date(cutoff).getTime())) {
+      process.stderr.write("codex-pair-log: --since duration is out of range\n");
+      process.exit(2);
+    }
+    const acks = readAcks(canonical);
+    const marker = readFileSync(contextPath(canonical), "utf8");
+    const blocking = resolveBlockOn(marker) === "HIGH" ? readBlockingHighs(canonical, log, acks) : [];
+    const report = buildReport(canonical, entries, acks, blocking, cutoff);
+    process.stdout.write(`${args.json ? JSON.stringify(report, null, 2) : formatReport(report)}\n`);
+    return;
+  }
   if (args.cmd === "status") {
     showStatus(markerDir, applySinceFilter(entries, args.sinceMs));
     return;

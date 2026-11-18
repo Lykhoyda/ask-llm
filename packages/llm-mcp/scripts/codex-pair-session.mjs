@@ -88,6 +88,10 @@ async function main() {
                     await appendLog(markerDir, {
                         timestamp: new Date().toISOString(),
                         verdict: "auto_resumed",
+                        event: "resume",
+                        pauseKind: pauseInfo.kind,
+                        pauseSource: "auto",
+                        pauseStartedAt: pauseInfo.at,
                         reason: `${decision.why} (paused ${pauseInfo.at ?? "unknown"}, kind: ${pauseInfo.kind})`,
                     });
                     context = `codex-pair auto-resumed (${decision.why}): was ${pauseInfo.kind}-paused since ${pauseInfo.at ?? "unknown"}. Reviews are live again.`;

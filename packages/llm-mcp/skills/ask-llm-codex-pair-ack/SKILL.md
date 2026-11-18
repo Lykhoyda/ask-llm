@@ -17,7 +17,7 @@ Run `/codex-pair-ack <hash> <reason>`. On Pi this dismisses the matching reminde
 
 ### Grok CLI adapter
 
-Follow the acknowledgement procedure below using the installed `@ask-llm/mcp` package directory in place of `<plugin-root>`. Copy the canonical file-scoped hash from `concernHashes.high[i]`, `concernHashes.med[i]` or `concernHashes.low[i]` alongside the matching `concerns` entry in `.codex-pair/log.jsonl` (live or cached). Do not hash the logged text: it may be truncated. See [Grok pairing](../ask-llm-codex-pair/grok.md). Validate the hash and read the user-owned reason from stdin. Grok suppresses advisory output for acknowledged concerns; it has no blocking Stop gate.
+Follow the acknowledgement procedure below using the installed `@ask-llm/mcp` package directory in place of `CLAUDE_PLUGIN_ROOT`. Copy the canonical file-scoped hash from `concernHashes.high[i]`, `concernHashes.med[i]` or `concernHashes.low[i]` alongside the matching `concerns` entry in `.codex-pair/log.jsonl` (live or cached). Do not hash the logged text: it may be truncated. See [Grok pairing](../ask-llm-codex-pair/grok.md). Pass the user-owned reason on stdin as shown below. Confirm that Grok will suppress the acknowledged concern in advisory output.
 
 ### Other hosts adapter
 
@@ -26,47 +26,16 @@ Per-edit codex-pair review runs in Claude Code, Pi and Grok CLI. On any other ho
 <!-- HOST-ADAPTER:CLAUDE-CODE:START -->
 ### Claude Code adapter
 
-The existing detailed workflow below is the Claude Code adapter. Its Agent, MCP, hook, `CLAUDE_PLUGIN_ROOT`, and `AskUserQuestion` mechanics apply only on Claude Code; they do not override the Pi adapter above.
+1. Read the first argument as the 16-character lowercase hex hash. Use the remaining text as the user-owned reason, stripping enclosing quotes when present. If either argument is invalid, show `Usage: /codex-pair-ack <hash> "<reason>"` and stop.
 
+2. Run the CLI from the project. Pass the reason on stdin via a single-quoted heredoc. Choose a delimiter that does not appear on a line by itself in the reason. Replace `<hash>` with the validated hash and `<reason>` with the user's text.
 
-
-# Acknowledge a codex-pair HIGH finding
-
-Records an ack for the given finding hash so the codex-pair Stop-gate skips it on future turn-ends. The gate prints a full 16-char hash in its block message, e.g. `[fc69d46835dfd2ab] src/auth.ts` — pass that hash verbatim.
-
-## Instructions
-
-1. **Parse args.** The first whitespace-delimited token is `<hash>` (16-char hex). The remaining text (strip enclosing quotes if present) is `<reason>`. If either is missing, print usage and stop:
-   ```
-   Usage: /codex-pair-ack <hash> "<reason>"
-   Example: /codex-pair-ack fc69d46835dfd2ab "false positive — test-only code path"
-   ```
-
-2. **Locate the `.codex-pair/` directory.** Walk up from the current working directory looking for `.codex-pair/context.md`. The directory that contains `.codex-pair/` is `<markerDir>`. If no marker is found after reaching the filesystem root, tell the user:
-   ```
-   codex-pair is not enabled in this project (no .codex-pair/context.md found). Nothing to acknowledge.
-   ```
-
-3. **Validate the hash** before using it: it must match `^[0-9a-f]{16}$`. If it does not, print the usage block from step 1 and stop (a malformed hash means the user mistyped it).
-
-4. **Record the ack** by running the Bash command below. Substitute real values for `<plugin-root>` (the absolute path of this plugin, i.e. the value of `CLAUDE_PLUGIN_ROOT`), `<markerDir>`, and `<hash>`. **Do NOT interpolate `<reason>` into the command string** — the reason is read from stdin via a single-quoted heredoc so the shell never expands `$(...)`, backticks, or quotes inside it (injection-safe). Replace the `<reason>` line with the user's reason text verbatim:
    ```bash
-   node --input-type=module -e '
-   import { addAck } from "<plugin-root>/scripts/lib/state.mjs";
-   import { readFileSync } from "node:fs";
-   // With `node -e CODE A B`, process.argv = [node, A, B] (no script-file
-   // placeholder), so argv[1]=markerDir, argv[2]=hash.
-   addAck(process.argv[1], process.argv[2], { reason: readFileSync(0, "utf8").trim() });
-   ' "<markerDir>" "<hash>" <<'CODEX_PAIR_ACK_REASON'
+   node "${CLAUDE_PLUGIN_ROOT}/scripts/codex-pair-log.mjs" ack "<hash>" <<'CODEX_PAIR_ACK_REASON'
    <reason>
    CODEX_PAIR_ACK_REASON
    ```
-   `addAck` writes a concurrency-safe shard under `<markerDir>/.codex-pair/state/acks/` (creating the directory if needed). The hash is passed verbatim — no resolution is performed.
 
-5. **Confirm** to the user:
-   ```
-   Acknowledged `<hash>` — <reason>. The Stop-gate will skip this finding.
-   ```
-   If the node one-liner exits non-zero, surface the error output so the user can diagnose it.
+   Done when the CLI confirms the acknowledgement. Show the hash and reason to the user and say the Stop gate will skip that finding. Surface the CLI error if it fails.
 
 <!-- HOST-ADAPTER:CLAUDE-CODE:END -->
