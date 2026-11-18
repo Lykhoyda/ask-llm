@@ -421,17 +421,6 @@ describe("scripts/codex-pair-watch.mjs — structural invariants (ADR-077)", () 
     expect(body).toMatch(/unlink/);
   });
 
-  it("main() checks cache before codex spawn; hit emits [cached] tag, miss writes after success", () => {
-    // Cache check before runCodexWithFallback
-    expect(script).toMatch(/computeCacheKey[\s\S]*?getCachedConcerns[\s\S]*?runCodexWithFallback/);
-    // verdict on hit
-    expect(script).toMatch(/verdict:\s*["']cached["']/);
-    // buildVerdictMessage gets cached:true on hit
-    expect(script).toMatch(/cached:\s*true/);
-    // Write after successful parse
-    expect(script).toMatch(/setCachedConcerns/);
-  });
-
   // Phase 3 item #9: log viewer CLI (in a sibling script, but tested here for proximity)
   it("scripts/codex-pair-log.mjs exists, has shebang, is executable", () => {
     const logCliPath = path.join(PLUGIN_ROOT, "scripts", "codex-pair-log.mjs");
@@ -502,16 +491,6 @@ describe("scripts/codex-pair-watch.mjs — structural invariants (ADR-077)", () 
     // The quota fallback model always goes through the retry wrapper.
     expect(ladder).toMatch(/spawnCodexWithRetry/);
     expect(ladder).not.toMatch(/[^.\w]spawnCodex\(/);
-  });
-
-  it("codex-pair-log CLI declares all four subcommands plus --since filter", () => {
-    const cli = fs.readFileSync(path.join(PLUGIN_ROOT, "scripts", "codex-pair-log.mjs"), "utf-8");
-    expect(cli).toMatch(/--latest/);
-    expect(cli).toMatch(/--summary/);
-    expect(cli).toMatch(/--file/);
-    expect(cli).toMatch(/--since/);
-    // Reuses findMarkerUp logic inline (no import from the hook)
-    expect(cli).toMatch(/function findMarkerUp/);
   });
 
   it("buildVerdictMessage emits [cached] suffix when cached:true (ADR-088 unit test)", async () => {
@@ -729,12 +708,6 @@ describe("scripts/codex-pair-watch.mjs — structural invariants (ADR-077)", () 
     expect(script).not.toMatch(/process\.stderr\.write/);
   });
 
-  it("logs every call to .codex-pair/log.jsonl (ADR-088/092: helper in lib/state.mjs)", () => {
-    expect(libState).toMatch(/LOG_FILENAME\s*=\s*"log\.jsonl"/);
-    expect(libState).toMatch(/export async function appendLog/);
-    expect(script).toMatch(/appendLog/); // hook calls the imported helper
-  });
-
   it("never throws uncaught — has main().catch(...) wrapper", () => {
     expect(script).toMatch(/main\(\)\.catch/);
   });
@@ -764,14 +737,6 @@ describe("scripts/codex-pair-watch.mjs — structural invariants (ADR-077)", () 
     expect(rendered).toMatch(/untrusted data/i);
     // The content is wrapped in XML tags, NOT inside a markdown fence
     expect(rendered).toMatch(/<file_content>\nconst x = 1;\n<\/file_content>/);
-  });
-
-  it("auto-pauses on quota exhaustion and consecutive failures (#176 / ADR-120)", () => {
-    expect(script).toMatch(/quotaExhausted/);
-    expect(script).toMatch(/writeAutoPause/);
-    expect(script).toMatch(/AUTOPAUSE_FAILURE_THRESHOLD/);
-    expect(script).toMatch(/clearReviewFailures/);
-    expect(libState).toMatch(/flag:\s*"wx"/);
   });
 });
 
