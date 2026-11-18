@@ -103,8 +103,6 @@ it("reports two unique HIGHs, one MED, cache repeats, actual fallback attributio
     { timestamp: old, verdict: "paused", event: "pause", pauseKind: "manual", pauseSource: "manual" },
     { timestamp: recent, file: a, verdict: "none", reviewer: "codex", model: "gpt-6.2-sol", reasoningEffort: "high" },
     { timestamp: recent, file: b, verdict: "error", contentHash: "a different snapshot" },
-    { timestamp: recent, file: b, verdict: "none", source: "pi", cached: true },
-    { timestamp: recent, verdict: "auto_resumed", source: "pi", reason: "ttl-expired" },
   );
   const reason = "Accepted by owner: `literal` and $(literal).\nFollow-up planned.";
   const acked = script("codex-pair-log.mjs", ["ack", ACKED], `${reason}\n`);
@@ -181,6 +179,48 @@ it("reports two unique HIGHs, one MED, cache repeats, actual fallback attributio
   );
   expect(shards).toContainEqual({ hash: BLOCKING, reason: "Accepted after review", ts: expect.any(String) });
   expect(stopGate()).toBe("");
+});
+
+it("counts successful Pi reviews with unknown attribution in human and JSON reports", () => {
+  const old = new Date(Date.now() - 48 * 3_600_000).toISOString();
+  const recent = new Date(Date.now() - 30_000).toISOString();
+  const entry = {
+    tool: "edit",
+    file: join(repo, "a.ts"),
+    verdict: "none",
+    source: "pi",
+    fellBack: false,
+    cached: false,
+    counts: { high: 0, med: 0, low: 0 },
+    durationMs: 100,
+  };
+  writeLog(
+    { ...entry, timestamp: old },
+    { ...entry, timestamp: recent },
+    { ...entry, timestamp: recent, verdict: "error" },
+  );
+  expect(cli("--report").trim()).toBe(
+    "codex-pair project (retained log) | reviews run 2, cache hits 0, fallback reviews 0 | 0 HIGH / 0 MED / 0 LOW unique, repeats 0 | 0 acknowledged | 0 HIGH blocking now, 0 other unacknowledged HIGH | 0 findings no longer reported on the latest review of their file | pause windows 0 | unknown/unknown/unknown (2 run, 0 cached)",
+  );
+  expect(JSON.parse(cli("--report", "--json"))).toEqual({
+    repository: "project",
+    since: null,
+    reviewsRun: 2,
+    cachedHits: 0,
+    fallbackReviews: 0,
+    findingsBySeverity: { high: 0, med: 0, low: 0 },
+    repeatedFindings: [],
+    acknowledgedFindings: [],
+    blockingHighs: [],
+    otherUnacknowledgedHighs: [],
+    noLongerReported: [],
+    models: [{ reviewer: "unknown", model: "unknown", reasoningEffort: "unknown", reviewsRun: 2, cachedHits: 0 }],
+    pauseWindows: [],
+  });
+  expect(JSON.parse(cli("--report", "--json", "--since", "1h"))).toMatchObject({
+    reviewsRun: 1,
+    models: [{ reviewer: "unknown", model: "unknown", reasoningEffort: "unknown", reviewsRun: 1, cachedHits: 0 }],
+  });
 });
 
 it("records manual transitions once and resumes the shared hook state", () => {

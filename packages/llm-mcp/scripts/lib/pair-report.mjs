@@ -51,8 +51,6 @@ function acknowledgementReason(ack) {
     return typeof ack === "string" ? ack : "unknown";
 }
 export function buildReport(markerDir, entries, acks, blocking, cutoff) {
-    // Pi shares the file but has its own lifecycle and finding format.
-    const hookEntries = entries.filter((entry) => entry.source !== "pi");
     let reviewsRun = 0;
     let cachedHits = 0;
     let fallbackReviews = 0;
@@ -60,7 +58,7 @@ export function buildReport(markerDir, entries, acks, blocking, cutoff) {
     const findings = new Map();
     const latestByFile = new Map();
     const paths = new Map();
-    for (const entry of hookEntries) {
+    for (const entry of entries) {
         const cached = entry.verdict === "cached";
         if (!cached && entry.verdict !== "none" && entry.verdict !== "concerns")
             continue;
@@ -154,7 +152,7 @@ export function buildReport(markerDir, entries, acks, blocking, cutoff) {
         otherUnacknowledgedHighs,
         noLongerReported,
         models: [...models.values()],
-        pauseWindows: pauseWindows(hookEntries, cutoff),
+        pauseWindows: pauseWindows(entries, cutoff),
     };
 }
 const findingLabel = ({ severity, hash, file }) => `${severity.toUpperCase()} [${hash}] ${JSON.stringify(file)}`;

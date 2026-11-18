@@ -100,8 +100,6 @@ export function buildReport(
   blocking: BlockingHigh[],
   cutoff: number | null,
 ) {
-  // Pi shares the file but has its own lifecycle and finding format.
-  const hookEntries = entries.filter((entry) => entry.source !== "pi");
   let reviewsRun = 0;
   let cachedHits = 0;
   let fallbackReviews = 0;
@@ -113,7 +111,7 @@ export function buildReport(
   const latestByFile = new Map<string, { complete: boolean; hashes: Set<string> }>();
   const paths = new Map<string, string>();
 
-  for (const entry of hookEntries) {
+  for (const entry of entries) {
     const cached = entry.verdict === "cached";
     if (!cached && entry.verdict !== "none" && entry.verdict !== "concerns") continue;
 
@@ -203,7 +201,7 @@ export function buildReport(
     otherUnacknowledgedHighs,
     noLongerReported,
     models: [...models.values()],
-    pauseWindows: pauseWindows(hookEntries, cutoff),
+    pauseWindows: pauseWindows(entries, cutoff),
   };
 }
 
