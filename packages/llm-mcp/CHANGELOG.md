@@ -1,5 +1,21 @@
 # @ask-llm/mcp
 
+## 1.6.0
+
+### Minor Changes
+
+- [#438](https://github.com/Lykhoyda/ask-llm/pull/438) [`4261cce`](https://github.com/Lykhoyda/ask-llm/commit/4261cce50bc6c4443e37c645fb214b12e1235f92) Thanks [@Lykhoyda](https://github.com/Lykhoyda)! - Support both the existing 2025 MCP protocol and the 2026-07-28 protocol on every stdio server using MCP SDK 2. Existing clients and registrations continue to work without user action. Preserve tool names, annotations, draft-07 schemas, structured responses, progress notifications, and session usage accounting.
+
+- [#436](https://github.com/Lykhoyda/ask-llm/pull/436) [`9529492`](https://github.com/Lykhoyda/ask-llm/commit/952949265774cef87734f56368f28a7059f5b2e2) Thanks [@Lykhoyda](https://github.com/Lykhoyda)! - Move the Codex file-writing path from `ask-codex({ sandbox: "workspace-write" })` to the separate `ask-codex-write` tool with write-access annotations. `ask-codex` now accepts only a read-only sandbox. Update image-generation skills and Pi's native writing tool accordingly; the unified `ask-llm` writing route remains available.
+  
+  Provide concise MCP server instructions, structured responses on both edit-proposal tools, progress for token 0 and multi-provider dispatch, and Registry version metadata synchronized in the existing release version step.
+
+### Patch Changes
+
+- [#432](https://github.com/Lykhoyda/ask-llm/pull/432) [`08d9086`](https://github.com/Lykhoyda/ask-llm/commit/08d90865be2f710aee108e1e6dc5722097d303a7) Thanks [@Lykhoyda](https://github.com/Lykhoyda)! - Include a derived Codex MCP tool timeout in manual setup guidance so the host allows the full provider attempt ladder. Document how to raise it when provider timeout environment variables are increased.
+
+- [#439](https://github.com/Lykhoyda/ask-llm/pull/439) [`37821ac`](https://github.com/Lykhoyda/ask-llm/commit/37821ac44006e67956c99430837a954ad3b8cb45) Thanks [@Lykhoyda](https://github.com/Lykhoyda)! - Support Antigravity conversation follow-ups through standalone and unified tools using the returned sessionId. Reapply the session-only settings overlay on every resumed attempt, and disclose when agy starts fresh because the requested conversation is unavailable.
+
 ## 1.5.0
 
 ### Minor Changes
