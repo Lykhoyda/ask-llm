@@ -54,14 +54,15 @@ export function buildReport(markerDir, entries, acks, blocking, cutoff) {
     let reviewsRun = 0;
     let cachedHits = 0;
     let fallbackReviews = 0;
+    let findingsComplete = true;
     const models = new Map();
     const findings = new Map();
     const latestByFile = new Map();
     const paths = new Map();
     for (const entry of entries) {
-        const cached = entry.verdict === "cached";
-        if (!cached && entry.verdict !== "none" && entry.verdict !== "concerns")
+        if (entry.verdict !== "cached" && entry.verdict !== "none" && entry.verdict !== "concerns")
             continue;
+        const cached = entry.verdict === "cached" || entry.cached === true;
         const inWindow = cutoff === null || Date.parse(entry.timestamp ?? "") >= cutoff;
         if (inWindow) {
             if (cached)
@@ -82,6 +83,16 @@ export function buildReport(markerDir, entries, acks, blocking, cutoff) {
                 modelStats.reviewsRun++;
             models.set(key, modelStats);
         }
+        const complete = entry.verdict === "none" ||
+            SEVERITIES.every((severity) => {
+                const length = Math.max(entry.concernHashes?.[severity]?.length ?? 0, entry.concerns?.[severity]?.length ?? 0);
+                const count = entry.counts?.[severity];
+                return count === undefined
+                    ? entry.concerns?.[severity] !== undefined || entry.concernHashes?.[severity] !== undefined
+                    : length === count;
+            });
+        if (inWindow && (!complete || (!entry.file && entry.verdict !== "none")))
+            findingsComplete = false;
         if (!entry.file)
             continue;
         let file = paths.get(entry.file);
@@ -92,15 +103,6 @@ export function buildReport(markerDir, entries, acks, blocking, cutoff) {
         const observed = entryFindings(entry, file);
         const hashes = new Set(observed.map((finding) => finding.hash));
         if (entry.coverage !== "command-text" && !(entry.tool === "Bash" && basename(file) === "[shell command]")) {
-            // Legacy rows may record a verdict or counts without the actual findings.
-            const complete = entry.verdict === "none" ||
-                SEVERITIES.every((severity) => {
-                    const length = Math.max(entry.concernHashes?.[severity]?.length ?? 0, entry.concerns?.[severity]?.length ?? 0);
-                    const count = entry.counts?.[severity];
-                    return count === undefined
-                        ? entry.concerns?.[severity] !== undefined || entry.concernHashes?.[severity] !== undefined
-                        : length === count;
-                });
             latestByFile.set(file, { complete, hashes });
         }
         if (!inWindow)
@@ -136,6 +138,8 @@ export function buildReport(markerDir, entries, acks, blocking, cutoff) {
         else if (severity === "high" && !blockingByHash.has(hash))
             otherUnacknowledgedHighs.push(finding);
         const latest = latestByFile.get(file);
+        if (latest && !latest.complete)
+            findingsComplete = false;
         if (latest?.complete && !latest.hashes.has(hash))
             noLongerReported.push(finding);
     }
@@ -145,6 +149,7 @@ export function buildReport(markerDir, entries, acks, blocking, cutoff) {
         reviewsRun,
         cachedHits,
         fallbackReviews,
+        findingsComplete,
         findingsBySeverity,
         repeatedFindings,
         acknowledgedFindings,
@@ -157,25 +162,26 @@ export function buildReport(markerDir, entries, acks, blocking, cutoff) {
 }
 const findingLabel = ({ severity, hash, file }) => `${severity.toUpperCase()} [${hash}] ${JSON.stringify(file)}`;
 export function formatReport(report) {
-    const { repository, since, reviewsRun, cachedHits, fallbackReviews, findingsBySeverity, repeatedFindings, acknowledgedFindings, blockingHighs, otherUnacknowledgedHighs, noLongerReported, models, pauseWindows, } = report;
+    const { repository, since, reviewsRun, cachedHits, fallbackReviews, findingsComplete, findingsBySeverity, repeatedFindings, acknowledgedFindings, blockingHighs, otherUnacknowledgedHighs, noLongerReported, models, pauseWindows, } = report;
     const { high, med, low } = findingsBySeverity;
     const repeats = repeatedFindings.reduce((sum, finding) => sum + finding.repeats, 0);
+    const findingMetric = (value) => findingsComplete ? String(value) : `${value} known (partial)`;
     const modelStats = models
         .map(({ reviewer, model, reasoningEffort, reviewsRun, cachedHits }) => `${reviewer}/${model}/${reasoningEffort} (${reviewsRun} run, ${cachedHits} cached)`)
         .join(", ");
     const heading = [
         `codex-pair ${repository} (${since ? `since ${since}` : "retained log"})`,
         `reviews run ${reviewsRun}, cache hits ${cachedHits}, fallback reviews ${fallbackReviews}`,
-        `${high} HIGH / ${med} MED / ${low} LOW unique, repeats ${repeats}`,
-        `${acknowledgedFindings.length} acknowledged`,
-        `${blockingHighs.length} HIGH blocking now, ${otherUnacknowledgedHighs.length} other unacknowledged HIGH`,
-        `${noLongerReported.length} findings no longer reported on the latest review of their file`,
+        `${findingMetric(high)} HIGH / ${findingMetric(med)} MED / ${findingMetric(low)} LOW unique, repeats ${findingMetric(repeats)}`,
+        `${findingMetric(acknowledgedFindings.length)} acknowledged`,
+        `${blockingHighs.length} HIGH blocking now, ${findingMetric(otherUnacknowledgedHighs.length)} other unacknowledged HIGH`,
+        `${findingMetric(noLongerReported.length)} findings no longer reported on the latest review of their file`,
         `pause windows ${pauseWindows.length}`,
         modelStats || "reviewer/model/effort unknown",
     ].join(" | ");
     return [
         heading,
-        ...repeatedFindings.map((finding) => `Repeated ${findingLabel(finding)} ×${finding.repeats}`),
+        ...repeatedFindings.map((finding) => `Repeated ${findingLabel(finding)} ×${findingMetric(finding.repeats)}`),
         ...acknowledgedFindings.map((finding) => `Acknowledged ${findingLabel(finding)} — ${JSON.stringify(finding.reason)}`),
         ...blockingHighs.map((finding) => `Blocking now ${findingLabel(finding)}`),
         ...otherUnacknowledgedHighs.map((finding) => `Other unacknowledged ${findingLabel(finding)}`),

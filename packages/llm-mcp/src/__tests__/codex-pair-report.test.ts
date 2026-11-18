@@ -126,6 +126,7 @@ it("reports two unique HIGHs, one MED, cache repeats, actual fallback attributio
     reviewsRun: 3,
     cachedHits: 1,
     fallbackReviews: 1,
+    findingsComplete: true,
     findingsBySeverity: { high: 2, med: 1, low: 0 },
     repeatedFindings: [{ hash: BLOCKING, file: "b.ts", severity: "high", repeats: 1 }],
     acknowledgedFindings: [{ hash: ACKED, file: "a.ts", severity: "high", reason }],
@@ -196,30 +197,110 @@ it("counts successful Pi reviews with unknown attribution in human and JSON repo
   };
   writeLog(
     { ...entry, timestamp: old },
-    { ...entry, timestamp: recent },
-    { ...entry, timestamp: recent, verdict: "error" },
+    { ...entry, timestamp: recent, cached: true, fellBack: true },
+    { ...entry, timestamp: recent, verdict: "error", cached: true },
   );
   expect(cli("--report").trim()).toBe(
-    "codex-pair project (retained log) | reviews run 2, cache hits 0, fallback reviews 0 | 0 HIGH / 0 MED / 0 LOW unique, repeats 0 | 0 acknowledged | 0 HIGH blocking now, 0 other unacknowledged HIGH | 0 findings no longer reported on the latest review of their file | pause windows 0 | unknown/unknown/unknown (2 run, 0 cached)",
+    "codex-pair project (retained log) | reviews run 1, cache hits 1, fallback reviews 0 | 0 HIGH / 0 MED / 0 LOW unique, repeats 0 | 0 acknowledged | 0 HIGH blocking now, 0 other unacknowledged HIGH | 0 findings no longer reported on the latest review of their file | pause windows 0 | unknown/unknown/unknown (1 run, 1 cached)",
   );
   expect(JSON.parse(cli("--report", "--json"))).toEqual({
     repository: "project",
     since: null,
-    reviewsRun: 2,
-    cachedHits: 0,
+    reviewsRun: 1,
+    cachedHits: 1,
     fallbackReviews: 0,
+    findingsComplete: true,
     findingsBySeverity: { high: 0, med: 0, low: 0 },
     repeatedFindings: [],
     acknowledgedFindings: [],
     blockingHighs: [],
     otherUnacknowledgedHighs: [],
     noLongerReported: [],
-    models: [{ reviewer: "unknown", model: "unknown", reasoningEffort: "unknown", reviewsRun: 2, cachedHits: 0 }],
+    models: [{ reviewer: "unknown", model: "unknown", reasoningEffort: "unknown", reviewsRun: 1, cachedHits: 1 }],
     pauseWindows: [],
   });
   expect(JSON.parse(cli("--report", "--json", "--since", "1h"))).toMatchObject({
+    reviewsRun: 0,
+    cachedHits: 1,
+    models: [{ reviewer: "unknown", model: "unknown", reasoningEffort: "unknown", reviewsRun: 0, cachedHits: 1 }],
+  });
+});
+
+it.each(["high", "med", "low"] as const)("marks counts-only %s finding metrics as partial", (severity) => {
+  writeLog({
+    timestamp: new Date().toISOString(),
+    file: join(repo, "a.ts"),
+    source: "pi",
+    verdict: "concerns",
+    counts: { high: 0, med: 0, low: 0, [severity]: 1 },
+  });
+  expect(JSON.parse(cli("--report", "--json"))).toMatchObject({
     reviewsRun: 1,
-    models: [{ reviewer: "unknown", model: "unknown", reasoningEffort: "unknown", reviewsRun: 1, cachedHits: 0 }],
+    findingsComplete: false,
+    findingsBySeverity: { high: 0, med: 0, low: 0 },
+    repeatedFindings: [],
+    acknowledgedFindings: [],
+    otherUnacknowledgedHighs: [],
+    noLongerReported: [],
+  });
+  expect(cli("--report").trim()).toBe(
+    "codex-pair project (retained log) | reviews run 1, cache hits 0, fallback reviews 0 | 0 known (partial) HIGH / 0 known (partial) MED / 0 known (partial) LOW unique, repeats 0 known (partial) | 0 known (partial) acknowledged | 0 HIGH blocking now, 0 known (partial) other unacknowledged HIGH | 0 known (partial) findings no longer reported on the latest review of their file | pause windows 0 | unknown/unknown/unknown (1 run, 0 cached)",
+  );
+});
+
+it("retains known hashes, repeats and acknowledgement reasons when other identities are missing", () => {
+  const known = {
+    timestamp: new Date().toISOString(),
+    file: join(repo, "a.ts"),
+    verdict: "concerns",
+    counts: { high: 1, med: 0, low: 0 },
+    concernHashes: { high: [ACKED], med: [], low: [] },
+  };
+  writeLog(
+    known,
+    { ...known, cached: true },
+    { ...known, counts: { high: 2, med: 0, low: 0 } },
+  );
+  expect(script("codex-pair-log.mjs", ["ack", ACKED], "Accepted legacy finding\n").status).toBe(0);
+  expect(JSON.parse(cli("--report", "--json"))).toMatchObject({
+    reviewsRun: 2,
+    cachedHits: 1,
+    findingsComplete: false,
+    findingsBySeverity: { high: 1, med: 0, low: 0 },
+    repeatedFindings: [{ hash: ACKED, file: "a.ts", severity: "high", repeats: 2 }],
+    acknowledgedFindings: [{ hash: ACKED, file: "a.ts", severity: "high", reason: "Accepted legacy finding" }],
+    noLongerReported: [],
+  });
+  const human = cli("--report");
+  expect(human).toContain("1 known (partial) HIGH");
+  expect(human).toContain("repeats 2 known (partial)");
+  expect(human).toContain("1 known (partial) acknowledged");
+  expect(human).toContain(`Repeated HIGH [${ACKED}] "a.ts" ×2 known (partial)`);
+  expect(human).toContain(`Acknowledged HIGH [${ACKED}] "a.ts" — "Accepted legacy finding"`);
+});
+
+it.each([
+  { verdict: "concerns" },
+  { verdict: "cached" },
+  { verdict: "concerns", counts: { high: 1, med: 0, low: 0 }, concernHashes: { high: [ACKED], med: [], low: [] } },
+])("marks finding metrics as partial when a legacy review lacks a file: %j", (entry) => {
+  writeLog({ timestamp: new Date().toISOString(), ...entry });
+  expect(JSON.parse(cli("--report", "--json"))).toMatchObject({ findingsComplete: false });
+  expect(cli("--report")).toContain("0 known (partial) acknowledged");
+});
+
+it("excludes old incomplete rows from window metrics but retains latest-review uncertainty", () => {
+  const file = join(repo, "a.ts");
+  const old = new Date(Date.now() - 48 * 3_600_000).toISOString();
+  const recent = new Date(Date.now() - 30_000).toISOString();
+  const incomplete = { timestamp: old, file, verdict: "concerns", counts: { high: 1, med: 0, low: 0 } };
+  const known = { timestamp: recent, file, verdict: "concerns", concernHashes: { high: [ACKED], med: [], low: [] } };
+  writeLog(incomplete, known);
+  expect(JSON.parse(cli("--report", "--json", "--since", "1h"))).toMatchObject({ findingsComplete: true });
+  writeLog(known, incomplete);
+  expect(JSON.parse(cli("--report", "--json", "--since", "1h"))).toMatchObject({
+    findingsComplete: false,
+    noLongerReported: [],
   });
 });
 

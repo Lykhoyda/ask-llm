@@ -22,6 +22,7 @@ export interface PairLogEntry extends Pick<LogEntry, "concerns" | "concernHashes
   model?: string;
   reasoningEffort?: string;
   fellBack?: boolean;
+  cached?: boolean;
   reason?: string;
   event?: "pause" | "resume";
   pauseKind?: string;
@@ -103,6 +104,7 @@ export function buildReport(
   let reviewsRun = 0;
   let cachedHits = 0;
   let fallbackReviews = 0;
+  let findingsComplete = true;
   const models = new Map<
     string,
     { reviewer: string; model: string; reasoningEffort: string; reviewsRun: number; cachedHits: number }
@@ -112,8 +114,8 @@ export function buildReport(
   const paths = new Map<string, string>();
 
   for (const entry of entries) {
-    const cached = entry.verdict === "cached";
-    if (!cached && entry.verdict !== "none" && entry.verdict !== "concerns") continue;
+    if (entry.verdict !== "cached" && entry.verdict !== "none" && entry.verdict !== "concerns") continue;
+    const cached = entry.verdict === "cached" || entry.cached === true;
 
     const inWindow = cutoff === null || Date.parse(entry.timestamp ?? "") >= cutoff;
     if (inWindow) {
@@ -131,6 +133,19 @@ export function buildReport(
       else modelStats.reviewsRun++;
       models.set(key, modelStats);
     }
+    const complete =
+      entry.verdict === "none" ||
+      SEVERITIES.every((severity) => {
+        const length = Math.max(
+          entry.concernHashes?.[severity]?.length ?? 0,
+          entry.concerns?.[severity]?.length ?? 0,
+        );
+        const count = entry.counts?.[severity];
+        return count === undefined
+          ? entry.concerns?.[severity] !== undefined || entry.concernHashes?.[severity] !== undefined
+          : length === count;
+      });
+    if (inWindow && (!complete || (!entry.file && entry.verdict !== "none"))) findingsComplete = false;
     if (!entry.file) continue;
     let file = paths.get(entry.file);
     if (file === undefined) {
@@ -140,19 +155,6 @@ export function buildReport(
     const observed = entryFindings(entry, file);
     const hashes = new Set(observed.map((finding) => finding.hash));
     if (entry.coverage !== "command-text" && !(entry.tool === "Bash" && basename(file) === "[shell command]")) {
-      // Legacy rows may record a verdict or counts without the actual findings.
-      const complete =
-        entry.verdict === "none" ||
-        SEVERITIES.every((severity) => {
-          const length = Math.max(
-            entry.concernHashes?.[severity]?.length ?? 0,
-            entry.concerns?.[severity]?.length ?? 0,
-          );
-          const count = entry.counts?.[severity];
-          return count === undefined
-            ? entry.concerns?.[severity] !== undefined || entry.concernHashes?.[severity] !== undefined
-            : length === count;
-        });
       latestByFile.set(file, { complete, hashes });
     }
     if (!inWindow) continue;
@@ -185,6 +187,7 @@ export function buildReport(
     if (acks[hash]) acknowledgedFindings.push({ ...finding, reason: acknowledgementReason(acks[hash]) });
     else if (severity === "high" && !blockingByHash.has(hash)) otherUnacknowledgedHighs.push(finding);
     const latest = latestByFile.get(file);
+    if (latest && !latest.complete) findingsComplete = false;
     if (latest?.complete && !latest.hashes.has(hash)) noLongerReported.push(finding);
   }
 
@@ -194,6 +197,7 @@ export function buildReport(
     reviewsRun,
     cachedHits,
     fallbackReviews,
+    findingsComplete,
     findingsBySeverity,
     repeatedFindings,
     acknowledgedFindings,
@@ -215,6 +219,7 @@ export function formatReport(report: ReturnType<typeof buildReport>): string {
     reviewsRun,
     cachedHits,
     fallbackReviews,
+    findingsComplete,
     findingsBySeverity,
     repeatedFindings,
     acknowledgedFindings,
@@ -226,6 +231,8 @@ export function formatReport(report: ReturnType<typeof buildReport>): string {
   } = report;
   const { high, med, low } = findingsBySeverity;
   const repeats = repeatedFindings.reduce((sum, finding) => sum + finding.repeats, 0);
+  const findingMetric = (value: number): string =>
+    findingsComplete ? String(value) : `${value} known (partial)`;
   const modelStats = models
     .map(
       ({ reviewer, model, reasoningEffort, reviewsRun, cachedHits }) =>
@@ -235,16 +242,16 @@ export function formatReport(report: ReturnType<typeof buildReport>): string {
   const heading = [
     `codex-pair ${repository} (${since ? `since ${since}` : "retained log"})`,
     `reviews run ${reviewsRun}, cache hits ${cachedHits}, fallback reviews ${fallbackReviews}`,
-    `${high} HIGH / ${med} MED / ${low} LOW unique, repeats ${repeats}`,
-    `${acknowledgedFindings.length} acknowledged`,
-    `${blockingHighs.length} HIGH blocking now, ${otherUnacknowledgedHighs.length} other unacknowledged HIGH`,
-    `${noLongerReported.length} findings no longer reported on the latest review of their file`,
+    `${findingMetric(high)} HIGH / ${findingMetric(med)} MED / ${findingMetric(low)} LOW unique, repeats ${findingMetric(repeats)}`,
+    `${findingMetric(acknowledgedFindings.length)} acknowledged`,
+    `${blockingHighs.length} HIGH blocking now, ${findingMetric(otherUnacknowledgedHighs.length)} other unacknowledged HIGH`,
+    `${findingMetric(noLongerReported.length)} findings no longer reported on the latest review of their file`,
     `pause windows ${pauseWindows.length}`,
     modelStats || "reviewer/model/effort unknown",
   ].join(" | ");
   return [
     heading,
-    ...repeatedFindings.map((finding) => `Repeated ${findingLabel(finding)} ×${finding.repeats}`),
+    ...repeatedFindings.map((finding) => `Repeated ${findingLabel(finding)} ×${findingMetric(finding.repeats)}`),
     ...acknowledgedFindings.map(
       (finding) => `Acknowledged ${findingLabel(finding)} — ${JSON.stringify(finding.reason)}`,
     ),
