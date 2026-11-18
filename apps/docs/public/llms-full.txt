@@ -901,8 +901,8 @@ The `/codex-pair` suite is the human-facing dashboard and controls for the hook.
 | Command | What it does |
 |---|---|
 | `/codex-pair` | First run (no marker) offers interactive setup with auto-detected project context. With a marker, shows the [status command](#inspecting-log-activity-the-codex-pair-log-cli)'s output: current configuration, disabled/pause state and recent review activity |
-| `/codex-pair-pause` | Pause the hook for this project without removing the marker. Writes a `.codex-pair/state/paused` sentinel the hook checks on every edit. Use to temporarily silence reviews (noisy refactor, docs-only work) and resume later |
-| `/codex-pair-resume` | Remove the pause sentinel. The hook starts reviewing edits again on the next edit. No-op if no pause sentinel exists |
+| `/codex-pair-pause` | Pause the hook for this project without removing the marker. Writes a `.codex-pair/state/paused` sentinel the hook checks on every edit and records the pause. Use to temporarily silence reviews (noisy refactor, docs-only work) and resume later |
+| `/codex-pair-resume` | Remove the pause sentinel, clear the failure counter and record the resume. The hook starts reviewing edits again on the next edit. No-op if no pause sentinel exists |
 | `/codex-pair-ack <hash> "<reason>"` | Acknowledge a HIGH finding without fixing it (known trade-off or tracked in a ticket). The `<hash>` is the content hash shown alongside the finding when the Stop gate blocks. The reason is recorded as a concurrency-safe shard under `.codex-pair/state/acks/` with a timestamp; acknowledged findings are skipped by the gate until the file changes |
 
 ## The hook pipeline
@@ -1046,7 +1046,17 @@ node packages/llm-mcp/scripts/codex-pair-log.mjs --file src/billing/charge.ts
 
 # Only the last 24 hours
 node packages/llm-mcp/scripts/codex-pair-log.mjs --since 24h --latest 50
+
+# Pairing evidence for the last 24 hours
+node packages/llm-mcp/scripts/codex-pair-log.mjs --report --since 24h
+node packages/llm-mcp/scripts/codex-pair-log.mjs --report --since 24h --json
 ```
+
+`--report` uses the repository marker found from the current directory. By default it covers the retained entries from the Claude Code and Grok CLI pairing hook. With `--since`, review counts, findings and attributions use the selected window, and the report includes pause windows that overlap it. **HIGH blocking now** uses the full retained log and the current Stop gate's rules, including marker opt-in, the file's dirty state and current content, and acknowledgements. Other unacknowledged HIGHs are listed separately.
+
+The report counts actual successful reviews and cache hits separately. A finding hash counts once at its highest observed severity, and later appearances, including cache hits, count as repeats. The report includes acknowledgement reasons and findings no longer reported on the latest review of their file. Missing historical attribution is shown as `unknown`. Claude's effort also appears as `unknown` because the hook does not set or observe it. Copy the first line into a pull request description or closing status. The remaining lines contain details, which are also available as JSON.
+
+From the project directory, the same CLI accepts `pause` and `resume` to change the sentinel and record transitions. Use `ack <hash>` with a non-empty reason on stdin to acknowledge a finding. For example, pipe `printf '%s\n' 'Accepted pending follow-up'` to `node packages/llm-mcp/scripts/codex-pair-log.mjs ack fc69d46835dfd2ab`.
 
 `--status` reads the same resolver as the hook and works before any review is logged; a missing marker produces an error. It reports `disabled (CODEX_PAIR_DISABLED=1)`, `paused (manual|quota|failures)` or `active`. An invalid or same-family reviewer also reports `disabled` with the refusal reason, unless the disable switch or a pause takes precedence. For valid configuration it shows the reviewer, model, fallback, effort, threshold, timeout, file-size limit, debounce settings and `Guards turn end on: HIGH` or `nothing`. Claude review labels fallback and effort as unused.
 

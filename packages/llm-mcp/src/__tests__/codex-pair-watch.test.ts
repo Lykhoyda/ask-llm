@@ -1429,7 +1429,8 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
   }
 
   it("marker effort reaches direct primary/fallback and changing only effort misses cache", () => {
-    const marker = (effort: string) => `---\nreasoningEffort: ${effort}\ndebounceMs: 0\n---\n# ctx`;
+    const marker = (effort: string) =>
+      `---\nreasoningEffort: ${effort}\ndebounceMs: 0\nmodel: gpt-6.2-sol\nfallbackModel: gpt-6.1-terra\n---\n# ctx`;
     setupMarker(tempDir, marker("xhigh"));
     const filePath = path.join(tempDir, "src.ts");
     fs.writeFileSync(filePath, "export const x = 1;");
@@ -1457,6 +1458,8 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
         FAKE_CODEX_ATTEMPT_FILE: path.join(tempDir, "attempts"),
       }).status,
     ).toBe(0);
+    // With the same inputs, the cached result must preserve the fallback attribution.
+    expect(runHookWithFakeCodex(payload, tempDir, "none", env).status).toBe(0);
     const fallbackCalls = fs
       .readFileSync(argsFile, "utf8")
       .trim()
@@ -1464,7 +1467,17 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
       .slice(2)
       .map((line) => JSON.parse(line));
     expect(fallbackCalls).toHaveLength(2);
+    expect(fallbackCalls[0]).toContain("gpt-6.2-sol");
+    expect(fallbackCalls[1]).toContain("gpt-6.1-terra");
     for (const args of fallbackCalls) expect(args).toContain('model_reasoning_effort="xhigh"');
+    const entries = readLogEntries(tempDir);
+    expect(entries).toMatchObject([
+      { verdict: "none", reviewer: "codex", model: "gpt-6.2-sol", reasoningEffort: "xhigh", fellBack: false },
+      { verdict: "cached", reviewer: "codex", model: "gpt-6.2-sol", reasoningEffort: "xhigh", fellBack: false },
+      { verdict: "none", reviewer: "codex", model: "gpt-6.2-sol", reasoningEffort: "high", fellBack: false },
+      { verdict: "none", reviewer: "codex", model: "gpt-6.1-terra", reasoningEffort: "xhigh", fellBack: true },
+      { verdict: "cached", reviewer: "codex", model: "gpt-6.1-terra", reasoningEffort: "xhigh", fellBack: true },
+    ]);
   });
 
   it("fake-codex fixture: file is executable + present at expected path", () => {
@@ -1557,7 +1570,13 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
     expect(fs.existsSync(path.join(stateDir, "failures.json"))).toBe(false);
     // Both the transition AND the review are durable in the log
     const log = fs.readFileSync(path.join(tempDir, ".codex-pair/log.jsonl"), "utf-8");
-    expect(log).toMatch(/auto_resumed/);
+    expect(readLogEntries(tempDir)[0]).toMatchObject({
+      verdict: "auto_resumed",
+      event: "resume",
+      pauseKind: "failures",
+      pauseSource: "auto",
+      pauseStartedAt: "2026-06-14T13:23:04.000Z",
+    });
     expect(log).toMatch(/"verdict":"none"/);
     // Single-JSON-object contract: the notice rides as a prefix on the verdict
     const stdoutLines = result.stdout
@@ -1899,7 +1918,12 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
       .trim()
       .split("\n")
       .map((l) => JSON.parse(l));
-    expect(lines.some((l) => l.autoPaused === "quota")).toBe(true);
+    expect(lines.find((l) => l.autoPaused === "quota")).toMatchObject({
+      timestamp: sentinel.at,
+      event: "pause",
+      pauseKind: "quota",
+      pauseSource: "auto",
+    });
   });
 
   it("primary quota + fallback model unavailable (ChatGPT plan) → clean quota auto-pause, NOT the 3-failure backstop", () => {

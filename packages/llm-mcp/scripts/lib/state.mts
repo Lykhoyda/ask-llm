@@ -170,6 +170,46 @@ export function readPauseInfo(markerDir: string): PauseInfo | null {
   return { manual: true };
 }
 
+export async function pauseManually(markerDir: string): Promise<boolean> {
+  mkdirSync(stateRoot(markerDir), { recursive: true });
+  const timestamp = new Date().toISOString();
+  try {
+    writeFileSync(pausePath(markerDir), "", { flag: "wx" });
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "EEXIST") return false;
+    throw error;
+  }
+  await appendLog(markerDir, {
+    timestamp,
+    verdict: "paused",
+    event: "pause",
+    pauseKind: "manual",
+    pauseSource: "manual",
+  });
+  return true;
+}
+
+export async function resumeManually(markerDir: string): Promise<PauseInfo | null> {
+  const pause = readPauseInfo(markerDir);
+  const timestamp = new Date().toISOString();
+  try {
+    unlinkSync(pausePath(markerDir));
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return null;
+    throw error;
+  }
+  clearReviewFailures(markerDir);
+  await appendLog(markerDir, {
+    timestamp,
+    verdict: "resumed",
+    event: "resume",
+    pauseKind: pause?.manual ? "manual" : pause?.kind,
+    pauseSource: "manual",
+    pauseStartedAt: pause?.at,
+  });
+  return pause ?? {};
+}
+
 let _cachedPluginVersion: string | null | undefined;
 export function readPluginVersion(): string | null {
   if (_cachedPluginVersion !== undefined) return _cachedPluginVersion;
@@ -225,7 +265,7 @@ export function clearAutoPause(markerDir: string, expected?: PauseInfo): boolean
   try {
     unlinkSync(pausePath(markerDir));
   } catch {
-    // already gone
+    return false;
   }
   clearReviewFailures(markerDir);
   return true;
@@ -234,7 +274,12 @@ export function clearAutoPause(markerDir: string, expected?: PauseInfo): boolean
 // `wx` never overwrites an existing pause, which keeps "notify once" true under concurrency.
 export function writeAutoPause(
   markerDir: string,
-  { kind, reason, resetHint }: { kind: "quota" | "failures"; reason: string; resetHint?: string | null },
+  {
+    kind,
+    reason,
+    resetHint,
+    at = new Date().toISOString(),
+  }: { kind: "quota" | "failures"; reason: string; resetHint?: string | null; at?: string },
 ): boolean {
   const pluginVersion = readPluginVersion();
   const body = JSON.stringify({
@@ -243,7 +288,7 @@ export function writeAutoPause(
     reason: clampReason(typeof reason === "string" ? reason : String(reason)),
     ...(resetHint ? { resetHint } : {}),
     ...(pluginVersion ? { pluginVersion } : {}),
-    at: new Date().toISOString(),
+    at,
   });
   try {
     mkdirSync(stateRoot(markerDir), { recursive: true });
@@ -396,10 +441,16 @@ export function cachePathFor(markerDir: string, cacheKey: string): string {
   return join(cacheRoot(markerDir), cacheKey.slice(0, 2), `${cacheKey.slice(2)}.json`);
 }
 
-export async function getCachedConcerns(
-  markerDir: string,
-  cacheKey: string,
-): Promise<(Concerns & { durationMs?: number }) | null> {
+export interface ReviewAttribution {
+  reviewer: string;
+  model: string;
+  reasoningEffort: string;
+  fellBack: boolean;
+}
+
+type CachedConcerns = Concerns & Partial<ReviewAttribution> & { durationMs?: number };
+
+export async function getCachedConcerns(markerDir: string, cacheKey: string): Promise<CachedConcerns | null> {
   const cachePath = cachePathFor(markerDir, cacheKey);
   try {
     const stats = await stat(cachePath);
@@ -418,7 +469,7 @@ export async function getCachedConcerns(
 export async function setCachedConcerns(
   markerDir: string,
   cacheKey: string,
-  value: Concerns & { durationMs: number },
+  value: CachedConcerns & { durationMs: number },
 ): Promise<void> {
   const cachePath = cachePathFor(markerDir, cacheKey);
   try {

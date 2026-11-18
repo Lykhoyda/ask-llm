@@ -6,61 +6,27 @@ description: Pause codex-pair for this project without removing `.codex-pair/con
 <!-- PORTABLE-CONTRACT:START -->
 ## Portable contract
 
-Create the project-local `.codex-pair/state/paused` sentinel without removing the marker or history. This is a manual pause and remains until explicitly resumed.
+Create the project-local `.codex-pair/state/paused` sentinel. A manual pause stays in effect until an explicit resume.
 <!-- PORTABLE-CONTRACT:END -->
 
 ## Host adapters
 
 ### Pi adapter
 
-Run `/codex-pair-pause` or create the sentinel exactly as described by the portable contract.
+Run `/codex-pair-pause` or create the sentinel as described in the portable contract.
 
 ### Other hosts adapter
 
-Apply the portable contract above: create the sentinel file exactly as described. It pauses the codex-pair reviewer that Claude Code, Pi or Grok CLI runs for this project.
+From the project, run `node "<package-root>/scripts/codex-pair-log.mjs" pause`, using the installed `@ask-llm/mcp` package directory. The CLI finds the project marker and records the transition. Done when the command confirms the pause or reports an existing pause. Show any error.
 
 <!-- HOST-ADAPTER:CLAUDE-CODE:START -->
 ### Claude Code adapter
 
-The existing detailed workflow below is the Claude Code adapter. Its Agent, MCP, hook, `CLAUDE_PLUGIN_ROOT`, and `AskUserQuestion` mechanics apply only on Claude Code; they do not override the Pi adapter above.
+From the project, run the plugin's command:
 
+```bash
+node "${CLAUDE_PLUGIN_ROOT}/scripts/codex-pair-log.mjs" pause
+```
 
-
-# Pause codex-pair for this project
-
-Pauses the codex-pair hook for the current project without removing the `.codex-pair/context.md` marker. The marker (and its project context) stays in place — only the temporary pause sentinel is written. Resume with `/codex-pair-resume`.
-
-The hook may also pause itself automatically — on provider quota exhaustion or after
-3 consecutive review failures — writing the same sentinel with a JSON body that
-records why (`kind`, `reason`, `resetHint`). Manual and automatic pauses are resumed
-the same way.
-
-## When to use
-
-- Starting a noisy refactor where every edit would surface concerns you've already decided to accept
-- Working on docs/comments/typos where review adds no value
-- Dogfooding the hook itself (avoid recursive self-reviews)
-- Burning down a known-issues list where you don't want codex re-flagging them on every save
-
-For permanent disable, remove the `.codex-pair/` directory instead (`rm -rf .codex-pair/`). For per-file/per-directory opt-out, use `.codex-pair/ignore` (gitignore-style globs).
-
-## Instructions
-
-1. Locate the `.codex-pair/context.md` marker by walking up from the current working directory (the project ROOT is the directory holding `.codex-pair/`). If no marker is found, inform the user: "codex-pair is not enabled in this project (no `.codex-pair/context.md` marker found). Nothing to pause."
-
-2. Create the pause sentinel:
-   ```bash
-   mkdir -p <marker-dir>/.codex-pair/state
-   touch <marker-dir>/.codex-pair/state/paused
-   ```
-   Replace `<marker-dir>` with the directory containing `.codex-pair/`.
-
-3. Confirm to the user with the marker directory path:
-   ```
-   codex-pair paused for <marker-dir>
-   Resume with /codex-pair-resume (or `rm <marker-dir>/.codex-pair/state/paused`)
-   ```
-
-4. If `.gitignore` in the marker directory does not already contain `.codex-pair/`, mention it as a suggestion (do not modify the user's .gitignore without asking).
-
+Done when the command confirms the pause or reports an existing pause. Show any error. If the project does not ignore `.codex-pair/`, suggest adding it to the developer’s ignore rules.
 <!-- HOST-ADAPTER:CLAUDE-CODE:END -->

@@ -95,6 +95,16 @@ It resolves the same configuration as the hook, including marker/environment/def
 
 Done when the command's output has been shown, including its state, resolved configuration and recent reviews (or the absence of reviews).
 
+## 4. Report paired work
+
+When the paired work is ready to hand off, run the report from the project:
+
+```bash
+node "${CLAUDE_PLUGIN_ROOT}/scripts/codex-pair-log.mjs" --report
+```
+
+Use `--since` with a duration covering the work when the retained repository log includes earlier work. Done when you paste the report's first line into the pull request description or closing status.
+
 ## Stop gate: `blockOn`
 
 Only when `.codex-pair/context.md` frontmatter says `blockOn: HIGH` does the Stop gate block turn-end on an unacknowledged HIGH finding or a review still in flight. This is a once-per-turn guard: the next Stop in the same turn passes. A finding stops counting when its file changes, disappears or is clean against HEAD. Otherwise the gate only surfaces pending text.

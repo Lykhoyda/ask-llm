@@ -46,6 +46,7 @@ import { buildReviewPrompt } from "./lib/prompt.mts";
 import { registerMarker } from "./lib/session-registry.mts";
 import {
   AUTOPAUSE_FAILURE_THRESHOLD,
+  type ReviewAttribution,
   appendLog,
   CONTEXT_FILENAME,
   clearAutoPause,
@@ -904,6 +905,10 @@ async function main() {
         tool: toolName,
         file: filePath,
         verdict: "auto_resumed",
+        event: "resume",
+        pauseKind: pauseInfo.kind,
+        pauseSource: "auto",
+        pauseStartedAt: pauseInfo.at,
         reason: `${resumeDecision.why} (paused ${pauseInfo.at ?? "unknown"}, kind: ${pauseInfo.kind})`,
       });
       noticePrefix = `codex-pair auto-resumed (${resumeDecision.why}): was ${pauseInfo.kind}-paused since ${pauseInfo.at ?? "unknown"}. Reviews are live again.`;
@@ -1141,6 +1146,11 @@ async function main() {
       file: filePath,
       verdict: "cached",
       contentHash: reviewedContentHash,
+      reviewer: cached.reviewer ?? "unknown",
+      model: cached.model ?? "unknown",
+      reasoningEffort: cached.reasoningEffort ?? "unknown",
+      fellBack: cached.fellBack,
+      ...(grokHost ? { coverage: shellReview ? "command-text" : "file" } : {}),
       counts: {
         high: cached.high.length,
         med: cached.med.length,
@@ -1220,8 +1230,11 @@ async function main() {
       ...extra,
     };
     if (failureCount >= AUTOPAUSE_FAILURE_THRESHOLD) {
-      const paused = writeAutoPause(markerDir, { kind: "failures", reason });
-      await appendLog(markerDir, { ...entry, ...(paused ? { autoPaused: "failures" } : {}) });
+      const paused = writeAutoPause(markerDir, { kind: "failures", reason, at: entry.timestamp });
+      await appendLog(markerDir, {
+        ...entry,
+        ...(paused ? { autoPaused: "failures", event: "pause", pauseKind: "failures", pauseSource: "auto" } : {}),
+      });
       if (paused) {
         await emitSystemMessage(
           `codex-pair auto-paused after ${AUTOPAUSE_FAILURE_THRESHOLD} consecutive review failures (last: ${reason}). Resume with /codex-pair-resume.`,
@@ -1270,16 +1283,17 @@ async function main() {
     // Quota exhaustion writes one exclusive pause sentinel and stays silent thereafter.
     if (err && typeof err === "object" && "quotaExhausted" in err && err.quotaExhausted) {
       const resetHint = parseResetHint(reason);
-      const paused = writeAutoPause(markerDir, { kind: "quota", reason, resetHint });
+      const timestamp = new Date().toISOString();
+      const paused = writeAutoPause(markerDir, { kind: "quota", reason, resetHint, at: timestamp });
       await appendLog(markerDir, {
-        timestamp: new Date().toISOString(),
+        timestamp,
         tool: toolName,
         file: filePath,
         verdict,
         contentHash: reviewedContentHash,
         reason,
         durationMs,
-        ...(paused ? { autoPaused: "quota" } : {}),
+        ...(paused ? { autoPaused: "quota", event: "pause", pauseKind: "quota", pauseSource: "auto" } : {}),
       });
       if (paused) {
         const resetClause = resetHint ? ` (resets ~${resetHint})` : "";
@@ -1312,12 +1326,21 @@ async function main() {
 
   const total = concerns.high.length + concerns.med.length + concerns.low.length;
 
+  const attribution: ReviewAttribution = {
+    reviewer,
+    model: fellBack ? config.fallbackModel : config.model,
+    // The Claude adapter does not set or observe an effort tier.
+    reasoningEffort: reviewer === "codex" ? config.reasoningEffort : "unknown",
+    fellBack,
+  };
+
   // Cache-write failure must not break a completed review.
   await setCachedConcerns(markerDir, cacheKey, {
     high: concerns.high,
     med: concerns.med,
     low: concerns.low,
     durationMs,
+    ...attribution,
   });
 
   await appendLog(markerDir, {
@@ -1326,8 +1349,8 @@ async function main() {
     file: filePath,
     verdict: total === 0 ? "none" : "concerns",
     contentHash: reviewedContentHash,
-    fellBack,
-    ...(grokHost ? { reviewer, model: config.model, coverage: shellReview ? "command-text" : "file" } : {}),
+    ...attribution,
+    ...(grokHost ? { coverage: shellReview ? "command-text" : "file" } : {}),
     counts: {
       high: concerns.high.length,
       med: concerns.med.length,

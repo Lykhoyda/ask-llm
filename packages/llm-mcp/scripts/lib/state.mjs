@@ -128,6 +128,48 @@ export function readPauseInfo(markerDir) {
     }
     return { manual: true };
 }
+export async function pauseManually(markerDir) {
+    mkdirSync(stateRoot(markerDir), { recursive: true });
+    const timestamp = new Date().toISOString();
+    try {
+        writeFileSync(pausePath(markerDir), "", { flag: "wx" });
+    }
+    catch (error) {
+        if (error.code === "EEXIST")
+            return false;
+        throw error;
+    }
+    await appendLog(markerDir, {
+        timestamp,
+        verdict: "paused",
+        event: "pause",
+        pauseKind: "manual",
+        pauseSource: "manual",
+    });
+    return true;
+}
+export async function resumeManually(markerDir) {
+    const pause = readPauseInfo(markerDir);
+    const timestamp = new Date().toISOString();
+    try {
+        unlinkSync(pausePath(markerDir));
+    }
+    catch (error) {
+        if (error.code === "ENOENT")
+            return null;
+        throw error;
+    }
+    clearReviewFailures(markerDir);
+    await appendLog(markerDir, {
+        timestamp,
+        verdict: "resumed",
+        event: "resume",
+        pauseKind: pause?.manual ? "manual" : pause?.kind,
+        pauseSource: "manual",
+        pauseStartedAt: pause?.at,
+    });
+    return pause ?? {};
+}
 let _cachedPluginVersion;
 export function readPluginVersion() {
     if (_cachedPluginVersion !== undefined)
@@ -176,13 +218,13 @@ export function clearAutoPause(markerDir, expected) {
         unlinkSync(pausePath(markerDir));
     }
     catch {
-        // already gone
+        return false;
     }
     clearReviewFailures(markerDir);
     return true;
 }
 // `wx` never overwrites an existing pause, which keeps "notify once" true under concurrency.
-export function writeAutoPause(markerDir, { kind, reason, resetHint }) {
+export function writeAutoPause(markerDir, { kind, reason, resetHint, at = new Date().toISOString(), }) {
     const pluginVersion = readPluginVersion();
     const body = JSON.stringify({
         v: 1,
@@ -190,7 +232,7 @@ export function writeAutoPause(markerDir, { kind, reason, resetHint }) {
         reason: clampReason(typeof reason === "string" ? reason : String(reason)),
         ...(resetHint ? { resetHint } : {}),
         ...(pluginVersion ? { pluginVersion } : {}),
-        at: new Date().toISOString(),
+        at,
     });
     try {
         mkdirSync(stateRoot(markerDir), { recursive: true });
