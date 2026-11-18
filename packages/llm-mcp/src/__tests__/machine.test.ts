@@ -595,11 +595,7 @@ describe("runMachineRequest", () => {
       "unavailable",
       "Provider execution failed",
     ],
-    [
-      "Antigravity (agy) failed before returning a complete response.",
-      "unavailable",
-      "Provider execution failed",
-    ],
+    ["Antigravity (agy) failed before returning a complete response.", "unavailable", "Provider execution failed"],
   ])("normalizes Antigravity early finishes without quoting partial output: %s", async (prefix, kind, message) => {
     const partial = '{"summary":"quota handling looks correct; 401 authentication failed; ENOENT","findings":[]}';
     const error = `${prefix} agy denied 1 action(s): deadline exceeded. Partial output follows: ${partial}`;
