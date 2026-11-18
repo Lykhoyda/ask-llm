@@ -256,11 +256,7 @@ it("retains known hashes, repeats and acknowledgement reasons when other identit
     counts: { high: 1, med: 0, low: 0 },
     concernHashes: { high: [ACKED], med: [], low: [] },
   };
-  writeLog(
-    known,
-    { ...known, cached: true },
-    { ...known, counts: { high: 2, med: 0, low: 0 } },
-  );
+  writeLog(known, { ...known, cached: true }, { ...known, counts: { high: 2, med: 0, low: 0 } });
   expect(script("codex-pair-log.mjs", ["ack", ACKED], "Accepted legacy finding\n").status).toBe(0);
   expect(JSON.parse(cli("--report", "--json"))).toMatchObject({
     reviewsRun: 2,

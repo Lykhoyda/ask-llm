@@ -136,10 +136,7 @@ export function buildReport(
     const complete =
       entry.verdict === "none" ||
       SEVERITIES.every((severity) => {
-        const length = Math.max(
-          entry.concernHashes?.[severity]?.length ?? 0,
-          entry.concerns?.[severity]?.length ?? 0,
-        );
+        const length = Math.max(entry.concernHashes?.[severity]?.length ?? 0, entry.concerns?.[severity]?.length ?? 0);
         const count = entry.counts?.[severity];
         return count === undefined
           ? entry.concerns?.[severity] !== undefined || entry.concernHashes?.[severity] !== undefined
@@ -231,8 +228,7 @@ export function formatReport(report: ReturnType<typeof buildReport>): string {
   } = report;
   const { high, med, low } = findingsBySeverity;
   const repeats = repeatedFindings.reduce((sum, finding) => sum + finding.repeats, 0);
-  const findingMetric = (value: number): string =>
-    findingsComplete ? String(value) : `${value} known (partial)`;
+  const findingMetric = (value: number): string => (findingsComplete ? String(value) : `${value} known (partial)`);
   const modelStats = models
     .map(
       ({ reviewer, model, reasoningEffort, reviewsRun, cachedHits }) =>

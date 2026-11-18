@@ -165,7 +165,7 @@ export function formatReport(report) {
     const { repository, since, reviewsRun, cachedHits, fallbackReviews, findingsComplete, findingsBySeverity, repeatedFindings, acknowledgedFindings, blockingHighs, otherUnacknowledgedHighs, noLongerReported, models, pauseWindows, } = report;
     const { high, med, low } = findingsBySeverity;
     const repeats = repeatedFindings.reduce((sum, finding) => sum + finding.repeats, 0);
-    const findingMetric = (value) => findingsComplete ? String(value) : `${value} known (partial)`;
+    const findingMetric = (value) => (findingsComplete ? String(value) : `${value} known (partial)`);
     const modelStats = models
         .map(({ reviewer, model, reasoningEffort, reviewsRun, cachedHits }) => `${reviewer}/${model}/${reasoningEffort} (${reviewsRun} run, ${cachedHits} cached)`)
         .join(", ");
