@@ -1,5 +1,13 @@
 # @ask-llm/mcp
 
+## 1.6.3
+
+### Patch Changes
+
+- [#449](https://github.com/Lykhoyda/ask-llm/pull/449) [`e7425cb`](https://github.com/Lykhoyda/ask-llm/commit/e7425cb4e6677f963038a57524732fe7a639d4b2) Thanks [@Lykhoyda](https://github.com/Lykhoyda)! - Add a repository-scoped codex-pair report for review counts, finding history, acknowledgement reasons, current HIGH blockers, reviewer attribution and pause windows. Successful and cached reviews record the model used, including fallback models. The bundled log CLI also accepts `ack`, `pause` and `resume`.
+
+- [#446](https://github.com/Lykhoyda/ask-llm/pull/446) [`5ec38d3`](https://github.com/Lykhoyda/ask-llm/commit/5ec38d35bf88287fcf7ca756049fd7a1b89c85c3) Thanks [@Lykhoyda](https://github.com/Lykhoyda)! - End portable `/codex-pair` without questions or review calls when the writer is positively identified as Codex and the reviewer would also be Codex. Explain the lack of independent review, point to `/grok-pair`, and report `completed (not applicable)`. Unknown writer families and existing adapters retain their behavior; Pi's native command is unchanged.
+
 ## 1.6.2
 
 ### Patch Changes
