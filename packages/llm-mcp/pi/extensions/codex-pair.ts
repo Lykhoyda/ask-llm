@@ -16,20 +16,18 @@ import {
   getCachedConcerns,
   hashConcernBody,
   logPath,
-  pauseManually,
+  pausePath,
   readAcks,
   readPauseInfo,
   readPluginVersion,
   recordReviewFailure,
   releaseInflightLock,
   resolveAutoResume,
-  resumeManually,
   setCachedConcerns,
   stateRoot,
   tryAcquireInflightLock,
   writeAutoPause,
 } from "../../scripts/lib/state.mjs";
-import type { ReviewAttribution } from "../../scripts/lib/state.mjs";
 import { DEFAULT_SURFACE_THRESHOLD, buildVerdictMessage, parseConcerns } from "../../scripts/lib/parser.mjs";
 
 const DEFAULT_DEBOUNCE_MS = 15_000;
@@ -489,10 +487,6 @@ export function registerCodexPair(pi: ExtensionAPI): void {
     await appendLog(markerDir, {
       timestamp: new Date().toISOString(),
       verdict: "auto_resumed",
-      event: "resume",
-      pauseKind: pauseInfo.kind,
-      pauseSource: "auto",
-      pauseStartedAt: pauseInfo.at,
       source: "pi",
       reason: decision.why,
     });
@@ -576,21 +570,11 @@ export function registerCodexPair(pi: ExtensionAPI): void {
           verdict: "error",
           reason: `Pi: ${reason}`,
         });
-        const kind = isQuotaError(error)
-          ? "quota"
-          : recordReviewFailure(work.markerDir, reason) >= AUTOPAUSE_FAILURE_THRESHOLD
-            ? "failures"
-            : undefined;
-        if (kind && writeAutoPause(work.markerDir, { kind, reason })) {
-          await appendLog(work.markerDir, {
-            timestamp: readPauseInfo(work.markerDir)?.at,
-            verdict: "paused",
-            event: "pause",
-            pauseKind: kind,
-            pauseSource: "auto",
-            source: "pi",
-            reason,
-          });
+        if (isQuotaError(error)) {
+          writeAutoPause(work.markerDir, { kind: "quota", reason });
+        } else {
+          const failures = recordReviewFailure(work.markerDir, reason);
+          if (failures >= AUTOPAUSE_FAILURE_THRESHOLD) writeAutoPause(work.markerDir, { kind: "failures", reason });
         }
         notifyRefusal(ctx, `codex-pair review failed: ${reason}`);
       });
@@ -671,12 +655,7 @@ export function registerCodexPair(pi: ExtensionAPI): void {
       });
       const startedAt = Date.now();
       let concerns = await getCachedConcerns(work.markerDir, cacheKey);
-      let attribution: Partial<ReviewAttribution> = {
-        reviewer: concerns?.reviewer ?? "unknown",
-        model: concerns?.model ?? "unknown",
-        reasoningEffort: concerns?.reasoningEffort ?? "unknown",
-        fellBack: concerns?.fellBack,
-      };
+      let fellBack = false;
       let cached = true;
       if (!concerns) {
         cached = false;
@@ -691,15 +670,9 @@ export function registerCodexPair(pi: ExtensionAPI): void {
             signal: controller.signal,
           });
           concerns = parseConcerns(result.response);
-          attribution = {
-            reviewer: "codex",
-            model: result.usage?.model ?? "unknown",
-            reasoningEffort: "high",
-            fellBack: result.usage?.fellBack ?? false,
-          };
+          fellBack = result.usage?.fellBack ?? false;
           await setCachedConcerns(work.markerDir, cacheKey, {
             ...concerns,
-            ...attribution,
             durationMs: Date.now() - startedAt,
           });
         } finally {
@@ -728,7 +701,7 @@ export function registerCodexPair(pi: ExtensionAPI): void {
       const message = buildVerdictMessage({
         filePath: file,
         concerns,
-        fellBack: attribution.fellBack ?? false,
+        fellBack,
         durationMs,
         surfaceThreshold: config.surfaceThreshold,
         cached,
@@ -748,7 +721,7 @@ export function registerCodexPair(pi: ExtensionAPI): void {
         file,
         verdict: concerns.high.length + concerns.med.length + concerns.low.length === 0 ? "none" : "concerns",
         source: "pi",
-        ...attribution,
+        fellBack,
         cached,
         counts: { high: concerns.high.length, med: concerns.med.length, low: concerns.low.length },
         durationMs,
@@ -864,7 +837,8 @@ export function registerCodexPair(pi: ExtensionAPI): void {
     handler: async (_args, ctx) => {
       const markerDir = await findMarkerUp(ctx.cwd);
       if (!markerDir) return notifyRefusal(ctx, "No codex-pair marker found.");
-      await pauseManually(markerDir);
+      await mkdir(stateRoot(markerDir), { recursive: true });
+      await writeFile(pausePath(markerDir), "", { flag: "a", mode: 0o600 });
       ctx.ui.notify("codex-pair paused", "info");
     },
   });
@@ -874,7 +848,9 @@ export function registerCodexPair(pi: ExtensionAPI): void {
     handler: async (_args, ctx) => {
       const markerDir = await findMarkerUp(ctx.cwd);
       if (!markerDir) return notifyRefusal(ctx, "No codex-pair marker found.");
-      await resumeManually(markerDir);
+      try {
+        await unlink(pausePath(markerDir));
+      } catch {}
       clearReviewFailures(markerDir);
       ctx.ui.notify("codex-pair resumed", "info");
     },
