@@ -1,5 +1,11 @@
 # @ask-llm/mcp
 
+## 1.6.1
+
+### Patch Changes
+
+- [#440](https://github.com/Lykhoyda/ask-llm/pull/440) [`b9917d5`](https://github.com/Lykhoyda/ask-llm/commit/b9917d5015d032b26d6e38356fe3796ca3d4603a) Thanks [@Lykhoyda](https://github.com/Lykhoyda)! - Default Codex consultations and pairing to GPT-6.2 Sol (`gpt-6.2-sol`). Update the Sol reviewer and Codex brainstorm pins to Sol 6.2, and pin `/astra-review` to GPT-6.2 Astra (`gpt-6.2-astra`). Quota fallback still uses GPT-6.1 Terra.
+
 ## 1.6.0
 
 ### Minor Changes
