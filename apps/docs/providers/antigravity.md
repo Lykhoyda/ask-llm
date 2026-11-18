@@ -44,7 +44,7 @@ Both unified `ask-llm` with `provider: "antigravity"` and standalone `ask-antigr
 { "provider": "antigravity", "prompt": "Continue the review", "sessionId": "<returned sessionId>" }
 ```
 
-Follow-ups pass `--conversation <sessionId>` with the same settings overlay, read-only preamble, model, effort, timeout and sandbox rules as fresh calls. The overlay is reapplied on every resumed attempt, including model recovery. A live agy 1.5.10 check recalled an earlier turn and refused `write_file`, `touch` and a `curl` command on resume.
+Follow-ups pass `--conversation <sessionId>` with the same settings overlay, read-only preamble, model, effort, timeout and sandbox rules as fresh calls. The overlay is reapplied on every resumed attempt, including model recovery. The [isolation limits](#what-protects-opted-in-runs) still apply.
 
 If agy cannot find the ID (for example, a conversation it no longer retains), agy 1.5.10 warns and starts fresh. Ask LLM discloses that reset in the answer and returns the new conversation's ID; prior context is lost. Other conversation-load errors propagate without a fresh-call retry. An envelope without a usable top-level ID still returns its answer, but offers no resumable `sessionId`.
 
