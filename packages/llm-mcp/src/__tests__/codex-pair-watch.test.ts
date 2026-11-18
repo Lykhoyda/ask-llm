@@ -1339,7 +1339,7 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
       expect(result.stdout).toMatch(/concerns/);
       expect(result.stdout).toMatch(/none/);
     } finally {
-      fs.rmSync(alias, { force: true });
+      fs.unlinkSync(alias);
     }
   });
 
@@ -2145,44 +2145,48 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
   }
 
   it("W8: an unrecognised reply is logged `unparsed`, not cached, never `none`, and counts as a failure", () => {
-    setupMarker(tempDir, "# ctx");
-    const filePath = path.join(tempDir, "src.ts");
+    // Exercise the alias mismatch even when the system temp directory is not symlinked.
+    const realProjectDir = path.join(tempDir, "project");
+    const projectDir = path.join(tempDir, "project-link");
+    setupMarker(realProjectDir, "# ctx");
+    fs.symlinkSync(realProjectDir, projectDir);
+    const filePath = path.join(projectDir, "src.ts");
     fs.writeFileSync(filePath, "export const x = 1;");
     const payload = JSON.stringify({ tool_name: "Edit", tool_input: { file_path: filePath } });
     const garbled = "I could not review this file, sorry.";
 
-    const first = runHookWithRawReply(payload, tempDir, garbled);
+    const first = runHookWithRawReply(payload, projectDir, garbled);
     expect(first.status).toBe(0);
-    let entries = readLogEntries(tempDir);
+    let entries = readLogEntries(projectDir);
     expect(entries.some((l) => l.verdict === "none" || l.verdict === "concerns")).toBe(false);
     const unparsed = entries.filter((l) => l.verdict === "unparsed");
     expect(unparsed).toHaveLength(1);
-    expect(unparsed[0].file).toBe(filePath);
+    expect(fs.realpathSync(unparsed[0].file)).toBe(fs.realpathSync(filePath));
     expect(typeof unparsed[0].contentHash).toBe("string");
     expect(unparsed[0].responseExcerpt).toBe(garbled);
     expect(unparsed[0].counts).toBeUndefined();
     expect(unparsed[0].concerns).toBeUndefined();
-    expect(cacheFiles(tempDir)).toEqual([]);
+    expect(cacheFiles(projectDir)).toEqual([]);
     const firstOutput = JSON.parse(first.stdout.trim());
     expect(firstOutput.systemMessage).toMatch(/^codex-pair UNPARSED:/);
     expect(firstOutput.systemMessage).not.toMatch(/no concerns/);
     expect(firstOutput.systemMessage).toMatch(/failure 1\/3 before auto-pause/);
-    const failuresFile = path.join(tempDir, ".codex-pair/state/failures.json");
+    const failuresFile = path.join(projectDir, ".codex-pair/state/failures.json");
     expect(JSON.parse(fs.readFileSync(failuresFile, "utf-8")).consecutive).toBe(1);
 
     // Same content again: no cache hit, a second live attempt, and the streak grows.
-    const second = runHookWithRawReply(payload, tempDir, garbled);
-    entries = readLogEntries(tempDir);
+    const second = runHookWithRawReply(payload, projectDir, garbled);
+    entries = readLogEntries(projectDir);
     expect(entries.some((l) => l.verdict === "cached")).toBe(false);
     expect(entries.filter((l) => l.verdict === "unparsed")).toHaveLength(2);
     expect(JSON.parse(second.stdout.trim()).systemMessage).toMatch(/failure 2\/3 before auto-pause/);
 
     // A third consecutive unparsed reply auto-pauses like any other review failure.
-    const third = runHookWithRawReply(payload, tempDir, garbled);
+    const third = runHookWithRawReply(payload, projectDir, garbled);
     expect(JSON.parse(third.stdout.trim()).systemMessage).toMatch(/auto-paused after 3 consecutive review failures/);
-    const sentinel = JSON.parse(fs.readFileSync(path.join(tempDir, ".codex-pair/state/paused"), "utf-8"));
+    const sentinel = JSON.parse(fs.readFileSync(path.join(projectDir, ".codex-pair/state/paused"), "utf-8"));
     expect(sentinel.kind).toBe("failures");
-    expect(readLogEntries(tempDir).at(-1)).toMatchObject({ verdict: "unparsed", autoPaused: "failures" });
+    expect(readLogEntries(projectDir).at(-1)).toMatchObject({ verdict: "unparsed", autoPaused: "failures" });
   });
 
   it("W8: raw non-JSONL codex output (no agent message) is `unparsed`, not `none`", () => {
