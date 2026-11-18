@@ -61,7 +61,7 @@ The remaining sections describe the Claude Code lifecycle unless another host is
 
 ## Setup
 
-Run the `/codex-pair` slash command in the project where you want continuous review. On first run (no marker present) it offers interactive setup with auto-detected project context and writes the marker file for you. You can also create the marker by hand:
+Run the `/codex-pair` slash command in the project where you want continuous review. On first run (no marker present) on Claude Code it copies a committed `.codex-pair.example/context.md` from the repository root to `.codex-pair/context.md` without asking; it never overwrites an existing marker. Without a template it offers interactive setup with auto-detected project context and writes the marker file for you. Either way it keeps `.codex-pair/` out of git through the local exclude file described below. You can also create the marker by hand:
 
 ```bash
 mkdir -p .codex-pair
@@ -85,13 +85,15 @@ EOF
 
 On Claude Code, the marker file opts the project into review; `CODEX_PAIR_DISABLED=1` or a pause sentinel still prevents reviews. Its content is review context. New `/codex-pair` markers explicitly set `blockOn: false` for advisory review; an existing marker without `blockOn` remains advisory. On Pi, marker presence is only the repository-side gate: it never authorizes provider transfer/cost without Pi project trust and separate interactive `/codex-pair` consent stored outside the repository.
 
-**Do NOT commit the `.codex-pair/` directory**: gitignore it. Each contributor's review context is their own; one developer iterating on prompt wording shouldn't dirty the shared history. The hook itself is project-policy (it's in the plugin); the marker is per-developer opt-in. Every state artifact (marker, log, cache, `ignore` globs, pause sentinel, inflight locks) nests under the single directory; one `.gitignore` line covers everything:
+**Do NOT commit the `.codex-pair/` directory**: keep it ignored. Each contributor's review context is their own; one developer iterating on prompt wording shouldn't dirty the shared history. The hook itself is project-policy (it's in the plugin); the marker is per-developer opt-in. Every state artifact (marker, log, cache, `ignore` globs, pause sentinel, inflight locks) nests under the single directory; one ignore line covers everything:
 
 ```gitignore
 .codex-pair/
 ```
 
-For a new contributor joining a project, point them at this docs page to write their own marker, or share a template via a separate (committed) `.codex-pair.example/context.md` they can copy and tweak locally.
+`/codex-pair` setup on Claude Code appends that line to git's local exclude file, the path `git rev-parse --git-path info/exclude` prints. A linked worktree has a `.git` file rather than a folder, so the path comes from git; all worktrees of a repository share that file. Setup never edits `.gitignore` and skips the exclude entry when git already ignores the marker. Add the line to `.gitignore` or your global ignore file yourself if you prefer.
+
+For a new contributor or a fresh worktree, commit a template at `.codex-pair.example/context.md` in the repository root: `/codex-pair` copies it with no questions, and each developer can then edit their own copy. You can run the same step directly from the project with `node packages/llm-mcp/scripts/codex-pair-log.mjs setup`. Its first word reports the outcome: `created`, `exists`, `no-template`, `not-git` or `invalid-template` (a template that is not a regular file, such as a symlink, is refused).
 
 Once present, every `Edit` / `Write` / `MultiEdit` triggers a Codex review of the changed file. HIGH and MED concerns appear to Claude as a system reminder on the next turn, prefixed with `[codex-pair]` and the file path:
 

@@ -39,13 +39,13 @@ The hook is always loaded by the plugin, but **self-gates on this file's presenc
 
 The marker file's *presence* is the switch; its *content* is the context codex needs to review intelligently. One artifact, two purposes.
 
-**Keep `.codex-pair/` out of git** — gitignore it. The marker is per-developer opt-in: each contributor's review context is their own (model preference, severity threshold, project rules they care about). One developer iterating on prompt wording shouldn't dirty the shared history. The hook itself is project policy (it ships in the plugin); the marker is the per-developer activation switch. Per [ADR-092](../../../../docs/DECISIONS.md), every state artifact (marker, log, cache, ignore globs, pause sentinel, inflight locks) nests under the single directory, so one `.gitignore` line covers everything — including any future state files added later:
+**Keep `.codex-pair/` out of git.** On Claude Code, `/codex-pair` setup adds `.codex-pair/` to git's local exclude file (the path `git rev-parse --git-path info/exclude` prints, shared by linked worktrees) and never edits `.gitignore`; a `.gitignore` or global ignore entry works too. The marker is per-developer opt-in: each contributor's review context is their own (model preference, severity threshold, project rules they care about). One developer iterating on prompt wording shouldn't dirty the shared history. The hook itself is project policy (it ships in the plugin); the marker is the per-developer activation switch. Per [ADR-092](../../../../docs/DECISIONS.md), every state artifact (marker, log, cache, ignore globs, pause sentinel, inflight locks) nests under the single directory, so one ignore line covers everything — including any future state files added later:
 
 ```
 .codex-pair/
 ```
 
-To onboard a new contributor, point them at this skill (or `apps/docs/plugin/hooks.md`) to write their own marker — or share a template via a separate (committed) `.codex-pair.example/context.md` they can copy and tweak locally.
+To onboard a new contributor or a fresh worktree, commit a template at `.codex-pair.example/context.md` in the repository root. On Claude Code, `/codex-pair` copies it to `.codex-pair/context.md` without asking and never overwrites an existing marker; each developer can then edit their copy locally. Without a template, `/codex-pair` drafts the marker interactively.
 
 ## How to pause or disable
 

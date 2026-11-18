@@ -30,7 +30,20 @@ Done when the marker search has selected setup or status.
 
    Done when the setup notice has been shown.
 
-2. Auto-detect project context by reading what's already available:
+2. Run setup from the project and branch on the first word of its output:
+
+   ```bash
+   node "${CLAUDE_PLUGIN_ROOT}/scripts/codex-pair-log.mjs" setup
+   ```
+
+   It never overwrites an existing marker. When it writes or finds the marker, it keeps `.codex-pair/` out of git through the local exclude file that `git rev-parse --git-path info/exclude` names, so a linked worktree works too; it never edits `.gitignore`.
+   - `created` or `exists`: the repository's committed `.codex-pair.example/context.md` became the marker, or a marker was already there. Ask nothing and go to item 8 below.
+   - `no-template` or `not-git`: continue with item 3 below to draft the marker interactively.
+   - Anything else, or a non-zero exit: show the output and stop.
+
+   Done when the output has selected item 8, item 3 or stopping.
+
+3. Auto-detect project context by reading what's already available:
    - `package.json` (name, description, dependencies — infers language/framework)
    - `README.md` first 50 lines (project purpose statement)
    - `pyproject.toml` / `Cargo.toml` / `go.mod` if present (non-Node projects)
@@ -39,7 +52,7 @@ Done when the marker search has selected setup or status.
 
    Done when a one-paragraph purpose summary is derived from the available project files.
 
-3. Draft a `.codex-pair/context.md` from the detected context. Structure:
+4. Draft a `.codex-pair/context.md` from the detected context. Structure:
    ```markdown
    ---
    blockOn: false
@@ -61,7 +74,7 @@ Done when the marker search has selected setup or status.
 
    Done when the draft contains `blockOn: false` (advisory review), that summary and 3–5 project-specific invariants.
 
-4. Use `AskUserQuestion` to confirm before writing. Question shape:
+5. Use `AskUserQuestion` to confirm before writing. Question shape:
    > "Here's a draft `.codex-pair/context.md` for your project. Should I create it as-is, let you edit it first, or skip setup?"
    >
    > Options: **Create as drafted** (recommended) | **Show me the draft to edit** | **Cancel setup**
@@ -70,18 +83,19 @@ Done when the marker search has selected setup or status.
 
    Done when the user has chosen create, edit or cancel.
 
-5. On user confirmation:
-   - `mkdir -p .codex-pair`
-   - Write `.codex-pair/context.md` with the confirmed content
-   - Keep `.codex-pair/` out of git. Check `.gitignore` for an existing `.codex-pair/` line; if missing, ask the user whether to append it and modify it only with consent — they may have an intentional reason for the current state, or want global gitignore instead.
+6. On user confirmation, write the confirmed content to the marker path that item 2's `no-template` output names (`.codex-pair/context.md` in the current directory after `not-git`), creating `.codex-pair/` first.
 
-   Done when the confirmed marker is written and the user's choice about `.gitignore` has been applied.
+   Done when the confirmed marker is written.
 
-6. Run step 3 for the created marker.
+7. After `no-template`, run the item 2 command again; it leaves the marker as written and reports how `.codex-pair/` is ignored. After `not-git` there is nothing to ignore.
+
+   Done when the second run printed `exists`, or the project is not a git repository.
+
+8. Run section 3, Show status, for the marker.
 
    Done when the command's status output has been shown.
 
-Done when setup was cancelled without writing a marker, or the confirmed marker exists and step 3's output has been shown.
+Done when setup was cancelled without writing a marker, or the marker exists and the section 3 status output has been shown.
 
 ## 3. Show status
 

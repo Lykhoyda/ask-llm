@@ -9,6 +9,7 @@ import { parseFrontmatter } from "./lib/frontmatter.mjs";
 import { loadPairDefaults } from "./lib/pair-config-io.mjs";
 import { resolveBlockOn, resolveConfig } from "./lib/pair-config.mjs";
 import { buildReport, formatReport } from "./lib/pair-report.mjs";
+import { formatSetup, setupFailed, setupMarker } from "./lib/pair-setup.mjs";
 import { CONTEXT_FILENAME, PAIR_ROOT_DIR, addAck, contextPath, pauseManually, readAcks, readPauseInfo, logPath as resolveLogPath, resumeManually, } from "./lib/state.mjs";
 import { canonicalFile, readBlockingHighs } from "./lib/stop-gate-io.mjs";
 const MARKER_FILE = join(PAIR_ROOT_DIR, CONTEXT_FILENAME);
@@ -74,7 +75,7 @@ function parseArgs(argv) {
             args.cmd = "ack";
             args.hash = argv[++i] ?? null;
         }
-        else if (i === 0 && (a === "pause" || a === "resume")) {
+        else if (i === 0 && (a === "pause" || a === "resume" || a === "setup")) {
             args.cmd = a;
         }
         else if (a === "--summary") {
@@ -300,6 +301,7 @@ function showHelp() {
         "  ack <hash>        Record an acknowledgement with the reason read from stdin.",
         "  pause             Pause this project's hook and record the event.",
         "  resume            Resume this project's hook, clear failures and record the event.",
+        "  setup             Copy .codex-pair.example/context.md to the marker when absent; ignore .codex-pair/ locally.",
         "  --file <path>     Filter to one file's history.",
         "  --since <dur>     Filter to entries within the last <dur>. Examples: 30m, 24h, 7d.",
         "  --help, -h        Show this help.",
@@ -310,6 +312,13 @@ async function main() {
     const args = parseArgs(process.argv.slice(2));
     if (args.cmd === "help") {
         showHelp();
+        return;
+    }
+    if (args.cmd === "setup") {
+        const outcome = setupMarker(process.cwd());
+        process.stdout.write(`${formatSetup(outcome)}\n`);
+        if (setupFailed(outcome))
+            process.exit(1);
         return;
     }
     const markerDir = await findMarkerUp(process.cwd());
