@@ -16,6 +16,8 @@ export const ERROR_MESSAGES = {
   RATE_LIMITED:
     "Antigravity (agy) hit a subscription rate limit. Google AI Pro/Ultra quotas refresh roughly every 5 hours — wait and retry, or use ask-codex / ask-gemini in the meantime.",
   TRUNCATED: "Antigravity (agy) hit --print-timeout and returned a truncated answer instead of a complete response.",
+  TURN_INTERRUPTED: "Antigravity (agy) was interrupted before returning a complete response.",
+  TURN_FAILED: "Antigravity (agy) failed before returning a complete response.",
   UNISOLATED_REFUSED:
     "Antigravity (agy) execution refused: read-only isolation is not guaranteed. To explicitly allow an unisolated run that may modify files, run shell commands, and access the network, set ASK_ANTIGRAVITY_ALLOW_UNISOLATED=1.",
   DENIED_WITHOUT_ANSWER:

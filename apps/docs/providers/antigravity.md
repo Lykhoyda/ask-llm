@@ -46,6 +46,8 @@ Both unified `ask-llm` with `provider: "antigravity"` and standalone `ask-antigr
 
 Follow-ups pass `--conversation <sessionId>` with the same settings overlay, read-only preamble, model, effort, timeout and sandbox rules as fresh calls. The overlay is reapplied on every resumed attempt, including model recovery. The [isolation limits](#what-protects-opted-in-runs) still apply.
 
+Fresh calls and follow-ups report an error if agy's JSON `finished_reason` indicates a print timeout, interruption, or failure, even when agy exits successfully. The executor also recognizes legacy timeout warnings on stderr. If a turn hits the print timeout, increase `ASK_ANTIGRAVITY_TIMEOUT_MS` or shorten the prompt.
+
 If agy cannot find the ID (for example, a conversation it no longer retains), agy 1.5.10 warns and starts fresh. Ask LLM discloses that reset in the answer and returns the new conversation's ID; prior context is lost. Other conversation-load errors propagate without a fresh-call retry. An envelope without a usable top-level ID still returns its answer, but offers no resumable `sessionId`.
 
 ## Quota diagnostics
@@ -90,7 +92,7 @@ Claude Code's `/brainstorm` uses a separate raw `agy` call. Without the exact op
 
 | Env var | Default | Purpose |
 |---------|---------|---------|
-| `ASK_ANTIGRAVITY_TIMEOUT_MS` | `300000` | Process timeout (5 minutes). `agy --print-timeout` is set 5s below this so agy expires first. A mid-turn expiry is a truncated-answer error, not a complete response. |
+| `ASK_ANTIGRAVITY_TIMEOUT_MS` | `300000` | Process timeout (5 minutes). At the default, `agy --print-timeout` expires 5s earlier. |
 | `ASK_ANTIGRAVITY_ALLOW_UNISOLATED` | unset | Only the exact value `1` permits unisolated review/tool, read-only machine, and `/brainstorm` raw agy execution |
 | `ASK_ANTIGRAVITY_SANDBOX` | on | Set `0` to drop `--sandbox` from review calls if it blocks `--add-dir` context reads; the `/quota` diagnostic probe always uses `--sandbox` |
 | `ASK_ANTIGRAVITY_MODEL` | `gemini-4-argon` | agy model passed via `--model`; on a rate limit the executor retries once on `gemini-3.8-flash` (run `agy models` for the list of kebab-case slugs, e.g. `claude-sonnet-4-6`; legacy display strings like `Gemini 4 Argon (High)` still resolve as compatibility-only pins) |
