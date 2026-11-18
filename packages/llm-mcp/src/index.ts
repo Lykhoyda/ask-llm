@@ -274,7 +274,7 @@ export function buildAskLlmSchema(availableProviders: string[], excludedProvider
         .string()
         .optional()
         .describe(
-          'Optional session ID. For Codex, pass "" on the first call to create a persisted thread, then pass its returned Thread ID to resume; omitting it makes the call ephemeral. For other session-capable providers, pass a prior Session ID to resume. Claude/Gemini use --resume, Codex uses exec resume, and Ollama uses server-side replay. Grok and Antigravity are one-shot.',
+          'Optional session ID. For Codex, pass "" on the first call to create a persisted thread, then pass its returned Thread ID to resume; omitting it makes the call ephemeral. For other session-capable providers, pass a prior Session ID to resume. Claude/Gemini use --resume, Codex uses exec resume, Antigravity uses --conversation, and Ollama uses server-side replay. Grok is one-shot.',
         ),
       includeDirs: z
         .array(relativeDirSchema)

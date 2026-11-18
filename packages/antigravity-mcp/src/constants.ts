@@ -40,6 +40,7 @@ export const CLI = {
     PRINT: "-p",
     ADD_DIR: "--add-dir",
     MODEL: "--model",
+    CONVERSATION: "--conversation",
     PRINT_TIMEOUT: "--print-timeout",
     SKIP_PERMISSIONS: "--dangerously-skip-permissions",
     SANDBOX: "--sandbox",

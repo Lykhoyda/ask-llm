@@ -9,6 +9,12 @@ const askAntigravityArgsSchema = z.object({
     .min(1)
     .max(100000)
     .describe("The question, code review request, or analysis task to send to Antigravity (agy)"),
+  sessionId: z
+    .string()
+    .optional()
+    .describe(
+      "Prior Antigravity conversation ID to resume. Omit or pass an empty string to start fresh; reuse the returned sessionId on follow-ups.",
+    ),
   includeDirs: z
     .array(relativeDirSchema)
     .optional()
@@ -19,7 +25,7 @@ const askAntigravityArgsSchema = z.object({
 
 export const askAntigravityTool: UnifiedTool = {
   name: "ask-antigravity",
-  description: `Send a prompt to Google's Antigravity CLI (agy) for a subscription-backed second opinion, code review, or analysis. Refuses execution unless ASK_ANTIGRAVITY_ALLOW_UNISOLATED=1; opted-in runs can modify files, run shell commands, and access the network because read-only isolation is not guaranteed. Requires agy >=${ANTIGRAVITY.MINIMUM_AGY_VERSION}, installed and logged in once; unsupported versions fail before model invocation. Defaults to the gemini-4-argon model at high reasoning effort, falling back to gemini-3.8-flash on a rate limit (override via the ASK_ANTIGRAVITY_MODEL / ASK_ANTIGRAVITY_EFFORT env vars; run \`agy models\` for options); single-turn only (no multi-turn). Returns human-readable text plus a structured response.`,
+  description: `Send a prompt to Google's Antigravity CLI (agy) for a subscription-backed second opinion, code review, or analysis. Refuses execution unless ASK_ANTIGRAVITY_ALLOW_UNISOLATED=1; opted-in runs can modify files, run shell commands, and access the network because read-only isolation is not guaranteed. Requires agy >=${ANTIGRAVITY.MINIMUM_AGY_VERSION}, installed and logged in once; unsupported versions fail before model invocation. Defaults to the gemini-4-argon model at high reasoning effort, falling back to gemini-3.8-flash on a rate limit (override via the ASK_ANTIGRAVITY_MODEL / ASK_ANTIGRAVITY_EFFORT env vars; run \`agy models\` for options). Reuse the returned sessionId to continue the conversation. Returns human-readable text plus a structured response.`,
   zodSchema: askAntigravityArgsSchema,
   outputSchema: askResponseSchema,
   annotations: {
@@ -34,23 +40,25 @@ export const askAntigravityTool: UnifiedTool = {
   },
   category: "utility",
   execute: async (args, onProgress, onUsage, signal) => {
-    const { prompt, includeDirs } = args;
+    const { prompt, includeDirs, sessionId } = args;
     if (!prompt?.trim()) {
       throw new Error(ERROR_MESSAGES.NO_PROMPT_PROVIDED);
     }
     const result = await executeAntigravityCLI({
       prompt: prompt as string,
       includeDirs: includeDirs as string[] | undefined,
+      sessionId: sessionId as string | undefined,
       onProgress,
       signal,
     });
     if (result.usage) onUsage?.(result.usage);
-    const text = `${STATUS_MESSAGES.ANTIGRAVITY_RESPONSE}\n${result.response}`;
+    const idLine = result.sessionId ? `\n\n[Session ID: ${result.sessionId}]` : "";
+    const text = `${STATUS_MESSAGES.ANTIGRAVITY_RESPONSE}\n${result.response}${idLine}`;
     const structured: AskResponse = {
       provider: "antigravity",
       response: result.response,
       model: result.model,
-      sessionId: undefined,
+      sessionId: result.sessionId,
       usage: result.usage,
     };
     return { text, structuredContent: structured as unknown as Record<string, unknown> };

@@ -2,6 +2,7 @@ import { executeCommand, Logger } from "@ask-llm/shared";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { askAntigravityTool } from "../../../antigravity-mcp/src/tools/ask-antigravity.tool.js";
 import { executeAntigravityCLI } from "../../../antigravity-mcp/src/utils/antigravityExecutor.js";
+import { buildAskLlmSchema, runAskLlm } from "../index.js";
 import { runMachineRequest } from "../machine.js";
 
 vi.mock("@ask-llm/shared", async (importOriginal) => {
@@ -80,4 +81,47 @@ describe("Antigravity tool and machine isolation", { timeout: 5_000 }, () => {
     }
     expect(Logger.warn).toHaveBeenCalledWith(expect.stringContaining("read-only isolation is not guaranteed"));
   });
+});
+
+it("round-trips Antigravity session IDs through the real unified route and executor", async () => {
+  vi.stubEnv("ASK_ANTIGRAVITY_ALLOW_UNISOLATED", "1");
+  vi.spyOn(Logger, "warn").mockImplementation(() => {});
+  const mockExec = vi.mocked(executeCommand);
+  mockExec.mockReset();
+  mockExec.mockImplementation(async (_command, args) =>
+    args[0] === "--version"
+      ? "1.5.10"
+      : JSON.stringify({ response: "answer", conversation_id: "actual-id", status: "SUCCESS" }),
+  );
+  try {
+    const schema = buildAskLlmSchema(["antigravity"]);
+    const call = { getExecutor: () => executeAntigravityCLI };
+    const first = await runAskLlm(schema, { provider: "antigravity", prompt: "remember" }, call);
+    expect(first.structured.sessionId).toBe("actual-id");
+    expect(first.text).toContain("[Session ID: actual-id]");
+    const next = await runAskLlm(
+      schema,
+      {
+        provider: "antigravity",
+        prompt: "recall",
+        sessionId: first.structured.sessionId,
+        includeDirs: ["pkg/a"],
+      },
+      call,
+    );
+    expect(next.structured.sessionId).toBe("actual-id");
+    const spawns = mockExec.mock.calls.map(([, args]) => args).filter((args) => args[0] === "-p");
+    expect(spawns).toHaveLength(2);
+    expect(spawns[0]).not.toContain("--conversation");
+    const args = spawns[1];
+    expect(args[args.indexOf("--conversation") + 1]).toBe("actual-id");
+    expect(args).toContain("--sandbox");
+    expect(JSON.parse(args[args.indexOf("--settings") + 1])).toEqual({
+      agentMode: "",
+      permissions: { deny: ["write_file(*)", "command(*)"] },
+    });
+  } finally {
+    vi.restoreAllMocks();
+    vi.unstubAllEnvs();
+  }
 });

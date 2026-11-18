@@ -26,7 +26,7 @@ Provider executors apply their own controls:
 - **Stdin handling**: Codex needs an EOF-terminated pipe rather than `/dev/null`, otherwise it errors out
 - **PATH resolution**: macOS GUI clients (Claude Desktop) don't inherit your shell's PATH; the server resolves it from your login shell at startup
 - **Live progressive output**: Gemini's `--output-format stream-json` deltas are parsed and forwarded to MCP progress notifications, so users see Gemini's prose unfolding rather than a frozen wait
-- **Session continuity**: Claude, Gemini, Codex, and Ollama support multi-turn via the `sessionId` parameter; Codex requires `sessionId: ""` on turn one to persist a resumable thread, while an omitted value stays ephemeral (Grok and Antigravity are single-turn)
+- **Session continuity**: Claude, Gemini, Codex, Antigravity, and Ollama support multi-turn via the `sessionId` parameter; Codex requires `sessionId: ""` on turn one to persist a resumable thread, while an omitted value stays ephemeral (Grok is single-turn)
 - **Read-only Claude consultations**: Claude consultations use safe mode and exposes only Read, Glob, and Grep; the MCP host performs any edits
 - **Structured responses**: every `ask-*` tool returns both human-readable text AND a structured `AskResponse` (provider, response, model, sessionId, usage) via MCP `outputSchema` so programmatic clients don't have to parse the response footer
 
@@ -34,6 +34,6 @@ You don't need to think about any of this; it's just the infrastructure that mak
 
 ## Session storage
 
-Codex calls are ephemeral when `sessionId` is omitted; a resumable first call uses `sessionId: ""`. Claude, Gemini and Codex manage persisted sessions in their own CLI storage. Ollama replays history stored in `/tmp/ask-llm-sessions/<id>.json` with owner-only permissions, a 24-hour TTL and a 40-message cap. Grok and Antigravity are single-turn. Cursor conversations have their own returned/resumed ID.
+Codex calls are ephemeral when `sessionId` is omitted; a resumable first call uses `sessionId: ""`. Claude, Gemini, Codex and Antigravity manage persisted sessions in their own CLI storage. Ollama replays history stored in `/tmp/ask-llm-sessions/<id>.json` with owner-only permissions, a 24-hour TTL and a 40-message cap. Grok is single-turn. Cursor conversations have their own returned/resumed ID.
 
 Usage totals are in memory and reset when the server restarts. Pairing writes user-owned logs and state under `.codex-pair/`; see [pair review](/advanced/codex-pair). Do not treat model agreement as evidence that a claim is correct. Validate it against source, tests and requirements.

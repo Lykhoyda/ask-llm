@@ -9,10 +9,10 @@ description: Bridge Claude with Google's Antigravity CLI (agy) for subscription-
 Bridge Claude with Google's Antigravity CLI (`agy`), Google's successor to Gemini CLI. Get a subscription-backed second opinion or code review using your Google AI Pro/Ultra plan, without per-token API billing.
 
 > **Best for:** a subscription-backed second opinion if you have a Google AI Pro/Ultra plan, and larger-context reads. The Google-sanctioned successor to Gemini CLI.
-> **Not for:** fine-grained per-edit automation; it's one-shot and experimental. For continuous review, use Codex via `codex-pair`.
+> **Not for:** fine-grained per-edit automation; it's experimental. For continuous review, use Codex via `codex-pair`.
 
 ::: warning Experimental
-Requires a [supported agy version](#prerequisites). Unified discovery, `doctor --live`, and ping report older or unparseable installations as detected but unusable and exclude them from dispatch; the executor repeats the version check before every model invocation. For default doctor, see [Quota diagnostics](#quota-diagnostics). It reads the headless `-p` response from `agy`'s `--output-format json` stdout. Single-turn only (no multi-turn); defaults to the **gemini-4-argon** model at **high** reasoning effort, falling back to **gemini-3.8-flash** on a rate limit.
+Requires a [supported agy version](#prerequisites). Unified discovery, `doctor --live`, and ping report older or unparseable installations as detected but unusable and exclude them from dispatch; the executor repeats the version check before every model invocation. For default doctor, see [Quota diagnostics](#quota-diagnostics). It reads the headless `-p` response from `agy`'s `--output-format json` stdout. Supports follow-ups via `sessionId`; defaults to the **gemini-4-argon** model at **high** reasoning effort, falling back to **gemini-3.8-flash** on a rate limit.
 :::
 
 ## Installation
@@ -30,11 +30,23 @@ Setup registers the unified Ask LLM server, which consults Antigravity through t
 
 | Tool | Purpose |
 |------|---------|
-| `ask-antigravity` | Send a prompt to `agy` for a second opinion / code review. Optional `includeDirs` maps to `agy --add-dir` for monorepo context |
+| `ask-antigravity` | Send a prompt to `agy` for a second opinion / code review. Optional `sessionId` resumes a conversation; `includeDirs` maps to `agy --add-dir` for monorepo context |
 | `get-usage-stats` | Per-session token totals (in-memory) |
 | `ping` | Connection test; reports whether `agy` is supported, unsupported, unusable, or missing |
 
 `ask-antigravity` returns both human-readable text and a structured `AskResponse` (provider, response, model, sessionId, usage) via MCP `outputSchema`. Token usage — including cached and thinking tokens when agy reports them — comes from the JSON envelope's `usage` object.
+
+## Sessions
+
+Both unified `ask-llm` with `provider: "antigravity"` and standalone `ask-antigravity` return the JSON envelope's top-level `conversation_id` as `sessionId`, also shown as `[Session ID: …]` in text. Omit `sessionId` (or pass `""`) for a fresh conversation, then pass the returned ID on follow-ups:
+
+```json
+{ "provider": "antigravity", "prompt": "Continue the review", "sessionId": "<returned sessionId>" }
+```
+
+Follow-ups pass `--conversation <sessionId>` with the same settings overlay, read-only preamble, model, effort, timeout and sandbox rules as fresh calls. The overlay is reapplied on every resumed attempt, including model recovery. A live agy 1.5.10 check recalled an earlier turn and refused `write_file`, `touch` and a `curl` command on resume.
+
+If agy cannot find the ID (for example, a conversation it no longer retains), agy 1.5.10 warns and starts fresh. Ask LLM discloses that reset in the answer and returns the new conversation's ID; prior context is lost. Other conversation-load errors propagate without a fresh-call retry. An envelope without a usable top-level ID still returns its answer, but offers no resumable `sessionId`.
 
 ## Quota diagnostics
 
@@ -88,7 +100,7 @@ Claude Code's `/brainstorm` uses a separate raw `agy` call. Without the exact op
 
 - **Experimental:** the structured-output contract tracks `agy`'s JSON envelope; JSON-looking output that is corrupt or lacks an answer fails with an actionable error instead of surfacing raw JSON fragments.
 - **Minimum version:** see [Prerequisites](#prerequisites); older or unverifiable installations are reported but excluded from dispatch.
-- **Single-turn:** no multi-turn sessions yet; the executor accepts and ignores `sessionId` (headless resume via agy's JSON `conversation_id` is tracked as follow-up work). Model selection *is* supported via `--model` (defaults to gemini-4-argon at high effort, with a gemini-3.8-flash rate-limit fallback; see [Config](#config)); only the short `-m` flag hangs under `-p`.
+- **Session retention:** sessions live in agy's own storage; an unavailable ID can start a fresh conversation with a disclosed reset (see [Sessions](#sessions)).
 - **Timeouts:** `--print-timeout` expiry exits 0 with a partial JSON answer; Ask LLM fails closed and asks you to raise `ASK_ANTIGRAVITY_TIMEOUT_MS` or shorten the prompt.
 
 ## npm

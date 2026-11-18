@@ -7,8 +7,9 @@ subscription-backed second opinion / code review from Antigravity.
 > unverifiable installations as detected but unusable, exclude them from
 > dispatch, and provide an actionable update diagnostic. The executor consumes
 > agy's structured JSON stdout; see the [provider guide](https://lykhoyda.github.io/ask-llm/providers/antigravity)
-> for response parsing, version gates, token usage, and limitations. Single-turn only for now (headless resume via agy's
-> JSON `conversation_id` is tracked as follow-up work). Defaults to the
+> for response parsing, version gates, token usage, and limitations. Reuse the returned
+> `sessionId` on follow-ups to resume agy's conversation with the settings overlay reapplied.
+> Unknown IDs start fresh with a disclosed reset and a new ID. Defaults to the
 > gemini-4-argon model at high reasoning effort, falling back to gemini-3.8-flash
 > on a rate limit. When agy rejects a model whose value equals one of those
 > built-in base slugs (upstream drift), the executor retries once without a
