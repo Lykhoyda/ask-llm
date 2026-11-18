@@ -4,7 +4,7 @@
 // through the repository's local exclude file. An existing marker is never overwritten.
 
 import { execFileSync } from "node:child_process";
-import { appendFileSync, copyFileSync, constants, lstatSync, mkdirSync, readFileSync } from "node:fs";
+import { appendFileSync, copyFileSync, constants, lstatSync, mkdirSync, readFileSync, realpathSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { CONTEXT_FILENAME, PAIR_ROOT_DIR } from "./state.mts";
 
@@ -20,6 +20,7 @@ export type SetupOutcome =
   | { kind: "not-git"; reason: string }
   | { kind: "no-template"; root: string; template: string }
   | { kind: "invalid-template"; root: string; template: string }
+  | { kind: "invalid-marker"; root: string; marker: string }
   | { kind: "created"; root: string; marker: string; template: string; ignore: IgnoreOutcome }
   | { kind: "exists"; root: string; marker: string; ignore: IgnoreOutcome };
 
@@ -40,6 +41,20 @@ function exists(path: string): boolean {
   }
 }
 
+function isLocalFilePath(root: string, path: string): boolean {
+  let current = path;
+  while (current !== root) {
+    if (exists(current)) {
+      const stat = lstatSync(current);
+      if (!(current === path ? stat.isFile() : stat.isDirectory()) || realpathSync(current) !== current) return false;
+    }
+    const parent = dirname(current);
+    if (parent === current) return false;
+    current = parent;
+  }
+  return true;
+}
+
 // A linked worktree's .git is a file, so ask git where the exclude file lives instead of joining paths.
 export function excludeFilePath(root: string): string {
   return resolve(root, git(root, ["rev-parse", "--git-path", "info/exclude"]));
@@ -58,6 +73,7 @@ function ignoredByGit(root: string, directory: string): boolean {
 
 export function ensureExcluded(root: string, marker: string): IgnoreOutcome {
   try {
+    if (!isLocalFilePath(root, marker)) return { kind: "failed", reason: `${marker} is not a local regular file path` };
     const directory = `${dirname(marker)}/`;
     if (ignoredByGit(root, directory)) return { kind: "already-ignored" };
     const excludeFile = excludeFilePath(root);
@@ -79,21 +95,21 @@ export function ensureExcluded(root: string, marker: string): IgnoreOutcome {
 export function setupMarker(cwd: string): SetupOutcome {
   let root: string;
   try {
-    root = git(cwd, ["rev-parse", "--show-toplevel"]);
+    root = realpathSync(git(cwd, ["rev-parse", "--show-toplevel"]));
   } catch (err) {
     return { kind: "not-git", reason: (err as Error)?.message ?? String(err) };
   }
   let directory = resolve(root, git(cwd, ["rev-parse", "--show-prefix"]));
   while (true) {
     const marker = join(directory, PAIR_ROOT_DIR, CONTEXT_FILENAME);
+    if (!isLocalFilePath(root, marker)) return { kind: "invalid-marker", root, marker };
     if (exists(marker)) return { kind: "exists", root, marker, ignore: ensureExcluded(root, marker) };
     if (directory === root) break;
     directory = dirname(directory);
   }
   const template = join(root, TEMPLATE_DIR, CONTEXT_FILENAME);
   if (!exists(template)) return { kind: "no-template", root, template };
-  // A symlinked template could pull a file from outside the repository into the reviewer's context.
-  if (!lstatSync(template).isFile()) return { kind: "invalid-template", root, template };
+  if (!isLocalFilePath(root, template)) return { kind: "invalid-template", root, template };
   const marker = join(root, PAIR_ROOT_DIR, CONTEXT_FILENAME);
   mkdirSync(dirname(marker), { recursive: true });
   try {
@@ -112,7 +128,7 @@ function describeIgnore(ignore: IgnoreOutcome): string {
 }
 
 export function setupFailed(outcome: SetupOutcome): boolean {
-  if (outcome.kind === "invalid-template") return true;
+  if (outcome.kind === "invalid-template" || outcome.kind === "invalid-marker") return true;
   return (outcome.kind === "created" || outcome.kind === "exists") && outcome.ignore.kind === "failed";
 }
 
@@ -127,7 +143,9 @@ export function formatSetup(outcome: SetupOutcome): string {
         `Then run setup again from the same directory to keep ${PAIR_ROOT_DIR}/ out of git.`,
       ].join("\n");
     case "invalid-template":
-      return `invalid-template: ${outcome.template} is not a regular file; nothing was copied.`;
+      return `invalid-template: ${outcome.template} must be a regular file inside the repository without symlinked components; nothing was copied.`;
+    case "invalid-marker":
+      return `invalid-marker: ${outcome.marker} must be a regular file path inside the repository without symlinked components; nothing was changed.`;
     case "created":
       return [`created: copied ${outcome.template} to ${outcome.marker}`, describeIgnore(outcome.ignore)].join("\n");
     case "exists":

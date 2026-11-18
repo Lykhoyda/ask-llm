@@ -265,6 +265,110 @@ describe("codex-pair-log setup", () => {
     expect(existsSync(join(plain, ".codex-pair"))).toBe(false);
   });
 
+  it.each([false, true])(
+    "checks directory-wide exclusion for an ancestor subpackage marker with negation=%s",
+    (negated) => {
+      const base = scratch();
+      const root = repo(base);
+      const project = join(root, "packages", "foo");
+      const nested = join(project, "src");
+      mkdirSync(nested, { recursive: true });
+      const gitignore = `.codex-pair/context.md\n${negated ? "!.codex-pair/\n" : ""}`;
+      writeFileSync(join(project, ".gitignore"), gitignore);
+      git(base, root, "add", "-A");
+      git(base, root, "commit", "-q", "-m", "subpackage ignore rules");
+      mkdirSync(join(project, ".codex-pair"));
+      writeFileSync(marker(project), "# personal context\n");
+      const result = setup(base, nested);
+      expect(result.status).toBe(negated ? 1 : 0);
+      expect(result.stdout).toMatch(/^exists: /);
+      expect(result.stdout).toContain(marker(project));
+      expect(readFileSync(marker(project), "utf8")).toBe("# personal context\n");
+      expect(existsSync(join(root, ".codex-pair"))).toBe(false);
+      expect(readFileSync(join(project, ".gitignore"), "utf8")).toBe(gitignore);
+      writeFileSync(join(project, ".codex-pair", "log.jsonl"), "private review\n");
+      const status = git(base, root, "status", "--porcelain", "--untracked-files=all");
+      if (negated) {
+        expect(result.stdout).toContain("is still not ignored by git");
+        expect(status).toContain("packages/foo/.codex-pair/log.jsonl");
+      } else {
+        expect(status).toBe("");
+      }
+    },
+  );
+
+  it("refuses a committed template directory symlink to private context outside the repository", () => {
+    const base = scratch();
+    const root = repo(base, { template: false });
+    const external = join(base, "repo-private", ".codex-pair");
+    mkdirSync(external, { recursive: true });
+    const privateContext = "# private external context\n";
+    writeFileSync(join(external, "context.md"), privateContext);
+    symlinkSync("../repo-private/.codex-pair", join(root, ".codex-pair.example"));
+    git(base, root, "add", "-A");
+    git(base, root, "commit", "-q", "-m", "symlinked template directory");
+    const before = readFileSync(excludeFile(base, root), "utf8");
+    const result = setup(base, root);
+    expect(result.status).toBe(1);
+    expect(result.stdout).toMatch(/^invalid-template: /);
+    expect(existsSync(join(root, ".codex-pair"))).toBe(false);
+    expect(readFileSync(join(external, "context.md"), "utf8")).toBe(privateContext);
+    expect(readFileSync(excludeFile(base, root), "utf8")).toBe(before);
+    expect(git(base, root, "status", "--porcelain", "--untracked-files=all")).toBe("");
+  });
+
+  it.each([
+    { scope: "", existing: false, template: true },
+    { scope: "", existing: true, template: true },
+    { scope: "packages/foo", existing: false, template: true },
+    { scope: "packages/foo", existing: true, template: true },
+    { scope: "packages/foo", existing: false, template: false },
+  ])(
+    "refuses a symlinked marker directory with scope=$scope existing=$existing template=$template",
+    ({ scope, existing, template }) => {
+      const base = scratch();
+      const root = repo(base, { template });
+      const project = join(root, scope);
+      const nested = join(project, "src");
+      mkdirSync(nested, { recursive: true });
+      const external = join(base, "private-state");
+      mkdirSync(external);
+      if (existing) writeFileSync(join(external, "context.md"), "# private context\n");
+      symlinkSync(external, join(project, ".codex-pair"));
+      const before = readFileSync(excludeFile(base, root), "utf8");
+      const result = setup(base, nested);
+      expect(result.status).toBe(1);
+      expect(result.stdout).toMatch(/^invalid-marker: /);
+      expect(existsSync(join(external, "context.md"))).toBe(existing);
+      if (existing) expect(readFileSync(join(external, "context.md"), "utf8")).toBe("# private context\n");
+      expect(readFileSync(excludeFile(base, root), "utf8")).toBe(before);
+      if (scope) expect(existsSync(join(root, ".codex-pair"))).toBe(false);
+    },
+  );
+
+  it.each(["", "packages/foo"])(
+    "refuses an existing marker file symlink in '%s' without changing excludes",
+    (scope) => {
+      const base = scratch();
+      const root = repo(base);
+      const project = join(root, scope);
+      const nested = join(project, "src");
+      mkdirSync(nested, { recursive: true });
+      mkdirSync(join(project, ".codex-pair"));
+      const external = join(base, "private-context.md");
+      writeFileSync(external, "# private context\n");
+      symlinkSync(external, marker(project));
+      const before = readFileSync(excludeFile(base, root), "utf8");
+      const result = setup(base, nested);
+      expect(result.status).toBe(1);
+      expect(result.stdout).toMatch(/^invalid-marker: /);
+      expect(lstatSync(marker(project)).isSymbolicLink()).toBe(true);
+      expect(readFileSync(external, "utf8")).toBe("# private context\n");
+      expect(readFileSync(excludeFile(base, root), "utf8")).toBe(before);
+      if (scope) expect(existsSync(join(root, ".codex-pair"))).toBe(false);
+    },
+  );
+
   it("refuses a template that is not a regular file", () => {
     const base = scratch();
     const root = repo(base, { template: false });
