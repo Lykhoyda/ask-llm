@@ -78,10 +78,7 @@ ollama pull deepseek-coder:6.7b
 Use ask-llm with provider ollama and model deepseek-coder:6.7b to review this implementation
 ```
 
-For Antigravity, `ask-antigravity` requires a [supported agy version](/providers/antigravity#prerequisites) and has no per-call `model` argument — configure it via env vars:
-
-- `ASK_ANTIGRAVITY_MODEL` — an agy model slug from `agy models` (e.g. `claude-sonnet-4-6`). Legacy effort-carrying display strings like `Gemini 4 Argon (High)` still resolve for backward compatibility.
-- `ASK_ANTIGRAVITY_EFFORT` — reasoning effort, `low` | `medium` | `high` (default `high`). Invalid values log a warning and fall back to the default behavior. Note agy limits tiers per model (run `agy models` to see each model's tiers), and effort-carrying model names reject `--effort` entirely — so the default effort is only sent with the shipped base slugs and model-less recovery runs, while an explicitly set value is always sent.
+For Antigravity, `ask-antigravity` requires a [supported agy version](/providers/antigravity#prerequisites) and has no per-call `model` argument. Configure `ASK_ANTIGRAVITY_MODEL` and `ASK_ANTIGRAVITY_EFFORT` using the [Antigravity configuration reference](/providers/antigravity#config), including its tiered-ID example and model/effort compatibility rules.
 
 ## Token Limits & Cost
 

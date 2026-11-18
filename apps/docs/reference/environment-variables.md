@@ -23,7 +23,7 @@ description: Provider defaults, route selection, timeouts and execution gates.
 | ASK_CLAUDE_MODEL | opus | Override the Claude default model |
 | ASK_CLAUDE_FALLBACK_MODEL | sonnet | Override Claude Code's native fallback model |
 | ASK_OLLAMA_MODEL | qwen3.8:27b | Override the Ollama model (no fallback) |
-| ASK_ANTIGRAVITY_MODEL | gemini-4-argon | Override the Antigravity base model slug |
+| ASK_ANTIGRAVITY_MODEL | gemini-4-argon | Override the Antigravity model; see [model IDs and effort compatibility](/providers/antigravity#config) |
 | ASK_ANTIGRAVITY_EFFORT | high | Override Antigravity reasoning effort (`low`, `medium`, or `high`) |
 | ASK_GEMINI_TIMEOUT_MS | 210000 (210s) | Gemini process timeout |
 | ASK_CODEX_TIMEOUT_MS | 800000 (800s) | Codex process timeout |

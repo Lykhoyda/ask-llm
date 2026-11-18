@@ -54,9 +54,9 @@ CI-enforced by `scripts/check-docs-drift.ts`). Read the current values from:
 | gemini | `packages/gemini-mcp/src/constants.ts` | `FACTORY_DEFAULT_MODEL`, `MODELS.FLASH` (quota fallback) |
 | codex | `packages/codex-mcp/src/constants.ts` | `FACTORY_DEFAULT_MODEL`, `CODEX_PAIR_MODEL`, `MODELS.FALLBACK` |
 | claude | `packages/claude-mcp/src/constants.ts` | `FACTORY_DEFAULT_MODEL`, `MODELS.FALLBACK` |
-| grok | `packages/grok-mcp/src/constants.ts` | `FACTORY_DEFAULT_MODEL`, `GROK_CLI_FACTORY_DEFAULT_MODEL`, `REASONING_EFFORTS`, `GROK_HARNESSES`; enumerate xAI `GET /v1/models`, `grok models`, and relevant `agent --list-models` IDs separately |
+| grok | `packages/grok-mcp/src/constants.ts` | `FACTORY_DEFAULT_MODEL`, `GROK_CLI_FACTORY_DEFAULT_MODEL`, `REASONING_EFFORTS`, `GROK_HARNESSES` |
 | ollama | `packages/ollama-mcp/src/constants.ts` | `FACTORY_DEFAULT_MODEL` |
-| antigravity | `packages/antigravity-mcp/src/constants.ts` | `MODELS.DEFAULT`, `MODELS.FALLBACK` |
+| antigravity | `packages/antigravity-mcp/src/constants.ts` | `MODELS.DEFAULT`, `MODELS.FALLBACK`, `ANTIGRAVITY.DEFAULT_EFFORT`, `ANTIGRAVITY.VALID_EFFORTS` |
 
 `packages/llm-mcp/src/constants.ts` (`PROVIDERS.*.defaultModel`) is the
 canonical registry threading these defaults into executors; verify it agrees
@@ -78,6 +78,7 @@ pinned model still valid?" (`docs/ROUTINES.md` rule 5; the #244 lesson).
 | gemini | Google model catalog (ai.google.dev/gemini-api/docs/models): tier defaults, GA vs preview status, deprecation notices |
 | codex | Installed `codex --version`, refreshed `codex debug models`, `codex debug models --bundled`, and isolated `codex app-server` `model/list` (`isDefault`). The refreshed catalog on 0.167.0 ranks `gpt-6.2-sol` first and `gpt-6.2-astra` second (ADR-199). Track both catalogs separately. Verify upstream default claims with `isDefault` and corroborate with OpenAI models documentation and Codex release notes |
 | claude | Anthropic models overview (docs.anthropic.com). Note: this repo pins the floating aliases `opus`/`sonnet` — record which concrete version each alias currently resolves to |
+| grok | [xAI model docs](https://docs.x.ai/developers/models) and authenticated `GET /v1/models` for the API, authenticated `grok models` for Grok Build, and `agent --list-models` for exact Grok IDs in Cursor Agent. Record evidence separately for each surface. |
 | ollama | ollama.com library page for the pinned model family (availability only; there is no provider-side default) |
 | antigravity | `agy models` CLI output is the ONLY acceptable evidence (ADR-137). If `agy` is not runnable in this environment, mark antigravity UNVERIFIED — never infer agy slugs from Google's web catalog |
 
@@ -124,7 +125,7 @@ for an actionable finding with no existing home.
 Every run, regardless of outcome, append ONE run-log comment to the tracker:
 
 ```
-YYYY-MM-DD — gemini <verdict> / codex <verdict> / claude <verdict> / ollama <verdict> / antigravity <verdict>
+YYYY-MM-DD — gemini <verdict> / codex <verdict> / claude <verdict> / grok <verdict> / ollama <verdict> / antigravity <verdict>
 ```
 
 with a short line per non-NO-CHANGE provider (what changed or what could not be
