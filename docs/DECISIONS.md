@@ -759,6 +759,8 @@ must itself be verified through their supported Gemini CLI and account tier;
 
 **Status:** Accepted (2026-07-23)
 
+See [ADR-194](#adr-194-pass-a-session-only-agy-settings-overlay-that-denies-file-writes-and-commands) for the current minimum agy version and headless permission controls.
+
 **Context:** agy 1.1.5 redesigned model selection: `agy models` now lists stable
 kebab base slugs (`gemini-3.1-pro`, ...) and reasoning effort moved into a
 separate `--effort low|medium|high` flag. Our pinned display strings

@@ -60,7 +60,7 @@ If agy cannot find the ID (for example, a conversation it no longer retains), ag
 - **Rate-limit fallback:** `gemini-3.8-flash`, retried once on a rate limit
 - **Quota diagnostics:** when a rate limit exhausts the available model attempts, a successful sandboxed `/quota` probe adds remaining quota percentages and reset times to the error; a failed probe leaves the usual rate-limit error
 - **Model-unavailable recovery:** if agy rejects a model whose value equals one of the built-in base slugs (upstream drift), the executor retries once **without** a model and lets agy pick its default; any other rejected model fails with an actionable error pointing at `agy models`
-- **Overrides:** `ASK_ANTIGRAVITY_MODEL` and `ASK_ANTIGRAVITY_EFFORT` (run `agy models` for the full list of kebab-case slugs, e.g. `claude-sonnet-4-6`). Legacy effort-carrying display strings like `Gemini 4 Argon (High)` are compatibility-only pins that still resolve; the default effort is only sent when the model value equals one of the built-in base slugs, because agy rejects `--effort` next to an effort-carrying name
+- **Overrides** use `ASK_ANTIGRAVITY_MODEL` and `ASK_ANTIGRAVITY_EFFORT`. Run `agy models` for the catalog. Tiered IDs such as `claude-sonnet-5-5-high` already specify effort, so leave `ASK_ANTIGRAVITY_EFFORT` unset when using one. Legacy effort-carrying display strings like `Gemini 4 Argon (High)` still resolve for backward compatibility.
 
 ## What protects opted-in runs
 
@@ -93,7 +93,7 @@ Claude Code's `/brainstorm` uses a separate raw `agy` call. Without the exact op
 | `ASK_ANTIGRAVITY_TIMEOUT_MS` | `300000` | Process timeout (5 minutes). `agy --print-timeout` is set 5s below this so agy expires first. A mid-turn expiry is a truncated-answer error, not a complete response. |
 | `ASK_ANTIGRAVITY_ALLOW_UNISOLATED` | unset | Only the exact value `1` permits unisolated review/tool, read-only machine, and `/brainstorm` raw agy execution |
 | `ASK_ANTIGRAVITY_SANDBOX` | on | Set `0` to drop `--sandbox` from review calls if it blocks `--add-dir` context reads; the `/quota` diagnostic probe always uses `--sandbox` |
-| `ASK_ANTIGRAVITY_MODEL` | `gemini-4-argon` | agy model passed via `--model`; on a rate limit the executor retries once on `gemini-3.8-flash` (run `agy models` for the list of kebab-case slugs, e.g. `claude-sonnet-4-6`; legacy display strings like `Gemini 4 Argon (High)` still resolve as compatibility-only pins) |
+| `ASK_ANTIGRAVITY_MODEL` | `gemini-4-argon` | agy model passed via `--model`. Run `agy models` to list IDs. For a tiered ID such as `claude-sonnet-5-5-high`, leave `ASK_ANTIGRAVITY_EFFORT` unset. On a rate limit, the executor retries once on `gemini-3.8-flash`. |
 | `ASK_ANTIGRAVITY_EFFORT` | `high` | agy reasoning effort passed via `--effort` (`low` \| `medium` \| `high`). The default is paired with the built-in base slugs and with model-less recovery attempts; an explicit value is always passed — note agy limits tiers per model (run `agy models` to see each model's tiers). Invalid values warn and fall back to the default behavior |
 
 ## Limitations
