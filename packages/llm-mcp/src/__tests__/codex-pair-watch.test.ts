@@ -1339,7 +1339,7 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
       expect(result.stdout).toMatch(/concerns/);
       expect(result.stdout).toMatch(/none/);
     } finally {
-      fs.rmSync(alias, { force: true });
+      fs.unlinkSync(alias);
     }
   });
 
