@@ -254,6 +254,31 @@ describe("classifyProviderFailure", () => {
     expect(classifyProviderFailure(new Error("401 authentication failed: quota unavailable"))).toBe("auth_failed");
   });
 
+  describe.each([
+    [
+      "Antigravity (agy) hit --print-timeout and returned a truncated answer instead of a complete response.",
+      "timeout",
+    ],
+    ["Antigravity (agy) was interrupted before returning a complete response.", "unavailable"],
+    ["Antigravity (agy) failed before returning a complete response.", "unavailable"],
+  ])("preserves the early-finish diagnosis: %s", (prefix, expected) => {
+    it.each([
+      'Partial output follows: {"summary":"quota handling looks correct","findings":[]}',
+      "Partial output follows: 401 authentication failed",
+      "Partial output follows: command not found",
+      "Partial output follows: request timed out",
+      "agy denied 1 action(s): quota",
+      "agy denied 1 action(s): 403 forbidden",
+      "agy denied 1 action(s): executable not found",
+      "agy denied 1 action(s): deadline exceeded",
+    ])("ignores quoted detail: %s", (detail) => {
+      const message = `${prefix} ${detail}`;
+
+      expect(classifyProviderFailure(new Error(message))).toBe(expected);
+      expect(classifyProviderFailure(message)).toBe(expected);
+    });
+  });
+
   it.each([
     "sandbox unavailable: connection refused (403)",
     "sandbox backend quota exceeded (429)",

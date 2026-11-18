@@ -73,21 +73,27 @@ interface AgyStdoutJson {
   conversation_id?: unknown;
   response?: unknown;
   usage?: AgyStdoutUsage;
+  finished_reason?: unknown;
   truncated?: unknown;
   denied_actions?: unknown;
   status?: unknown;
 }
 
+type IncompleteReason = "print_timeout" | "interrupted" | "error";
+
+interface AgyEnvelopeMeta {
+  incompleteReason: IncompleteReason | undefined;
+  deniedNotice: string | undefined;
+}
+
 type StdoutParse =
-  | {
+  | (AgyEnvelopeMeta & {
       kind: "answer";
       response: string;
       sessionId: string | undefined;
       usage: AgyStdoutUsage | undefined;
-      truncated: boolean;
-      deniedNotice: string | undefined;
-    }
-  | { kind: "envelope-without-answer"; truncated: boolean; deniedNotice: string | undefined }
+    })
+  | (AgyEnvelopeMeta & { kind: "envelope-without-answer" })
   | { kind: "not-json" };
 
 export function isPrintTimeoutTruncation(message: string): boolean {
@@ -117,8 +123,14 @@ function formatDeniedActions(value: unknown): string | undefined {
   return `agy denied ${names.length} action(s): ${names.join(", ")}`;
 }
 
-function envelopeMeta(parsed: AgyStdoutJson): { truncated: boolean; deniedNotice: string | undefined } {
-  return { truncated: envelopeLooksTruncated(parsed), deniedNotice: formatDeniedActions(parsed.denied_actions) };
+function envelopeIncompleteReason(
+  parsed: AgyStdoutJson,
+  detectLegacyTruncation: boolean,
+): IncompleteReason | undefined {
+  const reason = parsed.finished_reason;
+  if (reason === "print_timeout" || reason === "interrupted" || reason === "error") return reason;
+  if (detectLegacyTruncation && envelopeLooksTruncated(parsed)) return "print_timeout";
+  return undefined;
 }
 
 function previewPartial(partial: string | undefined): string | undefined {
@@ -128,11 +140,22 @@ function previewPartial(partial: string | undefined): string | undefined {
   return `${t.slice(0, ANTIGRAVITY.PARTIAL_OUTPUT_PREVIEW_CHARS)}... (truncated)`;
 }
 
-function truncatedAnswerMessage(timeoutMs: number, partial?: string, deniedNotice?: string): string {
-  const parts = [
-    ERROR_MESSAGES.TRUNCATED,
-    `Increase ${ANTIGRAVITY.TIMEOUT_ENV_VAR} (current: ${timeoutMs}ms) or shorten the prompt.`,
-  ];
+const INCOMPLETE_ANSWER_MESSAGES = {
+  print_timeout: ERROR_MESSAGES.TRUNCATED,
+  interrupted: ERROR_MESSAGES.TURN_INTERRUPTED,
+  error: ERROR_MESSAGES.TURN_FAILED,
+};
+
+function incompleteAnswerMessage(
+  reason: IncompleteReason,
+  timeoutMs: number,
+  partial?: string,
+  deniedNotice?: string,
+): string {
+  const parts: string[] = [INCOMPLETE_ANSWER_MESSAGES[reason]];
+  if (reason === "print_timeout") {
+    parts.push(`Increase ${ANTIGRAVITY.TIMEOUT_ENV_VAR} (current: ${timeoutMs}ms) or shorten the prompt.`);
+  }
   if (deniedNotice) parts.push(deniedNotice);
   const preview = previewPartial(partial);
   if (preview) parts.push("Partial output follows:", preview);
@@ -144,7 +167,7 @@ function appendDeniedNotice(response: string, notice: string | undefined): strin
 }
 
 // Parsed JSON envelopes never fall through to raw stdout; see ADR-141.
-function parseStdoutJson(raw: string): StdoutParse {
+function parseStdoutJson(raw: string, detectLegacyTruncation: boolean): StdoutParse {
   const t = raw.trim();
   if (!t.startsWith("{") && !t.startsWith("[")) return { kind: "not-json" };
   let parsed: AgyStdoutJson;
@@ -152,9 +175,12 @@ function parseStdoutJson(raw: string): StdoutParse {
     parsed = JSON.parse(t) as AgyStdoutJson;
   } catch {
     // JSON-looking but unparsable output is a corrupt envelope, not legacy text.
-    return { kind: "envelope-without-answer", truncated: false, deniedNotice: undefined };
+    return { kind: "envelope-without-answer", incompleteReason: undefined, deniedNotice: undefined };
   }
-  const meta = envelopeMeta(parsed);
+  const meta = {
+    incompleteReason: envelopeIncompleteReason(parsed, detectLegacyTruncation),
+    deniedNotice: formatDeniedActions(parsed.denied_actions),
+  };
   if (typeof parsed.response !== "string") return { kind: "envelope-without-answer", ...meta };
   // Preserve the transcript-era response bytes by removing agy's envelope-only trailing newline.
   const response = parsed.response.trimEnd();
@@ -186,9 +212,10 @@ export async function probeAntigravityQuota(signal?: AbortSignal): Promise<strin
     undefined,
     signal,
   );
-  const parsed = parseStdoutJson(raw);
+  const parsed = parseStdoutJson(raw, true);
   if (parsed.kind !== "answer") throw new Error("agy /quota returned no quota answer");
-  if (parsed.truncated) throw new Error("agy /quota returned truncated output");
+  if (parsed.incompleteReason === "print_timeout") throw new Error("agy /quota returned truncated output");
+  if (parsed.incompleteReason) throw new Error(`agy /quota: ${INCOMPLETE_ANSWER_MESSAGES[parsed.incompleteReason]}`);
   const lines = parsed.response
     .split("\n")
     .map((line) => line.split("\t"))
@@ -233,7 +260,12 @@ function buildUsageStats(
 
 // Our own messages quote agy output (partials, action names), so they must never trigger recovery.
 function isTerminalOwnError(message: string): boolean {
-  return isTruncatedAnswerError(message) || message.startsWith(ERROR_MESSAGES.DENIED_WITHOUT_ANSWER);
+  return (
+    isTruncatedAnswerError(message) ||
+    message.startsWith(ERROR_MESSAGES.TURN_INTERRUPTED) ||
+    message.startsWith(ERROR_MESSAGES.TURN_FAILED) ||
+    message.startsWith(ERROR_MESSAGES.DENIED_WITHOUT_ANSWER)
+  );
 }
 
 function isRateLimitError(message: string): boolean {
@@ -321,10 +353,7 @@ export async function executeAntigravityCLI(options: AntigravityExecutorOptions)
   const timeoutMs = resolveTimeoutMs(ANTIGRAVITY.TIMEOUT_ENV_VAR, ANTIGRAVITY.DEFAULT_TIMEOUT_MS);
   // Keep agy expiry before process timeout to detect exit-0 partial answers (ADR-162).
   const agyTimeoutSec = timeoutMs > 6000 ? Math.round(timeoutMs / 1000) - 5 : Math.max(1, Math.round(timeoutMs / 1000));
-  const detectPrintTimeoutTruncation = isVersionAtLeast(
-    agyVersion,
-    ANTIGRAVITY.PRINT_TIMEOUT_SUCCESS_TRUNCATION_MIN_VERSION,
-  );
+  const detectLegacyTruncation = isVersionAtLeast(agyVersion, ANTIGRAVITY.PRINT_TIMEOUT_SUCCESS_TRUNCATION_MIN_VERSION);
 
   const fullPrompt = `${READ_ONLY_PREAMBLE}\n\n${options.prompt}`;
   const commandLogging = options.readOnly ? { sensitiveValues: [fullPrompt] } : undefined;
@@ -403,17 +432,18 @@ export async function executeAntigravityCLI(options: AntigravityExecutorOptions)
     const durationMs = Date.now() - startedAt;
     const reportedModel = model ?? MODELS.AGY_DEFAULT_LABEL;
     const stderr = stderrChunks.join("");
-    const parsed = parseStdoutJson(raw);
-    const answerText =
-      parsed.kind === "answer" ? parsed.response : parsed.kind === "not-json" ? fromStdoutPlain(raw) : undefined;
-    const truncated =
-      detectPrintTimeoutTruncation &&
-      (isPrintTimeoutTruncation(stderr) || (parsed.kind !== "not-json" && parsed.truncated));
-    if (truncated) {
+    const parsed = parseStdoutJson(raw, detectLegacyTruncation);
+    const envelopeReason = parsed.kind === "not-json" ? undefined : parsed.incompleteReason;
+    const incompleteReason =
+      envelopeReason ?? (detectLegacyTruncation && isPrintTimeoutTruncation(stderr) ? "print_timeout" : undefined);
+    if (incompleteReason) {
+      const partial =
+        parsed.kind === "answer" ? parsed.response : parsed.kind === "not-json" ? fromStdoutPlain(raw) : undefined;
       throw new Error(
-        truncatedAnswerMessage(
+        incompleteAnswerMessage(
+          incompleteReason,
           timeoutMs,
-          answerText ?? undefined,
+          partial ?? undefined,
           parsed.kind === "not-json" ? undefined : parsed.deniedNotice,
         ),
       );
@@ -460,7 +490,7 @@ export async function executeAntigravityCLI(options: AntigravityExecutorOptions)
       return await runWithModel(undefined, true);
     } catch (retryError) {
       const retryMessage = retryError instanceof Error ? retryError.message : String(retryError);
-      if (isTruncatedAnswerError(retryMessage)) throw retryError;
+      if (isTerminalOwnError(retryMessage)) throw retryError;
       if (isModelUnavailableError(retryMessage)) {
         throw new Error(modelUnavailableMessage(rejectedModel, retryMessage, rejectedSource, explicitEffort));
       }
@@ -474,8 +504,7 @@ export async function executeAntigravityCLI(options: AntigravityExecutorOptions)
   } catch (error) {
     if (options.singleAttempt) throw error;
     const message = error instanceof Error ? error.message : String(error);
-    // Truncation embeds a bounded preview; classify it before recovery tokens in that preview.
-    if (isTruncatedAnswerError(message)) throw error;
+    if (isTerminalOwnError(message)) throw error;
     if (isModelUnavailableError(message)) {
       // Never silently discard a custom model pin.
       if (!isOwnDefaultModel(primaryModel)) {
@@ -496,7 +525,7 @@ export async function executeAntigravityCLI(options: AntigravityExecutorOptions)
       return await runWithModel(MODELS.FALLBACK, true);
     } catch (fallbackError) {
       const fbMessage = fallbackError instanceof Error ? fallbackError.message : String(fallbackError);
-      if (isTruncatedAnswerError(fbMessage)) throw fallbackError;
+      if (isTerminalOwnError(fbMessage)) throw fallbackError;
       // Preserve non-quota fallback failures instead of masking them.
       if (isRateLimitError(fbMessage)) throw await rateLimitedError();
       // The executor-selected fallback gets the same bounded recovery.

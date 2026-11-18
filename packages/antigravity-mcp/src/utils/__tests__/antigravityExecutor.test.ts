@@ -1012,8 +1012,7 @@ describe("executeAntigravityCLI print-timeout truncation (agy >= 1.1.28)", () =>
     expect(mockExec).toHaveBeenCalledOnce();
   });
 
-  it("still serves a complete exit-0 answer when there is no truncation signal", async () => {
-    mockAssertSupportedAgyVersion.mockResolvedValue(ANTIGRAVITY.PRINT_TIMEOUT_SUCCESS_TRUNCATION_MIN_VERSION);
+  it("serves a complete exit-0 answer without finished_reason or a legacy signal", async () => {
     mockSuccessWithStderr(jsonStdout("complete answer\n"), "some unrelated warning\n");
 
     const result = await executeAntigravityCLI({ prompt: "q" });
@@ -1035,6 +1034,36 @@ describe("executeAntigravityCLI print-timeout truncation (agy >= 1.1.28)", () =>
     const result = await executeAntigravityCLI({ prompt: "q" });
     expect(result.response).toContain("thin answer");
     expect(result.response).toMatch(/denied 1 action\(s\): fetch_url/);
+  });
+});
+
+describe("executeAntigravityCLI finished_reason", () => {
+  it.each([
+    ["print_timeout", /hit --print-timeout.*Increase ASK_ANTIGRAVITY_TIMEOUT_MS/],
+    ["interrupted", /was interrupted/],
+    ["error", /failed before returning a complete response/],
+  ])("rejects an exit-0 %s envelope without stderr or recovery", async (finishedReason, message) => {
+    mockSuccessWithStderr(
+      jsonStdout("Partial review mentions quota and invalid model selection\n", undefined, {
+        finished_reason: finishedReason,
+      }),
+      "",
+    );
+
+    const call = executeAntigravityCLI({ prompt: "q" });
+    await expect(call).rejects.toThrow(message);
+    await expect(call).rejects.toThrow(/quota and invalid model selection/);
+    expect(mockExec).toHaveBeenCalledOnce();
+  });
+
+  it("checks finished_reason on a resumed call even when there is no answer", async () => {
+    mockSuccessWithStderr(jsonStdout("", undefined, { finished_reason: "print_timeout" }), "");
+
+    await expect(executeAntigravityCLI({ prompt: "q", sessionId: "prior-id" })).rejects.toThrow(
+      ERROR_MESSAGES.TRUNCATED,
+    );
+    expect(mockExec).toHaveBeenCalledOnce();
+    expect(mockExec.mock.calls[0][1]).toEqual(expect.arrayContaining(["--conversation", "prior-id"]));
   });
 });
 
