@@ -584,6 +584,43 @@ describe("runMachineRequest", () => {
     expect(JSON.stringify(result)).not.toContain("sk-secret");
   });
 
+  it.each([
+    [
+      "Antigravity (agy) hit --print-timeout and returned a truncated answer instead of a complete response.",
+      "timeout",
+      "Provider request timed out",
+    ],
+    [
+      "Antigravity (agy) was interrupted before returning a complete response.",
+      "unavailable",
+      "Provider execution failed",
+    ],
+    [
+      "Antigravity (agy) failed before returning a complete response.",
+      "unavailable",
+      "Provider execution failed",
+    ],
+  ])("normalizes Antigravity early finishes without quoting partial output: %s", async (prefix, kind, message) => {
+    const partial = '{"summary":"quota handling looks correct; 401 authentication failed; ENOENT","findings":[]}';
+    const error = `${prefix} agy denied 1 action(s): deadline exceeded. Partial output follows: ${partial}`;
+    const executor: ExecutorFn = vi.fn().mockRejectedValue(new Error(error));
+
+    const result = await runMachineRequest(
+      request({ provider: "antigravity", model: "gemini-4-argon" }),
+      deps(executor),
+    );
+
+    expect(result).toMatchObject({
+      status: "failed",
+      provider: "antigravity",
+      payload: null,
+      failure: { kind, message },
+    });
+    expect(machineFailureResultSchema.safeParse(result).success).toBe(true);
+    expect(JSON.stringify(result)).not.toContain(partial);
+    expect(JSON.stringify(result)).not.toContain("agy denied");
+  });
+
   it.each(["brainstorm", "review", "verify"])("preserves Grok sandbox unavailability for %s", async (role) => {
     const message =
       "Grok CLI harness failed: the read-only sandbox could not start, so no request reached Grok " +
