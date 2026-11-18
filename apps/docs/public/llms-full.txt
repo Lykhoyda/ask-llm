@@ -389,7 +389,7 @@ Setup registers the user-scope connection and installs portable workflows into t
 
 ## `/codex-pair` on Cursor
 
-Cursor's `/codex-pair` is an on-demand iterative pair session. Cursor remains the editor; an authenticated Codex CLI is the explicit read-only reviewer. Both `model=<exact ID>` and `effort=low|medium|high|xhigh|max|ultra` are required: the adapter cannot safely infer environment defaults inside a separately spawned MCP server. If either is omitted, pairing stops before extra context is read or consent is requested. Before calling the provider it reports those exact choices, bounded files, relative include directories, quota/data boundary, and asks for consent.
+Apply the [portable writer applicability rule](https://lykhoyda.github.io/ask-llm/advanced/codex-pair) before this adapter. When pairing is applicable, Cursor's `/codex-pair` is an on-demand iterative pair session. Cursor remains the editor; an authenticated Codex CLI is the explicit read-only reviewer. Both `model=<exact ID>` and `effort=low|medium|high|xhigh|max|ultra` are required: the adapter cannot safely infer environment defaults inside a separately spawned MCP server. If either is omitted, pairing stops before extra context is read or consent is requested. Before calling the provider it reports those exact choices, bounded files, relative include directories, quota/data boundary, and asks for consent.
 
 The first Codex call (`ask-codex` when user-installed, otherwise the fully pinned unified `ask-llm` with `provider: "codex"`) passes `sessionId: ""` to create a persisted thread, `sandbox: "read-only"`, and may pass up to 32 safe relative `includeDirs`. Follow-ups reuse the returned structured Thread ID and omit `includeDirs`, because `codex exec resume` does not support `--add-dir`; a resumed call that still passes `includeDirs` is rejected by every Codex transport (split `ask-codex`, unified `ask-llm`) rather than silently dropping the directories. Feedback is relayed and source-verified before Cursor edits. Interrupts cancel the MCP call; unavailable tools/models, incomplete unified schemas, partial failures, and any Codex quota fallback are reported rather than hidden.
 
@@ -464,6 +464,8 @@ Representative commands:
 The Cursor `gpt-6.2-sol-high` example follows the `<codex-slug>-high` naming but is unverified; confirm the exact ID with `agent --list-models` before use.
 
 Pi reads these skills from the shared skills folder that `ask-llm setup --host pi` fills; the package itself ships only the extension. `ask-llm-fable-review` is not installed: independent Fable review would require a nested Pi session or provider bridge. `ask-llm-grok-pair` is installed for other hosts and refuses on Pi, because Grok pairing still needs a dedicated Pi consent/lifecycle adapter.
+
+For `/skill:ask-llm-codex-pair`, check the [portable writer applicability rule](https://lykhoyda.github.io/ask-llm/advanced/codex-pair) first. The native `/codex-pair` commands described below use their separate consent flow.
 
 Native tools (Pi has no MCP client, so the extension registers them with the MCP server's input schemas; see the [host parity matrix](https://github.com/Lykhoyda/ask-llm/blob/main/docs/HOST-PARITY.md)):
 
@@ -778,6 +780,8 @@ This is in-memory only; no persistence to disk, resets when the MCP server resta
 ### Codex Pair
 
 Source: https://lykhoyda.github.io/ask-llm/advanced/codex-pair.html
+
+In the portable `/codex-pair` skill, a positively identified Codex writer with a Codex reviewer ends before setup or consent in one message: the same family reviewing itself is not an independent review; use `/grok-pair`; `completed (not applicable)`. It asks no question and makes no review call. This depends on the writer's model family, never the host name: Cursor and Pi can run other families. An unknown writer or a different provider keeps the existing adapter behavior. Pi's native `/codex-pair` command is a separate implementation and is unchanged.
 
 Codex-pair supports each host with a different lifecycle adapter. The detailed detached-worker and Stop-gate material on this page describes **Claude Code**. On **Cursor Agent** there is no background reviewer: `/codex-pair` runs an on-demand, consent-gated persisted Codex session (through a user-installed `ask-codex` leaf when exposed, otherwise the fully pinned unified `ask-llm`) and the `-ack`/`-pause`/`-resume` toggles are not exposed; see [Cursor Agent Host](https://lykhoyda.github.io/ask-llm/compatibility/cursor). On **Pi**, successful `tool_result` edit/write events feed an in-process debounce; findings are delivered with non-triggering `steer`; project trust plus a user-owned canonical-project allowlist is required in addition to the marker; shutdown aborts active review work; blocking Stop-gate and one-shot print parity are unsupported. See [Pi Host Support](https://lykhoyda.github.io/ask-llm/compatibility/pi#pi-codex-pair-consent).
 

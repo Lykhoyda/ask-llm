@@ -45,6 +45,8 @@ The Cursor `gpt-6.2-sol-high` example follows the `<codex-slug>-high` naming but
 
 Pi reads these skills from the shared skills folder that `ask-llm setup --host pi` fills; the package itself ships only the extension. `ask-llm-fable-review` is not installed: independent Fable review would require a nested Pi session or provider bridge. `ask-llm-grok-pair` is installed for other hosts and refuses on Pi, because Grok pairing still needs a dedicated Pi consent/lifecycle adapter.
 
+For `/skill:ask-llm-codex-pair`, check the [portable writer applicability rule](/advanced/codex-pair) first. The native `/codex-pair` commands described below use their separate consent flow.
+
 Native tools (Pi has no MCP client, so the extension registers them with the MCP server's input schemas; see the [host parity matrix](https://github.com/Lykhoyda/ask-llm/blob/main/docs/HOST-PARITY.md)):
 
 | Tool | Contract |

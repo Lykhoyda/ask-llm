@@ -2,6 +2,14 @@
 
 This contract is shared by `/codex-pair` on Cursor Agent and `/grok-pair` on Claude Code. Host adapters may use different registration and lifecycle APIs, but must preserve these guarantees.
 
+## Writer applicability
+
+For the portable `/codex-pair` skill, apply this check before any skill announcement or progress message, host-adapter setup, model/effort questions, extra context reads, consent, or review calls. When the model writing the code is positively identified as a Codex model and the reviewer would be Codex, send exactly one message and end:
+
+> The same family reviewing itself is not an independent review. Use `/grok-pair` for a different reviewer family. completed (not applicable)
+
+Ask no question and make no review call on this path. Identify the writer family only from available, explicit writer-model information, never from the host name: Cursor and Pi can run other model families. When the writer family is unknown or is a different provider, follow the existing host adapter unchanged; do not ask a question solely to identify the writer family. Pi's native `/codex-pair` command is a separate implementation and is unchanged by this skill rule.
+
 ## Roles and lifecycle
 
 The host remains the only editor. The consulted model is an explicit, read-only reviewer that challenges correctness, tests assumptions, and returns actionable findings. Run one state machine:
