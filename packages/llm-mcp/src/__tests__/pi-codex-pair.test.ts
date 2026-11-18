@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { readFileSync } from "node:fs";
 import { mkdir, mkdtemp, readdir, realpath, rm, utimes, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -9,7 +10,15 @@ const resolveCodexTimeoutMs = vi.hoisted(() => vi.fn(() => 800_000));
 vi.mock("@ask-llm/mcp/providers/codex/executor", () => ({ executeCodexCLI, resolveCodexTimeoutMs }));
 
 import { __testing, registerCodexPair } from "../../pi/extensions/codex-pair.js";
-import { releaseInflightLock, stateRoot, tryAcquireInflightLock } from "../../scripts/lib/state.mjs";
+import {
+  isPaused,
+  logPath,
+  pausePath,
+  releaseInflightLock,
+  stateRoot,
+  tryAcquireInflightLock,
+} from "../../scripts/lib/state.mjs";
+import { buildReport } from "../../scripts/lib/pair-report.mjs";
 
 const CODEX_RESULT = {
   response: JSON.stringify({
@@ -135,6 +144,112 @@ async function eventually(assertion: () => void, timeoutMs = 1000): Promise<void
 }
 
 describe("Pi codex-pair lifecycle", () => {
+  // W5's persisted evidence contract requires actual attribution, including cache replay.
+  // Alternating file contents rejects both rerunning cached reviews and losing fallback identity.
+  it.each([
+    { model: "gpt-6.2-sol", fellBack: false },
+    { model: "gpt-6.1-terra", fellBack: true },
+  ])("persists Pi evidence for $model and retains it on cache hits", async ({ model, fellBack }) => {
+    const { repo, source } = await project(0);
+    executeCodexCLI.mockResolvedValue({ ...CODEX_RESULT, usage: { model, fellBack } });
+    const instance = harness();
+    const ctx = context(repo);
+    const rows = () =>
+      readFileSync(logPath(repo), "utf8")
+        .trim()
+        .split("\n")
+        .map((line) => JSON.parse(line));
+
+    for (const [index, value] of [-1, -2, -1].entries()) {
+      await writeFile(source, `export const value = ${value};\n`);
+      await instance.emit("tool_result", { toolName: "write", input: { path: source }, isError: false }, ctx);
+      await eventually(() => expect(instance.messages).toHaveLength(index + 1));
+    }
+
+    expect(executeCodexCLI).toHaveBeenCalledTimes(2);
+    expect(rows()).toEqual(
+      [false, false, true].map((cached) =>
+        expect.objectContaining({
+          source: "pi",
+          reviewer: "codex",
+          model,
+          reasoningEffort: "high",
+          fellBack,
+          cached,
+        }),
+      ),
+    );
+  });
+
+  // W5 requires the same manual transition events from Pi as from codex-pair-log.
+  // Sentinel-only handlers would pause correctly but leave the report's window empty.
+  it("persists Pi evidence for idempotent manual pause and resume commands", async () => {
+    const { repo } = await project(0);
+    const instance = harness();
+    const ctx = context(repo);
+    const pause = instance.commands.get("codex-pair-pause")!;
+    const resume = instance.commands.get("codex-pair-resume")!;
+    await pause.handler("", ctx);
+    await pause.handler("", ctx);
+    expect(isPaused(repo)).toBe(true);
+    await resume.handler("", ctx);
+    await resume.handler("", ctx);
+    expect(isPaused(repo)).toBe(false);
+    const rows = readFileSync(logPath(repo), "utf8")
+      .trim()
+      .split("\n")
+      .map((line) => JSON.parse(line));
+    expect(rows).toEqual([
+      expect.objectContaining({ event: "pause", pauseKind: "manual", pauseSource: "manual" }),
+      expect.objectContaining({ event: "resume", pauseKind: "manual", pauseSource: "manual" }),
+    ]);
+    expect(buildReport(repo, rows, {}, [], null).pauseWindows).toEqual([
+      { kind: "manual", startedAt: rows[0].timestamp, endedAt: rows[1].timestamp },
+    ]);
+  });
+
+  it.each([
+    { kind: "quota", reason: "quota exceeded", failures: 1 },
+    { kind: "failures", reason: "review transport failed", failures: 3 },
+  ])("persists Pi evidence when $kind automatically pauses pairing", async ({ kind, reason, failures }) => {
+    const { repo, source } = await project(0);
+    executeCodexCLI.mockRejectedValue(new Error(reason));
+    const instance = harness();
+    const ctx = context(repo);
+    for (let index = 0; index < failures; index++) {
+      await instance.emit("tool_result", { toolName: "write", input: { path: source }, isError: false }, ctx);
+      await eventually(() => expect(ctx.ui.notify).toHaveBeenCalledTimes(index + 1));
+    }
+    expect(isPaused(repo)).toBe(true);
+    const rows = readFileSync(logPath(repo), "utf8")
+      .trim()
+      .split("\n")
+      .map((line) => JSON.parse(line));
+    expect(rows.filter((row) => row.event === "pause")).toEqual([
+      expect.objectContaining({ pauseKind: kind, pauseSource: "auto", reason }),
+    ]);
+    expect(buildReport(repo, rows, {}, [], null).pauseWindows).toEqual([
+      { kind, startedAt: rows.at(-1).timestamp, endedAt: "open" },
+    ]);
+  });
+
+  it("persists Pi evidence when an expired automatic pause resumes", async () => {
+    const { repo } = await project(0);
+    const startedAt = "2020-01-01T00:00:00.000Z";
+    await mkdir(stateRoot(repo), { recursive: true });
+    await writeFile(pausePath(repo), JSON.stringify({ kind: "quota", reason: "quota", at: startedAt }));
+    const instance = harness();
+    await instance.emit("session_start", {}, context(repo));
+    expect(isPaused(repo)).toBe(false);
+    const row = JSON.parse(readFileSync(logPath(repo), "utf8"));
+    expect(row).toMatchObject({
+      event: "resume", pauseKind: "quota", pauseSource: "auto", pauseStartedAt: startedAt,
+    });
+    expect(buildReport(repo, [row], {}, [], null).pauseWindows).toEqual([
+      { kind: "quota", startedAt, endedAt: row.timestamp },
+    ]);
+  });
+
   it("factory registration starts no timer, process, or filesystem work", () => {
     vi.useFakeTimers();
     const instance = harness();
