@@ -22,7 +22,7 @@ This package's review tool and read-only machine execution refuse before probing
 
 ## Config
 - `ASK_ANTIGRAVITY_ALLOW_UNISOLATED` — unset by default; only the exact value `1` permits unisolated execution.
-- `ASK_ANTIGRAVITY_TIMEOUT_MS` — process timeout (default 300000 = 5m). Raise it or shorten the prompt if agy hits its print timeout. Fresh and resumed calls report timeouts, interruptions, and failures from agy's JSON envelope even on exit 0, with stderr timeout warnings as a fallback.
+- `ASK_ANTIGRAVITY_TIMEOUT_MS` — process timeout (default 300000 = 5m). See the provider guide's [early-finish error guidance](https://lykhoyda.github.io/ask-llm/providers/antigravity#sessions).
 - `ASK_ANTIGRAVITY_SANDBOX` — set `0` to drop `--sandbox` from review calls if it blocks context reads; see the provider guide for the quota-probe exception.
 - `ASK_ANTIGRAVITY_MODEL` — agy model via `--model` (default `gemini-4-argon`, with `gemini-3.8-flash` as the rate-limit fallback; run `agy models` for options). Legacy effort-carrying display strings like `Gemini 4 Argon (High)` still resolve for backward compatibility, but they conflict with `--effort`, so the default effort is only sent when the model value equals one of the built-in base slugs.
 - `ASK_ANTIGRAVITY_EFFORT` — agy reasoning effort via `--effort` (`low` | `medium` | `high`; default `high`). The default effort is paired with the built-in base slugs and with model-less recovery attempts; an explicitly set value is always passed (you own the model/effort combination — note agy limits some tiers per model, run `agy models` to see each model's tiers). Invalid values log a warning and fall back to the default behavior.
