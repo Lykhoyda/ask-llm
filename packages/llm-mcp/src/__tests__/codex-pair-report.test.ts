@@ -24,10 +24,11 @@ let state: string;
 
 const ACKED = "b421584ba336fb83";
 const BLOCKING = "fc69d46835dfd2ab";
+const originalRegistryRoot = process.env.CODEX_PAIR_SESSION_REGISTRY_ROOT;
 // First 16 hex characters of SHA-256("a.ts:Legacy medium comment").
 const LEGACY_MEDIUM = "33e4573a12d24e64";
 
-function script(name: string, args: string[], input = "") {
+function script(name: string, args: string[], input = "", env: NodeJS.ProcessEnv = {}) {
   const result = spawnSync(process.execPath, [join(PLUGIN_ROOT, "scripts", name), ...args], {
     cwd,
     input,
@@ -36,8 +37,9 @@ function script(name: string, args: string[], input = "") {
       ...process.env,
       CODEX_PAIR_DISABLED: name === "codex-pair-stop-gate.mjs" ? "1" : "0",
       CLAUDE_CONFIG_DIR: join(scratch, "claude"),
+      ...env,
     },
-    timeout: 5000,
+    timeout: 20_000,
   });
   expect(result.error).toBeUndefined();
   return result;
@@ -63,6 +65,7 @@ function stopGate() {
 
 beforeEach(() => {
   scratch = realpathSync(mkdtempSync(join(tmpdir(), "codex-pair-report-")));
+  process.env.CODEX_PAIR_SESSION_REGISTRY_ROOT = scratch;
   repo = join(scratch, "project");
   cwd = join(repo, "nested");
   pair = join(repo, ".codex-pair");
@@ -74,7 +77,11 @@ beforeEach(() => {
   execFileSync("git", ["init", "--quiet", repo]);
 });
 
-afterEach(() => rmSync(scratch, { recursive: true, force: true }));
+afterEach(() => {
+  rmSync(scratch, { recursive: true, force: true });
+  if (originalRegistryRoot === undefined) delete process.env.CODEX_PAIR_SESSION_REGISTRY_ROOT;
+  else process.env.CODEX_PAIR_SESSION_REGISTRY_ROOT = originalRegistryRoot;
+});
 
 it("reports two unique HIGHs, one MED, cache repeats, actual fallback attribution and a manual pause", () => {
   const a = join(repo, "a.ts");
@@ -358,4 +365,84 @@ it("preserves a legacy auto-pause when already paused and records who resumed it
   expect(JSON.parse(cli("--report", "--json")).pauseWindows).toEqual([
     { kind: "quota", startedAt: at, endedAt: event.timestamp },
   ]);
+});
+
+it.each([false, true])("reports a Git status failure instead of empty coverage (JSON: %s)", (json) => {
+  writeFileSync(join(repo, "dirty.ts"), "unreviewed content");
+  writeFileSync(join(repo, ".git/index"), "invalid index");
+  const result = script("codex-pair-log.mjs", ["--report", ...(json ? ["--json"] : [])]);
+  expect(result.status).toBe(1);
+  expect(result.stdout).toBe("");
+  expect(result.stderr).toContain("Unable to scan Git dirty files");
+  const stop = script("codex-pair-stop-gate.mjs", [], '{"hook_event_name":"Stop"}', { CODEX_PAIR_DISABLED: "0" });
+  expect(stop.status).toBe(0);
+  expect(stop.stdout).toBe("");
+  expect(stop.stderr).toBe("");
+});
+
+it("reports failure when a registered sibling cannot be scanned", async () => {
+  const { registerMarker, clearSession } = await import("../../scripts/lib/session-registry.mjs");
+  const sibling = join(scratch, "sibling");
+  mkdirSync(join(sibling, ".codex-pair"), { recursive: true });
+  writeFileSync(join(sibling, ".codex-pair/context.md"), "# Sibling");
+  execFileSync("git", ["init", "--quiet", sibling]);
+  writeFileSync(join(sibling, "dirty.ts"), "unreviewed sibling content");
+  writeFileSync(join(sibling, ".git/index"), "invalid index");
+  const session = `report-scan-${process.pid}`;
+  registerMarker(session, sibling);
+  try {
+    const result = script("codex-pair-log.mjs", ["--report", "--json"], "", { CLAUDE_CODE_SESSION_ID: session });
+    expect(result.status).toBe(1);
+    expect(result.stdout).toBe("");
+    expect(result.stderr).toContain(sibling);
+  } finally {
+    clearSession(session);
+  }
+});
+
+it("keeps historical reports available in a non-Git project", () => {
+  rmSync(join(repo, ".git"), { recursive: true });
+  writeFileSync(join(repo, "local.ts"), "outside Git scope");
+  writeLog({ timestamp: new Date().toISOString(), file: join(repo, "local.ts"), verdict: "none" });
+  expect(JSON.parse(cli("--report", "--json"))).toMatchObject({ reviewsRun: 1, unreviewedFiles: [] });
+  expect(cli("--report")).toContain("reviews run 1");
+});
+
+it("fails the report when Git is unavailable", () => {
+  const result = script("codex-pair-log.mjs", ["--report", "--json"], "", { PATH: join(scratch, "empty-bin") });
+  expect(result.status).toBe(1);
+  expect(result.stdout).toBe("");
+  expect(result.stderr).toContain("Unable to scan Git dirty files");
+});
+
+it("fails the report when Git status exceeds the existing five-second timeout", () => {
+  writeFileSync(join(repo, "dirty.ts"), "unreviewed content");
+  const bin = join(scratch, "bin");
+  mkdirSync(bin);
+  const realGit = execFileSync("sh", ["-c", "command -v git"], { encoding: "utf8" }).trim();
+  writeFileSync(
+    join(bin, "git"),
+    `#!/usr/bin/env node
+import { execFileSync } from "node:child_process";
+const args = process.argv.slice(2);
+if (args.includes("status")) setInterval(() => {}, 1000);
+else process.stdout.write(execFileSync(process.env.REPORT_REAL_GIT, args));
+`,
+    { mode: 0o755 },
+  );
+  const result = script("codex-pair-log.mjs", ["--report", "--json"], "", {
+    PATH: `${bin}:${process.env.PATH}`,
+    REPORT_REAL_GIT: realGit,
+  });
+  expect(result.status).toBe(1);
+  expect(result.stdout).toBe("");
+  expect(result.stderr).toContain("Unable to scan Git dirty files");
+}, 15_000);
+
+it("reports a Git discovery error instead of treating a broken repository as a non-Git project", () => {
+  writeFileSync(join(repo, ".git/config"), "[invalid configuration");
+  const result = script("codex-pair-log.mjs", ["--report", "--json"]);
+  expect(result.status).toBe(1);
+  expect(result.stdout).toBe("");
+  expect(result.stderr).toContain("Unable to scan Git dirty files");
 });

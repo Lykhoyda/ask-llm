@@ -110,6 +110,8 @@ export function* dirtyCoverage(markerDir, { atStop = false, deadline = Infinity 
         return;
     }
     const dirty = gitDirtySet(markerDir, deadline);
+    if (dirty === null)
+        throw new Error(`Unable to scan Git dirty files for ${markerDir}`);
     if (!dirty?.size)
         return;
     const reviews = readReviews(markerDir);

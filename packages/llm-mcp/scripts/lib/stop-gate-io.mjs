@@ -12,8 +12,21 @@ export function gitDirtySet(markerDir, deadline = Infinity) {
         stdio: ["ignore", "pipe", "ignore"],
         timeout: Math.max(1, Math.min(5000, deadline - Date.now())),
     };
+    let repoRoot;
     try {
-        const repoRoot = execFileSync("git", ["-C", markerDir, "rev-parse", "--show-toplevel"], opts).trim();
+        repoRoot = execFileSync("git", ["-C", markerDir, "rev-parse", "--show-toplevel"], {
+            ...opts,
+            stdio: ["ignore", "pipe", "pipe"],
+            env: { ...process.env, LC_ALL: "C" },
+        }).trim();
+    }
+    catch (error) {
+        const failure = error;
+        if (failure.status === 128 && failure.stderr?.startsWith("fatal: not a git repository (or any "))
+            return undefined;
+        return null;
+    }
+    try {
         if (Date.now() >= deadline)
             return null;
         // -uall lists files inside untracked dirs; the default collapses them to "?? dir/".
@@ -21,7 +34,7 @@ export function gitDirtySet(markerDir, deadline = Infinity) {
         return parseGitPorcelain(porcelain, repoRoot);
     }
     catch {
-        return null; // not a repo / git missing / timeout → skip the [B] filter
+        return null;
     }
 }
 // A collapsed `?? dir/` record hides which nested files the outer .gitignore ignores; any git failure keeps them.
@@ -50,7 +63,7 @@ function dropIgnoredUnderDirtyDirs(entries, gitDirty, repoDir) {
 // Shared by the Stop hook and the report; reading findings leaves pending state untouched.
 export function readBlockingHighs(markerDir, logText, acks) {
     const entries = selectReviewEntries(logText, canonicalFile);
-    const gitDirty = gitDirtySet(markerDir);
+    const gitDirty = gitDirtySet(markerDir) ?? null;
     dropIgnoredUnderDirtyDirs(entries, gitDirty, markerDir);
     return collectBlockingHighs({
         entries,
