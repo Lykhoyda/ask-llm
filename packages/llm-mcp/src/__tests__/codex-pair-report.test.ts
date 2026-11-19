@@ -446,3 +446,83 @@ it("reports a Git discovery error instead of treating a broken repository as a n
   expect(result.stdout).toBe("");
   expect(result.stderr).toContain("Unable to scan Git dirty files");
 });
+
+it.each([
+  { json: false, sibling: false },
+  { json: true, sibling: false },
+  { json: false, sibling: true },
+  { json: true, sibling: true },
+])("reports reviewer refusal instead of empty coverage: %j", async ({ json, sibling }) => {
+  const { registerMarker, clearSession } = await import("../../scripts/lib/session-registry.mjs");
+  const root = sibling ? join(scratch, "sibling") : repo;
+  const marker = join(root, ".codex-pair/context.md");
+  mkdirSync(join(root, ".codex-pair"), { recursive: true });
+  if (sibling) execFileSync("git", ["init", "--quiet", root]);
+  writeFileSync(marker, "---\nreviewer: claude\nblockOn: HIGH\n---\n# Refused reviewer");
+  writeFileSync(join(root, "a.ts"), "unreviewed content");
+  const session = `report-refusal-${process.pid}`;
+  if (sibling) registerMarker(session, root);
+  const env = { CLAUDE_CODE_SESSION_ID: session, CODEX_PAIR_HOST: "" };
+  try {
+    const result = script("codex-pair-log.mjs", ["--report", ...(json ? ["--json"] : [])], "", env);
+    expect(result.status).toBe(1);
+    expect(result.stdout).toBe("");
+    expect(result.stderr).toContain("codex-pair refused: claude cannot review its own model family's edits");
+    const stop = script(
+      "codex-pair-stop-gate.mjs",
+      [],
+      JSON.stringify({ hook_event_name: "Stop", session_id: session }),
+      {
+        ...env,
+        CODEX_PAIR_DISABLED: "0",
+      },
+    );
+    expect(stop.status).toBe(0);
+    expect(stop.stdout).toBe("");
+    expect(stop.stderr).toBe("");
+    expect(existsSync(join(root, ".codex-pair/state/inflight"))).toBe(false);
+  } finally {
+    clearSession(session);
+  }
+});
+
+it("reports unsupported reviewer settings as configuration errors", () => {
+  writeFileSync(join(pair, "context.md"), "---\nreviewer: gemini\n---\n# Unsupported reviewer");
+  writeFileSync(join(repo, "a.ts"), "unreviewed content");
+  const result = script("codex-pair-log.mjs", ["--report", "--json"]);
+  expect(result.status).toBe(1);
+  expect(result.stdout).toBe("");
+  expect(result.stderr).toContain("codex-pair refused: reviewer must be codex or claude");
+});
+
+it.each([true, false])(
+  "skips a disappeared sibling marker but rejects an unreadable present marker (disappeared: %s)",
+  async (disappeared) => {
+    const { registerMarker, clearSession } = await import("../../scripts/lib/session-registry.mjs");
+    const sibling = join(scratch, "sibling");
+    const marker = join(sibling, ".codex-pair/context.md");
+    mkdirSync(join(sibling, ".codex-pair"), { recursive: true });
+    writeFileSync(marker, "# Sibling");
+    const session = `report-marker-${process.pid}`;
+    registerMarker(session, sibling);
+    rmSync(marker);
+    if (!disappeared) mkdirSync(marker);
+    writeFileSync(join(repo, "a.ts"), "unreviewed content");
+    try {
+      const result = script("codex-pair-log.mjs", ["--report", "--json"], "", { CLAUDE_CODE_SESSION_ID: session });
+      if (disappeared) {
+        expect(result.status).toBe(0);
+        expect(result.stderr).toBe("");
+        expect(JSON.parse(result.stdout).unreviewedFiles).toEqual([
+          { repository: repo, file: "a.ts", status: "not-started" },
+        ]);
+      } else {
+        expect(result.status).toBe(1);
+        expect(result.stdout).toBe("");
+        expect(result.stderr).toContain("EISDIR");
+      }
+    } finally {
+      clearSession(session);
+    }
+  },
+);

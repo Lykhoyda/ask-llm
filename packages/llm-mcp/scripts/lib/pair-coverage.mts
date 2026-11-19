@@ -114,18 +114,17 @@ export function* dirtyCoverage(markerDir: string, { atStop = false, deadline = I
   const markerPath = contextPath(markerDir);
   let marker: string;
   let markerMtime: number;
-  let config: ReturnType<typeof resolveConfig>;
-  let contextHash: string;
   try {
     markerMtime = statSync(markerPath).mtimeMs;
     marker = readFileSync(markerPath, "utf8");
-    const { frontmatter, body } = parseFrontmatter(marker);
-    if (atStop && frontmatter.catchUpOnStop === false) return;
-    config = resolveConfig(frontmatter, process.env, loadPairDefaults(), marker);
-    contextHash = reviewContextHash(body, config);
-  } catch {
-    return;
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return;
+    throw error;
   }
+  const { frontmatter, body } = parseFrontmatter(marker);
+  if (atStop && frontmatter.catchUpOnStop === false) return;
+  const config = resolveConfig(frontmatter, process.env, loadPairDefaults(), marker);
+  const contextHash = reviewContextHash(body, config);
 
   const dirty = gitDirtySet(markerDir, deadline);
   if (dirty === null) throw new Error(`Unable to scan Git dirty files for ${markerDir}`);
