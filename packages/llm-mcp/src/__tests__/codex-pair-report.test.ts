@@ -32,7 +32,11 @@ function script(name: string, args: string[], input = "") {
     cwd,
     input,
     encoding: "utf8",
-    env: { ...process.env, CODEX_PAIR_DISABLED: "0", CLAUDE_CONFIG_DIR: join(scratch, "claude") },
+    env: {
+      ...process.env,
+      CODEX_PAIR_DISABLED: name === "codex-pair-stop-gate.mjs" ? "1" : "0",
+      CLAUDE_CONFIG_DIR: join(scratch, "claude"),
+    },
     timeout: 5000,
   });
   expect(result.error).toBeUndefined();
@@ -111,13 +115,15 @@ it("reports two unique HIGHs, one MED, cache repeats, actual fallback attributio
 
   const human = cli("--report").trim().split("\n");
   expect(human).toEqual([
-    "codex-pair project (retained log) | reviews run 3, cache hits 1, fallback reviews 1 | 2 HIGH / 1 MED / 0 LOW unique, repeats 1 | 1 acknowledged | 1 HIGH blocking now, 0 other unacknowledged HIGH | 2 findings no longer reported on the latest review of their file | pause windows 1 | unknown/unknown/unknown (1 run, 0 cached), codex/gpt-6.1-terra/xhigh (1 run, 1 cached), codex/gpt-6.2-sol/high (1 run, 0 cached)",
+    "codex-pair project (retained log) | reviews run 3, cache hits 1, fallback reviews 1 | 2 HIGH / 1 MED / 0 LOW unique, repeats 1 | 1 acknowledged | 1 HIGH blocking now, 0 other unacknowledged HIGH | 2 findings no longer reported on the latest review of their file | pause windows 1 | unknown/unknown/unknown (1 run, 0 cached), codex/gpt-6.1-terra/xhigh (1 run, 1 cached), codex/gpt-6.2-sol/high (1 run, 0 cached) | 2 dirty file(s) without a current review",
     `Repeated HIGH [${BLOCKING}] "b.ts" ×1`,
     `Acknowledged HIGH [${ACKED}] "a.ts" — ${JSON.stringify(reason)}`,
     `Blocking now HIGH [${BLOCKING}] "b.ts"`,
     `Finding no longer reported on the latest review of its file — HIGH [${ACKED}] "a.ts"`,
     `Finding no longer reported on the latest review of its file — MED [${LEGACY_MEDIUM}] "a.ts"`,
     `Pause manual ${old} → open`,
+    `Review not started ${JSON.stringify(a)}`,
+    `Review not started ${JSON.stringify(b)}`,
   ]);
   const json = JSON.parse(cli("--report", "--json"));
   expect(json).toEqual({
@@ -142,6 +148,10 @@ it("reports two unique HIGHs, one MED, cache repeats, actual fallback attributio
       { reviewer: "codex", model: "gpt-6.2-sol", reasoningEffort: "high", reviewsRun: 1, cachedHits: 0 },
     ],
     pauseWindows: [{ kind: "manual", startedAt: old, endedAt: "open" }],
+    unreviewedFiles: [
+      { repository: repo, file: "a.ts", status: "not-started" },
+      { repository: repo, file: "b.ts", status: "not-started" },
+    ],
   });
 
   const window = JSON.parse(cli("--report", "--json", "--since", "1h"));
@@ -218,6 +228,7 @@ it("counts successful Pi reviews with unknown attribution in human and JSON repo
     noLongerReported: [],
     models: [{ reviewer: "unknown", model: "unknown", reasoningEffort: "unknown", reviewsRun: 1, cachedHits: 1 }],
     pauseWindows: [],
+    unreviewedFiles: [],
   });
   expect(JSON.parse(cli("--report", "--json", "--since", "1h"))).toMatchObject({
     reviewsRun: 0,

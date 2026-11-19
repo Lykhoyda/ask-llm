@@ -34,6 +34,8 @@ Use this adapter on Grok CLI 1.0.70 or newer. The worker is Grok; the reviewer i
 
 4. Restart Grok and inspect `/hooks`. Global hooks run in headless `grok -p`; a project-scoped `.grok/hooks/` registration needs folder trust first. Explain that a trust grant covers the folder's other trust-gated integrations too. Tests must use private isolated `HOME` and `GROK_HOME`; never edit real hook or trust files to test this adapter.
 
+5. From the project, run `CODEX_PAIR_HOST=grok node "<package-root>/scripts/codex-pair-log.mjs" start` to schedule catch-up and show status. Done when the command shows the marker's state.
+
 ## Review and lifecycle
 
 ```text
@@ -53,4 +55,4 @@ The marker, pause sentinel, auto-pause/resume, failure counters, cache, review f
 
 Report host=Grok CLI, reviewer, exact requested model, observed fallback if any, state, latest verdict and coverage (`file` or `command-text`). Keep pause/resume/ack names under `codex-pair` for compatibility; selecting Claude does not create another feature or state directory.
 
-At handoff, run `node "<package-root>/scripts/codex-pair-log.mjs" --report` from the project. Add `--since` with a duration covering the work to limit the history. Done when you paste the report's first line into the pull request description or closing status.
+At handoff, run `CODEX_PAIR_HOST=grok node "<package-root>/scripts/codex-pair-log.mjs" --report` from the project. Add `--since` with a duration covering the work to limit the history. Done when you paste the report's first line into the pull request description or closing status and relay any files that still lack a current review.

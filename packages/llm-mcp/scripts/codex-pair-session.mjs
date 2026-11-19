@@ -7,6 +7,7 @@ import { dirname, join, resolve } from "node:path";
 import { resolveBrokerPreference } from "./lib/broker.mjs";
 import { bootstrapBroker, teardownBroker } from "./lib/broker-lifecycle.mjs";
 import { clearAllDebounceState } from "./lib/debounce-state.mjs";
+import { startCatchUp } from "./lib/pair-catch-up.mjs";
 import { clearSession } from "./lib/session-registry.mjs";
 import { appendLog, CONTEXT_FILENAME, clearAutoPause, PAIR_ROOT_DIR, readPauseInfo, readPluginVersion, resolveAutoResume, } from "./lib/state.mjs";
 const MARKER_FILE = join(PAIR_ROOT_DIR, CONTEXT_FILENAME);
@@ -72,6 +73,7 @@ async function main() {
     if (event !== "SessionStart" && event !== "SessionEnd") {
         process.exit(0);
     }
+    let resumedMarker = null;
     // SessionStart reminds the model of active pauses via additionalContext and resumes expired ones.
     if (event === "SessionStart") {
         try {
@@ -94,6 +96,7 @@ async function main() {
                         pauseStartedAt: pauseInfo.at,
                         reason: `${decision.why} (paused ${pauseInfo.at ?? "unknown"}, kind: ${pauseInfo.kind})`,
                     });
+                    resumedMarker = markerDir;
                     context = `codex-pair auto-resumed (${decision.why}): was ${pauseInfo.kind}-paused since ${pauseInfo.at ?? "unknown"}. Reviews are live again.`;
                 }
                 else {
@@ -154,6 +157,8 @@ async function main() {
     catch {
         // Bootstrap failure must not break the session.
     }
+    if (resumedMarker)
+        startCatchUp(resumedMarker, payload?.session_id);
     process.exit(0);
 }
 main().catch(() => process.exit(0));

@@ -61,6 +61,12 @@ To onboard a new contributor or a fresh worktree, commit a template at `.codex-p
 
 **Auto-pauses self-heal** (2026-07-02 design): a quota auto-pause expires after `CODEX_PAIR_QUOTA_PAUSE_TTL_MS` (default 6h); a failures auto-pause expires after `CODEX_PAIR_FAILURES_PAUSE_TTL_MS` (default 24h) or immediately when the plugin version changed since the pause was written. Expiry is checked at SessionStart (with a reminder or auto-resume notice injected into context) and on every edit. Manual pauses never auto-expire.
 
+## Catch-up review
+
+On Claude Code, catch-up starts by default when `/codex-pair` finds or creates an active marker, on manual or automatic resume, and at turn end. Each pass has up to 10 eligible files and one two-minute budget. Stop launches the pass in the background. Set `catchUpOnStop: false` in marker frontmatter to disable the turn-end pass for this project. Use `--report` for pending, failed and not-started files.
+
+Coverage includes current dirty or untracked files in the marker's Git repository and session-registered siblings. It excludes shell writes committed before the pass, sibling repositories touched only through the shell, and deletions.
+
 ## Behavior when active
 
 ```

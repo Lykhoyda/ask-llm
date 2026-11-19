@@ -19,6 +19,7 @@ process.env.ASK_CODEX_DEBOUNCE_MS = "0";
 
 describe("scripts/codex-pair-watch.mjs — structural invariants (ADR-077)", () => {
   const script = readFile("scripts/codex-pair-watch.mts");
+  const fileScope = readFile("scripts/lib/pair-file-scope.mts");
   // ADR-088: state helpers now live in lib/state.mjs. Tests that previously
   // grepped the hook source for state symbols now read this instead.
   const libState = readFile("scripts/lib/state.mjs");
@@ -111,7 +112,8 @@ describe("scripts/codex-pair-watch.mjs — structural invariants (ADR-077)", () 
   it("drains pending verdicts and skips both drain+dispatch under force-sync", () => {
     expect(script).toMatch(/drainPending\(/);
     // The effective window collapses to 0 under force-sync (no drain, no dispatch).
-    expect(script).toMatch(/CODEX_PAIR_FORCE_SYNC[^\n]*\?\s*0\s*:/);
+    expect(script).toMatch(/const forced = process\.env\.CODEX_PAIR_FORCE_SYNC === "1"/);
+    expect(script).toMatch(/effectiveDebounceMs = [^\n]*forced \? 0 :/);
   });
 
   // Phase 1 item #1: log rotation (now in lib/state.mjs per ADR-088)
@@ -326,17 +328,17 @@ describe("scripts/codex-pair-watch.mjs — structural invariants (ADR-077)", () 
 
   // Phase 2 item #7: .codex-pair/ignore granular opt-out
   it("readIgnoreFile + matchesIgnoreRule + globToRegex helpers exist", () => {
-    expect(script).toMatch(/function readIgnoreFile/);
-    expect(script).toMatch(/function globToRegex/);
-    expect(script).toMatch(/function matchesIgnoreRule/);
-    expect(script).toMatch(/\.codex-pair\/ignore/);
+    expect(fileScope).toMatch(/function readIgnoreFile/);
+    expect(fileScope).toMatch(/function globToRegex/);
+    expect(fileScope).toMatch(/function matchesIgnoreRule/);
+    expect(fileScope).toMatch(/\.codex-pair\/ignore/);
   });
 
   it("ignore/include file parser handles `#` comments and `!` negation (readGlobRulesFile)", () => {
     // ADR-096: readIgnoreFile + readIncludeFile both delegate to the shared
     // readGlobRulesFile helper. Test the helper body now since the
     // ignore-specific function is now a thin wrapper.
-    const block = script.match(/function readGlobRulesFile[\s\S]*?^}/m);
+    const block = fileScope.match(/function readGlobRulesFile[\s\S]*?^}/m);
     expect(block).toBeTruthy();
     const body = block?.[0] ?? "";
     expect(body).toMatch(/startsWith\(["']#["']\)/);
@@ -345,7 +347,7 @@ describe("scripts/codex-pair-watch.mjs — structural invariants (ADR-077)", () 
   });
 
   it("glob matcher supports *, **, ?, [...], anchored /, trailing /", () => {
-    const block = script.match(/function globToRegex[\s\S]*?^}/m);
+    const block = fileScope.match(/function globToRegex[\s\S]*?^}/m);
     expect(block).toBeTruthy();
     const body = block?.[0] ?? "";
     // `*` → [^/]* (no path separators)
@@ -361,7 +363,7 @@ describe("scripts/codex-pair-watch.mjs — structural invariants (ADR-077)", () 
   });
 
   it("matchesIgnoreRule: last matching rule wins, `!` re-includes", () => {
-    const block = script.match(/function matchesIgnoreRule[\s\S]*?^}/m);
+    const block = fileScope.match(/function matchesIgnoreRule[\s\S]*?^}/m);
     expect(block).toBeTruthy();
     const body = block?.[0] ?? "";
     // Iterates rules and tracks last match
@@ -515,35 +517,17 @@ describe("scripts/codex-pair-watch.mjs — structural invariants (ADR-077)", () 
     expect(fresh).not.toMatch(/\[cached\]/);
   });
 
-  it("main() invokes include + ignore checks between SKIP_PATTERNS and frontmatter parse, no systemMessage on either", () => {
-    // ADR-096: include-list check runs BEFORE ignore-list (include narrows;
-    // ignore excludes from narrowed set). Both come after SKIP_PATTERNS
-    // and before frontmatter parse. The 800-char distance budget was
-    // expanded to 2000 because the include block adds ~20 LOC.
-    // ADR-097 (negation-only handling) added ~35 chars to the
-    // include→ignore distance via the long explanatory log message; bumped
-    // include→ignore budget to 2000 to match the SKIP_PATTERNS→include side.
-    expect(script).toMatch(/SKIP_PATTERNS[\s\S]{0,2000}?readIncludeFile/);
-    expect(script).toMatch(/readIncludeFile[\s\S]{0,2000}?readIgnoreFile/);
-    expect(script).toMatch(/matchesIgnoreRule/);
-    // On ignore match, log skip AND exit without a VERDICT emission. The only
-    // allowed emission is flushNoticeOnly() (ADR-130: a pending auto-resume
-    // notice must not be swallowed by a skip path; it no-ops when nothing is
-    // queued) — the skip itself stays silent when no notice is pending.
-    const ignoreBlock = script.match(/if\s*\(\s*ignoreMatch[\s\S]*?process\.exit/);
-    expect(ignoreBlock).toBeTruthy();
-    expect(ignoreBlock?.[0]).toMatch(/matched \.codex-pair\/ignore/);
-    expect(ignoreBlock?.[0]).toMatch(/await flushNoticeOnly\(\)/);
-    expect(ignoreBlock?.[0]).not.toMatch(/emitSystemMessage/);
-    // Same UX for non-inclusion: silent skip apart from the notice flush.
-    // ADR-097: gate is now `positiveInclude.length` (ADR-096's
-    // `includeRules.length` was widened so the negation-only branch can
-    // re-use the read result without re-parsing the file).
-    const includeBlock = script.match(/if\s*\(\s*positiveInclude\.length[\s\S]*?process\.exit/);
-    expect(includeBlock).toBeTruthy();
-    expect(includeBlock?.[0]).toMatch(/file not in \.codex-pair\/include scope/);
-    expect(includeBlock?.[0]).toMatch(/await flushNoticeOnly\(\)/);
-    expect(includeBlock?.[0]).not.toMatch(/emitSystemMessage/);
+  it("applies built-in, include and ignore rules in order and keeps skips silent", () => {
+    const skipReason = fileScope.slice(fileScope.indexOf("skipReason(filePath:"));
+    expect(skipReason).toMatch(/SKIP_PATTERNS[\s\S]*?hasPositiveInclude[\s\S]*?const ignored/);
+    expect(skipReason).toMatch(/file not in \.codex-pair\/include scope/);
+    expect(skipReason).toMatch(/matched \.codex-pair\/ignore/);
+    expect(script).toMatch(/scope\.skipReason\(filePath\)[\s\S]*?parseFrontmatter\(markerContent\)/);
+    // An auto-resume notice may still surface when the edit itself is skipped (ADR-130).
+    const skipBlock = script.match(/if \(skip\) \{[\s\S]*?process\.exit/);
+    expect(skipBlock?.[0]).toMatch(/verdict: "skipped"/);
+    expect(skipBlock?.[0]).toMatch(/await flushNoticeOnly\(\)/);
+    expect(skipBlock?.[0]).not.toMatch(/emitSystemMessage/);
   });
 
   it("auto-pause lost-race branches flush pending notices (PR #208 round-2 review)", () => {
@@ -562,28 +546,28 @@ describe("scripts/codex-pair-watch.mjs — structural invariants (ADR-077)", () 
   // Phase 1 item #3: expanded skip patterns
   it("skips font files, archives, sourcemaps, snapshots, minified assets, and additional lockfiles", () => {
     // Fonts
-    expect(script).toMatch(/["']\.woff["']/);
-    expect(script).toMatch(/["']\.woff2["']/);
-    expect(script).toMatch(/["']\.ttf["']/);
-    expect(script).toMatch(/["']\.otf["']/);
-    expect(script).toMatch(/["']\.eot["']/);
+    expect(fileScope).toMatch(/["']\.woff["']/);
+    expect(fileScope).toMatch(/["']\.woff2["']/);
+    expect(fileScope).toMatch(/["']\.ttf["']/);
+    expect(fileScope).toMatch(/["']\.otf["']/);
+    expect(fileScope).toMatch(/["']\.eot["']/);
     // Docs + archives
-    expect(script).toMatch(/["']\.pdf["']/);
-    expect(script).toMatch(/["']\.zip["']/);
-    expect(script).toMatch(/["']\.tar["']/);
-    expect(script).toMatch(/["']\.gz["']/);
+    expect(fileScope).toMatch(/["']\.pdf["']/);
+    expect(fileScope).toMatch(/["']\.zip["']/);
+    expect(fileScope).toMatch(/["']\.tar["']/);
+    expect(fileScope).toMatch(/["']\.gz["']/);
     // Snapshots, sourcemaps, minified
-    expect(script).toMatch(/["']\.snap["']/);
-    expect(script).toMatch(/["']\.map["']/);
-    expect(script).toMatch(/["']\.min\.js["']/);
-    expect(script).toMatch(/["']\.min\.css["']/);
+    expect(fileScope).toMatch(/["']\.snap["']/);
+    expect(fileScope).toMatch(/["']\.map["']/);
+    expect(fileScope).toMatch(/["']\.min\.js["']/);
+    expect(fileScope).toMatch(/["']\.min\.css["']/);
     // Additional lockfiles
-    expect(script).toMatch(/["']pnpm-lock\.yaml["']/);
-    expect(script).toMatch(/["']Cargo\.lock["']/);
-    expect(script).toMatch(/["']Gemfile\.lock["']/);
-    expect(script).toMatch(/["']composer\.lock["']/);
-    expect(script).toMatch(/["']poetry\.lock["']/);
-    expect(script).toMatch(/["']go\.sum["']/);
+    expect(fileScope).toMatch(/["']pnpm-lock\.yaml["']/);
+    expect(fileScope).toMatch(/["']Cargo\.lock["']/);
+    expect(fileScope).toMatch(/["']Gemfile\.lock["']/);
+    expect(fileScope).toMatch(/["']composer\.lock["']/);
+    expect(fileScope).toMatch(/["']poetry\.lock["']/);
+    expect(fileScope).toMatch(/["']go\.sum["']/);
   });
 
   // Phase 1 item #4: default-model drift guard
@@ -612,12 +596,12 @@ describe("scripts/codex-pair-watch.mjs — structural invariants (ADR-077)", () 
   });
 
   it("skips node_modules, dist, .git, lockfiles, and common image assets", () => {
-    expect(script).toMatch(/node_modules/);
-    expect(script).toMatch(/\/dist\//);
-    expect(script).toMatch(/\.git/);
-    expect(script).toMatch(/yarn\.lock/);
-    expect(script).toMatch(/package-lock\.json/);
-    expect(script).toMatch(/\.png/);
+    expect(fileScope).toMatch(/node_modules/);
+    expect(fileScope).toMatch(/\/dist\//);
+    expect(fileScope).toMatch(/\.git/);
+    expect(fileScope).toMatch(/yarn\.lock/);
+    expect(fileScope).toMatch(/package-lock\.json/);
+    expect(fileScope).toMatch(/\.png/);
   });
 
   it("parses HIGH/MED/LOW labels from codex output (ADR-088 unit test)", async () => {
@@ -4386,27 +4370,16 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
     expect(loadRepetitionsForFile(tempDir, file).get(h)?.count).toBe(3);
   });
 
-  it("ADR-097 structural: negation-only include transforms to ignore-list, never silently skips all files", () => {
-    // Closes finding #4 (include-list negation-only edge case). The bug
-    // semantics under ADR-096: a `.codex-pair/include` containing only
-    // `!build/**` would gate ALL files out (no positive rule = no match),
-    // even though the intent was "review everything except build/". The
-    // fix transforms negation-only rules into ignore-list entries with
-    // a one-time info-level log explaining the semantic mapping.
-    // (Structural test lives inside runtime-behavior block; load script locally.)
-    const watchScript = fs.readFileSync(path.join(PLUGIN_ROOT, "scripts", "codex-pair-watch.mts"), "utf-8");
-    expect(watchScript).toMatch(/positiveInclude\s*=\s*includeRules\.filter/);
-    expect(watchScript).toMatch(/positiveInclude\.length\s*>\s*0/);
-    expect(watchScript).toMatch(/includeNegationsAsIgnore/);
-    // Negation-only branch logs an info-level reason — does NOT exit.
-    const negBlock = watchScript.match(/else if\s*\(\s*includeRules\.length[\s\S]*?\n\s\s\}/);
-    expect(negBlock).toBeTruthy();
-    expect(negBlock?.[0]).toMatch(/level: "info"/);
-    expect(negBlock?.[0]).not.toMatch(/process\.exit/);
-    // Ignore rules used downstream merge positive ignore + transformed negations.
-    expect(watchScript).toMatch(
-      /ignoreRules\s*=\s*\[\s*\.\.\.ignoreRulesRaw\s*,\s*\.\.\.includeNegationsAsIgnore\s*\]/,
+  it("ADR-097 structural: negation-only include transforms to ignore rules and logs the mapping", () => {
+    const watchScript = readFile("scripts/codex-pair-watch.mts");
+    const fileScope = readFile("scripts/lib/pair-file-scope.mts");
+    expect(fileScope).toMatch(/negationOnlyInclude = includeRules\.length > 0 && !hasPositiveInclude/);
+    expect(fileScope).toMatch(
+      /\.\.\.readIgnoreFile[\s\S]*?negationOnlyInclude \? includeRules\.map[\s\S]*?negate: false/,
     );
+    const notice = watchScript.match(/if \(scope\.negationOnlyInclude[\s\S]*?^ {2}\}/m);
+    expect(notice?.[0]).toMatch(/level: "info"/);
+    expect(notice?.[0]).not.toMatch(/process\.exit/);
   });
 
   it("ADR-096: buildVerdictMessage adds loud BLOCKING banner when repeatedIgnoredCount > 0", async () => {
@@ -4458,9 +4431,9 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
     const watch = fs.readFileSync(path.join(PLUGIN_ROOT, "scripts", "codex-pair-watch.mts"), "utf-8");
     expect(watch).toMatch(/hashConcernBody/);
     expect(watch).toMatch(/updateRepetitions/);
-    expect(watch).toMatch(/includePath/);
-    expect(watch).toMatch(/readIncludeFile/);
-    expect(watch).toMatch(/readGlobRulesFile/);
+    expect(watch).toMatch(/import \{ readFileScope \} from "\.\/lib\/pair-file-scope\.mts"/);
+    const fileScope = readFile("scripts/lib/pair-file-scope.mts");
+    expect(fileScope).toMatch(/readGlobRulesFile\(includePath\(/);
     // Both buildVerdictMessage call sites pass repeatedIgnoredCount
     const verdictCalls = watch.match(/buildVerdictMessage\(\{[\s\S]+?\}\)/g) ?? [];
     expect(verdictCalls.length).toBeGreaterThanOrEqual(2);

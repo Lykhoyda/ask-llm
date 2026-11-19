@@ -125,9 +125,9 @@ The `/codex-pair` suite is the human-facing dashboard and controls for the hook.
 
 | Command | What it does |
 |---|---|
-| `/codex-pair` | Runs [setup](#setup) when no marker exists; otherwise shows the [status command](#inspecting-log-activity-the-codex-pair-log-cli)'s output |
+| `/codex-pair` | Runs [setup](#setup) when needed, starts a catch-up pass for an active marker and shows status |
 | `/codex-pair-pause` | Pause the hook for this project without removing the marker. Writes a `.codex-pair/state/paused` sentinel the hook checks on every edit and records the pause. Use to temporarily silence reviews (noisy refactor, docs-only work) and resume later |
-| `/codex-pair-resume` | Remove the pause sentinel, clear the failure counter and record the resume. The hook starts reviewing edits again on the next edit. No-op if no pause sentinel exists |
+| `/codex-pair-resume` | Remove the pause sentinel, clear the failure counter and record the resume. Starts a catch-up pass and re-enables per-edit review. No-op if no pause sentinel exists |
 | `/codex-pair-ack <hash> "<reason>"` | Acknowledge a HIGH finding without fixing it (known trade-off or tracked in a ticket). The `<hash>` is the content hash shown alongside the finding when the Stop gate blocks. The reason is recorded as a concurrency-safe shard under `.codex-pair/state/acks/` with a timestamp; acknowledged findings are skipped by the gate until the file changes |
 
 ## The hook pipeline
@@ -138,13 +138,19 @@ codex-pair is implemented as five hooks working together, all dependency-free wi
 |---|---|---|
 | `codex-pair-watch` (PostToolUse) | After every `Edit` / `Write` / `MultiEdit` | If a `.codex-pair/context.md` marker exists from the edited file's directory up to the project root, the edit is queued for review with the marker's content as context. Edits are **debounced**: a burst within the 15s settle window coalesces into one review of the settled state, run by a detached worker. No marker means the hook exits silently after one `fs.access()` call: **zero Codex calls, zero cost** |
 | `codex-pair-prompt-drain` (UserPromptSubmit) | On every user prompt | Drains queued codex-pair verdicts that finished mid-turn so they reach Claude without waiting for the next edit |
-| `codex-pair-stop-gate` (Stop) | At turn end | Drains remaining queued verdicts (no opt-in needed). With `blockOn: HIGH` in the marker frontmatter (opt-in, default OFF), blocks turn-end while unaddressed HIGH findings or in-flight reviews remain. See [Stop gate](#stop-gate-opt-in) below |
-| `codex-pair-session` (SessionStart) | At Claude session start | Announces a paused project and starts the broker when enabled |
+| `codex-pair-stop-gate` (Stop) | At turn end | Starts a catch-up pass in the background and drains queued verdicts. With `blockOn: HIGH` in the marker frontmatter (opt-in, default OFF), blocks turn-end while unaddressed HIGH findings or in-flight reviews remain. See [Stop gate](#stop-gate-opt-in) below |
+| `codex-pair-session` (SessionStart) | At Claude session start | Announces or clears a pause, starts the broker when enabled and catches up after automatic resume |
 | `codex-pair-session` (SessionEnd) | At Claude session end | Clears debounce state and tears down this session's broker |
 
 By default HIGH and MED concerns are surfaced; LOW concerns and all timing/skip telemetry are logged to `.codex-pair/log.jsonl` alongside the marker file. Set `debounceMs: 0` in the marker frontmatter for synchronous per-edit review.
 
 In the shared review hook scripts (Claude Code and Grok CLI), a reviewer reply that matches neither the JSON verdict contract nor the legacy `NONE` / `[HIGH]`/`[MED]`/`[LOW]` format is never recorded as "no concerns": it is logged with verdict `unparsed` (with a short excerpt of the reply), surfaced once as `codex-pair UNPARSED`, left out of the review cache, and counted towards the consecutive-failure auto-pause. The Pi extension does not yet apply this handling.
+
+### Catch-up review
+
+On Claude Code, catch-up runs when `/codex-pair` finds or creates an active marker, on manual or automatic resume, and at turn end. Each pass reviews up to 10 files in sequence within one two-minute budget, using the same worker, cache, and file rules as per-edit review. Quota auto-pause ends the pass. The Stop hook starts the pass without waiting for a review. Set `catchUpOnStop: false` in `.codex-pair/context.md` frontmatter to skip the turn-end pass for that project.
+
+A pass considers eligible dirty or untracked files in the marker's Git repository and any sibling repositories already registered in the session. It can pick up edits made through the shell or before activation. Shell writes committed before the pass, sibling repositories touched only through the shell, and deletions are outside its coverage. A retained successful review or cache hit for the current content and review context counts even after the cache expires.
 
 ### Configuration knobs
 
@@ -281,11 +287,13 @@ node packages/llm-mcp/scripts/codex-pair-log.mjs --report --since 24h --json
 
 The report counts actual successful reviews and cache hits separately. A finding hash counts once at its highest observed severity, and later appearances, including cache hits, count as repeats. The report includes acknowledgement reasons and findings no longer reported on the latest review of their file. Missing historical attribution is shown as `unknown`. When retained reviews lack finding identities, finding counts and lists describe only known evidence: the human output labels them `known (partial)`, and JSON sets `findingsComplete: false`. This qualification covers unique findings by severity, repeats, acknowledgements, other unacknowledged HIGHs, and findings no longer reported on the latest review of their file; current gate blockers remain a separate exact result. Claude's effort also appears as `unknown` because the hook does not set or observe it. Pi reviews appear without attribution (`unknown`), and its pause/resume handlers do not yet record structured events. Attribution and pause/resume event parity for Pi are a follow-up. Copy the first line into a pull request description or closing status. The remaining lines contain details, which are also available as JSON.
 
+The current coverage section lists eligible dirty files as pending, failed, or not started. Files beyond a pass's time or file limit appear by name. In JSON, the `unreviewedFiles` array identifies each file by its marker directory and relative path. This section uses the full retained log and can include registered sibling repositories when the session ID is available. `--since` only limits the historical metrics.
+
 From the project directory, the same CLI accepts `pause` and `resume` to change the sentinel and record transitions. Use `ack <hash>` with a non-empty reason on stdin to acknowledge a finding. For example, pipe `printf '%s\n' 'Accepted pending follow-up'` to `node packages/llm-mcp/scripts/codex-pair-log.mjs ack fc69d46835dfd2ab`.
 
 `--status` reads the same resolver as the hook and works before any review is logged; a missing marker produces an error. It reports `disabled (CODEX_PAIR_DISABLED=1)`, `paused (manual|quota|failures)` or `active`. An invalid or same-family reviewer also reports `disabled` with the refusal reason, unless the disable switch or a pause takes precedence. For valid configuration it shows the reviewer, model, fallback, effort, threshold, timeout, file-size limit, debounce settings and `Guards turn end on: HIGH` or `nothing`. Claude review labels fallback and effort as unused.
 
-It observes pause state without clearing expired auto-pauses or starting a reviewer. These are the current process's resolved settings; run it with the hook's environment. For Grok CLI, prefix the command with `CODEX_PAIR_HOST=grok` so reviewer selection uses the Grok writer family. Active means the marker is enabled and unpaused, not proof that a host registered or ran its hook; recent log entries provide that evidence. The Claude Code skill runs this command and shows its output.
+It observes pause state without clearing expired auto-pauses or starting a reviewer. These are the current process's resolved settings; run it with the hook's environment. For Grok CLI, prefix the command with `CODEX_PAIR_HOST=grok` so reviewer selection uses the Grok writer family. Active means the marker is enabled and unpaused, not proof that a host registered or ran its hook; recent log entries provide that evidence. The Claude Code skill uses the `start` subcommand to schedule catch-up before showing the same status.
 
 Output shape (one line per log entry):
 

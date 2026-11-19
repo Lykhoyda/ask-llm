@@ -14,20 +14,21 @@ export function canonicalFile(file: string): string {
   }
 }
 
-function gitDirtySet(markerDir: string) {
+export function gitDirtySet(markerDir: string, deadline = Infinity) {
   // timeout guards against a hung git (locked index, slow FS) wedging turn-end.
   const opts = {
     encoding: "utf8" as const,
     stdio: ["ignore", "pipe", "ignore"] as ("ignore" | "pipe")[],
-    timeout: 5000,
+    timeout: Math.max(1, Math.min(5000, deadline - Date.now())),
   };
   try {
     const repoRoot = execFileSync("git", ["-C", markerDir, "rev-parse", "--show-toplevel"], opts).trim();
+    if (Date.now() >= deadline) return null;
     // -uall lists files inside untracked dirs; the default collapses them to "?? dir/".
     const porcelain = execFileSync(
       "git",
-      ["-C", markerDir, "status", "--porcelain=v1", "-z", "--untracked-files=all"],
-      opts,
+      ["--no-optional-locks", "-C", markerDir, "status", "--porcelain=v1", "-z", "--untracked-files=all"],
+      { ...opts, timeout: Math.max(1, Math.min(5000, deadline - Date.now())) },
     );
     return parseGitPorcelain(porcelain, repoRoot);
   } catch {

@@ -3,7 +3,7 @@
 
 These Agent, MCP, hook, `CLAUDE_PLUGIN_ROOT`, and `AskUserQuestion` mechanics apply only on Claude Code.
 
-`/codex-pair` orchestrates setup and status for the codex-pair PostToolUse hook. The hook runs automatically on every Edit/Write/MultiEdit when the project opts in via `.codex-pair/context.md`; invoke this command for first-time setup or to check the current state.
+`/codex-pair` orchestrates setup and status for the codex-pair PostToolUse hook. The hook runs automatically on every Edit/Write/MultiEdit when the project opts in via `.codex-pair/context.md`; invoke this command for setup, catch-up and status.
 
 ## 1. Detect current state
 
@@ -99,13 +99,13 @@ Done when setup was cancelled without writing a marker, or the marker exists and
 
 ## 3. Show status
 
-Run the plugin's status command from the project and show its output:
+Start catch-up and show the plugin's status output from the project.
 
 ```bash
-node "${CLAUDE_PLUGIN_ROOT}/scripts/codex-pair-log.mjs" --status
+node "${CLAUDE_PLUGIN_ROOT}/scripts/codex-pair-log.mjs" start
 ```
 
-It resolves the same configuration as the hook, including marker/environment/default effort precedence, `blockOn`, disabled and pause state, and recent reviews. Existing markers stay advisory unless they opt in with `blockOn: HIGH`.
+The command schedules eligible dirty files for an active marker and prints status. It resolves the same configuration as the hook, including effort, `blockOn`, disabled and pause state, and recent reviews. See [Catch-up review](reference.md#catch-up-review) for coverage and the turn-end setting. Existing markers stay advisory unless they opt in with `blockOn: HIGH`.
 
 If status warns that `.codex-pair/` is not ignored by git, run `node "${CLAUDE_PLUGIN_ROOT}/scripts/codex-pair-log.mjs" setup` from the same directory to apply the local exclusion while preserving the marker. Show the setup output and stop if it exits non-zero.
 
@@ -119,7 +119,7 @@ When the paired work is ready to hand off, run the report from the project:
 node "${CLAUDE_PLUGIN_ROOT}/scripts/codex-pair-log.mjs" --report
 ```
 
-Use `--since` with a duration covering the work when the retained repository log includes earlier work. Done when you paste the report's first line into the pull request description or closing status.
+Use `--since` with a duration covering the work when the retained repository log includes earlier work. Done when you paste the report's first line into the pull request description or closing status and relay any named files that still lack a current review.
 
 ## Stop gate: `blockOn`
 

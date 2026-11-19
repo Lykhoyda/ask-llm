@@ -5,6 +5,7 @@ import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { drainPending, joinPendingForSurface, readDebounceRecords } from "./lib/debounce-state.mjs";
+import { startCatchUp } from "./lib/pair-catch-up.mjs";
 import { markerScalar, resolveBlockOn } from "./lib/pair-config.mjs";
 import { collectSessionMarkers } from "./lib/session-registry.mjs";
 import { CONTEXT_FILENAME, contextPath, INFLIGHT_TTL_MIN_MS, inflightRoot, logPath, PAIR_ROOT_DIR, readAcks, } from "./lib/state.mjs";
@@ -118,6 +119,7 @@ async function main() {
     const markers = collectSessionMarkers(cwdMarker, payload?.session_id);
     if (markers.length === 0)
         process.exit(0);
+    startCatchUp(cwdMarker, payload?.session_id, true);
     const allPending = [];
     const blockReasons = [];
     for (const markerDir of markers) {
