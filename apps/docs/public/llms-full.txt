@@ -860,7 +860,7 @@ charge). Concurrent requests are real. URL inputs are untrusted.
 EOF
 ```
 
-On Claude Code, the marker file opts the project into review; `CODEX_PAIR_DISABLED=1` or a pause sentinel still prevents reviews. Its content is review context. New `/codex-pair` markers explicitly set `blockOn: false` for advisory review; an existing marker without `blockOn` remains advisory. On Pi, marker presence is only the repository-side gate: it never authorizes provider transfer/cost without Pi project trust and separate interactive `/codex-pair` consent stored outside the repository.
+On Claude Code, the marker file opts the project into review; `CODEX_PAIR_DISABLED=1` or a pause sentinel still prevents reviews. Its content is review context. Interactively drafted markers explicitly set `blockOn: false` for advisory review; template copies preserve their settings, including `blockOn`. An existing marker without `blockOn` remains advisory. On Pi, marker presence is only the repository-side gate: it never authorizes provider transfer/cost without Pi project trust and separate interactive `/codex-pair` consent stored outside the repository.
 
 **Do NOT commit the `.codex-pair/` directory**: keep it ignored. Each contributor's review context is their own; one developer iterating on prompt wording shouldn't dirty the shared history. The hook itself is project-policy (it's in the plugin); the marker is per-developer opt-in. Every state artifact (marker, log, cache, `ignore` globs, pause sentinel, inflight locks) nests under the single directory; one ignore line covers everything:
 
@@ -902,7 +902,7 @@ The `/codex-pair` suite is the human-facing dashboard and controls for the hook.
 
 | Command | What it does |
 |---|---|
-| `/codex-pair` | First run (no marker) offers interactive setup with auto-detected project context. With a marker, shows the [status command](#inspecting-log-activity-the-codex-pair-log-cli)'s output: current configuration, disabled/pause state and recent review activity |
+| `/codex-pair` | Runs [setup](#setup) when no marker exists; otherwise shows the [status command](#inspecting-log-activity-the-codex-pair-log-cli)'s output |
 | `/codex-pair-pause` | Pause the hook for this project without removing the marker. Writes a `.codex-pair/state/paused` sentinel the hook checks on every edit and records the pause. Use to temporarily silence reviews (noisy refactor, docs-only work) and resume later |
 | `/codex-pair-resume` | Remove the pause sentinel, clear the failure counter and record the resume. The hook starts reviewing edits again on the next edit. No-op if no pause sentinel exists |
 | `/codex-pair-ack <hash> "<reason>"` | Acknowledge a HIGH finding without fixing it (known trade-off or tracked in a ticket). The `<hash>` is the content hash shown alongside the finding when the Stop gate blocks. The reason is recorded as a concurrency-safe shard under `.codex-pair/state/acks/` with a timestamp; acknowledged findings are skipped by the gate until the file changes |
@@ -1031,7 +1031,7 @@ Any error in the stop-gate hook (missing log, parse error, git unavailable) warn
 
 ### Inspecting log activity: the `codex-pair-log` CLI
 
-Shipped alongside the hook at `packages/llm-mcp/scripts/codex-pair-log.mjs`. Walks up from cwd to find the marker (same gate as the hook), then renders the sibling `.codex-pair/log.jsonl`. Useful for "is the hook actually running" diagnostics and for forensic analysis of what's been reviewed.
+Shipped alongside the hook at `packages/llm-mcp/scripts/codex-pair-log.mjs`. Log and status commands walk up from cwd to find the marker (same gate as the hook), then read the sibling `.codex-pair/log.jsonl`. Useful for "is the hook actually running" diagnostics and for forensic analysis of what's been reviewed. The `setup` subcommand can run before a marker exists; see [Setup](#setup).
 
 ```bash
 # Read-only status: resolved configuration, disable/pause state, last five reviews
