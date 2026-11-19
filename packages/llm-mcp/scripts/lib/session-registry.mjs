@@ -5,6 +5,7 @@ import { createHash } from "node:crypto";
 import { mkdirSync, readdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { canonicalFile } from "./state.mjs";
 export const SESSION_REGISTRY_DIRNAME = "codex-pair-sessions";
 // Long TTL: the sweep only reclaims crash orphans and could otherwise hit an idle live session (ADR-131).
 const DEFAULT_SESSION_REGISTRY_TTL_MS = 7 * 24 * 60 * 60 * 1000;
@@ -63,12 +64,13 @@ export function readRegisteredMarkers(sessionId) {
     return [...markers];
 }
 export function collectSessionMarkers(cwdMarker, sessionId) {
-    const set = new Set();
-    if (cwdMarker)
-        set.add(cwdMarker);
-    for (const m of readRegisteredMarkers(sessionId))
-        set.add(m);
-    return [...set];
+    const markers = new Map();
+    for (const marker of [...(cwdMarker ? [cwdMarker] : []), ...readRegisteredMarkers(sessionId)]) {
+        const key = canonicalFile(marker);
+        if (!markers.has(key))
+            markers.set(key, marker);
+    }
+    return [...markers.values()];
 }
 export function clearSession(sessionId) {
     if (!sessionId)

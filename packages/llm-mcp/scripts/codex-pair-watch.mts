@@ -766,14 +766,14 @@ async function main() {
   // Resolve from the edited file so cross-repository edits use the right marker and log.
   markerAnchor = dirname(filePath);
   const forced = process.env.CODEX_PAIR_FORCE_SYNC === "1";
-  const passDeadline = forced ? positiveMs(process.env.CP_CATCH_UP_DEADLINE) : undefined;
+  const passDeadline = forced && !grokHost ? positiveMs(process.env.CP_CATCH_UP_DEADLINE) : undefined;
   const catchUp = passDeadline !== undefined;
   const markerDir = catchUp ? process.env.CP_MARKER_DIR : await findMarkerUp(markerAnchor);
   if (!markerDir || (catchUp && !isCatchUpFile(markerDir, filePath))) process.exit(0);
 
   // Register before skip gates so earlier HIGH findings remain visible across repositories.
   registerMarker(payload?.session_id, markerDir);
-  if (forced && (!grokHost || catchUp)) forcedTarget = { markerDir, filePath };
+  if (forced && !grokHost) forcedTarget = { markerDir, filePath };
 
   const pauseInfo = readPauseInfo(markerDir);
   if (pauseInfo) {
@@ -800,7 +800,7 @@ async function main() {
       });
       noticePrefix = `codex-pair auto-resumed (${resumeDecision.why}): was ${pauseInfo.kind}-paused since ${pauseInfo.at ?? "unknown"}. Reviews are live again.`;
       // Give this edit its normal review first, then launch catch-up for the remaining files.
-      process.once("exit", () => startCatchUp(markerDir, payload?.session_id));
+      if (!grokHost) process.once("exit", () => startCatchUp(markerDir, payload?.session_id));
     } else if (currentPause) {
       const pauseReason = currentPause.manual
         ? "paused via /codex-pair-pause (rm .codex-pair/state/paused to resume)"

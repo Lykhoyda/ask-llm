@@ -6,6 +6,7 @@ import {
   readFileSync,
   realpathSync,
   rmSync,
+  symlinkSync,
   unlinkSync,
   utimesSync,
   writeFileSync,
@@ -13,8 +14,9 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, expect, it } from "vitest";
-import { contentHash } from "../../scripts/lib/debounce-state.mjs";
-import { pausePath, tryAcquireInflightLock } from "../../scripts/lib/state.mjs";
+import { createHash } from "node:crypto";
+import { bumpEditRecord, readEditRecord, markReviewed, contentHash } from "../../scripts/lib/debounce-state.mjs";
+import { inflightLockPath, releaseInflightLock, pausePath, tryAcquireInflightLock } from "../../scripts/lib/state.mjs";
 import { PLUGIN_ROOT } from "./_helpers.js";
 
 const SESSION = "catch-up-test";
@@ -340,5 +342,87 @@ it("allows the marker to disable turn-end catch-up while leaving activation enab
 
   run(LOG, { args: ["start"] });
   await expect.poll(() => report(), { timeout: 5000 }).toEqual([]);
+  expect(receivedCalls()).toBe(1);
+});
+
+it.each([true, false])(
+  "a watched edit and catch-up share the lock across path aliases (watch uses alias: %s)",
+  async (watchAlias) => {
+    marker("debounceMs: 25");
+    shellWrite("tracked.ts");
+    const alias = join(scratch, "alias");
+    symlinkSync(repo, alias, "dir");
+    const watchRoot = watchAlias ? alias : repo;
+    const catchUpRoot = watchAlias ? repo : alias;
+    run(WATCH, {
+      cwd: watchRoot,
+      scenario: "gated",
+      event: { tool_name: "Edit", tool_input: { file_path: join(watchRoot, "tracked.ts") } },
+    });
+    await expect.poll(() => existsSync(started), { timeout: 5000 }).toBe(true);
+    expect(report()).toEqual([{ repository: repo, file: "tracked.ts", status: "pending" }]);
+    run(LOG, { cwd: catchUpRoot, args: ["start"], scenario: "gated" });
+    expect(receivedCalls()).toBe(1);
+    expect(realpathSync(inflightLockPath(repo, join(repo, "tracked.ts")))).toBe(
+      realpathSync(inflightLockPath(alias, join(alias, "tracked.ts"))),
+    );
+    shellWrite("tracked.ts", "// REVIEW_TOKEN_latest\n");
+    edit("tracked.ts", catchUpRoot);
+    writeFileSync(released, "");
+    await expect.poll(() => report(), { timeout: 5000 }).toEqual([]);
+    expect(log().filter((entry) => entry.verdict === "none" || entry.verdict === "concerns")).toHaveLength(2);
+    expect(receivedCalls()).toBe(2);
+  },
+);
+
+it("canonical debounce keys preserve legacy alias generations and completed state", () => {
+  marker();
+  const alias = join(scratch, "alias");
+  symlinkSync(repo, alias, "dir");
+  const file = join(repo, "tracked.ts");
+  const legacyFile = join(alias, "tracked.ts");
+  const legacyKey = createHash("sha256").update(legacyFile).digest("hex").slice(0, 16);
+  const state = join(repo, ".codex-pair/state");
+  for (const directory of ["debounce", "reviewed"]) mkdirSync(join(state, directory), { recursive: true });
+  writeFileSync(
+    join(state, "debounce", `${legacyKey}.json`),
+    JSON.stringify({ file: legacyFile, generation: 7, burstStartedAt: 1 }),
+  );
+  writeFileSync(join(state, "reviewed", `${legacyKey}.json`), JSON.stringify({ file: legacyFile, reviewedGen: 7 }));
+  expect(readEditRecord(repo, file)).toMatchObject({ generation: 7, reviewedGen: 7 });
+  expect(bumpEditRecord(repo, file, { now: 100 })).toMatchObject({
+    generation: 8,
+    reviewedGen: 7,
+    burstStartedAt: 100,
+  });
+  expect(bumpEditRecord(alias, legacyFile, { now: 200 })).toMatchObject({ generation: 9, burstStartedAt: 100 });
+  markReviewed(alias, legacyFile, 9);
+  expect(readEditRecord(repo, file)).toMatchObject({ generation: 9, reviewedGen: 9 });
+  const lock = tryAcquireInflightLock(repo, file, 60_000);
+  expect(lock.acquired).toBe(true);
+  expect(tryAcquireInflightLock(alias, legacyFile, 60_000).acquired).toBe(false);
+  releaseInflightLock(lock.lockPath);
+});
+
+it("Grok start and both resume paths leave shell-written files for foreground review", () => {
+  marker();
+  shellWrite("shell.ts");
+  const env = { CODEX_PAIR_HOST: "grok" };
+  run(LOG, { args: ["start"], env });
+  expect(report()).toEqual([{ repository: repo, file: "shell.ts", status: "not-started" }]);
+  run(LOG, { args: ["pause"], env });
+  run(LOG, { args: ["resume"], env });
+  expect(report()).toEqual([{ repository: repo, file: "shell.ts", status: "not-started" }]);
+  writeFileSync(
+    pausePath(repo),
+    JSON.stringify({ v: 1, kind: "quota", reason: "usage limit", at: new Date(0).toISOString() }),
+  );
+  shellWrite("edit.ts");
+  const output = run(WATCH, {
+    env: { ...env, CODEX_PAIR_FORCE_SYNC: "1" },
+    event: { tool_name: "Edit", tool_input: { file_path: join(repo, "edit.ts") } },
+  });
+  expect(JSON.parse(output).hookSpecificOutput.additionalContext).toContain("codex-pair OK:");
+  expect(report()).toEqual([{ repository: repo, file: "shell.ts", status: "not-started" }]);
   expect(receivedCalls()).toBe(1);
 });

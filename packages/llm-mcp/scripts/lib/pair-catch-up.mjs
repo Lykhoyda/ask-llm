@@ -15,7 +15,7 @@ export function lockCatchUpTarget({ markerDir, file, timeoutMs }) {
         return lock.lockPath;
 }
 export function startCatchUp(markerDir, sessionId, atStop = false) {
-    if (process.env.CODEX_PAIR_DISABLED === "1")
+    if (process.env.CODEX_PAIR_DISABLED === "1" || process.env.CODEX_PAIR_HOST === "grok")
         return false;
     const deadline = Date.now() + PASS_BUDGET_MS;
     const activeMarkers = collectSessionMarkers(markerDir, sessionId).filter((marker) => !readPauseInfo(marker));

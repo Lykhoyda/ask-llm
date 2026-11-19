@@ -21,7 +21,7 @@ Grok file edit / shell call -> shared pair hook -> Codex Sol (default)
                                        additionalContext -> next Grok step
 ```
 
-Grok CLI 1.0.70 supports the same marker, review prompt, findings format, cache, log and pause/resume/ack state. Reviews run synchronously so the note reaches the model before the hook exits; Grok ignores the guide's `async` field. There is no Grok Stop gate. Existing Claude Code behavior and defaults remain unchanged.
+Grok CLI 1.0.70 supports the same marker, review prompt, findings format, cache, log and pause/resume/ack state. Reviews run synchronously so the note reaches the model before the hook exits; Grok ignores the guide's `async` field. Catch-up is unavailable on Grok: it has neither a Stop gate nor a prompt drain. Existing Claude Code behavior and defaults remain unchanged.
 
 Create `.codex-pair/context.md` with project invariants and optional frontmatter:
 

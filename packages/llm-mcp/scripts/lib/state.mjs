@@ -284,8 +284,16 @@ export function clearReviewFailures(markerDir) {
         // already clear
     }
 }
+export function canonicalFile(file) {
+    try {
+        return realpathSync(file);
+    }
+    catch {
+        return file;
+    }
+}
 export function inflightLockPath(markerDir, filePath) {
-    const hash = createHash("sha256").update(filePath).digest("hex").slice(0, 16);
+    const hash = createHash("sha256").update(canonicalFile(filePath)).digest("hex").slice(0, 16);
     return join(inflightRoot(markerDir), hash);
 }
 export function tryAcquireInflightLock(markerDir, filePath, ttlMs) {

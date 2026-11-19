@@ -63,6 +63,8 @@ To onboard a new contributor or a fresh worktree, commit a template at `.codex-p
 
 ## Catch-up review
 
+Catch-up is unavailable on Grok, which has neither a Stop gate nor a prompt drain.
+
 On Claude Code, catch-up starts by default when `/codex-pair` finds or creates an active marker, on manual or automatic resume, and at turn end. Each pass has up to 10 eligible files and one two-minute budget. Stop launches the pass in the background. Set `catchUpOnStop: false` in marker frontmatter to disable the turn-end pass for this project. Use `--report` for pending, failed and not-started files.
 
 Coverage includes current dirty or untracked files in the marker's Git repository and session-registered siblings. It excludes shell writes committed before the pass, sibling repositories touched only through the shell, and deletions.

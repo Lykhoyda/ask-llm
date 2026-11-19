@@ -372,11 +372,11 @@ async function main(): Promise<void> {
       const detail = [pause.reason, pause.resetHint && `resets ~${pause.resetHint}`].filter(Boolean).join(", ");
       process.stdout.write(`Previous auto-pause (${pause.kind})${detail ? ` — ${detail}` : ""}\n`);
     }
-    startCatchUp(markerDir, sessionId);
-    process.stdout.write(`codex-pair resumed for ${markerDir}. Reviews are active. See --report for dirty files.\n`);
+    if (process.env.CODEX_PAIR_HOST !== "grok") startCatchUp(markerDir, sessionId);
+    process.stdout.write(`codex-pair resumed for ${markerDir}. Reviews are active.\n`);
     return;
   }
-  if (args.cmd === "start") startCatchUp(markerDir, sessionId);
+  if (args.cmd === "start" && process.env.CODEX_PAIR_HOST !== "grok") startCatchUp(markerDir, sessionId);
   const logPath = resolveLogPath(markerDir);
   const log = readLog(logPath);
   let entries = loadEntries(log);

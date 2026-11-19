@@ -5,6 +5,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { contentHash, pendingPath } from "../../scripts/lib/debounce-state.mjs";
+import { readFileScope } from "../../scripts/lib/pair-file-scope.mjs";
 import { parseFrontmatter } from "../../scripts/lib/frontmatter.mts";
 import { clearSession, readRegisteredMarkers } from "../../scripts/lib/session-registry.mjs";
 import { PLUGIN_ROOT, readFile } from "./_helpers.js";
@@ -19,7 +20,6 @@ process.env.ASK_CODEX_DEBOUNCE_MS = "0";
 
 describe("scripts/codex-pair-watch.mjs — structural invariants (ADR-077)", () => {
   const script = readFile("scripts/codex-pair-watch.mts");
-  const fileScope = readFile("scripts/lib/pair-file-scope.mts");
   // ADR-088: state helpers now live in lib/state.mjs. Tests that previously
   // grepped the hook source for state symbols now read this instead.
   const libState = readFile("scripts/lib/state.mjs");
@@ -107,13 +107,6 @@ describe("scripts/codex-pair-watch.mjs — structural invariants (ADR-077)", () 
     expect(script).toMatch(/codex-pair-debounce-worker\.mjs/);
     expect(script).toMatch(/detached:\s*true/);
     expect(script).toMatch(/\.unref\(\)/);
-  });
-
-  it("drains pending verdicts and skips both drain+dispatch under force-sync", () => {
-    expect(script).toMatch(/drainPending\(/);
-    // The effective window collapses to 0 under force-sync (no drain, no dispatch).
-    expect(script).toMatch(/const forced = process\.env\.CODEX_PAIR_FORCE_SYNC === "1"/);
-    expect(script).toMatch(/effectiveDebounceMs = [^\n]*forced \? 0 :/);
   });
 
   // Phase 1 item #1: log rotation (now in lib/state.mjs per ADR-088)
@@ -326,53 +319,6 @@ describe("scripts/codex-pair-watch.mjs — structural invariants (ADR-077)", () 
     expect(body).toMatch(/SIGTERM/);
   });
 
-  // Phase 2 item #7: .codex-pair/ignore granular opt-out
-  it("readIgnoreFile + matchesIgnoreRule + globToRegex helpers exist", () => {
-    expect(fileScope).toMatch(/function readIgnoreFile/);
-    expect(fileScope).toMatch(/function globToRegex/);
-    expect(fileScope).toMatch(/function matchesIgnoreRule/);
-    expect(fileScope).toMatch(/\.codex-pair\/ignore/);
-  });
-
-  it("ignore/include file parser handles `#` comments and `!` negation (readGlobRulesFile)", () => {
-    // ADR-096: readIgnoreFile + readIncludeFile both delegate to the shared
-    // readGlobRulesFile helper. Test the helper body now since the
-    // ignore-specific function is now a thin wrapper.
-    const block = fileScope.match(/function readGlobRulesFile[\s\S]*?^}/m);
-    expect(block).toBeTruthy();
-    const body = block?.[0] ?? "";
-    expect(body).toMatch(/startsWith\(["']#["']\)/);
-    expect(body).toMatch(/startsWith\(["']!["']\)/);
-    expect(body).toMatch(/negate/);
-  });
-
-  it("glob matcher supports *, **, ?, [...], anchored /, trailing /", () => {
-    const block = fileScope.match(/function globToRegex[\s\S]*?^}/m);
-    expect(block).toBeTruthy();
-    const body = block?.[0] ?? "";
-    // `*` → [^/]* (no path separators)
-    expect(body).toMatch(/\[\^\/\]\*/);
-    // `**` → .* (across separators)
-    expect(body).toMatch(/body \+= ["']\.\*["']/);
-    // `?` → [^/]
-    expect(body).toMatch(/\[\^\/\]/);
-    // Anchored handling
-    expect(body).toMatch(/anchored/);
-    // Trailing slash handling
-    expect(body).toMatch(/trailingSlash/);
-  });
-
-  it("matchesIgnoreRule: last matching rule wins, `!` re-includes", () => {
-    const block = fileScope.match(/function matchesIgnoreRule[\s\S]*?^}/m);
-    expect(block).toBeTruthy();
-    const body = block?.[0] ?? "";
-    // Iterates rules and tracks last match
-    expect(body).toMatch(/lastMatch/);
-    // Negation re-include returns null
-    expect(body).toMatch(/lastMatch\?\.negate/);
-    expect(body).toMatch(/return null/);
-  });
-
   // Phase 3 item #8: content-hash cache (now in lib/state.mjs per ADR-088).
   it("declares cache config (.codex-pair/cache dir, 10min TTL, 50-entry cap)", () => {
     expect(libState).toMatch(/CACHE_DIR\s*=\s*["']cache["']/);
@@ -517,19 +463,6 @@ describe("scripts/codex-pair-watch.mjs — structural invariants (ADR-077)", () 
     expect(fresh).not.toMatch(/\[cached\]/);
   });
 
-  it("applies built-in, include and ignore rules in order and keeps skips silent", () => {
-    const skipReason = fileScope.slice(fileScope.indexOf("skipReason(filePath:"));
-    expect(skipReason).toMatch(/SKIP_PATTERNS[\s\S]*?hasPositiveInclude[\s\S]*?const ignored/);
-    expect(skipReason).toMatch(/file not in \.codex-pair\/include scope/);
-    expect(skipReason).toMatch(/matched \.codex-pair\/ignore/);
-    expect(script).toMatch(/scope\.skipReason\(filePath\)[\s\S]*?parseFrontmatter\(markerContent\)/);
-    // An auto-resume notice may still surface when the edit itself is skipped (ADR-130).
-    const skipBlock = script.match(/if \(skip\) \{[\s\S]*?process\.exit/);
-    expect(skipBlock?.[0]).toMatch(/verdict: "skipped"/);
-    expect(skipBlock?.[0]).toMatch(/await flushNoticeOnly\(\)/);
-    expect(skipBlock?.[0]).not.toMatch(/emitSystemMessage/);
-  });
-
   it("auto-pause lost-race branches flush pending notices (PR #208 round-2 review)", () => {
     // Both writeAutoPause lost-wx-race sub-branches flush a pending notice
     // instead of exiting silently.
@@ -541,33 +474,6 @@ describe("scripts/codex-pair-watch.mjs — structural invariants (ADR-077)", () 
     )?.[0];
     expect(failuresBlock).toBeTruthy();
     expect(failuresBlock).toMatch(/} else \{[\s\S]*?await flushNoticeOnly\(\);/);
-  });
-
-  // Phase 1 item #3: expanded skip patterns
-  it("skips font files, archives, sourcemaps, snapshots, minified assets, and additional lockfiles", () => {
-    // Fonts
-    expect(fileScope).toMatch(/["']\.woff["']/);
-    expect(fileScope).toMatch(/["']\.woff2["']/);
-    expect(fileScope).toMatch(/["']\.ttf["']/);
-    expect(fileScope).toMatch(/["']\.otf["']/);
-    expect(fileScope).toMatch(/["']\.eot["']/);
-    // Docs + archives
-    expect(fileScope).toMatch(/["']\.pdf["']/);
-    expect(fileScope).toMatch(/["']\.zip["']/);
-    expect(fileScope).toMatch(/["']\.tar["']/);
-    expect(fileScope).toMatch(/["']\.gz["']/);
-    // Snapshots, sourcemaps, minified
-    expect(fileScope).toMatch(/["']\.snap["']/);
-    expect(fileScope).toMatch(/["']\.map["']/);
-    expect(fileScope).toMatch(/["']\.min\.js["']/);
-    expect(fileScope).toMatch(/["']\.min\.css["']/);
-    // Additional lockfiles
-    expect(fileScope).toMatch(/["']pnpm-lock\.yaml["']/);
-    expect(fileScope).toMatch(/["']Cargo\.lock["']/);
-    expect(fileScope).toMatch(/["']Gemfile\.lock["']/);
-    expect(fileScope).toMatch(/["']composer\.lock["']/);
-    expect(fileScope).toMatch(/["']poetry\.lock["']/);
-    expect(fileScope).toMatch(/["']go\.sum["']/);
   });
 
   // Phase 1 item #4: default-model drift guard
@@ -593,15 +499,6 @@ describe("scripts/codex-pair-watch.mjs — structural invariants (ADR-077)", () 
     expect(MODELS.DEFAULT).toBe(process.env.ASK_CODEX_MODEL || FACTORY_DEFAULT_MODEL);
     expect(MODELS.FALLBACK).toBe(process.env.ASK_CODEX_FALLBACK_MODEL || defaults.fallbackModel);
     expect(defaults.fallbackModel).toBe("gpt-6.1-terra");
-  });
-
-  it("skips node_modules, dist, .git, lockfiles, and common image assets", () => {
-    expect(fileScope).toMatch(/node_modules/);
-    expect(fileScope).toMatch(/\/dist\//);
-    expect(fileScope).toMatch(/\.git/);
-    expect(fileScope).toMatch(/yarn\.lock/);
-    expect(fileScope).toMatch(/package-lock\.json/);
-    expect(fileScope).toMatch(/\.png/);
   });
 
   it("parses HIGH/MED/LOW labels from codex output (ADR-088 unit test)", async () => {
@@ -1022,6 +919,137 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
   });
 
   // Phase 2 item #5 — runtime: frontmatter parsing + config resolution
+  it.each([
+    "node_modules/pkg/a.ts",
+    "dist/a.js",
+    ".git/config",
+    "yarn.lock",
+    "package-lock.json",
+    "pnpm-lock.yaml",
+    "Cargo.lock",
+    "Gemfile.lock",
+    "composer.lock",
+    "poetry.lock",
+    "go.sum",
+    "image.png",
+    "image.jpg",
+    "image.jpeg",
+    "image.gif",
+    "image.svg",
+    "image.ico",
+    "font.woff",
+    "font.woff2",
+    "font.ttf",
+    "font.otf",
+    "font.eot",
+    "doc.pdf",
+    "archive.zip",
+    "archive.tar",
+    "archive.gz",
+    "test.snap",
+    "source.map",
+    "app.min.js",
+    "app.min.css",
+    "other.lock",
+  ])("documented built-in exclusion stays silent and never invokes the reviewer: %s", (file) => {
+    setupMarker(tempDir);
+    fs.writeFileSync(path.join(tempDir, ".codex-pair/include"), "**\n");
+    const target = path.join(tempDir, file);
+    fs.mkdirSync(path.dirname(target), { recursive: true });
+    fs.writeFileSync(target, "excluded content");
+    const calls = path.join(tempDir, "calls");
+    const result = runHookWithFakeCodex(
+      JSON.stringify({ tool_name: "Edit", tool_input: { file_path: target } }),
+      tempDir,
+      "none",
+      { FAKE_CODEX_ARGS_FILE: calls },
+    );
+    expect(result.status).toBe(0);
+    expect(result.stdout).toBe("");
+    expect(fs.existsSync(calls)).toBe(false);
+    expect(fs.existsSync(path.join(tempDir, ".codex-pair/log.jsonl"))).toBe(false);
+  });
+
+  it.each([
+    ["*.test.ts", "src/unit.test.ts", true],
+    ["*.test.ts", "src/unit.ts", false],
+    ["src/**/test?.[jt]s", "src/deep/test1.ts", true],
+    ["src/**/test?.[jt]s", "src/deep/test12.ts", false],
+    ["/root.ts", "root.ts", true],
+    ["/root.ts", "nested/root.ts", false],
+    ["experiments/", "experiments/deep/a.ts", true],
+    ["# ignored comment\r\n\r\n*.ts\r\n!keep.ts\r\n", "keep.ts", false],
+    ["*.ts\n!keep.ts\nkeep.ts\n", "keep.ts", true],
+  ])("documented ignore glob %j excludes %s: %s", (rule, file, excluded) => {
+    setupMarker(tempDir);
+    fs.writeFileSync(path.join(tempDir, ".codex-pair/ignore"), rule);
+    expect(readFileScope(tempDir).skipReason(path.join(tempDir, file)) !== null).toBe(excluded);
+  });
+
+  it.each([
+    ["", "", "src/main.ts", true],
+    ["# only comments\n", "", "src/main.ts", true],
+    ["src/**\n", "", "lib/main.ts", false],
+    ["src/**\n", "src/private/**\n", "src/private/main.ts", false],
+    ["src/**\n!src/private/**\n", "", "src/private/main.ts", false],
+    ["src/**\n", "src/**\n!src/public.ts\n", "src/public.ts", true],
+    ["!build/**\n", "", "src/main.ts", true],
+    ["!build/**\n", "", "build/main.ts", false],
+  ])("documented include/ignore precedence (%j, %j) reviews %s: %s", (include, ignore, file, reviewed) => {
+    setupMarker(tempDir);
+    fs.writeFileSync(path.join(tempDir, ".codex-pair/include"), include);
+    fs.writeFileSync(path.join(tempDir, ".codex-pair/ignore"), ignore);
+    const target = path.join(tempDir, file);
+    fs.mkdirSync(path.dirname(target), { recursive: true });
+    fs.writeFileSync(target, "export const included = true;");
+    const calls = path.join(tempDir, "calls");
+    const result = runHookWithFakeCodex(
+      JSON.stringify({ tool_name: "Edit", tool_input: { file_path: target } }),
+      tempDir,
+      "none",
+      { FAKE_CODEX_ARGS_FILE: calls },
+    );
+    expect(result.status).toBe(0);
+    expect(fs.existsSync(calls)).toBe(reviewed);
+    const entries = fs
+      .readFileSync(path.join(tempDir, ".codex-pair/log.jsonl"), "utf8")
+      .trim()
+      .split("\n")
+      .map((line) => JSON.parse(line));
+    expect(entries.at(-1).verdict).toBe(reviewed ? "none" : "skipped");
+    if (reviewed) expect(JSON.parse(result.stdout).systemMessage).toContain("codex-pair OK:");
+    else expect(result.stdout).toBe("");
+    if (include.startsWith("!")) expect(entries).toContainEqual(expect.objectContaining({ level: "info" }));
+  });
+
+  it("force-sync completes the review without dispatching a debounce worker or draining existing verdicts", () => {
+    setupMarker(tempDir, "---\ndebounceMs: 15000\n---\n# ctx");
+    const target = path.join(tempDir, "forced.ts");
+    fs.writeFileSync(target, "export const forced = true;");
+    const seed = path.join(tempDir, ".codex-pair/state/pending/seed.json");
+    fs.mkdirSync(path.dirname(seed), { recursive: true });
+    fs.writeFileSync(
+      seed,
+      JSON.stringify({
+        file: target,
+        contentHash: contentHash(fs.readFileSync(target, "utf8")),
+        message: "previous verdict",
+      }),
+    );
+    const result = runHookWithFakeCodex(
+      JSON.stringify({ tool_name: "Edit", tool_input: { file_path: target } }),
+      tempDir,
+      "none",
+      { CODEX_PAIR_FORCE_SYNC: "1" },
+    );
+    expect(result.status).toBe(0);
+    expect(result.stdout).toBe("");
+    expect(fs.existsSync(seed)).toBe(true);
+    expect(fs.existsSync(path.join(tempDir, ".codex-pair/state/debounce"))).toBe(false);
+    expect(JSON.parse(fs.readFileSync(path.join(tempDir, ".codex-pair/log.jsonl"), "utf8")).verdict).toBe("none");
+    expect(JSON.parse(fs.readFileSync(pendingPath(tempDir, target), "utf8")).message).toContain("codex-pair OK:");
+  });
+
   it("no frontmatter — current behavior unchanged (no warning entry)", () => {
     setupMarker(tempDir, "# Some plain context\n\nThis is not frontmatter.");
     const missingPath = path.join(tempDir, "does-not-exist.ts");
@@ -4370,18 +4398,6 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
     expect(loadRepetitionsForFile(tempDir, file).get(h)?.count).toBe(3);
   });
 
-  it("ADR-097 structural: negation-only include transforms to ignore rules and logs the mapping", () => {
-    const watchScript = readFile("scripts/codex-pair-watch.mts");
-    const fileScope = readFile("scripts/lib/pair-file-scope.mts");
-    expect(fileScope).toMatch(/negationOnlyInclude = includeRules\.length > 0 && !hasPositiveInclude/);
-    expect(fileScope).toMatch(
-      /\.\.\.readIgnoreFile[\s\S]*?negationOnlyInclude \? includeRules\.map[\s\S]*?negate: false/,
-    );
-    const notice = watchScript.match(/if \(scope\.negationOnlyInclude[\s\S]*?^ {2}\}/m);
-    expect(notice?.[0]).toMatch(/level: "info"/);
-    expect(notice?.[0]).not.toMatch(/process\.exit/);
-  });
-
   it("ADR-096: buildVerdictMessage adds loud BLOCKING banner when repeatedIgnoredCount > 0", async () => {
     const { buildVerdictMessage } = await import("../../scripts/lib/parser.mjs");
     const msg = buildVerdictMessage({
@@ -4425,21 +4441,6 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
     expect(msg1).not.toContain("REPEATED-IGNORED");
     expect(msg2).not.toContain("REPEATED-IGNORED");
     expect(msg1).not.toContain("🛑");
-  });
-
-  it("ADR-096 structural: codex-pair-watch.mjs imports the new state helpers", () => {
-    const watch = fs.readFileSync(path.join(PLUGIN_ROOT, "scripts", "codex-pair-watch.mts"), "utf-8");
-    expect(watch).toMatch(/hashConcernBody/);
-    expect(watch).toMatch(/updateRepetitions/);
-    expect(watch).toMatch(/import \{ readFileScope \} from "\.\/lib\/pair-file-scope\.mts"/);
-    const fileScope = readFile("scripts/lib/pair-file-scope.mts");
-    expect(fileScope).toMatch(/readGlobRulesFile\(includePath\(/);
-    // Both buildVerdictMessage call sites pass repeatedIgnoredCount
-    const verdictCalls = watch.match(/buildVerdictMessage\(\{[\s\S]+?\}\)/g) ?? [];
-    expect(verdictCalls.length).toBeGreaterThanOrEqual(2);
-    for (const call of verdictCalls) {
-      expect(call).toMatch(/repeatedIgnoredCount/);
-    }
   });
 });
 
