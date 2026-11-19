@@ -1,7 +1,7 @@
 import { spawnSync } from "node:child_process";
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, readdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { afterEach, expect, it } from "vitest";
 import { PLUGIN_ROOT } from "./_helpers.js";
 
@@ -52,6 +52,7 @@ it("reports the hook defaults, environment overrides and marker overrides, witho
   expect(output.stdout).toContain("Fallback model: env-fallback");
   expect(output.stdout).toContain("Reasoning effort: medium");
   expect(output.stdout).toContain("No reviews recorded.");
+  expect(output.stdout).not.toContain("not ignored by git");
   writeFileSync(
     join(dir, ".codex-pair", "context.md"),
     "---\nmodel: marker-model\nfallbackModel: marker-fallback\nreasoningEffort: xhigh\nsurfaceThreshold: low\nblockOn: HIGH\n---\n# ctx",
@@ -135,3 +136,43 @@ it("shows last five entries, skips malformed lines and retains failure reasons",
   expect(output).toContain("broken");
   expect(output).toContain("Recent failure: unreadable verdict");
 });
+
+it.each([
+  { ignore: undefined, localExclude: false, warns: true },
+  { ignore: ".codex-pair/context.md\n", localExclude: false, warns: true },
+  { ignore: ".codex-pair/\n", localExclude: false, warns: false },
+  { ignore: undefined, localExclude: true, warns: false },
+])(
+  "reports directory ignore state without changing files with ignore=$ignore localExclude=$localExclude",
+  ({ ignore, localExclude, warns }) => {
+    const dir = fixture();
+    const env = {
+      ...process.env,
+      GIT_CONFIG_GLOBAL: join(dir, "missing-global-config"),
+      GIT_CONFIG_NOSYSTEM: "1",
+      XDG_CONFIG_HOME: dir,
+    };
+    expect(spawnSync("git", ["init", "-q", dir], { env }).status).toBe(0);
+    if (ignore !== undefined) writeFileSync(join(dir, ".gitignore"), ignore);
+    const excludePath = spawnSync("git", ["-C", dir, "rev-parse", "--git-path", "info/exclude"], {
+      env,
+      encoding: "utf8",
+    });
+    expect(excludePath.status).toBe(0);
+    const exclude = resolve(dir, excludePath.stdout.trim());
+    if (localExclude) writeFileSync(exclude, ".codex-pair/\n");
+    const before = readFileSync(exclude, "utf8");
+    const filesBefore = readdirSync(dir).sort();
+    const output = status(dir, env);
+    expect(output.status).toBe(0);
+    const warning = "Warning: .codex-pair/ is not ignored by git; run codex-pair-log setup.";
+    if (warns) expect(output.stdout).toContain(warning);
+    else expect(output.stdout).not.toContain(warning);
+    expect(readFileSync(exclude, "utf8")).toBe(before);
+    expect(readFileSync(join(dir, ".codex-pair", "context.md"), "utf8")).toBe("# ctx");
+    expect(readdirSync(dir).sort()).toEqual(filesBefore);
+    expect(readdirSync(join(dir, ".codex-pair")).sort()).toEqual(["context.md", "state"]);
+    expect(readdirSync(join(dir, ".codex-pair", "state"))).toEqual([]);
+    if (ignore !== undefined) expect(readFileSync(join(dir, ".gitignore"), "utf8")).toBe(ignore);
+  },
+);

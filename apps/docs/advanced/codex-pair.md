@@ -61,7 +61,7 @@ The remaining sections describe the Claude Code lifecycle unless another host is
 
 ## Setup
 
-Run the `/codex-pair` slash command in the project where you want continuous review. On first run (no marker present) it offers interactive setup with auto-detected project context and writes the marker file for you. You can also create the marker by hand:
+Run the `/codex-pair` slash command in the project where you want continuous review. On first run (no marker present) on Claude Code it copies a committed `.codex-pair.example/context.md` from the repository root to `.codex-pair/context.md` at that root without asking; it never overwrites an existing marker. Without a template it offers interactive setup with auto-detected project context and writes `.codex-pair/context.md` in the current directory after confirmation. Setup finds existing markers by walking up from the current directory through the repository root. Either way it keeps `.codex-pair/` out of git through the local exclude file described below. You can also create the marker by hand:
 
 ```bash
 mkdir -p .codex-pair
@@ -83,15 +83,17 @@ charge). Concurrent requests are real. URL inputs are untrusted.
 EOF
 ```
 
-On Claude Code, the marker file opts the project into review; `CODEX_PAIR_DISABLED=1` or a pause sentinel still prevents reviews. Its content is review context. New `/codex-pair` markers explicitly set `blockOn: false` for advisory review; an existing marker without `blockOn` remains advisory. On Pi, marker presence is only the repository-side gate: it never authorizes provider transfer/cost without Pi project trust and separate interactive `/codex-pair` consent stored outside the repository.
+On Claude Code, the marker file opts the project into review; `CODEX_PAIR_DISABLED=1` or a pause sentinel still prevents reviews. Its content is review context. Interactively drafted markers explicitly set `blockOn: false` for advisory review; template copies preserve their settings, including `blockOn`. An existing marker without `blockOn` remains advisory. On Pi, marker presence is only the repository-side gate: it never authorizes provider transfer/cost without Pi project trust and separate interactive `/codex-pair` consent stored outside the repository.
 
-**Do NOT commit the `.codex-pair/` directory**: gitignore it. Each contributor's review context is their own; one developer iterating on prompt wording shouldn't dirty the shared history. The hook itself is project-policy (it's in the plugin); the marker is per-developer opt-in. Every state artifact (marker, log, cache, `ignore` globs, pause sentinel, inflight locks) nests under the single directory; one `.gitignore` line covers everything:
+**Do NOT commit the `.codex-pair/` directory**: keep it ignored. Each contributor's review context is their own; one developer iterating on prompt wording shouldn't dirty the shared history. The hook itself is project-policy (it's in the plugin); the marker is per-developer opt-in. Every state artifact (marker, log, cache, `ignore` globs, pause sentinel, inflight locks) nests under the single directory; one ignore line covers everything:
 
 ```gitignore
 .codex-pair/
 ```
 
-For a new contributor joining a project, point them at this docs page to write their own marker, or share a template via a separate (committed) `.codex-pair.example/context.md` they can copy and tweak locally.
+`/codex-pair` setup on Claude Code appends that line to git's local exclude file, the path `git rev-parse --git-path info/exclude` prints. A linked worktree has a `.git` file rather than a folder, so the path comes from git; all worktrees of a repository share that file. Setup never edits `.gitignore` and skips the exclude entry when git already ignores the entire `.codex-pair/` directory. It verifies directory-wide exclusion after appending and exits non-zero if higher-priority rules still prevent it. Add the line to `.gitignore` or your global ignore file yourself if you prefer.
+
+For a new contributor or a fresh worktree, commit a template at `.codex-pair.example/context.md` in the repository root: `/codex-pair` copies it with no questions, and each developer can then edit their own copy. You can run the same step directly from the project with `node packages/llm-mcp/scripts/codex-pair-log.mjs setup`. Its first word reports the outcome: `created`, `exists`, `no-template`, `not-git`, `invalid-template`, `invalid-marker` or `ignore-failed`. Templates and markers must be regular files inside the repository with no symlinked path components; invalid paths are refused before copying or changing ignore rules. Setup verifies directory-wide exclusion before copying a template; exclusion failure leaves no new marker. Status warns when an existing marker's directory is unignored and names the setup command to fix it without overwriting the marker.
 
 Once present, every `Edit` / `Write` / `MultiEdit` triggers a Codex review of the changed file. HIGH and MED concerns appear to Claude as a system reminder on the next turn, prefixed with `[codex-pair]` and the file path:
 
@@ -123,7 +125,7 @@ The `/codex-pair` suite is the human-facing dashboard and controls for the hook.
 
 | Command | What it does |
 |---|---|
-| `/codex-pair` | First run (no marker) offers interactive setup with auto-detected project context. With a marker, shows the [status command](#inspecting-log-activity-the-codex-pair-log-cli)'s output: current configuration, disabled/pause state and recent review activity |
+| `/codex-pair` | Runs [setup](#setup) when no marker exists; otherwise shows the [status command](#inspecting-log-activity-the-codex-pair-log-cli)'s output |
 | `/codex-pair-pause` | Pause the hook for this project without removing the marker. Writes a `.codex-pair/state/paused` sentinel the hook checks on every edit and records the pause. Use to temporarily silence reviews (noisy refactor, docs-only work) and resume later |
 | `/codex-pair-resume` | Remove the pause sentinel, clear the failure counter and record the resume. The hook starts reviewing edits again on the next edit. No-op if no pause sentinel exists |
 | `/codex-pair-ack <hash> "<reason>"` | Acknowledge a HIGH finding without fixing it (known trade-off or tracked in a ticket). The `<hash>` is the content hash shown alongside the finding when the Stop gate blocks. The reason is recorded as a concurrency-safe shard under `.codex-pair/state/acks/` with a timestamp; acknowledged findings are skipped by the gate until the file changes |
@@ -252,7 +254,7 @@ Any error in the stop-gate hook (missing log, parse error, git unavailable) warn
 
 ### Inspecting log activity: the `codex-pair-log` CLI
 
-Shipped alongside the hook at `packages/llm-mcp/scripts/codex-pair-log.mjs`. Walks up from cwd to find the marker (same gate as the hook), then renders the sibling `.codex-pair/log.jsonl`. Useful for "is the hook actually running" diagnostics and for forensic analysis of what's been reviewed.
+Shipped alongside the hook at `packages/llm-mcp/scripts/codex-pair-log.mjs`. Log and status commands walk up from cwd to find the marker (same gate as the hook), then read the sibling `.codex-pair/log.jsonl`. Useful for "is the hook actually running" diagnostics and for forensic analysis of what's been reviewed. The `setup` subcommand can run before a marker exists; see [Setup](#setup).
 
 ```bash
 # Read-only status: resolved configuration, disable/pause state, last five reviews

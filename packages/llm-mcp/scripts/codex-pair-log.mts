@@ -11,6 +11,7 @@ import { parseFrontmatter } from "./lib/frontmatter.mts";
 import { loadPairDefaults } from "./lib/pair-config-io.mts";
 import { resolveBlockOn, resolveConfig } from "./lib/pair-config.mts";
 import { type PairLogEntry as LogEntry, buildReport, formatReport } from "./lib/pair-report.mts";
+import { formatSetup, pairDirectoryIgnored, setupFailed, setupMarker } from "./lib/pair-setup.mts";
 import {
   CONTEXT_FILENAME,
   PAIR_ROOT_DIR,
@@ -25,7 +26,7 @@ import {
 import { canonicalFile, readBlockingHighs } from "./lib/stop-gate-io.mts";
 
 interface Args {
-  cmd: "latest" | "summary" | "file" | "help" | "status" | "report" | "ack" | "pause" | "resume";
+  cmd: "latest" | "summary" | "file" | "help" | "status" | "report" | "ack" | "pause" | "resume" | "setup";
   json: boolean;
   hash: string | null;
   n: number;
@@ -86,7 +87,7 @@ function parseArgs(argv: string[]): Args {
     } else if (i === 0 && a === "ack") {
       args.cmd = "ack";
       args.hash = argv[++i] ?? null;
-    } else if (i === 0 && (a === "pause" || a === "resume")) {
+    } else if (i === 0 && (a === "pause" || a === "resume" || a === "setup")) {
       args.cmd = a;
     } else if (a === "--summary") {
       args.cmd = "summary";
@@ -244,6 +245,7 @@ function showSummary(entries: LogEntry[]): void {
 
 // Read-only: observing a pause never clears it or starts a reviewer/broker.
 function showStatus(markerDir: string, entries: LogEntry[]): void {
+  const directoryIgnored = pairDirectoryIgnored(markerDir);
   const marker = readFileSync(contextPath(markerDir), "utf8");
   const parsed = parseFrontmatter(marker);
   let config: ReturnType<typeof resolveConfig> | undefined;
@@ -266,6 +268,9 @@ function showStatus(markerDir: string, entries: LogEntry[]): void {
     [
       `codex-pair status — ${markerDir}`,
       `State: ${state}`,
+      ...(directoryIgnored === false
+        ? [`Warning: ${PAIR_ROOT_DIR}/ is not ignored by git; run codex-pair-log setup.`]
+        : []),
       ...(config
         ? [
             `Reviewer: ${config.reviewer}`,
@@ -311,6 +316,7 @@ function showHelp(): void {
       "  ack <hash>        Record an acknowledgement with the reason read from stdin.",
       "  pause             Pause this project's hook and record the event.",
       "  resume            Resume this project's hook, clear failures and record the event.",
+      "  setup             Copy .codex-pair.example/context.md to the marker when absent; ignore .codex-pair/ locally.",
       "  --file <path>     Filter to one file's history.",
       "  --since <dur>     Filter to entries within the last <dur>. Examples: 30m, 24h, 7d.",
       "  --help, -h        Show this help.",
@@ -323,6 +329,12 @@ async function main(): Promise<void> {
   const args = parseArgs(process.argv.slice(2));
   if (args.cmd === "help") {
     showHelp();
+    return;
+  }
+  if (args.cmd === "setup") {
+    const outcome = setupMarker(process.cwd());
+    process.stdout.write(`${formatSetup(outcome)}\n`);
+    if (setupFailed(outcome)) process.exit(1);
     return;
   }
   const markerDir = await findMarkerUp(process.cwd());
