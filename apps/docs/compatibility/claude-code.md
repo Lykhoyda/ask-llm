@@ -22,14 +22,14 @@ Hooks are automated actions that trigger on specific Claude Code events. Every h
 
 ### Hooks the plugin registers
 
-All five hooks are dependency-free with zero workspace imports, required so they run from marketplace `git-subdir` installs that don't run `npm install`. The prompt-drain and Stop hooks only surface already-persisted verdicts (zero new LLM calls); the session hook manages pause, debounce, and broker state. Each self-gates on the `.codex-pair/context.md` marker file and stays silent (zero cost, zero Codex calls) unless a project opts in. Review transport and broker configuration are documented in [Codex Pair](/advanced/codex-pair).
+All five hooks are dependency-free with zero workspace imports, required so they run from marketplace `git-subdir` installs that don't run `npm install`. Each self-gates on the `.codex-pair/context.md` marker file and stays silent (zero cost, zero Codex calls) unless a project opts in. Review transport, catch-up, and broker configuration are documented in [Codex Pair](/advanced/codex-pair#the-hook-pipeline).
 
 | Hook | Event | Action |
 |------|-------|--------|
 | `codex-pair-watch` | `PostToolUse` (Edit / Write / MultiEdit) | Debounced per-edit Codex review of the settled file state. See [Codex Pair → the hook pipeline](/advanced/codex-pair#the-hook-pipeline) |
 | `codex-pair-prompt-drain` | `UserPromptSubmit` | Drains queued codex-pair verdicts that finished mid-turn so they reach Claude without waiting for the next edit |
-| `codex-pair-stop-gate` | `Stop` | Drains remaining verdicts at turn-end; with `blockOn: HIGH` (opt-in, default OFF) blocks turn-end on unaddressed HIGH findings or in-flight reviews |
-| `codex-pair-session` | `SessionStart` | Announces or resumes an auto-paused project and manages the broker; see [Codex Pair](/advanced/codex-pair) |
+| `codex-pair-stop-gate` | `Stop` | See [catch-up review](/advanced/codex-pair#catch-up-review) and [Stop gate behavior](/advanced/codex-pair#stop-gate-opt-in) |
+| `codex-pair-session` | `SessionStart` | See [the hook pipeline](/advanced/codex-pair#the-hook-pipeline) |
 | `codex-pair-session` | `SessionEnd` | Clears debounce state and manages broker teardown; see [Codex Pair](/advanced/codex-pair) |
 
 ### How hook registration works
@@ -42,7 +42,7 @@ Because the scripts have zero workspace imports, they run identically from a sou
 
 The plugin previously shipped two other hooks that have been removed:
 
-- A `Stop` hook, removed because the `Stop` event fires per-turn rather than per-session, making it noisy and high-latency, and `git diff HEAD` excluded untracked files which silently dropped coverage on new-file sessions. (The current `codex-pair-stop-gate` is fundamentally different: it reads the already-computed `log.jsonl` with zero new LLM calls.)
+- A `Stop` hook, removed because the `Stop` event fires per-turn rather than per-session, making it noisy and high-latency, and `git diff HEAD` excluded untracked files which silently dropped coverage on new-file sessions. See [Codex Pair](/advanced/codex-pair#the-hook-pipeline) for the current Stop hook.
 - A `PreToolUse` pre-commit Gemini-review hook, removed because per-file codex-pair review delivers higher-recall feedback continuously *during* editing rather than only at commit time, and the on-demand `/gemini-review` skill covers the explicit-review need.
 
 Use the `/gemini-review` slash command for explicit on-demand pre-commit reviews instead, or the `/codex-review` skill for a precision-first PR-style review.

@@ -132,7 +132,7 @@ The `/codex-pair` suite is the human-facing dashboard and controls for the hook.
 
 ## The hook pipeline
 
-codex-pair is implemented as five hooks working together, all dependency-free with zero workspace imports so they run from marketplace `git-subdir` installs that don't run `npm install`. The watch hook sends reviews through the broker when available and uses `codex exec --json` for direct reviews; the others surface persisted verdicts or manage state.
+codex-pair is implemented as five hooks working together, all dependency-free with zero workspace imports so they run from marketplace `git-subdir` installs that don't run `npm install`. The watch hook sends reviews through the broker when available and uses `codex exec --json` for direct reviews. Catch-up uses the same watch hook through the detached worker; the prompt drain delivers persisted verdicts.
 
 | Hook | Trigger | Action |
 |---|---|---|
@@ -150,7 +150,9 @@ In the shared review hook scripts (Claude Code and Grok CLI), a reviewer reply t
 
 On Claude Code, catch-up runs when `/codex-pair` finds or creates an active marker, on manual or automatic resume, and at turn end. Each pass reviews up to 10 files in sequence within one two-minute budget, using the same worker, cache, and file rules as per-edit review. Quota auto-pause ends the pass. The Stop hook starts the pass without waiting for a review. Set `catchUpOnStop: false` in `.codex-pair/context.md` frontmatter to skip the turn-end pass for that project.
 
-A pass considers eligible dirty or untracked files in the marker's Git repository and any sibling repositories already registered in the session. It can pick up edits made through the shell or before activation. Shell writes committed before the pass, sibling repositories touched only through the shell, and deletions are outside its coverage. A retained successful review or cache hit for the current content and review context counts even after the cache expires.
+A pass considers eligible dirty or untracked files in the marker's Git repository and any sibling repositories already registered in the session. It can pick up edits made through the shell, before activation, or during a pause. Shell writes committed before the pass, sibling repositories touched only through the shell, and deletions are outside its coverage. Catch-up also skips symlinks, symlinked path components beneath the marker directory, and files under another marker. No Bash hook is registered on Claude Code.
+
+A retained successful review (`none`, `concerns`, or `cached`) counts when its content hash matches the current file and its review context is current, even after the cache expires. Failed attempts and debounce generations do not count. Losing the successful record to log rotation or changing the marker or resolved reviewer/model settings makes the file eligible again; a compatible cache hit can satisfy the new pass.
 
 ### Configuration knobs
 
@@ -217,7 +219,7 @@ For typical opted-in projects (small surface where review depth matters), the co
 
 **Action:** If unaddressed HIGH codex-pair findings remain in `.codex-pair/log.jsonl`, the hook blocks turn-end and surfaces those findings, forcing them to be addressed before the session continues.
 
-> **Why opt-in?** A blocking turn-end gate is disruptive by design. The original Stop hook was removed because it ran a fresh Gemini review every turn (latency, quota burn). This hook is fundamentally different (it reads the already-computed `log.jsonl` with zero new LLM calls), but blocking is still a `kano:reverse` feature for some workflows, so it defaults OFF.
+> **Why opt-in?** Blocking turn-end is disruptive for some workflows, so blocking defaults OFF. The gate decides from persisted findings and in-flight state. [Catch-up review](#catch-up-review) runs independently of `blockOn`; disable its turn-end pass separately with `catchUpOnStop`.
 
 ### Enable it
 
@@ -242,7 +244,7 @@ Once enabled, the hook checks at turn-end whether any HIGH findings in `log.json
 - **File deleted or renamed** → finding skipped (no longer relevant)
 - **File clean vs HEAD** (`git status --porcelain=v1 -z --untracked-files=all`) → finding skipped (reverted or branch-switched away); new files inside untracked directories remain eligible to block, including files in nested git repositories reported as `?? dir/`, except files ignored by the outer repository's `.gitignore`
 - **Latest review of the content on disk is indeterminate** (`error`/`retried`/`broker_fallback`) → fail-open, finding skipped (don't block on a stale HIGH from before a transient error). Skip entries have no content hash and do not displace the last review.
-- **No review matches the content on disk** → finding skipped. A queued settled edit gets its own review; an edit made outside Claude needs a later reviewed edit. The gate uses the latest matching review even if a review of older content finished afterward, including when that review was logged under another path to the same file (such as `/var` and `/private/var` on macOS).
+- **No review matches the content on disk** → finding skipped. A queued settled edit gets its own review; edits outside Claude can be picked up by [catch-up](#catch-up-review). The gate uses the latest matching review even if a review of older content finished afterward, including when that review was logged under another path to the same file (such as `/var` and `/private/var` on macOS).
 
 ### In-flight reviews block too
 
@@ -288,6 +290,8 @@ node packages/llm-mcp/scripts/codex-pair-log.mjs --report --since 24h --json
 The report counts actual successful reviews and cache hits separately. A finding hash counts once at its highest observed severity, and later appearances, including cache hits, count as repeats. The report includes acknowledgement reasons and findings no longer reported on the latest review of their file. Missing historical attribution is shown as `unknown`. When retained reviews lack finding identities, finding counts and lists describe only known evidence: the human output labels them `known (partial)`, and JSON sets `findingsComplete: false`. This qualification covers unique findings by severity, repeats, acknowledgements, other unacknowledged HIGHs, and findings no longer reported on the latest review of their file; current gate blockers remain a separate exact result. Claude's effort also appears as `unknown` because the hook does not set or observe it. Pi reviews appear without attribution (`unknown`), and its pause/resume handlers do not yet record structured events. Attribution and pause/resume event parity for Pi are a follow-up. Copy the first line into a pull request description or closing status. The remaining lines contain details, which are also available as JSON.
 
 The current coverage section lists eligible dirty files as pending, failed, or not started. Files beyond a pass's time or file limit appear by name. In JSON, the `unreviewedFiles` array identifies each file by its marker directory and relative path. This section uses the full retained log and can include registered sibling repositories when the session ID is available. `--since` only limits the historical metrics.
+
+If coverage cannot be determined because Git scanning, marker reading, or reviewer configuration fails in the project or a registered sibling, `--report` exits with an error instead of returning empty coverage. A disappeared sibling marker is skipped. In a non-Git project, historical metrics remain available, with no files in Git coverage.
 
 From the project directory, the same CLI accepts `pause` and `resume` to change the sentinel and record transitions. Use `ack <hash>` with a non-empty reason on stdin to acknowledge a finding. For example, pipe `printf '%s\n' 'Accepted pending follow-up'` to `node packages/llm-mcp/scripts/codex-pair-log.mjs ack fc69d46835dfd2ab`.
 
