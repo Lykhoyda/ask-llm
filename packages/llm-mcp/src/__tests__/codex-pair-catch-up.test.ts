@@ -426,3 +426,65 @@ it("Grok start and both resume paths leave shell-written files for foreground re
   expect(report()).toEqual([{ repository: repo, file: "shell.ts", status: "not-started" }]);
   expect(receivedCalls()).toBe(1);
 });
+
+it.each(["start", "edit"])("rejects a cached review from fallback A after switching to B via %s", async (trigger) => {
+  const primary = "gpt-6.2-sol";
+  const fallbackA = "gpt-6.1-terra";
+  const fallbackB = "gpt-6-terra";
+  const configure = (fallback: string) => marker(`debounceMs: 0\nmodel: ${primary}\nfallbackModel: ${fallback}`);
+  const event = { tool_name: "Edit", tool_input: { file_path: join(repo, "tracked.ts") } };
+  const review = (attempt: string) =>
+    run(trigger === "edit" ? WATCH : LOG, {
+      args: trigger === "edit" ? [] : ["start"],
+      event,
+      scenario: "quota-plan-recover",
+      env: { FAKE_CODEX_ATTEMPT_FILE: join(scratch, attempt) },
+    });
+  const modelsCalled = () =>
+    readFileSync(calls, "utf8")
+      .trim()
+      .split("\n")
+      .map((line) => {
+        const args = JSON.parse(line);
+        return args[args.indexOf("-m") + 1];
+      });
+  configure(fallbackA);
+  shellWrite("tracked.ts");
+  run(WATCH, {
+    event,
+    scenario: "quota-plan-recover",
+    env: { FAKE_CODEX_ATTEMPT_FILE: join(scratch, "initial") },
+  });
+  expect(log().at(-1)).toMatchObject({ verdict: "none", model: fallbackA, fellBack: true });
+  expect(modelsCalled()).toEqual([primary, fallbackA]);
+
+  configure(fallbackB);
+  expect(report()).toEqual([{ repository: repo, file: "tracked.ts", status: "not-started" }]);
+  review("switched");
+  await expect.poll(() => report(), { timeout: 5000 }).toEqual([]);
+  expect(modelsCalled()).toEqual([primary, fallbackA, primary, fallbackB]);
+  expect(log().at(-1)).toMatchObject({ verdict: "none", model: fallbackB, fellBack: true });
+
+  configure(fallbackB);
+  review("compatible");
+  await expect.poll(() => log().at(-1)?.verdict, { timeout: 5000 }).toBe("cached");
+  expect(log().at(-1)).toMatchObject({ model: fallbackB, fellBack: true });
+  expect(modelsCalled()).toEqual([primary, fallbackA, primary, fallbackB]);
+  expect(report()).toEqual([]);
+});
+
+it("retains a primary-model cache hit when only fallback selection changes", async () => {
+  const primary = "gpt-6.2-sol";
+  marker(`debounceMs: 0\nmodel: ${primary}\nfallbackModel: gpt-6.1-terra`);
+  shellWrite("tracked.ts");
+  edit("tracked.ts");
+  expect(log().at(-1)).toMatchObject({ verdict: "none", model: primary, fellBack: false });
+  expect(receivedCalls()).toBe(1);
+
+  marker(`debounceMs: 0\nmodel: ${primary}\nfallbackModel: gpt-6-terra`);
+  expect(report()).toEqual([{ repository: repo, file: "tracked.ts", status: "not-started" }]);
+  run(LOG, { args: ["start"], scenario: "exit-nonzero" });
+  await expect.poll(() => report(), { timeout: 5000 }).toEqual([]);
+  expect(log().at(-1)).toMatchObject({ verdict: "cached", model: primary, fellBack: false });
+  expect(receivedCalls()).toBe(1);
+});

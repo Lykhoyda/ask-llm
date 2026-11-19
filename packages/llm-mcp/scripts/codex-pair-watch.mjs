@@ -870,7 +870,7 @@ async function main() {
         surfaceThreshold: config.surfaceThreshold,
     });
     const cached = await getCachedConcerns(markerDir, cacheKey);
-    if (cached) {
+    if (cached && (!cached.fellBack || cached.model === config.fallbackModel)) {
         const cachedDurationMs = Date.now() - startedAt;
         await appendLog(markerDir, {
             timestamp: new Date().toISOString(),
