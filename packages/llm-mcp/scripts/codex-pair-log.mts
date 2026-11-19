@@ -6,12 +6,15 @@
 import { readFileSync } from "node:fs";
 import { access } from "node:fs/promises";
 import { homedir } from "node:os";
-import { dirname, join, resolve } from "node:path";
+import { dirname, join, relative, resolve } from "node:path";
 import { parseFrontmatter } from "./lib/frontmatter.mts";
+import { startCatchUp } from "./lib/pair-catch-up.mts";
 import { loadPairDefaults } from "./lib/pair-config-io.mts";
 import { resolveBlockOn, resolveConfig } from "./lib/pair-config.mts";
+import { dirtyCoverage } from "./lib/pair-coverage.mts";
 import { type PairLogEntry as LogEntry, buildReport, formatReport } from "./lib/pair-report.mts";
 import { formatSetup, pairDirectoryIgnored, setupFailed, setupMarker } from "./lib/pair-setup.mts";
+import { collectSessionMarkers } from "./lib/session-registry.mts";
 import {
   CONTEXT_FILENAME,
   PAIR_ROOT_DIR,
@@ -26,7 +29,7 @@ import {
 import { canonicalFile, readBlockingHighs } from "./lib/stop-gate-io.mts";
 
 interface Args {
-  cmd: "latest" | "summary" | "file" | "help" | "status" | "report" | "ack" | "pause" | "resume" | "setup";
+  cmd: "latest" | "summary" | "file" | "help" | "status" | "report" | "ack" | "pause" | "resume" | "setup" | "start";
   json: boolean;
   hash: string | null;
   n: number;
@@ -87,7 +90,7 @@ function parseArgs(argv: string[]): Args {
     } else if (i === 0 && a === "ack") {
       args.cmd = "ack";
       args.hash = argv[++i] ?? null;
-    } else if (i === 0 && (a === "pause" || a === "resume" || a === "setup")) {
+    } else if (i === 0 && (a === "pause" || a === "resume" || a === "setup" || a === "start")) {
       args.cmd = a;
     } else if (a === "--summary") {
       args.cmd = "summary";
@@ -312,10 +315,11 @@ function showHelp(): void {
       "  --latest [N]      Show last N entries (default 10). Default subcommand.",
       "  --status         Show resolved configuration, state and last five reviews.",
       "  --summary         Aggregate stats over the log.",
-      "  --report [--json] Report reviews, findings, acknowledgements, current HIGH blockers and pauses.",
+      "  --report [--json] Report reviews, findings, acknowledgements, blockers, pauses and unreviewed files.",
       "  ack <hash>        Record an acknowledgement with the reason read from stdin.",
       "  pause             Pause this project's hook and record the event.",
-      "  resume            Resume this project's hook, clear failures and record the event.",
+      "  resume            Resume this project's hook, clear failures and start a catch-up pass.",
+      "  start             Start a catch-up pass and show status.",
       "  setup             Copy .codex-pair.example/context.md to the marker when absent; ignore .codex-pair/ locally.",
       "  --file <path>     Filter to one file's history.",
       "  --since <dur>     Filter to entries within the last <dur>. Examples: 30m, 24h, 7d.",
@@ -342,6 +346,7 @@ async function main(): Promise<void> {
     process.stderr.write(`codex-pair-log: no .codex-pair/context.md marker found in cwd or parents\n`);
     process.exit(1);
   }
+  const sessionId = process.env.CLAUDE_CODE_SESSION_ID;
   if (args.cmd === "ack" && args.hash) {
     const reason = readFileSync(0, "utf8").trim();
     if (!reason) {
@@ -367,9 +372,11 @@ async function main(): Promise<void> {
       const detail = [pause.reason, pause.resetHint && `resets ~${pause.resetHint}`].filter(Boolean).join(", ");
       process.stdout.write(`Previous auto-pause (${pause.kind})${detail ? ` — ${detail}` : ""}\n`);
     }
-    process.stdout.write(`codex-pair resumed for ${markerDir}. Reviews resume on the next supported edit.\n`);
+    if (process.env.CODEX_PAIR_HOST !== "grok") startCatchUp(markerDir, sessionId);
+    process.stdout.write(`codex-pair resumed for ${markerDir}. Reviews are active.\n`);
     return;
   }
+  if (args.cmd === "start" && process.env.CODEX_PAIR_HOST !== "grok") startCatchUp(markerDir, sessionId);
   const logPath = resolveLogPath(markerDir);
   const log = readLog(logPath);
   let entries = loadEntries(log);
@@ -383,11 +390,16 @@ async function main(): Promise<void> {
     const acks = readAcks(canonical);
     const marker = readFileSync(contextPath(canonical), "utf8");
     const blocking = resolveBlockOn(marker) === "HIGH" ? readBlockingHighs(canonical, log, acks) : [];
-    const report = buildReport(canonical, entries, acks, blocking, cutoff);
+    const unreviewedFiles = collectSessionMarkers(markerDir, sessionId).flatMap((marker) =>
+      [...dirtyCoverage(marker)].flatMap(({ file, status }) =>
+        status === "reviewed" ? [] : [{ repository: canonicalFile(marker), file: relative(marker, file), status }],
+      ),
+    );
+    const report = buildReport(canonical, entries, acks, blocking, cutoff, unreviewedFiles);
     process.stdout.write(`${args.json ? JSON.stringify(report, null, 2) : formatReport(report)}\n`);
     return;
   }
-  if (args.cmd === "status") {
+  if (args.cmd === "status" || args.cmd === "start") {
     showStatus(markerDir, applySinceFilter(entries, args.sinceMs));
     return;
   }

@@ -5,15 +5,83 @@
 import { spawnSync } from "node:child_process";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { decideReview, markReviewed, readEditRecord } from "./lib/debounce-state.mjs";
-import { INFLIGHT_TTL_MIN_MS, releaseInflightLock, tryAcquireInflightLock } from "./lib/state.mjs";
+import { decideReview, fileContentHash, markReviewed, readEditRecord } from "./lib/debounce-state.mjs";
+import { lockCatchUpTarget } from "./lib/pair-catch-up.mjs";
+import { isCatchUpFile } from "./lib/pair-coverage.mjs";
+import { appendLog, INFLIGHT_TTL_MIN_MS, readPauseInfo, releaseInflightLock, tryAcquireInflightLock, } from "./lib/state.mjs";
+import { canonicalFile, gitDirtySet } from "./lib/stop-gate-io.mjs";
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
 const HOOK_PATH = join(SCRIPT_DIR, "codex-pair-watch.mjs");
 const LOCK_CONTENTION_RETRY_MS = 100; // Pi's cadence
 function sleep(ms) {
     return new Promise((r) => setTimeout(r, ms));
 }
+function runReview(markerDir, file, tool, timeoutMs, deadline) {
+    const payload = JSON.stringify({
+        hook_event_name: "PostToolUse",
+        tool_name: tool,
+        tool_input: { file_path: file },
+        session_id: process.env.CP_SESSION_ID || "",
+    });
+    return spawnSync(process.execPath, [HOOK_PATH], {
+        input: payload,
+        cwd: markerDir,
+        encoding: "utf-8",
+        env: {
+            ...process.env,
+            CODEX_PAIR_FORCE_SYNC: "1",
+            CP_TIMEOUT_MS: String(timeoutMs),
+            CP_MARKER_DIR: markerDir,
+            CP_CATCH_UP_PASS: "",
+            CP_CATCH_UP_DEADLINE: deadline === undefined ? "" : String(deadline),
+        },
+        timeout: deadline === undefined ? timeoutMs + 60_000 : Math.max(1, deadline - Date.now()) + 1000,
+    });
+}
+async function runCatchUpPass({ targets, activeMarkers, firstLock, deadline }) {
+    // The first lock is held by the launcher until this worker takes over.
+    let lock = firstLock;
+    try {
+        for (const target of targets) {
+            const { markerDir, file, timeoutMs } = target;
+            if (Date.now() >= deadline || activeMarkers.some((marker) => readPauseInfo(marker)))
+                break;
+            // Files committed or removed while an earlier review was running have left the pass's scope.
+            if (!isCatchUpFile(markerDir, file) || !gitDirtySet(markerDir, deadline)?.has(canonicalFile(file))) {
+                releaseInflightLock(lock);
+                lock = undefined;
+                continue;
+            }
+            if (Date.now() >= deadline)
+                break;
+            lock ??= lockCatchUpTarget(target);
+            if (!lock)
+                continue;
+            const contentHash = fileContentHash(file);
+            const result = runReview(markerDir, file, "Edit", timeoutMs, deadline);
+            if (result.error && contentHash) {
+                await appendLog(markerDir, {
+                    timestamp: new Date().toISOString(),
+                    source: "catch-up",
+                    file,
+                    contentHash,
+                    verdict: "code" in result.error && result.error.code === "ETIMEDOUT" ? "timeout" : "spawn_failed",
+                    reason: result.error.message,
+                });
+            }
+            releaseInflightLock(lock);
+            lock = undefined;
+        }
+    }
+    finally {
+        releaseInflightLock(lock);
+    }
+}
 async function main() {
+    if (process.env.CP_CATCH_UP_PASS) {
+        await runCatchUpPass(JSON.parse(process.env.CP_CATCH_UP_PASS));
+        return;
+    }
     const markerDir = process.env.CP_MARKER_DIR;
     const file = process.env.CP_FILE;
     const tool = process.env.CP_TOOL || "Edit";
@@ -25,12 +93,6 @@ async function main() {
     if (!markerDir || !file || !Number.isFinite(myGeneration))
         process.exit(0);
     await sleep(Number.isFinite(settleMs) ? settleMs : 15_000);
-    const payload = JSON.stringify({
-        hook_event_name: "PostToolUse",
-        tool_name: tool,
-        tool_input: { file_path: file },
-        session_id: process.env.CP_SESSION_ID || "",
-    });
     const codexTimeout = [process.env.CP_TIMEOUT_MS, process.env.ASK_CODEX_TIMEOUT_MS]
         .map(Number)
         .find((ms) => Number.isFinite(ms) && ms > 0) ?? 800_000;
@@ -43,14 +105,7 @@ async function main() {
         const lock = tryAcquireInflightLock(markerDir, file, lockTtlMs);
         if (lock.acquired) {
             try {
-                spawnSync(process.execPath, [HOOK_PATH], {
-                    input: payload,
-                    cwd: markerDir,
-                    encoding: "utf-8",
-                    // The hook reuses this timeout so its review fits the lock TTL and the kill deadline below.
-                    env: { ...process.env, CODEX_PAIR_FORCE_SYNC: "1", CP_TIMEOUT_MS: String(codexTimeout) },
-                    timeout: codexTimeout + 60_000,
-                });
+                runReview(markerDir, file, tool, codexTimeout);
             }
             finally {
                 markReviewed(markerDir, file, myGeneration);

@@ -45,7 +45,7 @@ run_terminal_command  -> command text only   -> shared review prompt
                            PostToolUse additionalContext -> Grok's next step
 ```
 
-Grok ignores the guide's `async` field. The adapter reviews synchronously, ignoring debounce settings on this host, and prints `hookSpecificOutput.additionalContext` before exiting. The turn waits for review; there is no detached delivery or Stop gate. `PostToolUse` cannot undo an edit. Verify and address findings before continuing.
+Grok ignores the guide's `async` field. The adapter reviews synchronously, ignoring debounce settings on this host, and prints `hookSpecificOutput.additionalContext` before exiting. The turn waits for review; there is no detached delivery, prompt drain or Stop gate. Catch-up review is unavailable on Grok. `PostToolUse` cannot undo an edit. Verify and address findings before continuing.
 
 Shell events expose the command text as given, **no diff or resulting file contents**. Every `run_terminal_command` is eligible because the adapter cannot reliably infer which shell programs edit files. Commands may fail or make no edits. The prompt states this limit; oversized commands receive a partial view. Shell state/logs use the synthetic path `[shell command]` under the event cwd. Include/ignore patterns apply to that path, not inferred shell targets. File reviews retain the shared file context cap and adaptive context behavior.
 

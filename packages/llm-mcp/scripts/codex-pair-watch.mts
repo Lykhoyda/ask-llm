@@ -4,7 +4,7 @@
 // Marketplace installs have no workspace dependencies; the hook self-gates on a project marker.
 
 import { spawn } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { readFileSync, statSync } from "node:fs";
 import { access, readFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, join, relative, resolve } from "node:path";
@@ -28,10 +28,13 @@ import {
   writePending,
   writePendingNotice,
 } from "./lib/debounce-state.mts";
+import { startCatchUp } from "./lib/pair-catch-up.mts";
 import { loadPairDefaults } from "./lib/pair-config-io.mts";
 import { positiveMs, resolveConfig } from "./lib/pair-config.mts";
 import { type Frontmatter, parseFrontmatter } from "./lib/frontmatter.mts";
 import type { HookInput } from "./lib/hook-input.mjs";
+import { hasCurrentReview, isCatchUpFile, reviewContextHash } from "./lib/pair-coverage.mts";
+import { readFileScope } from "./lib/pair-file-scope.mts";
 import { runClaudeReview } from "./lib/pair-reviewer.mts";
 import {
   buildVerdictMessage,
@@ -57,8 +60,6 @@ import {
   getCachedConcerns,
   hashConcernBody,
   INFLIGHT_TTL_MIN_MS,
-  ignorePath,
-  includePath,
   logPath,
   PAIR_ROOT_DIR,
   readAcks,
@@ -108,53 +109,6 @@ let shellReview = false;
 let reviewerLabel: string | null = null;
 
 type ReviewError = BrokerError & { quotaExhausted?: boolean };
-
-interface GlobRule {
-  negate: boolean;
-  pattern: string;
-  raw: string;
-}
-
-const SKIP_PATTERNS = [
-  // Path patterns — leading/trailing slash guards against substring matches
-  "/node_modules/",
-  "/dist/",
-  "/.git/",
-  // Lockfiles by exact filename
-  "yarn.lock",
-  "package-lock.json",
-  "pnpm-lock.yaml",
-  "Cargo.lock",
-  "Gemfile.lock",
-  "composer.lock",
-  "poetry.lock",
-  "go.sum",
-  // Images
-  ".png",
-  ".jpg",
-  ".jpeg",
-  ".gif",
-  ".svg",
-  ".ico",
-  // Fonts
-  ".woff",
-  ".woff2",
-  ".ttf",
-  ".otf",
-  ".eot",
-  // Documents + archives
-  ".pdf",
-  ".zip",
-  ".tar",
-  ".gz",
-  // Snapshots, sourcemaps, minified assets
-  ".snap",
-  ".map",
-  ".min.js",
-  ".min.css",
-  // Generic .lock catch-all (matches anything ending in .lock)
-  ".lock",
-];
 
 async function readStdin(): Promise<string> {
   return new Promise((resolveRead) => {
@@ -300,91 +254,6 @@ async function buildAdaptiveContext({
     strategy: "head-tail",
     content: `<file_head_first_150_lines>\n${head}\n</file_head_first_150_lines>\n\n[... ${omitted} lines omitted ...]\n\n<file_tail_last_80_lines>\n${tail}\n</file_tail_last_80_lines>`,
   };
-}
-
-// The same ordered rule parser serves project include and ignore files.
-function readGlobRulesFile(absolutePath: string): GlobRule[] {
-  let content: string;
-  try {
-    content = readFileSync(absolutePath, "utf8");
-  } catch {
-    return [];
-  }
-  const rules = [];
-  for (const rawLine of content.split("\n")) {
-    const line = rawLine.replace(/\r$/, "").trim();
-    if (line.length === 0 || line.startsWith("#")) continue;
-    const negate = line.startsWith("!");
-    const pattern = negate ? line.slice(1) : line;
-    if (pattern.length === 0) continue;
-    rules.push({ negate, pattern, raw: line });
-  }
-  return rules;
-}
-
-function readIgnoreFile(markerDir: string): GlobRule[] {
-  return readGlobRulesFile(ignorePath(markerDir));
-}
-
-// A nonempty include list narrows reviews; an absent or empty list leaves all files eligible.
-function readIncludeFile(markerDir: string): GlobRule[] {
-  return readGlobRulesFile(includePath(markerDir));
-}
-
-// Support the common gitignore glob subset; full gitignore precedence is outside this parser.
-function globToRegex(pattern: string): RegExp {
-  const anchored = pattern.startsWith("/");
-  const trailingSlash = pattern.endsWith("/");
-  let p = anchored ? pattern.slice(1) : pattern;
-  if (trailingSlash) p = p.slice(0, -1);
-  let body = "";
-  for (let i = 0; i < p.length; i++) {
-    const c = p[i];
-    if (c === "*") {
-      if (p[i + 1] === "*") {
-        body += ".*";
-        i++;
-        if (p[i + 1] === "/") i++;
-      } else {
-        body += "[^/]*";
-      }
-    } else if (c === "?") {
-      body += "[^/]";
-    } else if (c === "[") {
-      const end = p.indexOf("]", i);
-      if (end === -1) {
-        body += "\\[";
-      } else {
-        body += p.slice(i, end + 1);
-        i = end;
-      }
-    } else if ("().+|^$\\".includes(c)) {
-      body += `\\${c}`;
-    } else {
-      body += c;
-    }
-  }
-  const prefix = anchored ? "^" : "(^|.*/)";
-  const suffix = "(/.*)?$";
-  return new RegExp(prefix + body + suffix);
-}
-
-// The last matching rule wins, including negations.
-function matchesIgnoreRule(filePath: string, markerDir: string, rules: GlobRule[]): GlobRule | null {
-  if (rules.length === 0) return null;
-  let rel = filePath;
-  const prefix = `${markerDir}/`;
-  if (filePath.startsWith(prefix)) {
-    rel = filePath.slice(prefix.length);
-  }
-  let lastMatch: GlobRule | null = null;
-  for (const rule of rules) {
-    if (globToRegex(rule.pattern).test(rel)) {
-      lastMatch = rule;
-    }
-  }
-  if (lastMatch?.negate) return null;
-  return lastMatch;
 }
 
 // Stop marker discovery at the home directory or after 20 levels.
@@ -538,9 +407,18 @@ interface CodexCall {
   model: string;
   reasoningEffort: string;
   timeoutMs: number;
+  passDeadline?: number;
 }
 
-function spawnCodex({ prompt, model, reasoningEffort, timeoutMs }: CodexCall): Promise<string> {
+function withinPassBudget(timeoutMs: number, passDeadline?: number): number {
+  if (passDeadline === undefined) return timeoutMs;
+  const left = passDeadline - Date.now();
+  if (left <= 0) throw taggedError("catch-up time budget expired", "timeout");
+  return Math.min(timeoutMs, left);
+}
+
+async function spawnCodex({ prompt, model, reasoningEffort, timeoutMs, passDeadline }: CodexCall): Promise<string> {
+  timeoutMs = withinPassBudget(timeoutMs, passDeadline);
   return new Promise((resolveCall, rejectCall) => {
     const args = buildCodexArgs(model, reasoningEffort);
     const child = spawn("codex", args, {
@@ -609,10 +487,11 @@ async function spawnCodexWithRetry({
   model,
   reasoningEffort,
   timeoutMs,
+  passDeadline,
   markerDir,
 }: CodexCall & { markerDir: string }): Promise<string> {
   try {
-    return await spawnCodex({ prompt, model, reasoningEffort, timeoutMs });
+    return await spawnCodex({ prompt, model, reasoningEffort, timeoutMs, passDeadline });
   } catch (err) {
     if (!isTransientError(err)) throw err;
     const reason = err instanceof Error ? err.message : String(err);
@@ -624,8 +503,8 @@ async function spawnCodexWithRetry({
       model,
       delayMs: Math.round(delayMs),
     });
-    await sleepMs(delayMs);
-    return await spawnCodex({ prompt, model, reasoningEffort, timeoutMs });
+    await sleepMs(withinPassBudget(delayMs, passDeadline));
+    return await spawnCodex({ prompt, model, reasoningEffort, timeoutMs, passDeadline });
   }
 }
 
@@ -715,6 +594,7 @@ async function runCodexWithFallback({
   reasoningEffort,
   fallbackModel,
   markerDir,
+  passDeadline,
 }: ReviewCall): Promise<{ response: string; fellBack: boolean; viaBroker?: boolean }> {
   // Broker failures retry directly; quota uses the fallback model; transients consume one retry.
   let retryPrimary = true;
@@ -728,7 +608,7 @@ async function runCodexWithFallback({
           prompt,
           model,
           reasoningEffort,
-          timeoutMs: Math.floor(timeoutMs / 2),
+          timeoutMs: withinPassBudget(Math.floor(timeoutMs / 2), passDeadline),
           markerDir,
         }),
         fellBack: false,
@@ -753,6 +633,7 @@ async function runCodexWithFallback({
           prompt,
           reasoningEffort,
           timeoutMs: directTimeoutMs,
+          passDeadline,
           model,
           fallbackModel,
           markerDir,
@@ -761,7 +642,7 @@ async function runCodexWithFallback({
     }
   }
   try {
-    const call = { prompt, model, reasoningEffort, timeoutMs: directTimeoutMs, markerDir };
+    const call = { prompt, model, reasoningEffort, timeoutMs: directTimeoutMs, passDeadline, markerDir };
     return {
       response: retryPrimary ? await spawnCodexWithRetry(call) : await spawnCodex(call),
       fellBack: false,
@@ -771,6 +652,7 @@ async function runCodexWithFallback({
     return runFallbackModel(err as ReviewError, {
       prompt,
       timeoutMs: directTimeoutMs,
+      passDeadline,
       model,
       reasoningEffort,
       fallbackModel,
@@ -781,7 +663,7 @@ async function runCodexWithFallback({
 
 async function runFallbackModel(
   err: ReviewError,
-  { prompt, timeoutMs, model, reasoningEffort, fallbackModel, markerDir }: ReviewCall,
+  { prompt, timeoutMs, model, reasoningEffort, fallbackModel, markerDir, passDeadline }: ReviewCall,
 ): Promise<{ response: string; fellBack: boolean }> {
   if (model !== fallbackModel) {
     try {
@@ -790,6 +672,7 @@ async function runFallbackModel(
         model: fallbackModel,
         reasoningEffort,
         timeoutMs,
+        passDeadline,
         markerDir,
       });
       return { response, fellBack: true };
@@ -882,15 +765,19 @@ async function main() {
 
   // Resolve from the edited file so cross-repository edits use the right marker and log.
   markerAnchor = dirname(filePath);
-  const markerDir = await findMarkerUp(markerAnchor);
-  if (!markerDir) process.exit(0);
+  const forced = process.env.CODEX_PAIR_FORCE_SYNC === "1";
+  const passDeadline = forced && !grokHost ? positiveMs(process.env.CP_CATCH_UP_DEADLINE) : undefined;
+  const catchUp = passDeadline !== undefined;
+  const markerDir = catchUp ? process.env.CP_MARKER_DIR : await findMarkerUp(markerAnchor);
+  if (!markerDir || (catchUp && !isCatchUpFile(markerDir, filePath))) process.exit(0);
 
   // Register before skip gates so earlier HIGH findings remain visible across repositories.
   registerMarker(payload?.session_id, markerDir);
-  if (!grokHost && process.env.CODEX_PAIR_FORCE_SYNC === "1") forcedTarget = { markerDir, filePath };
+  if (forced && !grokHost) forcedTarget = { markerDir, filePath };
 
   const pauseInfo = readPauseInfo(markerDir);
   if (pauseInfo) {
+    if (catchUp) process.exit(0);
     // Expired auto-pauses resume here; a failed retry may create a new pause.
     const resumeDecision = resolveAutoResume(pauseInfo, {
       now: Date.now(),
@@ -912,7 +799,8 @@ async function main() {
         reason: `${resumeDecision.why} (paused ${pauseInfo.at ?? "unknown"}, kind: ${pauseInfo.kind})`,
       });
       noticePrefix = `codex-pair auto-resumed (${resumeDecision.why}): was ${pauseInfo.kind}-paused since ${pauseInfo.at ?? "unknown"}. Reviews are live again.`;
-      // fall through — this edit gets reviewed
+      // Give this edit its normal review first, then launch catch-up for the remaining files.
+      if (!grokHost) process.once("exit", () => startCatchUp(markerDir, payload?.session_id));
     } else if (currentPause) {
       const pauseReason = currentPause.manual
         ? "paused via /codex-pair-pause (rm .codex-pair/state/paused to resume)"
@@ -929,36 +817,9 @@ async function main() {
     // A concurrent resume needs no second notice.
   }
 
-  const lower = filePath.toLowerCase();
-  if (SKIP_PATTERNS.some((p) => lower.includes(p))) {
-    // A skipped edit must still emit a queued auto-resume notice.
-    await flushNoticeOnly();
-    process.exit(0);
-  }
-
-  // Include narrows before ignore excludes; negation-only include rules act as exclusions.
-  const includeRules = readIncludeFile(markerDir);
-  const positiveInclude = includeRules.filter((r) => !r.negate);
-  const includeNegationsAsIgnore = [];
-  if (positiveInclude.length > 0) {
-    // Standard inclusion gate with full rule set (positive + negation)
-    const includeMatch = matchesIgnoreRule(filePath, markerDir, includeRules);
-    if (!includeMatch) {
-      await appendLog(markerDir, {
-        timestamp: new Date().toISOString(),
-        tool: toolName,
-        file: filePath,
-        verdict: "skipped",
-        reason: "file not in .codex-pair/include scope",
-      });
-      await flushNoticeOnly();
-      process.exit(0);
-    }
-  } else if (includeRules.length > 0) {
-    // Treat negation-only include rules as exclusions and log the mapping.
-    for (const r of includeRules) {
-      includeNegationsAsIgnore.push({ negate: false, pattern: r.pattern, raw: r.raw });
-    }
+  const scope = readFileScope(markerDir);
+  const skip = scope.skipReason(filePath);
+  if (scope.negationOnlyInclude && skip?.kind !== "built-in") {
     await appendLog(markerDir, {
       timestamp: new Date().toISOString(),
       tool: toolName,
@@ -968,19 +829,16 @@ async function main() {
         ".codex-pair/include has only negation rules — interpreting as 'review everything except these patterns' (treating as ignore-list entries). Add a positive rule like '**' to use include as a strict allow-list.",
     });
   }
-
-  // Ignored files skip silently with the matching pattern logged.
-  const ignoreRulesRaw = readIgnoreFile(markerDir);
-  const ignoreRules = [...ignoreRulesRaw, ...includeNegationsAsIgnore];
-  const ignoreMatch = matchesIgnoreRule(filePath, markerDir, ignoreRules);
-  if (ignoreMatch) {
-    await appendLog(markerDir, {
-      timestamp: new Date().toISOString(),
-      tool: toolName,
-      file: filePath,
-      verdict: "skipped",
-      reason: `matched .codex-pair/ignore: ${ignoreMatch.raw}`,
-    });
+  if (skip) {
+    if (skip.kind !== "built-in") {
+      await appendLog(markerDir, {
+        timestamp: new Date().toISOString(),
+        tool: toolName,
+        file: filePath,
+        verdict: "skipped",
+        reason: skip.reason,
+      });
+    }
     await flushNoticeOnly();
     process.exit(0);
   }
@@ -988,16 +846,19 @@ async function main() {
   // Parse marker config before applying its file-size limit.
   let projectContext = "";
   let markerContent = "";
+  let markerMtime: number | undefined;
   let frontmatter: Frontmatter = {};
   let frontmatterMalformed = false;
   try {
+    markerMtime = statSync(contextPath(markerDir)).mtimeMs;
     markerContent = await readFile(contextPath(markerDir), "utf8");
     const parsed = parseFrontmatter(markerContent);
     projectContext = parsed.body;
     frontmatter = parsed.frontmatter;
     frontmatterMalformed = parsed.malformed;
   } catch {
-    // marker unreadable — proceed with empty context and defaults
+    // Normal edits use defaults when a marker is unreadable. Catch-up requires the selected marker.
+    if (catchUp) process.exit(0);
   }
   if (frontmatterMalformed) {
     await appendLog(markerDir, {
@@ -1025,7 +886,7 @@ async function main() {
   if (workerTimeoutMs !== undefined) config.timeoutMs = workerTimeoutMs;
 
   // The worker re-invokes forced-sync so the review uses the normal synchronous path.
-  const effectiveDebounceMs = grokHost || process.env.CODEX_PAIR_FORCE_SYNC === "1" ? 0 : config.debounceMs;
+  const effectiveDebounceMs = grokHost || forced ? 0 : config.debounceMs;
   if (effectiveDebounceMs > 0) {
     const record = bumpEditRecord(markerDir, filePath, {
       sessionId: payload?.session_id,
@@ -1078,6 +939,20 @@ async function main() {
     process.exit(0);
   }
   const reviewedContentHash = contentHash(fileContent);
+  const contextHash = reviewContextHash(projectContext, config);
+  if (
+    catchUp &&
+    hasCurrentReview(markerDir, filePath, reviewedContentHash, contextHash, markerMtime ?? Infinity, config)
+  ) {
+    process.exit(0);
+  }
+  const reviewCoverage = {
+    contentHash: reviewedContentHash,
+    reviewContextHash: contextHash,
+    markerMtime,
+    ...(catchUp ? { source: "catch-up" } : {}),
+    ...(grokHost ? { coverage: shellReview ? "command-text" : "file" } : {}),
+  };
 
   const fileBytes = Buffer.byteLength(fileContent, "utf8");
   // Over-cap files get a partial view rather than losing review coverage.
@@ -1138,19 +1013,18 @@ async function main() {
     surfaceThreshold: config.surfaceThreshold,
   });
   const cached = await getCachedConcerns(markerDir, cacheKey);
-  if (cached) {
+  if (cached && (!cached.fellBack || cached.model === config.fallbackModel)) {
     const cachedDurationMs = Date.now() - startedAt;
     await appendLog(markerDir, {
       timestamp: new Date().toISOString(),
       tool: toolName,
       file: filePath,
       verdict: "cached",
-      contentHash: reviewedContentHash,
+      ...reviewCoverage,
       reviewer: cached.reviewer ?? "unknown",
       model: cached.model ?? "unknown",
       reasoningEffort: cached.reasoningEffort ?? "unknown",
       fellBack: cached.fellBack,
-      ...(grokHost ? { coverage: shellReview ? "command-text" : "file" } : {}),
       counts: {
         high: cached.high.length,
         med: cached.med.length,
@@ -1224,7 +1098,7 @@ async function main() {
       tool: toolName,
       file: filePath,
       verdict,
-      contentHash: reviewedContentHash,
+      ...reviewCoverage,
       reason,
       durationMs,
       ...extra,
@@ -1261,10 +1135,11 @@ async function main() {
     // Broker and direct modes share one fallback path.
     const result =
       reviewer === "claude"
-        ? await runClaudeReview(prompt, config.timeoutMs, markerDir)
+        ? await runClaudeReview(prompt, withinPassBudget(config.timeoutMs, passDeadline), markerDir)
         : await runCodexWithFallback({
             prompt,
-            timeoutMs: config.timeoutMs,
+            timeoutMs: withinPassBudget(config.timeoutMs, passDeadline),
+            passDeadline,
             model: config.model,
             reasoningEffort: config.reasoningEffort,
             fallbackModel: config.fallbackModel,
@@ -1290,7 +1165,7 @@ async function main() {
         tool: toolName,
         file: filePath,
         verdict,
-        contentHash: reviewedContentHash,
+        ...reviewCoverage,
         reason,
         durationMs,
         ...(paused ? { autoPaused: "quota", event: "pause", pauseKind: "quota", pauseSource: "auto" } : {}),
@@ -1348,9 +1223,8 @@ async function main() {
     tool: toolName,
     file: filePath,
     verdict: total === 0 ? "none" : "concerns",
-    contentHash: reviewedContentHash,
+    ...reviewCoverage,
     ...attribution,
-    ...(grokHost ? { coverage: shellReview ? "command-text" : "file" } : {}),
     counts: {
       high: concerns.high.length,
       med: concerns.med.length,

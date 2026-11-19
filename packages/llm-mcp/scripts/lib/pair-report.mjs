@@ -50,7 +50,7 @@ function acknowledgementReason(ack) {
         return ack.reason;
     return typeof ack === "string" ? ack : "unknown";
 }
-export function buildReport(markerDir, entries, acks, blocking, cutoff) {
+export function buildReport(markerDir, entries, acks, blocking, cutoff, unreviewedFiles) {
     let reviewsRun = 0;
     let cachedHits = 0;
     let fallbackReviews = 0;
@@ -158,11 +158,12 @@ export function buildReport(markerDir, entries, acks, blocking, cutoff) {
         noLongerReported,
         models: [...models.values()],
         pauseWindows: pauseWindows(entries, cutoff),
+        unreviewedFiles,
     };
 }
 const findingLabel = ({ severity, hash, file }) => `${severity.toUpperCase()} [${hash}] ${JSON.stringify(file)}`;
 export function formatReport(report) {
-    const { repository, since, reviewsRun, cachedHits, fallbackReviews, findingsComplete, findingsBySeverity, repeatedFindings, acknowledgedFindings, blockingHighs, otherUnacknowledgedHighs, noLongerReported, models, pauseWindows, } = report;
+    const { repository, since, reviewsRun, cachedHits, fallbackReviews, findingsComplete, findingsBySeverity, repeatedFindings, acknowledgedFindings, blockingHighs, otherUnacknowledgedHighs, noLongerReported, models, pauseWindows, unreviewedFiles, } = report;
     const { high, med, low } = findingsBySeverity;
     const repeats = repeatedFindings.reduce((sum, finding) => sum + finding.repeats, 0);
     const findingMetric = (value) => (findingsComplete ? String(value) : `${value} known (partial)`);
@@ -178,6 +179,7 @@ export function formatReport(report) {
         `${findingMetric(noLongerReported.length)} findings no longer reported on the latest review of their file`,
         `pause windows ${pauseWindows.length}`,
         modelStats || "reviewer/model/effort unknown",
+        ...(unreviewedFiles.length ? [`${unreviewedFiles.length} dirty file(s) without a current review`] : []),
     ].join(" | ");
     return [
         heading,
@@ -187,5 +189,6 @@ export function formatReport(report) {
         ...otherUnacknowledgedHighs.map((finding) => `Other unacknowledged ${findingLabel(finding)}`),
         ...noLongerReported.map((finding) => `Finding no longer reported on the latest review of its file — ${findingLabel(finding)}`),
         ...pauseWindows.map(({ kind, startedAt, endedAt }) => `Pause ${kind} ${startedAt} → ${endedAt}`),
+        ...unreviewedFiles.map(({ repository, file, status }) => `Review ${status === "not-started" ? "not started" : status} ${JSON.stringify(resolve(repository, file))}`),
     ].join("\n");
 }

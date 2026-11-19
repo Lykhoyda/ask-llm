@@ -9,6 +9,7 @@ import { dirname, join, resolve } from "node:path";
 import { resolveBrokerPreference } from "./lib/broker.mts";
 import { bootstrapBroker, teardownBroker } from "./lib/broker-lifecycle.mts";
 import { clearAllDebounceState } from "./lib/debounce-state.mts";
+import { startCatchUp } from "./lib/pair-catch-up.mts";
 import type { HookInput } from "./lib/hook-input.mjs";
 import { clearSession } from "./lib/session-registry.mts";
 import {
@@ -84,6 +85,7 @@ async function main() {
     process.exit(0);
   }
 
+  let resumedMarker: string | null = null;
   // SessionStart reminds the model of active pauses via additionalContext and resumes expired ones.
   if (event === "SessionStart") {
     try {
@@ -106,6 +108,7 @@ async function main() {
             pauseStartedAt: pauseInfo.at,
             reason: `${decision.why} (paused ${pauseInfo.at ?? "unknown"}, kind: ${pauseInfo.kind})`,
           });
+          resumedMarker = markerDir;
           context = `codex-pair auto-resumed (${decision.why}): was ${pauseInfo.kind}-paused since ${pauseInfo.at ?? "unknown"}. Reviews are live again.`;
         } else {
           const current = decision.resume ? readPauseInfo(markerDir) : pauseInfo;
@@ -159,6 +162,7 @@ async function main() {
   } catch {
     // Bootstrap failure must not break the session.
   }
+  if (resumedMarker) startCatchUp(resumedMarker, payload?.session_id);
   process.exit(0);
 }
 

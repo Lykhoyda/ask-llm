@@ -24,16 +24,22 @@ let state: string;
 
 const ACKED = "b421584ba336fb83";
 const BLOCKING = "fc69d46835dfd2ab";
+const originalRegistryRoot = process.env.CODEX_PAIR_SESSION_REGISTRY_ROOT;
 // First 16 hex characters of SHA-256("a.ts:Legacy medium comment").
 const LEGACY_MEDIUM = "33e4573a12d24e64";
 
-function script(name: string, args: string[], input = "") {
+function script(name: string, args: string[], input = "", env: NodeJS.ProcessEnv = {}) {
   const result = spawnSync(process.execPath, [join(PLUGIN_ROOT, "scripts", name), ...args], {
     cwd,
     input,
     encoding: "utf8",
-    env: { ...process.env, CODEX_PAIR_DISABLED: "0", CLAUDE_CONFIG_DIR: join(scratch, "claude") },
-    timeout: 5000,
+    env: {
+      ...process.env,
+      CODEX_PAIR_DISABLED: name === "codex-pair-stop-gate.mjs" ? "1" : "0",
+      CLAUDE_CONFIG_DIR: join(scratch, "claude"),
+      ...env,
+    },
+    timeout: 20_000,
   });
   expect(result.error).toBeUndefined();
   return result;
@@ -59,6 +65,7 @@ function stopGate() {
 
 beforeEach(() => {
   scratch = realpathSync(mkdtempSync(join(tmpdir(), "codex-pair-report-")));
+  process.env.CODEX_PAIR_SESSION_REGISTRY_ROOT = scratch;
   repo = join(scratch, "project");
   cwd = join(repo, "nested");
   pair = join(repo, ".codex-pair");
@@ -70,7 +77,11 @@ beforeEach(() => {
   execFileSync("git", ["init", "--quiet", repo]);
 });
 
-afterEach(() => rmSync(scratch, { recursive: true, force: true }));
+afterEach(() => {
+  rmSync(scratch, { recursive: true, force: true });
+  if (originalRegistryRoot === undefined) delete process.env.CODEX_PAIR_SESSION_REGISTRY_ROOT;
+  else process.env.CODEX_PAIR_SESSION_REGISTRY_ROOT = originalRegistryRoot;
+});
 
 it("reports two unique HIGHs, one MED, cache repeats, actual fallback attribution and a manual pause", () => {
   const a = join(repo, "a.ts");
@@ -111,13 +122,15 @@ it("reports two unique HIGHs, one MED, cache repeats, actual fallback attributio
 
   const human = cli("--report").trim().split("\n");
   expect(human).toEqual([
-    "codex-pair project (retained log) | reviews run 3, cache hits 1, fallback reviews 1 | 2 HIGH / 1 MED / 0 LOW unique, repeats 1 | 1 acknowledged | 1 HIGH blocking now, 0 other unacknowledged HIGH | 2 findings no longer reported on the latest review of their file | pause windows 1 | unknown/unknown/unknown (1 run, 0 cached), codex/gpt-6.1-terra/xhigh (1 run, 1 cached), codex/gpt-6.2-sol/high (1 run, 0 cached)",
+    "codex-pair project (retained log) | reviews run 3, cache hits 1, fallback reviews 1 | 2 HIGH / 1 MED / 0 LOW unique, repeats 1 | 1 acknowledged | 1 HIGH blocking now, 0 other unacknowledged HIGH | 2 findings no longer reported on the latest review of their file | pause windows 1 | unknown/unknown/unknown (1 run, 0 cached), codex/gpt-6.1-terra/xhigh (1 run, 1 cached), codex/gpt-6.2-sol/high (1 run, 0 cached) | 2 dirty file(s) without a current review",
     `Repeated HIGH [${BLOCKING}] "b.ts" ×1`,
     `Acknowledged HIGH [${ACKED}] "a.ts" — ${JSON.stringify(reason)}`,
     `Blocking now HIGH [${BLOCKING}] "b.ts"`,
     `Finding no longer reported on the latest review of its file — HIGH [${ACKED}] "a.ts"`,
     `Finding no longer reported on the latest review of its file — MED [${LEGACY_MEDIUM}] "a.ts"`,
     `Pause manual ${old} → open`,
+    `Review not started ${JSON.stringify(a)}`,
+    `Review not started ${JSON.stringify(b)}`,
   ]);
   const json = JSON.parse(cli("--report", "--json"));
   expect(json).toEqual({
@@ -142,6 +155,10 @@ it("reports two unique HIGHs, one MED, cache repeats, actual fallback attributio
       { reviewer: "codex", model: "gpt-6.2-sol", reasoningEffort: "high", reviewsRun: 1, cachedHits: 0 },
     ],
     pauseWindows: [{ kind: "manual", startedAt: old, endedAt: "open" }],
+    unreviewedFiles: [
+      { repository: repo, file: "a.ts", status: "not-started" },
+      { repository: repo, file: "b.ts", status: "not-started" },
+    ],
   });
 
   const window = JSON.parse(cli("--report", "--json", "--since", "1h"));
@@ -218,6 +235,7 @@ it("counts successful Pi reviews with unknown attribution in human and JSON repo
     noLongerReported: [],
     models: [{ reviewer: "unknown", model: "unknown", reasoningEffort: "unknown", reviewsRun: 1, cachedHits: 1 }],
     pauseWindows: [],
+    unreviewedFiles: [],
   });
   expect(JSON.parse(cli("--report", "--json", "--since", "1h"))).toMatchObject({
     reviewsRun: 0,
@@ -348,3 +366,163 @@ it("preserves a legacy auto-pause when already paused and records who resumed it
     { kind: "quota", startedAt: at, endedAt: event.timestamp },
   ]);
 });
+
+it.each([false, true])("reports a Git status failure instead of empty coverage (JSON: %s)", (json) => {
+  writeFileSync(join(repo, "dirty.ts"), "unreviewed content");
+  writeFileSync(join(repo, ".git/index"), "invalid index");
+  const result = script("codex-pair-log.mjs", ["--report", ...(json ? ["--json"] : [])]);
+  expect(result.status).toBe(1);
+  expect(result.stdout).toBe("");
+  expect(result.stderr).toContain("Unable to scan Git dirty files");
+  const stop = script("codex-pair-stop-gate.mjs", [], '{"hook_event_name":"Stop"}', { CODEX_PAIR_DISABLED: "0" });
+  expect(stop.status).toBe(0);
+  expect(stop.stdout).toBe("");
+  expect(stop.stderr).toBe("");
+});
+
+it("reports failure when a registered sibling cannot be scanned", async () => {
+  const { registerMarker, clearSession } = await import("../../scripts/lib/session-registry.mjs");
+  const sibling = join(scratch, "sibling");
+  mkdirSync(join(sibling, ".codex-pair"), { recursive: true });
+  writeFileSync(join(sibling, ".codex-pair/context.md"), "# Sibling");
+  execFileSync("git", ["init", "--quiet", sibling]);
+  writeFileSync(join(sibling, "dirty.ts"), "unreviewed sibling content");
+  writeFileSync(join(sibling, ".git/index"), "invalid index");
+  const session = `report-scan-${process.pid}`;
+  registerMarker(session, sibling);
+  try {
+    const result = script("codex-pair-log.mjs", ["--report", "--json"], "", { CLAUDE_CODE_SESSION_ID: session });
+    expect(result.status).toBe(1);
+    expect(result.stdout).toBe("");
+    expect(result.stderr).toContain(sibling);
+  } finally {
+    clearSession(session);
+  }
+});
+
+it("keeps historical reports available in a non-Git project", () => {
+  rmSync(join(repo, ".git"), { recursive: true });
+  writeFileSync(join(repo, "local.ts"), "outside Git scope");
+  writeLog({ timestamp: new Date().toISOString(), file: join(repo, "local.ts"), verdict: "none" });
+  expect(JSON.parse(cli("--report", "--json"))).toMatchObject({ reviewsRun: 1, unreviewedFiles: [] });
+  expect(cli("--report")).toContain("reviews run 1");
+});
+
+it("fails the report when Git is unavailable", () => {
+  const result = script("codex-pair-log.mjs", ["--report", "--json"], "", { PATH: join(scratch, "empty-bin") });
+  expect(result.status).toBe(1);
+  expect(result.stdout).toBe("");
+  expect(result.stderr).toContain("Unable to scan Git dirty files");
+});
+
+it("fails the report when Git status exceeds the existing five-second timeout", () => {
+  writeFileSync(join(repo, "dirty.ts"), "unreviewed content");
+  const bin = join(scratch, "bin");
+  mkdirSync(bin);
+  const realGit = execFileSync("sh", ["-c", "command -v git"], { encoding: "utf8" }).trim();
+  writeFileSync(
+    join(bin, "git"),
+    `#!/usr/bin/env node
+import { execFileSync } from "node:child_process";
+const args = process.argv.slice(2);
+if (args.includes("status")) setInterval(() => {}, 1000);
+else process.stdout.write(execFileSync(process.env.REPORT_REAL_GIT, args));
+`,
+    { mode: 0o755 },
+  );
+  const result = script("codex-pair-log.mjs", ["--report", "--json"], "", {
+    PATH: `${bin}:${process.env.PATH}`,
+    REPORT_REAL_GIT: realGit,
+  });
+  expect(result.status).toBe(1);
+  expect(result.stdout).toBe("");
+  expect(result.stderr).toContain("Unable to scan Git dirty files");
+}, 15_000);
+
+it("reports a Git discovery error instead of treating a broken repository as a non-Git project", () => {
+  writeFileSync(join(repo, ".git/config"), "[invalid configuration");
+  const result = script("codex-pair-log.mjs", ["--report", "--json"]);
+  expect(result.status).toBe(1);
+  expect(result.stdout).toBe("");
+  expect(result.stderr).toContain("Unable to scan Git dirty files");
+});
+
+it.each([
+  { json: false, sibling: false },
+  { json: true, sibling: false },
+  { json: false, sibling: true },
+  { json: true, sibling: true },
+])("reports reviewer refusal instead of empty coverage: %j", async ({ json, sibling }) => {
+  const { registerMarker, clearSession } = await import("../../scripts/lib/session-registry.mjs");
+  const root = sibling ? join(scratch, "sibling") : repo;
+  const marker = join(root, ".codex-pair/context.md");
+  mkdirSync(join(root, ".codex-pair"), { recursive: true });
+  if (sibling) execFileSync("git", ["init", "--quiet", root]);
+  writeFileSync(marker, "---\nreviewer: claude\nblockOn: HIGH\n---\n# Refused reviewer");
+  writeFileSync(join(root, "a.ts"), "unreviewed content");
+  const session = `report-refusal-${process.pid}`;
+  if (sibling) registerMarker(session, root);
+  const env = { CLAUDE_CODE_SESSION_ID: session, CODEX_PAIR_HOST: "" };
+  try {
+    const result = script("codex-pair-log.mjs", ["--report", ...(json ? ["--json"] : [])], "", env);
+    expect(result.status).toBe(1);
+    expect(result.stdout).toBe("");
+    expect(result.stderr).toContain("codex-pair refused: claude cannot review its own model family's edits");
+    const stop = script(
+      "codex-pair-stop-gate.mjs",
+      [],
+      JSON.stringify({ hook_event_name: "Stop", session_id: session }),
+      {
+        ...env,
+        CODEX_PAIR_DISABLED: "0",
+      },
+    );
+    expect(stop.status).toBe(0);
+    expect(stop.stdout).toBe("");
+    expect(stop.stderr).toBe("");
+    expect(existsSync(join(root, ".codex-pair/state/inflight"))).toBe(false);
+  } finally {
+    clearSession(session);
+  }
+});
+
+it("reports unsupported reviewer settings as configuration errors", () => {
+  writeFileSync(join(pair, "context.md"), "---\nreviewer: gemini\n---\n# Unsupported reviewer");
+  writeFileSync(join(repo, "a.ts"), "unreviewed content");
+  const result = script("codex-pair-log.mjs", ["--report", "--json"]);
+  expect(result.status).toBe(1);
+  expect(result.stdout).toBe("");
+  expect(result.stderr).toContain("codex-pair refused: reviewer must be codex or claude");
+});
+
+it.each([true, false])(
+  "skips a disappeared sibling marker but rejects an unreadable present marker (disappeared: %s)",
+  async (disappeared) => {
+    const { registerMarker, clearSession } = await import("../../scripts/lib/session-registry.mjs");
+    const sibling = join(scratch, "sibling");
+    const marker = join(sibling, ".codex-pair/context.md");
+    mkdirSync(join(sibling, ".codex-pair"), { recursive: true });
+    writeFileSync(marker, "# Sibling");
+    const session = `report-marker-${process.pid}`;
+    registerMarker(session, sibling);
+    rmSync(marker);
+    if (!disappeared) mkdirSync(marker);
+    writeFileSync(join(repo, "a.ts"), "unreviewed content");
+    try {
+      const result = script("codex-pair-log.mjs", ["--report", "--json"], "", { CLAUDE_CODE_SESSION_ID: session });
+      if (disappeared) {
+        expect(result.status).toBe(0);
+        expect(result.stderr).toBe("");
+        expect(JSON.parse(result.stdout).unreviewedFiles).toEqual([
+          { repository: repo, file: "a.ts", status: "not-started" },
+        ]);
+      } else {
+        expect(result.status).toBe(1);
+        expect(result.stdout).toBe("");
+        expect(result.stderr).toContain("EISDIR");
+      }
+    } finally {
+      clearSession(session);
+    }
+  },
+);

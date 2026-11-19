@@ -340,8 +340,16 @@ export function clearReviewFailures(markerDir: string): void {
   }
 }
 
+export function canonicalFile(file: string): string {
+  try {
+    return realpathSync(file);
+  } catch {
+    return file;
+  }
+}
+
 export function inflightLockPath(markerDir: string, filePath: string): string {
-  const hash = createHash("sha256").update(filePath).digest("hex").slice(0, 16);
+  const hash = createHash("sha256").update(canonicalFile(filePath)).digest("hex").slice(0, 16);
   return join(inflightRoot(markerDir), hash);
 }
 

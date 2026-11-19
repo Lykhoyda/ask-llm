@@ -3,7 +3,7 @@
 import { createHash } from "node:crypto";
 import { mkdirSync, readdirSync, readFileSync, renameSync, statSync, unlinkSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { INFLIGHT_TTL_MIN_MS, stateRoot } from "./state.mjs";
+import { canonicalFile, INFLIGHT_TTL_MIN_MS, stateRoot } from "./state.mjs";
 export const DEBOUNCE_DIR = "debounce";
 export const PENDING_DIR = "pending";
 export const REVIEWED_DIR = "reviewed";
@@ -15,9 +15,9 @@ export const reviewedRoot = (markerDir) => join(stateRoot(markerDir), REVIEWED_D
 function fileHash(file) {
     return createHash("sha256").update(String(file)).digest("hex").slice(0, 16);
 }
-export const debounceRecordPath = (markerDir, file) => join(debounceRoot(markerDir), `${fileHash(file)}.json`);
-export const pendingPath = (markerDir, file) => join(pendingRoot(markerDir), `${fileHash(file)}.json`);
-export const reviewedPath = (markerDir, file) => join(reviewedRoot(markerDir), `${fileHash(file)}.json`);
+export const debounceRecordPath = (markerDir, file) => join(debounceRoot(markerDir), `${fileHash(canonicalFile(file))}.json`);
+export const pendingPath = (markerDir, file) => join(pendingRoot(markerDir), `${fileHash(canonicalFile(file))}.json`);
+export const reviewedPath = (markerDir, file) => join(reviewedRoot(markerDir), `${fileHash(canonicalFile(file))}.json`);
 export const contentHash = (text) => createHash("sha256").update(text).digest("hex");
 export function fileContentHash(file) {
     try {
@@ -28,13 +28,16 @@ export function fileContentHash(file) {
     }
 }
 function readReviewedGen(markerDir, file) {
-    try {
-        const { reviewedGen } = JSON.parse(readFileSync(reviewedPath(markerDir, file), "utf8"));
-        return Number.isFinite(reviewedGen) ? reviewedGen : 0;
+    let generation = 0;
+    for (const key of new Set([canonicalFile(file), file])) {
+        try {
+            const { reviewedGen } = JSON.parse(readFileSync(join(reviewedRoot(markerDir), `${fileHash(key)}.json`), "utf8"));
+            if (Number.isFinite(reviewedGen))
+                generation = Math.max(generation, reviewedGen);
+        }
+        catch { }
     }
-    catch {
-        return 0;
-    }
+    return generation;
 }
 // Pre-upgrade edit records carried reviewedGen themselves, so it still floors the done-marker.
 const withReviewedGen = (markerDir, rec) => ({
@@ -54,19 +57,13 @@ function writeAtomicSync(p, value) {
 }
 // Hooks own the edit record; the done-marker in reviewed/ belongs to the lock holder (one writer per file).
 export function bumpEditRecord(markerDir, file, { sessionId, now }) {
-    let prev = null;
-    try {
-        prev = JSON.parse(readFileSync(debounceRecordPath(markerDir, file), "utf8"));
-    }
-    catch {
-        prev = null;
-    }
-    const reviewedGen = readReviewedGen(markerDir, file);
+    const prev = readEditRecord(markerDir, file);
+    const reviewedGen = Math.max(readReviewedGen(markerDir, file), prev?.reviewedGen ?? 0);
     // A swept edit record must not restart below the done-marker.
     const generation = Math.max(prev?.generation ?? 0, reviewedGen) + 1;
     const burstInProgress = prev && reviewedGen < prev.generation;
     const burstStartedAt = burstInProgress ? prev.burstStartedAt : now;
-    const record = { file, generation, burstStartedAt, sessionId };
+    const record = { file, generation, burstStartedAt, sessionId, reviewedGen };
     writeAtomicSync(debounceRecordPath(markerDir, file), record);
     return { ...record, reviewedGen };
 }
@@ -75,7 +72,9 @@ export function readEditRecord(markerDir, file) {
         return withReviewedGen(markerDir, JSON.parse(readFileSync(debounceRecordPath(markerDir, file), "utf8")));
     }
     catch {
-        return null;
+        return (readDebounceRecords(markerDir)
+            .filter((record) => canonicalFile(record.file) === canonicalFile(file))
+            .sort((a, b) => b.generation - a.generation)[0] ?? null);
     }
 }
 export function readDebounceRecords(markerDir) {

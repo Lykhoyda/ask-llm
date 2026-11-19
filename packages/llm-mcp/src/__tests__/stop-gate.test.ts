@@ -341,6 +341,7 @@ describe("codex-pair-stop-gate.mjs — runtime (pending drain + in-flight block)
   }
   function runGate(payload: object = { hook_event_name: "Stop" }) {
     return spawnSync("node", [GATE_PATH], {
+      env: { ...process.env, CODEX_PAIR_DISABLED: "1" },
       input: JSON.stringify(payload),
       cwd: dir,
       encoding: "utf-8",
@@ -601,6 +602,7 @@ describe("codex-pair-stop-gate.mjs — cross-repo (#209)", () => {
 
   function run(session?: string) {
     return spawnSync("node", [GATE_PATH], {
+      env: { ...process.env, CODEX_PAIR_DISABLED: "1" },
       input: JSON.stringify({ hook_event_name: "Stop", ...(session ? { session_id: session } : {}) }),
       cwd: cwdRepo,
       encoding: "utf-8",
