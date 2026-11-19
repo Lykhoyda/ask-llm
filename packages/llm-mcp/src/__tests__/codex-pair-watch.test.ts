@@ -8,6 +8,7 @@ import { contentHash, pendingPath } from "../../scripts/lib/debounce-state.mjs";
 import { readFileScope } from "../../scripts/lib/pair-file-scope.mjs";
 import { parseFrontmatter } from "../../scripts/lib/frontmatter.mts";
 import { clearSession, readRegisteredMarkers } from "../../scripts/lib/session-registry.mjs";
+import type { LogEntry } from "../../scripts/lib/stop-gate.mts";
 import { PLUGIN_ROOT, readFile } from "./_helpers.js";
 
 const HOOK_PATH = path.join(PLUGIN_ROOT, "scripts", "codex-pair-watch.mjs");
@@ -2130,7 +2131,7 @@ describe("scripts/codex-pair-watch.mjs — runtime behavior (no codex calls)", (
       FAKE_CODEX_EXIT_CODE: "0",
     });
   }
-  function readLogEntries(dir: string): Array<Record<string, any>> {
+  function readLogEntries(dir: string): LogEntry[] {
     return fs
       .readFileSync(path.join(dir, ".codex-pair/log.jsonl"), "utf-8")
       .trim()
