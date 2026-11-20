@@ -1,4 +1,4 @@
-import { executeCommand, isCommandNotFoundError } from "@ask-llm/shared";
+import { executeCommand, isCommandNotFoundError, type CommandExecutionOptions } from "@ask-llm/shared";
 import { ASTRA_MIN_CODEX_VERSION, CLI, CODEX_VERSION_CHECK_TIMEOUT_MS, FACTORY_DEFAULT_MODEL } from "../constants.js";
 
 interface SemanticVersion {
@@ -19,6 +19,8 @@ export interface CodexSupportProbe {
   message: string;
   remediation?: string;
 }
+
+export class CodexModelSupportError extends Error {}
 
 export function isLegacyAstraModel(model: string): boolean {
   return model === "gpt-6-astra";
@@ -109,7 +111,10 @@ export function assessCodexVersion(output: string | undefined, probeError?: stri
   };
 }
 
-export async function probeCodexSupport(signal?: AbortSignal): Promise<CodexSupportProbe> {
+export async function probeCodexSupport(
+  signal?: AbortSignal,
+  commandOptions?: CommandExecutionOptions,
+): Promise<CodexSupportProbe> {
   try {
     const output = await executeCommand(
       CLI.COMMANDS.CODEX,
@@ -120,6 +125,7 @@ export async function probeCodexSupport(signal?: AbortSignal): Promise<CodexSupp
       CODEX_VERSION_CHECK_TIMEOUT_MS,
       undefined,
       signal,
+      ...(commandOptions ? [commandOptions] : []),
     );
     return assessCodexVersion(output);
   } catch (error) {
@@ -138,9 +144,14 @@ export async function probeCodexSupport(signal?: AbortSignal): Promise<CodexSupp
   }
 }
 
-export async function assertCodexSupportsModel(model: string, signal?: AbortSignal): Promise<string | undefined> {
+export async function assertCodexSupportsModel(
+  model: string,
+  signal?: AbortSignal,
+  commandOptions?: CommandExecutionOptions,
+): Promise<string | undefined> {
   if (!isLegacyAstraModel(model)) return undefined;
-  const probe = await probeCodexSupport(signal);
+  const probe = await probeCodexSupport(signal, commandOptions);
+  signal?.throwIfAborted();
   if (probe.available && probe.version) return probe.version;
-  throw new Error([probe.message, probe.remediation].filter(Boolean).join(" "));
+  throw new CodexModelSupportError([probe.message, probe.remediation].filter(Boolean).join(" "));
 }

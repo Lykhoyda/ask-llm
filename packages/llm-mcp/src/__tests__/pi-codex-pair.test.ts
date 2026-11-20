@@ -1,15 +1,29 @@
 import { createHash } from "node:crypto";
-import { mkdir, mkdtemp, readdir, realpath, rm, utimes, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, readdir, realpath, rm, stat, symlink, utimes, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const executeCodexCLI = vi.hoisted(() => vi.fn());
-const resolveCodexTimeoutMs = vi.hoisted(() => vi.fn(() => 800_000));
-vi.mock("@ask-llm/mcp/providers/codex/executor", () => ({ executeCodexCLI, resolveCodexTimeoutMs }));
+const executeClaudeCLI = vi.hoisted(() => vi.fn());
+vi.mock("@ask-llm/mcp/providers/codex/executor", async (original) => ({
+  ...(await original<typeof import("@ask-llm/mcp/providers/codex/executor")>()),
+  executeCodexCLI,
+}));
+vi.mock("@ask-llm/mcp/providers/claude/executor", async (original) => ({
+  ...(await original<typeof import("@ask-llm/mcp/providers/claude/executor")>()),
+  executeClaudeCLI,
+}));
 
 import { __testing, registerCodexPair } from "../../pi/extensions/codex-pair.js";
-import { releaseInflightLock, stateRoot, tryAcquireInflightLock } from "../../scripts/lib/state.mjs";
+import {
+  cacheRoot,
+  logPath,
+  readPauseInfo,
+  releaseInflightLock,
+  stateRoot,
+  tryAcquireInflightLock,
+} from "../../scripts/lib/state.mjs";
 
 const CODEX_RESULT = {
   response: JSON.stringify({
@@ -32,6 +46,7 @@ interface Context {
   cwd: string;
   mode: "tui" | "rpc" | "json" | "print";
   hasUI: boolean;
+  model?: { provider: string; id: string };
   isProjectTrusted: () => boolean;
   sessionManager: { getSessionId: () => string };
   ui: {
@@ -40,7 +55,7 @@ interface Context {
   };
 }
 
-function harness() {
+function harness(onSend?: () => void) {
   const handlers = new Map<string, Array<(event: Record<string, unknown>, ctx: Context) => Promise<void>>>();
   const commands = new Map<string, { handler: (args: string, ctx: Context) => Promise<void> }>();
   const messages: Array<{
@@ -55,6 +70,7 @@ function harness() {
       commands.set(name, command);
     },
     sendMessage(message: { content: string; details?: { findingId?: string } }, options: Record<string, unknown>) {
+      onSend?.();
       messages.push({ message, options });
     },
   };
@@ -82,22 +98,23 @@ beforeEach(async () => {
   process.env.PI_CODING_AGENT_DIR = join(root, "pi-agent");
   executeCodexCLI.mockReset();
   executeCodexCLI.mockResolvedValue(CODEX_RESULT);
-  resolveCodexTimeoutMs.mockClear();
-  resolveCodexTimeoutMs.mockReturnValue(800_000);
+  executeClaudeCLI.mockReset();
+  executeClaudeCLI.mockResolvedValue({ ...CODEX_RESULT, observedModel: "claude-opus-5-5-20261101" });
 });
 
 afterEach(async () => {
-  if (priorConfigDir === undefined) delete process.env.PI_CODING_AGENT_DIR;
-  else process.env.PI_CODING_AGENT_DIR = priorConfigDir;
   vi.useRealTimers();
   // Drain in-flight reviews first: their trailing state writes race the recursive delete (ENOTEMPTY on Windows).
   for (const instance of instances) await instance.emit("session_shutdown", { reason: "test" }, context(root));
+  if (priorConfigDir === undefined) delete process.env.PI_CODING_AGENT_DIR;
+  else process.env.PI_CODING_AGENT_DIR = priorConfigDir;
+  vi.unstubAllEnvs();
   instances = [];
   await rm(root, { recursive: true, force: true });
 });
 
 async function project(debounceMs = 5, name = "repo") {
-  const repo = join(root, name);
+  const repo = join(await realpath(root), name);
   const source = join(repo, "src", "value.ts");
   await mkdir(join(repo, ".codex-pair"), { recursive: true });
   await mkdir(join(repo, "src"), { recursive: true });
@@ -106,8 +123,33 @@ async function project(debounceMs = 5, name = "repo") {
     `---\ndebounceMs: ${debounceMs}\ndebounceMaxMs: 20\n---\nFixture invariant: value must remain positive.\n`,
   );
   await writeFile(source, "export const value = -1;\n");
-  await __testing.setAllowed(repo, true);
+  await __testing.setAllowed(repo, "codex");
   return { repo, source };
+}
+
+async function marker(repo: string, settings: string, body = "Fixture project context.") {
+  await writeFile(join(repo, ".codex-pair", "context.md"), `---\ndebounceMs: 0\n${settings}\n---\n${body}\n`);
+}
+
+function emitEdit(instance: ReturnType<typeof harness>, path: string, ctx: Context) {
+  return instance.emit("tool_result", { toolName: "write", input: { path }, isError: false }, ctx);
+}
+
+function pairCommand(instance: ReturnType<typeof harness>, name = "codex-pair") {
+  const command = instance.commands.get(name);
+  if (!command) throw new Error(`Missing Pi command ${name}`);
+  return command;
+}
+
+async function logRows(repo: string) {
+  return (await readFile(logPath(repo), "utf8"))
+    .trim()
+    .split("\n")
+    .map((line) => JSON.parse(line));
+}
+
+function quietPeriod() {
+  return new Promise((resolve) => setTimeout(resolve, 45));
 }
 
 function context(cwd: string, trusted = true): Context {
@@ -158,7 +200,7 @@ describe("Pi codex-pair lifecycle", () => {
     expect(executeCodexCLI).not.toHaveBeenCalled();
     expect(ctx.ui.notify).toHaveBeenCalledWith(expect.stringContaining("not in your Pi allowlist"), "warning");
 
-    await __testing.setAllowed(repo, true);
+    await __testing.setAllowed(repo, "codex");
     const untrusted = context(repo, false);
     await instance.emit("tool_result", { toolName: "write", input: { path: source }, isError: false }, untrusted);
     await new Promise((resolve) => setTimeout(resolve, 40));
@@ -183,7 +225,7 @@ describe("Pi codex-pair lifecycle", () => {
   it("serializes concurrent allowlist grants and revocations", async () => {
     const first = await project(0, "first");
     const second = await project(0, "second");
-    await Promise.all([__testing.setAllowed(first.repo, false), __testing.setAllowed(second.repo, true)]);
+    await Promise.all([__testing.setAllowed(first.repo, false), __testing.setAllowed(second.repo, "claude")]);
     const roots = (await __testing.readAllowlist()).projects.map((entry) => entry.root);
     expect(roots).not.toContain(await realpath(first.repo));
     expect(roots).toContain(await realpath(second.repo));
@@ -281,12 +323,6 @@ describe("Pi codex-pair lifecycle", () => {
     expect(scheduled.has("value.ts")).toBe(false);
   });
 
-  it("retains persisted pending findings when shutdown closes the epoch", () => {
-    expect(__testing.shouldDiscardPending("closed")).toBe(false);
-    expect(__testing.shouldDiscardPending("superseded")).toBe(true);
-    expect(__testing.shouldDiscardPending("stale")).toBe(true);
-  });
-
   it("retries lock contention with a positive backoff", async () => {
     const { repo, source } = await project(0);
     const lock = tryAcquireInflightLock(await realpath(repo), await realpath(source), 60_000);
@@ -298,7 +334,7 @@ describe("Pi codex-pair lifecycle", () => {
     expect(executeCodexCLI).not.toHaveBeenCalled();
     releaseInflightLock(lock.lockPath);
     await eventually(() => expect(instance.messages).toHaveLength(1), 2_000);
-    expect(resolveCodexTimeoutMs).toHaveBeenCalled();
+    expect(executeCodexCLI.mock.calls[0][0].timeoutMs).toBe(800_000);
   });
 
   it("claims pending findings without concurrent duplicates and preserves stable IDs", async () => {
@@ -439,6 +475,458 @@ describe("Pi codex-pair lifecycle", () => {
     await eventually(() => expect(observedSignal).toBeDefined());
     await instance.emit("session_shutdown", { reason: "quit" }, ctx);
     expect(observedSignal?.aborted).toBe(true);
+    expect(instance.messages).toHaveLength(0);
+  });
+
+  it("migrates legacy Codex grants only on affirmative consent and replaces the reviewer", async () => {
+    const { repo, source } = await project(0);
+    const other = await project(0, "other");
+    const allowedAt = "2026-01-01T00:00:00Z";
+    const grants = {
+      version: 1,
+      projects: [
+        { root: repo, allowedAt },
+        { root: other.repo, allowedAt },
+      ],
+    };
+    await writeFile(__testing.allowlistPath(), JSON.stringify(grants));
+    await marker(repo, "reviewer: claude");
+    const instance = harness();
+    const ctx = { ...context(repo), mode: "tui" as const, model: { provider: "openai-codex", id: "native-writer" } };
+    const consent = pairCommand(instance);
+    await consent.handler("status", ctx);
+    expect(ctx.ui.notify).toHaveBeenCalledWith(
+      expect.stringContaining("Claude CLI (claude-opus-5-5) is unauthorized"),
+      "info",
+    );
+    await emitEdit(instance, source, ctx);
+    ctx.ui.confirm.mockResolvedValueOnce(false);
+    await consent.handler("", ctx);
+    await emitEdit(instance, source, ctx);
+    await quietPeriod();
+    expect(executeClaudeCLI).not.toHaveBeenCalled();
+    expect(executeCodexCLI).not.toHaveBeenCalled();
+    expect(JSON.parse(await readFile(__testing.allowlistPath(), "utf8"))).toEqual(grants);
+    expect(ctx.ui.confirm).toHaveBeenCalledWith(
+      expect.stringContaining("Claude CLI"),
+      expect.stringMatching(/claude-opus-5-5.*account configured on this machine.*bounded.*quota/),
+    );
+
+    await consent.handler("", ctx);
+    await emitEdit(instance, source, ctx);
+    await eventually(() => expect(instance.messages).toHaveLength(1));
+    expect(executeClaudeCLI).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({
+        model: "claude-opus-5-5",
+        cwd: repo,
+        timeoutMs: 600_000,
+        singleAttempt: true,
+        killProcessGroup: true,
+      }),
+    );
+    expect(instance.messages[0].message.content).toContain(
+      "selected claude-opus-5-5, observed claude-opus-5-5-20261101, effort unknown",
+    );
+    expect(instance.messages[0].message.content).toContain("Writer: openai-codex/native-writer");
+    expect(JSON.parse(await readFile(__testing.allowlistPath(), "utf8"))).toEqual({
+      version: 2,
+      projects: [
+        { root: other.repo, allowedAt, reviewer: "codex" },
+        expect.objectContaining({ root: repo, reviewer: "claude" }),
+      ],
+    });
+    expect((await stat(__testing.allowlistPath())).mode & 0o777).toBe(0o600);
+
+    await marker(repo, "reviewer: codex");
+    const independent = { ...ctx, model: { provider: "anthropic", id: "writer" } };
+    await emitEdit(instance, source, independent);
+    await quietPeriod();
+    expect(executeCodexCLI).not.toHaveBeenCalled();
+    await consent.handler("", independent);
+    await emitEdit(instance, source, independent);
+    await eventually(() => expect(instance.messages).toHaveLength(2));
+    expect(executeCodexCLI).toHaveBeenCalledTimes(1);
+  });
+
+  it("rechecks a marker changed during consent and revokes even with invalid frontmatter", async () => {
+    const { repo, source } = await project(0);
+    const instance = harness();
+    const ctx = { ...context(repo), mode: "tui" as const };
+    const command = pairCommand(instance);
+    await marker(repo, "reviewer: claude");
+    ctx.ui.confirm.mockImplementationOnce(async () => {
+      await marker(repo, "reviewer: codex");
+      return true;
+    });
+    await command.handler("", ctx);
+    expect((await __testing.readAllowlist()).projects).toMatchObject([{ reviewer: "codex" }]);
+    expect(ctx.ui.notify).toHaveBeenCalledWith(expect.stringContaining("changed during consent"), "warning");
+    await writeFile(join(repo, ".codex-pair", "context.md"), "---\nreviewer: claude\n");
+    await command.handler("revoke", ctx);
+    expect((await __testing.readAllowlist()).projects).toEqual([]);
+    await emitEdit(instance, source, ctx);
+    expect(ctx.ui.notify).toHaveBeenCalledWith(
+      expect.stringContaining("close the initial frontmatter fence"),
+      "warning",
+    );
+    expect(executeClaudeCLI).not.toHaveBeenCalled();
+  });
+
+  it.each(["grok", "true", "42", ""])("refuses invalid reviewer scalar %j before any work", async (reviewer) => {
+    const { repo, source } = await project(0);
+    await marker(repo, `reviewer: ${reviewer}`);
+    const instance = harness();
+    const ctx = context(repo);
+    await emitEdit(instance, source, ctx);
+    expect(ctx.ui.notify).toHaveBeenCalledWith(expect.stringContaining("reviewer must be codex or claude"), "warning");
+    await quietPeriod();
+    expect(executeCodexCLI).not.toHaveBeenCalled();
+    expect(executeClaudeCLI).not.toHaveBeenCalled();
+    await expect(readFile(logPath(repo))).rejects.toMatchObject({ code: "ENOENT" });
+  });
+
+  it.each([{ version: 3, projects: [] }, { version: 2, projects: [{ reviewer: "grok" }] }, "{invalid"])(
+    "refuses malformed or unsupported allowlist state",
+    async (invalid) => {
+      const { repo, source } = await project(0);
+      const projects = [{ root: repo, allowedAt: "2026-01-01T00:00:00Z", reviewer: "grok" }];
+      await writeFile(
+        __testing.allowlistPath(),
+        typeof invalid === "string" ? invalid : JSON.stringify({ ...invalid, projects }),
+      );
+      const instance = harness();
+      await emitEdit(instance, source, context(repo));
+      await quietPeriod();
+      expect(executeCodexCLI).not.toHaveBeenCalled();
+    },
+  );
+
+  it("refuses foreign marker and tool path symlinks", async () => {
+    const { repo, source } = await project(0);
+    const other = await project(0, "foreign");
+    const fileAlias = join(repo, "foreign.ts");
+    await symlink(other.source, fileAlias);
+    const instance = harness();
+    const ctx = context(repo);
+    await emitEdit(instance, fileAlias, ctx);
+    const localMarker = join(repo, ".codex-pair", "context.md");
+    await rm(localMarker);
+    await symlink(join(other.repo, ".codex-pair", "context.md"), localMarker);
+    await emitEdit(instance, source, ctx);
+    await quietPeriod();
+    expect(executeCodexCLI).not.toHaveBeenCalled();
+    expect(ctx.ui.notify).toHaveBeenCalledWith(expect.stringContaining("within the marked project"), "warning");
+  });
+
+  it("uses fenced settings and bounded payloads, with Pi's legacy Codex-only global timeout", async () => {
+    const { repo, source } = await project(0);
+    vi.stubEnv("ASK_CODEX_MODEL", "env-model");
+    vi.stubEnv("ASK_CODEX_REASONING_EFFORT", "medium");
+    vi.stubEnv("ASK_CODEX_TIMEOUT_MS", "2147483648");
+    vi.stubEnv("GMCPT_TIMEOUT_MS", "1234");
+    vi.stubEnv("ASK_CODEX_DEBOUNCE_MAX_MS", "-1");
+    vi.stubEnv("CODEX_PAIR_MAX_FILE_BYTES", "Infinity");
+    await marker(
+      repo,
+      "model: marker-model\nreasoningEffort: xhigh\nmaxFileBytes: 100\ntimeoutMs: 2147483648",
+      `reviewer: claude\n${"中".repeat(100)}`,
+    );
+    await writeFile(source, "😺".repeat(100));
+    const instance = harness();
+    const ctx = { ...context(repo), model: { provider: "custom-router", id: "claude-codex-model" } };
+    await emitEdit(instance, source, ctx);
+    await eventually(() => expect(instance.messages).toHaveLength(1));
+    const attempt = executeCodexCLI.mock.calls[0][0];
+    expect(attempt).toMatchObject({ model: "marker-model", reasoningEffort: "xhigh", timeoutMs: 1234, cwd: repo });
+    expect(attempt.prompt).toContain("reviewer: claude");
+    expect(attempt.prompt).not.toContain("maxFileBytes: 100");
+    const snippet = attempt.prompt.match(/<file_content>\n([\s\S]*?)\n<\/file_content>/)?.[1];
+    expect(snippet).toBeDefined();
+    expect(Buffer.byteLength(snippet ?? "")).toBeLessThanOrEqual(100);
+    expect(snippet).not.toContain("\uFFFD");
+    expect(instance.messages[0].message.content).toContain("Writer: custom-router/claude-codex-model");
+  });
+
+  it.each(["openai", "openai-codex", "anthropic"])(
+    "refuses the actual %s writer even after selection changes",
+    async (provider) => {
+      const { repo, source } = await project(0);
+      if (provider === "anthropic") {
+        await marker(repo, "reviewer: claude");
+        await __testing.setAllowed(repo, "claude");
+      }
+      const instance = harness();
+      const ctx = { ...context(repo), model: { provider, id: "native" } };
+      await emitEdit(instance, source, ctx);
+      await instance.emit("model_select", { model: { provider: "xai", id: "independent" } }, ctx);
+      await quietPeriod();
+      expect(executeCodexCLI).not.toHaveBeenCalled();
+      expect(executeClaudeCLI).not.toHaveBeenCalled();
+      expect(ctx.ui.notify).toHaveBeenCalledWith(expect.stringContaining("cannot review its own"), "warning");
+    },
+  );
+
+  it("cancels a scheduled or active review when the current selection becomes incompatible", async () => {
+    const { repo, source } = await project(25);
+    const instance = harness();
+    const ctx = { ...context(repo), model: { provider: "anthropic", id: "independent" } };
+    await emitEdit(instance, source, ctx);
+    const same = { provider: "openai", id: "new-native-selection" };
+    await instance.emit("model_select", { model: same }, ctx);
+    await quietPeriod();
+    expect(executeCodexCLI).not.toHaveBeenCalled();
+    await instance.emit("model_select", { model: ctx.model }, ctx);
+    let resolveAttempt: (result: typeof CODEX_RESULT) => void = () => {};
+    executeCodexCLI.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveAttempt = resolve;
+        }),
+    );
+    await emitEdit(instance, source, ctx);
+    await eventually(() => expect(executeCodexCLI).toHaveBeenCalledTimes(1));
+    await instance.emit("model_select", { model: same }, ctx);
+    resolveAttempt(CODEX_RESULT);
+    await quietPeriod();
+    expect(executeCodexCLI.mock.calls[0][0].signal.aborted).toBe(true);
+    expect(instance.messages).toHaveLength(0);
+    await expect(readFile(logPath(repo))).rejects.toMatchObject({ code: "ENOENT" });
+    await instance.emit("model_select", { model: ctx.model }, ctx);
+    await emitEdit(instance, source, ctx);
+    await eventually(() => expect(instance.messages).toHaveLength(1));
+    expect(executeCodexCLI).toHaveBeenCalledTimes(2);
+  });
+
+  it.each(["marker", "revoke", "pause", "symlink"])("withholds in-flight results after a %s change", async (change) => {
+    const { repo, source } = await project(0);
+    const instance = harness();
+    const ctx = context(repo);
+    let finish: (result: typeof CODEX_RESULT) => void = () => {};
+    executeCodexCLI.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finish = resolve;
+        }),
+    );
+    await emitEdit(instance, source, ctx);
+    await eventually(() => expect(executeCodexCLI).toHaveBeenCalledTimes(1));
+    if (change === "marker") {
+      await marker(repo, "reasoningEffort: low");
+    } else if (change === "revoke") {
+      await pairCommand(instance).handler("revoke", ctx);
+    } else if (change === "pause") {
+      await pairCommand(instance, "codex-pair-pause").handler("", ctx);
+    } else {
+      const foreign = await project(0, "replacement");
+      await rm(source);
+      await symlink(foreign.source, source);
+    }
+    finish(CODEX_RESULT);
+    await quietPeriod();
+    expect(instance.messages).toHaveLength(0);
+    await expect(readFile(logPath(repo))).rejects.toMatchObject({ code: "ENOENT" });
+    await expect(readdir(cacheRoot(repo))).rejects.toMatchObject({ code: "ENOENT" });
+  });
+
+  it("replays a matching Codex quota fallback with attribution and misses on a changed fallback", async () => {
+    const { repo, source } = await project(0);
+    await marker(repo, "model: selected-primary\nfallbackModel: selected-secondary\nreasoningEffort: low");
+    const instance = harness();
+    const ctx = context(repo);
+    executeCodexCLI.mockRejectedValueOnce(new Error("insufficient_quota"));
+    await emitEdit(instance, source, ctx);
+    await eventually(() => expect(instance.messages).toHaveLength(1));
+    expect(executeCodexCLI.mock.calls.map(([opts]) => opts.model)).toEqual(["selected-primary", "selected-secondary"]);
+    expect(instance.messages[0].message.content).toContain("selected selected-secondary");
+    const [fresh] = await logRows(repo);
+    expect(fresh).toMatchObject({
+      source: "pi",
+      reviewer: "codex",
+      model: "selected-secondary",
+      reasoningEffort: "low",
+      fellBack: true,
+      cached: false,
+    });
+    expect(fresh.concernHashes.high).toHaveLength(fresh.counts.high);
+    const hash = fresh.concernHashes.high[0];
+    expect(instance.messages[0].message.content).toContain(`/codex-pair-ack ${hash}`);
+    await pairCommand(instance, "codex-pair-ack").handler(`${hash} accepted`, ctx);
+    const reviewed = join(stateRoot(repo), "pi-reviewed");
+    await eventually(() => expect(instance.messages).toHaveLength(1));
+    await instance.emit("session_shutdown", {}, ctx);
+    await rm(reviewed, { recursive: true });
+    const second = harness();
+    await emitEdit(second, source, ctx);
+    await eventually(() => expect(second.messages).toHaveLength(1));
+    expect(executeCodexCLI).toHaveBeenCalledTimes(2);
+    const [, replay] = await logRows(repo);
+    expect(replay).toMatchObject({ model: "selected-secondary", fellBack: true, cached: true, verdict: "none" });
+    await marker(repo, "model: selected-primary\nfallbackModel: different-secondary\nreasoningEffort: low");
+    await emitEdit(second, source, ctx);
+    await eventually(() => expect(second.messages).toHaveLength(2));
+    expect(executeCodexCLI).toHaveBeenCalledTimes(3);
+  });
+
+  it.each([
+    ["codex", "timeout"],
+    ["codex", "unrecognized"],
+    ["claude", "unrecognized"],
+    ["claude", "changed model"],
+    ["claude", "quota"],
+  ])("records %s %s as failure without caching or steering", async (reviewer, failure) => {
+    const { repo, source } = await project(0);
+    await marker(repo, `reviewer: ${reviewer}`);
+    const execute = reviewer === "codex" ? executeCodexCLI : executeClaudeCLI;
+    if (reviewer === "claude") await __testing.setAllowed(repo, "claude");
+    if (failure === "timeout" || failure === "quota") {
+      execute.mockRejectedValueOnce(
+        new Error(failure === "timeout" ? "Command timed out after 0s (current: 429ms)" : "insufficient_quota"),
+      );
+    } else {
+      execute.mockResolvedValueOnce({
+        response: failure === "unrecognized" ? "unreadable reply" : "NONE",
+        usage: { fellBack: failure === "changed model" },
+      });
+    }
+    const instance = harness();
+    const ctx = context(repo);
+    await emitEdit(instance, source, ctx);
+    await eventually(() =>
+      expect(ctx.ui.notify).toHaveBeenCalledWith(expect.stringContaining("review failed"), "warning"),
+    );
+    expect(execute).toHaveBeenCalledTimes(1);
+    expect((await logRows(repo)).map(({ verdict }) => verdict)).toEqual(["error"]);
+    expect(instance.messages).toHaveLength(0);
+    await expect(readdir(cacheRoot(repo))).rejects.toMatchObject({ code: "ENOENT" });
+    await expect(readdir(join(stateRoot(repo), "pi-reviewed"))).rejects.toMatchObject({ code: "ENOENT" });
+  });
+
+  it.each(["equal", "quota", "unavailable"])("pauses Codex following %s quota fallback", async (secondary) => {
+    const { repo, source } = await project(0);
+    await marker(repo, `model: primary\nfallbackModel: ${secondary === "equal" ? "primary" : "secondary"}`);
+    executeCodexCLI.mockRejectedValueOnce(new Error("insufficient_quota"));
+    executeCodexCLI.mockRejectedValueOnce(
+      new Error(
+        secondary === "quota"
+          ? "insufficient_quota"
+          : "The model is not supported when using Codex with a ChatGPT account",
+      ),
+    );
+    const instance = harness();
+    const ctx = context(repo);
+    await emitEdit(instance, source, ctx);
+    await eventually(() => expect(readPauseInfo(repo)).toMatchObject({ kind: "quota" }));
+    expect(executeCodexCLI).toHaveBeenCalledTimes(secondary === "equal" ? 1 : 2);
+    expect(readPauseInfo(repo)?.reason).toContain(secondary === "equal" ? "primary" : "secondary");
+    expect(instance.messages).toHaveLength(0);
+  });
+
+  it("keeps legacy pending findings eligible under Codex only, with unknown attribution", async () => {
+    const { repo, source } = await project(0);
+    const pendingDir = join(stateRoot(repo), "pi-pending");
+    await mkdir(pendingDir, { recursive: true });
+    await writeFile(
+      join(pendingDir, "legacy.json"),
+      JSON.stringify({
+        id: "legacy",
+        file: source,
+        markerDir: repo,
+        message: "Persisted finding",
+        contentHash: createHash("sha256")
+          .update(await readFile(source))
+          .digest("hex"),
+        createdAt: new Date().toISOString(),
+      }),
+    );
+    await marker(repo, "reviewer: claude");
+    await __testing.setAllowed(repo, "claude");
+    const claude = harness();
+    await claude.emit("session_start", {}, context(repo));
+    expect(claude.messages).toHaveLength(0);
+    expect(await readdir(pendingDir)).toEqual(["legacy.json"]);
+    await marker(repo, "reviewer: codex");
+    await __testing.setAllowed(repo, "codex");
+    const codex = harness();
+    await codex.emit("session_start", {}, context(repo));
+    expect(codex.messages[0].message.content).toContain("Codex (legacy finding, model unknown) · Writer: unknown");
+    expect(codex.messages[0].message.details?.findingId).toBe("legacy");
+    expect(executeCodexCLI).not.toHaveBeenCalled();
+    expect(executeClaudeCLI).not.toHaveBeenCalled();
+    await emitEdit(codex, source, context(repo));
+    await eventually(() => expect(executeCodexCLI).toHaveBeenCalledTimes(1));
+  });
+
+  it("withholds a pending finding under changed context and replays the same ID when eligible", async () => {
+    const { repo, source } = await project(0);
+    const ctx = context(repo);
+    const first = harness(() => {
+      throw new Error("fixture delivery failed");
+    });
+    await emitEdit(first, source, ctx);
+    await eventually(() =>
+      expect(ctx.ui.notify).toHaveBeenCalledWith(expect.stringContaining("fixture delivery failed"), "warning"),
+    );
+    await first.emit("session_shutdown", {}, ctx);
+    const pending = join(stateRoot(repo), "pi-pending");
+    const [name] = await readdir(pending);
+    const id = name.replace(/\.json$/, "");
+    const markerPath = join(repo, ".codex-pair", "context.md");
+    const original = await readFile(markerPath, "utf8");
+    await marker(repo, "", "Changed invariant for the same reviewer");
+    const second = harness();
+    await second.emit("session_start", {}, ctx);
+    expect(second.messages).toHaveLength(0);
+    expect(await readdir(pending)).toEqual([name]);
+    expect(executeCodexCLI).toHaveBeenCalledTimes(1);
+    await writeFile(markerPath, original);
+    const third = harness();
+    await third.emit("session_start", {}, ctx);
+    expect(third.messages[0].message.details?.findingId).toBe(id);
+    expect(await readdir(pending)).toEqual([]);
+    expect(executeCodexCLI).toHaveBeenCalledTimes(1);
+  });
+
+  it("ignores unattributed cache bytes and leaves them in place if the new attempt fails", async () => {
+    const { repo, source } = await project(0);
+    const ctx = context(repo);
+    const first = harness();
+    await emitEdit(first, source, ctx);
+    await eventually(() => expect(first.messages).toHaveLength(1));
+    await first.emit("session_shutdown", {}, ctx);
+    const [prefix] = await readdir(cacheRoot(repo));
+    const dir = join(cacheRoot(repo), prefix);
+    const [name] = await readdir(dir);
+    const legacy = '{"high":[],"med":[],"low":[]}';
+    await writeFile(join(dir, name), legacy);
+    await rm(join(stateRoot(repo), "pi-reviewed"), { recursive: true });
+    executeCodexCLI.mockResolvedValueOnce({ response: "unreadable" });
+    const second = harness();
+    await emitEdit(second, source, ctx);
+    await eventually(() =>
+      expect(ctx.ui.notify).toHaveBeenCalledWith(expect.stringContaining("unrecognized"), "warning"),
+    );
+    expect(second.messages).toHaveLength(0);
+    expect(executeCodexCLI).toHaveBeenCalledTimes(2);
+    expect(await readFile(join(dir, name), "utf8")).toBe(legacy);
+  });
+
+  it("explains the nested Claude guard without launching either reviewer", async () => {
+    const { repo, source } = await project(0);
+    await marker(repo, "reviewer: claude");
+    await __testing.setAllowed(repo, "claude");
+    vi.stubEnv("CLAUDECODE", "1");
+    vi.stubEnv("ASK_CLAUDE_ALLOW_NESTED", undefined);
+    const instance = harness();
+    const ctx = context(repo);
+    await emitEdit(instance, source, ctx);
+    await eventually(() =>
+      expect(ctx.ui.notify).toHaveBeenCalledWith(
+        expect.stringContaining("Launch Pi separately from Claude Code"),
+        "warning",
+      ),
+    );
+    expect(executeCodexCLI).not.toHaveBeenCalled();
+    expect(executeClaudeCLI).not.toHaveBeenCalled();
     expect(instance.messages).toHaveLength(0);
   });
 

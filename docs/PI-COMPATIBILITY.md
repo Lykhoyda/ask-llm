@@ -12,7 +12,7 @@ Classifications: **host-neutral**, **thin host adapter**, **lifecycle integratio
 | `ask-llm-brainstorm` | Thin host adapter | Standard mode commits the current Pi host's independent view before deterministic `ask-multi`. Exact Grok + GPT-6 Sol mode instead calls `ask-cursor-agent` for only the two explicit provider/model pairs, treats the host view as non-voting evidence, excludes Gemini, and never upgrades a partial failure to consensus. |
 | `ask-llm-brainstorm-all` | Thin host adapter | Same as `brainstorm`, with all five external providers. |
 | `ask-llm-codex-image` | Thin host adapter | Native `ask-codex-write` with explicit `sandbox: "workspace-write"`, followed by filesystem verification. |
-| `ask-llm-codex-pair` | Lifecycle integration + thin adapter | Pi command owns consent/status; extension observes successful `tool_result` edit/write events, debounces, reviews, and injects findings. |
+| `ask-llm-codex-pair` | Lifecycle integration + thin adapter | Pi commands manage reviewer consent. Successful `tool_result` edit/write events schedule an advisory Codex or Claude review. |
 | `ask-llm-codex-pair-ack` | Thin host adapter | Pi command dismisses a finding reminder. Pi has no blocking Stop gate. |
 | `ask-llm-codex-pair-pause` | Host-neutral + thin command | Shared pause sentinel; native Pi command is the convenient adapter. |
 | `ask-llm-codex-pair-resume` | Host-neutral + thin command | Shared pause/failure state; native Pi command is the convenient adapter. |
@@ -32,7 +32,7 @@ Classifications: **host-neutral**, **thin host adapter**, **lifecycle integratio
 
 The ten files under `packages/llm-mcp/agents/` are Claude Code subagent execution surfaces. Their delimited **Portable contract** sections are reusable by Pi; their frontmatter and delimited Claude Code adapters are not. Pi does not spawn nested agent processes and does not claim context isolation.
 
-Claude hooks remain unchanged and Claude-only as execution surfaces. Pi maps only the product behavior that needs lifecycle support:
+Claude Code and Grok run their existing hooks. Pi shares the pairing policy and uses its own lifecycle:
 
 | Claude Code behavior | Pi behavior |
 |---|---|
@@ -51,9 +51,11 @@ Pi pairing requires all three conditions:
 
 1. a repository `.codex-pair/context.md` marker;
 2. Pi project trust; and
-3. a user-owned allowlist entry keyed by the canonical project root, created through interactive `/codex-pair` confirmation.
+3. a user-owned allowlist entry for the canonical project root and selected reviewer, created through TUI `/codex-pair` confirmation.
 
-A committed marker alone never authorizes project-data transfer or Codex cost. Consent lives under `PI_CODING_AGENT_DIR` (normally `~/.pi/agent/ask-llm/codex-pair-projects.json`) and is revoked with `/codex-pair revoke`.
+The confirmation names the reviewer CLI, selected model, local CLI account, bounded context and quota. Declining preserves the previous grant. Use `/codex-pair status` to inspect consent and `/codex-pair revoke` to withdraw it. A version 1 grant covers Codex only. An explicit grant or revoke writes version 2. An older build needs fresh Codex consent in a legacy-format allowlist. Keep builds on separate profiles during rollback.
+
+Pi uses the writer's reported provider and model and refuses a reviewer from the same family. An unknown writer can proceed with the selected reviewer's grant. Unrecognized replies count as failures. Attributed Pi successes appear in pairing reports while Claude Code coverage and Stop decisions use hook rows. Marker examples and the complete configuration ladder are in the [Pi guide](../apps/docs/compatibility/pi.md#pi-codex-pair-consent).
 
 The extension factory detects provider availability before registering tools. Model requests and codex-pair work start only from an explicit tool call, command, or session event.
 

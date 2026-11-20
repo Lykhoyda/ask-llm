@@ -1,9 +1,9 @@
 ### Pi adapter
 
-Pi requires project trust, this repository marker, and explicit user-owned allowlist consent through `/codex-pair`. Pairing is asynchronous in TUI/RPC/long-lived JSON modes, uses `tool_result`, and surfaces findings non-blockingly. One-shot print mode, blocking Stop-gate parity, and nested Fable execution are unsupported.
+Run the native `/codex-pair` command in a trusted project with a `.codex-pair/context.md` marker. The command asks in TUI before sending bounded edited-file and marker context to the selected CLI account, which may consume quota or incur charges.
 
-To set up pairing on Pi:
+- Select `reviewer: codex` (the default) or `reviewer: claude` in the initial fenced frontmatter. Plain context uses Codex. A Codex-family writer can use explicit Claude review, which selects `claude-opus-5-5`. A reviewer refuses an edit from its own family. An unknown writer can proceed with a matching grant.
+- Use `/codex-pair status` to see the selected route and authorization. Changing reviewer requires a new affirmative grant. Declining keeps the old grant. `/codex-pair revoke` removes it. Legacy grants authorize Codex only.
+- Findings from settled successful edits are persistent and advisory in TUI, RPC and long-lived JSON modes. Keep `.codex-pair/` out of git. One-shot print skips pairing.
 
-1. Create `.codex-pair/context.md` in the project root with the reviewer's project context, as described in [reference.md](reference.md#how-to-enable-it).
-2. Keep `.codex-pair/` out of git by adding it to `.gitignore`.
-3. In interactive Pi on a trusted project, run `/codex-pair` and confirm the prompt to grant consent. Run `/codex-pair` again to see status, or `/codex-pair revoke` to withdraw consent.
+See the [Pi guide](https://lykhoyda.github.io/ask-llm/compatibility/pi#pi-codex-pair-consent) for marker examples, account consent, settings and rollback details.

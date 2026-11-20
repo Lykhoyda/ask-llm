@@ -169,6 +169,37 @@ describe("executeCodexCLI argument construction", () => {
     await executeCodexCLI({ prompt: "hello", signal });
     expect(mockExecuteCommand.mock.calls[0][7]).toBe(signal);
   });
+
+  it("passes a per-attempt timeout, canonical cwd and process group policy", async () => {
+    const beforeSpawn = vi.fn();
+    await executeCodexCLI({
+      prompt: "bounded review",
+      model: "gpt-6.2-sol",
+      singleAttempt: true,
+      timeoutMs: 120,
+      cwd: "/fixture/project",
+      killProcessGroup: true,
+      beforeSpawn,
+    });
+    expect(beforeSpawn).toHaveBeenCalledOnce();
+    expect(mockExecuteCommand.mock.calls[0][5]).toBe(120);
+    expect(mockExecuteCommand.mock.calls[0][8]).toEqual({ cwd: "/fixture/project", killProcessGroup: true });
+  });
+
+  it("checks eligibility after the model probe and before sending the prompt", async () => {
+    mockAssertCodexSupportsModel.mockResolvedValueOnce("0.167.0");
+    await expect(
+      executeCodexCLI({
+        prompt: "bounded review",
+        model: "gpt-6-astra",
+        singleAttempt: true,
+        beforeSpawn: () => {
+          throw new DOMException("Grant revoked while probing", "AbortError");
+        },
+      }),
+    ).rejects.toThrow("Grant revoked while probing");
+    expect(mockExecuteCommand).not.toHaveBeenCalled();
+  });
 });
 
 describe("model pinning (#75)", () => {

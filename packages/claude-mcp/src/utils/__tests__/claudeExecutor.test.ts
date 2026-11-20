@@ -184,6 +184,23 @@ describe("executeClaudeCLI", () => {
     expect(mockExecuteCommand.mock.calls[0][5]).toBe(12345);
   });
 
+  it("honors a per-call timeout and working directory and keeps model telemetry optional", async () => {
+    process.env.ASK_CLAUDE_TIMEOUT_MS = "12345";
+    mockExecuteCommand.mockResolvedValue(JSON.stringify({ type: "result", subtype: "success", result: "ok" }));
+    const result = await executeClaudeCLI({
+      prompt: "p",
+      model: "claude-opus-5-5",
+      singleAttempt: true,
+      timeoutMs: 120,
+      cwd: "/fixture/project",
+      killProcessGroup: true,
+    });
+    expect(mockExecuteCommand.mock.calls[0][1]).not.toContain("--fallback-model");
+    expect(mockExecuteCommand.mock.calls[0][5]).toBe(120);
+    expect(mockExecuteCommand.mock.calls[0][8]).toEqual({ cwd: "/fixture/project", killProcessGroup: true });
+    expect(result.observedModel).toBeUndefined();
+  });
+
   it("forwards caller cancellation to executeCommand", async () => {
     const signal = new AbortController().signal;
     mockExecuteCommand.mockResolvedValue(JSON.stringify({ type: "result", subtype: "success", result: "ok" }));

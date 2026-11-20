@@ -244,6 +244,48 @@ it("counts successful Pi reviews with unknown attribution in human and JSON repo
   });
 });
 
+it("reports attributed Pi fallback and cache rows without granting hook coverage or blocking power", () => {
+  const file = join(repo, "a.ts");
+  const text = "export const n = 42;\n";
+  writeFileSync(file, text);
+  const timestamp = new Date().toISOString();
+  const contentHash = createHash("sha256").update(text).digest("hex");
+  const hash = "d620bd794dea900a";
+  const pi = {
+    timestamp,
+    file,
+    contentHash,
+    source: "pi",
+    verdict: "concerns",
+    reviewer: "codex",
+    model: "gpt-6.1-terra",
+    reasoningEffort: "high",
+    fellBack: true,
+    concernHashes: { high: [hash], med: [], low: [] },
+    counts: { high: 1, med: 0, low: 0 },
+  };
+  writeLog({ timestamp, file, source: "pi", verdict: "none" }, pi, { ...pi, cached: true });
+  expect(JSON.parse(cli("--report", "--json"))).toMatchObject({
+    reviewsRun: 2,
+    cachedHits: 1,
+    fallbackReviews: 1,
+    findingsComplete: true,
+    findingsBySeverity: { high: 1, med: 0, low: 0 },
+    blockingHighs: [],
+    otherUnacknowledgedHighs: [{ file: "a.ts", hash, severity: "high" }],
+    models: [
+      { reviewer: "unknown", model: "unknown", reasoningEffort: "unknown", reviewsRun: 1, cachedHits: 0 },
+      { reviewer: "codex", model: "gpt-6.1-terra", reasoningEffort: "high", reviewsRun: 1, cachedHits: 1 },
+    ],
+    unreviewedFiles: [{ repository: repo, file: "a.ts", status: "not-started" }],
+  });
+  expect(script("codex-pair-log.mjs", ["ack", hash], "Accepted in Pi\n").status).toBe(0);
+  expect(JSON.parse(cli("--report", "--json"))).toMatchObject({
+    acknowledgedFindings: [{ file: "a.ts", hash, reason: "Accepted in Pi" }],
+    otherUnacknowledgedHighs: [],
+  });
+});
+
 it.each(["high", "med", "low"] as const)("marks counts-only %s finding metrics as partial", (severity) => {
   writeLog({
     timestamp: new Date().toISOString(),

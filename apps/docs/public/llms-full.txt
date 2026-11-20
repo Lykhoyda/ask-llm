@@ -212,7 +212,7 @@ A host is the coding assistant you work in. A provider is the model you consult.
 | skills | the Claude plugin, installed by `ask-llm setup` | shared skills folder `~/.agents/skills`, filled by `ask-llm setup` | shared skills folder `~/.agents/skills`, filled by `ask-llm setup` | `~/.gemini/config/skills`; `ask-llm setup` prints the copy command | `~/.grok/skills`, filled by `ask-llm setup` | shared skills folder `~/.agents/skills`, filled by `ask-llm setup` | shared skills folder `~/.agents/skills`, filled by `ask-llm setup` | none (tools only) | shared skills folder `~/.agents/skills`, filled by `ask-llm setup` |
 | options | every `ask-llm` option reaches the executor unchanged; provider enums list providers detected at start, falling back to all eligible providers after exclusions when none are detected | every `ask-llm` option reaches the executor unchanged; provider enums list providers detected at start, falling back to all eligible providers after exclusions when none are detected | every `ask-llm` option reaches the executor unchanged; provider enums list providers detected at start, falling back to all eligible providers after exclusions when none are detected | every `ask-llm` option reaches the executor unchanged; provider enums list providers detected at start, falling back to all eligible providers after exclusions when none are detected | every `ask-llm` option reaches the executor unchanged; provider enums list providers detected at start, falling back to all eligible providers after exclusions when none are detected | every `ask-llm` option reaches the executor unchanged; provider enums list providers detected at start, falling back to all eligible providers after exclusions when none are detected | every `ask-llm` option reaches the executor unchanged; provider enums list providers detected at start, falling back to all eligible providers after exclusions when none are detected | every `ask-llm` option reaches the executor unchanged; provider enums list providers detected at start, falling back to all eligible providers after exclusions when none are detected | every `ask-llm` option reaches the executor unchanged; provider enums list providers detected at start, falling back to all eligible providers after exclusions when none are detected |
 | diagnostics | `diagnose` tool and `ask-llm doctor` | `diagnose` tool and `ask-llm doctor` | `diagnose` tool and `ask-llm doctor` | `diagnose` tool and `ask-llm doctor` | `diagnose` tool and `ask-llm doctor` | `diagnose` tool and `ask-llm doctor` | `ask-llm doctor` (no `diagnose` tool) | `diagnose` tool and `ask-llm doctor` | `diagnose` tool and `ask-llm doctor` |
-| pairing | per-edit codex-pair hooks from the plugin, off until `/codex-pair` consent | on demand through the `ask-llm-codex-pair` skill; no per-edit review | on demand through the `ask-llm-codex-pair` skill; no per-edit review | on demand through the `ask-llm-codex-pair` skill; no per-edit review | per-edit pair hook by manual registration; Codex default or opt-in Claude; off without the marker | on demand through the `ask-llm-codex-pair` skill; no per-edit review | per-edit codex-pair extension, off until project trust, the marker and `/codex-pair` consent | none | on demand through the `ask-llm-codex-pair` skill; no per-edit review |
+| pairing | per-edit codex-pair hooks from the plugin, off until `/codex-pair` consent | on demand through the `ask-llm-codex-pair` skill; no per-edit review | on demand through the `ask-llm-codex-pair` skill; no per-edit review | on demand through the `ask-llm-codex-pair` skill; no per-edit review | per-edit pair hook by manual registration; Codex default or opt-in Claude; off without the marker | on demand through the `ask-llm-codex-pair` skill; no per-edit review | per-edit Codex or Claude advisory review with project trust, a marker and reviewer-specific `/codex-pair` consent | none | on demand through the `ask-llm-codex-pair` skill; no per-edit review |
 | subagents | isolated reviewer agents from the plugin | none; reviews run inline | none; reviews run inline | none; reviews run inline | none; reviews run inline | none; reviews run inline | none; reviews run inline | none | none; reviews run inline |
 | Stop gate | blocks the turn on a HIGH codex-pair finding only with `blockOn: HIGH` | none | none | none | none | none | none; codex-pair findings are non-blocking | none | none |
 
@@ -431,7 +431,8 @@ Pi owns your conversation, host model, tools and lifecycle. Ask LLM supplies nat
 - Node.js 24+
 - Pi 0.83.0 or newer
 - one or more provider runtimes:
-  - authenticated `codex` CLI for Codex reviews, images, verification, and codex-pair
+  - authenticated `codex` CLI for Codex reviews, images, verification, and default pairing
+  - authenticated `claude` CLI for explicitly selected Claude pairing
   - authenticated enterprise `gemini` CLI for Gemini
   - local Ollama server with the requested model pulled
   - authenticated [supported `agy` version](https://lykhoyda.github.io/ask-llm/providers/antigravity#prerequisites) for Antigravity
@@ -490,39 +491,69 @@ Displayed tool text is bounded to Pi's 50KB/2000-line policy; structured payload
 
 ## Pi codex-pair consent
 
-Pi codex-pair is off unless **all three** gates pass:
+Create `.codex-pair/context.md` in a trusted Pi project. Choose the reviewer in the initial fenced frontmatter and put project invariants below the fence. Keep `.codex-pair/` out of version control.
 
-1. the repository has `.codex-pair/context.md`;
-2. Pi considers the project trusted; and
-3. you grant consent interactively with `/codex-pair`.
+For a Codex review of edits from an independent writer:
 
-The third gate writes the canonical project root to your user-owned allowlist at:
-
-```text
-$PI_CODING_AGENT_DIR/ask-llm/codex-pair-projects.json
-# normally ~/.pi/agent/ask-llm/codex-pair-projects.json
+```markdown
+---
+reviewer: codex
+reasoningEffort: high
+---
+Amounts use integer cents. Retrying a payment must preserve its idempotency key.
 ```
 
-A repository can commit a marker, so **the marker alone never authorizes source transfer or cost**. Consent confirmation states that bounded edited-file content and marker context go to your configured Codex CLI/account. Revoke it at any time:
+If your Pi writer is OpenAI or OpenAI Codex, explicitly choose Claude:
+
+```markdown
+---
+reviewer: claude
+timeoutMs: 600000
+---
+Amounts use integer cents. Retrying a payment must preserve its idempotency key.
+```
+
+In interactive Pi, run `/codex-pair` to approve the selected CLI. The prompt names the model, any Codex quota fallback, the account configured for that CLI on this machine, and the amount of edited-file content and marker body the review can receive. Codex and Claude can use different accounts. Each review uses the selected account's quota or billing. Project trust and an affirmative grant for the canonical project root and selected reviewer are both required. Claude Code's template and catch-up commands provide no Pi grant.
+
+Use `/codex-pair status` to check the selected reviewer and its authorization. A grant for a different reviewer requires a new confirmation and replaces the previous grant. Declining leaves the previous grant in place and sends nothing. Use `/codex-pair revoke` to remove the grant, including when the marker frontmatter is malformed.
+
+The user-owned allowlist is at `$PI_CODING_AGENT_DIR/ask-llm/codex-pair-projects.json` (usually `~/.pi/agent/ask-llm/codex-pair-projects.json`). Existing version 1 grants authorize Codex only. A grant or revoke migrates valid entries to version 2 and keeps other projects' timestamps. A legacy build reads the version 2 file as unauthorized. Run one build against the allowlist at a time. If you roll back, use a fresh legacy allowlist and explicitly reauthorize Codex through the older Pi command. Claude grants do not carry back. A previously reviewed file can receive one cold review on its next eligible edit.
+
+### Writer identity and review settings
+
+Pi uses the model that wrote the edit and separately checks its current model selection before dispatch and delivery. `openai` and `openai-codex` are Codex-family writers, `anthropic` is Claude-family, and `xai` is Grok-family. A reviewer refuses a writer from its own family. A custom or router provider whose family Pi cannot establish is treated as unknown. Matching reviewer consent still applies, and the finding includes the reported provider/model when available. The [portable skill writer rule](https://lykhoyda.github.io/ask-llm/advanced/codex-pair) applies when invoking the skill.
+
+Plain markers use the defaults. A setting below the initial fence is project context. Pi refuses invalid reviewer values and unclosed initial frontmatter. The precedence for valid settings is:
+
+| Setting | Pi resolution |
+|---|---|
+| `reviewer` | `codex` by default, or explicit `claude` |
+| Codex `model` | Marker, `ASK_CODEX_MODEL`, then `gpt-6.2-sol` |
+| Codex `reasoningEffort` | Marker, `ASK_CODEX_REASONING_EFFORT`, then `high`. Accepted values are `low`, `medium`, `high`, `xhigh`, `max`, and `ultra`. CLI and model support determines which values work. |
+| Codex `fallbackModel` | Marker, `ASK_CODEX_FALLBACK_MODEL`, then `gpt-6.1-terra`. A primary quota failure can make one attempt at a distinct configured fallback on the same CLI and account. |
+| Claude model and effort | The Claude CLI always selects `claude-opus-5-5`. Effort is unknown and there is no fallback. Codex pins and `ASK_CLAUDE_MODEL` do not influence this route. |
+| `timeoutMs` | Per attempt, marker then `ASK_CODEX_TIMEOUT_MS` or `ASK_CLAUDE_TIMEOUT_MS`. Codex also uses legacy `GMCPT_TIMEOUT_MS` before its 800000 ms default. Claude defaults to 600000 ms. |
+| `debounceMs` and `debounceMaxMs` | Marker, `ASK_CODEX_DEBOUNCE_MS` and `ASK_CODEX_DEBOUNCE_MAX_MS`, then 15000 and 60000 ms. A zero settle delay is valid. The cap must be positive. |
+| `maxFileBytes` and `surfaceThreshold` | Positive UTF-8 byte cap from the marker, `CODEX_PAIR_MAX_FILE_BYTES`, then 20000 bytes. Oversized file or marker content gets a partial view. Threshold accepts `high`, `med` (default), or `low`. |
+
+Invalid numeric values fall through to the next setting. Timeouts, model errors and unrecognized reviews produce a failure without a cross-provider retry. Codex runs read-only. Claude uses safe mode and read-only tools. If Claude refuses to start inside a Claude Code session, launch Pi separately.
+
+### Findings and lifecycle
+
+Pi observes successful built-in `edit` and `write` events, coalesces each edit burst and reviews settled file content. It persists findings, then delivers them as advisory messages without starting another model turn. The header identifies the selected reviewer and attempt model, any Claude model reported by the CLI, and the writer. Pi treats all findings as advisory, including when a marker sets `blockOn: HIGH`. Pi log entries do not count toward Claude Code's Stop gate or catch-up coverage.
 
 ```text
+/codex-pair                 # check or grant consent
+/codex-pair status
 /codex-pair revoke
-```
-
-Pair controls:
-
-```text
-/codex-pair                 # status or interactive consent
 /codex-pair-pause
 /codex-pair-resume
 /codex-pair-ack <hash> <reason>
 ```
 
-The extension observes only successful built-in `edit`/`write` `tool_result` events, debounces a burst to the final settled file state, deduplicates identical content, and injects findings as a persisted `steer` message without triggering an extra host-model turn. Pairing starts no process/timer at extension load; native tools probe provider availability before registration. On shutdown/reload/new/resume/fork it closes the current epoch, clears timers, aborts active provider work, waits a bounded interval, and releases owned locks. Durable logs, cache, pause, ack, consent, and pending findings are user product state; shutdown does not erase that history.
+Pause, revoke and incompatible model changes suppress work already in progress. Shutdown, reload, new session, resume and fork close the old session, cancel its active reviewer and release its locks. Compatible pending findings can replay after restart. Claims prevent concurrent delivery, and each replay preserves `details.findingId` so receivers can deduplicate a crash after delivery and before cleanup. Logs, cache, pause state, acknowledgements and consent survive shutdown.
 
-Pending delivery is durable at least once across process crashes. Atomic claims prevent concurrent Pi sessions from delivering the same pending record, but a crash after `steer` succeeds and before durable cleanup can repeat it after restart. Every retry preserves the stable `details.findingId`, which receivers can use to deduplicate; Pi does not provide an atomic idempotent-message API that could guarantee exactly-once crash delivery.
-
-Pi pairing works in TUI, RPC, and a long-lived JSON process. It is unsupported in one-shot print mode because the process normally exits before asynchronous debounce/review completes and print mode does not render custom messages.
+Pairing works in TUI, RPC and long-lived JSON modes. Grant consent in TUI. One-shot print mode skips pairing.
 
 ## Host feature matrix
 
@@ -781,9 +812,9 @@ This is in-memory only; no persistence to disk, resets when the MCP server resta
 
 Source: https://lykhoyda.github.io/ask-llm/advanced/codex-pair.html
 
-In the portable `/codex-pair` skill, a positively identified Codex writer with a Codex reviewer ends before setup or consent in one message: the same family reviewing itself is not an independent review; use `/grok-pair`; `completed (not applicable)`. It asks no question and makes no review call. This depends on the writer's model family, never the host name: Cursor and Pi can run other families. An unknown writer or a different provider keeps the existing adapter behavior. Pi's native `/codex-pair` command is a separate implementation and is unchanged.
+In the portable `/codex-pair` skill, a positively identified Codex writer with a Codex reviewer ends before setup or consent in one message: the same family reviewing itself is not an independent review; use `/grok-pair`; `completed (not applicable)`. It asks no question and makes no review call. This depends on the writer's model family, never the host name: Cursor and Pi can run other families. An unknown writer or a different provider keeps the existing adapter behavior. Pi's native `/codex-pair` command also supports explicit Claude review of Codex-family edits after reviewer consent.
 
-Codex-pair supports each host with a different lifecycle adapter. The detailed detached-worker and Stop-gate material on this page describes **Claude Code**. On **Cursor Agent** there is no background reviewer: `/codex-pair` runs an on-demand, consent-gated persisted Codex session (through a user-installed `ask-codex` leaf when exposed, otherwise the fully pinned unified `ask-llm`) and the `-ack`/`-pause`/`-resume` toggles are not exposed; see [Cursor Agent Host](https://lykhoyda.github.io/ask-llm/compatibility/cursor). On **Pi**, successful `tool_result` edit/write events feed an in-process debounce; findings are delivered with non-triggering `steer`; project trust plus a user-owned canonical-project allowlist is required in addition to the marker; shutdown aborts active review work; blocking Stop-gate and one-shot print parity are unsupported. See [Pi Host Support](https://lykhoyda.github.io/ask-llm/compatibility/pi#pi-codex-pair-consent).
+Codex-pair supports each host with a different lifecycle adapter. The detailed detached-worker and Stop-gate material on this page describes **Claude Code**. On **Cursor Agent** there is no background reviewer: `/codex-pair` runs an on-demand, consent-gated persisted Codex session (through a user-installed `ask-codex` leaf when exposed, otherwise the fully pinned unified `ask-llm`) and the `-ack`/`-pause`/`-resume` toggles are not exposed; see [Cursor Agent Host](https://lykhoyda.github.io/ask-llm/compatibility/cursor). On **Pi**, successful `tool_result` edit/write events feed an in-process debounce; findings are delivered with non-triggering `steer`; the marker, project trust and consent for the selected reviewer and canonical project are required; shutdown aborts active review work; blocking Stop-gate and one-shot print parity are unsupported. See [Pi Host Support](https://lykhoyda.github.io/ask-llm/compatibility/pi#pi-codex-pair-consent).
 
 **codex-pair** is the plugin's flagship feature: continuous, opt-in code review where Codex reads every file Claude edits. It is the recall-first complement to the on-demand `/codex-review` skill. Setup never enables pairing. The hook is always loaded but **self-gates on a project marker file** and stays completely silent (zero cost, zero Codex calls) until a project opts in. Once enabled, a burst of edits to one file coalesces into a single debounced review of the **settled** file state, run by a detached worker; verdicts surface to Claude on both hook channels (transcript `systemMessage` plus model-visible `additionalContext`) and drain on the next edit, the next user prompt, or at turn end via the Stop hook.
 
@@ -921,7 +952,7 @@ codex-pair is implemented as five hooks working together, all dependency-free wi
 
 By default HIGH and MED concerns are surfaced; LOW concerns and all timing/skip telemetry are logged to `.codex-pair/log.jsonl` alongside the marker file. Set `debounceMs: 0` in the marker frontmatter for synchronous per-edit review.
 
-In the shared review hook scripts (Claude Code and Grok CLI), a reviewer reply that matches neither the JSON verdict contract nor the legacy `NONE` / `[HIGH]`/`[MED]`/`[LOW]` format is never recorded as "no concerns": it is logged with verdict `unparsed` (with a short excerpt of the reply), surfaced once as `codex-pair UNPARSED`, left out of the review cache, and counted towards the consecutive-failure auto-pause. The Pi extension does not yet apply this handling.
+In the shared review hook scripts (Claude Code and Grok CLI), a reviewer reply that matches neither the JSON verdict contract nor the legacy `NONE` / `[HIGH]`/`[MED]`/`[LOW]` format is never recorded as "no concerns": it is logged with verdict `unparsed` (with a short excerpt of the reply), surfaced once as `codex-pair UNPARSED`, left out of the review cache, and counted towards the consecutive-failure auto-pause. Pi also requires a recognized review and records unrecognized responses as failed attempts.
 
 ### Catch-up review
 

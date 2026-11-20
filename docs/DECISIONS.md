@@ -1,5 +1,15 @@
 # Architectural Decisions
 
+## ADR-200: Share pairing policy across Pi and the existing hooks
+
+**Status:** Accepted (2026-11-20). Extends the shared resolver from ADR-192 to the native Pi adapter.
+
+**Context:** Pi already reviewed settled edits through Codex, with its own defaults, consent and verdict handling. The hook policy resolves reviewer selection from an explicit writer family and marker settings, and distinguishes recognized reviews from failures. Both adapters ship in `@ask-llm/mcp`.
+
+**Decision:** Use one internal pairing contract in `@ask-llm/mcp` for writer family, reviewer selection, defaults, recognized replies, reviewer attribution and cache compatibility. Keep transport and lifecycle host-specific. Pi uses the successful tool event's writer identity, rechecks the latest selection, and refuses same-family reviews. Unproven identities are unknown and can proceed with reviewer consent. Pi uses the packaged Codex and Claude executors from the canonical project root with read-only options. Only Codex quota can trigger one distinct configured fallback. Pi requires trust and one affirmative grant per canonical root and reviewer. Version 1 grants authorize Codex. An explicit grant or revoke writes version 2. The portable skill retains its original applicability rule. The separate npm package option is rejected under ADR-179.
+
+**Consequences:** Pi retains advisory findings, durable claims and bounded session shutdown. A compatible cached or pending review carries its selected route. A historical Pi success remains reportable with unknown attribution. Claude Code coverage and Stop ignore Pi log rows. ADR-188 governs existing hook behavior and ADR-192 continues to govern its configuration semantics. This decision supersedes ADR-192's Pi exclusion for the shared review policy.
+
 ## ADR-199: Adopt GPT-6.2 Sol and Astra for Codex
 
 **Status:** Accepted (2026-11-18). Updates the Codex default from ADR-193 and the Sol and Astra pins from ADR-187.

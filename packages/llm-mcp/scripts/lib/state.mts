@@ -4,6 +4,7 @@
 
 import { createHash, randomUUID } from "node:crypto";
 import {
+  appendFileSync,
   mkdirSync,
   readdirSync,
   readFileSync,
@@ -456,7 +457,7 @@ export interface ReviewAttribution {
   fellBack: boolean;
 }
 
-type CachedConcerns = Concerns & Partial<ReviewAttribution> & { durationMs?: number };
+type CachedConcerns = Concerns & Partial<ReviewAttribution> & { durationMs?: number; observedModel?: string };
 
 export async function getCachedConcerns(markerDir: string, cacheKey: string): Promise<CachedConcerns | null> {
   const cachePath = cachePathFor(markerDir, cacheKey);
@@ -478,13 +479,22 @@ export async function setCachedConcerns(
   markerDir: string,
   cacheKey: string,
   value: CachedConcerns & { durationMs: number },
+  canCommit?: () => boolean,
 ): Promise<void> {
   const cachePath = cachePathFor(markerDir, cacheKey);
   try {
     await mkdir(dirname(cachePath), { recursive: true });
     const tmpPath = `${cachePath}.tmp.${process.pid}`;
     await writeFile(tmpPath, JSON.stringify(value));
-    await rename(tmpPath, cachePath);
+    if (canCommit) {
+      if (!canCommit()) {
+        await unlink(tmpPath);
+        return;
+      }
+      renameSync(tmpPath, cachePath);
+    } else {
+      await rename(tmpPath, cachePath);
+    }
   } catch {
     // intentional no-op — cache write failures must never break Claude's flow
   }
@@ -557,7 +567,11 @@ export function clampReason<T>(reason: T): T | string {
   return `${buf.subarray(0, end).toString("utf8")}…(${dropped}b truncated)`;
 }
 
-export async function appendLog(markerDir: string, entry: Record<string, unknown>): Promise<void> {
+export async function appendLog(
+  markerDir: string,
+  entry: Record<string, unknown>,
+  canCommit?: () => boolean,
+): Promise<void> {
   const target = logPath(markerDir);
   try {
     await mkdir(dirname(target), { recursive: true });
@@ -574,7 +588,13 @@ export async function appendLog(markerDir: string, entry: Record<string, unknown
     }
   }
   try {
-    await appendFile(target, `${JSON.stringify(safe)}\n`);
+    const line = `${JSON.stringify(safe)}\n`;
+    if (canCommit) {
+      if (!canCommit()) return;
+      appendFileSync(target, line);
+    } else {
+      await appendFile(target, line);
+    }
   } catch {
     // logging failures must never break Claude's flow
     return;

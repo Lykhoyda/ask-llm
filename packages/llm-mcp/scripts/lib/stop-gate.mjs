@@ -107,6 +107,7 @@ export function selectReviewEntries(logText, canonicalize = (file) => file) {
             continue;
         }
         if (entry &&
+            entry.source !== "pi" &&
             typeof entry.file === "string" &&
             typeof entry.contentHash === "string" &&
             entry.verdict !== "skipped") {

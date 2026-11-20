@@ -24,7 +24,7 @@ import {
   MODELS,
   STATUS_MESSAGES,
 } from "../constants.js";
-import { assertCodexSupportsModel } from "./codexVersion.js";
+import { assertCodexSupportsModel, CodexModelSupportError } from "./codexVersion.js";
 
 // Re-exported on the `@ask-llm/codex-mcp/executor` surface so the llm-mcp orchestrator
 // can load the doctor enrichment by name (mirrors how executeCodexCLI is loaded).
@@ -104,6 +104,11 @@ export interface CodexExecutorOptions {
   // (no sessionId), non-edit calls with no explicit model. See ADR-132.
   preferred?: boolean;
   signal?: AbortSignal;
+  timeoutMs?: number;
+  cwd?: string;
+  killProcessGroup?: boolean;
+  /** Recheck caller eligibility after the version probe and before dispatch. */
+  beforeSpawn?: () => void;
   singleAttempt?: boolean;
 }
 
@@ -265,6 +270,7 @@ function translateSessionContinuityError(error: unknown, sessionId?: string): Er
 // quota signal), e.g. a pinned gpt-5.5-mini fallback on a ChatGPT-plan account.
 // #196 / ADR-126.
 export function isModelUnavailableError(error: unknown): boolean {
+  if (error instanceof CodexModelSupportError) return true;
   const msg = (error instanceof Error ? error.message : String(error)).toLowerCase();
   return ERROR_MESSAGES.MODEL_UNAVAILABLE_SIGNALS.some((signal) => msg.includes(signal));
 }
@@ -405,6 +411,7 @@ function buildArgs(
 }
 
 export async function executeCodexCLI(options: CodexExecutorOptions): Promise<CodexExecutorResult> {
+  options.signal?.throwIfAborted();
   const model = options.model || MODELS.DEFAULT;
   const reasoningEffort = options.reasoningEffort || DEFAULT_REASONING_EFFORT;
   const sessionId = options.sessionId;
@@ -453,7 +460,17 @@ export async function executeCodexCLI(options: CodexExecutorOptions): Promise<Co
     }
   }
 
-  await assertCodexSupportsModel(model, options.signal);
+  const commandOptions =
+    options.cwd !== undefined || options.killProcessGroup
+      ? [{ cwd: options.cwd, killProcessGroup: options.killProcessGroup }]
+      : [];
+  const checkAttempt = async (attemptModel: string) => {
+    await assertCodexSupportsModel(attemptModel, options.signal, ...commandOptions);
+    options.signal?.throwIfAborted();
+  };
+  await checkAttempt(model);
+
+  const commandLogging = options.killProcessGroup ? { sensitiveValues: [options.prompt] } : undefined;
 
   let schemaPath: string | undefined;
   try {
@@ -462,7 +479,7 @@ export async function executeCodexCLI(options: CodexExecutorOptions): Promise<Co
       writeFileSync(schemaPath, JSON.stringify(outputSchema), { mode: 0o600 });
     }
 
-    const useStdin = outputSchema !== undefined || options.prompt.length > EXECUTION.STDIN_THRESHOLD_BYTES;
+    const useStdin = outputSchema !== undefined || Buffer.byteLength(options.prompt) > EXECUTION.STDIN_THRESHOLD_BYTES;
     const stdinPayload = useStdin ? options.prompt : undefined;
     const args = buildArgs(
       options.prompt,
@@ -478,7 +495,7 @@ export async function executeCodexCLI(options: CodexExecutorOptions): Promise<Co
     // (issue #45). Resolution order: ASK_CODEX_TIMEOUT_MS > GMCPT_TIMEOUT_MS >
     // DEFAULT_CODEX_TIMEOUT_MS. The provider-specific knob lets users keep a
     // tighter global default for gemini while granting codex more headroom.
-    const timeoutMs = resolveCodexTimeoutMs();
+    const timeoutMs = options.timeoutMs ?? resolveCodexTimeoutMs();
 
     // Try MODELS.PREFERRED once (opportunistic). ANY failure downgrades to the
     // standard MODELS.DEFAULT path below (which carries the quota→FALLBACK ladder).
@@ -486,7 +503,7 @@ export async function executeCodexCLI(options: CodexExecutorOptions): Promise<Co
     // must still fall back. See ADR-132.
     let downgradedFromPreferred = false;
     if (preferredEligible) {
-      await assertCodexSupportsModel(MODELS.PREFERRED, options.signal);
+      await checkAttempt(MODELS.PREFERRED);
       const preferredArgs = buildArgs(
         options.prompt,
         MODELS.PREFERRED,
@@ -499,6 +516,7 @@ export async function executeCodexCLI(options: CodexExecutorOptions): Promise<Co
       );
       const preferredStartedAt = Date.now();
       try {
+        options.beforeSpawn?.();
         const raw = await executeCommand(
           CLI.COMMANDS.CODEX,
           preferredArgs,
@@ -506,11 +524,14 @@ export async function executeCodexCLI(options: CodexExecutorOptions): Promise<Co
           undefined,
           stdinPayload,
           timeoutMs,
-          undefined,
+          commandLogging,
           options.signal,
+          ...commandOptions,
         );
+        options.signal?.throwIfAborted();
         return parseCodexJsonlOutput(raw, MODELS.PREFERRED, Date.now() - preferredStartedAt, false);
       } catch (preferredError) {
+        options.signal?.throwIfAborted();
         const reason = preferredError instanceof Error ? preferredError.message : String(preferredError);
         Logger.warn(
           `Preferred Codex model ${MODELS.PREFERRED} unavailable (${reason}); falling back to ${MODELS.DEFAULT}.`,
@@ -521,6 +542,7 @@ export async function executeCodexCLI(options: CodexExecutorOptions): Promise<Co
 
     const startedAt = Date.now();
     try {
+      options.beforeSpawn?.();
       const raw = await executeCommand(
         CLI.COMMANDS.CODEX,
         args,
@@ -528,13 +550,16 @@ export async function executeCodexCLI(options: CodexExecutorOptions): Promise<Co
         undefined,
         stdinPayload,
         timeoutMs,
-        undefined,
+        commandLogging,
         options.signal,
+        ...commandOptions,
       );
+      options.signal?.throwIfAborted();
       const result = parseCodexJsonlOutput(raw, model, Date.now() - startedAt, downgradedFromPreferred);
       if (cacheKey) responseCache.set(cacheKey, result.response);
       return result;
     } catch (error) {
+      options.signal?.throwIfAborted();
       const continuityError = translateSessionContinuityError(error, sessionId);
       if (continuityError) throw continuityError;
       if (!options.singleAttempt && isQuotaError(error) && model !== MODELS.FALLBACK) {
@@ -550,9 +575,10 @@ export async function executeCodexCLI(options: CodexExecutorOptions): Promise<Co
           schemaPath,
           reasoningEffort,
         );
-        await assertCodexSupportsModel(MODELS.FALLBACK, options.signal);
+        await checkAttempt(MODELS.FALLBACK);
         const fallbackStartedAt = Date.now();
         try {
+          options.beforeSpawn?.();
           const raw = await executeCommand(
             CLI.COMMANDS.CODEX,
             fallbackArgs,
@@ -560,13 +586,16 @@ export async function executeCodexCLI(options: CodexExecutorOptions): Promise<Co
             undefined,
             stdinPayload,
             timeoutMs,
-            undefined,
+            commandLogging,
             options.signal,
+            ...commandOptions,
           );
+          options.signal?.throwIfAborted();
           Logger.warn(`Successfully executed with ${MODELS.FALLBACK} fallback.`);
           Logger.debug(`Status: ${STATUS_MESSAGES.FALLBACK_SUCCESS}`);
           return parseCodexJsonlOutput(raw, MODELS.FALLBACK, Date.now() - fallbackStartedAt, true);
         } catch (fallbackError) {
+          options.signal?.throwIfAborted();
           const fallbackContinuityError = translateSessionContinuityError(fallbackError, sessionId);
           if (fallbackContinuityError) throw fallbackContinuityError;
           const fallbackMsg = fallbackError instanceof Error ? fallbackError.message : String(fallbackError);

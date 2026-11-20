@@ -1,10 +1,28 @@
 import { createHash, randomUUID } from "node:crypto";
-import { existsSync } from "node:fs";
-import { mkdir, readFile, readdir, realpath, rename, stat, unlink, writeFile } from "node:fs/promises";
+import { existsSync, readFileSync, realpathSync, renameSync, statSync } from "node:fs";
+import { mkdir, readFile, readdir, realpath, stat, unlink, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, isAbsolute, join, parse, resolve } from "node:path";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { executeCodexCLI, resolveCodexTimeoutMs } from "@ask-llm/mcp/providers/codex/executor";
+import { executeClaudeCLI, isNestedSessionBlocked } from "@ask-llm/mcp/providers/claude/executor";
+import {
+  executeCodexCLI,
+  isModelUnavailableError,
+  isQuotaError,
+  type CodexExecutorOptions,
+} from "@ask-llm/mcp/providers/codex/executor";
+import { parseFrontmatter } from "../../scripts/lib/frontmatter.mjs";
+import { loadPairDefaults } from "../../scripts/lib/pair-config-io.mjs";
+import { resolveConfig } from "../../scripts/lib/pair-config.mjs";
+import {
+  isCachedReviewCompatible,
+  reviewAttribution,
+  reviewCacheModel,
+  resolveReviewer,
+  type Reviewer,
+  type WriterFamily,
+} from "../../scripts/lib/pair-semantics.mjs";
+import { buildReviewPrompt } from "../../scripts/lib/prompt.mjs";
 import {
   AUTOPAUSE_FAILURE_THRESHOLD,
   INFLIGHT_TTL_MIN_MS,
@@ -27,12 +45,11 @@ import {
   stateRoot,
   tryAcquireInflightLock,
   writeAutoPause,
+  type ReviewAttribution,
 } from "../../scripts/lib/state.mjs";
-import { DEFAULT_SURFACE_THRESHOLD, buildVerdictMessage, parseConcerns } from "../../scripts/lib/parser.mjs";
+import { buildVerdictMessage, parseRecognizedConcerns, type Concerns } from "../../scripts/lib/parser.mjs";
 
-const DEFAULT_DEBOUNCE_MS = 15_000;
-const DEFAULT_DEBOUNCE_MAX_MS = 60_000;
-const DEFAULT_MAX_FILE_BYTES = 20_000;
+const MAX_TIMER_MS = 2_147_483_647;
 const MESSAGE_TYPE = "ask-llm-codex-pair";
 const ALLOWLIST_FILE = "codex-pair-projects.json";
 const ALLOWLIST_LOCK_RETRY_MS = 25;
@@ -79,23 +96,31 @@ const SKIP_FILENAMES = [
   "go.sum",
 ];
 
-interface PairConfig {
-  debounceMs: number;
-  debounceMaxMs: number;
-  maxFileBytes: number;
-  surfaceThreshold: "high" | "med" | "low";
-  model: string;
+type PairConfig = ReturnType<typeof resolveConfig>;
+
+interface Writer {
+  provider?: string;
+  id?: string;
+}
+
+interface ReviewContext {
+  config: PairConfig;
+  context: string;
+  signature: string;
 }
 
 interface ScheduledReview {
   generation: number;
   firstAt: number;
   markerDir: string;
+  target: string;
   toolName: string;
+  writer: Writer;
+  reviewContext: ReviewContext;
+  grant: Grant;
+  controller: AbortController;
   timer?: ReturnType<typeof setTimeout>;
 }
-
-type RevalidationState = "current" | "closed" | "superseded" | "stale";
 
 interface PairFinding {
   id: string;
@@ -104,17 +129,26 @@ interface PairFinding {
   contentHash: string;
   message: string;
   createdAt: string;
+  review?: ReviewIdentity & { toolName: string; target: string; writer: Writer; grant: Grant };
+}
+
+interface ReviewIdentity extends ReviewAttribution {
+  fingerprint: string;
+  observedModel?: string;
 }
 
 interface ReviewedRecord {
   contentHash: string;
   findingId: string;
   deliveredAt: string;
+  review?: ReviewIdentity;
 }
 
-interface Allowlist {
-  version: 1;
-  projects: Array<{ root: string; allowedAt: string }>;
+interface Grant {
+  root: string;
+  allowedAt: string;
+  reviewer: Reviewer;
+  id?: string;
 }
 
 interface AllowlistLock {
@@ -135,36 +169,57 @@ function allowlistPath(): string {
   return join(configDir(), "ask-llm", ALLOWLIST_FILE);
 }
 
-async function writeJsonAtomic(path: string, value: unknown): Promise<void> {
+async function writeJsonAtomic(path: string, value: unknown, canCommit = () => true): Promise<boolean> {
   await mkdir(dirname(path), { recursive: true });
   const tmp = `${path}.tmp.${process.pid}.${randomUUID()}`;
   await writeFile(tmp, `${JSON.stringify(value, null, 2)}\n`, { mode: 0o600 });
-  await rename(tmp, path);
-}
-
-async function readAllowlist(): Promise<Allowlist> {
   try {
-    const parsed = JSON.parse(await readFile(allowlistPath(), "utf8")) as Partial<Allowlist>;
-    if (parsed.version === 1 && Array.isArray(parsed.projects)) {
-      return {
-        version: 1,
-        projects: parsed.projects.filter(
-          (entry): entry is { root: string; allowedAt: string } =>
-            typeof entry?.root === "string" && typeof entry.allowedAt === "string",
-        ),
-      };
+    if (!canCommit()) return false;
+    renameSync(tmp, path);
+    return true;
+  } finally {
+    await unlink(tmp).catch(() => {});
+  }
+}
+
+function readAllowlist(): { projects: Grant[] } {
+  let raw: string;
+  try {
+    raw = readFileSync(allowlistPath(), "utf8");
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return { projects: [] };
+    throw error;
+  }
+  let parsed: { version?: unknown; projects?: Array<Partial<Grant> | null> } | null;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    throw new Error("Invalid Pi codex-pair allowlist JSON. Check codex-pair-projects.json in your Pi config.");
+  }
+  if ((parsed?.version !== 1 && parsed?.version !== 2) || !Array.isArray(parsed.projects)) {
+    throw new Error("Unsupported Pi codex-pair allowlist. Check codex-pair-projects.json in your Pi config.");
+  }
+  const roots = new Map<string, Grant | undefined>();
+  for (const row of parsed.projects) {
+    if (typeof row?.root !== "string" || !isAbsolute(row.root)) continue;
+    const reviewer = parsed.version === 1 ? "codex" : row.reviewer;
+    if (
+      !roots.has(row.root) &&
+      typeof row.allowedAt === "string" &&
+      Number.isFinite(Date.parse(row.allowedAt)) &&
+      (reviewer === "codex" || reviewer === "claude") &&
+      (row.id === undefined || typeof row.id === "string")
+    ) {
+      roots.set(row.root, { root: row.root, allowedAt: row.allowedAt, reviewer, id: row.id });
+    } else {
+      roots.set(row.root, undefined);
     }
-  } catch {}
-  return { version: 1, projects: [] };
+  }
+  return { projects: [...roots.values()].filter((row) => row !== undefined) };
 }
 
-async function canonicalDirectory(path: string): Promise<string> {
-  return realpath(path);
-}
-
-async function isAllowed(markerDir: string): Promise<boolean> {
-  const canonical = await canonicalDirectory(markerDir);
-  return (await readAllowlist()).projects.some((entry) => entry.root === canonical);
+function findGrant(markerDir: string, reviewer: Reviewer): Grant | undefined {
+  return readAllowlist().projects.find((entry) => entry.root === markerDir && entry.reviewer === reviewer);
 }
 
 async function recoverAbandonedAllowlistLock(lockPath: string): Promise<boolean> {
@@ -200,8 +255,8 @@ async function releaseOwnedAllowlistLock(lockPath: string, identity: string): Pr
   } catch {}
 }
 
-async function setAllowed(markerDir: string, allowed: boolean): Promise<void> {
-  const canonical = await canonicalDirectory(markerDir);
+async function setAllowed(markerDir: string, reviewer: Reviewer | false, canCommit?: () => boolean): Promise<boolean> {
+  if ((await realpath(markerDir)) !== markerDir) throw new Error("Pi codex-pair project path changed.");
   const lockPath = `${allowlistPath()}.lock`;
   const lock = {
     id: randomUUID(),
@@ -223,19 +278,19 @@ async function setAllowed(markerDir: string, allowed: boolean): Promise<void> {
     }
   }
   try {
-    const current = await readAllowlist();
-    const projects = current.projects.filter((entry) => entry.root !== canonical);
-    if (allowed) projects.push({ root: canonical, allowedAt: new Date().toISOString() });
-    await writeJsonAtomic(allowlistPath(), { version: 1, projects } satisfies Allowlist);
+    const current = readAllowlist();
+    const projects = current.projects.filter((entry) => entry.root !== markerDir);
+    if (reviewer) projects.push({ root: markerDir, reviewer, allowedAt: new Date().toISOString(), id: randomUUID() });
+    return await writeJsonAtomic(allowlistPath(), { version: 2, projects }, canCommit);
   } finally {
     await releaseOwnedAllowlistLock(lockPath, identity);
   }
 }
 
-async function findMarkerUp(start: string): Promise<string | undefined> {
+function findMarkerUp(start: string): string | undefined {
   let current = start;
   try {
-    const info = await stat(current);
+    const info = statSync(current);
     if (!info.isDirectory()) current = dirname(current);
   } catch {
     current = dirname(current);
@@ -243,32 +298,77 @@ async function findMarkerUp(start: string): Promise<string | undefined> {
   current = resolve(current);
   const root = parse(current).root;
   for (let depth = 0; depth < 40; depth++) {
-    if (existsSync(join(current, ".codex-pair", "context.md"))) return canonicalDirectory(current);
+    if (existsSync(join(current, ".codex-pair", "context.md"))) return realpathSync(current);
     if (current === root) break;
     current = dirname(current);
   }
   return undefined;
 }
 
-function parseNumberFrontmatter(content: string, key: string, fallback: number): number {
-  const match = content.match(new RegExp(`^${key}:\\s*(\\d+)\\s*$`, "m"));
-  const value = match ? Number(match[1]) : fallback;
-  return Number.isFinite(value) && value >= 0 ? value : fallback;
+function writerIdentity(model: Writer | undefined): Writer {
+  return { provider: model?.provider, id: model?.id };
 }
 
-async function readConfig(markerDir: string): Promise<{ config: PairConfig; context: string }> {
-  const context = await readFile(join(markerDir, ".codex-pair", "context.md"), "utf8");
-  const threshold = context.match(/^surfaceThreshold:\s*(high|med|low)\s*$/m)?.[1];
-  const model = context.match(/^model:\s*([^\n]+)$/m)?.[1]?.trim() || "gpt-6.2-sol";
+function writerFamily(writer: Writer): WriterFamily {
+  if (!writer.id) return "unknown";
+  switch (writer.provider) {
+    case "openai":
+    case "openai-codex":
+      return "codex";
+    case "anthropic":
+      return "claude";
+    case "xai":
+      return "grok";
+    default:
+      return "unknown";
+  }
+}
+
+function readConfig(markerDir: string, writer: Writer): ReviewContext {
+  const marker = join(markerDir, ".codex-pair", "context.md");
+  if (realpathSync(marker) !== marker || !statSync(marker).isFile()) {
+    throw new Error("Pi codex-pair requires a regular .codex-pair/context.md within the marked project.");
+  }
+  const markerText = readFileSync(marker, "utf8");
+  const { frontmatter, body, malformed } = parseFrontmatter(markerText);
+  if (malformed || markerText === "---" || markerText === "---\r") {
+    throw new Error("Pi codex-pair refused: close the initial frontmatter fence in .codex-pair/context.md.");
+  }
+  const bounded = (value: number, min: number) => Number.isInteger(value) && value >= min && value <= MAX_TIMER_MS;
+  const env = { ...process.env };
+  for (const [key, min] of [
+    ["ASK_CODEX_TIMEOUT_MS", 1],
+    ["ASK_CLAUDE_TIMEOUT_MS", 1],
+    ["GMCPT_TIMEOUT_MS", 1],
+    ["ASK_CODEX_DEBOUNCE_MS", 0],
+    ["ASK_CODEX_DEBOUNCE_MAX_MS", 1],
+    ["CODEX_PAIR_MAX_FILE_BYTES", 1],
+  ] as const) {
+    if (!env[key]?.trim() || !bounded(Number(env[key]), min)) delete env[key];
+  }
+  env.ASK_CODEX_TIMEOUT_MS ??= env.GMCPT_TIMEOUT_MS;
+  if (!env.ASK_CODEX_MODEL?.trim()) delete env.ASK_CODEX_MODEL;
+  if (!env.ASK_CODEX_FALLBACK_MODEL?.trim()) delete env.ASK_CODEX_FALLBACK_MODEL;
+  for (const [key, min] of [
+    ["timeoutMs", 1],
+    ["debounceMs", 0],
+    ["debounceMaxMs", 1],
+    ["maxFileBytes", 1],
+  ] as const) {
+    const value = frontmatter[key];
+    if (typeof value !== "number" || !bounded(value, min)) delete frontmatter[key];
+  }
+  const config = resolveConfig(frontmatter, writerFamily(writer), env, loadPairDefaults());
+  // Claude has no fallback or configurable effort. Ignore Codex-only knobs in its fingerprint.
+  if (config.reviewer === "claude") {
+    config.fallbackModel = "";
+    config.reasoningEffort = "unknown";
+  }
+  const context = adaptiveContent(body, config.maxFileBytes).content.trim();
   return {
     context,
-    config: {
-      debounceMs: parseNumberFrontmatter(context, "debounceMs", DEFAULT_DEBOUNCE_MS),
-      debounceMaxMs: parseNumberFrontmatter(context, "debounceMaxMs", DEFAULT_DEBOUNCE_MAX_MS),
-      maxFileBytes: parseNumberFrontmatter(context, "maxFileBytes", DEFAULT_MAX_FILE_BYTES),
-      surfaceThreshold: (threshold as PairConfig["surfaceThreshold"] | undefined) ?? DEFAULT_SURFACE_THRESHOLD,
-      model,
-    },
+    config,
+    signature: hash(JSON.stringify([config, context])),
   };
 }
 
@@ -278,10 +378,10 @@ function normalizeToolPath(inputPath: unknown, cwd: string): string | undefined 
   return isAbsolute(withoutAt) ? resolve(withoutAt) : resolve(cwd, withoutAt);
 }
 
-async function canonicalRegularFile(path: string): Promise<string | undefined> {
+function canonicalRegularFile(path: string): string | undefined {
   try {
-    const canonical = await realpath(path);
-    return (await stat(canonical)).isFile() ? canonical : undefined;
+    const canonical = realpathSync(path);
+    return statSync(canonical).isFile() ? canonical : undefined;
   } catch {
     return undefined;
   }
@@ -300,10 +400,6 @@ function deleteScheduledIfOwned(scheduled: Map<string, ScheduledReview>, file: s
   if (scheduled.get(file)?.generation !== generation) return false;
   scheduled.delete(file);
   return true;
-}
-
-function shouldDiscardPending(state: RevalidationState): boolean {
-  return state === "superseded" || state === "stale";
 }
 
 function isBinaryContent(content: Buffer): boolean {
@@ -332,15 +428,12 @@ async function readReviewed(markerDir: string, file: string): Promise<ReviewedRe
   }
 }
 
-async function persistFinding(finding: PairFinding): Promise<void> {
-  await writeJsonAtomic(pendingPath(finding.markerDir, finding.id), finding);
-}
-
 async function markReviewed(finding: PairFinding): Promise<void> {
   await writeJsonAtomic(reviewedPath(finding.markerDir, finding.file), {
     contentHash: finding.contentHash,
     findingId: finding.id,
     deliveredAt: finding.createdAt,
+    review: finding.review,
   } satisfies ReviewedRecord);
 }
 
@@ -348,7 +441,7 @@ function sendFinding(pi: ExtensionAPI, finding: PairFinding): void {
   pi.sendMessage(
     {
       customType: MESSAGE_TYPE,
-      content: `${finding.message}\n\nPi note: findings are advisory and non-blocking; Pi has no safe Claude Stop-gate equivalent.`,
+      content: `${finding.message}\n\nPi note: findings are advisory and non-blocking.`,
       display: true,
       details: { file: finding.file, project: finding.markerDir, findingId: finding.id },
     },
@@ -407,13 +500,19 @@ async function recoverAbandonedClaims(markerDir: string): Promise<void> {
   } catch {}
 }
 
-async function claimPending(path: string): Promise<ClaimedFinding | undefined> {
+async function reserveClaim(path: string): Promise<string | undefined> {
   const claimPath = `${path}${CLAIM_SUFFIX}`;
   try {
     await writeFile(claimPath, `${JSON.stringify({ pid: process.pid })}\n`, { flag: "wx", mode: 0o600 });
+    return claimPath;
   } catch {
     return undefined;
   }
+}
+
+async function claimPending(path: string): Promise<ClaimedFinding | undefined> {
+  const claimPath = await reserveClaim(path);
+  if (!claimPath) return undefined;
   try {
     return {
       claimPath,
@@ -430,50 +529,178 @@ async function claimPending(path: string): Promise<ClaimedFinding | undefined> {
   }
 }
 
-async function adaptiveContent(content: string, maxBytes: number): Promise<{ content: string; partial: boolean }> {
-  if (Buffer.byteLength(content, "utf8") <= maxBytes) return { content, partial: false };
-  const chars = Math.max(1000, Math.floor(maxBytes / 2));
+function adaptiveContent(content: string, maxBytes: number): { content: string; partial: boolean } {
+  const bytes = Buffer.from(content);
+  if (bytes.length <= maxBytes) return { content, partial: false };
+  const separator = "\n\n[... middle omitted by codex-pair size bound ...]\n\n";
+  const available = maxBytes - Buffer.byteLength(separator);
+  let head = available > 1 ? Math.ceil(available / 2) : maxBytes;
+  while (head > 0 && (bytes[head] & 0xc0) === 0x80) head--;
+  if (available <= 1) return { content: bytes.subarray(0, head).toString(), partial: true };
+  let tail = bytes.length - Math.floor(available / 2);
+  while (tail < bytes.length && (bytes[tail] & 0xc0) === 0x80) tail++;
   return {
-    content: `${content.slice(0, chars)}\n\n[... middle omitted by codex-pair size bound ...]\n\n${content.slice(-chars)}`,
+    content: bytes.subarray(0, head).toString() + separator + bytes.subarray(tail).toString(),
     partial: true,
   };
 }
 
-function activeConcerns(
-  concerns: { high: string[]; med: string[]; low: string[] },
-  acks: Record<string, unknown>,
-): { high: string[]; med: string[]; low: string[] } {
-  const prepare = (body: string) => {
-    const concernHash = hashConcernBody(body);
-    return concernHash in acks ? undefined : `${body}\n[Acknowledge: /codex-pair-ack ${concernHash} <reason>]`;
-  };
+function activeConcerns(concerns: Concerns, acks: Record<string, unknown>): Concerns {
+  const unacked = (body: string) => !Object.hasOwn(acks, hashConcernBody(body));
   return {
-    high: concerns.high.map(prepare).filter((body): body is string => body !== undefined),
-    med: concerns.med.map(prepare).filter((body): body is string => body !== undefined),
-    low: concerns.low.map(prepare).filter((body): body is string => body !== undefined),
+    high: concerns.high.filter(unacked),
+    med: concerns.med.filter(unacked),
+    low: concerns.low.filter(unacked),
   };
 }
 
-function isQuotaError(error: unknown): boolean {
-  const text = (error instanceof Error ? error.message : String(error)).toLowerCase();
-  return ["quota", "usage limit", "rate limit", "429", "insufficient_quota"].some((part) => text.includes(part));
+function sameGrant(expected: Grant, current: Grant | undefined): boolean {
+  return (
+    expected.root === current?.root &&
+    expected.reviewer === current.reviewer &&
+    expected.allowedAt === current.allowedAt &&
+    expected.id === current.id
+  );
+}
+
+function fitsReview(config: PairConfig, value: Partial<ReviewAttribution>): value is ReviewAttribution {
+  return (
+    value.reviewer === config.reviewer &&
+    value.reasoningEffort === config.reasoningEffort &&
+    (value.fellBack === false
+      ? value.model === config.model
+      : value.fellBack === true &&
+        config.reviewer === "codex" &&
+        config.fallbackModel !== config.model &&
+        isCachedReviewCompatible(value, config.fallbackModel))
+  );
+}
+
+function reviewInput(file: string, toolName: string, raw: string, { config, context, signature }: ReviewContext) {
+  const view = adaptiveContent(raw, config.maxFileBytes);
+  const prompt = buildReviewPrompt({
+    filePath: file,
+    fileContent: view.content,
+    toolName: `Pi ${toolName}`,
+    projectContext: context,
+    partialView: view.partial,
+  });
+  const cacheKey = computeCacheKey({
+    model: reviewCacheModel(config.reviewer, config.model),
+    reasoningEffort: config.reasoningEffort,
+    prompt,
+    fileContent: view.content,
+    surfaceThreshold: config.surfaceThreshold,
+  });
+  return { prompt, cacheKey, fingerprint: hash(JSON.stringify([cacheKey, signature])) };
+}
+
+class CodexQuotaPause extends Error {}
+
+function isReviewQuotaError(error: unknown): boolean {
+  // The Codex predicate matches HTTP 429. Exclude local timeout diagnostics
+  // such as "Command timed out ... (current: 429ms)" before classifying quota.
+  return !(error instanceof Error && error.message.startsWith("Command timed out")) && isQuotaError(error);
+}
+
+async function runReview(
+  work: ScheduledReview,
+  prompt: string,
+  checkEligibility: () => void,
+): Promise<{ concerns: Concerns; attribution: ReviewAttribution & { observedModel?: string } }> {
+  const { config } = work.reviewContext;
+  const options = {
+    prompt,
+    cwd: work.markerDir,
+    timeoutMs: config.timeoutMs,
+    signal: work.controller.signal,
+    singleAttempt: true,
+    killProcessGroup: true,
+  } as const;
+  const attemptCodex = (model: string) => {
+    checkEligibility();
+    return executeCodexCLI({
+      ...options,
+      model,
+      // The shared resolver validates the Codex effort. Pi only assigns "unknown" on the Claude route.
+      reasoningEffort: config.reasoningEffort as CodexExecutorOptions["reasoningEffort"],
+      sandbox: "read-only",
+      beforeSpawn: checkEligibility,
+    });
+  };
+  let fellBack = false;
+  let result;
+  if (config.reviewer === "claude") {
+    checkEligibility();
+    if (isNestedSessionBlocked()) {
+      throw new Error(
+        "Claude CLI refuses nested Claude Code sessions. Launch Pi separately from Claude Code and retry.",
+      );
+    }
+    result = await executeClaudeCLI({ ...options, model: config.model });
+  } else {
+    try {
+      result = await attemptCodex(config.model);
+    } catch (error) {
+      checkEligibility();
+      if (isModelUnavailableError(error) || !isReviewQuotaError(error)) throw error;
+      const fallback = config.fallbackModel;
+      if (fallback === config.model) {
+        throw new CodexQuotaPause(`Codex quota exhausted. Configure a distinct fallbackModel (currently ${fallback}).`);
+      }
+      try {
+        result = await attemptCodex(fallback);
+        fellBack = true;
+      } catch (fallbackError) {
+        checkEligibility();
+        if (isReviewQuotaError(fallbackError) || isModelUnavailableError(fallbackError)) {
+          throw new CodexQuotaPause(
+            `Codex quota exhausted and configured fallback ${fallback} was unavailable. Check fallbackModel or ASK_CODEX_FALLBACK_MODEL.`,
+          );
+        }
+        throw fallbackError;
+      }
+    }
+  }
+  checkEligibility();
+  if (result.usage?.fellBack)
+    throw new Error("Reviewer reported an unexpected model change. Verify the selected model.");
+  const concerns = parseRecognizedConcerns(result.response);
+  if (!concerns) throw new Error("Reviewer reply was unrecognized. Inspect the selected CLI and try another edit.");
+  const observedModel = "observedModel" in result ? result.observedModel : undefined;
+  return { concerns, attribution: { ...reviewAttribution(config, fellBack), observedModel } };
 }
 
 export function registerCodexPair(pi: ExtensionAPI): void {
   const scheduled = new Map<string, ScheduledReview>();
   const active = new Set<Promise<void>>();
-  const controllers = new Set<AbortController>();
+  const changingProjects = new Set<string>();
+  const projectRevisions = new Map<string, number>();
+  const initializedSessions = new Set<string>();
   let closed = false;
   let epoch = 0;
-  const initializedSessions = new Set<string>();
+  let nextGeneration = 0;
+  let latestWriter: Writer = {};
 
   const notifyRefusal = (ctx: ExtensionContext, message: string) => {
     if (ctx.hasUI) ctx.ui.notify(message, "warning");
   };
 
-  const sessionOwnsProject = async (ctx: ExtensionContext, markerDir: string): Promise<boolean> => {
-    if (!ctx.isProjectTrusted()) return false;
-    return (await findMarkerUp(ctx.cwd)) === markerDir;
+  const errorMessage = (error: unknown) => (error instanceof Error ? error.message : String(error));
+
+  const sessionOwnsProject = (ctx: ExtensionContext, markerDir: string): boolean =>
+    ctx.isProjectTrusted() && findMarkerUp(ctx.cwd) === markerDir && realpathSync(markerDir) === markerDir;
+
+  const fileInProject = (target: string, file: string, markerDir: string): boolean =>
+    !shouldSkip(file) &&
+    canonicalRegularFile(target) === file &&
+    findMarkerUp(target) === markerDir &&
+    findMarkerUp(file) === markerDir;
+
+  const independentContext = (markerDir: string, writer: Writer): ReviewContext => {
+    const resolved = readConfig(markerDir, writer);
+    resolveReviewer(resolved.config.reviewer, writerFamily(latestWriter));
+    return resolved;
   };
 
   const pairIsPaused = async (markerDir: string): Promise<boolean> => {
@@ -493,342 +720,477 @@ export function registerCodexPair(pi: ExtensionAPI): void {
     return false;
   };
 
-  const releaseClaim = async (claimed: ClaimedFinding) => {
-    try {
-      await unlink(claimed.claimPath);
-    } catch {}
+  const cancelWork = (file: string, work: ScheduledReview, reason: string) => {
+    if (work.timer) clearTimeout(work.timer);
+    work.controller.abort(new DOMException(reason, "AbortError"));
+    deleteScheduledIfOwned(scheduled, file, work.generation);
   };
 
-  const consumeClaimed = async (claimed: ClaimedFinding) => {
-    try {
-      await unlink(claimed.pendingPath);
-    } catch {}
-    await releaseClaim(claimed);
-  };
-
-  const deliverClaimed = async (claimed: ClaimedFinding) => {
-    if (closed) {
-      await releaseClaim(claimed);
-      return;
+  const cancelProject = (markerDir: string, reason: string) => {
+    projectRevisions.set(markerDir, (projectRevisions.get(markerDir) ?? 0) + 1);
+    for (const [file, work] of scheduled) {
+      if (work.markerDir === markerDir) cancelWork(file, work, reason);
     }
+  };
+
+  const releaseClaim = async (claimed: ClaimedFinding) => {
+    await unlink(claimed.claimPath).catch(() => {});
+  };
+
+  const consumeClaimed = (claimed: ClaimedFinding) => unlink(claimed.pendingPath).catch(() => {});
+
+  const deliverClaimed = async (claimed: ClaimedFinding, ctx: ExtensionContext, markerDir: string) => {
+    const finding = claimed.finding;
     try {
-      const current = await readFile(claimed.finding.file);
-      if (hash(current.toString("utf8")) !== claimed.finding.contentHash) {
+      if (
+        closed ||
+        changingProjects.has(markerDir) ||
+        readPauseInfo(markerDir) ||
+        !sessionOwnsProject(ctx, markerDir) ||
+        finding?.markerDir !== markerDir ||
+        typeof finding.file !== "string" ||
+        typeof finding.message !== "string" ||
+        pendingPath(markerDir, finding.id) !== claimed.pendingPath
+      )
+        return;
+
+      const saved = finding.review;
+      const target = saved === undefined ? finding.file : saved?.target;
+      if (typeof target !== "string" || !fileInProject(target, finding.file, markerDir)) return;
+      const raw = readFileSync(finding.file, "utf8");
+      if (hash(raw) !== finding.contentHash) {
         await consumeClaimed(claimed);
         return;
       }
-      if (closed) {
-        await releaseClaim(claimed);
+
+      if (
+        saved !== undefined &&
+        (!saved?.writer || !saved.grant || (saved.toolName !== "edit" && saved.toolName !== "write"))
+      )
+        return;
+      const resolved = independentContext(markerDir, saved?.writer ?? {});
+      const grant = findGrant(markerDir, resolved.config.reviewer);
+      if (!grant) return;
+      if (saved) {
+        if (
+          !sameGrant(saved.grant, grant) ||
+          !fitsReview(resolved.config, saved) ||
+          reviewInput(finding.file, saved.toolName, raw, resolved).fingerprint !== saved.fingerprint
+        )
+          return;
+        sendFinding(pi, finding);
+      } else if (resolved.config.reviewer === "codex") {
+        sendFinding(pi, {
+          ...finding,
+          message: `Reviewer: Codex (legacy finding, model unknown) · Writer: unknown\n\n${finding.message}`,
+        });
+      } else {
         return;
       }
-      sendFinding(pi, claimed.finding);
-      await markReviewed(claimed.finding);
+      await markReviewed(finding);
       await consumeClaimed(claimed);
     } catch (error) {
-      await releaseClaim(claimed);
-      throw error;
+      if (!closed) notifyRefusal(ctx, `Pi codex-pair could not deliver a pending finding. ${errorMessage(error)}`);
     }
   };
 
-  const drainPending = async (markerDir: string) => {
+  const drainPending = async (markerDir: string, ctx: ExtensionContext) => {
     await recoverAbandonedClaims(markerDir);
-    while (!closed) {
-      let names: string[];
-      try {
-        const entries = await readdir(pendingRoot(markerDir));
-        const claimedNames = new Set(entries.filter((name) => name.endsWith(CLAIM_SUFFIX)));
-        names = entries
-          .filter((name) => name.endsWith(".json") && !claimedNames.has(`${name}${CLAIM_SUFFIX}`))
-          .sort()
-          .slice(0, 8);
-      } catch {
-        return;
+    const entries = await readdir(pendingRoot(markerDir)).catch(() => []);
+    for (const name of entries.sort()) {
+      if (closed) return;
+      if (!name.endsWith(".json")) continue;
+      const claimed = await claimPending(join(pendingRoot(markerDir), name));
+      if (claimed) {
+        try {
+          await deliverClaimed(claimed, ctx, markerDir);
+        } finally {
+          await releaseClaim(claimed);
+        }
       }
-      if (names.length === 0) return;
-      let claimedAny = false;
-      for (const name of names) {
-        const claimed = await claimPending(join(pendingRoot(markerDir), name));
-        if (!claimed) continue;
-        claimedAny = true;
-        await deliverClaimed(claimed);
-      }
-      if (!claimedAny) await new Promise((resolveWait) => setTimeout(resolveWait, LOCK_CONTENTION_RETRY_MS));
     }
   };
 
   const armReview = (file: string, work: ScheduledReview, delay: number, myEpoch: number, ctx: ExtensionContext) => {
-    if (work.timer) clearTimeout(work.timer);
     work.timer = setTimeout(() => {
       work.timer = undefined;
-      const promise = review(file, work.generation, myEpoch, ctx).catch(async (error) => {
-        if (closed || error?.name === "AbortError") return;
-        const reason = error instanceof Error ? error.message : String(error);
-        await appendLog(work.markerDir, {
-          timestamp: new Date().toISOString(),
-          tool: work.toolName,
-          file,
-          verdict: "error",
-          reason: `Pi: ${reason}`,
-        });
-        if (isQuotaError(error)) {
-          writeAutoPause(work.markerDir, { kind: "quota", reason });
-        } else {
-          const failures = recordReviewFailure(work.markerDir, reason);
-          if (failures >= AUTOPAUSE_FAILURE_THRESHOLD) writeAutoPause(work.markerDir, { kind: "failures", reason });
-        }
-        notifyRefusal(ctx, `codex-pair review failed: ${reason}`);
+      const promise = review(file, work, myEpoch, ctx).catch((error) => {
+        if (!closed && error?.name !== "AbortError") notifyRefusal(ctx, `Pi codex-pair: ${errorMessage(error)}`);
       });
       active.add(promise);
-      promise.finally(() => active.delete(promise));
+      void promise.finally(() => active.delete(promise));
     }, delay);
   };
 
-  const schedule = async (file: string, markerDir: string, toolName: string, ctx: ExtensionContext) => {
-    if (closed || ctx.mode === "print") return;
-    const now = Date.now();
-    const previous = scheduled.get(file);
-    if (previous?.timer) clearTimeout(previous.timer);
-    const next: ScheduledReview = {
-      generation: (previous?.generation ?? 0) + 1,
-      firstAt: previous?.firstAt ?? now,
-      markerDir,
-      toolName,
-    };
-    scheduled.set(file, next);
-    const { config } = await readConfig(markerDir);
-    const remainingToCap = Math.max(0, config.debounceMaxMs - (now - next.firstAt));
-    const delay = Math.min(config.debounceMs, remainingToCap);
-    const myEpoch = epoch;
-    armReview(file, next, delay, myEpoch, ctx);
-  };
+  const review = async (file: string, work: ScheduledReview, myEpoch: number, ctx: ExtensionContext): Promise<void> => {
+    const { markerDir, target, writer, reviewContext, grant, controller } = work;
+    const { config } = reviewContext;
+    const ownsWork = () => !closed && myEpoch === epoch && !controller.signal.aborted && scheduled.get(file) === work;
+    const sameContext = () =>
+      ownsWork() &&
+      !changingProjects.has(markerDir) &&
+      sessionOwnsProject(ctx, markerDir) &&
+      fileInProject(target, file, markerDir) &&
+      independentContext(markerDir, writer).signature === reviewContext.signature &&
+      sameGrant(grant, findGrant(markerDir, config.reviewer));
+    const stillEligible = () => sameContext() && !readPauseInfo(markerDir);
 
-  const review = async (file: string, generation: number, myEpoch: number, ctx: ExtensionContext): Promise<void> => {
-    if (closed || myEpoch !== epoch) return;
-    const work = scheduled.get(file);
-    if (!work || work.generation !== generation) return;
-    if (
-      !(await sessionOwnsProject(ctx, work.markerDir)) ||
-      !(await isAllowed(work.markerDir)) ||
-      (await pairIsPaused(work.markerDir))
-    )
-      return;
-
-    const { config, context } = await readConfig(work.markerDir);
-    const lock = tryAcquireInflightLock(
-      work.markerDir,
-      file,
-      Math.max(INFLIGHT_TTL_MIN_MS, resolveCodexTimeoutMs()) + 60_000,
-    );
-    if (!lock.acquired) {
-      work.firstAt = Date.now();
-      if (scheduled.get(file)?.generation === generation) armReview(file, work, LOCK_CONTENTION_RETRY_MS, myEpoch, ctx);
-      return;
-    }
-
+    let retry = false;
+    let lockPath: string | undefined;
     try {
-      const rawBuffer = await readFile(file);
-      if (isBinaryContent(rawBuffer)) {
-        deleteScheduledIfOwned(scheduled, file, generation);
+      if (!sameContext() || (await pairIsPaused(markerDir)) || !stillEligible()) return;
+      const lock = tryAcquireInflightLock(
+        markerDir,
+        file,
+        Math.max(INFLIGHT_TTL_MIN_MS, config.timeoutMs * (config.reviewer === "codex" ? 2 : 1)) + 60_000,
+      );
+      if (!lock.acquired) {
+        if (ownsWork()) {
+          retry = true;
+          work.firstAt = Date.now();
+          armReview(file, work, LOCK_CONTENTION_RETRY_MS, myEpoch, ctx);
+        }
         return;
       }
+      lockPath = lock.lockPath;
+
+      const rawBuffer = await readFile(file);
+      if (!stillEligible() || isBinaryContent(rawBuffer)) return;
       const raw = rawBuffer.toString("utf8");
       const contentHash = hash(raw);
-      if ((await readReviewed(work.markerDir, file))?.contentHash === contentHash) {
-        deleteScheduledIfOwned(scheduled, file, generation);
+      const { prompt, cacheKey, fingerprint } = reviewInput(file, work.toolName, raw, reviewContext);
+      const canCommit = () => {
+        try {
+          return stillEligible() && hash(readFileSync(file, "utf8")) === contentHash;
+        } catch {
+          return false;
+        }
+      };
+      const checkEligibility = () => {
+        if (!canCommit()) throw new DOMException("Pi review eligibility changed", "AbortError");
+      };
+      const prior = await readReviewed(markerDir, file);
+      if (
+        prior?.contentHash === contentHash &&
+        prior.review?.fingerprint === fingerprint &&
+        fitsReview(config, prior.review)
+      )
+        return;
+
+      const startedAt = Date.now();
+      const hit = await getCachedConcerns(markerDir, cacheKey);
+      checkEligibility();
+      const cached =
+        !!hit &&
+        fitsReview(config, hit) &&
+        [hit.high, hit.med, hit.low].every((bucket) => bucket.every((body) => typeof body === "string"));
+      let reviewResult: Awaited<ReturnType<typeof runReview>>;
+      try {
+        reviewResult = cached
+          ? {
+              concerns: hit,
+              attribution: { ...reviewAttribution(config, hit.fellBack === true), observedModel: hit.observedModel },
+            }
+          : await runReview(work, prompt, checkEligibility);
+      } catch (error) {
+        if ((error instanceof Error && error.name === "AbortError") || !canCommit()) return;
+        const reason = errorMessage(error);
+        await appendLog(
+          markerDir,
+          {
+            timestamp: new Date().toISOString(),
+            tool: work.toolName,
+            file,
+            verdict: "error",
+            source: "pi",
+            reviewer: config.reviewer,
+            reason: `Pi: ${reason}`,
+          },
+          canCommit,
+        );
+        if (!canCommit()) return;
+        if (error instanceof CodexQuotaPause) {
+          writeAutoPause(markerDir, { kind: "quota", reason });
+        } else {
+          const failures = recordReviewFailure(markerDir, reason);
+          if (failures >= AUTOPAUSE_FAILURE_THRESHOLD) writeAutoPause(markerDir, { kind: "failures", reason });
+        }
+        notifyRefusal(ctx, `codex-pair review failed. ${reason}`);
         return;
       }
-      const view = await adaptiveContent(raw, config.maxFileBytes);
-      const { buildReviewPrompt } = await import("../../scripts/lib/prompt.mjs");
-      const prompt = buildReviewPrompt({
-        filePath: file,
-        fileContent: view.content,
-        toolName: `Pi ${work.toolName}`,
-        projectContext: context,
-        partialView: view.partial,
-      });
-      const cacheKey = computeCacheKey({
-        model: config.model,
-        reasoningEffort: "high",
-        prompt,
-        fileContent: view.content,
-        surfaceThreshold: config.surfaceThreshold,
-      });
-      const startedAt = Date.now();
-      let concerns = await getCachedConcerns(work.markerDir, cacheKey);
-      let fellBack = false;
-      let cached = true;
-      if (!concerns) {
-        cached = false;
-        const controller = new AbortController();
-        controllers.add(controller);
-        try {
-          const result = await executeCodexCLI({
-            prompt,
-            model: config.model,
-            reasoningEffort: "high",
-            sandbox: "read-only",
-            signal: controller.signal,
-          });
-          concerns = parseConcerns(result.response);
-          fellBack = result.usage?.fellBack ?? false;
-          await setCachedConcerns(work.markerDir, cacheKey, {
-            ...concerns,
-            durationMs: Date.now() - startedAt,
-          });
-        } finally {
-          controllers.delete(controller);
-        }
-      }
-      if (closed || myEpoch !== epoch) return;
-      const revalidate = async (): Promise<RevalidationState> => {
-        if (closed || myEpoch !== epoch) return "closed";
-        const current = scheduled.get(file);
-        if (!current || current.generation !== generation) return "superseded";
-        const latest = await readFile(file, "utf8");
-        if (closed || myEpoch !== epoch) return "closed";
-        if (scheduled.get(file)?.generation !== generation) return "superseded";
-        if (hash(latest) === contentHash) return "current";
-        if (scheduled.get(file)?.generation === generation) {
-          work.firstAt = Date.now();
-          await schedule(file, work.markerDir, work.toolName, ctx);
-        }
-        return "stale";
+
+      checkEligibility();
+      const { attribution } = reviewResult;
+      const concerns = activeConcerns(reviewResult.concerns, readAcks(markerDir));
+      const concernHashes = {
+        high: concerns.high.map(hashConcernBody),
+        med: concerns.med.map(hashConcernBody),
+        low: concerns.low.map(hashConcernBody),
       };
-      if ((await revalidate()) !== "current") return;
-      concerns = activeConcerns(concerns, readAcks(work.markerDir));
-      clearReviewFailures(work.markerDir);
+      const counts = { high: concerns.high.length, med: concerns.med.length, low: concerns.low.length };
+      const decorate = (body: string) => `${body}\n[Acknowledge: /codex-pair-ack ${hashConcernBody(body)} <reason>]`;
       const durationMs = Date.now() - startedAt;
       const message = buildVerdictMessage({
         filePath: file,
-        concerns,
-        fellBack,
+        concerns: {
+          high: concerns.high.map(decorate),
+          med: concerns.med.map(decorate),
+          low: concerns.low.map(decorate),
+        },
+        fellBack: attribution.fellBack,
         durationMs,
         surfaceThreshold: config.surfaceThreshold,
         cached,
-        logPath: logPath(work.markerDir),
+        logPath: logPath(markerDir),
       });
+      const reviewer = config.reviewer === "codex" ? "Codex" : "Claude";
+      const writerLabel = writer.provider && writer.id ? `${writer.provider}/${writer.id}` : "unknown";
+      const observed = attribution.observedModel ? `, observed ${attribution.observedModel}` : "";
       const finding: PairFinding = {
         id: randomUUID(),
         file,
-        markerDir: work.markerDir,
+        markerDir,
         contentHash,
-        message,
+        message: `Reviewer: ${reviewer} (selected ${attribution.model}${observed}, effort ${
+          attribution.reasoningEffort
+        }) · Writer: ${writerLabel}\n\n${message}`,
         createdAt: new Date().toISOString(),
+        review: { ...attribution, fingerprint, writer, toolName: work.toolName, target, grant },
       };
-      await appendLog(work.markerDir, {
-        timestamp: finding.createdAt,
-        tool: work.toolName,
-        file,
-        verdict: concerns.high.length + concerns.med.length + concerns.low.length === 0 ? "none" : "concerns",
-        source: "pi",
-        fellBack,
-        cached,
-        counts: { high: concerns.high.length, med: concerns.med.length, low: concerns.low.length },
-        durationMs,
-      });
-      if ((await revalidate()) !== "current") return;
-      await persistFinding(finding);
-      const persistedState = await revalidate();
-      if (persistedState === "closed") return;
-      if (shouldDiscardPending(persistedState)) {
-        try {
-          await unlink(pendingPath(finding.markerDir, finding.id));
-        } catch {}
-        return;
+
+      // Publish the durable finding before delivery so a host crash can replay its stable ID.
+      const path = pendingPath(markerDir, finding.id);
+      await mkdir(dirname(path), { recursive: true });
+      // Hold the claim across publication so another session cannot drain this
+      // finding while this generation is still deciding whether it is current.
+      const claimPath = await reserveClaim(path);
+      if (!claimPath) return;
+      const claimed = { claimPath, pendingPath: path, finding };
+      try {
+        if (!(await writeJsonAtomic(path, finding, canCommit))) return;
+        if (!cached)
+          await setCachedConcerns(
+            markerDir,
+            cacheKey,
+            { ...reviewResult.concerns, ...attribution, durationMs },
+            canCommit,
+          );
+        await appendLog(
+          markerDir,
+          {
+            timestamp: finding.createdAt,
+            tool: work.toolName,
+            file,
+            verdict: counts.high + counts.med + counts.low === 0 ? "none" : "concerns",
+            source: "pi",
+            ...attribution,
+            writerProvider: writer.provider,
+            writerModel: writer.id,
+            contentHash,
+            concernHashes,
+            cached,
+            counts,
+            durationMs,
+          },
+          canCommit,
+        );
+        if (canCommit()) {
+          clearReviewFailures(markerDir);
+          await deliverClaimed(claimed, ctx, markerDir);
+        } else if (!closed) {
+          await consumeClaimed(claimed);
+        }
+      } finally {
+        await releaseClaim(claimed);
       }
-      deleteScheduledIfOwned(scheduled, file, generation);
-      const claimed = await claimPending(pendingPath(finding.markerDir, finding.id));
-      if (claimed) await deliverClaimed(claimed);
     } finally {
-      releaseInflightLock(lock.lockPath);
+      if (!retry) deleteScheduledIfOwned(scheduled, file, work.generation);
+      releaseInflightLock(lockPath);
     }
   };
 
-  pi.on("tool_result", async (event, ctx) => {
-    if (closed || event.isError || (event.toolName !== "edit" && event.toolName !== "write")) return;
+  pi.on("model_select", (event, ctx) => {
+    latestWriter = writerIdentity(event.model);
+    for (const [file, work] of scheduled) {
+      if (work.reviewContext.config.reviewer === writerFamily(latestWriter)) {
+        cancelWork(file, work, "Pi selected a model in the reviewer's family");
+        notifyRefusal(ctx, "Pi codex-pair cancelled because the selected writer and reviewer share a model family.");
+      }
+    }
+  });
+
+  pi.on("tool_result", (event, ctx) => {
+    if (closed || ctx.mode === "print" || event.isError || (event.toolName !== "edit" && event.toolName !== "write"))
+      return;
+    // The model in this event context is the writer of this edit. model_select
+    // separately tracks the selection that may be in effect when the timer fires.
+    const writer = writerIdentity(ctx.model);
     const target = normalizeToolPath((event.input as { path?: unknown })?.path, ctx.cwd);
     if (!target || shouldSkip(target)) return;
-    const file = await canonicalRegularFile(target);
+    const file = canonicalRegularFile(target);
     if (!file) return;
-    const markerDir = await findMarkerUp(file);
-    if (!markerDir) return;
-    if (!(await sessionOwnsProject(ctx, markerDir))) {
-      notifyRefusal(ctx, "codex-pair is disabled: the edited file is outside Pi's trusted project.");
-      return;
+    const previous = scheduled.get(file);
+    if (previous) cancelWork(file, previous, "A newer Pi edit replaced this review");
+    try {
+      const markerDir = findMarkerUp(file);
+      if (!markerDir || changingProjects.has(markerDir)) return;
+      if (!sessionOwnsProject(ctx, markerDir) || !fileInProject(target, file, markerDir)) {
+        notifyRefusal(ctx, "codex-pair is disabled: the edited file is outside Pi's trusted project.");
+        return;
+      }
+      const reviewContext = independentContext(markerDir, writer);
+      const { config } = reviewContext;
+      const grant = findGrant(markerDir, config.reviewer);
+      if (!grant) {
+        notifyRefusal(
+          ctx,
+          `The selected ${
+            config.reviewer
+          } reviewer is not in your Pi allowlist for this project. Run /codex-pair to consent.`,
+        );
+        return;
+      }
+      const now = Date.now();
+      const work: ScheduledReview = {
+        generation: ++nextGeneration,
+        firstAt: previous?.firstAt ?? now,
+        markerDir,
+        target,
+        toolName: event.toolName,
+        writer,
+        reviewContext,
+        grant,
+        controller: new AbortController(),
+      };
+      scheduled.set(file, work);
+      const remainingToCap = Math.max(0, config.debounceMaxMs - (now - work.firstAt));
+      armReview(file, work, Math.min(config.debounceMs, remainingToCap), epoch, ctx);
+    } catch (error) {
+      notifyRefusal(ctx, `Pi codex-pair: ${errorMessage(error)}`);
     }
-    if (!(await isAllowed(markerDir))) {
-      notifyRefusal(
-        ctx,
-        "codex-pair marker found, but this project is not in your Pi allowlist. Run /codex-pair to consent.",
-      );
-      return;
-    }
-    await schedule(file, markerDir, event.toolName, ctx);
   });
 
   pi.on("session_start", async (_event, ctx) => {
     const sessionId = ctx.sessionManager.getSessionId();
-    if (initializedSessions.has(sessionId)) return;
+    if (closed || initializedSessions.has(sessionId) || ctx.mode === "print") return;
     initializedSessions.add(sessionId);
-    if (ctx.mode === "print") return;
-    const markerDir = await findMarkerUp(ctx.cwd);
-    if (!markerDir || !(await sessionOwnsProject(ctx, markerDir)) || !(await isAllowed(markerDir))) return;
-    await drainPending(markerDir);
-    if (await pairIsPaused(markerDir)) notifyRefusal(ctx, "codex-pair is paused for this project.");
+    latestWriter = writerIdentity(ctx.model);
+    try {
+      const markerDir = findMarkerUp(ctx.cwd);
+      if (!markerDir || !sessionOwnsProject(ctx, markerDir)) return;
+      const { config } = independentContext(markerDir, {});
+      if (!findGrant(markerDir, config.reviewer)) return;
+      if (await pairIsPaused(markerDir)) {
+        notifyRefusal(ctx, "codex-pair is paused for this project.");
+      } else {
+        await drainPending(markerDir, ctx);
+      }
+    } catch (error) {
+      notifyRefusal(ctx, `Pi codex-pair: ${errorMessage(error)}`);
+    }
   });
 
   pi.on("session_shutdown", async () => {
     if (closed) return;
     closed = true;
     epoch += 1;
-    for (const work of scheduled.values()) if (work.timer) clearTimeout(work.timer);
-    scheduled.clear();
-    for (const controller of controllers) controller.abort(new DOMException("Pi session shut down", "AbortError"));
-    controllers.clear();
+    for (const [file, work] of scheduled) cancelWork(file, work, "Pi session shut down");
+    let timeout: ReturnType<typeof setTimeout> | undefined;
     await Promise.race([
       Promise.allSettled([...active]),
-      new Promise<void>((resolveWait) => setTimeout(resolveWait, 5_000)),
+      new Promise<void>((resolveWait) => {
+        timeout = setTimeout(resolveWait, 5_000);
+      }),
     ]);
+    if (timeout) clearTimeout(timeout);
   });
 
   pi.registerCommand("codex-pair", {
-    description: "Show Pi codex-pair status, grant explicit project consent, or revoke it",
+    description: "Show Pi codex-pair status, grant reviewer consent, or revoke it",
     handler: async (args, ctx) => {
-      const markerDir = await findMarkerUp(ctx.cwd);
-      if (!markerDir) {
-        notifyRefusal(
-          ctx,
-          "No .codex-pair/context.md marker found. Run /skill:ask-llm-codex-pair for setup instructions.",
+      try {
+        const markerDir = findMarkerUp(ctx.cwd);
+        if (!markerDir) {
+          notifyRefusal(
+            ctx,
+            "No .codex-pair/context.md marker found. Run /skill:ask-llm-codex-pair for setup instructions.",
+          );
+          return;
+        }
+        if (args.trim() === "revoke") {
+          changingProjects.add(markerDir);
+          cancelProject(markerDir, "Pi reviewer consent was revoked");
+          try {
+            await setAllowed(markerDir, false);
+          } finally {
+            changingProjects.delete(markerDir);
+          }
+          ctx.ui.notify(`codex-pair consent revoked for ${markerDir}`, "info");
+          return;
+        }
+        const resolved = readConfig(markerDir, {});
+        const { config } = resolved;
+        const tool = config.reviewer === "codex" ? "Codex CLI" : "Claude CLI";
+        const trusted = sessionOwnsProject(ctx, markerDir);
+        const allowed = trusted && !!findGrant(markerDir, config.reviewer);
+        const status = `${tool} (${config.model}) is ${allowed ? "authorized" : "unauthorized"} for ${markerDir}${
+          readPauseInfo(markerDir) ? " (paused)" : ""
+        }.`;
+        if (args.trim() === "status" || allowed) {
+          ctx.ui.notify(status, "info");
+          return;
+        }
+        if (!trusted) {
+          notifyRefusal(ctx, `${status} Pi project trust is required before granting reviewer consent.`);
+          return;
+        }
+        if (!ctx.hasUI || ctx.mode !== "tui") {
+          notifyRefusal(ctx, `${status} Open Pi in TUI mode and run /codex-pair to consent.`);
+          return;
+        }
+        independentContext(markerDir, writerIdentity(ctx.model));
+        const consentEpoch = epoch;
+        const projectRevision = projectRevisions.get(markerDir);
+        const priorGrant = readAllowlist().projects.find((grant) => grant.root === markerDir);
+        const attemptModel =
+          config.model +
+          (config.reviewer === "codex" && config.fallbackModel !== config.model
+            ? ` (quota fallback ${config.fallbackModel})`
+            : "");
+        const confirmed = await ctx.ui.confirm(
+          `Authorize ${tool} as this project's reviewer?`,
+          `${tool} will use ${attemptModel} under the ${tool} account configured on this machine. ` +
+            `It receives bounded edited-file content and .codex-pair/context.md body (up to ${
+              config.maxFileBytes
+            } bytes each) and may consume that account's quota or incur charges. Project: ${markerDir}`,
         );
-        return;
+        if (!confirmed) return;
+        const canGrant = () => {
+          if (
+            closed ||
+            consentEpoch !== epoch ||
+            projectRevision !== projectRevisions.get(markerDir) ||
+            changingProjects.has(markerDir) ||
+            !sessionOwnsProject(ctx, markerDir)
+          )
+            return false;
+          const currentGrant = readAllowlist().projects.find((grant) => grant.root === markerDir);
+          return (
+            (priorGrant ? sameGrant(priorGrant, currentGrant) : !currentGrant) &&
+            independentContext(markerDir, writerIdentity(ctx.model)).signature === resolved.signature
+          );
+        };
+        if (!canGrant() || !(await setAllowed(markerDir, config.reviewer, canGrant))) {
+          notifyRefusal(
+            ctx,
+            "Pi reviewer settings changed during consent. Run /codex-pair to confirm the current selection.",
+          );
+          return;
+        }
+        ctx.ui.notify(`${tool} is authorized for ${markerDir}. Revoke with /codex-pair revoke.`, "info");
+      } catch (error) {
+        notifyRefusal(ctx, `Pi codex-pair: ${errorMessage(error)}`);
       }
-      if (args.trim() === "revoke") {
-        await setAllowed(markerDir, false);
-        ctx.ui.notify(`codex-pair consent revoked for ${markerDir}`, "info");
-        return;
-      }
-      if (!ctx.isProjectTrusted()) {
-        notifyRefusal(ctx, "Project trust is required before codex-pair can be enabled.");
-        return;
-      }
-      if (await isAllowed(markerDir)) {
-        ctx.ui.notify(
-          `codex-pair is allowed for ${markerDir}${(await pairIsPaused(markerDir)) ? " (paused)" : ""}`,
-          "info",
-        );
-        return;
-      }
-      if (!ctx.hasUI) {
-        notifyRefusal(ctx, "Consent requires interactive Pi. Open Pi in TUI mode and run /codex-pair.");
-        return;
-      }
-      const confirmed = await ctx.ui.confirm(
-        "Enable codex-pair for this project?",
-        `This sends bounded edited-file content and .codex-pair/context.md to the Codex CLI account configured on this machine and may consume subscription quota. Project: ${markerDir}`,
-      );
-      if (!confirmed) return;
-      await setAllowed(markerDir, true);
-      ctx.ui.notify(`codex-pair enabled for ${markerDir}. Revoke with /codex-pair revoke.`, "info");
     },
   });
 
@@ -837,8 +1199,14 @@ export function registerCodexPair(pi: ExtensionAPI): void {
     handler: async (_args, ctx) => {
       const markerDir = await findMarkerUp(ctx.cwd);
       if (!markerDir) return notifyRefusal(ctx, "No codex-pair marker found.");
-      await mkdir(stateRoot(markerDir), { recursive: true });
-      await writeFile(pausePath(markerDir), "", { flag: "a", mode: 0o600 });
+      changingProjects.add(markerDir);
+      cancelProject(markerDir, "Pi pairing was paused");
+      try {
+        await mkdir(stateRoot(markerDir), { recursive: true });
+        await writeFile(pausePath(markerDir), "", { flag: "a", mode: 0o600 });
+      } finally {
+        changingProjects.delete(markerDir);
+      }
       ctx.ui.notify("codex-pair paused", "info");
     },
   });
@@ -882,6 +1250,5 @@ export const __testing = {
   normalizeToolPath,
   readAllowlist,
   setAllowed,
-  shouldDiscardPending,
   shouldSkip,
 };

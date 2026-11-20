@@ -349,6 +349,26 @@ describe("codex-pair-stop-gate.mjs — runtime (pending drain + in-flight block)
     });
   }
 
+  it("ignores Pi HIGHs and preserves a blocking hook finding across a newer Pi clean review", () => {
+    writeMarker("---\nblockOn: HIGH\n---\n");
+    const file = path.join(dir, "x.ts");
+    const text = "export const x = 1;\n";
+    fs.writeFileSync(file, text);
+    const row = { file, contentHash: contentHash(text), verdict: "concerns", concerns: { high: ["hook finding"] } };
+    const pi = { ...row, source: "pi", concerns: { high: ["Pi finding"] } };
+    const log = path.join(dir, ".codex-pair", "log.jsonl");
+    fs.writeFileSync(log, `${JSON.stringify(pi)}\n`);
+    expect(runGate().stdout).toBe("");
+    fs.appendFileSync(log, `${JSON.stringify(row)}\n${JSON.stringify({ ...pi, verdict: "none", concerns: {} })}\n`);
+    const result = runGate();
+    expect(result.status).toBe(0);
+    expect(JSON.parse(result.stdout)).toMatchObject({
+      decision: "block",
+      reason: expect.stringContaining("hook finding"),
+    });
+    expect(result.stdout).not.toContain("Pi finding");
+  });
+
   it("no blockOn: drained pending verdicts reach the model via Stop additionalContext", () => {
     writeMarker();
     seedPending("[codex-pair] reviewed x.ts — 1H/0M/0L");

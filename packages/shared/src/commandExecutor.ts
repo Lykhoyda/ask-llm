@@ -10,6 +10,12 @@ export interface CommandLoggingOptions {
   sensitiveValues: readonly string[];
 }
 
+export interface CommandExecutionOptions {
+  cwd?: string;
+  /** On POSIX, terminate the CLI and its process group on timeout or abort. */
+  killProcessGroup?: boolean;
+}
+
 export function isCommandNotFoundError(stderr: string, command: string): boolean {
   const lower = stderr.toLowerCase();
   return (
@@ -145,15 +151,22 @@ export async function executeCommand(
   timeoutMs?: number,
   commandLogging?: CommandLoggingOptions,
   signal?: AbortSignal,
+  options?: CommandExecutionOptions,
 ): Promise<string> {
+  const abortError = () => (signal?.reason instanceof Error ? signal.reason : new Error("Provider command cancelled"));
+  if (signal?.aborted) throw abortError();
+
   return new Promise((resolve, reject) => {
     const commandId = Logger.commandExecution(command, argsForLogging(args, commandLogging));
 
     const safeArgs = IS_WINDOWS ? quoteArgsForWindows(args) : args;
 
+    const killProcessGroup = options?.killProcessGroup === true && !IS_WINDOWS;
     const childProcess = spawn(command, safeArgs, {
       env: getSpawnEnv(),
       shell: IS_WINDOWS,
+      cwd: options?.cwd,
+      detached: killProcessGroup,
       stdio: ["pipe", "pipe", "pipe"],
     });
 
@@ -175,27 +188,47 @@ export async function executeCommand(
     // clean child exit can cancel it — otherwise it lingers ~5s, holding the
     // event loop open and pinning the (already dead) child object until GC.
     let killTimer: ReturnType<typeof setTimeout> | undefined;
+    let terminationError: Error | undefined;
 
-    const terminate = () => {
+    const signalChild = (signal: NodeJS.Signals | 0) => {
       try {
-        childProcess.kill("SIGTERM");
-      } catch {}
-      killTimer = setTimeout(() => {
-        try {
-          childProcess.kill("SIGKILL");
-        } catch {}
-      }, 5000);
-      killTimer.unref?.();
+        if (killProcessGroup && childProcess.pid) {
+          process.kill(-childProcess.pid, signal);
+          return true;
+        }
+        return childProcess.kill(signal);
+      } catch {
+        return false;
+      }
     };
-    const abortError = () =>
-      signal?.reason instanceof Error ? signal.reason : new Error("Provider command cancelled");
+
+    const terminate = (error: Error) => {
+      terminationError = error;
+      signalChild("SIGTERM");
+      killTimer = setTimeout(
+        () => {
+          signalChild("SIGKILL");
+          killTimer = undefined;
+          if (killProcessGroup) {
+            // A descendant can keep the pipes open after the CLI leader exits.
+            childProcess.stdout.destroy();
+            childProcess.stderr.destroy();
+            reject(error);
+          }
+        },
+        killProcessGroup ? 1_000 : 5_000,
+      );
+      if (!killProcessGroup) {
+        killTimer.unref?.();
+        reject(error);
+      }
+    };
     const onAbort = () => {
       if (isResolved) return;
       isResolved = true;
       clearTimeout(timer);
       Logger.warn(`[cmd:${commandId}] Cancelled, sending SIGTERM`);
-      terminate();
-      reject(abortError());
+      terminate(abortError());
     };
     const cleanupSignal = () => signal?.removeEventListener("abort", onAbort);
 
@@ -205,9 +238,8 @@ export async function executeCommand(
       isResolved = true;
       cleanupSignal();
       Logger.warn(`[cmd:${commandId}] Timeout after ${effectiveTimeoutMs}ms, sending SIGTERM`);
-      terminate();
       const timeoutSec = Math.round(effectiveTimeoutMs / 1000);
-      reject(
+      terminate(
         new Error(
           `Command timed out after ${timeoutSec}s. The LLM provider took too long to respond. ` +
             `Try a shorter prompt or increase the timeout via the provider env var ` +
@@ -221,6 +253,7 @@ export async function executeCommand(
     if (signal?.aborted) onAbort();
 
     childProcess.stdout.on("data", (data: Buffer) => {
+      if (isResolved) return;
       stdoutChunks.push(data);
       if (onProgress) {
         onProgress(data.toString());
@@ -228,6 +261,7 @@ export async function executeCommand(
     });
 
     childProcess.stderr.on("data", (data: Buffer) => {
+      if (isResolved) return;
       stderrChunks.push(data);
       if (onStderr) {
         onStderr(data.toString());
@@ -235,6 +269,7 @@ export async function executeCommand(
     });
 
     childProcess.on("error", (error) => {
+      if (terminationError && killProcessGroup) return;
       if (killTimer) clearTimeout(killTimer);
       if (!isResolved) {
         isResolved = true;
@@ -246,8 +281,15 @@ export async function executeCommand(
     });
 
     childProcess.on("close", (code) => {
-      if (killTimer) clearTimeout(killTimer);
       cleanupSignal();
+      if (terminationError && killProcessGroup) {
+        // Keep escalation armed if the leader exited but its group survived TERM.
+        if (killTimer && signalChild(0)) return;
+        if (killTimer) clearTimeout(killTimer);
+        reject(terminationError);
+        return;
+      }
+      if (killTimer) clearTimeout(killTimer);
       if (!isResolved) {
         isResolved = true;
         clearTimeout(timer);
