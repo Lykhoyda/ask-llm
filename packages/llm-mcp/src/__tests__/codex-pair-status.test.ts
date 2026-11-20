@@ -94,6 +94,7 @@ it("reports the effective Claude reviewer rather than unused Codex settings", ()
 });
 it.each([
   ["claude", undefined, "claude cannot review its own model family's edits (claude writer)"],
+  ["claude", "Grok", "claude cannot review its own model family's edits (claude writer)"],
   ["invalid", undefined, "reviewer must be codex or claude"],
   ["invalid", "grok", "reviewer must be codex or claude"],
 ])("does not report active when reviewer %s is refused on host %s", (reviewer, host, reason) => {
