@@ -93,7 +93,7 @@ timeoutMs: 600000
 Amounts use integer cents. Retrying a payment must preserve its idempotency key.
 ```
 
-In interactive Pi, run `/codex-pair` to approve the selected CLI. The prompt names the model, any Codex quota fallback, the account configured for that CLI on this machine, and the amount of edited-file content and marker body the review can receive. Codex and Claude can use different accounts. Each review uses the selected account's quota or billing. Project trust and an affirmative grant for the canonical project root and selected reviewer are both required. Claude Code's template and catch-up commands provide no Pi grant.
+In interactive Pi, run `/codex-pair` to approve the selected CLI. The prompt names the CLI, model, any Codex quota fallback, and the amount of edited-file content and marker body the review can receive. It states that the CLI uses its locally configured account; it does not display an account identifier. Check that CLI's login before granting consent. Codex and Claude can use different accounts. Each review uses the selected account's quota or billing. Project trust and an affirmative grant for the canonical project root and selected reviewer are both required. Claude Code's template and catch-up commands provide no Pi grant.
 
 Use `/codex-pair status` to check the selected reviewer and its authorization. A grant for a different reviewer requires a new confirmation and replaces the previous grant. Declining leaves the previous grant in place and sends nothing. Use `/codex-pair revoke` to remove the grant, including when the marker frontmatter is malformed.
 
@@ -114,9 +114,10 @@ Plain markers use the defaults. A setting below the initial fence is project con
 | Claude model and effort | The Claude CLI always selects `claude-opus-5-5`. Effort is unknown and there is no fallback. Codex pins and `ASK_CLAUDE_MODEL` do not influence this route. |
 | `timeoutMs` | Per attempt, marker then `ASK_CODEX_TIMEOUT_MS` or `ASK_CLAUDE_TIMEOUT_MS`. Codex also uses legacy `GMCPT_TIMEOUT_MS` before its 800000 ms default. Claude defaults to 600000 ms. |
 | `debounceMs` and `debounceMaxMs` | Marker, `ASK_CODEX_DEBOUNCE_MS` and `ASK_CODEX_DEBOUNCE_MAX_MS`, then 15000 and 60000 ms. A zero settle delay is valid. The cap must be positive. |
-| `maxFileBytes` and `surfaceThreshold` | Positive UTF-8 byte cap from the marker, `CODEX_PAIR_MAX_FILE_BYTES`, then 20000 bytes. Oversized file or marker content gets a partial view. Threshold accepts `high`, `med` (default), or `low`. |
+| `maxFileBytes` | Positive UTF-8 byte cap from the marker, `CODEX_PAIR_MAX_FILE_BYTES`, then 20000 bytes. Oversized file or marker content gets a partial view. |
+| `surfaceThreshold` | Marker value `high`, `med` (default), or `low`. |
 
-Invalid numeric values fall through to the next setting. Timeouts, model errors and unrecognized reviews produce a failure without a cross-provider retry. Codex runs read-only. Claude uses safe mode and read-only tools. If Claude refuses to start inside a Claude Code session, launch Pi separately.
+Numeric settings must be integers no larger than 2147483647; invalid values fall through to the next setting. Timeouts, model errors and unrecognized reviews produce a failure without a cross-provider retry. Each reviewer runs from the canonical project root. Codex runs read-only. Claude uses safe mode and read-only tools. If Claude refuses to start inside a Claude Code session, launch Pi separately.
 
 ### Findings and lifecycle
 

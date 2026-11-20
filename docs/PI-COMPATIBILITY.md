@@ -42,7 +42,7 @@ Claude Code and Grok run their existing hooks. Pi shares the pairing policy and 
 | SessionEnd cleanup | idempotent `session_shutdown`: close epoch, clear timers, abort provider work, await bounded settlement, release owned locks |
 | `blockOn: HIGH` Stop gate | **unsupported**: findings are loud but non-blocking; Pi has no safe blocking turn-end event |
 | one-shot hook output | **unsupported for asynchronous pairing in print mode**; use TUI, RPC, or a long-lived JSON process |
-| `codex-pair-defaults.json` model, fallback, effort | same `gpt-6.2-sol` default at `high` effort; quota fallback is the shared executor's `gpt-6.1-terra` (or `ASK_CODEX_FALLBACK_MODEL`) |
+| reviewer configuration | shared pairing resolver; see the [Pi settings ladder](../apps/docs/compatibility/pi.md#writer-identity-and-review-settings) |
 | Fable subagent | **unsupported and not loaded** |
 
 ## Security and consent
@@ -53,7 +53,7 @@ Pi pairing requires all three conditions:
 2. Pi project trust; and
 3. a user-owned allowlist entry for the canonical project root and selected reviewer, created through TUI `/codex-pair` confirmation.
 
-The confirmation names the reviewer CLI, selected model, local CLI account, bounded context and quota. Declining preserves the previous grant. Use `/codex-pair status` to inspect consent and `/codex-pair revoke` to withdraw it. A version 1 grant covers Codex only. An explicit grant or revoke writes version 2. An older build needs fresh Codex consent in a legacy-format allowlist. Keep builds on separate profiles during rollback.
+See the [Pi guide](../apps/docs/compatibility/pi.md#pi-codex-pair-consent) for the consent disclosure, commands, allowlist migration and rollback requirements.
 
 Pi uses the writer's reported provider and model and refuses a reviewer from the same family. An unknown writer can proceed with the selected reviewer's grant. Unrecognized replies count as failures. Attributed Pi successes appear in pairing reports while Claude Code coverage and Stop decisions use hook rows. Marker examples and the complete configuration ladder are in the [Pi guide](../apps/docs/compatibility/pi.md#pi-codex-pair-consent).
 
