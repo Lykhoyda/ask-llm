@@ -1,10 +1,7 @@
 // Hermetic Pi host model used by scripts/test-pi-package-e2e.ts.
 // It deliberately has no imports so a clean globally-installed Pi can load it.
 type ProviderRegistrar = {
-  on(
-    name: "tool_call",
-    handler: (event: { toolName: string; input: { path?: unknown } }) => Promise<void>,
-  ): void;
+  on(name: "tool_call", handler: (event: { toolName: string; input: { path?: unknown } }) => Promise<void>): void;
   registerProvider(name: string, config: Record<string, unknown>): void;
   registerCommand(
     name: string,

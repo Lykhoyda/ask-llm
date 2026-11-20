@@ -479,7 +479,7 @@ async function waitForExit(pid: number) {
 }
 
 async function pairWrite(suffix = "") {
-  const result = await runPrompt(`SMOKE_PAIR_WRITE${suffix ? "_" + suffix.toUpperCase() : ""}`, "write");
+  const result = await runPrompt(`SMOKE_PAIR_WRITE${suffix ? `_${suffix.toUpperCase()}` : ""}`, "write");
   invariant(!result.toolEnd.isError, "built-in write fixture failed");
 }
 
@@ -487,9 +487,7 @@ async function pairWriteAcrossSelection(suffix: string, provider: string) {
   const path = join(project, `paired-${suffix}.ts`);
   const from = events.length;
   const running = pairWrite(suffix);
-  await waitFor(
-    (event, index) => index >= from && event.type === "tool_execution_start" && event.toolName === "write",
-  );
+  await waitFor((event, index) => index >= from && event.type === "tool_execution_start" && event.toolName === "write");
   for (let attempt = 0; attempt < 80 && !heldWrites.has(path); attempt++) await sleep(50);
   const held = heldWrites.get(path);
   invariant(held, "built-in write did not reach its selection-race barrier");
