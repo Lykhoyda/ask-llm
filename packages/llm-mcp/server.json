@@ -6,12 +6,12 @@
     "url": "https://github.com/Lykhoyda/ask-llm",
     "source": "github"
   },
-  "version": "1.6.3",
+  "version": "1.7.0",
   "packages": [
     {
       "registryType": "npm",
       "identifier": "@ask-llm/mcp",
-      "version": "1.6.3",
+      "version": "1.7.0",
       "transport": {
         "type": "stdio"
       },

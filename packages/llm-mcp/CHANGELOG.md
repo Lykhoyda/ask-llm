@@ -1,5 +1,19 @@
 # @ask-llm/mcp
 
+## 1.7.0
+
+### Minor Changes
+
+- [#453](https://github.com/Lykhoyda/ask-llm/pull/453) [`9221bc2`](https://github.com/Lykhoyda/ask-llm/commit/9221bc2ee8aa2bfafa0de1ab64a17eabb977ab69) Thanks [@Lykhoyda](https://github.com/Lykhoyda)! - On Claude Code, Codex Pair now catches up on dirty and untracked files at activation, resume, and turn end, including edits made from the shell. Each pass can review up to 10 files within two minutes and stops on a quota pause. Set `catchUpOnStop: false` in the marker to turn off the turn-end pass. Use `--report` to see which dirty files are pending, failed, or still awaiting a first attempt.
+
+- [#455](https://github.com/Lykhoyda/ask-llm/pull/455) [`044ce1d`](https://github.com/Lykhoyda/ask-llm/commit/044ce1d738b739299314ab7f960dabb057425049) Thanks [@Lykhoyda](https://github.com/Lykhoyda)! - Pi can use Codex or Claude for advisory reviews of settled edits. Choose `reviewer: claude` for pinned Claude Opus 5.5 or keep the Codex default. Before consent, Pi discloses the selected CLI, model, use of that CLI's configured account, bounded context and quota. Changing reviewer requires a new grant for that project. Legacy grants authorize Codex only.
+  
+  Pi recognizes settings in the initial fenced frontmatter. Plain markers use defaults. Codex model, effort and quota fallback, provider timeouts, debounce and file limits now follow the shared configuration policy. A Codex quota failure may try one distinct configured Codex fallback. Claude has no fallback, and reviews never switch providers. The next eligible edit of a previously reviewed file may receive one cold review after upgrading.
+
+### Patch Changes
+
+- [#451](https://github.com/Lykhoyda/ask-llm/pull/451) [`708915a`](https://github.com/Lykhoyda/ask-llm/commit/708915a46b0524725aa10f4d266d9b2974c71b6b) Thanks [@Lykhoyda](https://github.com/Lykhoyda)! - `/codex-pair` setup on Claude Code now copies a committed `.codex-pair.example/context.md` from the repository root to `.codex-pair/context.md` without asking, so a fresh worktree can activate pairing unattended. It never overwrites an existing marker. Setup keeps `.codex-pair/` out of git through the local exclude file that `git rev-parse --git-path info/exclude` names, which also works in linked worktrees, and no longer asks to edit `.gitignore`. Without a template, the interactive draft is unchanged. The bundled log CLI gains a `setup` subcommand for this step.
+
 ## 1.6.3
 
 ### Patch Changes
