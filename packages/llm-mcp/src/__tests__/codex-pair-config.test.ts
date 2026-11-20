@@ -17,7 +17,7 @@ const env = {
 
 describe("pair configuration contract (ADR-079/187/192)", () => {
   it.each([undefined, null, {}])("uses defaults for an absent or empty marker: %s", (marker) => {
-    expect(resolveConfig(marker, {}, defaults)).toEqual({
+    expect(resolveConfig(marker, "claude", {}, defaults)).toEqual({
       reviewer: "codex",
       model: "default",
       fallbackModel: "fallback",
@@ -32,7 +32,7 @@ describe("pair configuration contract (ADR-079/187/192)", () => {
   });
 
   it("uses environment values above defaults", () => {
-    expect(resolveConfig({}, env, defaults)).toEqual({
+    expect(resolveConfig({}, "claude", env, defaults)).toEqual({
       reviewer: "codex",
       model: "env-model",
       fallbackModel: "env-fallback",
@@ -57,7 +57,7 @@ describe("pair configuration contract (ADR-079/187/192)", () => {
       debounceMs: 0,
       debounceMaxMs: 10,
     };
-    expect(resolveConfig(marker, env, defaults)).toEqual({ ...marker, reviewer: "codex", blockOn: null });
+    expect(resolveConfig(marker, "claude", env, defaults)).toEqual({ ...marker, reviewer: "codex", blockOn: null });
   });
 
   it("invalid marker values fall through to environment", () => {
@@ -73,6 +73,7 @@ describe("pair configuration contract (ADR-079/187/192)", () => {
           debounceMs: -1,
           debounceMaxMs: 0,
         },
+        "claude",
         env,
         defaults,
       ),
@@ -91,11 +92,12 @@ describe("pair configuration contract (ADR-079/187/192)", () => {
   });
 
   it.each(["", "0", "-1", "NaN", "Infinity", "invalid"])("rejects non-positive/non-finite env timeout %j", (value) => {
-    expect(resolveConfig({}, { ASK_CODEX_TIMEOUT_MS: value }, defaults).timeoutMs).toBe(800000);
+    expect(resolveConfig({}, "claude", { ASK_CODEX_TIMEOUT_MS: value }, defaults).timeoutMs).toBe(800000);
     expect(
       resolveConfig(
         { reviewer: "claude" },
-        { CODEX_PAIR_HOST: "grok", ASK_CLAUDE_TIMEOUT_MS: value, ASK_CODEX_TIMEOUT_MS: "1234" },
+        "grok",
+        { ASK_CLAUDE_TIMEOUT_MS: value, ASK_CODEX_TIMEOUT_MS: "1234" },
         defaults,
       ).timeoutMs,
     ).toBe(600000);
@@ -104,27 +106,25 @@ describe("pair configuration contract (ADR-079/187/192)", () => {
   it.each<Frontmatter>([{ timeoutMs: 0 }, { timeoutMs: -1 }, { timeoutMs: "42" }, { timeoutMs: false }])(
     "invalid marker timeout falls through for either reviewer: %j",
     (marker) => {
-      expect(resolveConfig(marker, env, defaults).timeoutMs).toBe(1234);
+      expect(resolveConfig(marker, "claude", env, defaults).timeoutMs).toBe(1234);
       expect(
-        resolveConfig(
-          { ...marker, reviewer: "claude" },
-          { ...env, CODEX_PAIR_HOST: "grok", ASK_CLAUDE_TIMEOUT_MS: "5678" },
-          defaults,
-        ).timeoutMs,
+        resolveConfig({ ...marker, reviewer: "claude" }, "grok", { ...env, ASK_CLAUDE_TIMEOUT_MS: "5678" }, defaults)
+          .timeoutMs,
       ).toBe(5678);
     },
   );
 
   it.each(["low", "medium", "high", "xhigh", "max", "ultra"])("accepts supported marker effort %s", (effort) => {
-    expect(resolveConfig({ reasoningEffort: effort }, env, defaults).reasoningEffort).toBe(effort);
+    expect(resolveConfig({ reasoningEffort: effort }, "claude", env, defaults).reasoningEffort).toBe(effort);
   });
 
   it("invalid marker/env effort falls through to defaults, then high", () => {
     expect(
-      resolveConfig({ reasoningEffort: true }, { ASK_CODEX_REASONING_EFFORT: "invalid" }, defaults).reasoningEffort,
+      resolveConfig({ reasoningEffort: true }, "claude", { ASK_CODEX_REASONING_EFFORT: "invalid" }, defaults)
+        .reasoningEffort,
     ).toBe("medium");
     expect(
-      resolveConfig({}, { ASK_CODEX_REASONING_EFFORT: "" }, { ...defaults, reasoningEffort: "invalid" })
+      resolveConfig({}, "claude", { ASK_CODEX_REASONING_EFFORT: "" }, { ...defaults, reasoningEffort: "invalid" })
         .reasoningEffort,
     ).toBe("high");
   });
@@ -133,11 +133,12 @@ describe("pair configuration contract (ADR-079/187/192)", () => {
     expect(
       resolveConfig(
         {},
+        "claude",
         { CODEX_PAIR_MAX_FILE_BYTES: "", ASK_CODEX_DEBOUNCE_MS: "-1", ASK_CODEX_DEBOUNCE_MAX_MS: "Infinity" },
         defaults,
       ),
     ).toMatchObject({ maxFileBytes: 0, debounceMs: -1, debounceMaxMs: Infinity });
-    expect(resolveConfig({}, { CODEX_PAIR_MAX_FILE_BYTES: "invalid" }, defaults).maxFileBytes).toBeNaN();
+    expect(resolveConfig({}, "claude", { CODEX_PAIR_MAX_FILE_BYTES: "invalid" }, defaults).maxFileBytes).toBeNaN();
   });
 
   it("loads shipped defaults through the package-relative public loader", () => {
@@ -149,33 +150,56 @@ describe("pair configuration contract (ADR-079/187/192)", () => {
   });
 
   it("resolves Claude's fixed model and provider-specific timeout", () => {
+    expect(resolveConfig({ reviewer: "claude", model: "ignored" }, "grok", env, defaults)).toMatchObject({
+      reviewer: "claude",
+      model: "claude-opus-5-5",
+      timeoutMs: 600000,
+    });
     expect(
-      resolveConfig({ reviewer: "claude", model: "ignored" }, { ...env, CODEX_PAIR_HOST: "grok" }, defaults),
-    ).toMatchObject({ reviewer: "claude", model: "claude-opus-5-5", timeoutMs: 600000 });
-    expect(
-      resolveConfig(
-        { reviewer: "claude" },
-        { ...env, CODEX_PAIR_HOST: "grok", ASK_CLAUDE_TIMEOUT_MS: "5678" },
-        defaults,
-      ).timeoutMs,
+      resolveConfig({ reviewer: "claude" }, "grok", { ...env, ASK_CLAUDE_TIMEOUT_MS: "5678" }, defaults).timeoutMs,
     ).toBe(5678);
     expect(
-      resolveConfig(
-        { reviewer: "claude", timeoutMs: 42 },
-        { CODEX_PAIR_HOST: "grok", ASK_CLAUDE_TIMEOUT_MS: "5678" },
-        defaults,
-      ).timeoutMs,
+      resolveConfig({ reviewer: "claude", timeoutMs: 42 }, "grok", { ASK_CLAUDE_TIMEOUT_MS: "5678" }, defaults)
+        .timeoutMs,
     ).toBe(42);
   });
 
-  it.each([{}, { CODEX_PAIR_HOST: "grok" }])("rejects unsupported reviewers for either host: %j", (host) => {
-    expect(() => resolveConfig({ reviewer: "invalid" }, host, defaults)).toThrow("reviewer must be codex or claude");
-  });
+  it.each(["claude", "grok", "codex", "unknown"] as const)(
+    "rejects unsupported reviewers for a %s writer",
+    (writer) => {
+      expect(() => resolveConfig({ reviewer: "invalid" }, writer, env, defaults)).toThrow(
+        "reviewer must be codex or claude",
+      );
+    },
+  );
 
   it("refuses Claude reviewing Claude edits", () => {
-    expect(() => resolveConfig({ reviewer: "claude" }, {}, defaults)).toThrow(
+    expect(() => resolveConfig({ reviewer: "claude" }, "claude", {}, defaults)).toThrow(
       "claude cannot review its own model family's edits (claude writer)",
     );
+  });
+
+  it("uses the explicit writer family even when the host flag disagrees", () => {
+    const marker = { reviewer: "claude" };
+    expect(resolveConfig(marker, "unknown", { CODEX_PAIR_HOST: "claude" }, defaults).reviewer).toBe("claude");
+    expect(resolveConfig({}, "unknown", {}, defaults).reviewer).toBe("codex");
+    expect(() => resolveConfig(marker, "claude", { CODEX_PAIR_HOST: "grok" }, defaults)).toThrow(
+      "claude cannot review its own model family's edits (claude writer)",
+    );
+    expect(() => resolveConfig({}, "codex", { CODEX_PAIR_HOST: "grok" }, defaults)).toThrow(
+      "codex cannot review its own model family's edits (codex writer)",
+    );
+  });
+
+  it("preserves empty model settings from the environment", () => {
+    expect(
+      resolveConfig(
+        { model: "", fallbackModel: "" },
+        "grok",
+        { ASK_CODEX_MODEL: "", ASK_CODEX_FALLBACK_MODEL: "" },
+        defaults,
+      ),
+    ).toMatchObject({ model: "", fallbackModel: "" });
   });
 
   it.each([
@@ -189,11 +213,11 @@ describe("pair configuration contract (ADR-079/187/192)", () => {
     ["HIGH\nblockOn: false", "HIGH"],
   ])("Stop gate enables blocking only for the exact scalar %j", (value, expected) => {
     const text = `---\nblockOn: ${value}\n---\nbody`;
-    expect(resolveConfig(parseFrontmatter(text).frontmatter, {}, defaults, text).blockOn).toBe(expected);
+    expect(resolveConfig(parseFrontmatter(text).frontmatter, "claude", {}, defaults, text).blockOn).toBe(expected);
   });
 
   it("blockOn in the body or malformed frontmatter remains advisory", () => {
-    expect(resolveConfig({}, {}, defaults, "blockOn: HIGH").blockOn).toBeNull();
-    expect(resolveConfig({}, {}, defaults, "---\nblockOn: HIGH").blockOn).toBeNull();
+    expect(resolveConfig({}, "claude", {}, defaults, "blockOn: HIGH").blockOn).toBeNull();
+    expect(resolveConfig({}, "claude", {}, defaults, "---\nblockOn: HIGH").blockOn).toBeNull();
   });
 });

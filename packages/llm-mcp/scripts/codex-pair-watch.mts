@@ -36,6 +36,7 @@ import type { HookInput } from "./lib/hook-input.mjs";
 import { hasCurrentReview, isCatchUpFile, reviewContextHash } from "./lib/pair-coverage.mts";
 import { readFileScope } from "./lib/pair-file-scope.mts";
 import { runClaudeReview } from "./lib/pair-reviewer.mts";
+import { isCachedReviewCompatible, reviewAttribution, reviewCacheModel } from "./lib/pair-semantics.mts";
 import {
   buildVerdictMessage,
   type Concerns,
@@ -49,7 +50,6 @@ import { buildReviewPrompt } from "./lib/prompt.mts";
 import { registerMarker } from "./lib/session-registry.mts";
 import {
   AUTOPAUSE_FAILURE_THRESHOLD,
-  type ReviewAttribution,
   appendLog,
   CONTEXT_FILENAME,
   clearAutoPause,
@@ -872,7 +872,7 @@ async function main() {
   }
   let config: ReturnType<typeof resolveConfig>;
   try {
-    config = resolveConfig(frontmatter, process.env, CODEX_PAIR_DEFAULTS, markerContent);
+    config = resolveConfig(frontmatter, grokHost ? "grok" : "claude", process.env, CODEX_PAIR_DEFAULTS, markerContent);
   } catch (error) {
     const reason = error instanceof Error ? error.message : String(error);
     await appendLog(markerDir, { timestamp: new Date().toISOString(), verdict: "refused", file: filePath, reason });
@@ -1004,16 +1004,16 @@ async function main() {
   }
   const startedAt = Date.now();
 
-  // A content-hash cache hit skips the Codex call.
+  // A content-hash cache hit skips the reviewer call.
   const cacheKey = computeCacheKey({
-    model: reviewer === "claude" ? `claude:${config.model}` : config.model,
+    model: reviewCacheModel(reviewer, config.model),
     reasoningEffort: config.reasoningEffort,
     prompt,
     fileContent: promptContent,
     surfaceThreshold: config.surfaceThreshold,
   });
   const cached = await getCachedConcerns(markerDir, cacheKey);
-  if (cached && (!cached.fellBack || cached.model === config.fallbackModel)) {
+  if (cached && isCachedReviewCompatible(cached, config.fallbackModel)) {
     const cachedDurationMs = Date.now() - startedAt;
     await appendLog(markerDir, {
       timestamp: new Date().toISOString(),
@@ -1201,13 +1201,7 @@ async function main() {
 
   const total = concerns.high.length + concerns.med.length + concerns.low.length;
 
-  const attribution: ReviewAttribution = {
-    reviewer,
-    model: fellBack ? config.fallbackModel : config.model,
-    // The Claude adapter does not set or observe an effort tier.
-    reasoningEffort: reviewer === "codex" ? config.reasoningEffort : "unknown",
-    fellBack,
-  };
+  const attribution = reviewAttribution(config, fellBack);
 
   // Cache-write failure must not break a completed review.
   await setCachedConcerns(markerDir, cacheKey, {

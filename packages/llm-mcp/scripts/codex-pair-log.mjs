@@ -246,7 +246,8 @@ function showStatus(markerDir, entries) {
     let config;
     let refusal;
     try {
-        config = resolveConfig(parsed.frontmatter, process.env, loadPairDefaults(), marker);
+        const writerFamily = process.env.CODEX_PAIR_HOST === "grok" ? "grok" : "claude";
+        config = resolveConfig(parsed.frontmatter, writerFamily, process.env, loadPairDefaults(), marker);
     }
     catch (error) {
         refusal = error instanceof Error ? error.message : String(error);

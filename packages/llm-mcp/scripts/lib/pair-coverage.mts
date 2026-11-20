@@ -123,7 +123,8 @@ export function* dirtyCoverage(markerDir: string, { atStop = false, deadline = I
   }
   const { frontmatter, body } = parseFrontmatter(marker);
   if (atStop && frontmatter.catchUpOnStop === false) return;
-  const config = resolveConfig(frontmatter, process.env, loadPairDefaults(), marker);
+  const writerFamily = process.env.CODEX_PAIR_HOST === "grok" ? "grok" : "claude";
+  const config = resolveConfig(frontmatter, writerFamily, process.env, loadPairDefaults(), marker);
   const contextHash = reviewContextHash(body, config);
 
   const dirty = gitDirtySet(markerDir, deadline);

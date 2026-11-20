@@ -1,11 +1,12 @@
 import { spawnSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { adaptGrokPayload } from "../../scripts/lib/grok-payload.mjs";
-import { resolveReviewer } from "../../scripts/lib/pair-reviewer.mjs";
-import { addAck, hashConcernBody } from "../../scripts/lib/state.mjs";
+import { resolveReviewer } from "../../scripts/lib/pair-semantics.mjs";
+import { buildReviewPrompt } from "../../scripts/lib/prompt.mjs";
+import { addAck, cachePathFor, computeCacheKey, hashConcernBody } from "../../scripts/lib/state.mjs";
 import { collectBlockingHighs } from "../../scripts/lib/stop-gate.mjs";
 import { PLUGIN_ROOT } from "./_helpers.js";
 
@@ -176,6 +177,49 @@ process.stdin.on('end', () => {
       { verdict: "concerns", reviewer: "claude", model: "claude-opus-5-5", reasoningEffort: "unknown" },
       { verdict: "cached", reviewer: "claude", model: "claude-opus-5-5", reasoningEffort: "unknown" },
     ]);
+  });
+
+  it.each([
+    ["codex", "gpt-6.2-sol"],
+    ["claude", "claude:claude-opus-5-5"],
+  ])("reuses attribution-less %s entries under the original cache key", (reviewer, cacheModel) => {
+    const projectContext = "Project context";
+    const filePath = join(root, "file.ts");
+    const fileContent = readFileSync(filePath, "utf8");
+    writeFileSync(
+      join(root, ".codex-pair/context.md"),
+      `---\nreviewer: ${reviewer}\nreasoningEffort: xhigh\n---\n${projectContext}`,
+    );
+    const cachePath = cachePathFor(
+      root,
+      computeCacheKey({
+        model: cacheModel,
+        reasoningEffort: "xhigh",
+        prompt: buildReviewPrompt({ filePath, fileContent, toolName: "Edit", projectContext, partialView: false }),
+        fileContent,
+        surfaceThreshold: "med",
+      }),
+    );
+    const cached = JSON.stringify({ high: ["Check the invariant"], med: [], low: [], durationMs: 420 });
+    mkdirSync(dirname(cachePath), { recursive: true });
+    writeFileSync(cachePath, cached);
+    expect(run()).toContain("[cached]");
+    expect(run()).toContain("Check the invariant");
+    expect(existsSync(join(root, "calls.jsonl"))).toBe(false);
+    expect(existsSync(join(root, ".codex-pair/state/repetitions"))).toBe(false);
+    expect(readFileSync(cachePath, "utf8")).toBe(cached);
+    const entries = readFileSync(join(root, ".codex-pair/log.jsonl"), "utf8").trim().split("\n");
+    expect(entries).toHaveLength(2);
+    for (const entry of entries) {
+      expect(JSON.parse(entry)).toMatchObject({
+        verdict: "cached",
+        reviewer: "unknown",
+        model: "unknown",
+        reasoningEffort: "unknown",
+        originalDurationMs: 420,
+        concernHashes: { high: [hashConcernBody("file.ts:Check the invariant")], med: [], low: [] },
+      });
+    }
   });
 
   it("reviews command text without reading a synthetic file or running the command", () => {

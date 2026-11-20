@@ -16,6 +16,7 @@ import { parseFrontmatter } from "./lib/frontmatter.mjs";
 import { hasCurrentReview, isCatchUpFile, reviewContextHash } from "./lib/pair-coverage.mjs";
 import { readFileScope } from "./lib/pair-file-scope.mjs";
 import { runClaudeReview } from "./lib/pair-reviewer.mjs";
+import { isCachedReviewCompatible, reviewAttribution, reviewCacheModel } from "./lib/pair-semantics.mjs";
 import { buildVerdictMessage, formatDuration, parseRecognizedConcerns, parseResetHint, VERDICT_PREFIXES, } from "./lib/parser.mjs";
 import { IS_WINDOWS, terminateProcessTree } from "./lib/process.mjs";
 import { buildReviewPrompt } from "./lib/prompt.mjs";
@@ -732,7 +733,7 @@ async function main() {
     }
     let config;
     try {
-        config = resolveConfig(frontmatter, process.env, CODEX_PAIR_DEFAULTS, markerContent);
+        config = resolveConfig(frontmatter, grokHost ? "grok" : "claude", process.env, CODEX_PAIR_DEFAULTS, markerContent);
     }
     catch (error) {
         const reason = error instanceof Error ? error.message : String(error);
@@ -861,16 +862,16 @@ async function main() {
         };
     }
     const startedAt = Date.now();
-    // A content-hash cache hit skips the Codex call.
+    // A content-hash cache hit skips the reviewer call.
     const cacheKey = computeCacheKey({
-        model: reviewer === "claude" ? `claude:${config.model}` : config.model,
+        model: reviewCacheModel(reviewer, config.model),
         reasoningEffort: config.reasoningEffort,
         prompt,
         fileContent: promptContent,
         surfaceThreshold: config.surfaceThreshold,
     });
     const cached = await getCachedConcerns(markerDir, cacheKey);
-    if (cached && (!cached.fellBack || cached.model === config.fallbackModel)) {
+    if (cached && isCachedReviewCompatible(cached, config.fallbackModel)) {
         const cachedDurationMs = Date.now() - startedAt;
         await appendLog(markerDir, {
             timestamp: new Date().toISOString(),
@@ -1035,13 +1036,7 @@ async function main() {
     // Recognised live review — any failure streak is over (#176 backstop).
     clearReviewFailures(markerDir);
     const total = concerns.high.length + concerns.med.length + concerns.low.length;
-    const attribution = {
-        reviewer,
-        model: fellBack ? config.fallbackModel : config.model,
-        // The Claude adapter does not set or observe an effort tier.
-        reasoningEffort: reviewer === "codex" ? config.reasoningEffort : "unknown",
-        fellBack,
-    };
+    const attribution = reviewAttribution(config, fellBack);
     // Cache-write failure must not break a completed review.
     await setCachedConcerns(markerDir, cacheKey, {
         high: concerns.high,
