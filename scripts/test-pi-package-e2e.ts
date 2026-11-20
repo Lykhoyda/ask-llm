@@ -134,10 +134,16 @@ function completionChunk(delta: Record<string, unknown>, finishReason: string | 
   };
 }
 
+const heldWrites = new Map<string, ServerResponse>();
 const server = createServer(async (request, response) => {
   const chunks: Buffer[] = [];
   for await (const chunk of request) chunks.push(chunk);
   const body = Buffer.concat(chunks).toString("utf8");
+
+  if (request.url === "/hold-write") {
+    heldWrites.set(JSON.parse(body).path, response);
+    return;
+  }
 
   if (request.url === "/api/chat") {
     await appendFile(
@@ -477,6 +483,26 @@ async function pairWrite(suffix = "") {
   invariant(!result.toolEnd.isError, "built-in write fixture failed");
 }
 
+async function pairWriteAcrossSelection(suffix: string, provider: string) {
+  const path = join(project, `paired-${suffix}.ts`);
+  const from = events.length;
+  const running = pairWrite(suffix);
+  await waitFor(
+    (event, index) => index >= from && event.type === "tool_execution_start" && event.toolName === "write",
+  );
+  for (let attempt = 0; attempt < 80 && !heldWrites.has(path); attempt++) await sleep(50);
+  const held = heldWrites.get(path);
+  invariant(held, "built-in write did not reach its selection-race barrier");
+  invariant(
+    !events.slice(from).some((event) => event.type === "tool_execution_end" && event.toolName === "write"),
+    "built-in write completed before selection changed",
+  );
+  await selectWriter(provider);
+  held.end("release");
+  heldWrites.delete(path);
+  await running;
+}
+
 async function checkQuiescent(suffix: string) {
   const log = await readFile(join(project, ".codex-pair", "log.jsonl"), "utf8");
   const rows = log
@@ -609,20 +635,33 @@ try {
 
   await writeMarker("model: gpt-6.2-sol\nreasoningEffort: low");
   await selectWriter("openai");
-  await pairWrite("openai");
+  await pairWriteAcrossSelection("raceopenai", "xai");
   await selectWriter("openai-codex");
-  await pairWrite("codex");
+  await pairWriteAcrossSelection("racecodex", "xai");
   await selectWriter("anthropic");
-  await pairWrite("independent");
+  await pairWriteAcrossSelection("raceindependent", "xai");
   await waitForMessage("Writer: anthropic/scripted");
   const sessionToResume = (await request("get_state")).data?.sessionFile;
   invariant(sessionToResume, "the isolated host did not persist a resumable session");
   pairCalls = (await records()).filter((entry) => entry.pair);
   invariant(
     pairCalls.length === 2 &&
-      pairCalls[1].pair === "paired-independent.ts" &&
+      pairCalls[1].pair === "paired-raceindependent.ts" &&
       pairCalls[1].args.some((arg) => arg.includes('model_reasoning_effort="low"')),
     "same-family edits dispatched or marker effort lost to environment",
+  );
+  let writerRows = (await readFile(join(project, ".codex-pair", "log.jsonl"), "utf8"))
+    .trim()
+    .split("\n")
+    .map((line) => JSON.parse(line));
+  invariant(
+    writerRows.some(
+      (row) =>
+        row.file?.endsWith("paired-raceindependent.ts") &&
+        row.writerProvider === "anthropic" &&
+        row.writerModel === "scripted",
+    ),
+    "Codex log attributed a write to the selection at completion",
   );
 
   await writeMarker("debounceMs: 600");
@@ -682,10 +721,10 @@ try {
     }),
   );
   await selectWriter("anthropic");
-  await pairWrite("selfclaude");
+  await pairWriteAcrossSelection("raceselfclaude", "xai");
   await selectWriter("openai-codex");
   const claudeFrom = events.length;
-  await pairWrite("claude");
+  await pairWriteAcrossSelection("raceclaude", "xai");
   finding = await waitForMessage("PI_CLAUDE_FINDING");
   invariant(
     JSON.stringify(finding.data?.messages).includes("observed claude-opus-5-5-20261101, effort unknown"),
@@ -701,6 +740,19 @@ try {
   );
   const claudeCalls = (await records()).filter((entry) => entry.provider === "claude");
   invariant(claudeCalls.length === 1, "same-family Claude write reached the reviewer");
+  writerRows = (await readFile(join(project, ".codex-pair", "log.jsonl"), "utf8"))
+    .trim()
+    .split("\n")
+    .map((line) => JSON.parse(line));
+  invariant(
+    writerRows.some(
+      (row) =>
+        row.file?.endsWith("paired-raceclaude.ts") &&
+        row.writerProvider === "openai-codex" &&
+        row.writerModel === "scripted",
+    ),
+    "Claude log attributed a write to the selection at completion",
+  );
   const [claudeReview] = claudeCalls;
   invariant(
     claudeReview.cwd === canonicalProject &&
@@ -789,6 +841,7 @@ try {
     "Pi packed-package E2E passed: skills from a skills folder, unified and alias tools, fake executors, errors, bounds, built-in write, and pairing.",
   );
 } finally {
+  for (const held of heldWrites.values()) held.end("release");
   if (child.exitCode === null && child.signalCode === null) {
     child.stdin.end();
     await Promise.race([

@@ -1,4 +1,4 @@
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { mkdir, mkdtemp, readFile, readdir, realpath, rm, stat, symlink, utimes, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -131,8 +131,27 @@ async function marker(repo: string, settings: string, body = "Fixture project co
   await writeFile(join(repo, ".codex-pair", "context.md"), `---\ndebounceMs: 0\n${settings}\n---\n${body}\n`);
 }
 
-function emitEdit(instance: ReturnType<typeof harness>, path: string, ctx: Context) {
-  return instance.emit("tool_result", { toolName: "write", input: { path }, isError: false }, ctx);
+async function startEdit(instance: ReturnType<typeof harness>, path: string, ctx: Context, toolName = "write") {
+  const toolCallId = randomUUID();
+  await instance.emit(
+    "message_end",
+    {
+      message: {
+        role: "assistant",
+        provider: ctx.model?.provider,
+        model: ctx.model?.id,
+        content: [{ type: "toolCall", id: toolCallId, name: toolName, arguments: { path } }],
+      },
+    },
+    ctx,
+  );
+  await instance.emit("tool_execution_start", { toolCallId, toolName, args: { path } }, ctx);
+  return { toolCallId, toolName, input: { path }, isError: false };
+}
+
+async function emitEdit(instance: ReturnType<typeof harness>, path: string, ctx: Context) {
+  const result = await startEdit(instance, path, ctx);
+  return instance.emit("tool_result", result, ctx);
 }
 
 function pairCommand(instance: ReturnType<typeof harness>, name = "codex-pair") {
@@ -647,24 +666,100 @@ describe("Pi codex-pair lifecycle", () => {
     expect(instance.messages[0].message.content).toContain("Writer: custom-router/claude-codex-model");
   });
 
-  it.each(["openai", "openai-codex", "anthropic"])(
-    "refuses the actual %s writer even after selection changes",
-    async (provider) => {
-      const { repo, source } = await project(0);
-      if (provider === "anthropic") {
-        await marker(repo, "reviewer: claude");
-        await __testing.setAllowed(repo, "claude");
-      }
-      const instance = harness();
-      const ctx = { ...context(repo), model: { provider, id: "native" } };
-      await emitEdit(instance, source, ctx);
-      await instance.emit("model_select", { model: { provider: "xai", id: "independent" } }, ctx);
-      await quietPeriod();
-      expect(executeCodexCLI).not.toHaveBeenCalled();
-      expect(executeClaudeCLI).not.toHaveBeenCalled();
-      expect(ctx.ui.notify).toHaveBeenCalledWith(expect.stringContaining("cannot review its own"), "warning");
-    },
-  );
+  it.each([
+    ["openai", "write"],
+    ["openai", "edit"],
+    ["openai-codex", "write"],
+    ["openai-codex", "edit"],
+    ["anthropic", "write"],
+    ["anthropic", "edit"],
+  ])("refuses the originating %s writer after selection changes during %s", async (provider, toolName) => {
+    const { repo, source } = await project(0);
+    if (provider === "anthropic") {
+      await marker(repo, "reviewer: claude");
+      await __testing.setAllowed(repo, "claude");
+    }
+    const instance = harness();
+    const ctx = { ...context(repo), model: { provider, id: "native" } };
+    const result = await startEdit(instance, source, ctx, toolName);
+    ctx.model = { provider: "xai", id: "independent" };
+    await instance.emit("model_select", { model: ctx.model }, ctx);
+    await instance.emit("tool_result", result, ctx);
+    await quietPeriod();
+    expect(executeCodexCLI).not.toHaveBeenCalled();
+    expect(executeClaudeCLI).not.toHaveBeenCalled();
+    expect(ctx.ui.notify).toHaveBeenCalledWith(expect.stringContaining("cannot review its own"), "warning");
+  });
+
+  it.each([
+    ["codex", "anthropic", "write"],
+    ["codex", "anthropic", "edit"],
+    ["claude", "openai-codex", "write"],
+    ["claude", "openai-codex", "edit"],
+  ] as const)("preserves the originating writer for %s review of %s %s", async (reviewer, provider, toolName) => {
+    const { repo, source } = await project(0);
+    await marker(repo, `reviewer: ${reviewer}`);
+    await __testing.setAllowed(repo, reviewer);
+    const ctx = { ...context(repo), model: { provider: String(provider), id: "origin" } };
+    const first = harness(() => {
+      throw new Error("fixture delivery failed");
+    });
+    const result = await startEdit(first, source, ctx, toolName);
+    ctx.model = { provider: "xai", id: "selected" };
+    await first.emit("model_select", { model: ctx.model }, ctx);
+    await first.emit("tool_result", result, ctx);
+    await eventually(() =>
+      expect(ctx.ui.notify).toHaveBeenCalledWith(expect.stringContaining("fixture delivery failed"), "warning"),
+    );
+    await first.emit("session_shutdown", {}, ctx);
+    const [row] = await logRows(repo);
+    expect(row).toMatchObject({ reviewer, writerProvider: provider, writerModel: "origin" });
+    const pending = join(stateRoot(repo), "pi-pending");
+    const [name] = await readdir(pending);
+    const saved = JSON.parse(await readFile(join(pending, name), "utf8"));
+    expect(saved.review.writer).toEqual({ provider, id: "origin" });
+    const second = harness();
+    await second.emit("session_start", {}, ctx);
+    expect(second.messages).toHaveLength(1);
+    expect(second.messages[0].message.content).toContain(`Writer: ${provider}/origin`);
+    expect(executeCodexCLI).toHaveBeenCalledTimes(reviewer === "codex" ? 1 : 0);
+    expect(executeClaudeCLI).toHaveBeenCalledTimes(reviewer === "claude" ? 1 : 0);
+  });
+
+  it("keeps unknown origins unknown despite a known current selection", async () => {
+    const { repo, source } = await project(0);
+    const instance = harness();
+    const ctx = { ...context(repo), model: { provider: "xai", id: "selected" } };
+    await instance.emit(
+      "tool_result",
+      { toolCallId: "unattributed", toolName: "write", input: { path: source }, isError: false },
+      ctx,
+    );
+    await eventually(() => expect(instance.messages).toHaveLength(1));
+    expect(instance.messages[0].message.content).toContain("Writer: unknown");
+    expect((await logRows(repo))[0].writerProvider).toBeUndefined();
+    expect((await logRows(repo))[0].writerModel).toBeUndefined();
+  });
+
+  it("binds multiple tool results to their own assistant messages", async () => {
+    const { repo, source } = await project(0);
+    const secondSource = join(repo, "src", "second.ts");
+    await writeFile(secondSource, "export const second = -2;\n");
+    const instance = harness();
+    const ctx = { ...context(repo), model: { provider: "openai", id: "same-family" } };
+    const refused = await startEdit(instance, source, ctx);
+    ctx.model = { provider: "anthropic", id: "original" };
+    const accepted = await startEdit(instance, secondSource, ctx, "edit");
+    ctx.model = { provider: "xai", id: "selected" };
+    await instance.emit("model_select", { model: ctx.model }, ctx);
+    await instance.emit("tool_result", accepted, ctx);
+    await instance.emit("tool_result", refused, ctx);
+    await eventually(() => expect(instance.messages).toHaveLength(1));
+    await instance.emit("session_shutdown", {}, ctx);
+    expect(executeCodexCLI).toHaveBeenCalledTimes(1);
+    expect(instance.messages[0].message.content).toContain("Writer: anthropic/original");
+    expect((await logRows(repo))[0]).toMatchObject({ file: secondSource, writerProvider: "anthropic" });
+  });
 
   it("cancels a scheduled or active review when the current selection becomes incompatible", async () => {
     const { repo, source } = await project(25);

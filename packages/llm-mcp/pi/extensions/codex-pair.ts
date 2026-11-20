@@ -673,6 +673,7 @@ async function runReview(
 
 export function registerCodexPair(pi: ExtensionAPI): void {
   const scheduled = new Map<string, ScheduledReview>();
+  const toolWriters = new Map<string, Writer>();
   const active = new Set<Promise<void>>();
   const changingProjects = new Set<string>();
   const projectRevisions = new Map<string, number>();
@@ -1009,6 +1010,20 @@ export function registerCodexPair(pi: ExtensionAPI): void {
     }
   };
 
+  pi.on("message_end", (event) => {
+    const { message } = event;
+    if (closed || message.role !== "assistant") return;
+    for (const part of message.content) {
+      if (part.type === "toolCall" && (part.name === "edit" || part.name === "write")) {
+        toolWriters.set(part.id, writerIdentity({ provider: message.provider, id: message.model }));
+      }
+    }
+  });
+
+  pi.on("agent_end", () => {
+    toolWriters.clear();
+  });
+
   pi.on("model_select", (event, ctx) => {
     latestWriter = writerIdentity(event.model);
     for (const [file, work] of scheduled) {
@@ -1020,11 +1035,10 @@ export function registerCodexPair(pi: ExtensionAPI): void {
   });
 
   pi.on("tool_result", (event, ctx) => {
+    const writer = toolWriters.get(event.toolCallId) ?? {};
+    toolWriters.delete(event.toolCallId);
     if (closed || ctx.mode === "print" || event.isError || (event.toolName !== "edit" && event.toolName !== "write"))
       return;
-    // The model in this event context is the writer of this edit. model_select
-    // separately tracks the selection that may be in effect when the timer fires.
-    const writer = writerIdentity(ctx.model);
     const target = normalizeToolPath((event.input as { path?: unknown })?.path, ctx.cwd);
     if (!target || shouldSkip(target)) return;
     const file = canonicalRegularFile(target);
@@ -1093,6 +1107,7 @@ export function registerCodexPair(pi: ExtensionAPI): void {
   pi.on("session_shutdown", async () => {
     if (closed) return;
     closed = true;
+    toolWriters.clear();
     epoch += 1;
     for (const [file, work] of scheduled) cancelWork(file, work, "Pi session shut down");
     let timeout: ReturnType<typeof setTimeout> | undefined;

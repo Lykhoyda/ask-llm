@@ -1,6 +1,10 @@
 // Hermetic Pi host model used by scripts/test-pi-package-e2e.ts.
 // It deliberately has no imports so a clean globally-installed Pi can load it.
 type ProviderRegistrar = {
+  on(
+    name: "tool_call",
+    handler: (event: { toolName: string; input: { path?: unknown } }) => Promise<void>,
+  ): void;
   registerProvider(name: string, config: Record<string, unknown>): void;
   registerCommand(
     name: string,
@@ -14,6 +18,15 @@ type ProviderRegistrar = {
 export default function registerScriptedHost(pi: ProviderRegistrar) {
   const port = process.env.ASK_LLM_PI_FAKE_HOST_PORT;
   if (!port) throw new Error("ASK_LLM_PI_FAKE_HOST_PORT is required");
+  pi.on("tool_call", async (event) => {
+    if (event.toolName !== "write" || !String(event.input.path).includes("paired-race")) return;
+    const response = await fetch(`http://127.0.0.1:${port}/hold-write`, {
+      method: "POST",
+      body: JSON.stringify({ path: event.input.path }),
+      signal: AbortSignal.timeout(10_000),
+    });
+    await response.text();
+  });
   pi.registerCommand("smoke-reload", {
     description: "Reload the isolated Pi test extension",
     handler: async (_args, ctx) => {
