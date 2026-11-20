@@ -38,12 +38,16 @@ export interface ClaudeExecutorOptions {
   includeDirs?: string[];
   onProgress?: (newOutput: string) => void;
   signal?: AbortSignal;
+  timeoutMs?: number;
+  cwd?: string;
+  killProcessGroup?: boolean;
   singleAttempt?: boolean;
 }
 
 export interface ClaudeExecutorResult {
   response: string;
   model: string;
+  observedModel?: string;
   sessionId: string | undefined;
   usage: UsageStats;
 }
@@ -119,6 +123,7 @@ export function parseClaudeJsonOutput(
   return {
     response: json.result,
     model,
+    ...(primary ? { observedModel: primary.model } : {}),
     sessionId: typeof json.session_id === "string" && json.session_id ? json.session_id : undefined,
     usage,
   };
@@ -157,11 +162,13 @@ export function isNestedSessionBlocked(env: NodeJS.ProcessEnv = process.env): bo
 }
 
 export async function executeClaudeCLI(options: ClaudeExecutorOptions): Promise<ClaudeExecutorResult> {
+  options.signal?.throwIfAborted();
   if (isNestedSessionBlocked()) throw new Error(ERROR_MESSAGES.NESTED_SESSION);
   const model = options.model?.trim() || MODELS.DEFAULT;
   const fallbackModel = options.singleAttempt ? model : MODELS.FALLBACK;
   const args = buildArgs(model, fallbackModel, options.sessionId, options.includeDirs);
-  const timeoutMs = resolveTimeoutMs(EXECUTION.CLAUDE_TIMEOUT_ENV_VAR, EXECUTION.DEFAULT_CLAUDE_TIMEOUT_MS);
+  const timeoutMs =
+    options.timeoutMs ?? resolveTimeoutMs(EXECUTION.CLAUDE_TIMEOUT_ENV_VAR, EXECUTION.DEFAULT_CLAUDE_TIMEOUT_MS);
   const startedAt = Date.now();
   // Claude --print --output-format json returns one completion object, not
   // incremental JSONL. Keep raw stdout out of previews and emit the parsed
@@ -175,7 +182,11 @@ export async function executeClaudeCLI(options: ClaudeExecutorOptions): Promise<
     timeoutMs,
     undefined,
     options.signal,
+    ...(options.cwd !== undefined || options.killProcessGroup
+      ? [{ cwd: options.cwd, killProcessGroup: options.killProcessGroup }]
+      : []),
   );
+  options.signal?.throwIfAborted();
   const result = parseClaudeJsonOutput(raw, model, Date.now() - startedAt);
   options.onProgress?.(result.response);
   return result;

@@ -56,7 +56,7 @@ export const HOST_PARITY: Record<ParityRow, Record<HostId, string>> = {
   pairing: row(SKILL_PAIRING, {
     claude: "per-edit codex-pair hooks from the plugin, off until `/codex-pair` consent",
     grok: "per-edit pair hook by manual registration; Codex default or opt-in Claude; off without the marker",
-    pi: "per-edit codex-pair extension, off until project trust, the marker and `/codex-pair` consent",
+    pi: "per-edit Codex or Claude advisory review with project trust, a marker and reviewer-specific `/codex-pair` consent",
     "claude-desktop": "none",
   }),
   subagents: row(INLINE, { claude: "isolated reviewer agents from the plugin", "claude-desktop": "none" }),

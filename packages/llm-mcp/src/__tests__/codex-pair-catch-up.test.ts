@@ -163,6 +163,30 @@ it("reviews edits made before activation, after a shell write at turn end and du
   expect(receivedCalls()).toBe(3);
 });
 
+it("runs catch-up for dirty content that only has a Pi success row", async () => {
+  marker();
+  shellWrite("tracked.ts");
+  const file = join(repo, "tracked.ts");
+  writeFileSync(
+    logPath(),
+    `${JSON.stringify({
+      timestamp: new Date().toISOString(),
+      file,
+      contentHash: contentHash(readFileSync(file, "utf8")),
+      reviewer: "codex",
+      model: "gpt-6.2-sol",
+      reasoningEffort: "high",
+      source: "pi",
+      verdict: "none",
+    })}\n`,
+  );
+  expect(report()).toEqual([{ repository: repo, file: "tracked.ts", status: "not-started" }]);
+  stop();
+  await expect.poll(() => report(), { timeout: 5000 }).toEqual([]);
+  expect(receivedCalls()).toBe(1);
+  expect(log()).toContainEqual(expect.objectContaining({ source: "catch-up", verdict: "none" }));
+});
+
 it.each(["SessionStart", "PostToolUse"])("catches up on automatic resume from %s", async (trigger) => {
   marker();
   mkdirSync(join(repo, ".codex-pair", "state"), { recursive: true });

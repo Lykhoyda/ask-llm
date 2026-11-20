@@ -11,7 +11,8 @@ Pi owns your conversation, host model, tools and lifecycle. Ask LLM supplies nat
 - Node.js 24+
 - Pi 0.83.0 or newer
 - one or more provider runtimes:
-  - authenticated `codex` CLI for Codex reviews, images, verification, and codex-pair
+  - authenticated `codex` CLI for Codex reviews, images, verification, and default pairing
+  - authenticated `claude` CLI for explicitly selected Claude pairing
   - authenticated enterprise `gemini` CLI for Gemini
   - local Ollama server with the requested model pulled
   - authenticated [supported `agy` version](/providers/antigravity#prerequisites) for Antigravity
@@ -70,39 +71,70 @@ Displayed tool text is bounded to Pi's 50KB/2000-line policy; structured payload
 
 ## Pi codex-pair consent
 
-Pi codex-pair is off unless **all three** gates pass:
+Create `.codex-pair/context.md` in a trusted Pi project. Choose the reviewer in the initial fenced frontmatter and put project invariants below the fence. Keep `.codex-pair/` out of version control.
 
-1. the repository has `.codex-pair/context.md`;
-2. Pi considers the project trusted; and
-3. you grant consent interactively with `/codex-pair`.
+For a Codex review of edits from an independent writer:
 
-The third gate writes the canonical project root to your user-owned allowlist at:
-
-```text
-$PI_CODING_AGENT_DIR/ask-llm/codex-pair-projects.json
-# normally ~/.pi/agent/ask-llm/codex-pair-projects.json
+```markdown
+---
+reviewer: codex
+reasoningEffort: high
+---
+Amounts use integer cents. Retrying a payment must preserve its idempotency key.
 ```
 
-A repository can commit a marker, so **the marker alone never authorizes source transfer or cost**. Consent confirmation states that bounded edited-file content and marker context go to your configured Codex CLI/account. Revoke it at any time:
+If your Pi writer is OpenAI or OpenAI Codex, explicitly choose Claude:
+
+```markdown
+---
+reviewer: claude
+timeoutMs: 600000
+---
+Amounts use integer cents. Retrying a payment must preserve its idempotency key.
+```
+
+In interactive Pi, run `/codex-pair` to approve the selected CLI. The prompt names the CLI, model, any Codex quota fallback, and the amount of edited-file content and marker body the review can receive. It states that the CLI uses its locally configured account; it does not display an account identifier. Check that CLI's login before granting consent. Codex and Claude can use different accounts. Each review uses the selected account's quota or billing. Project trust and an affirmative grant for the canonical project root and selected reviewer are both required. Claude Code's template and catch-up commands provide no Pi grant.
+
+Use `/codex-pair status` to check the selected reviewer and its authorization. A grant for a different reviewer requires a new confirmation and replaces the previous grant. Declining leaves the previous grant in place and sends nothing. Use `/codex-pair revoke` to remove the grant, including when the marker frontmatter is malformed.
+
+The user-owned allowlist is at `$PI_CODING_AGENT_DIR/ask-llm/codex-pair-projects.json` (usually `~/.pi/agent/ask-llm/codex-pair-projects.json`). Existing version 1 grants authorize Codex only. A grant or revoke migrates valid entries to version 2 and keeps other projects' timestamps. A legacy build reads the version 2 file as unauthorized. Run one build against the allowlist at a time. If you roll back, use a fresh legacy allowlist and explicitly reauthorize Codex through the older Pi command. Claude grants do not carry back. A previously reviewed file can receive one cold review on its next eligible edit.
+
+### Writer identity and review settings
+
+Pi uses the model that wrote the edit and separately checks its current model selection before dispatch and delivery. `openai` and `openai-codex` are Codex-family writers, `anthropic` is Claude-family, and `xai` is Grok-family. A reviewer refuses a writer from its own family. A custom or router provider whose family Pi cannot establish is treated as unknown. Matching reviewer consent still applies, and the finding includes the reported provider/model when available. The [portable skill writer rule](/advanced/codex-pair) applies when invoking the skill.
+
+Plain markers use the defaults. A setting below the initial fence is project context. Pi refuses invalid reviewer values and unclosed initial frontmatter. The precedence for valid settings is:
+
+| Setting | Pi resolution |
+|---|---|
+| `reviewer` | `codex` by default, or explicit `claude` |
+| Codex `model` | Marker, `ASK_CODEX_MODEL`, then `gpt-6.2-sol` |
+| Codex `reasoningEffort` | Marker, `ASK_CODEX_REASONING_EFFORT`, then `high`. Accepted values are `low`, `medium`, `high`, `xhigh`, `max`, and `ultra`. CLI and model support determines which values work. |
+| Codex `fallbackModel` | Marker, `ASK_CODEX_FALLBACK_MODEL`, then `gpt-6.1-terra`. A primary quota failure can make one attempt at a distinct configured fallback on the same CLI and account. |
+| Claude model and effort | The Claude CLI always selects `claude-opus-5-5`. Effort is unknown and there is no fallback. Codex pins and `ASK_CLAUDE_MODEL` do not influence this route. |
+| `timeoutMs` | Per attempt, marker then `ASK_CODEX_TIMEOUT_MS` or `ASK_CLAUDE_TIMEOUT_MS`. Codex also uses legacy `GMCPT_TIMEOUT_MS` before its 800000 ms default. Claude defaults to 600000 ms. |
+| `debounceMs` and `debounceMaxMs` | Marker, `ASK_CODEX_DEBOUNCE_MS` and `ASK_CODEX_DEBOUNCE_MAX_MS`, then 15000 and 60000 ms. A zero settle delay is valid. The cap must be positive. |
+| `maxFileBytes` | Positive UTF-8 byte cap from the marker, `CODEX_PAIR_MAX_FILE_BYTES`, then 20000 bytes. Oversized file or marker content gets a partial view. |
+| `surfaceThreshold` | Marker value `high`, `med` (default), or `low`. |
+
+Numeric settings must be integers no larger than 2147483647; invalid values fall through to the next setting. Timeouts, model errors and unrecognized reviews produce a failure without a cross-provider retry. Each reviewer runs from the canonical project root. Codex runs read-only. Claude uses safe mode and read-only tools. If Claude refuses to start inside a Claude Code session, launch Pi separately.
+
+### Findings and lifecycle
+
+Pi observes successful built-in `edit` and `write` events, coalesces each edit burst and reviews settled file content. It persists findings, then delivers them as advisory messages without starting another model turn. The header identifies the selected reviewer and attempt model, any Claude model reported by the CLI, and the writer. Pi treats all findings as advisory, including when a marker sets `blockOn: HIGH`. Pi log entries do not count toward Claude Code's Stop gate or catch-up coverage.
 
 ```text
+/codex-pair                 # check or grant consent
+/codex-pair status
 /codex-pair revoke
-```
-
-Pair controls:
-
-```text
-/codex-pair                 # status or interactive consent
 /codex-pair-pause
 /codex-pair-resume
 /codex-pair-ack <hash> <reason>
 ```
 
-The extension observes only successful built-in `edit`/`write` `tool_result` events, debounces a burst to the final settled file state, deduplicates identical content, and injects findings as a persisted `steer` message without triggering an extra host-model turn. Pairing starts no process/timer at extension load; native tools probe provider availability before registration. On shutdown/reload/new/resume/fork it closes the current epoch, clears timers, aborts active provider work, waits a bounded interval, and releases owned locks. Durable logs, cache, pause, ack, consent, and pending findings are user product state; shutdown does not erase that history.
+Pause, revoke and incompatible model changes suppress work already in progress. Shutdown, reload, new session, resume and fork close the old session, cancel its active reviewer and release its locks. Compatible pending findings can replay after restart. Claims prevent concurrent delivery, and each replay preserves `details.findingId` so receivers can deduplicate a crash after delivery and before cleanup. Logs, cache, pause state, acknowledgements and consent survive shutdown.
 
-Pending delivery is durable at least once across process crashes. Atomic claims prevent concurrent Pi sessions from delivering the same pending record, but a crash after `steer` succeeds and before durable cleanup can repeat it after restart. Every retry preserves the stable `details.findingId`, which receivers can use to deduplicate; Pi does not provide an atomic idempotent-message API that could guarantee exactly-once crash delivery.
-
-Pi pairing works in TUI, RPC, and a long-lived JSON process. It is unsupported in one-shot print mode because the process normally exits before asynchronous debounce/review completes and print mode does not render custom messages.
+Pairing works in TUI, RPC and long-lived JSON modes. Grant consent in TUI. One-shot print mode skips pairing.
 
 ## Host feature matrix
 
