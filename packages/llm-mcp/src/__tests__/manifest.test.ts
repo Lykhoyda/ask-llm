@@ -51,10 +51,10 @@ describe("plugin.json manifest", () => {
     expect(manifest.keywords).toContain("antigravity");
   });
 
-  it("description names every plugin provider", () => {
-    for (const provider of ["Gemini", "Codex", "Grok", "Ollama", "Antigravity"]) {
-      expect(manifest.description).toContain(provider);
-    }
+  it("description states the second-opinion purpose and the bundled Codex review", () => {
+    expect(manifest.description).toMatch(/^Second opinions for coding agents\./);
+    expect(manifest.description).toContain("Codex");
+    expect(manifest.description).toContain("Claude Code");
   });
 
   it("declares author and repository", () => {
@@ -218,12 +218,17 @@ describe("marketplace.json", () => {
     expect(entry?.version).toMatch(/^\d+\.\d+\.\d+/);
   });
 
-  it("plugin entry metadata names antigravity alongside the other providers", () => {
+  it("plugin entry description matches the plugin manifest description", () => {
     const entry = marketplace.plugins.find((p) => p.name === "ask-llm") as
       | { description?: string; keywords?: string[] }
       | undefined;
-    expect(entry?.description).toContain("Antigravity");
-    expect(entry?.description).toContain("Grok");
+    expect(entry?.description).toBe(readJson<PluginManifest>(".claude-plugin/plugin.json").description);
+  });
+
+  it("plugin entry keywords name antigravity alongside the other providers", () => {
+    const entry = marketplace.plugins.find((p) => p.name === "ask-llm") as
+      | { description?: string; keywords?: string[] }
+      | undefined;
     expect(entry?.keywords).toContain("antigravity");
     expect(entry?.keywords).toContain("grok");
   });
