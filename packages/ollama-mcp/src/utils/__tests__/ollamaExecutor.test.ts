@@ -19,13 +19,14 @@ vi.stubGlobal("fetch", mockFetch);
 
 import { executeOllamaCLI, isProviderAvailable, listModels } from "../ollamaExecutor.js";
 
-function okResponse(content: string, model?: string): Response {
+function okResponse(content: string, model?: string, cachedTokens?: number): Response {
   return new Response(
     JSON.stringify({
       model: model ?? MODELS.DEFAULT,
       message: { role: "assistant", content },
       done: true,
       prompt_eval_count: 100,
+      prompt_eval_cached_count: cachedTokens,
       eval_count: 50,
     }),
     { status: 200, headers: { "Content-Type": "application/json" } },
@@ -101,6 +102,13 @@ describe("response parsing", () => {
     expect(result.response).toContain("100 input tokens");
     expect(result.response).toContain("50 output tokens");
     expect(result.response).toContain(`model: ${MODELS.DEFAULT}`);
+  });
+
+  it.each([40, undefined])("reports usage with prompt_eval_cached_count %s", async (cachedTokens) => {
+    mockFetch.mockResolvedValueOnce(okResponse("Test response", MODELS.DEFAULT, cachedTokens));
+
+    const result = await executeOllamaCLI({ prompt: "test" });
+    expect(result.usage).toMatchObject({ inputTokens: 100, cachedTokens });
   });
 
   it("returns actual model name from response", async () => {

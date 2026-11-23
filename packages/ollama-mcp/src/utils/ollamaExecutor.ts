@@ -23,6 +23,7 @@ interface OllamaChatResponse {
   message?: { role?: string; content?: string };
   done?: boolean;
   prompt_eval_count?: number;
+  prompt_eval_cached_count?: number;
   eval_count?: number;
 }
 
@@ -56,7 +57,7 @@ function buildUsageStats(data: OllamaChatResponse, resolvedModel: string, durati
     model: data.model ?? resolvedModel,
     inputTokens: data.prompt_eval_count,
     outputTokens: data.eval_count,
-    cachedTokens: undefined,
+    cachedTokens: data.prompt_eval_cached_count,
     thinkingTokens: undefined,
     durationMs,
     // Local inference has no quota/model fallback, so this is always false.
