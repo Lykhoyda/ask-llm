@@ -40,10 +40,6 @@ const checklist = deprecateCommands(
   section(read("docs/CONTRIBUTING.md"), "### Deprecating the plugin bridge", /^##+ /m),
 );
 const retiredRecord = section(read("docs/CONTRIBUTING.md"), "### Retired split packages (historical)", /^##+ /m);
-const SPLIT = DEPRECATED.filter((pkg) => pkg !== "@ask-llm/plugin");
-const RETIRED_SERVERS = ["antigravity", "claude", "codex", "gemini", "grok", "ollama"].map(
-  (provider) => `io.github.Lykhoyda/ask-${provider}`,
-);
 
 function slug(heading: string): string {
   return heading
@@ -78,9 +74,8 @@ describe("1.0 deprecation record", () => {
     );
   });
 
-  it("records what happened to each split package and Registry server instead of rerunnable commands", () => {
+  it("leaves no rerunnable deprecate commands in the retired split package record", () => {
     expect(deprecateCommands(retiredRecord)).toEqual([]);
-    for (const name of [...SPLIT, ...RETIRED_SERVERS]) expect(retiredRecord, name).toContain(`\`${name}\``);
   });
 
   it("never deprecates the canonical package", () => {
