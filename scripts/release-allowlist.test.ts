@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
+import { parse } from "yaml";
 import {
   ALLOWED_NPM_PACKAGES,
   ALLOWED_REGISTRY_SERVERS,
@@ -152,9 +153,17 @@ describe("release allowlist call sites", () => {
   it("runs before changeset publish in the local release script and before publication in the workflow", () => {
     const scripts = JSON.parse(readFileSync(join(ROOT, "package.json"), "utf8")).scripts;
     expect(scripts["changeset:publish"]).toBe("yarn build && node scripts/release-allowlist.ts && changeset publish");
-    const workflow = readFileSync(join(ROOT, ".github/workflows/release.yml"), "utf8");
-    const guard = workflow.indexOf("run: node scripts/release-allowlist.ts packages/llm-mcp/server.json");
+    const workflow = parse(readFileSync(join(ROOT, ".github/workflows/release.yml"), "utf8")) as {
+      jobs: { release: { steps: Array<{ id?: string; if?: string; run?: string }> } };
+    };
+    const steps = workflow.jobs.release.steps;
+    const guard = steps.findIndex(
+      (step) =>
+        step.run?.trim().split(/\s+/).join(" ") === "node scripts/release-allowlist.ts packages/llm-mcp/server.json",
+    );
+    const publish = steps.findIndex((step) => step.id === "changesets");
     expect(guard).toBeGreaterThan(-1);
-    expect(guard).toBeLessThan(workflow.indexOf("uses: changesets/action@"));
+    expect(steps[guard]?.if).toBeUndefined();
+    expect(publish).toBeGreaterThan(guard);
   });
 });

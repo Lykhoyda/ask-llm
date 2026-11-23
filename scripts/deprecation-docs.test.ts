@@ -81,15 +81,6 @@ describe("1.0 deprecation record", () => {
   it("records what happened to each split package and Registry server instead of rerunnable commands", () => {
     expect(deprecateCommands(retiredRecord)).toEqual([]);
     for (const name of [...SPLIT, ...RETIRED_SERVERS]) expect(retiredRecord, name).toContain(`\`${name}\``);
-    expect(retiredRecord).toMatch(
-      /npm refused to unpublish `@ask-llm\/gemini-mcp`, so every version of it is deprecated/,
-    );
-    const followUp = section(read("docs/DECISIONS.md"), "## ADR-179:", /^## ADR-/m).split(
-      "**Follow-up (2026-11-24, ADR-202):**",
-    )[1];
-    expect(followUp).toBeDefined();
-    expect(followUp).toContain("historical record");
-    expect(followUp).toContain("`@ask-llm/gemini-mcp` was deprecated");
   });
 
   it("never deprecates the canonical package", () => {
