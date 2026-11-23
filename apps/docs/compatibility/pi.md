@@ -52,7 +52,7 @@ Native tools (Pi has no MCP client, so the extension registers them with the MCP
 
 | Tool | Contract |
 |---|---|
-| `ask-llm` | the MCP `ask-llm` schema (`provider`, `model`, `reasoningEffort`, `includeDirs`, `sessionId`, `harness`, `preferred`, `sandbox`) and the same `AskResponse` in `details.structuredContent`; `provider` uses the same detected availability and exclusions as MCP |
+| `ask-llm` | the MCP `ask-llm` schema (`provider`, `model`, `reasoningEffort`, `includeDirs`, `sessionId`, `harness`, `preferred`, `noFallback`, `sandbox`) and the same `AskResponse` in `details.structuredContent`; `provider` uses the same detected availability and exclusions as MCP |
 | `multi-llm` | the MCP `multi-llm` schema and report; omitted `providers` means every detected provider |
 | `ask-cursor-agent` | the MCP schema: model-neutral Cursor harness with separate provider + exact account model ID, safe relative `includeDirs`, and optional returned/resumed Cursor `sessionId`; the exact ID is echoed as `model`, Cursor's label stays separate as `reportedModel`, and read-only ask mode never falls back |
 
@@ -60,7 +60,7 @@ Deprecated aliases, kept for existing skills and prompts:
 
 | Tool | Contract |
 |---|---|
-| `ask-codex` | complete prompt/model/reasoning/session/includeDirs/preferred/sandbox schema; read-only default |
+| `ask-codex` | complete prompt/model/reasoning/session/includeDirs/preferred/noFallback/sandbox schema; read-only default |
 | `ask-gemini` | prompt/model/session schema and canonical quota fallback |
 | `ask-grok` | prompt/model/reasoning plus explicit `xai-api` or `grok-cli` harness; no model/harness fallback |
 | `ask-ollama` | prompt/model/session schema; local-only, no silent model substitution |

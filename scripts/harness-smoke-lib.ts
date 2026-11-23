@@ -32,9 +32,24 @@ export interface Scenario {
   supported?: boolean;
   unavailableReason?: string;
   setupPreview?: boolean;
+  soloBrainstorm?: boolean;
 }
 
 export const SCENARIOS: readonly Scenario[] = Object.freeze([
+  {
+    id: "claude:/brainstorm --external-only",
+    tool: "claude",
+    surface: "/brainstorm",
+    host: "claude",
+    hostModelKey: "CLAUDE",
+    modelKey: "CODEX_ASTRA",
+    provider: "codex",
+    harness: "codex-cli",
+    effort: "high",
+    soloBrainstorm: true,
+    liveSupported: false,
+    liveUnavailableReason: "solo transport-count matrix uses deterministic fixtures only",
+  },
   {
     id: "claude:/brainstorm",
     tool: "claude",
@@ -200,6 +215,7 @@ const EXACT_DRY_MODELS = Object.freeze({
   CURSOR_CODEX: "gpt-6.2-sol-high",
   PI: "openai-codex/gpt-6.2-sol",
   CODEX: "gpt-6.2-sol",
+  CODEX_ASTRA: "gpt-6.2-astra",
   CODEX_PAIR: "gpt-6.2-sol",
   GROK: "grok-4.7",
 } as const);
@@ -424,6 +440,7 @@ export async function runCommand(
     let stderr = "";
     let timedOut = false;
     let settled = false;
+    let inputError: Error | undefined;
     const child = spawn(command, args, { cwd, env, stdio: ["pipe", "pipe", "pipe"], shell: false });
     const timer = setTimeout(() => {
       timedOut = true;
@@ -432,6 +449,10 @@ export async function runCommand(
     }, timeoutMs);
     child.stdout.on("data", (chunk: Buffer) => (stdout += chunk));
     child.stderr.on("data", (chunk: Buffer) => (stderr += chunk));
+    child.stdin.on("error", (error: NodeJS.ErrnoException) => {
+      // A child may exit before reading stdin. Keep its original exit status and diagnostics.
+      if (error.code !== "EPIPE") inputError = error;
+    });
     child.on("error", (error) => {
       if (settled) return;
       settled = true;
@@ -442,7 +463,12 @@ export async function runCommand(
       if (settled) return;
       settled = true;
       clearTimeout(timer);
-      resolveResult({ exitCode: code ?? -1, stdout, stderr, timedOut });
+      resolveResult({
+        exitCode: inputError ? -1 : (code ?? -1),
+        stdout,
+        stderr: inputError ? `${stderr}\n${inputError.message}` : stderr,
+        timedOut,
+      });
     });
     child.stdin.end(stdin);
   });
@@ -569,7 +595,9 @@ export function buildLivePrompt(scenario: Scenario, selection: Selection): strin
   const marker = smokeMarker(scenario, selection.model);
   const task = `task="Return only ${marker}" consent=confirmed`;
   let command: string;
-  if (scenario.surface.includes("brainstorm") && selection.secondaryModel) {
+  if (scenario.soloBrainstorm) {
+    command = `/brainstorm --external-only --no-fallback codex@codex-cli:${selection.model} ${task}`;
+  } else if (scenario.surface.includes("brainstorm") && selection.secondaryModel) {
     command = `${scenario.host === "pi" ? "/skill:ask-llm-brainstorm" : "/brainstorm"} grok@cursor-agent:${selection.model},codex@cursor-agent:${selection.secondaryModel} ${task}`;
   } else if (scenario.surface.includes("codex-pair")) {
     command = `${scenario.host === "pi" ? "/skill:ask-llm-codex-pair" : "/codex-pair"} model=${selection.model} effort=${selection.effort} ${task}`;
@@ -1046,7 +1074,7 @@ export async function runHarnessSuite(options: RunHarnessSuiteOptions = {}): Pro
       results.push({
         id: scenario.id,
         ...evaluated,
-        detail: redact(output, env, [privatePrompt, promptPath]).slice(0, 500),
+        detail: redact(output, env, [privatePrompt, promptPath]).slice(0, scenario.soloBrainstorm ? 2400 : 500),
       });
     }
     const finalFingerprint = await fingerprint();

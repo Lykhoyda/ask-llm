@@ -21,6 +21,7 @@ import {
 
 const directCodex = SCENARIOS.find(({ id }) => id === "codex-cli:/brainstorm-route");
 const cursorBrainstorm = SCENARIOS.find(({ id }) => id === "cursor-agent:/brainstorm-route");
+const soloBrainstorm = SCENARIOS.find(({ soloBrainstorm }) => soloBrainstorm);
 
 function invariant(value: unknown, message: string): asserts value {
   if (!value) throw new Error(message);
@@ -97,6 +98,35 @@ describe("authoritative local catalog discovery", () => {
 });
 
 describe("real deterministic adapter probes", () => {
+  it("preserves a child's early failure when it closes stdin without reading the prompt", async () => {
+    const result = await runCommand(process.execPath, ["-e", 'console.error("fixture preflight"); process.exit(17)'], {
+      stdin: "synthetic prompt ".repeat(100_000),
+    });
+    expect(result).toMatchObject({ exitCode: 17, stderr: "fixture preflight\n", timedOut: false });
+  });
+
+  it("runs the solo transport matrix over packed MCP, marketplace, native Pi and direct CLI", async () => {
+    invariant(soloBrainstorm, "solo brainstorm scenario missing");
+    const { results } = await runIsolatedSuite({ mode: "dry-run", scenarios: [soloBrainstorm] });
+    expect(results[0], results[0]?.detail).toMatchObject({
+      id: soloBrainstorm.id,
+      status: RESULTS.PASS,
+      detail: expect.stringContaining("Codex CLI · selected gpt-6.2-astra · reasoning effort configured high"),
+    });
+    for (const count of [
+      "marketplace:1/1",
+      "stale-split:1/1",
+      "cli-only:0/1",
+      "split-quota:1/1",
+      "cli-auto:0/0",
+      "cli-multiple:0/0",
+      "cli-effort:0/0",
+      "no-binary:0/0",
+    ]) {
+      expect(results[0]?.detail).toContain(count);
+    }
+  }, 35_000);
+
   it("runs the real exact-panel/Cursor adapters against fake transports", async () => {
     invariant(cursorBrainstorm, "adapter scenario missing");
     const report = await runIsolatedSuite({ mode: "dry-run", scenarios: [cursorBrainstorm] });

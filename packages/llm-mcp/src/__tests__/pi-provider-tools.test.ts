@@ -79,6 +79,7 @@ describe("Pi provider tools", () => {
       "sessionId",
       "includeDirs",
       "preferred",
+      "noFallback",
       "sandbox",
     ]);
     expect(Object.keys(byName("ask-gemini").parameters.properties ?? {})).toEqual(["prompt", "model", "sessionId"]);
@@ -106,6 +107,7 @@ describe("Pi provider tools", () => {
     const { byName } = await harness();
     expect(byName("ask-codex").parameters.properties?.sandbox).toMatchObject({ const: "read-only" });
     expect(byName("ask-codex-write").parameters.properties?.sandbox).toMatchObject({ const: "workspace-write" });
+    expect(byName("ask-codex-write").parameters.properties).not.toHaveProperty("noFallback");
     await byName("ask-codex-write").execute("image", { prompt: "create image" });
     expect(calls.codex).toHaveBeenCalledWith(
       "ask-codex-write",
@@ -162,10 +164,10 @@ describe("Pi provider tools", () => {
       await harness()
     )
       .byName("ask-codex")
-      .execute("call", { prompt: "review", sandbox: "read-only" }, controller.signal);
+      .execute("call", { prompt: "review", sandbox: "read-only", noFallback: true }, controller.signal);
     expect(calls.codex).toHaveBeenCalledWith(
       "ask-codex",
-      { prompt: "review", sandbox: "read-only" },
+      { prompt: "review", sandbox: "read-only", noFallback: true },
       undefined,
       expect.any(Function),
       controller.signal,

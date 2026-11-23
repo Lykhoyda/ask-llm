@@ -145,6 +145,42 @@ describe("participant list classification", () => {
 });
 
 describe("exact panel routing", () => {
+  it("pins strict direct Sol while the exact Grok participant still runs", async () => {
+    const participants = [cursorPanel[0], parseBrainstormParticipant("codex@codex-cli:gpt-6.2-sol")];
+    calls.codex.mockRejectedValueOnce(new Error("insufficient_quota")).mockResolvedValueOnce({
+      response: "Sol answer",
+      attempt: { model: "gpt-6.2-sol", reasoningEffort: "high", cached: false },
+    });
+    const failed = await runBrainstormPanel({ prompt: "architecture", participants, noFallback: true });
+    expect(calls.codex).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({
+        model: "gpt-6.2-sol",
+        reasoningEffort: "high",
+        sandbox: "read-only",
+        singleAttempt: true,
+        strictOutcome: true,
+      }),
+    );
+    expect(calls.cursor).toHaveBeenCalledOnce();
+    expect(failed).toMatchObject({
+      status: "partial",
+      consensusEligible: false,
+      participants: [
+        { provider: "grok", status: "fulfilled" },
+        { provider: "codex", status: "rejected", error: "insufficient_quota" },
+      ],
+    });
+    expect(failed.participants[1]).not.toHaveProperty("response");
+
+    const complete = await runBrainstormPanel({ prompt: "architecture", participants, noFallback: true });
+    expect(complete).toMatchObject({ status: "complete", consensusEligible: true });
+    expect(complete.participants[1]).toMatchObject({
+      response: "Sol answer",
+      requestedModel: "gpt-6.2-sol",
+      reasoningEffort: "high",
+    });
+  });
+
   it("starts both Cursor Agent participants concurrently with exact provider/model pairs", async () => {
     const started: string[] = [];
     const releases = new Map<string, () => void>();
@@ -482,7 +518,7 @@ describe("truthful model attribution", () => {
     expect(report.participants[1]).toMatchObject({
       modelVerification: "mismatch",
       status: "rejected",
-      error: expect.stringContaining('ran "gpt-5.6" instead of requested "gpt-6.2-sol"'),
+      error: expect.stringContaining('selected "gpt-5.6" instead of requested "gpt-6.2-sol"'),
     });
     expect(report.status).toBe("partial");
   });

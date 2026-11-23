@@ -53,6 +53,9 @@
           ],
           "type": "string"
         },
+        "reasoningEffort": {
+          "type": "string"
+        },
         "reportedModel": {
           "type": "string"
         },

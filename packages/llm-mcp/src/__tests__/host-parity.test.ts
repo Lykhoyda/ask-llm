@@ -127,6 +127,9 @@ describe("MCP and Pi tool contract", () => {
     const mcp = await mcpContracts();
     const pi = await piContracts();
     expect(divergences(mcp, pi)).toEqual([]);
+    expect(mcp.find((tool) => tool.name === "ask-llm")?.inputSchema).toMatchObject({
+      properties: { noFallback: { type: "boolean" } },
+    });
     expect(pi.find((tool) => tool.name === "ask-llm")?.inputSchema).toMatchObject({
       properties: { provider: { enum: ["codex"] } },
     });
@@ -191,9 +194,21 @@ describe("MCP and Pi tool contract", () => {
       durationMs: 7,
       fellBack: false,
     };
-    vi.mocked(executeCodexCLI).mockResolvedValue({ response, threadId: "thread-1", usage });
+    vi.mocked(executeCodexCLI).mockResolvedValue({
+      response,
+      threadId: "thread-1",
+      usage,
+      attempt: { model: "gpt-6.2-astra", reasoningEffort: "high", cached: false },
+    });
     const { client, close } = await connectMcp(await detectProviders());
-    const args = { provider: "codex", prompt: "review this", reasoningEffort: "high", sandbox: "read-only" };
+    const args = {
+      provider: "codex",
+      prompt: "review this",
+      model: "gpt-6.2-astra",
+      reasoningEffort: "high",
+      sandbox: "read-only",
+      noFallback: true,
+    };
     let viaMcp: Awaited<ReturnType<typeof client.callTool>>;
     try {
       viaMcp = await client.callTool({ name: "ask-llm", arguments: args });
@@ -208,9 +223,13 @@ describe("MCP and Pi tool contract", () => {
       response,
       model: "gpt-6.2-astra",
       sessionId: "thread-1",
+      reasoningEffort: "high",
       usage,
     });
     expect(viaPi.details.structuredContent).toEqual(viaMcp.structuredContent);
+    expect(viaPi.content[0].text.split("\n")[0]).toBe(
+      "Codex CLI · selected gpt-6.2-astra · reasoning effort configured high",
+    );
     if (response.length > 50_000) {
       expect(viaPi.details.outputTruncated).toBe(true);
       expect(viaPi.content[0].text.length).toBeLessThan(response.length);
@@ -223,23 +242,38 @@ describe("MCP and Pi tool contract", () => {
       .mocked(executeCodexCLI)
       .mock.calls.map(([{ onProgress: _progress, signal: _signal, ...options }]) => options);
     expect(piOptions).toEqual(mcpOptions);
-    expect(mcpOptions).toMatchObject({ prompt: "review this", reasoningEffort: "high", sandbox: "read-only" });
+    expect(mcpOptions).toMatchObject({
+      prompt: "review this",
+      reasoningEffort: "high",
+      sandbox: "read-only",
+      singleAttempt: true,
+      strictOutcome: true,
+    });
   });
 
   it.each(["FAKE_CODEX", "x".repeat(70_000)])(
     "returns the same default multi-llm report (case %#)",
     async (response) => {
-      vi.mocked(executeCodexCLI).mockResolvedValue({ response });
+      vi.mocked(executeCodexCLI).mockResolvedValue({
+        response,
+        threadId: undefined,
+        usage: undefined,
+        attempt: { model: "gpt-6.1-terra", reasoningEffort: "xhigh", cached: false },
+      });
       vi.mocked(executeGeminiCLI).mockRejectedValue(new Error("gemini quota"));
       const { client, close } = await connectMcp(await detectProviders());
       let viaMcp: Awaited<ReturnType<typeof client.callTool>>;
       try {
-        viaMcp = await client.callTool({ name: "multi-llm", arguments: { prompt: "same" } });
+        viaMcp = await client.callTool({
+          name: "multi-llm",
+          arguments: { prompt: "same", providers: ["codex", "gemini"] },
+        });
       } finally {
         await close();
       }
       const viaPi = await ((await piTools()).find((tool) => tool.name === "multi-llm") as PiTool).execute("call", {
         prompt: "same",
+        providers: ["codex", "gemini"],
       });
 
       const strip = (report: unknown) => {
@@ -253,15 +287,42 @@ describe("MCP and Pi tool contract", () => {
         successCount: 1,
         failureCount: 1,
         results: [
+          { provider: "codex", ok: true, response, model: "gpt-6.1-terra", reasoningEffort: "xhigh" },
           { provider: "gemini", ok: false, error: "gemini quota" },
-          { provider: "codex", ok: true, response },
         ],
       });
+      expect(viaMcp.isError).toBe(false);
       expect(strip(viaPi.details.structuredContent)).toEqual(strip(viaMcp.structuredContent));
+      expect(viaPi.content[0].text).toMatch(
+        /### codex ✓ \([^\n]*selected gpt-6\.1-terra · reasoning effort configured xhigh/,
+      );
+      expect(viaMcp.content[0]).toMatchObject({ text: expect.stringContaining("reasoning effort configured xhigh") });
+      for (const [options] of vi.mocked(executeCodexCLI).mock.calls) {
+        expect(Object.keys(options).sort()).toEqual(["onProgress", "prompt", "signal"]);
+      }
       expect(viaPi.details.outputTruncated).toBe(response.length > 50_000);
       if (response.length > 50_000) expect(viaPi.content[0].text.length).toBeLessThan(response.length);
     },
   );
+
+  it.each([
+    { provider: "gemini", noFallback: false },
+    { provider: "codex", sandbox: "workspace-write", noFallback: true },
+  ])("rejects noFallback outside read-only Codex (%j)", async (args) => {
+    const { client, close } = await connectMcp(await detectProviders());
+    try {
+      expect(await client.callTool({ name: "ask-llm", arguments: { ...args, prompt: "review" } })).toMatchObject({
+        isError: true,
+        content: [expect.objectContaining({ text: expect.stringContaining("noFallback") })],
+      });
+    } finally {
+      await close();
+    }
+    const pi = (await piTools()).find((tool) => tool.name === "ask-llm") as PiTool;
+    await expect(pi.execute("call", { ...args, prompt: "review" })).rejects.toThrow("noFallback");
+    expect(executeCodexCLI).not.toHaveBeenCalled();
+    expect(executeGeminiCLI).not.toHaveBeenCalled();
+  });
 
   it("rejects an undetected provider in both hosts", async () => {
     const { client, close } = await connectMcp(await detectProviders());

@@ -102,6 +102,8 @@ Experimental; see [Antigravity sessions](/providers/antigravity#sessions) for fo
 
 ### `/brainstorm`
 
+Use `/brainstorm --external-only codex@codex-cli:gpt-6.2-astra <topic>` to consult one exact Codex model at high reasoning effort. The host relays the answer with the selected model and configured effort, without a coordinator view or consensus. This option implies `--no-fallback`, so a failure on the selected model ends the consultation. In a Claude Code panel, `/brainstorm --no-fallback codex <topic>` preserves the Claude view and limits Codex to one attempt. See the [Brainstorm workflow](/workflows/brainstorm) for supported routes.
+
 Send a topic to an explicit multi-model panel, ground it with independent Claude Opus research, then synthesize the findings. Provider, harness, requested catalog ID, independently observed served model (direct xAI API / Grok CLI only; a disclosed same-product alias/snapshot stays eligible), and Cursor's optional reported display label remain separate. Cursor Agent and Codex CLI echo the requested ID, so those attributions are selected-only and unverifiable rather than an actual model. The coordinator agent runs:
 
 1. **Phase 3B: Claude Opus research.** Claude reads actual files, traces real code paths, fetches referenced docs, and forms findings tagged Verified or Inferred. In standard mode Claude is a participant. In the exact Grok + Sol mode it is a non-voting evidence verifier, so the requested panel remains exactly two models.

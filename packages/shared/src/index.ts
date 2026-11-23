@@ -1,5 +1,5 @@
 export type { AskResponse } from "./askResponse.js";
-export { askResponseSchema } from "./askResponse.js";
+export { askResponseSchema, formatCodexSelection } from "./askResponse.js";
 export type { ChangeModeEdit, EditChunk } from "./changeMode/index.js";
 export {
   chunkChangeModeEdits,

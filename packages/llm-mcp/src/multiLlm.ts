@@ -7,6 +7,7 @@ export interface MultiLlmResult {
   ok: boolean;
   response?: string;
   model?: string;
+  reasoningEffort?: string;
   sessionId?: string;
   usage?: UsageStats;
   durationMs: number;
@@ -37,6 +38,7 @@ const multiLlmResultSchema = z.object({
   ok: z.boolean(),
   response: z.string().optional(),
   model: z.string().optional(),
+  reasoningEffort: z.string().optional(),
   sessionId: z.string().optional(),
   usage: usageStatsSchema.optional(),
   durationMs: z.number(),
@@ -82,11 +84,13 @@ export async function dispatchMultiLlm(opts: DispatchOptions): Promise<MultiLlmR
         onProgress: (output) => opts.onProgress?.(`[${provider}] ${output}`),
       });
       if (result.usage) opts.recordUsage?.(result.usage);
+      const attempt = provider === "codex" ? result.attempt : undefined;
       return {
         provider,
         ok: true,
         response: result.response,
-        model: result.usage?.model ?? result.model,
+        model: attempt?.model ?? result.usage?.model ?? result.model,
+        ...(attempt && { reasoningEffort: attempt.reasoningEffort }),
         sessionId: result.sessionId ?? result.threadId,
         usage: result.usage,
         durationMs: Date.now() - callStart,
@@ -127,9 +131,10 @@ export function formatMultiLlmReport(report: MultiLlmReport): string {
   const sections = report.results.map((r) => {
     const status = r.ok ? "✓" : "✗";
     const durationTag = `${(r.durationMs / 1000).toFixed(1)}s`;
-    const modelTag = r.model ? ` · ${r.model}` : "";
+    const modelTag = r.model ? ` · ${r.provider === "codex" ? "selected " : ""}${r.model}` : "";
+    const effortTag = r.reasoningEffort ? ` · reasoning effort configured ${r.reasoningEffort}` : "";
     if (r.ok) {
-      return `\n### ${r.provider} ${status} (${durationTag}${modelTag})\n\n${r.response ?? "(empty response)"}`;
+      return `\n### ${r.provider} ${status} (${durationTag}${modelTag}${effortTag})\n\n${r.response ?? "(empty response)"}`;
     }
     return `\n### ${r.provider} ${status} (${durationTag})\n\n**Failed:** ${r.error ?? "unknown error"}`;
   });

@@ -50,6 +50,9 @@
           ],
           "type": "string"
         },
+        "reasoningEffort": {
+          "type": "string"
+        },
         "reportedModel": {
           "type": "string"
         },
@@ -164,6 +167,9 @@
             "ollama",
             "antigravity"
           ],
+          "type": "string"
+        },
+        "reasoningEffort": {
           "type": "string"
         },
         "reportedModel": {

@@ -546,14 +546,22 @@ try {
   await newSession();
   result = await runPrompt("SMOKE_ASK_LLM", "ask-llm");
   invariant(!result.toolEnd.isError, `ask-llm failed: ${toolResultText(result.toolEnd)}`);
-  invariant(toolResultText(result.toolEnd).startsWith("Codex response:\nFAKE_CODEX_RESPONSE"), "ask-llm text differs");
+  invariant(
+    toolResultText(result.toolEnd).startsWith(
+      "Codex CLI · selected gpt-6.2-sol · reasoning effort configured high\nFAKE_CODEX_RESPONSE",
+    ),
+    `ask-llm text lost the selected model or configured effort: ${toolResultText(result.toolEnd)}`,
+  );
   const askResponse = result.toolEnd.result?.details?.structuredContent ?? {};
   invariant(
     askResponse.provider === "codex" &&
       askResponse.response === "FAKE_CODEX_RESPONSE" &&
-      typeof askResponse.model === "string" &&
+      askResponse.model === "gpt-6.2-sol" &&
+      askResponse.reasoningEffort === "high" &&
       Object.keys(askResponse).every((key) =>
-        ["provider", "response", "model", "sessionId", "usage", "harness", "reportedModel"].includes(key),
+        ["provider", "response", "model", "reasoningEffort", "sessionId", "usage", "harness", "reportedModel"].includes(
+          key,
+        ),
       ),
     `ask-llm did not return an AskResponse: ${JSON.stringify(askResponse)}`,
   );
