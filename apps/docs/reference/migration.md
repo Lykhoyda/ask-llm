@@ -87,8 +87,8 @@ For later removal of this installation, see the [command compatibility reference
 ## What still works
 
 - `npx -y @ask-llm/mcp` still starts the server, so an MCP config you never migrate keeps working.
-- The last published versions of the split provider packages and `@ask-llm/plugin` stay installable and keep their bins (`ask-codex-mcp`, `ask-grok-mcp` and the others) and tool names; once deprecation is applied, npm adds a notice.
-- The earlier unscoped names (`ask-llm-mcp`, `ask-codex-mcp`, `ask-gemini-mcp`, `ask-ollama-mcp`, `ask-antigravity-mcp`, `@anton-lykhoyda/ask-claude-mcp`) were deprecated before; setup recognises entries that use them too.
+- `@ask-llm/plugin` stays installable. Of the split provider packages, only `@ask-llm/gemini-mcp` still installs, with a deprecation notice; the others are unpublished, so entries that start them fail until you migrate.
+- The earlier unscoped names (`ask-llm-mcp`, `ask-codex-mcp`, `ask-gemini-mcp`, `ask-ollama-mcp`, `ask-antigravity-mcp`, `@anton-lykhoyda/ask-claude-mcp`) were unpublished too; setup still recognises entries that use them.
 - The Claude Code plugin keeps working and keeps updating through its marketplace; setup installs it for you when it is missing.
 - In Pi, `npm:@ask-llm/plugin` keeps loading until you migrate, and the earlier `ask-codex`, `ask-gemini`, `ask-grok`, `ask-ollama`, `ask-antigravity` and `ask-multi` tools remain as aliases.
 - The unified server's tools (`ask-llm`, `multi-llm`, `ask-cursor-agent`, `diagnose`, `ping`, `get-usage-stats`) and their schemas are unchanged.
@@ -117,7 +117,7 @@ claude mcp add --scope user gemini -- npx -y @ask-llm/gemini-mcp
 codex mcp add claude -- npx -y @ask-llm/claude-mcp
 ```
 
-These commands no longer work: npm no longer serves the packages, except the deprecated `@ask-llm/gemini-mcp`, so a host cannot start such an entry. `ask-llm setup` finds unmodified entries like these and, after you confirm, removes them once this install's `ask-llm` registration is in place (see the table above). The six provider pages lead with setup and keep the retired servers' tool tables as reference. Current configuration uses [the installed executable](/advanced/manual-configuration).
+These commands no longer work: npm no longer serves the packages, except the deprecated `@ask-llm/gemini-mcp`, so a host cannot start such an entry. `ask-llm setup` finds unmodified entries like these and, after you confirm, removes them once this install's `ask-llm` registration is in place (see the table above). Codex CLI entries are the exception: setup prints guidance and leaves them for you to remove by hand. The six provider pages lead with setup and keep the retired servers' tool tables as reference. Current configuration uses [the installed executable](/advanced/manual-configuration).
 
 ### Earlier Pi npm installation
 
