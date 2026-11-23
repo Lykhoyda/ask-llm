@@ -1,0 +1,12 @@
+{
+  "name": "ask-llm-plugins",
+  "owner": {
+    "name": "Anton Lykhoyda"
+  },
+  "plugins": [
+    {
+      "name": "ask-llm",
+      "source": "packages/llm-mcp"
+    }
+  ]
+}

@@ -98,7 +98,7 @@ Interactive prompt asks (a) which packages your change affects, (b) the bump typ
 
 You can pick "patch" for any package even if your change doesn't directly touch it. `@ask-llm/shared` and the six provider workspaces are private build inputs bundled into `@ask-llm/mcp`; shared and provider source changes require an explicit canonical package changeset because the devDependency cascade does not publish it automatically. CI enforces this via `scripts/check-shared-changeset.ts`, which exempts files whose merge-base content reformatted with the repository `.oxfmtrc.json` equals the new content exactly (pure formatting changes).
 
-`@ask-llm/mcp` owns the Claude Code, Cursor Agent and Pi assets; `@ask-llm/plugin` forwards to it for existing installations. `packages/llm-mcp/package.json` is authoritative for the host manifests; `yarn changeset:version` mirrors its version to `.claude-plugin/plugin.json`, `.cursor-plugin/plugin.json` and the marketplace manifest, and lint verifies synchronization.
+`@ask-llm/mcp` owns the Claude Code, Cursor Agent and Pi assets; `@ask-llm/plugin` forwards to it for existing installations. `packages/llm-mcp/package.json` is authoritative for the host manifests; `yarn changeset:version` mirrors its version to `.claude-plugin/plugin.json`, `.cursor-plugin/plugin.json` and the root `.claude-plugin/marketplace.json` (the root `.cursor-plugin/marketplace.json` carries no version), and lint verifies synchronization.
 
 If your PR is infrastructure-only (no published behavior change), skip the changeset.
 

@@ -229,6 +229,26 @@ describe("marketplace.json", () => {
   });
 });
 
+describe("root Cursor marketplace", () => {
+  const marketplace = JSON.parse(
+    fs.readFileSync(path.join(REPO_ROOT, ".cursor-plugin", "marketplace.json"), "utf-8"),
+  ) as { name: string; owner: { name: string }; plugins: Array<Record<string, unknown>> };
+
+  it("points Cursor at the one plugin folder without duplicating its manifest", () => {
+    expect(marketplace.name).toMatch(/^[a-z0-9]+(?:-[a-z0-9]+)*$/);
+    expect(marketplace.owner.name).toBeTruthy();
+    // Only identity and location: Cursor merges in packages/llm-mcp/.cursor-plugin/plugin.json, whose
+    // values win, so copied versions, descriptions or component paths could only drift.
+    expect(marketplace.plugins).toEqual([{ name: "ask-llm", source: "packages/llm-mcp" }]);
+  });
+
+  it("resolves to the Cursor adapter of the same name", () => {
+    const [entry] = marketplace.plugins as [{ name: string; source: string }];
+    expect(path.resolve(REPO_ROOT, entry.source)).toBe(PLUGIN_ROOT);
+    expect(readJson<{ name: string }>(".cursor-plugin/plugin.json").name).toBe(entry.name);
+  });
+});
+
 describe("hooks.json", () => {
   const hooks = readJson<{ hooks: Record<string, unknown[]> }>("hooks/hooks.json");
 

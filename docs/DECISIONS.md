@@ -1,5 +1,17 @@
 # Architectural Decisions
 
+## ADR-201: Point Cursor at the plugin folder with a root marketplace manifest
+
+**Status:** Accepted (2026-11-23). Keeps ADR-147's Cursor adapter in `packages/llm-mcp` and its unified-only bundle.
+
+**Context:** Cursor's plugin reference reads a repository's plugins from `.cursor-plugin/marketplace.json` at the repository root. Each entry's `source` names a plugin folder whose own `.cursor-plugin/plugin.json` is merged with the entry, and the manifest's values win. Marketplace submission takes a public repository link. This repository keeps its only Cursor plugin in `packages/llm-mcp`, and the root had no Cursor manifest, so a repository import found no plugin. The Anthropic directory takes the plugin folder itself and needs no root files.
+
+**Decision:** Add a root `.cursor-plugin/marketplace.json` that lists only `ask-llm` with `source: "packages/llm-mcp"`. It carries no version, description or component paths, so the adapter manifest stays the single source. Do not copy skills, rules, `mcp.json` or `plugin.json` to the root.
+
+**Consequences:** `yarn changeset:version` needs no new sync target. A test pins the entry to the adapter folder and name. Listing copy stays in the adapter manifest.
+
+**Name check (2026-11-23):** The public plugin listing at claude.com/plugins stated 539 plugins and embedded 537 entries. No entry has a name that contains `ask` or reduces to `askllm`, so `ask-llm` has no collision in the public listing. The signed-in directory and the submission portal could not be checked, so pending or unlisted submissions are unknown. Re-check the name at submission time.
+
 ## ADR-200: Share pairing policy across Pi and the existing hooks
 
 **Status:** Accepted (2026-11-20). Extends the shared resolver from ADR-192 to the native Pi adapter.

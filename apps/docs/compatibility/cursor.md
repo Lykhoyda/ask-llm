@@ -4,7 +4,7 @@ description: Portable workflows and on-demand pairing in Cursor; lifecycle limit
 
 # Cursor host notes
 
-Setup registers the user-scope connection and installs portable workflows into the skills folder. Follow [Install](/start/install) and restart Cursor. The source adapter exposes two pair skills and their earlier-name pointers; it disables discovery of Claude-only agents and hooks. See [manual configuration](/advanced/manual-configuration) for project scope and [Migration](/reference/migration) for earlier registrations.
+Setup registers the user-scope connection and installs portable workflows into the skills folder. Follow [Install](/start/install) and restart Cursor. The source adapter exposes two pair skills and their earlier-name pointers; it disables discovery of Claude-only agents and hooks. The repository root's `.cursor-plugin/marketplace.json` points Cursor at that adapter in `packages/llm-mcp` when the repository is added as a plugin source. See [manual configuration](/advanced/manual-configuration) for project scope and [Migration](/reference/migration) for earlier registrations.
 
 ## `/codex-pair` on Cursor
 
