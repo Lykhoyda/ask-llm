@@ -1,5 +1,11 @@
 # @ask-llm/mcp
 
+## 1.8.0
+
+### Minor Changes
+
+- [#456](https://github.com/Lykhoyda/ask-llm/pull/456) [`078b1fc`](https://github.com/Lykhoyda/ask-llm/commit/078b1fc4a93fb79ca90a46f6342d957ae10e8ffd) Thanks [@Lykhoyda](https://github.com/Lykhoyda)! - Allow brainstorm to consult one exact Codex CLI model with `--external-only`, including GPT-6.2 Astra at high effort. Read-only Codex tools support `noFallback` for one attempt, and Codex and brainstorm results report the selected model and configured reasoning effort.
+
 ## 1.7.0
 
 ### Minor Changes
