@@ -10,6 +10,31 @@ Follow [Install](https://lykhoyda.github.io/ask-llm/start/install) for prerequis
 
 See [Data flow](https://lykhoyda.github.io/ask-llm/operation/data-flow) for review boundaries and session storage, and [Tools and schemas](https://lykhoyda.github.io/ask-llm/reference/tools) for provider routing.
 
+## What it runs, installs and sends
+
+Ask LLM sends no telemetry; provider and host data policies still apply.
+
+### What it runs
+
+- **Bundled MCP server.** The Claude Code plugin's `.mcp.json` runs `node scripts/plugin-mcp-server.mjs codex <version>`, which starts the Codex server. The Cursor plugin's `mcp.json` runs `node scripts/plugin-mcp-server.mjs ask-llm <version>`, which starts the unified `ask-llm` server. `<version>` is the plugin's own release. The launcher starts that exact `@ask-llm/mcp` release in its own process and never runs a different version.
+- **Provider CLIs.** For each request, the server runs the CLI of the provider you selected: `codex`, `claude`, `gemini`, `agy` (Antigravity, refused unless `ASK_ANTIGRAVITY_ALLOW_UNISOLATED=1`), `grok` or Cursor's `agent`. The Claude Code plugin's bundled server runs only `codex`. At startup the unified server checks which providers are ready, including version and support checks of installed CLIs. To find these commands, the server reads your `PATH` once by running your login shell (`$SHELL -ilc`), unless `ASK_LLM_PATH` is set.
+- **Claude Code hooks.** `hooks/hooks.json` runs a Node script on `SessionStart`, `SessionEnd`, `UserPromptSubmit`, `PostToolUse` (`Edit`, `Write`, `MultiEdit`) and `Stop`. Each script looks for a `.codex-pair/context.md` pairing marker, searching upward from the working directory or the edited file and stopping at your home directory, plus any markers the same session registered. When pairing is not enabled, it exits without running anything; `SessionEnd` only removes that session's entry from the pairing registry in the system temporary directory. With [pairing](https://lykhoyda.github.io/ask-llm/advanced/codex-pair) enabled, an edit runs `git diff` on the edited file and then `codex exec` (the default) or `claude --print` (`reviewer: claude`) to review it. With `ASK_CODEX_BROKER=1`, `SessionStart` also starts a `codex app-server` broker. The Cursor plugin registers no hooks.
+- **Skills and agents.** Workflows call the MCP tools. Some fall back to the packaged `dist/*-run.js` runners, which run the same provider CLIs, or to `codex exec`, and say when they do.
+
+### What it installs
+
+- On first start, if the plugin folder does not contain the pinned build (a marketplace install from Git does not), the launcher installs `@ask-llm/mcp` at the plugin's exact version with `npm install --ignore-scripts`. It installs into `~/.cache/ask-llm/servers/mcp@<version>`; `XDG_CACHE_HOME` or `ASK_LLM_SERVER_CACHE` changes the location and `ASK_LLM_SERVER_NPM` selects the npm command. npm also installs the package's dependencies (`@modelcontextprotocol/server`, `@toon-format/toon` and `zod`), resolved from their declared version ranges without a lockfile. Later starts reuse that copy.
+- The plugin installs no provider CLIs and does not sign you in to any provider.
+- `ask-llm setup` is a separate command from a global npm install. It previews every change and asks before registering hosts or installing workflows through the pinned `skills` CLI; see [Command compatibility](#command-compatibility).
+
+### What it sends and fetches
+
+- **npm registry.** The first-start install downloads packages from your configured npm registry.
+- **Your selected provider.** The prompt and the material your assistant includes, such as diffs, files and project context, go to the provider you select. CLI providers send it through that CLI, its account and its network connection. Grok's `xai-api` harness sends it to `https://api.x.ai` with your `XAI_API_KEY`.
+- **Ollama.** Requests go to `OLLAMA_HOST` (default `http://localhost:11434`). At startup the unified server also requests the model list there to check availability. A remote `OLLAMA_HOST` receives your material.
+- **Pairing (opt-in).** Edited file contents or diffs go to the pair reviewer (Codex or Claude) through its CLI. Logs and state stay in the project's `.codex-pair/` folder.
+- **Live diagnostics (opt-in).** `ask-llm doctor --live` sends one minimal prompt to each ready provider.
+
 ## Tools
 
 The orchestrator exposes a **single `ask-llm` tool** (not one tool per provider — ADR-029, for token efficiency); you pick the provider per call. When any provider is installed it registers:
