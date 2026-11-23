@@ -117,8 +117,10 @@ describe("real deterministic adapter probes", () => {
       "marketplace:1/1",
       "stale-split:1/1",
       "cli-only:0/1",
-      "stale-pi:0/0",
-      "disconnected:1/0",
+      "split-quota:1/1",
+      "cli-auto:0/0",
+      "cli-multiple:0/0",
+      "cli-effort:0/0",
       "no-binary:0/0",
     ]) {
       expect(results[0]?.detail).toContain(count);

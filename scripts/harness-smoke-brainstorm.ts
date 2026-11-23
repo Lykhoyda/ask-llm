@@ -130,14 +130,12 @@ async function nativeTools(): Promise<Map<string, Tool>> {
 // This driver models the skill's routing choices over real tool discovery and adapters.
 // Host interpretation of the Markdown requires a separate, authorized host session.
 async function consult(
-  specs: string,
+  model: string,
   prompt: string,
   tools: Tool[],
   call: (tool: Tool, args: Record<string, unknown>) => Promise<ToolResult>,
   cli?: (model: string, prompt: string) => Promise<ToolResult>,
 ) {
-  const model = /^codex@codex-cli:([A-Za-z0-9][A-Za-z0-9._:/-]*)$/.exec(specs)?.[1];
-  check(model && model.toLowerCase() !== "auto", "expected one exact non-Auto Codex CLI participant");
   const pins = { prompt, model, reasoningEffort: "high", sandbox: "read-only", noFallback: true };
   const split = tools.find(({ name }) => name === "ask-codex");
   const unified = tools.find(({ name }) => name === "ask-llm");
@@ -150,7 +148,6 @@ async function consult(
   } else if (unified && has(unified, [...fields, "provider", "preferred", "includeDirs"])) {
     result = await call(unified, { ...pins, provider: "codex", preferred: false, includeDirs: [] });
   } else {
-    check(!split && !unified, "stale schema requires upgrade and restart");
     check(cli, "no capable native tool");
     result = await cli(model, prompt);
   }
@@ -206,29 +203,17 @@ export async function runSoloBrainstorm(options: SmokeOptions) {
       const { noFallback: _omitted, ...properties } = tool.schema.properties ?? {};
       return { ...tool, schema: { properties } };
     };
-    const disconnected = {
-      ...split,
-      async call() {
-        throw new Error("tool disconnected");
-      },
-    };
-    const disconnectedAfterSpawn = {
-      ...split,
-      async call(params: Record<string, unknown>) {
-        await split.call(params);
-        throw new Error("tool disconnected after dispatch");
-      },
-    };
-    const runCli = (path: string) => async (pin: string, prompt: string) => {
-      const result = await runCommand(
-        "/bin/bash",
-        [join(packed, "skills", "ask-llm-brainstorm", "codex-strict.sh"), pin, "high"],
-        { cwd: work, stdin: prompt, env: { ...env, PATH: path } },
-      );
+    const strictCli = (args: string[], prompt: string, path = env.PATH) =>
+      runCommand("/bin/bash", [join(packed, "skills", "ask-llm-brainstorm", "codex-strict.sh"), ...args], {
+        cwd: work,
+        stdin: prompt,
+        env: { ...env, PATH: path },
+      });
+    const cli = async (pin: string, prompt: string) => {
+      const result = await strictCli([pin, "high"], prompt);
       if (result.exitCode !== 0 || result.timedOut) throw new Error(result.stderr);
       return { text: result.stdout };
     };
-    const cli = runCli(env.PATH);
     const spec = /\/brainstorm --external-only --no-fallback (\S+)/.exec(livePrompt)?.[1];
     check(spec === `codex@codex-cli:${model}`, "solo fixture lost the slash invocation");
     const lateQuota = "\n[smoke: terminal quota]";
@@ -241,26 +226,6 @@ export async function runSoloBrainstorm(options: SmokeOptions) {
       { id: "stale-split", tools: [stale(split), unified], calls: 1, execs: 1, rung: "ask-llm" },
       { id: "cli-only", tools: [], cli, calls: 0, execs: 1, suffix: transient },
       { id: "cli-quota", tools: [], cli, calls: 0, execs: 1, suffix: lateQuota, error: "insufficient_quota" },
-      {
-        id: "invalid-model",
-        tools: [split],
-        calls: 0,
-        execs: 0,
-        spec: "codex@codex-cli:Auto",
-        error: "exact non-Auto",
-      },
-      { id: "empty-model", tools: [split], calls: 0, execs: 0, spec: "codex@codex-cli:", error: "exact non-Auto" },
-      { id: "multiple", tools: [split], calls: 0, execs: 0, spec: `${spec},${spec}`, error: "exact non-Auto" },
-      {
-        id: "wrong-route",
-        tools: [split],
-        calls: 0,
-        execs: 0,
-        spec: "codex@cursor-agent:gpt-6.2-astra",
-        error: "exact non-Auto",
-      },
-      { id: "stale-only", tools: [stale(split)], cli, calls: 0, execs: 0, error: "stale schema" },
-      { id: "stale-pi", tools: [stale(native)], calls: 0, execs: 0, error: "stale schema" },
       {
         id: "split-quota",
         tools: [split, unified],
@@ -279,23 +244,6 @@ export async function runSoloBrainstorm(options: SmokeOptions) {
         suffix: "\n[smoke: nonzero terminal quota]",
         error: "insufficient_quota",
       },
-      { id: "disconnected", tools: [disconnected, unified], cli, calls: 1, execs: 0, error: "disconnected" },
-      {
-        id: "late-disconnect",
-        tools: [disconnectedAfterSpawn, unified],
-        cli,
-        calls: 1,
-        execs: 1,
-        error: "disconnected",
-      },
-      {
-        id: "no-binary",
-        tools: [],
-        cli: runCli(join(work, "empty-path")),
-        calls: 0,
-        execs: 0,
-        error: "unavailable on PATH",
-      },
     ];
     const counts = [];
     const initial = (await invocations()).length;
@@ -303,7 +251,7 @@ export async function runSoloBrainstorm(options: SmokeOptions) {
       const countBefore = (await invocations()).length;
       const calls: string[] = [];
       const result = await consult(
-        entry.spec ?? spec,
+        model,
         `${livePrompt}\nfixture=${entry.id}${entry.suffix ?? ""}`,
         entry.tools,
         (tool, params) => {
@@ -340,6 +288,32 @@ export async function runSoloBrainstorm(options: SmokeOptions) {
         );
       }
       counts.push(`${entry.id}:${calls.length}/${execs.length}`);
+    }
+    const usage = "Usage: bash codex-strict.sh <exact Codex model ID>";
+    const rejections = [
+      { id: "cli-auto", args: ["Auto", "high"], exitCode: 2, error: usage },
+      { id: "cli-empty", args: ["", "high"], exitCode: 2, error: usage },
+      { id: "cli-multiple", args: [`${model},${model}`, "high"], exitCode: 2, error: usage },
+      { id: "cli-extra-arg", args: [model, "high", model], exitCode: 2, error: usage },
+      { id: "cli-effort", args: [model, "auto"], exitCode: 2, error: "Invalid Codex reasoning effort: auto" },
+      {
+        id: "no-binary",
+        args: [model, "high"],
+        path: join(work, "empty-path"),
+        exitCode: 127,
+        error: "unavailable on PATH",
+      },
+    ];
+    for (const entry of rejections) {
+      const countBefore = (await invocations()).length;
+      const result = await strictCli(entry.args, `${livePrompt}\nfixture=${entry.id}`, entry.path);
+      const execs = (await invocations()).slice(countBefore);
+      check(
+        result.exitCode === entry.exitCode && result.stderr.includes(entry.error) && result.stdout === "",
+        `${entry.id} did not refuse before dispatch: ${result.exitCode} ${result.stderr}`,
+      );
+      check(execs.length === 0, `${entry.id} launched a provider process`);
+      counts.push(`${entry.id}:0/${execs.length}`);
     }
     const trace = (await invocations()).slice(initial);
     check(
