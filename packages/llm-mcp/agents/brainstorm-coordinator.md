@@ -135,7 +135,7 @@ A list that mixes routed specs with bare provider names (for example `grok@curso
 
 **Exact Grok + GPT-6 Sol branch (preferred architect workflow):**
 
-Use this branch instead of the generic template whenever the selected providers are exactly Grok and Codex with explicit route specs. Validate both specs first, then make one foreground call:
+Use this branch instead of the generic template whenever the selected providers are exactly Grok and Codex with explicit route specs. Validate both specs first. Freeze the optional `--no-fallback` for this invocation and add it to `runner_flags` only when requested. It controls direct Codex CLI; an exact Cursor route already makes one dispatch.
 
 ```bash
 set +e
@@ -145,12 +145,13 @@ cat > "$workdir/prompt.md" <<'PROMPT_EOF'
 <INSERT THE PHASE 2 PROMPT HERE>
 PROMPT_EOF
 
-node "${CLAUDE_PLUGIN_ROOT}/dist/brainstorm-run.js" \
+runner_flags=() # Set to (--no-fallback) when the caller froze that flag.
+node "${CLAUDE_PLUGIN_ROOT}/dist/brainstorm-run.js" "${runner_flags[@]}" \
   --participant 'grok@cursor-agent:grok-4.7-high' \
   --participant 'codex@cursor-agent:gpt-6.2-sol-high' \
   < "$workdir/prompt.md" > "$workdir/panel.json" 2> "$workdir/panel.err"
 rc_panel=$?
-echo "===== GROK + GPT-5.6 SOL PANEL (rc=$rc_panel) ====="
+echo "===== GROK + GPT-6 SOL PANEL (rc=$rc_panel) ====="
 cat "$workdir/panel.json"
 echo "===== PANEL STDERR ====="
 cat "$workdir/panel.err"
@@ -225,9 +226,8 @@ pid_gemini=$!
 # GPT-6.2 Sol at high effort is the default for unpinned
 # brainstorming; Terra preserves the lower-cost fallback role. The exact Cursor
 # architect panel stays gpt-6.2-sol-high (ADR-148). ASK_CODEX_PREFERRED_MODEL and
-# ASK_CODEX_REASONING_EFFORT remain escape hatches. prompt.md is a FILE (not a
-# pipe), so both attempts can re-read it. The whole `{ ...; }` group is
-# backgrounded as one job so pid_codex/`wait` capture the final code.
+# ASK_CODEX_REASONING_EFFORT remain escape hatches. Wait on the group as one job.
+codex_no_fallback=0 # Set to 1 only when the caller froze --no-fallback.
 codex_model="${ASK_CODEX_PREFERRED_MODEL:-${ASK_CODEX_MODEL:-gpt-6.2-sol}}"
 codex_fallback="${ASK_CODEX_FALLBACK_MODEL:-gpt-6.1-terra}"
 codex_effort="${ASK_CODEX_REASONING_EFFORT:-high}"
@@ -237,9 +237,24 @@ case "$codex_effort" in
   low|medium|high|xhigh|max|ultra) ;;
   *) codex_effort="high" ;;
 esac
-{ codex exec --sandbox read-only -c "model_reasoning_effort=\"$codex_effort\"" -m "$codex_model" - < "$workdir/prompt.md" \
-  || codex exec --sandbox read-only -c "model_reasoning_effort=\"$codex_effort\"" -m "$codex_fallback" - < "$workdir/prompt.md"; } \
-  > "$workdir/codex.out" 2> "$workdir/codex.err" &
+{
+  codex_rc=0
+  if [[ "$codex_no_fallback" == 1 ]]; then
+    bash "${CLAUDE_PLUGIN_ROOT}/skills/ask-llm-brainstorm/codex-strict.sh" "$codex_model" "$codex_effort" \
+      < "$workdir/prompt.md" > "$workdir/codex.out" 2> "$workdir/codex.err" || codex_rc=$?
+  else
+    codex exec --sandbox read-only -c "model_reasoning_effort=\"$codex_effort\"" -m "$codex_model" - \
+      < "$workdir/prompt.md" > "$workdir/codex.out" 2> "$workdir/codex.err" || codex_rc=$?
+  fi
+  printf '%s\n' "Codex CLI · selected $codex_model · reasoning effort configured $codex_effort (rc=$codex_rc)" > "$workdir/codex.attempts"
+  if [[ "$codex_rc" != 0 && "$codex_no_fallback" == 0 ]]; then
+    codex_rc=0
+    codex exec --sandbox read-only -c "model_reasoning_effort=\"$codex_effort\"" -m "$codex_fallback" - \
+      < "$workdir/prompt.md" > "$workdir/codex-fallback.out" 2> "$workdir/codex-fallback.err" || codex_rc=$?
+    printf '%s\n' "Codex CLI · selected $codex_fallback · reasoning effort configured $codex_effort · fallback (rc=$codex_rc)" >> "$workdir/codex.attempts"
+  fi
+  exit "$codex_rc"
+} &
 pid_codex=$!
 
 # Only include this block if grok was requested. The canonical runner preserves
@@ -271,10 +286,20 @@ echo "===== GEMINI (rc=$rc_gemini) ====="
 cat "$workdir/gemini.out" 2>/dev/null
 echo "===== GEMINI STDERR ====="
 cat "$workdir/gemini.err" 2>/dev/null
+echo "===== CODEX ATTEMPTS ====="
+cat "$workdir/codex.attempts" 2>/dev/null
 echo "===== CODEX (rc=$rc_codex) ====="
-cat "$workdir/codex.out" 2>/dev/null
+if [[ -f "$workdir/codex-fallback.out" ]]; then
+  cat "$workdir/codex-fallback.out"
+else
+  cat "$workdir/codex.out" 2>/dev/null
+fi
 echo "===== CODEX STDERR ====="
 cat "$workdir/codex.err" 2>/dev/null
+if [[ -f "$workdir/codex-fallback.err" ]]; then
+  echo "===== CODEX FALLBACK STDERR ====="
+  cat "$workdir/codex-fallback.err"
+fi
 echo "===== GROK (rc=$rc_grok) ====="
 cat "$workdir/grok.out" 2>/dev/null
 echo "===== GROK STDERR ====="
@@ -288,6 +313,7 @@ cat "$workdir/ollama.err" 2>/dev/null
 **Failure handling:**
 - If ANTIGRAVITY STDERR starts with `antigravity skipped:`, report it in Phase 4 as "⏭️ Antigravity: skipped — <reason verbatim>", not as a failure, and do not count it against the synthesis grade.
 - Otherwise, if a provider exits non-zero or its stdout is empty, record it as failed in Phase 4 ("⚠️ [Provider]: failed — stderr: …") and continue the synthesis with the ones that responded. Do NOT fabricate a missing provider's response.
+- Use the Codex attempt lines to attribute a successful response to the selected model and its configured reasoning effort. If a second attempt ran, report the first failure and attribute the answer only to the fallback. Carry the exact runner's `reasoningEffort` for direct Codex into the participant line when present.
 - If ANTIGRAVITY STDERR contains an `antigravity warning:` line, append it to the Antigravity participant line as "⚠️ <warning verbatim>" even when the run succeeded.
 - If the whole Bash call times out (exceeds 600000ms), the tool returns a timeout error. Treat that as "at least one provider exceeded the 10-minute cap", report the timeout honestly in Phase 4, and proceed with whatever partial output the workdir files captured before the timeout.
 

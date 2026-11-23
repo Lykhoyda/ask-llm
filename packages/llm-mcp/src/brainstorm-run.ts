@@ -1,10 +1,15 @@
 #!/usr/bin/env node
 import { parseBrainstormParticipantList, runBrainstormPanel } from "./brainstorm-panel.js";
 
-function parseArgs(argv: string[]): string[] {
+function parseArgs(argv: string[]) {
   const participants: string[] = [];
+  let noFallback = false;
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
+    if (arg === "--no-fallback") {
+      noFallback = true;
+      continue;
+    }
     if (arg === "--participant") {
       const value = argv[index + 1];
       if (!value) throw new Error("--participant requires provider@harness:exact-model-id");
@@ -12,9 +17,9 @@ function parseArgs(argv: string[]): string[] {
       index += 1;
       continue;
     }
-    throw new Error(`Unknown argument "${arg}". Only repeated --participant arguments are supported.`);
+    throw new Error(`Unknown argument "${arg}". Use repeated --participant arguments and optional --no-fallback.`);
   }
-  return participants;
+  return { participants, noFallback };
 }
 
 async function readStdin(): Promise<string> {
@@ -26,8 +31,8 @@ async function readStdin(): Promise<string> {
 
 async function main(): Promise<void> {
   try {
-    const specs = parseArgs(process.argv.slice(2));
-    const list = parseBrainstormParticipantList(specs);
+    const { participants, noFallback } = parseArgs(process.argv.slice(2));
+    const list = parseBrainstormParticipantList(participants);
     if (list.mode !== "exact") {
       throw new Error(
         `ask-brainstorm-run executes only the exact routed Grok + GPT-6 Sol panel; bare providers (${list.providers.join(", ")}) use the standard coordinator dispatch. No participant was dispatched.`,
@@ -37,6 +42,7 @@ async function main(): Promise<void> {
     const report = await runBrainstormPanel({
       prompt,
       participants: list.participants,
+      noFallback,
       onProgress: (message) => console.error(message),
     });
     console.log(JSON.stringify(report, null, 2));

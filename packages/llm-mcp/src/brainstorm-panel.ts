@@ -32,6 +32,7 @@ export interface BrainstormParticipantResult extends BrainstormParticipant {
   reportedModel?: string;
   modelVerification?: BrainstormModelVerification;
   attributionNote?: string;
+  reasoningEffort?: string;
   response?: string;
   error?: string;
 }
@@ -179,6 +180,7 @@ async function invokeParticipant(
   prompt: string,
   signal: AbortSignal | undefined,
   onProgress: ((message: string) => void) | undefined,
+  noFallback: boolean | undefined,
 ): Promise<BrainstormParticipantResult> {
   const identity = `${participant.provider} via ${participant.harness} (${participant.model})`;
   const progress = onProgress ? (message: string) => onProgress(`[${identity}] ${message}`) : undefined;
@@ -289,6 +291,7 @@ async function invokeParticipant(
       sandbox: "read-only",
       signal,
       onProgress: progress,
+      ...(noFallback && { singleAttempt: true, strictOutcome: true }),
     });
     if (result.usage?.fellBack) {
       modelVerification = "fallback";
@@ -296,10 +299,11 @@ async function invokeParticipant(
         `Codex CLI reported a model fallback to "${result.usage.model}" for requested "${participant.model}". The response is excluded from two-model consensus.`,
       );
     }
-    if (result.usage && result.usage.model !== participant.model) {
+    const selectedModel = result.attempt?.model ?? result.usage?.model;
+    if (selectedModel && selectedModel !== participant.model) {
       modelVerification = "mismatch";
       throw new Error(
-        `Codex CLI ran "${result.usage.model}" instead of requested "${participant.model}". The response is excluded from two-model consensus; no additional route was attempted.`,
+        `Codex CLI selected "${selectedModel}" instead of requested "${participant.model}". The response is excluded from two-model consensus; no additional route was attempted.`,
       );
     }
     modelVerification = "selected-unverified";
@@ -308,10 +312,11 @@ async function invokeParticipant(
       modelVerification,
       attributionNote: selectedOnlyNote(
         participant,
-        result.usage
-          ? "Codex CLI echoed the requested ID with no fallback"
-          : "served from the Codex response cache keyed by the requested ID, which stores only no-fallback responses",
+        result.attempt?.cached || (!result.attempt && !result.usage)
+          ? "served from the Codex response cache keyed by the requested ID, which stores only no-fallback responses"
+          : "Codex CLI selected the requested ID with no fallback",
       ),
+      ...(result.attempt && { reasoningEffort: result.attempt.reasoningEffort }),
       response: result.response,
       status: "fulfilled",
     };
@@ -332,13 +337,14 @@ export async function runBrainstormPanel(options: {
   participants: BrainstormParticipant[];
   signal?: AbortSignal;
   onProgress?: (message: string) => void;
+  noFallback?: boolean;
 }): Promise<BrainstormPanelReport> {
   if (!options.prompt.trim()) throw new Error("The brainstorm panel requires a non-empty prompt.");
   validateBrainstormPanel(options.participants);
 
   const participants = await Promise.all(
     options.participants.map((participant) =>
-      invokeParticipant(participant, options.prompt, options.signal, options.onProgress),
+      invokeParticipant(participant, options.prompt, options.signal, options.onProgress, options.noFallback),
     ),
   );
   const successCount = participants.filter(({ status }) => status === "fulfilled").length;

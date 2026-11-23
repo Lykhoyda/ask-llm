@@ -6,6 +6,11 @@ import { expect, it } from "vitest";
 
 const root = resolve(import.meta.dirname, "..");
 
+interface PackedArchive {
+  filename: string;
+  files: { path: string }[];
+}
+
 it("packs the server, command entrypoints, and complete host resources into the canonical tarball", () => {
   const temp = mkdtempSync(join(tmpdir(), "ask-llm-canonical-pack-"));
   try {
@@ -14,8 +19,10 @@ it("packs the server, command entrypoints, and complete host resources into the 
       encoding: "utf8",
     });
     expect(pack.status, pack.stderr).toBe(0);
-    const [archive] = JSON.parse(pack.stdout);
-    const files = archive.files.map((file: { path: string }) => file.path);
+    const archives = JSON.parse(pack.stdout) as PackedArchive[] | Record<string, PackedArchive>;
+    const archive = Array.isArray(archives) ? archives[0] : archives["@ask-llm/mcp"];
+    expect(archive).toBeDefined();
+    const files = archive.files.map((file) => file.path);
     for (const path of [
       "dist/index.js",
       "dist/cli.js",
@@ -28,6 +35,7 @@ it("packs the server, command entrypoints, and complete host resources into the 
       ".mcp.json",
       "mcp.json",
       "skills/ask-llm-review/SKILL.md",
+      "skills/ask-llm-brainstorm/codex-strict.sh",
       "agents/codex-reviewer.md",
       "hooks/hooks.json",
       "pi/extensions/index.ts",

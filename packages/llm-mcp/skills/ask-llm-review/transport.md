@@ -12,6 +12,16 @@ Use the first rung that can honor every field the call needs. Read the chosen to
 
 If none of the three is available, stop and tell the user to run `ask-llm setup`. Always report the transport used, the requested model, and the model the response reports, including any quota fallback.
 
+### Strict read-only Codex calls
+
+When brainstorm requires one attempt, use the same schema-aware ladder with these pins:
+
+1. Prefer an exact `ask-codex` read-only leaf advertising `model`, `reasoningEffort`, `sandbox`, `noFallback` and `includeDirs` if needed. Pass the exact ID, `reasoningEffort: "high"`, `sandbox: "read-only"` and `noFallback: true`. Omit `sessionId`.
+2. Otherwise use the registered `ask-llm` leaf if it advertises Codex and every pin above plus `preferred` and `includeDirs`. Pass `provider: "codex"`, `preferred: false` and explicit `includeDirs` (empty when none). Use it even if a stale split leaf was exposed.
+3. If either leaf is exposed and neither is capable, stop and ask the user to upgrade the relevant package and restart the host or MCP connection. An advertised but disconnected tool still counts as exposed. If neither leaf is exposed and local CLI is permitted, disclose CLI transport and make one foreground call to `bash <ask-llm-brainstorm skill directory>/codex-strict.sh <exact-id> high` with the bounded prompt on stdin. Allow time for high reasoning effort and treat timeout as terminal. This helper uses one read-only ephemeral `codex exec --json` run and validates the terminal event. If additional directories are required, use a compatible tool.
+
+After selecting a rung, its failure ends the consultation. Relay the model as selected, the effort as configured, and any error from that rung. Reject a fallback or a different selected model. The ordinary review ladder above remains the route for calls that do not require this strict contract.
+
 ## Other providers
 
 Call the provider's own tool when exposed (`ask-gemini`, `ask-grok`, `ask-ollama`, `ask-antigravity`), otherwise the `ask-llm` tool with an explicit `provider`. Pass every field the skill or the user specifies, such as an exact `model`, `reasoningEffort` or `includeDirs`, checked against the tool's input schema: when the provider's own tool lacks one (for example `ask-antigravity` has no `model`), use `ask-llm` instead, and when neither can honor it, stop and name the field. There is no CLI fallback: if neither tool is exposed, stop and tell the user to run `ask-llm setup`.

@@ -1,4 +1,10 @@
-import { type AskResponse, askResponseSchema, relativeDirSchema, type UnifiedTool } from "@ask-llm/shared";
+import {
+  type AskResponse,
+  askResponseSchema,
+  formatCodexSelection,
+  relativeDirSchema,
+  type UnifiedTool,
+} from "@ask-llm/shared";
 import { z } from "zod";
 import {
   CODEX_REASONING_EFFORTS,
@@ -47,6 +53,12 @@ export const askCodexArgsSchema = z.object({
     .describe(
       `Opt into ASK_CODEX_PREFERRED_MODEL when it is configured to differ from the ${MODELS.DEFAULT} default. The built-in preferred value is also ${MODELS.PREFERRED}, so normal calls and review skills should leave this unset.`,
     ),
+  noFallback: z
+    .boolean()
+    .optional()
+    .describe(
+      "Make one read-only model attempt with the explicit model or normal default. Bypasses the preferred model, fallback and response cache when true.",
+    ),
   sandbox: z
     .literal("read-only")
     .optional()
@@ -80,7 +92,7 @@ export async function executeCodexRequest(
   onUsage?: Parameters<UnifiedTool["execute"]>[2],
   signal?: AbortSignal,
 ) {
-  const { prompt, model, reasoningEffort, sessionId, includeDirs, preferred } = args;
+  const { prompt, model, reasoningEffort, sessionId, includeDirs, preferred, noFallback } = args;
   if (!prompt?.trim()) {
     throw new Error(ERROR_MESSAGES.NO_PROMPT_PROVIDED);
   }
@@ -92,6 +104,7 @@ export async function executeCodexRequest(
     sessionId: sessionId as string | undefined,
     includeDirs: includeDirs as string[] | undefined,
     preferred: preferred as boolean | undefined,
+    ...(sandbox === "read-only" && noFallback === true && { singleAttempt: true, strictOutcome: true }),
     sandbox,
     onProgress,
     signal,
@@ -100,11 +113,15 @@ export async function executeCodexRequest(
   if (result.usage) onUsage?.(result.usage);
 
   const threadLine = result.threadId ? `\n\n[Thread ID: ${result.threadId}]` : "";
-  const text = `${STATUS_MESSAGES.CODEX_RESPONSE}\n${result.response}${threadLine}`;
+  const attribution = result.attempt
+    ? formatCodexSelection(result.attempt, result.usage?.fellBack)
+    : STATUS_MESSAGES.CODEX_RESPONSE;
+  const text = `${attribution}\n${result.response}${threadLine}`;
   const structured: AskResponse = {
     provider: "codex",
     response: result.response,
-    model: result.usage?.model ?? (model as string | undefined) ?? MODELS.DEFAULT,
+    model: result.attempt?.model ?? result.usage?.model ?? (model as string | undefined) ?? MODELS.DEFAULT,
+    ...(result.attempt && { reasoningEffort: result.attempt.reasoningEffort }),
     sessionId: result.threadId,
     usage: result.usage,
   };

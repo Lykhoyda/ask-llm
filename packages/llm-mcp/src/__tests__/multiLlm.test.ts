@@ -22,6 +22,31 @@ function executor(response: string, sessionId?: string, usage?: UsageStats): Exe
 }
 
 describe("dispatchMultiLlm", () => {
+  it("reports the Codex attempt configuration in ordered bare batches", async () => {
+    const exCodex: ExecutorFn = vi.fn().mockResolvedValue({
+      response: "codex answer",
+      attempt: { model: "gpt-6.2-astra", reasoningEffort: "xhigh", cached: false },
+    });
+    const exGemini = executor("gemini answer");
+    const report = await dispatchMultiLlm({
+      prompt: "sample queue",
+      providers: ["codex", "gemini"],
+      getExecutor: (provider) => (provider === "codex" ? exCodex : exGemini),
+    });
+    expect(exCodex).toHaveBeenCalledExactlyOnceWith({
+      prompt: "sample queue",
+      signal: undefined,
+      onProgress: expect.any(Function),
+    });
+    const { results } = multiLlmReportSchema.parse(report);
+    expect(results.map(({ provider }) => provider)).toEqual(["codex", "gemini"]);
+    expect(results[0]).toMatchObject({ model: "gpt-6.2-astra", reasoningEffort: "xhigh" });
+    expect(results[1]).not.toHaveProperty("reasoningEffort");
+    const text = formatMultiLlmReport(report);
+    expect(text).toMatch(/### codex ✓ \([^\n]*selected gpt-6\.2-astra · reasoning effort configured xhigh\)/);
+    expect(text).toMatch(/### gemini ✓ \(\d+\.\d+s\)/);
+  });
+
   it("dispatches to all providers in parallel and collects results", async () => {
     const exGemini = executor("gemini ans", undefined, makeUsage({ provider: "gemini" }));
     const exCodex = executor("codex ans", "thread-123", makeUsage({ provider: "codex", model: "gpt-5.4" }));

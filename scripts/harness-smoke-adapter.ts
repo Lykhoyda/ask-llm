@@ -5,6 +5,7 @@
 import { chmod, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { delimiter, dirname, join } from "node:path";
+import { runSoloBrainstorm } from "./harness-smoke-brainstorm.ts";
 
 interface Scenario {
   id: string;
@@ -12,6 +13,7 @@ interface Scenario {
   surface: string;
   provider?: "codex" | "grok";
   harness?: "cursor-agent" | "codex-cli" | "grok-cli";
+  soloBrainstorm?: boolean;
 }
 
 interface ProbeConfig {
@@ -30,6 +32,13 @@ const config = JSON.parse(await readFile(configPath, "utf8")) as ProbeConfig;
 const work = await mkdtemp(join(tmpdir(), "ask-llm-real-adapter-"));
 const bin = join(work, "bin");
 const invocationLog = join(work, "invocations.jsonl");
+
+async function readInvocations(): Promise<{ command: string; args: string[] }[]> {
+  return (await readFile(invocationLog, "utf8"))
+    .split(/\r?\n/)
+    .filter(Boolean)
+    .map((line) => JSON.parse(line));
+}
 
 function invariant(value: unknown, message: string): asserts value {
   if (!value) throw new Error(message);
@@ -75,8 +84,28 @@ console.log(JSON.stringify({ type: "result", result: marker, usage: { input_toke
 if (args.includes("--version")) { console.log("codex-cli 0.154.0"); process.exit(0); }
 const modelIndex = args.indexOf("--model") >= 0 ? args.indexOf("--model") : args.indexOf("-m");
 const model = args[modelIndex + 1];
+if (process.env.ASK_LLM_SMOKE_RAW_PRIMARY_ERROR === "1" && model !== "gpt-6.1-terra") {
+  console.error("fixture authentication failure");
+  process.exit(42);
+}
+if (!args.includes("--json")) { console.log(marker); process.exit(0); }
+const prompt = args.join(" ") + stdin;
+if (prompt.includes("[smoke: transient error]"))
+  console.log(JSON.stringify({ type: "error", message: "reconnecting" }));
+if (prompt.includes("[smoke: quota primary]") && model !== "gpt-6.1-terra") {
+  console.log(JSON.stringify({ type: "error", message: "insufficient_quota" }));
+  process.exit(0);
+}
 console.log(JSON.stringify({ type: "thread.started", thread_id: "fixture-thread" }));
 console.log(JSON.stringify({ type: "item.completed", item: { type: "agent_message", text: marker } }));
+if (prompt.includes("[smoke: terminal quota]")) {
+  console.log(JSON.stringify({ type: "turn.failed", error: { message: "insufficient_quota" } }));
+  process.exit(0);
+}
+if (prompt.includes("[smoke: nonzero terminal quota]")) {
+  console.log(JSON.stringify({ type: "turn.failed", error: { message: "insufficient_quota" } }));
+  process.exit(1);
+}
 console.log(JSON.stringify({ type: "turn.completed", usage: { input_tokens: 2, output_tokens: 1 } }));
 `,
   );
@@ -255,7 +284,13 @@ process.env.ASK_CURSOR_TIMEOUT_MS = "5000";
 try {
   await validateSkillAdapter();
   let result: unknown;
-  if (config.scenario.host === "pi") result = await runPiAdapter();
+  let soloEvidence: Awaited<ReturnType<typeof runSoloBrainstorm>> | undefined;
+  if (config.scenario.soloBrainstorm) {
+    process.env.GMCPT_LOG_LEVEL = "error";
+    await writeFile(invocationLog, "", { mode: 0o600 });
+    soloEvidence = await runSoloBrainstorm({ ...config, work, invocations: readInvocations });
+    result = { marker: config.marker };
+  } else if (config.scenario.host === "pi") result = await runPiAdapter();
   else if (
     config.scenario.surface.includes("brainstorm") &&
     config.scenario.host !== "codex-cli" &&
@@ -266,10 +301,7 @@ try {
   else if (config.scenario.provider === "grok") result = await runGrok();
   else result = await runCursor("grok", config.model);
 
-  const invocations = (await readFile(invocationLog, "utf8"))
-    .split(/\r?\n/)
-    .filter(Boolean)
-    .map((line) => JSON.parse(line));
+  const invocations = soloEvidence?.trace ?? (await readInvocations());
   invariant(invocations.length > 0, "real adapter never reached a fake transport");
   const unsafe = invocations.some((entry) =>
     entry.args.some((arg: string) => ["--force", "--trust", "--yolo", "workspace-write"].includes(arg.toLowerCase())),
@@ -298,7 +330,11 @@ try {
       model: config.model,
       harness: config.scenario.harness,
       fellBack: false,
-      invocations: invocations.map((entry) => ({ command: entry.command, args: entry.args })),
+      ...(soloEvidence && { attribution: soloEvidence.attribution, transportCounts: soloEvidence.counts }),
+      invocations: invocations.map(({ command, args }) => ({
+        command,
+        args: soloEvidence && args[0] === "exec" && args.at(-1) !== "-" ? [...args.slice(0, -1), "<prompt>"] : args,
+      })),
     }),
   );
 } finally {

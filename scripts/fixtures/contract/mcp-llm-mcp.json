@@ -71,6 +71,9 @@
           ],
           "type": "string"
         },
+        "reasoningEffort": {
+          "type": "string"
+        },
         "reportedModel": {
           "type": "string"
         },
@@ -158,6 +161,10 @@
           "description": "Exact model ID for the selected provider/harness. Usually not needed.",
           "type": "string"
         },
+        "noFallback": {
+          "description": "Read-only Codex only. When true, use the exact model or normal default for one attempt, bypassing the preferred model, fallback and response cache.",
+          "type": "boolean"
+        },
         "preferred": {
           "description": "Codex-only: opt into ASK_CODEX_PREFERRED_MODEL when it differs from the default. Unsupported on other providers; never silently stripped. Leave unset for normal review calls.",
           "type": "boolean"
@@ -236,6 +243,9 @@
             "ollama",
             "antigravity"
           ],
+          "type": "string"
+        },
+        "reasoningEffort": {
           "type": "string"
         },
         "reportedModel": {
@@ -744,6 +754,9 @@
                 "type": "boolean"
               },
               "provider": {
+                "type": "string"
+              },
+              "reasoningEffort": {
                 "type": "string"
               },
               "response": {

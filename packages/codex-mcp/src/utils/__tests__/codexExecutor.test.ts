@@ -230,6 +230,143 @@ describe("reasoning effort", () => {
     await executeCodexCLI({ prompt: "same prompt", reasoningEffort: "high" });
     expect(mockExecuteCommand).toHaveBeenCalledTimes(2);
   });
+
+  it.each([
+    ["invalid", undefined, "medium"],
+    ["xhigh", undefined, "xhigh"],
+    ["low", "high", "high"],
+  ] as const)("resolves env effort %s with request override %s", async (envEffort, reasoningEffort, expected) => {
+    vi.resetModules();
+    vi.stubEnv("ASK_CODEX_REASONING_EFFORT", envEffort);
+    vi.stubEnv("ASK_CODEX_MODEL", "env-model");
+    vi.stubEnv("ASK_CODEX_PREFERRED_MODEL", "env-preferred");
+    vi.stubEnv("ASK_CODEX_LOAD_USER_CONFIG", undefined);
+    try {
+      const { executeCodexCLI: configuredExecutor } = await import("../codexExecutor.js");
+      const result = await configuredExecutor({
+        prompt: "review",
+        model: "gpt-6.2-astra",
+        reasoningEffort,
+        preferred: true,
+      });
+      expect(mockExecuteCommand.mock.calls.map(([, argv]) => argv)).toEqual([
+        [
+          "exec",
+          "--skip-git-repo-check",
+          "--ephemeral",
+          "--ignore-user-config",
+          "--ignore-rules",
+          "--sandbox",
+          "read-only",
+          "-c",
+          `model_reasoning_effort="${expected}"`,
+          "--json",
+          "-m",
+          "gpt-6.2-astra",
+          "review",
+        ],
+      ]);
+      expect(result.attempt).toEqual({ model: "gpt-6.2-astra", reasoningEffort: expected, cached: false });
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+});
+
+const astraHigh = { prompt: "Review a sample queue", model: "gpt-6.2-astra", reasoningEffort: "high" } as const;
+const strictOptions = { ...astraHigh, singleAttempt: true, strictOutcome: true };
+const agentAnswer = '{"type":"item.completed","item":{"type":"agent_message","text":"intermediate answer"}}';
+const completed = '{"type":"turn.completed"}';
+const quotaEvent = '{"type":"error","message":"insufficient_quota"}';
+const failedTurn = '{"type":"turn.failed","error":{"message":"insufficient_quota"}}';
+
+describe("strict Codex outcomes", () => {
+  it("keeps fallback answers out of the primary cache and bypasses a warm primary entry on strict calls", async () => {
+    mockExecuteCommand
+      .mockRejectedValueOnce(new Error("insufficient_quota"))
+      .mockResolvedValueOnce(agentAnswer.replace("intermediate answer", "Terra answer"))
+      .mockResolvedValueOnce(agentAnswer.replace("intermediate answer", "Astra answer"))
+      .mockResolvedValueOnce(quotaEvent);
+
+    const fallback = await executeCodexCLI(astraHigh);
+    expect(fallback).toMatchObject({
+      response: "Terra answer",
+      attempt: { model: MODELS.FALLBACK, reasoningEffort: "high", cached: false },
+      usage: { fellBack: true },
+    });
+    expect(responseCache.size).toBe(0);
+    const primary = await executeCodexCLI(astraHigh);
+    expect(primary).toMatchObject({
+      response: "Astra answer",
+      attempt: { model: astraHigh.model, reasoningEffort: "high", cached: false },
+    });
+    expect(await executeCodexCLI(astraHigh)).toEqual({
+      response: "Astra answer",
+      attempt: { model: astraHigh.model, reasoningEffort: "high", cached: true },
+      usage: undefined,
+      threadId: undefined,
+    });
+    await expect(executeCodexCLI(strictOptions)).rejects.toThrow("insufficient_quota");
+    expect(responseCache.size).toBe(1);
+    expect(mockExecuteCommand.mock.calls.map(([, args]) => args[args.indexOf("-m") + 1])).toEqual([
+      astraHigh.model,
+      MODELS.FALLBACK,
+      astraHigh.model,
+      astraHigh.model,
+    ]);
+  });
+
+  it.each([
+    [quotaEvent, "insufficient_quota"],
+    [`${agentAnswer}\n${failedTurn}`, "insufficient_quota"],
+    [`${agentAnswer}\n${quotaEvent}`, "insufficient_quota"],
+    [agentAnswer, "without a completed turn"],
+    [completed, "without a completed turn"],
+    ["", "without a completed turn"],
+  ])("rejects strict output without a usable completed answer (case %#)", async (output, error) => {
+    mockExecuteCommand.mockResolvedValueOnce(output);
+    await expect(executeCodexCLI(strictOptions)).rejects.toMatchObject({
+      message: expect.stringMatching(
+        `^Codex CLI · selected gpt-6\\.2-astra · reasoning effort configured high: .*${error}`,
+      ),
+    });
+    expect(mockExecuteCommand).toHaveBeenCalledOnce();
+  });
+
+  it("keeps legacy intermediate-answer behavior and accepts a recovered strict turn", async () => {
+    mockExecuteCommand
+      .mockResolvedValueOnce(`${agentAnswer}\n${failedTurn}`)
+      .mockResolvedValueOnce(`{"type":"error","message":"reconnecting"}\n${agentAnswer}\n${completed}`);
+    expect((await executeCodexCLI(astraHigh)).response).toBe("intermediate answer");
+    expect(await executeCodexCLI(strictOptions)).toMatchObject({
+      response: "intermediate answer",
+      attempt: { model: astraHigh.model, reasoningEffort: "high", cached: false },
+    });
+    expect(mockExecuteCommand).toHaveBeenCalledTimes(2);
+  });
+
+  it.each(["insufficient_quota", "authentication failed", "model unavailable for this account", "command timed out"])(
+    "preserves a process failure with no secondary attempt: %s",
+    async (message) => {
+      const cause = new Error(message);
+      mockExecuteCommand.mockRejectedValueOnce(cause);
+      await expect(executeCodexCLI(strictOptions)).rejects.toMatchObject({
+        message: expect.stringContaining(message),
+        cause,
+      });
+      expect(mockExecuteCommand).toHaveBeenCalledOnce();
+    },
+  );
+
+  it("does not retry an aborted attempt", async () => {
+    const controller = new AbortController();
+    mockExecuteCommand.mockImplementationOnce(async () => {
+      controller.abort(new Error("cancelled"));
+      return `${agentAnswer}\n${completed}`;
+    });
+    await expect(executeCodexCLI({ ...strictOptions, signal: controller.signal })).rejects.toThrow("cancelled");
+    expect(mockExecuteCommand).toHaveBeenCalledOnce();
+  });
 });
 
 describe("includeDirs → --add-dir (#59)", () => {
@@ -1060,6 +1197,7 @@ describe("configured preferred model tier", () => {
     expect(result.response).toContain("pro answer");
     expect(result.usage?.model).toBe(MODELS.PREFERRED);
     expect(result.usage?.fellBack).toBe(false);
+    expect(result.attempt).toEqual({ model: MODELS.PREFERRED, reasoningEffort: "high", cached: false });
     const [, preferredArgs] = mockExecuteCommand.mock.calls[0];
     expect(preferredArgs[preferredArgs.indexOf(CLI.FLAGS.CONFIG) + 1]).toBe('model_reasoning_effort="high"');
   });

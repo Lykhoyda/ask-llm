@@ -44,6 +44,10 @@
           "minLength": 1,
           "type": "string"
         },
+        "noFallback": {
+          "description": "Use one model attempt without fallback or cache.",
+          "type": "boolean"
+        },
         "preferred": {
           "type": "boolean"
         },
@@ -263,6 +267,10 @@
         "model": {
           "description": "Exact model ID for the selected provider/harness. Usually not needed.",
           "type": "string"
+        },
+        "noFallback": {
+          "description": "Read-only Codex only. When true, use the exact model or normal default for one attempt, bypassing the preferred model, fallback and response cache.",
+          "type": "boolean"
         },
         "preferred": {
           "description": "Codex-only: opt into ASK_CODEX_PREFERRED_MODEL when it differs from the default. Unsupported on other providers; never silently stripped. Leave unset for normal review calls.",

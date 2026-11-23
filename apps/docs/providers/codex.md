@@ -26,13 +26,17 @@ Setup registers the unified Ask LLM server, which consults Codex through the `as
 
 | Tool | Purpose |
 |------|---------|
-| `ask-codex` | Send prompts to Codex CLI. Optional `reasoningEffort`; omit `sessionId` for an ephemeral call, pass `sessionId: ""` to start a persisted thread, or pass a returned thread ID to resume it |
+| `ask-codex` | Send prompts to Codex CLI. Optional `reasoningEffort` and `noFallback`; omit `sessionId` for an ephemeral call, pass `sessionId: ""` to start a persisted thread, or pass a returned thread ID to resume it |
 | `ask-codex-edit` | Propose structured code edits via a read-only `codex exec --output-schema` pass. Returns edit blocks for the calling client to apply |
 | `get-usage-stats` | Per-session token totals + breakdowns. In-memory |
 | `ask-codex-write` | Run explicit file-writing tasks, including image generation, with workspace-write permission. Replaces `ask-codex({ sandbox: "workspace-write" })` |
 | `ping` | Fast connection test to verify MCP setup |
 
 `ask-codex`, `ask-codex-write`, and `ask-codex-edit` return both human-readable text and a structured `AskResponse` (provider, response, model, sessionId, usage) via MCP `outputSchema`. Calls are ephemeral by default for privacy: a Thread ID from a call that omitted `sessionId` is not resumable. To opt into continuity, pass `sessionId: ""` on the first call; its returned Thread ID is the same value as `structuredContent.sessionId`, and can be passed back on later calls.
+
+`ask-codex` and unified `ask-llm` with Codex show an attribution line before the answer, for example **Codex CLI · selected gpt-6.2-astra · reasoning effort configured high**. The structured `model` and `reasoningEffort` fields reflect the configuration of the successful attempt, including a successful fallback. A cached answer is labelled **cached** and carries its original configuration with no fresh usage stats. These fields describe Ask LLM's selection and configuration. Independent backend model and reasoning effort are unverified.
+
+For read-only Codex calls, set `noFallback: true` to bypass the response cache and make one model attempt with the exact `model` or the normal default. This also bypasses any preferred model even if `preferred: true` was supplied. The attempt must exit successfully with a completed turn and a nonempty answer. This option is available on `ask-codex` and on unified `ask-llm` with `provider: "codex"`.
 
 ## Models
 

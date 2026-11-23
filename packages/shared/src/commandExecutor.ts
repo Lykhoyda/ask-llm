@@ -14,6 +14,8 @@ export interface CommandExecutionOptions {
   cwd?: string;
   /** On POSIX, terminate the CLI and its process group on timeout or abort. */
   killProcessGroup?: boolean;
+  /** Select diagnostics from the completed streams before the shared error sanitizer. */
+  failureDetails?: (stdout: string, stderr: string, exitCode: number | null) => string;
 }
 
 export function isCommandNotFoundError(stderr: string, command: string): boolean {
@@ -306,7 +308,9 @@ export async function executeCommand(
           // both streams (not stderr-or-stdout) so stdout-borne errors stay
           // visible to downstream quota/fallback detection. See ADR-117.
           const stderrText = Buffer.concat(stderrChunks).toString();
-          const rawError = [stderrText.trim(), stdout.trim()].filter(Boolean).join("\n") || "Unknown error";
+          const rawError =
+            options?.failureDetails?.(stdout, stderrText, code) ??
+            ([stderrText.trim(), stdout.trim()].filter(Boolean).join("\n") || "Unknown error");
           const userMessage = sanitizeErrorForLLM(rawError, command);
           reject(new Error(userMessage));
         }

@@ -21,6 +21,8 @@ The matrix covers Claude Code `/brainstorm`, `/codex-pair`, and `/grok-pair`; Cu
 
 ## Optional live mode and cost boundary
 
+The deterministic `claude:/brainstorm --external-only` leg checks provider-tool and Codex process counts across the marketplace launcher, packed MCP, native Pi, and the direct CLI helper. The fixtures drive actual tools and fake model processes. Proving a host's interpretation of the slash workflow requires a separately authorized session trace.
+
 For development-only evaluation of the portable codex-pair writer rule, use the [writer applicability scenarios](CODEX-PAIR-WRITER-EVAL.md). Those scenarios observe host messages, questions, and review attempts; deterministic adapter smoke does not establish model interpretation.
 
 Live mode can consume subscription quota or metered spend. It is refused unless both the global acknowledgement and individual surface authorization are present:

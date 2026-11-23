@@ -108,6 +108,8 @@ Sends code changes to Google Gemini for review. Leverages Gemini's massive conte
 
 #### `brainstorm-coordinator`
 
+The solo command `/brainstorm --external-only codex@codex-cli:gpt-6.2-astra <topic>` runs in the current conversation before the coordinator. The marketplace plugin's bundled `ask-codex` leaf supports the request when its schema advertises `noFallback`. A compatible unified `ask-llm` can also serve it, including when a separately installed split leaf is stale. After an upgrade, restart Claude Code and check the connected tools in `/mcp`.
+
 Orchestrates multi-LLM brainstorming sessions with **Claude Opus as a first-class research participant** in standard mode. In the exact Grok + GPT-6 Sol mode (see [`/brainstorm`](/reference/skills#brainstorm)) Claude's research is a non-voting evidence memo, the panel is exactly the two requested participants, and one participant failure makes the run partial rather than two-model consensus. The agent runs four phases sequentially within a single sub-agent turn:
 
 **Phase 1: Context Gathering.** Identify the topic, gather diffs/files/conversation context referenced by it.

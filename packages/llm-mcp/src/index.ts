@@ -7,6 +7,7 @@ import {
   createProgressTracker,
   createSessionUsage,
   createUsageStatsTool,
+  formatCodexSelection,
   Logger,
   mcpSchema,
   SERVER_INSTRUCTIONS,
@@ -17,6 +18,7 @@ import {
   relativeDirSchema,
   type UsageStats,
 } from "@ask-llm/shared";
+import type { CodexAttempt } from "@ask-llm/codex-mcp/executor";
 import { McpServer } from "@modelcontextprotocol/server";
 import type { CallToolResult, ServerContext } from "@modelcontextprotocol/server";
 import { z } from "zod";
@@ -75,6 +77,7 @@ export type ExecutorFn = (options: {
   onProgress?: (output: string) => void;
   signal?: AbortSignal;
   singleAttempt?: boolean;
+  strictOutcome?: boolean;
 }) => Promise<{
   response: string;
   // Actual model that produced the answer. Gemini/Codex report it via
@@ -82,6 +85,7 @@ export type ExecutorFn = (options: {
   // undefined), so the unified layer reads result.model to stay accurate after
   // a provider-internal fallback (e.g. Antigravity Pro → Flash).
   model?: string;
+  attempt?: CodexAttempt;
   usage?: UsageStats;
   sessionId?: string;
   threadId?: string;
@@ -295,6 +299,12 @@ export function buildAskLlmSchema(availableProviders: string[], excludedProvider
         .describe(
           "Codex-only: opt into ASK_CODEX_PREFERRED_MODEL when it differs from the default. Unsupported on other providers; never silently stripped. Leave unset for normal review calls.",
         ),
+      noFallback: z
+        .boolean()
+        .optional()
+        .describe(
+          "Read-only Codex only. When true, use the exact model or normal default for one attempt, bypassing the preferred model, fallback and response cache.",
+        ),
       sandbox: z
         .enum(["read-only", "workspace-write"])
         .optional()
@@ -350,6 +360,13 @@ export function buildAskLlmSchema(availableProviders: string[], excludedProvider
           message: `preferred is not supported by provider=${value.provider}; Ask LLM will not silently strip it`,
         });
       }
+      if (value.noFallback !== undefined && (value.provider !== "codex" || value.sandbox === "workspace-write")) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["noFallback"],
+          message: "noFallback is only supported for read-only calls with provider=codex",
+        });
+      }
       if (value.sandbox && value.provider !== "codex") {
         ctx.addIssue({
           code: "custom",
@@ -369,6 +386,7 @@ export function askLlmArgsToExecutorOptions(args: {
   includeDirs?: string[];
   reasoningEffort?: CodexReasoningEffort;
   preferred?: boolean;
+  noFallback?: boolean;
   sandbox?: "read-only" | "workspace-write";
 }): {
   prompt: string;
@@ -377,6 +395,8 @@ export function askLlmArgsToExecutorOptions(args: {
   includeDirs?: string[];
   reasoningEffort?: CodexReasoningEffort;
   preferred?: boolean;
+  singleAttempt?: boolean;
+  strictOutcome?: boolean;
   sandbox?: "read-only" | "workspace-write";
   harness?: "xai-api" | "grok-cli";
 } {
@@ -387,6 +407,7 @@ export function askLlmArgsToExecutorOptions(args: {
     includeDirs: args.includeDirs,
     reasoningEffort: args.reasoningEffort,
     preferred: args.preferred,
+    ...(args.provider === "codex" && args.noFallback === true && { singleAttempt: true, strictOutcome: true }),
     sandbox: args.sandbox,
     harness: args.harness === "xai-api" || args.harness === "grok-cli" ? args.harness : undefined,
   };
@@ -460,6 +481,7 @@ export async function runAskLlm(
   });
 
   const providerName = PROVIDERS[provider]?.name ?? provider;
+  const attempt = provider === "codex" ? result.attempt : undefined;
   const idLine = result.sessionId
     ? `\n\n[Session ID: ${result.sessionId}]`
     : result.threadId
@@ -468,12 +490,20 @@ export async function runAskLlm(
   const structured: AskResponse = {
     provider: result.provider ?? parseProviderName(provider),
     response: result.response,
-    model: result.usage?.model ?? result.model ?? parsed.model ?? PROVIDERS[provider]?.defaultModel ?? "unknown",
+    model:
+      attempt?.model ??
+      result.usage?.model ??
+      result.model ??
+      parsed.model ??
+      PROVIDERS[provider]?.defaultModel ??
+      "unknown",
+    ...(attempt && { reasoningEffort: attempt.reasoningEffort }),
     sessionId: result.sessionId ?? result.threadId,
     usage: result.usage,
     harness: result.harness,
   };
-  return { text: `${providerName} response:\n${result.response}${idLine}`, structured, usage: result.usage };
+  const attribution = attempt ? formatCodexSelection(attempt, result.usage?.fellBack) : `${providerName} response:`;
+  return { text: `${attribution}\n${result.response}${idLine}`, structured, usage: result.usage };
 }
 
 export function formatProviderPing(status: ProviderStatus, message?: string): string {

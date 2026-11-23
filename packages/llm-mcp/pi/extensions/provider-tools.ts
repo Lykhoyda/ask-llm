@@ -48,17 +48,21 @@ const relativeDirs = Type.Array(Type.String({ minLength: 1, maxLength: 4096 }), 
 });
 const prompt = Type.String({ minLength: 1, maxLength: 100000, description: "Prompt sent to the consulted provider." });
 
-const codexSchema = Type.Object({
+const codexCommonFields = {
   prompt,
   model: Type.Optional(Type.String({ minLength: 1 })),
   reasoningEffort: Type.Optional(StringEnum(["low", "medium", "high", "xhigh", "max", "ultra"] as const)),
   sessionId: Type.Optional(Type.String()),
   includeDirs: Type.Optional(relativeDirs),
   preferred: Type.Optional(Type.Boolean()),
+};
+const codexSchema = Type.Object({
+  ...codexCommonFields,
+  noFallback: Type.Optional(Type.Boolean({ description: "Use one model attempt without fallback or cache." })),
   sandbox: Type.Optional(Type.Literal("read-only")),
 });
 const codexWriteSchema = Type.Object({
-  ...codexSchema.properties,
+  ...codexCommonFields,
   sandbox: Type.Optional(Type.Literal("workspace-write")),
 });
 const geminiSchema = Type.Object({
@@ -83,7 +87,7 @@ const antigravitySchema = Type.Object({
 });
 
 const providerOptionSchemas = {
-  codex: Type.Omit(codexSchema, ["prompt"]),
+  codex: Type.Omit(codexSchema, ["prompt", "noFallback"]),
   gemini: Type.Omit(geminiSchema, ["prompt"]),
   grok: Type.Omit(grokSchema, ["prompt"]),
   ollama: Type.Omit(ollamaSchema, ["prompt"]),

@@ -110,12 +110,24 @@ export interface CodexExecutorOptions {
   /** Recheck caller eligibility after the version probe and before dispatch. */
   beforeSpawn?: () => void;
   singleAttempt?: boolean;
+  /** Require a successful terminal JSONL event, in addition to a nonempty answer. */
+  strictOutcome?: boolean;
 }
 
-export interface CodexExecutorResult {
+interface CodexParsedResponse {
   response: string;
   threadId: string | undefined;
   usage: UsageStats | undefined;
+}
+
+export interface CodexAttempt {
+  model: string;
+  reasoningEffort: CodexReasoningEffort;
+  cached: boolean;
+}
+
+export interface CodexExecutorResult extends CodexParsedResponse {
+  attempt: CodexAttempt;
 }
 
 function buildUsageStats(
@@ -149,6 +161,34 @@ function formatStats(usage: CodexTurnCompleted["usage"]): string {
   return parts.length > 0 ? `\n\n[Codex stats: ${parts.join(", ")}]` : "";
 }
 
+function* codexJsonlEvents(raw: string): Generator<CodexJsonLine> {
+  for (const line of raw.split("\n")) {
+    if (!line.trim()) continue;
+    try {
+      const parsed = JSON.parse(line) as CodexJsonLine | null;
+      if (parsed && typeof parsed === "object" && typeof parsed.type === "string") yield parsed;
+    } catch {
+      // Older clients may mix JSONL events with plain-text diagnostics.
+    }
+  }
+}
+
+function codexEventError(event: CodexJsonLine): string | undefined {
+  if (event.type === "turn.failed") return (event as CodexTurnFailed).error?.message ?? JSON.stringify(event);
+  if (event.type === "error") return (event as CodexErrorEvent).message ?? JSON.stringify(event);
+  return undefined;
+}
+
+function strictFailureDetails(stdout: string, stderr: string, exitCode: number | null): string {
+  let diagnostic: string | undefined;
+  for (const event of codexJsonlEvents(stdout)) {
+    if (event.type === "turn.completed") diagnostic = undefined;
+    diagnostic = codexEventError(event) ?? diagnostic;
+    if (event.type === "turn.failed") break;
+  }
+  return [diagnostic, stderr.trim()].filter(Boolean).join("\n") || `Codex exited with status ${exitCode}.`;
+}
+
 // Exported for unit testing — the exit-0 error-event path (codex emits
 // {"type":"error",...} as JSONL and still exits 0) throws "Codex error
 // event: <message>", which isQuotaError must classify.
@@ -157,27 +197,21 @@ export function parseCodexJsonlOutput(
   model: string,
   durationMs: number,
   fellBack: boolean,
-): CodexExecutorResult {
-  const lines = raw.split("\n").filter((l) => l.trim().length > 0);
-
+  strictOutcome = false,
+): CodexParsedResponse {
   let lastAgentMessage: string | undefined;
   let threadId: string | undefined;
   let usage: CodexTurnCompleted["usage"];
   let lastError: string | undefined;
+  let completedAnswer: string | undefined;
   let sawJsonlEvent = false;
 
-  for (const line of lines) {
-    let parsed: CodexJsonLine;
-    try {
-      parsed = JSON.parse(line) as CodexJsonLine;
-    } catch {
-      continue;
-    }
+  for (const parsed of codexJsonlEvents(raw)) {
+    sawJsonlEvent = true;
 
-    // Only object lines with a string `type` count as codex events — a bare
-    // number or quoted string in plain-text output also survives JSON.parse.
-    if (parsed && typeof parsed === "object" && typeof (parsed as { type?: unknown }).type === "string") {
-      sawJsonlEvent = true;
+    if (strictOutcome && parsed.type === "turn.started") {
+      lastAgentMessage = undefined;
+      completedAnswer = undefined;
     }
 
     if (parsed.type === "thread.started") {
@@ -196,15 +230,20 @@ export function parseCodexJsonlOutput(
 
     if (parsed.type === "turn.completed") {
       usage = (parsed as CodexTurnCompleted).usage;
+      if (strictOutcome) {
+        completedAnswer = lastAgentMessage;
+        lastError = undefined;
+      }
     }
 
-    if (parsed.type === "turn.failed") {
-      lastError = (parsed as CodexTurnFailed).error?.message ?? JSON.stringify(parsed);
-    }
+    lastError = codexEventError(parsed) ?? lastError;
+    if (strictOutcome && parsed.type === "turn.failed") throw new Error(`Codex error event: ${lastError}`);
+  }
 
-    if (parsed.type === "error") {
-      lastError = (parsed as CodexErrorEvent).message ?? JSON.stringify(parsed);
-    }
+  if (strictOutcome) {
+    if (lastError !== undefined) throw new Error(`Codex error event: ${lastError}`);
+    if (!completedAnswer?.trim()) throw new Error("Codex ended without a completed turn containing an answer.");
+    lastAgentMessage = completedAnswer;
   }
 
   if (lastError && !lastAgentMessage) {
@@ -456,7 +495,12 @@ export async function executeCodexCLI(options: CodexExecutorOptions): Promise<Co
     const cached = responseCache.get(cacheKey);
     if (cached) {
       Logger.debug("Response cache hit for codex");
-      return { response: cached, threadId: undefined, usage: undefined };
+      return {
+        response: cached,
+        threadId: undefined,
+        usage: undefined,
+        attempt: { model, reasoningEffort, cached: true },
+      };
     }
   }
 
@@ -468,12 +512,17 @@ export async function executeCodexCLI(options: CodexExecutorOptions): Promise<Co
     await assertCodexSupportsModel(attemptModel, options.signal, ...commandOptions);
     options.signal?.throwIfAborted();
   };
-  await checkAttempt(model);
+  const parseAttempt = (raw: string, selectedModel: string, startedAt: number, fellBack: boolean) => ({
+    ...parseCodexJsonlOutput(raw, selectedModel, Date.now() - startedAt, fellBack, options.strictOutcome),
+    attempt: { model: selectedModel, reasoningEffort, cached: false },
+  });
 
-  const commandLogging = options.killProcessGroup ? { sensitiveValues: [options.prompt] } : undefined;
+  const commandLogging =
+    options.killProcessGroup || options.strictOutcome ? { sensitiveValues: [options.prompt] } : undefined;
 
   let schemaPath: string | undefined;
   try {
+    await checkAttempt(model);
     if (outputSchema) {
       schemaPath = join(tmpdir(), `codex-output-schema-${process.pid}-${randomUUID()}.json`);
       writeFileSync(schemaPath, JSON.stringify(outputSchema), { mode: 0o600 });
@@ -529,7 +578,7 @@ export async function executeCodexCLI(options: CodexExecutorOptions): Promise<Co
           ...commandOptions,
         );
         options.signal?.throwIfAborted();
-        return parseCodexJsonlOutput(raw, MODELS.PREFERRED, Date.now() - preferredStartedAt, false);
+        return parseAttempt(raw, MODELS.PREFERRED, preferredStartedAt, false);
       } catch (preferredError) {
         options.signal?.throwIfAborted();
         const reason = preferredError instanceof Error ? preferredError.message : String(preferredError);
@@ -546,16 +595,16 @@ export async function executeCodexCLI(options: CodexExecutorOptions): Promise<Co
       const raw = await executeCommand(
         CLI.COMMANDS.CODEX,
         args,
-        options.onProgress,
+        options.strictOutcome ? undefined : options.onProgress,
         undefined,
         stdinPayload,
         timeoutMs,
         commandLogging,
         options.signal,
-        ...commandOptions,
+        ...(options.strictOutcome ? [{ ...commandOptions[0], failureDetails: strictFailureDetails }] : commandOptions),
       );
       options.signal?.throwIfAborted();
-      const result = parseCodexJsonlOutput(raw, model, Date.now() - startedAt, downgradedFromPreferred);
+      const result = parseAttempt(raw, model, startedAt, downgradedFromPreferred);
       if (cacheKey) responseCache.set(cacheKey, result.response);
       return result;
     } catch (error) {
@@ -593,7 +642,7 @@ export async function executeCodexCLI(options: CodexExecutorOptions): Promise<Co
           options.signal?.throwIfAborted();
           Logger.warn(`Successfully executed with ${MODELS.FALLBACK} fallback.`);
           Logger.debug(`Status: ${STATUS_MESSAGES.FALLBACK_SUCCESS}`);
-          return parseCodexJsonlOutput(raw, MODELS.FALLBACK, Date.now() - fallbackStartedAt, true);
+          return parseAttempt(raw, MODELS.FALLBACK, fallbackStartedAt, true);
         } catch (fallbackError) {
           options.signal?.throwIfAborted();
           const fallbackContinuityError = translateSessionContinuityError(fallbackError, sessionId);
@@ -623,6 +672,12 @@ export async function executeCodexCLI(options: CodexExecutorOptions): Promise<Co
       }
       throw error;
     }
+  } catch (error) {
+    if (!options.strictOutcome) throw error;
+    throw new Error(
+      `Codex CLI · selected ${model} · reasoning effort configured ${reasoningEffort}: ${error instanceof Error ? error.message : String(error)}`,
+      { cause: error },
+    );
   } finally {
     if (schemaPath) {
       try {
