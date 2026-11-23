@@ -37,7 +37,12 @@ const adr = deprecateCommands(
   section(read("docs/DECISIONS.md"), "## ADR-179:", /^## ADR-/m).split("**Deprecation messages and commands")[1] ?? "",
 );
 const checklist = deprecateCommands(
-  section(read("docs/CONTRIBUTING.md"), "### Deprecating the split packages and the plugin bridge", /^##+ /m),
+  section(read("docs/CONTRIBUTING.md"), "### Deprecating the plugin bridge", /^##+ /m),
+);
+const retiredRecord = section(read("docs/CONTRIBUTING.md"), "### Retired split packages (historical)", /^##+ /m);
+const SPLIT = DEPRECATED.filter((pkg) => pkg !== "@ask-llm/plugin");
+const RETIRED_SERVERS = ["antigravity", "claude", "codex", "gemini", "grok", "ollama"].map(
+  (provider) => `io.github.Lykhoyda/ask-${provider}`,
 );
 
 function slug(heading: string): string {
@@ -63,9 +68,28 @@ function docsPage(url: string): string | undefined {
 }
 
 describe("1.0 deprecation record", () => {
-  it("lists one npm deprecate command for each of the seven packages, identically in the ADR and the checklist", () => {
+  it("keeps ADR-179's seven commands as the historical record", () => {
     expect(adr.map(({ pkg }) => pkg).sort()).toEqual(DEPRECATED);
-    expect(checklist.map(({ line }) => line)).toEqual(adr.map(({ line }) => line));
+  });
+
+  it("leaves only the pending plugin bridge command in the checklist, identical to the ADR", () => {
+    expect(checklist.map(({ line }) => line)).toEqual(
+      adr.filter(({ pkg }) => pkg === "@ask-llm/plugin").map(({ line }) => line),
+    );
+  });
+
+  it("records what happened to each split package and Registry server instead of rerunnable commands", () => {
+    expect(deprecateCommands(retiredRecord)).toEqual([]);
+    for (const name of [...SPLIT, ...RETIRED_SERVERS]) expect(retiredRecord, name).toContain(`\`${name}\``);
+    expect(retiredRecord).toMatch(
+      /npm refused to unpublish `@ask-llm\/gemini-mcp`, so every version of it is deprecated/,
+    );
+    const followUp = section(read("docs/DECISIONS.md"), "## ADR-179:", /^## ADR-/m).split(
+      "**Follow-up (2026-11-24, ADR-202):**",
+    )[1];
+    expect(followUp).toBeDefined();
+    expect(followUp).toContain("historical record");
+    expect(followUp).toContain("`@ask-llm/gemini-mcp` was deprecated");
   });
 
   it("never deprecates the canonical package", () => {

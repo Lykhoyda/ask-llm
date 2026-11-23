@@ -23,7 +23,7 @@
     "changeset": "changeset",
     "changeset:version": "changeset version && yarn install --mode=update-lockfile && node scripts/sync-plugin-manifests.ts",
     "changeset:status": "changeset status --verbose",
-    "changeset:publish": "yarn build && changeset publish",
+    "changeset:publish": "yarn build && node scripts/release-allowlist.ts && changeset publish",
     "prepare": "husky"
   },
   "devDependencies": {

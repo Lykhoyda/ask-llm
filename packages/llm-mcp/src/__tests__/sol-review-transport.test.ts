@@ -155,7 +155,7 @@ describe("sol-review transport selection", () => {
     expect(decision.state).toBe("missing-registration");
     expect(decision.transport).toBe("cli");
     expect(decision.remediation).toContain("claude mcp add --scope user ask-llm -- npx -y @ask-llm/mcp");
-    expect(decision.remediation).toContain("@ask-llm/codex-mcp");
+    expect(decision.remediation).not.toContain("@ask-llm/codex-mcp");
     expect(decision.fallbackDisclosure).toContain("registration is missing");
   });
 

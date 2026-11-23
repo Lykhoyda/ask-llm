@@ -17,7 +17,7 @@ Unsupported on Pi: Grok pairing needs a dedicated Pi consent and lifecycle adapt
 
 ### Cursor Agent adapter
 
-When Cursor itself hosts this skill, do not recursively launch `ask-cursor-agent`. Offer only the explicit direct routes (`xai-api` or `grok-cli`) through an exact `ask-grok` leaf or a fully pinned unified `ask-llm` leaf, and follow the same consent and no-fallback contract. The Cursor plugin bundle registers only the unified `ask-llm` server; a separately user-installed `grok` entry (`@ask-llm/grok-mcp`) exposes the deterministic `ask-grok` leaf and is preferred when exposed. A unified call must specify `provider: "grok"`, exact `harness`, exact `model`, and `reasoningEffort`; direct Grok is one-shot and does not accept include directories or sessions.
+When Cursor itself hosts this skill, do not recursively launch `ask-cursor-agent`. Offer only the explicit direct routes (`xai-api` or `grok-cli`) through an exact `ask-grok` leaf or a fully pinned unified `ask-llm` leaf, and follow the same consent and no-fallback contract. The Cursor plugin bundle registers only the unified `ask-llm` server; an earlier user-installed `grok` entry that still exposes the deterministic `ask-grok` leaf is preferred when exposed. A unified call must specify `provider: "grok"`, exact `harness`, exact `model`, and `reasoningEffort`; direct Grok is one-shot and does not accept include directories or sessions.
 
 If neither leaf is exposed, stop and give this Cursor-native setup (never `claude mcp add`):
 
@@ -25,7 +25,7 @@ If neither leaf is exposed, stop and give this Cursor-native setup (never `claud
 {"mcpServers":{"ask-llm":{"command":"npx","args":["-y","@ask-llm/mcp"]}}}
 ```
 
-Save it as project `.cursor/mcp.json` or user `~/.cursor/mcp.json`. For `xai-api`, ensure `XAI_API_KEY` is present in the MCP server process environment; keep any literal secret in the user-level config and never commit it. For `grok-cli`, install/authenticate Grok Build and verify `grok --help` advertises headless JSON support. Reload the server from **Cursor Settings → Tools & MCP** or restart Cursor Agent, verify that `ask-llm` is exposed, then invoke `/grok-pair` again. The split alternative is the same entry named `grok` with package `@ask-llm/grok-mcp`, which exposes `ask-grok`; keep one registration per server and do not configure both merely to create fallback.
+Save it as project `.cursor/mcp.json` or user `~/.cursor/mcp.json`. For `xai-api`, ensure `XAI_API_KEY` is present in the MCP server process environment; keep any literal secret in the user-level config and never commit it. For `grok-cli`, install/authenticate Grok Build and verify `grok --help` advertises headless JSON support. Reload the server from **Cursor Settings → Tools & MCP** or restart Cursor Agent, verify that `ask-llm` is exposed, then invoke `/grok-pair` again. The standalone `@ask-llm/grok-mcp` package is retired, so never suggest installing it; keep one registration per server and do not configure two merely to create fallback.
 
 ### Other hosts adapter
 
@@ -117,7 +117,7 @@ Fallback: none
 Give guidance for the selected route only:
 
 - Missing Cursor tool: `claude mcp add --scope user ask-llm -- npx -y @ask-llm/mcp` (exposes `ask-cursor-agent` and the unified `ask-llm` tool); authenticate `agent`, run `agent --list-models`, and restart Claude Code.
-- Missing direct tool: `claude mcp add --scope user grok -- npx -y @ask-llm/grok-mcp` for the `ask-grok` leaf, or the same `@ask-llm/mcp` registration for the fully pinned unified form, then restart.
+- Missing direct tool: the same `@ask-llm/mcp` registration for the fully pinned unified form, then restart. The standalone `@ask-llm/grok-mcp` package is retired, so do not suggest it for the `ask-grok` leaf.
 - Cursor unavailable/trust/model errors: follow the returned `agent --version`, explicit workspace trust, or `agent --list-models` guidance. Never pass `--trust` automatically.
 - xAI/API or Grok CLI auth/model/quota errors: preserve the redacted diagnostic and state that no fallback was attempted.
 <!-- HOST-ADAPTER:CLAUDE-CODE:END -->

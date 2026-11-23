@@ -5,7 +5,7 @@
 Only the latest minor version of each published package receives security fixes. Update with:
 
 ```bash
-npm install -g @ask-llm/gemini-mcp@latest @ask-llm/codex-mcp@latest @ask-llm/claude-mcp@latest @ask-llm/grok-mcp@latest @ask-llm/ollama-mcp@latest @ask-llm/antigravity-mcp@latest @ask-llm/mcp@latest
+npm install -g @ask-llm/mcp@latest
 ```
 
 For the Claude Code plugin, run `/plugin update ask-llm` from inside Claude Code. For Pi, follow [Upgrade and remove](../apps/docs/start/upgrade-remove.md#upgrade); earlier npm installations use the [migration guide](../apps/docs/reference/migration.md).
@@ -17,7 +17,7 @@ For the Claude Code plugin, run `/plugin update ask-llm` from inside Claude Code
 Use [GitHub Private Vulnerability Reporting](https://github.com/Lykhoyda/ask-llm/security/advisories/new) to report privately. We aim to respond within 7 days.
 
 Include in your report:
-- Affected package and version (`@ask-llm/gemini-mcp`, `@ask-llm/codex-mcp`, `@ask-llm/claude-mcp`, `@ask-llm/grok-mcp`, `@ask-llm/ollama-mcp`, `@ask-llm/antigravity-mcp`, `@ask-llm/mcp`, or `@ask-llm/plugin`)
+- Affected package and version (`@ask-llm/mcp` or `@ask-llm/plugin`; the split provider packages are retired and bundled into `@ask-llm/mcp`)
 - A clear description of the issue
 - Reproduction steps or proof-of-concept if possible
 - Your suggested mitigation if you have one

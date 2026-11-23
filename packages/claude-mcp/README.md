@@ -1,5 +1,8 @@
 # @ask-llm/claude-mcp
 
+> [!WARNING]
+> **Retired.** `@ask-llm/claude-mcp` is no longer published: it was unpublished from npm in November 2026 and its MCP Registry entry is deleted. This folder is a private workspace whose Claude provider code is bundled into [`@ask-llm/mcp`](https://www.npmjs.com/package/@ask-llm/mcp). Install that with `npm install -g @ask-llm/mcp`, then run `ask-llm setup`; see the [migration guide](https://lykhoyda.github.io/ask-llm/reference/migration.html). The rest of this README describes the retired standalone server and is kept for reference.
+
 MCP server for consulting Anthropic Claude Code CLI from Codex CLI, Cursor,
 OpenCode, and other MCP clients. It fills the reverse collaboration path:
 Claude can ask Codex through `@ask-llm/codex-mcp`, and Codex can ask Claude through

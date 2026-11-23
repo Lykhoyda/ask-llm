@@ -19,12 +19,12 @@ Use Node.js 24 (the current LTS) or newer and Yarn 4.18+ (managed via the `packa
 | Path | Purpose |
 |------|---------|
 | `packages/shared/` | Shared MCP plumbing (`@ask-llm/shared`) — logger, executor, registry, progress tracker, server factory |
-| `packages/gemini-mcp/` | Gemini provider (`@ask-llm/gemini-mcp`) |
-| `packages/codex-mcp/` | Codex provider (`@ask-llm/codex-mcp`) |
-| `packages/claude-mcp/` | Claude provider (`@ask-llm/claude-mcp`) |
-| `packages/grok-mcp/` | Grok/xAI API provider (`@ask-llm/grok-mcp`) |
-| `packages/ollama-mcp/` | Ollama provider (`@ask-llm/ollama-mcp`) |
-| `packages/antigravity-mcp/` | Antigravity provider (`@ask-llm/antigravity-mcp`) |
+| `packages/gemini-mcp/` | Gemini provider (`@ask-llm/gemini-mcp`, private build input bundled into `@ask-llm/mcp`; retired on npm) |
+| `packages/codex-mcp/` | Codex provider (`@ask-llm/codex-mcp`, private build input bundled into `@ask-llm/mcp`; retired on npm) |
+| `packages/claude-mcp/` | Claude provider (`@ask-llm/claude-mcp`, private build input bundled into `@ask-llm/mcp`; retired on npm) |
+| `packages/grok-mcp/` | Grok/xAI API provider (`@ask-llm/grok-mcp`, private build input bundled into `@ask-llm/mcp`; retired on npm) |
+| `packages/ollama-mcp/` | Ollama provider (`@ask-llm/ollama-mcp`, private build input bundled into `@ask-llm/mcp`; retired on npm) |
+| `packages/antigravity-mcp/` | Antigravity provider (`@ask-llm/antigravity-mcp`, private build input bundled into `@ask-llm/mcp`; retired on npm) |
 | `packages/llm-mcp/` | Orchestrator that auto-detects installed providers (`@ask-llm/mcp`) |
 | `packages/claude-plugin/` | Dependent compatibility bridge for existing runner and Pi installations |
 | `apps/docs/` | VitePress docs site |
@@ -113,7 +113,7 @@ Before merging a Version Packages PR:
 - Confirm both `@ask-llm/mcp` and `@ask-llm/plugin` already exist on npm; trusted publishing does not bootstrap a new package.
 - Confirm both packages have a trusted publisher for repository `Lykhoyda/ask-llm`, workflow `release.yml`, no environment, with direct `npm publish` allowed. Configuring only one can leave a partial release.
 
-**Phase 2 — Publish**: when the maintainer merges the Version Packages PR, `release.yml` runs again, this time detecting that the merge consumed changesets. It runs `yarn changeset:publish` which publishes every publishable workspace package whose version is ahead of the npm registry via `yarn npm publish` (Changesets 3 / ADR-189). The pinned Yarn (root `packageManager`) uses GitHub Actions OIDC for [npm trusted publishing](https://docs.npmjs.com/trusted-publishers/), with `id-token: write` and `YARN_NPM_PUBLISH_PROVENANCE=true`; no npm token or `whoami` preflight is used. The manifests already declare public access, so no authenticated access mutation is needed. Since ADR-119 the manifests publish exactly as they exist in source — no `workspace:` protocol remains (the providers and `@ask-llm/shared` are devDependencies, inlined into canonical `dist/` by tsdown), so no rewrite step exists to get wrong. After npm, the workflow publishes to the MCP Registry, creates a unified GitHub Release on the `@ask-llm/mcp@<version>` package tag (ADR-181; the helper below creates or verifies that tag first), and then creates or verifies one remote `<package-name>@<version>` Git tag for every public package. `changesets/action` is explicitly configured not to create releases or tags; the dedicated ADR-151 helper is the sole package-tag authority, verifies remote refs plus npm `gitHead`, and pushes only missing explicit refspecs. `@ask-llm/shared` is private and receives no tag.
+**Phase 2 — Publish**: when the maintainer merges the Version Packages PR, `release.yml` runs again, this time detecting that the merge consumed changesets. It runs `yarn changeset:publish`, which first runs the release allowlist guard (ADR-202) and then publishes every publishable workspace package whose version is ahead of the npm registry via `yarn npm publish` (Changesets 3 / ADR-189). The pinned Yarn (root `packageManager`) uses GitHub Actions OIDC for [npm trusted publishing](https://docs.npmjs.com/trusted-publishers/), with `id-token: write` and `YARN_NPM_PUBLISH_PROVENANCE=true`; no npm token or `whoami` preflight is used. The manifests already declare public access, so no authenticated access mutation is needed. Since ADR-119 the manifests publish exactly as they exist in source — no `workspace:` protocol remains (the providers and `@ask-llm/shared` are devDependencies, inlined into canonical `dist/` by tsdown), so no rewrite step exists to get wrong. After npm, the workflow publishes to the MCP Registry, creates a unified GitHub Release on the `@ask-llm/mcp@<version>` package tag (ADR-181; the helper below creates or verifies that tag first), and then creates or verifies one remote `<package-name>@<version>` Git tag for every public package. `changesets/action` is explicitly configured not to create releases or tags; the dedicated ADR-151 helper is the sole package-tag authority, verifies remote refs plus npm `gitHead`, and pushes only missing explicit refspecs. `@ask-llm/shared` is private and receives no tag.
 
 **Maintainer responsibilities** are minimal: review the Version Packages PR (does the CHANGELOG read sensibly? are the bump types right?), merge it when ready to ship. No manual `git tag` or `package.json` editing. If npm published but Registry, the unified GitHub Release, or package tags did not, Run workflow on `main` — there are no dispatch options. That path repairs those three artifacts and never re-enters npm publication (ADR-139/158). Release recovery uses the same create-or-verify package-tag contract and never retags an existing remote ref. If the release job reports `npm gitHead cross-check failed` for a package (its published tarball came from a commit other than the one that introduced the version, for example after a partial publish completed on a later commit), the other packages are still tagged; recover the affected package by shipping a new version — never by retagging. A main-branch Run workflow cannot repair that mismatch because it never republishes npm.
 
@@ -123,26 +123,25 @@ On npmjs.com, configure a GitHub Actions [trusted publisher](https://docs.npmjs.
 
 Never re-run a failed npm publish job: the same workflow run reuses its provenance identity, and Sigstore can reject the duplicate transparency-log entry with `409`. After fixing the cause, push a fresh commit to `main` through a PR. With no pending changesets, the new Release run attempts to publish any package versions still missing from npm. Publishing an existing version from a later commit can succeed on npm while the Release run fails with `npm gitHead cross-check failed` and leaves that package untagged; restore consistent tags by shipping a new version, never by retagging. Manual dispatch only repairs Registry, GitHub Release and package tags; it does not publish to npm.
 
-### Deprecating the split packages and the plugin bridge
+### Retired split packages (historical)
+
+The six split provider packages are retired (ADR-202). In November 2026, `@ask-llm/antigravity-mcp`, `@ask-llm/claude-mcp`, `@ask-llm/codex-mcp`, `@ask-llm/grok-mcp` and `@ask-llm/ollama-mcp` were unpublished from npm, along with the earlier names `ask-llm-mcp`, `ask-gemini-mcp`, `ask-codex-mcp`, `ask-ollama-mcp`, `ask-antigravity-mcp` and `@anton-lykhoyda/ask-claude-mcp`. npm refused to unpublish `@ask-llm/gemini-mcp`, so every version of it is deprecated with ADR-179's notice. Every version of the MCP Registry servers `io.github.Lykhoyda/ask-antigravity`, `io.github.Lykhoyda/ask-claude`, `io.github.Lykhoyda/ask-codex`, `io.github.Lykhoyda/ask-gemini`, `io.github.Lykhoyda/ask-grok` and `io.github.Lykhoyda/ask-ollama` is deleted. ADR-179 keeps the original deprecation commands as a record; do not run them again.
+
+The split workspaces stay in the repository as private build inputs bundled into `@ask-llm/mcp`. Keep them `private: true`, without `publishConfig` or `server.json`. The release allowlist (`scripts/release-allowlist.ts`) fails a release that would publish any npm package other than `@ask-llm/mcp` and `@ask-llm/plugin`, or any Registry server other than `io.github.Lykhoyda/ask-llm`. It runs in `release.yml`, in `yarn changeset:publish` and in `scripts/publish-mcp-registry.ts`. Changing either list is a release decision that needs its own ADR.
+
+### Deprecating the plugin bridge
 
 This runs once, by hand, and never from `release.yml` (ADR-179, ADR-185). Nothing is unpublished, and `@ask-llm/mcp` is never deprecated or shimmed.
 
 1. Confirm the migration page is live: `https://lykhoyda.github.io/ask-llm/reference/migration.html` must load.
 2. Confirm the `@ask-llm/mcp` release whose `ask-llm setup` migrates earlier installations is on npm (`npm view @ask-llm/mcp version`).
-3. Run the seven commands, adding `--otp=<code>` when npm asks for two-factor authentication:
+3. Run the command, adding `--otp=<code>` when npm asks for two-factor authentication:
 
 ```bash
-npm deprecate @ask-llm/antigravity-mcp "Replaced by @ask-llm/mcp, which includes every provider. Install it with npm install -g @ask-llm/mcp, then run ask-llm setup. Migration guide: https://lykhoyda.github.io/ask-llm/reference/migration.html"
-npm deprecate @ask-llm/claude-mcp "Replaced by @ask-llm/mcp, which includes every provider. Install it with npm install -g @ask-llm/mcp, then run ask-llm setup. Migration guide: https://lykhoyda.github.io/ask-llm/reference/migration.html"
-npm deprecate @ask-llm/codex-mcp "Replaced by @ask-llm/mcp, which includes every provider. Install it with npm install -g @ask-llm/mcp, then run ask-llm setup. Migration guide: https://lykhoyda.github.io/ask-llm/reference/migration.html"
-npm deprecate @ask-llm/gemini-mcp "Replaced by @ask-llm/mcp, which includes every provider. Install it with npm install -g @ask-llm/mcp, then run ask-llm setup. Migration guide: https://lykhoyda.github.io/ask-llm/reference/migration.html"
-npm deprecate @ask-llm/grok-mcp "Replaced by @ask-llm/mcp, which includes every provider. Install it with npm install -g @ask-llm/mcp, then run ask-llm setup. Migration guide: https://lykhoyda.github.io/ask-llm/reference/migration.html"
-npm deprecate @ask-llm/ollama-mcp "Replaced by @ask-llm/mcp, which includes every provider. Install it with npm install -g @ask-llm/mcp, then run ask-llm setup. Migration guide: https://lykhoyda.github.io/ask-llm/reference/migration.html"
 npm deprecate @ask-llm/plugin "Now part of @ask-llm/mcp. Install it with npm install -g @ask-llm/mcp, then run ask-llm setup. Existing Pi npm installations remain unchanged with manual migration guidance. Migration guide: https://lykhoyda.github.io/ask-llm/reference/migration.html"
 ```
 
-4. Verify: `npm view <package> deprecated` prints the message for each of the seven, and `npm view @ask-llm/mcp deprecated` prints nothing.
-5. Retiring the split packages' MCP Registry records is separate, approved publication work.
+4. Verify: `npm view @ask-llm/plugin deprecated` prints the message, and `npm view @ask-llm/mcp deprecated` prints nothing.
 
 ## Questions
 

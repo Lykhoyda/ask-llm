@@ -19,7 +19,7 @@ Requires a [supported agy version](#prerequisites). Unified discovery, `doctor -
 
 <InstallSnippet provider="antigravity" />
 
-Setup registers the unified Ask LLM server, which consults Antigravity through the `ask-llm` tool with `provider: "antigravity"`. Execution stays off until you set `ASK_ANTIGRAVITY_ALLOW_UNISOLATED=1` for the server. The tools listed below belong to the standalone `@ask-llm/antigravity-mcp` server, kept for earlier installations; see [Migration](/reference/migration) to move to the setup registration.
+Setup registers the unified Ask LLM server, which consults Antigravity through the `ask-llm` tool with `provider: "antigravity"`. Execution stays off until you set `ASK_ANTIGRAVITY_ALLOW_UNISOLATED=1` for the server. The tools listed below belong to the retired standalone `@ask-llm/antigravity-mcp` server, which is no longer published; `ask-llm` with `provider: "antigravity"` reaches the same provider. See [Migration](/reference/migration) to move an earlier installation to the setup registration.
 
 ## Prerequisites
 
@@ -107,5 +107,6 @@ Claude Code's `/brainstorm` uses a separate raw `agy` call. Without the exact op
 
 ## npm
 
-- **Package:** [@ask-llm/antigravity-mcp](https://www.npmjs.com/package/@ask-llm/antigravity-mcp)
-- **Binary:** `ask-antigravity-mcp`
+- **Package:** [@ask-llm/mcp](https://www.npmjs.com/package/@ask-llm/mcp), which bundles the Antigravity provider
+- **Binary:** `ask-llm` (setup and diagnostics) and `ask-llm-mcp` (the server)
+- The standalone `@ask-llm/antigravity-mcp` package and its `ask-antigravity-mcp` binary are retired; see [Migration](/reference/migration).

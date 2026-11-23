@@ -15,7 +15,7 @@ Run local LLMs via Ollama's HTTP API. No API keys needed, fully private, zero co
 
 <InstallSnippet provider="ollama" />
 
-Setup registers the unified Ask LLM server, which consults Ollama through the `ask-llm` tool with `provider: "ollama"`. The tools listed below belong to the standalone `@ask-llm/ollama-mcp` server, kept for earlier installations; see [Migration](/reference/migration) to move to the setup registration.
+Setup registers the unified Ask LLM server, which consults Ollama through the `ask-llm` tool with `provider: "ollama"`. The tools listed below belong to the retired standalone `@ask-llm/ollama-mcp` server, which is no longer published; `ask-llm` with `provider: "ollama"` reaches the same provider. See [Migration](/reference/migration) to move an earlier installation to the setup registration.
 
 ## Prerequisites
 
@@ -70,5 +70,6 @@ Each turn replays the full prior conversation (input tokens grow linearly with d
 
 ## npm
 
-- **Package:** [@ask-llm/ollama-mcp](https://www.npmjs.com/package/@ask-llm/ollama-mcp)
-- **Binary:** `ask-ollama-mcp`
+- **Package:** [@ask-llm/mcp](https://www.npmjs.com/package/@ask-llm/mcp), which bundles the Ollama provider
+- **Binary:** `ask-llm` (setup and diagnostics) and `ask-llm-mcp` (the server)
+- The standalone `@ask-llm/ollama-mcp` package and its `ask-ollama-mcp` binary are retired; see [Migration](/reference/migration).

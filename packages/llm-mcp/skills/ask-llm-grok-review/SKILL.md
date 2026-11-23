@@ -28,7 +28,7 @@ Review current code changes by delegating to the `grok-reviewer` agent.
 2. Gather `git diff`, `git diff --cached`, and relevant untracked files. If there are no changes, say so.
 3. Launch the `grok-reviewer` agent with a bounded diff and relevant project instructions.
 4. If the Grok MCP tool is unavailable, explain how to register it without attempting another provider. For API use:
-   `claude mcp add --scope user grok -e XAI_API_KEY="$XAI_API_KEY" -- npx -y @ask-llm/grok-mcp`
-   For official Grok Build, install/authenticate `grok`, set `ASK_GROK_HARNESS=grok-cli` in the MCP environment, and register the same package without silently switching from API.
+   `npm install -g @ask-llm/mcp && claude mcp add --scope user ask-llm -e XAI_API_KEY="$XAI_API_KEY" -- "$(npm prefix -g)/bin/ask-llm-mcp"`
+   For official Grok Build, install/authenticate `grok`, set `ASK_GROK_HARNESS=grok-cli` in the MCP environment, and register the same server without silently switching from API.
 5. Preserve provider/model/harness attribution and any xAI error verbatim after secret redaction. Never silently route to Codex, Gemini, or another model.
 <!-- HOST-ADAPTER:CLAUDE-CODE:END -->

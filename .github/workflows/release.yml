@@ -47,6 +47,14 @@ jobs:
       - name: Preflight — assert no workspace:* in published manifests
         run: node scripts/preflight-no-workspace-protocol.ts
 
+      # Release allowlist guard (ADR-202): fail unless every package this release can
+      # publish is @ask-llm/mcp or @ask-llm/plugin and every Registry manifest targets
+      # io.github.Lykhoyda/ask-llm. The retired split packages and their legacy Registry
+      # servers must never be published again. `yarn changeset:publish` and
+      # scripts/publish-mcp-registry.ts repeat the same check before they publish.
+      - name: Release allowlist guard
+        run: node scripts/release-allowlist.ts packages/llm-mcp/server.json
+
       # When pending changesets exist on main: opens/updates the Version Packages PR.
       # When this push IS the merged Version Packages PR: runs `yarn changeset:publish`
       # which builds + publishes any packages whose version is ahead of the registry.

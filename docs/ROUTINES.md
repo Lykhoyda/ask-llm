@@ -37,7 +37,7 @@ Dependency & upstream-CLI drift tracker (read-only investigation → issue ONLY 
 1. CHECK NEW VERSIONS (record delta last-checked → latest per CLI):
    - gemini-cli: npm @google/gemini-cli + GitHub releases/CHANGELOG (google-gemini/gemini-cli)
    - codex: npm @openai/codex + GitHub releases (openai/codex)
-   - antigravity (agy): GitHub releases (google-antigravity/antigravity-cli) — we now ship @ask-llm/antigravity-mcp
+   - antigravity (agy): GitHub releases (google-antigravity/antigravity-cli) — @ask-llm/mcp ships the Antigravity provider
    - (optional) ollama: GitHub releases (ollama/ollama)
    Persist last-checked versions in rolling tracker issue #139 so each run is incremental.
 

@@ -4,6 +4,7 @@ import { spawn } from "node:child_process";
 import { readFile } from "node:fs/promises";
 import { pathToFileURL } from "node:url";
 import { isDeepStrictEqual } from "node:util";
+import { DEFAULT_REGISTRY_MANIFESTS, registryManifestPathViolations } from "./release-allowlist.ts";
 
 type JsonValue = string | number | boolean | null | JsonValue[] | JsonObject;
 interface JsonObject {
@@ -344,7 +345,7 @@ function failureMessage(result: PublisherResult): string {
 }
 
 export async function publishMissingRegistryVersions({
-  manifestPaths = ["packages/llm-mcp/server.json"],
+  manifestPaths = [...DEFAULT_REGISTRY_MANIFESTS],
   dryRun = false,
   fetchImpl = fetch,
   registryUrl = DEFAULT_REGISTRY_URL,
@@ -505,8 +506,19 @@ export async function publishMissingRegistryVersions({
 async function main(): Promise<void> {
   const args = process.argv.slice(2);
   const paths = args.filter((argument) => argument !== "--dry-run");
+  const manifestPaths = paths.length > 0 ? paths : [...DEFAULT_REGISTRY_MANIFESTS];
+  // Release allowlist guard (ADR-202): refuse before validating or publishing anything.
+  const violations = registryManifestPathViolations(manifestPaths);
+  if (violations.length > 0) {
+    console.error(
+      "MCP Registry publication refused: a manifest targets a name outside the release allowlist (ADR-202):",
+    );
+    for (const violation of violations) console.error(`- ${violation}`);
+    process.exitCode = 1;
+    return;
+  }
   const result = await publishMissingRegistryVersions({
-    ...(paths.length > 0 ? { manifestPaths: paths } : {}),
+    manifestPaths,
     dryRun: args.includes("--dry-run"),
     registryUrl: process.env.MCP_REGISTRY_URL ?? DEFAULT_REGISTRY_URL,
     runPublisher: (operation, manifestPath) =>

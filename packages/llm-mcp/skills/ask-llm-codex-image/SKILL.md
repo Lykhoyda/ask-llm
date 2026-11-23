@@ -42,7 +42,7 @@ Codex's `image_generation` tool selects the image model server-side; as of 2026-
 
 - `codex-cli` >= 0.125.0 installed and authenticated
 - `image_generation` feature flag enabled (default: stable + true). Verify with `codex features list | grep image_generation`
-- The `ask-codex-write` MCP tool available (from `@ask-llm/codex-mcp`) or the unified `mcp__ask-llm__ask-llm` tool (from `@ask-llm/mcp`) whose schema includes `sandbox`
+- The `ask-codex-write` MCP tool available (from the Claude plugin's bundled `codex` server) or the unified `mcp__ask-llm__ask-llm` tool (from `@ask-llm/mcp`) whose schema includes `sandbox`
 
 ## Instructions
 

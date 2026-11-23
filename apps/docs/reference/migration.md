@@ -10,7 +10,9 @@ Ask LLM is now one package, `@ask-llm/mcp`, with one command, `ask-llm`. Start m
 ## What changed
 
 - **One package.** `@ask-llm/mcp` carries the server, every provider, the skills, the Claude Code plugin assets and the Pi extension. It is not deprecated and its server bin, `ask-llm-mcp`, keeps its name.
-- **The split provider packages and `@ask-llm/plugin` are scheduled for deprecation.** The release owner applies the notices separately, after this page and the migration-capable release are available. A notice points to this page; published versions stay installable and nothing is unpublished.
+- **The split provider packages are retired.** In November 2026, `@ask-llm/codex-mcp`, `@ask-llm/claude-mcp`, `@ask-llm/grok-mcp`, `@ask-llm/antigravity-mcp` and `@ask-llm/ollama-mcp` were unpublished from npm, together with the older unscoped names (`ask-llm-mcp`, `ask-gemini-mcp`, `ask-codex-mcp`, `ask-ollama-mcp`, `ask-antigravity-mcp` and `@anton-lykhoyda/ask-claude-mcp`). npm refused to unpublish `@ask-llm/gemini-mcp`, so every version of it is deprecated with a notice that points to this page. Their MCP Registry entries (`io.github.Lykhoyda/ask-codex`, `ask-claude`, `ask-grok`, `ask-antigravity`, `ask-ollama` and `ask-gemini`) are deleted. Releases publish only `@ask-llm/mcp`, `@ask-llm/plugin` and the `io.github.Lykhoyda/ask-llm` Registry entry.
+- **Very old releases no longer install.** `@ask-llm/mcp` 0.12 and earlier, and `@ask-llm/plugin` 0.19 and earlier, depended on the removed split packages. Install the current `@ask-llm/mcp`.
+- **`@ask-llm/plugin` stays published** as the compatibility bridge for existing Pi npm installations.
 - **Setup registers a durable path.** `ask-llm setup` registers the absolute path of the globally installed `ask-llm-mcp`, so hosts no longer start the server through an `npx` cache.
 - **One server covers every provider.** The `ask-llm` tool takes a `provider` (`codex`, `claude`, `grok`, `antigravity`, `ollama`, `gemini`), so a separate server per provider is no longer needed.
 
@@ -115,7 +117,7 @@ claude mcp add --scope user gemini -- npx -y @ask-llm/gemini-mcp
 codex mcp add claude -- npx -y @ask-llm/claude-mcp
 ```
 
-These packages remain installable for compatibility. They are not a package choice in current onboarding. The six provider pages lead with setup and keep the split packages' tool tables as reference for these installations. Current configuration uses [the installed executable](/advanced/manual-configuration).
+These commands no longer work: npm no longer serves the packages, except the deprecated `@ask-llm/gemini-mcp`, so a host cannot start such an entry. `ask-llm setup` finds unmodified entries like these and, after you confirm, removes them once this install's `ask-llm` registration is in place (see the table above). The six provider pages lead with setup and keep the retired servers' tool tables as reference. Current configuration uses [the installed executable](/advanced/manual-configuration).
 
 ### Earlier Pi npm installation
 

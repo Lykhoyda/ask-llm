@@ -1,5 +1,8 @@
 # @ask-llm/antigravity-mcp (EXPERIMENTAL)
 
+> [!WARNING]
+> **Retired.** `@ask-llm/antigravity-mcp` is no longer published: it was unpublished from npm in November 2026 and its MCP Registry entry is deleted. This folder is a private workspace whose Antigravity provider code is bundled into [`@ask-llm/mcp`](https://www.npmjs.com/package/@ask-llm/mcp). Install that with `npm install -g @ask-llm/mcp`, then run `ask-llm setup`; see the [migration guide](https://lykhoyda.github.io/ask-llm/reference/migration.html). The rest of this README describes the retired standalone server and is kept for reference.
+
 MCP server for Google's Antigravity CLI (`agy`). Lets Claude get a
 subscription-backed second opinion / code review from Antigravity.
 
