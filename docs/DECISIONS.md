@@ -10,6 +10,8 @@
 
 **Consequences:** `yarn changeset:version` needs no new sync target. A test pins the entry to the adapter folder and name. Listing copy stays in the adapter manifest.
 
+**Name check (2026-11-23):** The public plugin listing at claude.com/plugins stated 539 plugins and embedded 537 entries. No entry has a name that contains `ask` or reduces to `askllm`, so `ask-llm` has no collision in the public listing. The signed-in directory and the submission portal could not be checked, so pending or unlisted submissions are unknown. Re-check the name at submission time.
+
 ## ADR-200: Share pairing policy across Pi and the existing hooks
 
 **Status:** Accepted (2026-11-20). Extends the shared resolver from ADR-192 to the native Pi adapter.
