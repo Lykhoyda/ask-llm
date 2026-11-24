@@ -272,6 +272,8 @@ __metadata:
     "@modelcontextprotocol/client": "npm:2.4.0"
     "@modelcontextprotocol/server": "npm:2.4.0"
     "@types/node": "npm:^24.13.6"
+    ajv: "npm:8.20.0"
+    ajv-formats: "npm:^3.0.1"
     oxfmt: "npm:^0.76.0"
     oxlint: "npm:^1.91.0"
     tsdown: "npm:^0.22.14"

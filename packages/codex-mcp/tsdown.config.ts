@@ -13,5 +13,5 @@ export default defineConfig({
   sourcemap: true,
   clean: true,
   dts: true,
-  deps: { alwaysBundle: ["@ask-llm/shared"] },
+  deps: { alwaysBundle: ["@ask-llm/shared", /^ajv(?:\/|$)/, "ajv-formats"] },
 });

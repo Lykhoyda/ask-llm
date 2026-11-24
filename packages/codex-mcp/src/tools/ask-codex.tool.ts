@@ -1,10 +1,4 @@
-import {
-  type AskResponse,
-  askResponseSchema,
-  formatCodexSelection,
-  relativeDirSchema,
-  type UnifiedTool,
-} from "@ask-llm/shared";
+import { askResponseSchema, formatCodexSelection, relativeDirSchema, type UnifiedTool } from "@ask-llm/shared";
 import { z } from "zod";
 import {
   CODEX_REASONING_EFFORTS,
@@ -16,6 +10,19 @@ import {
   STATUS_MESSAGES,
 } from "../constants.js";
 import { executeCodexCLI } from "../utils/codexExecutor.js";
+import { compileOutputSchema, describeOutputSchemaRejection, validateOutput } from "../utils/codexOutput.js";
+
+const outputSchemaArgument = z
+  .record(z.string(), z.unknown())
+  .optional()
+  .describe(
+    "A strict JSON Schema for the Codex reply. Set additionalProperties to false and list every property in required for each object. Bypasses the response cache. Set noFallback to make one model attempt.",
+  );
+
+const askCodexResponseSchema = askResponseSchema.extend({
+  structuredResult: z.json().optional().describe("The parsed reply, present when it satisfies the requested schema."),
+  validationError: z.string().optional().describe("Why the raw reply could not be parsed or validated."),
+});
 
 export const askCodexArgsSchema = z.object({
   prompt: z
@@ -59,6 +66,7 @@ export const askCodexArgsSchema = z.object({
     .describe(
       "Make one read-only model attempt with the explicit model or normal default. Bypasses the preferred model, fallback and response cache when true.",
     ),
+  outputSchema: outputSchemaArgument,
   sandbox: z
     .literal("read-only")
     .optional()
@@ -68,9 +76,9 @@ export const askCodexArgsSchema = z.object({
 
 export const askCodexTool: UnifiedTool = {
   name: "ask-codex",
-  description: `Send a prompt to OpenAI Codex CLI (defaults to ${FACTORY_DEFAULT_MODEL} with automatic fallback on quota errors). Use for code review, second opinions, analysis, and AI-to-AI collaboration. Do not override the model parameter unless the user explicitly asks. Returns both human-readable text and a structured response (provider, model, sessionId, usage) via outputSchema. Calls are ephemeral by default; pass sessionId: "" on the first call to persist its Codex thread_id, then pass the returned sessionId on follow-up calls to continue the conversation.`,
+  description: `Send a prompt to OpenAI Codex CLI (defaults to ${FACTORY_DEFAULT_MODEL} with automatic fallback on quota errors). Use for code review, second opinions, analysis, and AI-to-AI collaboration. Do not override the model parameter unless the user explicitly asks. Returns human-readable text and a structured response with provider, model, sessionId, and usage. Supply outputSchema to request a validated JSON reply in structuredContent.structuredResult. If validation fails, structuredContent contains the raw response and validationError. Calls are ephemeral by default; pass sessionId: "" on the first call to persist its Codex thread_id, then pass the returned sessionId on follow-up calls to continue the conversation.`,
   zodSchema: askCodexArgsSchema,
-  outputSchema: askResponseSchema,
+  outputSchema: askCodexResponseSchema,
   annotations: {
     title: "Ask Codex",
     readOnlyHint: true,
@@ -97,6 +105,9 @@ export async function executeCodexRequest(
     throw new Error(ERROR_MESSAGES.NO_PROMPT_PROVIDED);
   }
 
+  const outputSchema = sandbox === "read-only" ? outputSchemaArgument.parse(args.outputSchema) : undefined;
+  signal?.throwIfAborted();
+  const validate = outputSchema && compileOutputSchema(outputSchema);
   const result = await executeCodexCLI({
     prompt: prompt as string,
     model: model as string | undefined,
@@ -105,9 +116,14 @@ export async function executeCodexRequest(
     includeDirs: includeDirs as string[] | undefined,
     preferred: preferred as boolean | undefined,
     ...(sandbox === "read-only" && noFallback === true && { singleAttempt: true, strictOutcome: true }),
+    ...(outputSchema && { outputSchema, rawResponse: true, strictOutcome: true }),
     sandbox,
     onProgress,
     signal,
+  }).catch((error: unknown) => {
+    const message = outputSchema && describeOutputSchemaRejection(error);
+    if (message) throw new Error(message, { cause: error });
+    throw error;
   });
 
   if (result.usage) onUsage?.(result.usage);
@@ -116,14 +132,17 @@ export async function executeCodexRequest(
   const attribution = result.attempt
     ? formatCodexSelection(result.attempt, result.usage?.fellBack)
     : STATUS_MESSAGES.CODEX_RESPONSE;
-  const text = `${attribution}\n${result.response}${threadLine}`;
-  const structured: AskResponse = {
+  const output = validate && validateOutput(validate, result.response);
+  const validationLine = output?.validationError ? `\n\n${output.validationError}` : "";
+  const text = `${attribution}\n${result.response}${threadLine}${validationLine}`;
+  const structured = {
     provider: "codex",
     response: result.response,
     model: result.attempt?.model ?? result.usage?.model ?? (model as string | undefined) ?? MODELS.DEFAULT,
     ...(result.attempt && { reasoningEffort: result.attempt.reasoningEffort }),
     sessionId: result.threadId,
     usage: result.usage,
-  };
-  return { text, structuredContent: structured as unknown as Record<string, unknown> };
+    ...output,
+  } satisfies z.infer<typeof askCodexResponseSchema>;
+  return { text, structuredContent: structured };
 }

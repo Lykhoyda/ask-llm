@@ -18,6 +18,14 @@
           "description": "Make one read-only model attempt with the explicit model or normal default. Bypasses the preferred model, fallback and response cache when true.",
           "type": "boolean"
         },
+        "outputSchema": {
+          "additionalProperties": {},
+          "description": "A strict JSON Schema for the Codex reply. Set additionalProperties to false and list every property in required for each object. Bypasses the response cache. Set noFallback to make one model attempt.",
+          "propertyNames": {
+            "type": "string"
+          },
+          "type": "object"
+        },
         "preferred": {
           "description": "Opt into ASK_CODEX_PREFERRED_MODEL when it is configured to differ from the gpt-6.2-sol default. The built-in preferred value is also gpt-6.2-sol, so normal calls and review skills should leave this unset.",
           "type": "boolean"
@@ -60,6 +68,39 @@
     "outputSchema": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "additionalProperties": false,
+      "definitions": {
+        "__schema0": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            },
+            {
+              "items": {
+                "$ref": "#/definitions/__schema0"
+              },
+              "type": "array"
+            },
+            {
+              "additionalProperties": {
+                "$ref": "#/definitions/__schema0"
+              },
+              "propertyNames": {
+                "type": "string"
+              },
+              "type": "object"
+            }
+          ]
+        }
+      },
       "properties": {
         "harness": {
           "enum": [
@@ -94,6 +135,14 @@
         },
         "sessionId": {
           "type": "string"
+        },
+        "structuredResult": {
+          "allOf": [
+            {
+              "$ref": "#/definitions/__schema0"
+            }
+          ],
+          "description": "The parsed reply, present when it satisfies the requested schema."
         },
         "usage": {
           "additionalProperties": false,
@@ -138,6 +187,10 @@
             "fellBack"
           ],
           "type": "object"
+        },
+        "validationError": {
+          "description": "Why the raw reply could not be parsed or validated.",
+          "type": "string"
         }
       },
       "required": [
