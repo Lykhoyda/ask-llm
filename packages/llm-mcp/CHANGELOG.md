@@ -1,5 +1,17 @@
 # @ask-llm/mcp
 
+## 1.8.1
+
+### Patch Changes
+
+- [#461](https://github.com/Lykhoyda/ask-llm/pull/461) [`a4b3437`](https://github.com/Lykhoyda/ask-llm/commit/a4b34373bc95c74edd4088e3e343aa0b634f9ef2) Thanks [@Lykhoyda](https://github.com/Lykhoyda)! - Update the MCP Registry, Claude Code plugin, marketplace entry and Cursor plugin descriptions, and open the plugin README with what Ask LLM does, what a successful review reports, and what you need before your first review.
+
+- [#458](https://github.com/Lykhoyda/ask-llm/pull/458) [`3206a3d`](https://github.com/Lykhoyda/ask-llm/commit/3206a3d673a3cd90060d79b5227bca5fcfd97850) Thanks [@Lykhoyda](https://github.com/Lykhoyda)! - Report Ollama's cached prompt tokens in usage stats when the server provides a cached count. The input token total still includes cached tokens.
+
+- [#460](https://github.com/Lykhoyda/ask-llm/pull/460) [`c8ed48b`](https://github.com/Lykhoyda/ask-llm/commit/c8ed48b93c8bb0b42e29a83344cfac92d89066f1) Thanks [@Lykhoyda](https://github.com/Lykhoyda)! - Describe in the plugin README what Ask LLM runs, installs, sends and fetches: the pinned server launcher and its first-start npm install, provider CLIs and endpoints, the opt-in pairing hooks, and that Ask LLM sends no telemetry.
+
+- [#462](https://github.com/Lykhoyda/ask-llm/pull/462) [`a7f68a1`](https://github.com/Lykhoyda/ask-llm/commit/a7f68a1bbe1228c2e64dff1fa4b58383ec13a373) Thanks [@Lykhoyda](https://github.com/Lykhoyda)! - Stop pointing at the retired split provider packages. Skills, agents, the Sol review remediation and the Gemini tier notice now direct users to `@ask-llm/mcp` and `ask-llm setup`, or to the Antigravity provider, instead of installing `@ask-llm/codex-mcp`, `@ask-llm/grok-mcp` or `@ask-llm/antigravity-mcp`.
+
 ## 1.8.0
 
 ### Minor Changes

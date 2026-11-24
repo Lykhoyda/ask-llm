@@ -1,5 +1,11 @@
 # @ask-llm/ollama-mcp
 
+## 0.8.1
+
+### Patch Changes
+
+- [#458](https://github.com/Lykhoyda/ask-llm/pull/458) [`3206a3d`](https://github.com/Lykhoyda/ask-llm/commit/3206a3d673a3cd90060d79b5227bca5fcfd97850) Thanks [@Lykhoyda](https://github.com/Lykhoyda)! - Report Ollama's cached prompt tokens in usage stats when the server provides a cached count. The input token total still includes cached tokens.
+
 ## 0.8.0
 
 ### Minor Changes
