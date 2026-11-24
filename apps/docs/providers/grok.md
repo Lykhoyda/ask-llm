@@ -75,7 +75,7 @@ agent --list-models
 
 ## Tools
 
-The tools below belong to the standalone `@ask-llm/grok-mcp` server, kept for earlier installations; the setup registration reaches Grok through `ask-llm` with `provider: "grok"`. See [Migration](/reference/migration).
+The tools below belong to the retired standalone `@ask-llm/grok-mcp` server, which is no longer published; the setup registration reaches Grok through `ask-llm` with `provider: "grok"`. See [Migration](/reference/migration).
 
 | Tool | Purpose |
 |---|---|

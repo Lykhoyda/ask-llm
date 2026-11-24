@@ -1,5 +1,7 @@
 # Which Approach Should You Use?
 
+> **Historical.** This guide predates the single `@ask-llm/mcp` package. The standalone `@ask-llm/gemini-mcp` and `@ask-llm/codex-mcp` packages it measures are retired (ADR-202), so its install commands no longer work. Install with `npm install -g @ask-llm/mcp`, then run `ask-llm setup`.
+
 This guide helps you choose the right way to consult external LLMs (Gemini, Codex) from your AI coding tool.
 
 ## Quick Decision Tree

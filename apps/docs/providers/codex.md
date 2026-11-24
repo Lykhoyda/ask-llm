@@ -15,7 +15,7 @@ OpenAI's Codex CLI is the workhorse reviewer of the pair: code reasoning for tar
 
 <InstallSnippet provider="codex" />
 
-Setup registers the unified Ask LLM server, which consults Codex through the `ask-llm` tool with `provider: "codex"`. In Claude Code, the plugin that setup installs also connects the `ask-codex` tool. In Codex itself, setup installs the workflows and prints the `codex mcp add` command for you to run; see [Install](/start/install). The tools listed below belong to the standalone `@ask-llm/codex-mcp` server, kept for earlier installations; see [Migration](/reference/migration) to move to the setup registration.
+Setup registers the unified Ask LLM server, which consults Codex through the `ask-llm` tool with `provider: "codex"`. In Claude Code, the plugin that setup installs also connects the `ask-codex` tool. In Codex itself, setup installs the workflows and prints the `codex mcp add` command for you to run; see [Install](/start/install). The tools listed below are those of the Codex server that the Claude Code plugin bundles from `@ask-llm/mcp`. It replaces the retired standalone `@ask-llm/codex-mcp` package; see [Migration](/reference/migration) to move an earlier installation to the setup registration.
 
 ## Prerequisites
 
@@ -61,5 +61,6 @@ For read-only Codex calls, set `noFallback: true` to bypass the response cache a
 
 ## npm
 
-- **Package:** [@ask-llm/codex-mcp](https://www.npmjs.com/package/@ask-llm/codex-mcp)
-- **Binary:** `ask-codex-mcp`
+- **Package:** [@ask-llm/mcp](https://www.npmjs.com/package/@ask-llm/mcp), which bundles the Codex provider
+- **Binary:** `ask-llm` (setup and diagnostics) and `ask-llm-mcp` (the server)
+- The standalone `@ask-llm/codex-mcp` package and its `ask-codex-mcp` binary are retired; see [Migration](/reference/migration).

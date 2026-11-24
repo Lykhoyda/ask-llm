@@ -1,9 +1,10 @@
 # Ask Gemini MCP
 
+> [!WARNING]
+> **Retired.** `@ask-llm/gemini-mcp` is no longer released: in November 2026 every version was deprecated on npm (npm refused to unpublish it) and its MCP Registry entry was deleted. This folder is a private workspace whose Gemini provider code is bundled into [`@ask-llm/mcp`](https://www.npmjs.com/package/@ask-llm/mcp). Install that with `npm install -g @ask-llm/mcp`, then run `ask-llm setup`; see the [migration guide](https://lykhoyda.github.io/ask-llm/reference/migration.html). The rest of this README describes the retired standalone server and is kept for reference.
+
 <div align="center">
 
-[![npm version](https://img.shields.io/npm/v/@ask-llm/gemini-mcp)](https://www.npmjs.com/package/@ask-llm/gemini-mcp)
-[![npm downloads](https://img.shields.io/npm/dt/@ask-llm/gemini-mcp)](https://www.npmjs.com/package/@ask-llm/gemini-mcp)
 [![GitHub Release](https://img.shields.io/github/v/release/Lykhoyda/ask-llm?logo=github&label=GitHub)](https://github.com/Lykhoyda/ask-llm/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 

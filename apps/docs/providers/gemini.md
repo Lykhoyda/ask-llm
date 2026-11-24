@@ -9,7 +9,7 @@ description: Bridge Claude with Google Gemini via the official CLI. 1M+ token co
 Bridge Claude with Google's Gemini via the official Gemini CLI. Leverages Gemini's massive 1M+ token context window for large file and codebase analysis while Claude handles interaction and code editing.
 
 ::: danger Discontinued on consumer tiers: migrate to Antigravity
-**From 2026-06-18**, Google restricts Gemini CLI access to **Gemini Code Assist Standard/Enterprise** seats; **free, Google AI Pro, and Ultra** accounts lose access. `@ask-llm/gemini-mcp` still installs and launches; the failure is a runtime auth/quota error from Google's backend, not a missing binary.
+**From 2026-06-18**, Google restricts Gemini CLI access to **Gemini Code Assist Standard/Enterprise** seats; **free, Google AI Pro, and Ultra** accounts lose access. Ask LLM's Gemini provider still launches `gemini`; the failure is a runtime auth/quota error from Google's backend, not a missing binary.
 
 **On a subscription tier?** Migrate to **[Antigravity (`agy`)](/providers/antigravity)**, Google's successor CLI, covered by the same AI Pro/Ultra subscription with no per-token billing. Ask LLM reaches [Antigravity](/providers/antigravity) through the same installation, or switch to [`ask-codex`](/providers/codex) / [`ask-ollama`](/providers/ollama). The **2026-06-18 tier change** section below covers what happens at runtime.
 :::
@@ -18,11 +18,11 @@ Bridge Claude with Google's Gemini via the official Gemini CLI. Leverages Gemini
 
 From **2026-06-18**, Google serves Gemini CLI requests only for **Gemini Code Assist Standard/Enterprise** accounts; free, Google AI Pro, and Ultra accounts lose access. The surviving tiers keep working with the same `gemini` binary and backend.
 
-What this means for `@ask-llm/gemini-mcp`:
+What this means for Ask LLM's Gemini provider:
 
-- The npm package **still installs and launches**; the binary is unchanged. The failure for non-enterprise accounts is a **runtime auth/quota error**, not a missing binary, so reinstalling will not help.
+- The provider **still launches** the unchanged `gemini` binary. The failure for non-enterprise accounts is a **runtime auth/quota error**, not a missing binary, so reinstalling will not help.
 - On or after the cutoff, an auth/quota-class failure now surfaces an actionable notice (cutoff date + options) instead of a raw error. The note is **advisory** ("likely caused by the tier change"); a genuine auth, billing, or quota error can also trigger it.
-- Google's successor is the **Antigravity CLI (`agy`)**, a separate, closed-source binary that `@ask-llm/gemini-mcp` does **not** wrap. Use the **[Antigravity provider](/providers/antigravity)** through the same Ask LLM installation (covered by the same Google AI Pro/Ultra subscription, no per-token billing), run `agy` directly, or switch to [`ask-codex`](/providers/codex) / [`ask-ollama`](/providers/ollama).
+- Google's successor is the **Antigravity CLI (`agy`)**, a separate, closed-source binary that the Gemini provider does **not** wrap. Use the **[Antigravity provider](/providers/antigravity)** through the same Ask LLM installation (covered by the same Google AI Pro/Ultra subscription, no per-token billing), run `agy` directly, or switch to [`ask-codex`](/providers/codex) / [`ask-ollama`](/providers/ollama).
 - **Testing the guidance:** set `ASK_GEMINI_TIER_CUTOFF` to a past UTC instant (e.g. `2020-01-01T00:00:00Z`) to force the post-cutoff gate on; an auth/quota failure will then prepend the notice. The default cutoff is `2026-06-18T00:00:00Z`.
 
 [Google's announcement](https://developers.googleblog.com/an-important-update-transitioning-gemini-cli-to-antigravity-cli/).
@@ -34,7 +34,7 @@ What this means for `@ask-llm/gemini-mcp`:
 
 <InstallSnippet provider="gemini" />
 
-Setup registers the unified Ask LLM server, which consults Gemini through the `ask-llm` tool with `provider: "gemini"`. The tools listed below belong to the standalone `@ask-llm/gemini-mcp` server, kept for earlier installations; see [Migration](/reference/migration) to move to the setup registration.
+Setup registers the unified Ask LLM server, which consults Gemini through the `ask-llm` tool with `provider: "gemini"`. The tools listed below belong to the retired standalone `@ask-llm/gemini-mcp` server, which is no longer published; `ask-llm` with `provider: "gemini"` reaches the same provider. See [Migration](/reference/migration) to move an earlier installation to the setup registration.
 
 ## Prerequisites
 
@@ -97,5 +97,6 @@ Gemini CLI subscription restrictions, quotas, and free-tier limits apply as for 
 
 ## npm
 
-- **Package:** [@ask-llm/gemini-mcp](https://www.npmjs.com/package/@ask-llm/gemini-mcp)
-- **Binary:** `ask-gemini-mcp`
+- **Package:** [@ask-llm/mcp](https://www.npmjs.com/package/@ask-llm/mcp), which bundles the Gemini provider
+- **Binary:** `ask-llm` (setup and diagnostics) and `ask-llm-mcp` (the server)
+- The standalone `@ask-llm/gemini-mcp` package and its `ask-gemini-mcp` binary are retired; see [Migration](/reference/migration).

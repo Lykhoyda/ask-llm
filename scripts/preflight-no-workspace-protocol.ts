@@ -17,12 +17,14 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { ALLOWED_NPM_PACKAGES } from "./release-allowlist.ts";
 
+const [MCP_PACKAGE, PLUGIN_PACKAGE] = ALLOWED_NPM_PACKAGES;
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const DEPS_FIELDS = ["dependencies", "peerDependencies", "optionalDependencies"];
-const CANONICAL_PACKAGES: Record<string, { name: string; bins: string[] }> = {
+const CANONICAL_PACKAGES: Record<string, { name: string | undefined; bins: string[] }> = {
   "llm-mcp": {
-    name: "@ask-llm/mcp",
+    name: MCP_PACKAGE,
     bins: [
       "ask-antigravity-run",
       "ask-brainstorm-run",
@@ -36,7 +38,7 @@ const CANONICAL_PACKAGES: Record<string, { name: string; bins: string[] }> = {
     ],
   },
   "claude-plugin": {
-    name: "@ask-llm/plugin",
+    name: PLUGIN_PACKAGE,
     bins: [
       "ask-antigravity-run",
       "ask-brainstorm-run",

@@ -1,5 +1,8 @@
 # @ask-llm/grok-mcp
 
+> [!WARNING]
+> **Retired.** `@ask-llm/grok-mcp` is no longer published: it was unpublished from npm in November 2026 and its MCP Registry entry is deleted. This folder is a private workspace whose Grok provider code is bundled into [`@ask-llm/mcp`](https://www.npmjs.com/package/@ask-llm/mcp). Install that with `npm install -g @ask-llm/mcp`, then run `ask-llm setup`; see the [migration guide](https://lykhoyda.github.io/ask-llm/reference/migration.html). The rest of this README describes the retired standalone server and is kept for reference.
+
 MCP server for one-shot Grok consultations through either the supported xAI Responses API (`xai-api`, default) or official Grok Build headless CLI (`grok-cli`). Harness and model selection remain separate, with no automatic failover.
 
 - Default exact model IDs: `grok-4.7` on both the xAI API and the Grok CLI; CLI IDs come from `grok models`

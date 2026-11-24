@@ -38,8 +38,8 @@ description: Provider defaults, route selection, timeouts and execution gates.
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| ASK_CODEX_LOAD_USER_CONFIG | unset (isolated) | By default @ask-llm/codex-mcp passes `--ignore-user-config` + `--ignore-rules` so your `~/.codex` config, MCP servers, and hooks are NOT loaded. Set to `1` to load them. |
-| ASK_GEMINI_REQUIRE_WORKSPACE_TRUST | unset (auto-trust) | By default @ask-llm/gemini-mcp co-emits the workspace-trust env vars so the CWD is trusted. Set to `1` to require explicit workspace trust instead (Gemini blocks untrusted dirs). |
+| ASK_CODEX_LOAD_USER_CONFIG | unset (isolated) | By default the Codex provider passes `--ignore-user-config` + `--ignore-rules` so your `~/.codex` config, MCP servers, and hooks are NOT loaded. Set to `1` to load them. |
+| ASK_GEMINI_REQUIRE_WORKSPACE_TRUST | unset (auto-trust) | By default the Gemini provider co-emits the workspace-trust env vars so the CWD is trusted. Set to `1` to require explicit workspace trust instead (Gemini blocks untrusted dirs). |
 | ASK_ANTIGRAVITY_ALLOW_UNISOLATED | unset (refused) | See the [provider guide](https://lykhoyda.github.io/ask-llm/providers/antigravity) for the execution gate, including `/brainstorm`. |
 | ASK_ANTIGRAVITY_SANDBOX | 1 (sandboxed) | Antigravity runs `agy` with `--sandbox` by default. Set to `0` to drop the sandbox flag. |
 

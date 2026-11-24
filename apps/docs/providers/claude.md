@@ -15,7 +15,7 @@ Bridge Codex CLI, Cursor, OpenCode, or another MCP client with Anthropic's Claud
 
 <InstallSnippet provider="claude" />
 
-Setup registers the unified Ask LLM server, which consults Claude through the `ask-llm` tool with `provider: "claude"`. In Codex, setup installs the workflows and prints the `codex mcp add` command for you to run; see [Install](/start/install). The tools listed below belong to the standalone `@ask-llm/claude-mcp` server, kept for earlier installations; see [Migration](/reference/migration) to move to the setup registration.
+Setup registers the unified Ask LLM server, which consults Claude through the `ask-llm` tool with `provider: "claude"`. In Codex, setup installs the workflows and prints the `codex mcp add` command for you to run; see [Install](/start/install). The tools listed below belong to the retired standalone `@ask-llm/claude-mcp` server, which is no longer published; `ask-llm` with `provider: "claude"` reaches the same provider. See [Migration](/reference/migration) to move an earlier installation to the setup registration.
 
 ## Prerequisites
 
@@ -67,5 +67,6 @@ The JSON response includes Claude's `session_id`. Pass it back as `sessionId` on
 
 ## npm
 
-- **Package:** [@ask-llm/claude-mcp](https://www.npmjs.com/package/@ask-llm/claude-mcp)
-- **Binary:** `ask-claude-mcp`
+- **Package:** [@ask-llm/mcp](https://www.npmjs.com/package/@ask-llm/mcp), which bundles the Claude provider
+- **Binary:** `ask-llm` (setup and diagnostics) and `ask-llm-mcp` (the server)
+- The standalone `@ask-llm/claude-mcp` package and its `ask-claude-mcp` binary are retired; see [Migration](/reference/migration).
