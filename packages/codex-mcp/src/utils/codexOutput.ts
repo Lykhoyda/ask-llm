@@ -23,9 +23,6 @@ export function compileOutputSchema(schema: Record<string, unknown>): ValidateFu
 
 export function describeOutputSchemaRejection(error: unknown): string | undefined {
   if (!(error instanceof Error)) return;
-  if (/unexpected argument ['`"]--output-schema/i.test(error.message)) {
-    return `Codex did not accept --output-schema: ${error.message}\nUpdate Codex CLI or omit outputSchema for a plain-text reply.`;
-  }
   if (
     /invalid_json_schema|invalid schema|schema(?: file)? (?:is )?(?:invalid|not valid|rejected|unsupported)/i.test(
       error.message,
