@@ -63,6 +63,8 @@ Add to `claude_desktop_config.json`:
 
 `ask-codex` rejects `workspace-write`; use `ask-codex-write` when Codex must create files. All three tools return readable text and a structured `AskResponse` via MCP `outputSchema`.
 
+`ask-codex` also accepts an optional `outputSchema` argument for a strict JSON reply. Set `additionalProperties: false` and list all properties in `required` for each object. Validated JSON appears in `structuredContent.structuredResult`. The raw text stays in `structuredContent.response`, and a reply that fails parsing or validation adds `structuredContent.validationError`. Schema calls bypass the cache and retain the normal model fallback unless `noFallback: true` is set. Supply the schema on each turn that needs JSON.
+
 Codex calls are ephemeral when `sessionId` is omitted. Pass `sessionId: ""` on the first call to persist a resumable thread, then pass its returned Thread ID on follow-up calls.
 
 ## Models

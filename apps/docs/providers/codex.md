@@ -26,7 +26,7 @@ Setup registers the unified Ask LLM server, which consults Codex through the `as
 
 | Tool | Purpose |
 |------|---------|
-| `ask-codex` | Send prompts to Codex CLI. Optional `reasoningEffort` and `noFallback`; omit `sessionId` for an ephemeral call, pass `sessionId: ""` to start a persisted thread, or pass a returned thread ID to resume it |
+| `ask-codex` | Send prompts to Codex CLI. Optional `reasoningEffort`, `noFallback`, and `outputSchema`. Omit `sessionId` for an ephemeral call, pass `sessionId: ""` to start a persisted thread, or pass a returned thread ID to resume it |
 | `ask-codex-edit` | Propose structured code edits via a read-only `codex exec --output-schema` pass. Returns edit blocks for the calling client to apply |
 | `get-usage-stats` | Per-session token totals + breakdowns. In-memory |
 | `ask-codex-write` | Run explicit file-writing tasks, including image generation, with workspace-write permission. Replaces `ask-codex({ sandbox: "workspace-write" })` |
@@ -37,6 +37,26 @@ Setup registers the unified Ask LLM server, which consults Codex through the `as
 `ask-codex` and unified `ask-llm` with Codex show an attribution line before the answer, for example **Codex CLI · selected gpt-6.2-astra · reasoning effort configured high**. The structured `model` and `reasoningEffort` fields reflect the configuration of the successful attempt, including a successful fallback. A cached answer is labelled **cached** and carries its original configuration with no fresh usage stats. These fields describe Ask LLM's selection and configuration. Independent backend model and reasoning effort are unverified.
 
 For read-only Codex calls, set `noFallback: true` to bypass the response cache and make one model attempt with the exact `model` or the normal default. This also bypasses any preferred model even if `preferred: true` was supplied. The attempt must exit successfully with a completed turn and a nonempty answer. This option is available on `ask-codex` and on unified `ask-llm` with `provider: "codex"`.
+
+### Requesting a JSON reply
+
+Pass `outputSchema` to `ask-codex` to send a [strict JSON Schema](https://developers.openai.com/api/docs/guides/structured-outputs#supported-schemas) to Codex. Use an object at the root. For every object, set `additionalProperties: false` and list every property in `required`. For a value that can be absent, include `null` in its type.
+
+```json
+{
+  "prompt": "Summarize the design in one sentence.",
+  "outputSchema": {
+    "type": "object",
+    "properties": { "summary": { "type": "string" } },
+    "required": ["summary"],
+    "additionalProperties": false
+  }
+}
+```
+
+A valid reply appears as parsed JSON in `structuredContent.structuredResult`. The original model text remains in `structuredContent.response` and in the readable reply. If the model's text cannot be parsed or fails the schema, both surfaces retain that text and report a `validationError`. When Codex rejects the schema itself, the call returns an error with guidance for correcting it.
+
+Schema calls bypass the response cache. Pass the schema on each turn that needs structured output, including when resuming with `sessionId`. The usual model selection and quota fallback apply. Set `noFallback: true` for a single attempt.
 
 ## Models
 

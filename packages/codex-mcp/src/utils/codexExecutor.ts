@@ -112,6 +112,8 @@ export interface CodexExecutorOptions {
   singleAttempt?: boolean;
   /** Require a successful terminal JSONL event, in addition to a nonempty answer. */
   strictOutcome?: boolean;
+  /** Return the agent message without the human-readable usage footer. */
+  rawResponse?: boolean;
 }
 
 interface CodexParsedResponse {
@@ -198,6 +200,7 @@ export function parseCodexJsonlOutput(
   durationMs: number,
   fellBack: boolean,
   strictOutcome = false,
+  rawResponse = false,
 ): CodexParsedResponse {
   let lastAgentMessage: string | undefined;
   let threadId: string | undefined;
@@ -223,7 +226,7 @@ export function parseCodexJsonlOutput(
 
     if (parsed.type === "item.completed") {
       const item = (parsed as CodexItemCompleted).item;
-      if (item?.type === "agent_message" && typeof item.text === "string" && item.text.length > 0) {
+      if (item?.type === "agent_message" && typeof item.text === "string" && (rawResponse || item.text.length > 0)) {
         lastAgentMessage = item.text;
       }
     }
@@ -242,7 +245,9 @@ export function parseCodexJsonlOutput(
 
   if (strictOutcome) {
     if (lastError !== undefined) throw new Error(`Codex error event: ${lastError}`);
-    if (!completedAnswer?.trim()) throw new Error("Codex ended without a completed turn containing an answer.");
+    if (completedAnswer === undefined || (!rawResponse && !completedAnswer.trim())) {
+      throw new Error("Codex ended without a completed turn containing an answer.");
+    }
     lastAgentMessage = completedAnswer;
   }
 
@@ -250,7 +255,7 @@ export function parseCodexJsonlOutput(
     throw new Error(`Codex error event: ${lastError}`);
   }
 
-  if (!lastAgentMessage) {
+  if (lastAgentMessage === undefined) {
     if (sawJsonlEvent) {
       // Events parsed but no agent message: dumping the raw JSONL as the
       // "response" reads as garbage to the consuming LLM — fail actionably.
@@ -267,7 +272,7 @@ export function parseCodexJsonlOutput(
   }
 
   return {
-    response: lastAgentMessage + formatStats(usage),
+    response: rawResponse ? lastAgentMessage : lastAgentMessage + formatStats(usage),
     threadId,
     usage: buildUsageStats(usage, model, durationMs, fellBack),
   };
@@ -513,12 +518,23 @@ export async function executeCodexCLI(options: CodexExecutorOptions): Promise<Co
     options.signal?.throwIfAborted();
   };
   const parseAttempt = (raw: string, selectedModel: string, startedAt: number, fellBack: boolean) => ({
-    ...parseCodexJsonlOutput(raw, selectedModel, Date.now() - startedAt, fellBack, options.strictOutcome),
+    ...parseCodexJsonlOutput(
+      raw,
+      selectedModel,
+      Date.now() - startedAt,
+      fellBack,
+      options.strictOutcome,
+      options.rawResponse,
+    ),
     attempt: { model: selectedModel, reasoningEffort, cached: false },
   });
 
   const commandLogging =
     options.killProcessGroup || options.strictOutcome ? { sensitiveValues: [options.prompt] } : undefined;
+  const progress = options.strictOutcome ? undefined : options.onProgress;
+  const executionOptions = options.strictOutcome
+    ? [{ ...commandOptions[0], failureDetails: strictFailureDetails }]
+    : commandOptions;
 
   let schemaPath: string | undefined;
   try {
@@ -569,13 +585,13 @@ export async function executeCodexCLI(options: CodexExecutorOptions): Promise<Co
         const raw = await executeCommand(
           CLI.COMMANDS.CODEX,
           preferredArgs,
-          options.onProgress,
+          progress,
           undefined,
           stdinPayload,
           timeoutMs,
           commandLogging,
           options.signal,
-          ...commandOptions,
+          ...executionOptions,
         );
         options.signal?.throwIfAborted();
         return parseAttempt(raw, MODELS.PREFERRED, preferredStartedAt, false);
@@ -595,13 +611,13 @@ export async function executeCodexCLI(options: CodexExecutorOptions): Promise<Co
       const raw = await executeCommand(
         CLI.COMMANDS.CODEX,
         args,
-        options.strictOutcome ? undefined : options.onProgress,
+        progress,
         undefined,
         stdinPayload,
         timeoutMs,
         commandLogging,
         options.signal,
-        ...(options.strictOutcome ? [{ ...commandOptions[0], failureDetails: strictFailureDetails }] : commandOptions),
+        ...executionOptions,
       );
       options.signal?.throwIfAborted();
       const result = parseAttempt(raw, model, startedAt, downgradedFromPreferred);
@@ -631,13 +647,13 @@ export async function executeCodexCLI(options: CodexExecutorOptions): Promise<Co
           const raw = await executeCommand(
             CLI.COMMANDS.CODEX,
             fallbackArgs,
-            options.onProgress,
+            progress,
             undefined,
             stdinPayload,
             timeoutMs,
             commandLogging,
             options.signal,
-            ...commandOptions,
+            ...executionOptions,
           );
           options.signal?.throwIfAborted();
           Logger.warn(`Successfully executed with ${MODELS.FALLBACK} fallback.`);
