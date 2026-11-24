@@ -1,7 +1,7 @@
 {
   "name": "ask-llm",
   "version": "1.8.0",
-  "description": "AI-to-AI collaboration — review code and debate plans across Codex, Grok, Antigravity, Ollama, and Gemini",
+  "description": "Second opinions for coding agents. Ask LLM tells you when a review didn't really happen. Ask Codex to review your changes or challenge your plan. You decide which suggestions to apply in Claude Code.",
   "author": {
     "name": "Anton Lykhoyda",
     "url": "https://github.com/Lykhoyda"

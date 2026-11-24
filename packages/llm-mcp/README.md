@@ -1,5 +1,11 @@
 # Ask LLM
 
+Second opinions for coding agents. Ask LLM tells you when a review didn't really happen.
+
+Ask Codex to review your changes or challenge your plan using your existing account. The Claude Code plugin includes the Codex review tool. For Grok or local Ollama in Claude Code, connect the unified server with ask-llm setup. A successful review names the reviewer and model, cites relevant code, and reports findings or says it found none. With the Claude Code pair hook enabled, Ask LLM logs a reply as unparsed if the reply matches no accepted format. It never records that reply as "no concerns". You decide which suggestions to apply in your assistant. Agreement between models is not proof of correctness, so check each finding against your code and tests.
+
+You need Node.js 24+ on Linux or macOS. For a CLI review, install and sign in to your assistant and the provider CLI first. Hosted calls use your plan's quota or follow your account's billing. Grok's direct xAI API is metered separately and requires an API key. Ollama can run locally. Ask LLM sends no telemetry. Provider and host data policies still apply.
+
 See the [Ask LLM README](https://github.com/Lykhoyda/ask-llm#ask-llm) for the product introduction, supported hosts and providers, and your first review.
 
 ## Quick Start

@@ -2,7 +2,7 @@
   "name": "ask-llm",
   "displayName": "Ask LLM",
   "version": "1.8.0",
-  "description": "Portable AI-to-AI review and pairing workflows for Cursor Agent with explicit provider transports.",
+  "description": "Second opinions for coding agents. Ask LLM tells you when a review didn't really happen. Ask another vendor's model to review your changes or challenge your plan, without leaving your Cursor session. You decide which suggestions to apply in Cursor.",
   "author": {
     "name": "Anton Lykhoyda"
   },
