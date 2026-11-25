@@ -60,8 +60,8 @@ export const OUTPUT_FORMATS = {
 // agy 1.1.5 uses base model slugs plus a separate effort flag; effort-carrying
 // legacy names remain valid only when no implicit effort flag is added.
 export const MODELS = {
-  DEFAULT: "gemini-4-argon",
-  FALLBACK: "gemini-3.8-flash",
+  DEFAULT: "gemini-4-neon",
+  FALLBACK: "gemini-4-hydrogen",
   // Reported as the result model when a model-unavailable retry let agy pick.
   AGY_DEFAULT_LABEL: "agy default",
 } as const;

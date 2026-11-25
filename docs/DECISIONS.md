@@ -1,5 +1,15 @@
 # Architectural Decisions
 
+## ADR-203: Move the Antigravity default to Gemini 4 Neon and the fallback to Gemini 4 Hydrogen
+
+**Status:** Accepted (2026-11-25). Supersedes the Antigravity half of ADR-196 and the Antigravity `gemini-3.8-flash` fallback from ADR-178. The Gemini CLI provider's `gemini-4-argon` default and `gemini-3.8-flash` fallback are unchanged.
+
+**Context:** Antigravity's model page (https://antigravity.google/docs/models) says "Gemini 4 Argon, Gemini 3.8 Flash, GPT-OSS-120b, and Claude 4.6 models are leaving on November 30, 2026". Those are the Antigravity default and rate-limit fallback. After removal each Antigravity call would spend one failed spawn before the model-less retry, the rate-limit fallback would stop working, and the `/brainstorm` raw agy call, which has no retry, would lose its Antigravity participant. On agy 1.5.17, `agy models` lists `gemini-4-neon-low|medium|high|xhigh` and `gemini-4-hydrogen-low|medium|high|xhigh`, among others. A no-turn sandboxed `/quota` read showed the Gemini group's weekly and five-hour limits above zero before and after the checks. Both checks ran through the built executor with the session-only `--settings` overlay, `--sandbox` and `--output-format json`, on the subscription login with no API key. `gemini-4-hydrogen --effort high` answered as the shipped fallback slug. `gemini-4-neon` answered as an explicit model while the old default was still built, so the executor sent no `--effort`. `gemini-4-neon --effort high` also answered on the same host that day with agy 1.5.17.
+
+**Decision:** Set the Antigravity `MODELS.DEFAULT` to the base slug `gemini-4-neon` and `MODELS.FALLBACK` to `gemini-4-hydrogen`. Keep the ADR-137/178 contract: base slug plus `--effort high` by default, `ASK_ANTIGRAVITY_EFFORT` still honored, and no tiered ID. The unified `PROVIDERS.antigravity.defaultModel` and the `/brainstorm` raw call (`--model "gemini-4-neon" --effort high`) move with it. Current-facing Antigravity docs, the docs provider data and its drift guard, the tool description, contract fixtures and the generated `llms-full.txt` follow. Historical ADRs, roadmap entries and changelogs keep the pins they recorded.
+
+**Consequences:** Antigravity keeps a working default and rate-limit fallback after 2026-11-30. The model-unavailable recovery now applies to the new slugs, so a rejected `gemini-4-argon` or `gemini-3.8-flash` pin set through `ASK_ANTIGRAVITY_MODEL` fails with an actionable error instead of a model-less retry. The Gemini CLI provider still pins models that agy is removing. Whether Gemini CLI can use them is a separate question with no evidence here. The `xhigh` tier that agy lists for both new models stays outside `VALID_EFFORTS`.
+
 ## ADR-202: Publish only the canonical packages and guard the release allowlist
 
 **Status:** Accepted (2026-11-24). Records the outcome of ADR-179's deprecation step (S8) for the split packages and replaces its plan for them. `@ask-llm/plugin` keeps ADR-179's pending deprecation.
@@ -64,7 +74,7 @@
 
 ## ADR-196: Move the Gemini and Antigravity default models to Gemini 4 Argon
 
-**Status:** Accepted (2026-11-16). Supersedes the Pro default in ADR-137 (Antigravity `gemini-3.1-pro`) and the Pro factory default carried by ADR-154/155 (Gemini `gemini-3.1-pro-preview`).
+**Status:** Accepted (2026-11-16). Supersedes the Pro default in ADR-137 (Antigravity `gemini-3.1-pro`) and the Pro factory default carried by ADR-154/155 (Gemini `gemini-3.1-pro-preview`). Its Antigravity half is superseded by ADR-203.
 
 **Context:** Live agy 1.5.9 rejects the shipped Antigravity default with exit 1: `invalid model selection (--model "gemini-3.1-pro" --effort "high"): --effort is not supported for model "gemini-3.1-pro"`. `agy models` no longer lists any `gemini-3.1-pro` id; it lists `gemini-4-argon-low|medium|high` and `gemini-3.8-flash-low|medium|high`, among others. The executor treated the rejection as model-unavailable and spent one failed spawn before a model-less retry. The raw `/brainstorm` agy call has no retry, so its Antigravity participant failed. Live on agy 1.5.9, the base slug `gemini-4-argon` answered with `--effort low`, `medium` and `high` and with no `--effort`. agy names its tiers itself (`gemini-4-argon has no "xhigh" effort (available: low, medium, high)`). The tiered `gemini-4-argon-high` and the display name `Gemini 4 Argon (High)` also answered. `gemini-3.8-flash --effort high` still answered. The legacy display name `Gemini 3.1 Pro (High)` is rejected as not recognized. Gemini CLI 0.66.0 (2026-10-27) has no model list of its own for Gemini 4. Its `resolveModel` passes an unrecognized `-m` value through unchanged. Its README says Gemini CLI "has not been optimized for Gemini 4 Argon" and points to Antigravity. Google's Gemini API CLI catalog and SDK enumerate the API id `gemini-4-argon`.
 
@@ -278,7 +288,7 @@ Afterwards `npm view <package> deprecated` prints the message for each of the se
 
 ## ADR-178: Antigravity adopts live agy 1.2.12 evidence (fallback model, AGY_ERROR, quota)
 
-**Status:** Accepted (2026-09-27). Supersedes the antigravity half of ADR-125/137/155's `gemini-3.5-flash` fallback pin. Superseded by ADR-191 for the 1.1.11 rate-limit quota floor.
+**Status:** Accepted (2026-09-27). Supersedes the antigravity half of ADR-125/137/155's `gemini-3.5-flash` fallback pin. Superseded by ADR-191 for the 1.1.11 rate-limit quota floor. Superseded by ADR-203 for the `gemini-3.8-flash` fallback pin.
 
 **Context:** Live agy 1.2.12 rejects the shipped rate-limit fallback: `--model gemini-3.5-flash` fails with `invalid model selection … is not recognized as a known model`, so a rate limit fell into model-unavailable recovery instead of a Flash retry. `agy models` lists only tiered ids (`gemini-3.8-flash-high|medium|low`, `gemini-3.7-…`, `gemini-3.6-…`, `gemini-3.1-pro-high|low`). A tiered id conflicts with any other effort (`--model gemini-3.8-flash-high --effort low` → `conflicts with --effort=low`), while the base slug works with every tier (`gemini-3.8-flash --effort low|medium|high` all answered live) and fails without one (`requires --effort`), the same form as the shipped default `gemini-3.1-pro`.
 

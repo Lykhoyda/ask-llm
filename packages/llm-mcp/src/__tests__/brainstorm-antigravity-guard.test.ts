@@ -3,6 +3,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
+import { PROVIDERS } from "../constants.js";
 import { readFile } from "./_helpers.js";
 
 const SKIP_FLAG = "--dangerously-skip-permissions";
@@ -86,6 +87,10 @@ describe.each(shells)("brainstorm antigravity participant under %s", (shell) => 
       permissions: { deny: ["write_file(*)", "command(*)"] },
     });
     expect(result.argv).not.toContain("--mode");
+    // The raw call bypasses the executor, so it must restate the shipped default slug and effort (ADR-203).
+    expect(PROVIDERS.antigravity.defaultModel).toBe("gemini-4-neon");
+    expect(result.argv?.[result.argv.indexOf("--model") + 1]).toBe(PROVIDERS.antigravity.defaultModel);
+    expect(result.argv?.[result.argv.indexOf("--effort") + 1]).toBe("high");
     const prompt = result.argv?.[result.argv.indexOf("-p") + 1];
     expect(prompt).toContain("Read and reason only");
     expect(prompt).toContain("review this");

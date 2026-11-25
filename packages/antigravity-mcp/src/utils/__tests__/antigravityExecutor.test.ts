@@ -505,10 +505,12 @@ describe("executeAntigravityCLI error handling", () => {
 
 describe("executeAntigravityCLI rate-limit fallback", () => {
   // agy 1.2.12 dropped gemini-3.5-flash; the base slug is proven live with --effort low|medium|high.
-  // agy 1.5.9 rejects gemini-3.1-pro with any --effort; gemini-4-argon answers with --effort low|medium|high.
-  it("pins the live-proven gemini-4-argon default and gemini-3.8-flash fallback base slugs", () => {
-    expect(MODELS.FALLBACK).toBe("gemini-3.8-flash");
-    expect(MODELS.DEFAULT).toBe("gemini-4-argon");
+  // agy 1.5.9 rejects gemini-3.1-pro with any --effort; gemini-4-argon answered with --effort low|medium|high.
+  // agy removes gemini-4-argon and gemini-3.8-flash on 2026-11-30; on agy 1.5.17 gemini-4-neon and
+  // gemini-4-hydrogen answered with --effort high (ADR-203).
+  it("pins the live-proven gemini-4-neon default and gemini-4-hydrogen fallback base slugs", () => {
+    expect(MODELS.FALLBACK).toBe("gemini-4-hydrogen");
+    expect(MODELS.DEFAULT).toBe("gemini-4-neon");
   });
 
   it("redacts the read-only prompt on both primary and fallback command logs", async () => {
@@ -524,7 +526,7 @@ describe("executeAntigravityCLI rate-limit fallback", () => {
     }
   });
 
-  it("retries on the Flash fallback when the default Pro model is rate limited", async () => {
+  it("retries on the fallback model when the default model is rate limited", async () => {
     mockExec.mockRejectedValueOnce(new Error("RESOURCE_EXHAUSTED: quota")).mockResolvedValueOnce("flash answer");
     const result = await executeAntigravityCLI({ prompt: "q" });
     expect(result.response).toBe("flash answer");
@@ -534,6 +536,9 @@ describe("executeAntigravityCLI rate-limit fallback", () => {
     const secondArgs = mockExec.mock.calls[1][1];
     expect(firstArgs[firstArgs.indexOf(CLI.FLAGS.MODEL) + 1]).toBe(MODELS.DEFAULT);
     expect(secondArgs[secondArgs.indexOf(CLI.FLAGS.MODEL) + 1]).toBe(MODELS.FALLBACK);
+    // Both shipped base slugs carry the default effort as a separate flag (ADR-137).
+    expect(firstArgs[firstArgs.indexOf(CLI.FLAGS.EFFORT) + 1]).toBe(ANTIGRAVITY.DEFAULT_EFFORT);
+    expect(secondArgs[secondArgs.indexOf(CLI.FLAGS.EFFORT) + 1]).toBe(ANTIGRAVITY.DEFAULT_EFFORT);
   });
 
   it("does not retry when the resolved model already is the fallback", async () => {

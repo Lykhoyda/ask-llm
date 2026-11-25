@@ -516,7 +516,7 @@ export async function executeAntigravityCLI(options: AntigravityExecutorOptions)
       // A different model cannot repair spawn, auth, NO_OUTPUT, or timeout failures.
       throw error;
     }
-    // Retry subscription rate limits once on Flash unless it was already selected.
+    // Retry subscription rate limits once on the fallback model unless it was already selected.
     if (primaryModel === MODELS.FALLBACK) {
       throw await rateLimitedError();
     }
