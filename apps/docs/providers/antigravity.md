@@ -12,7 +12,7 @@ Bridge Claude with Google's Antigravity CLI (`agy`), Google's successor to Gemin
 > **Not for:** fine-grained per-edit automation; it's experimental. For continuous review, use Codex via `codex-pair`.
 
 ::: warning Experimental
-Requires a [supported agy version](#prerequisites). Unified discovery, `doctor --live`, and ping report older or unparseable installations as detected but unusable and exclude them from dispatch; the executor repeats the version check before every model invocation. For default doctor, see [Quota diagnostics](#quota-diagnostics). It reads the headless `-p` response from `agy`'s `--output-format json` stdout. Supports follow-ups via `sessionId`; defaults to the **gemini-4-argon** model at **high** reasoning effort, falling back to **gemini-3.8-flash** on a rate limit.
+Requires a [supported agy version](#prerequisites). Unified discovery, `doctor --live`, and ping report older or unparseable installations as detected but unusable and exclude them from dispatch; the executor repeats the version check before every model invocation. For default doctor, see [Quota diagnostics](#quota-diagnostics). It reads the headless `-p` response from `agy`'s `--output-format json` stdout. Supports follow-ups via `sessionId`; defaults to the **gemini-4-neon** model at **high** reasoning effort, falling back to **gemini-4-hydrogen** on a rate limit.
 :::
 
 ## Installation
@@ -58,8 +58,8 @@ If agy cannot find the ID (for example, a conversation it no longer retains), ag
 
 <FallbackChain provider="antigravity" />
 
-- **Default:** `gemini-4-argon`, passed to `agy` via `--model`, at `high` reasoning effort via `--effort`
-- **Rate-limit fallback:** `gemini-3.8-flash`, retried once on a rate limit
+- **Default:** `gemini-4-neon`, passed to `agy` via `--model`, at `high` reasoning effort via `--effort`
+- **Rate-limit fallback:** `gemini-4-hydrogen`, retried once on a rate limit
 - **Quota diagnostics:** when a rate limit exhausts the available model attempts, a successful sandboxed `/quota` probe adds remaining quota percentages and reset times to the error; a failed probe leaves the usual rate-limit error
 - **Model-unavailable recovery:** if agy rejects a model whose value equals one of the built-in base slugs (upstream drift), the executor retries once **without** a model and lets agy pick its default; any other rejected model fails with an actionable error pointing at `agy models`
 - **Overrides:** see [Config](#config) for model IDs and effort compatibility.
@@ -95,7 +95,7 @@ Claude Code's `/brainstorm` uses a separate raw `agy` call. Without the exact op
 | `ASK_ANTIGRAVITY_TIMEOUT_MS` | `300000` | Process timeout (5 minutes). At the default, `agy --print-timeout` expires 5s earlier. |
 | `ASK_ANTIGRAVITY_ALLOW_UNISOLATED` | unset | Only the exact value `1` permits unisolated review/tool, read-only machine, and `/brainstorm` raw agy execution |
 | `ASK_ANTIGRAVITY_SANDBOX` | on | Set `0` to drop `--sandbox` from review calls if it blocks `--add-dir` context reads; the `/quota` diagnostic probe always uses `--sandbox` |
-| `ASK_ANTIGRAVITY_MODEL` | `gemini-4-argon` | agy model passed via `--model`. Run `agy models` to list IDs. For a tiered ID such as `claude-sonnet-5-5-high`, leave `ASK_ANTIGRAVITY_EFFORT` unset: effort-carrying names reject `--effort`. Legacy display strings like `Gemini 4 Argon (High)` still resolve for backward compatibility. See [Models](#models) for fallback and recovery behavior. |
+| `ASK_ANTIGRAVITY_MODEL` | `gemini-4-neon` | agy model passed via `--model`. Accepted names are whatever `agy models` lists on your install. For a tiered ID such as `claude-sonnet-5-5-high`, leave `ASK_ANTIGRAVITY_EFFORT` unset: effort-carrying names reject `--effort`. Legacy display strings are passed to agy unchanged for backward compatibility. See [Models](#models) for fallback and recovery behavior. |
 | `ASK_ANTIGRAVITY_EFFORT` | `high` | agy reasoning effort passed via `--effort` (`low` \| `medium` \| `high`). The default is paired with the built-in base slugs and with model-less recovery attempts; an explicit value is always passed — note agy limits tiers per model (run `agy models` to see each model's tiers). Invalid values warn and fall back to the default behavior |
 
 ## Limitations
