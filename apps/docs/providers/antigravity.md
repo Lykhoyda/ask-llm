@@ -95,7 +95,7 @@ Claude Code's `/brainstorm` uses a separate raw `agy` call. Without the exact op
 | `ASK_ANTIGRAVITY_TIMEOUT_MS` | `300000` | Process timeout (5 minutes). At the default, `agy --print-timeout` expires 5s earlier. |
 | `ASK_ANTIGRAVITY_ALLOW_UNISOLATED` | unset | Only the exact value `1` permits unisolated review/tool, read-only machine, and `/brainstorm` raw agy execution |
 | `ASK_ANTIGRAVITY_SANDBOX` | on | Set `0` to drop `--sandbox` from review calls if it blocks `--add-dir` context reads; the `/quota` diagnostic probe always uses `--sandbox` |
-| `ASK_ANTIGRAVITY_MODEL` | `gemini-4-neon` | agy model passed via `--model`. Run `agy models` to list IDs. For a tiered ID such as `claude-sonnet-5-5-high`, leave `ASK_ANTIGRAVITY_EFFORT` unset: effort-carrying names reject `--effort`. Legacy display strings like `Gemini 4 Neon (High)` still resolve for backward compatibility. See [Models](#models) for fallback and recovery behavior. |
+| `ASK_ANTIGRAVITY_MODEL` | `gemini-4-neon` | agy model passed via `--model`. Accepted names are whatever `agy models` lists on your install. For a tiered ID such as `claude-sonnet-5-5-high`, leave `ASK_ANTIGRAVITY_EFFORT` unset: effort-carrying names reject `--effort`. Legacy display strings are passed to agy unchanged for backward compatibility. See [Models](#models) for fallback and recovery behavior. |
 | `ASK_ANTIGRAVITY_EFFORT` | `high` | agy reasoning effort passed via `--effort` (`low` \| `medium` \| `high`). The default is paired with the built-in base slugs and with model-less recovery attempts; an explicit value is always passed — note agy limits tiers per model (run `agy models` to see each model's tiers). Invalid values warn and fall back to the default behavior |
 
 ## Limitations
