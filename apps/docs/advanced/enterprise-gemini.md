@@ -4,14 +4,14 @@ description: Gemini eligibility, workspace trust and its provider-specific sandb
 
 # Enterprise environments / Gemini
 
-Gemini CLI requires an eligible Code Assist Standard/Enterprise seat. Installing Ask LLM does not grant account access. Check your organisation's data-transfer policy before sending project material. See the [Gemini provider reference](/providers/gemini) for account eligibility and failure behavior.
+Gemini CLI requires an existing, eligible Code Assist Standard or Enterprise seat. Check your organisation's data-transfer policy before sending project material. See the [Gemini provider reference](/providers/gemini) for account eligibility and failure behavior.
 
 Ask LLM normally supplies Gemini workspace-trust settings for the current directory. Set `ASK_GEMINI_REQUIRE_WORKSPACE_TRUST=1` to require explicit workspace trust instead; untrusted directories then block. User-scope Gemini registrations load only in trusted folders. See [environment variables](/reference/environment-variables).
 
 Gemini CLI ships a sandboxed code-execution environment that lets the model write and run code in an isolated context. This is a **Gemini CLI feature**, not a feature of the MCP server.
 
-::: tip Gemini-only, and Gemini is now enterprise-gated
-Sandbox mode is specific to the Gemini CLI. Since Gemini CLI is [enterprise-gated as of 2026-06-18](/providers/gemini), this feature is available only to eligible Gemini Code Assist Standard/Enterprise seats.
+::: tip Gemini CLI sandbox
+Gemini CLI sandbox mode requires the same [account eligibility](/providers/gemini) as other Gemini CLI calls.
 :::
 
 ## Why isn't there a `sandbox` parameter on `ask-gemini` anymore?

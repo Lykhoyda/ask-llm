@@ -118,8 +118,8 @@ Dispatch all requested external providers via **a single foreground Bash tool ca
 
 The user specifies which external providers to use. Default is `antigravity,codex`. Only include the requested providers in the Bash call:
 
-- `antigravity` — Google Antigravity, subscription-backed via your Google AI Pro/Ultra plan, via the `agy` CLI (experimental; requires `agy` >=1.5.9 installed + logged in)
-- `gemini` — Google Gemini (large context, strong at analysis) via the `gemini` CLI
+- `antigravity` uses Google's Antigravity CLI. This experimental route requires `agy` >=1.5.9 signed in to the intended Google account and `ASK_ANTIGRAVITY_ALLOW_UNISOLATED=1`. Google does not support third-party headless use on consumer plans. See the [Ask LLM Antigravity guide](https://lykhoyda.github.io/ask-llm/providers/antigravity) for Google's terms and account checks.
+- `gemini` uses Gemini CLI with an [existing, eligible Gemini Code Assist Standard or Enterprise seat](https://lykhoyda.github.io/ask-llm/providers/gemini).
 - `codex` — OpenAI Codex (strong at code reasoning) via `codex exec --sandbox read-only`
 - `grok` — bare Grok remains the compatible canonical-runner path with explicit `ASK_GROK_HARNESS` (`xai-api` default or `grok-cli`); routed Grok uses the exact selected harness/model and never falls back
 - `ollama` — Local Ollama (private, no data leaves machine) via the `ollama` CLI
@@ -315,6 +315,7 @@ cat "$workdir/ollama.err" 2>/dev/null
 - Otherwise, if a provider exits non-zero or its stdout is empty, record it as failed in Phase 4 ("⚠️ [Provider]: failed — stderr: …") and continue the synthesis with the ones that responded. Do NOT fabricate a missing provider's response.
 - Use the Codex attempt lines to attribute a successful response to the selected model and its configured reasoning effort. If a second attempt ran, report the first failure and attribute the answer only to the fallback. Carry the exact runner's `reasoningEffort` for direct Codex into the participant line when present.
 - If ANTIGRAVITY STDERR contains an `antigravity warning:` line, append it to the Antigravity participant line as "⚠️ <warning verbatim>" even when the run succeeded.
+- For a successful raw Antigravity call, report `gemini-4-neon` as the submitted slug and leave backend model identity unverified.
 - If the whole Bash call times out (exceeds 600000ms), the tool returns a timeout error. Treat that as "at least one provider exceeded the 10-minute cap", report the timeout honestly in Phase 4, and proceed with whatever partial output the workdir files captured before the timeout.
 
 ### Phase 4: Synthesis

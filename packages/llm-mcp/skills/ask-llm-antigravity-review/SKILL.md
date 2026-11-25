@@ -28,16 +28,16 @@ The existing detailed workflow below is the Claude Code adapter. Its Agent, MCP,
 
 # Antigravity Code Review
 
-Review current code changes by delegating to the `antigravity-reviewer` agent — a subscription-backed second opinion via Google's Antigravity CLI (`agy`).
+Review current code changes with the `antigravity-reviewer` agent using Google's Antigravity CLI (`agy`).
 
 ## Prerequisites
 
 This skill is **experimental** and requires:
 
-- `agy` installed and **logged in once** (run `agy` interactively to complete Google Sign-In).
+- A supported `agy` version signed in to the intended Google account. Confirm the account's credit settings before a verification turn.
 - The Ask LLM server registered (`npm install -g @ask-llm/mcp`, then `ask-llm setup`), with `ASK_ANTIGRAVITY_ALLOW_UNISOLATED=1` set for it.
 
-It is one-shot (no multi-turn) and **subscription-backed** — it uses your Google AI Pro/Ultra plan, not per-token API billing. For routine review on a paid OpenAI/Gemini setup, prefer [`codex-review`](../ask-llm-review/SKILL.md) or [`gemini-review`](../ask-llm-gemini-review/SKILL.md). To compare several providers at once, use [`multi-review`](../ask-llm-multi-review/SKILL.md).
+The skill requests one review. Google does not support third-party headless use on consumer plans and describes third-party access as a terms violation. Review Google's position before choosing this route. [Ask LLM Antigravity guide](https://lykhoyda.github.io/ask-llm/providers/antigravity)
 
 ## Instructions
 
@@ -48,6 +48,6 @@ It is one-shot (no multi-turn) and **subscription-backed** — it uses your Goog
 
 2. If the diff is empty, inform the user there are no changes to review.
 
-3. Launch the `antigravity-reviewer` agent with the diff content. The agent handles the Antigravity prompt structure, confidence filtering, and output formatting. If the `mcp__antigravity__ask-antigravity` tool is unavailable, the agent will tell the user to register the Antigravity MCP server rather than failing silently.
+3. Launch the `antigravity-reviewer` agent with the diff content. The agent handles the review prompt, confidence filtering, and output formatting. The unified tool registered by `ask-llm setup` reaches Antigravity with `provider: "antigravity"`.
 
 <!-- HOST-ADAPTER:CLAUDE-CODE:END -->

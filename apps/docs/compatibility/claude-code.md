@@ -90,7 +90,7 @@ Sends code changes to OpenAI Codex (GPT-6.2 Sol) for review. Automatic fallback 
 
 #### `antigravity-reviewer`
 
-Sends code changes to Google Antigravity (`agy`) for a subscription-backed review via your Google AI Pro/Ultra plan. Experimental; the Gemini CLI successor.
+Sends code changes to Google's Antigravity CLI (`agy`) for review with explicit local opt-in. See the [Ask LLM route, Google's consumer-plan terms, and account checks](/providers/antigravity).
 
 #### `grok-reviewer`
 
@@ -102,7 +102,7 @@ Sends code changes to a local Ollama model. All processing stays on your machine
 
 #### `gemini-reviewer`
 
-Sends code changes to Google Gemini for review. Leverages Gemini's massive context window for changes that span many files. ([Enterprise-gated from 2026-06-18](/providers/gemini).)
+Sends code changes to Gemini CLI for review with an [existing, eligible Gemini Code Assist Standard or Enterprise seat](/providers/gemini).
 
 ### Brainstorm Agent
 

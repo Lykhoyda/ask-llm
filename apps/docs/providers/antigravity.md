@@ -1,30 +1,30 @@
 ---
-description: Bridge Claude with Google's Antigravity CLI (agy) for subscription-backed code review and second opinions. Experimental; reads agy's structured JSON output from stdout.
+description: Consult Google's Antigravity CLI (agy) through the unified Ask LLM tool with explicit local opt-in. Google does not support consumer-plan use through third-party agents.
 ---
 
 # Antigravity
 
 <ProviderStatus provider="antigravity" />
 
-Bridge Claude with Google's Antigravity CLI (`agy`), Google's successor to Gemini CLI. Get a subscription-backed second opinion or code review using your Google AI Pro/Ultra plan, without per-token API billing.
+If you have a personal Google AI subscription and choose to consult Antigravity through Ask LLM, use the unified `ask-llm` tool with `provider: "antigravity"`. It sends your request through Google's Antigravity CLI (`agy`), Google's successor to Gemini CLI.
 
-> **Best for:** a subscription-backed second opinion if you have a Google AI Pro/Ultra plan, and larger-context reads. The Google-sanctioned successor to Gemini CLI.
-> **Not for:** fine-grained per-edit automation; it's experimental. For continuous review, use Codex via `codex-pair`.
+Google says consumer plans do not support wrapping headless Antigravity CLI in third-party agents or apps. Google also describes third-party access as a terms violation that can result in account suspension or termination. Review Google's position before deciding whether to use this route. The choice and its account consequences are yours. [Google's Antigravity FAQ](https://antigravity.google/docs/faq#can-i-use-antigravity-cli-headless-mode-in-third-party-coding-agents-or-automate-account-switching)
 
 ::: warning Experimental
-Requires a [supported agy version](#prerequisites). Unified discovery, `doctor --live`, and ping report older or unparseable installations as detected but unusable and exclude them from dispatch; the executor repeats the version check before every model invocation. For default doctor, see [Quota diagnostics](#quota-diagnostics). It reads the headless `-p` response from `agy`'s `--output-format json` stdout. Supports follow-ups via `sessionId`; defaults to the **gemini-4-neon** model at **high** reasoning effort, falling back to **gemini-4-hydrogen** on a rate limit.
+Execution requires the local setting `ASK_ANTIGRAVITY_ALLOW_UNISOLATED=1` in the Ask LLM server environment. Opted-in runs have no read-only guarantee. Review the [prerequisites](#prerequisites) before using the tool.
 :::
 
 ## Installation
 
 <InstallSnippet provider="antigravity" />
 
-Setup registers the unified Ask LLM server, which consults Antigravity through the `ask-llm` tool with `provider: "antigravity"`. Execution stays off until you set `ASK_ANTIGRAVITY_ALLOW_UNISOLATED=1` for the server. The tools listed below belong to the retired standalone `@ask-llm/antigravity-mcp` server, which is no longer published; `ask-llm` with `provider: "antigravity"` reaches the same provider. See [Migration](/reference/migration) to move an earlier installation to the setup registration.
+Setup registers the unified Ask LLM server. The tools listed below belong to the retired standalone `@ask-llm/antigravity-mcp` server. See [Migration](/reference/migration) to move an earlier installation to the setup registration.
 
 ## Prerequisites
 
 1. **Node.js** v24.0.0 or higher
-2. **[Antigravity CLI](https://antigravity.google)** (`agy`) version 1.5.9 or newer installed and **logged in once**: verify with `agy --version`, then run `agy` interactively to complete the Google Sign-In before using the MCP server
+2. **Antigravity CLI** (`agy`) version 1.5.9 or newer. Check with `agy --version` and confirm that the CLI is signed in to the intended personal Google account. [Google sign-in instructions](https://antigravity.google/docs/install/)
+3. **Account credit controls.** Check the settings for the account the CLI is actually using and confirm that **Use AI Credits** is off. If sign-in or overage protection is uncertain, skip the verification turn. [Google's CLI credit controls](https://antigravity.google/docs/cli/credits/)
 
 ## Tools
 
@@ -34,7 +34,7 @@ Setup registers the unified Ask LLM server, which consults Antigravity through t
 | `get-usage-stats` | Per-session token totals (in-memory) |
 | `ping` | Connection test; reports whether `agy` is supported, unsupported, unusable, or missing |
 
-`ask-antigravity` returns both human-readable text and a structured `AskResponse` (provider, response, model, sessionId, usage) via MCP `outputSchema`. Token usage — including cached and thinking tokens when agy reports them — comes from the JSON envelope's `usage` object.
+`ask-antigravity` returns both human-readable text and a structured `AskResponse` (provider, response, model, sessionId, usage) via MCP `outputSchema`. Token usage comes from the JSON envelope's `usage` object, including cached and thinking tokens when agy reports them. The model label describes the selection submitted for the successful attempt. Backend model identity is unverified. See [Models](#models).
 
 ## Sessions
 
@@ -58,11 +58,13 @@ If agy cannot find the ID (for example, a conversation it no longer retains), ag
 
 <FallbackChain provider="antigravity" />
 
-- **Default:** `gemini-4-neon`, passed to `agy` via `--model`, at `high` reasoning effort via `--effort`
-- **Rate-limit fallback:** `gemini-4-hydrogen`, retried once on a rate limit
+- **Ask LLM default** submits `gemini-4-neon` via `--model` and `high` via `--effort`.
+- **Rate-limit fallback** submits `gemini-4-hydrogen` once on a rate limit.
 - **Quota diagnostics:** when a rate limit exhausts the available model attempts, a successful sandboxed `/quota` probe adds remaining quota percentages and reset times to the error; a failed probe leaves the usual rate-limit error
 - **Model-unavailable recovery:** if agy rejects a model whose value equals one of the built-in base slugs (upstream drift), the executor retries once **without** a model and lets agy pick its default; any other rejected model fails with an actionable error pointing at `agy models`
 - **Overrides:** see [Config](#config) for model IDs and effort compatibility.
+
+For both unified and standalone tool responses, the model label is the slug submitted for the successful attempt, including `gemini-4-hydrogen` after a successful rate-limit fallback. After a successful model-less recovery, the label is `agy default`. The backend model remains unverified in each case.
 
 ## What protects opted-in runs
 

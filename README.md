@@ -67,9 +67,9 @@ See [host compatibility](https://lykhoyda.github.io/ask-llm/compatibility/hosts)
 | [Codex](https://lykhoyda.github.io/ask-llm/providers/codex) | Your authenticated Codex CLI/account |
 | [Claude](https://lykhoyda.github.io/ask-llm/providers/claude) | Your authenticated Claude Code account; consult it from a host other than Claude Code |
 | [Grok](https://lykhoyda.github.io/ask-llm/providers/grok) | Authenticated Grok Build, an exact Cursor model, or the explicit metered xAI API option |
-| [Antigravity](https://lykhoyda.github.io/ask-llm/providers/antigravity) | Your authenticated agy subscription; execution is off by default, and opt-in has no read-only guarantee |
+| [Antigravity](https://lykhoyda.github.io/ask-llm/providers/antigravity) | Unified `ask-llm` with `provider: "antigravity"` and explicit local opt-in. Google does not support third-party headless use on consumer plans. |
 | [Ollama](https://lykhoyda.github.io/ask-llm/providers/ollama) | Local models on your machine |
-| [Gemini](https://lykhoyda.github.io/ask-llm/providers/gemini) | An eligible Gemini Code Assist Standard/Enterprise seat |
+| [Gemini](https://lykhoyda.github.io/ask-llm/providers/gemini) | An existing, eligible Gemini Code Assist Standard or Enterprise seat |
 
 Cursor Agent can also consult exact models from your Cursor catalog. It is a connection route, with usage governed by your Cursor plan.
 

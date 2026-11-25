@@ -14,7 +14,7 @@ export const ERROR_MESSAGES = {
     "Please provide a prompt for analysis. Ask a question or describe the code you want a second opinion on.",
   NO_OUTPUT: `Antigravity (agy) ran but produced no readable response. Most likely you are not logged in (run \`agy\` once interactively to authenticate), or agy's --output-format json stdout changed (this experimental provider may need an update). @ask-llm/antigravity-mcp requires agy >=${MINIMUM_AGY_VERSION} and reads the answer from agy's JSON stdout.`,
   RATE_LIMITED:
-    "Antigravity (agy) hit a subscription rate limit. Google AI Pro/Ultra quotas refresh roughly every 5 hours — wait and retry, or use ask-codex / ask-gemini in the meantime.",
+    "Antigravity (agy) hit a rate limit. Check the quota and reset time for the signed-in account before retrying. See https://lykhoyda.github.io/ask-llm/providers/antigravity#quota-diagnostics",
   TRUNCATED: "Antigravity (agy) hit --print-timeout and returned a truncated answer instead of a complete response.",
   TURN_INTERRUPTED: "Antigravity (agy) was interrupted before returning a complete response.",
   TURN_FAILED: "Antigravity (agy) failed before returning a complete response.",

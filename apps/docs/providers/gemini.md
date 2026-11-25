@@ -1,34 +1,25 @@
 ---
-description: Bridge Claude with Google Gemini via the official CLI. 1M+ token context window for large codebase analysis, structured edits, and quota-aware model fallback.
+description: Consult Gemini CLI through Ask LLM with an existing eligible Gemini Code Assist Standard or Enterprise seat.
 ---
 
 # Gemini
 
 <ProviderStatus provider="gemini" />
 
-Bridge Claude with Google's Gemini via the official Gemini CLI. Leverages Gemini's massive 1M+ token context window for large file and codebase analysis while Claude handles interaction and code editing.
+Use the unified `ask-llm` tool with `provider: "gemini"` to consult Gemini CLI with an existing, eligible Gemini Code Assist Standard or Enterprise seat.
 
-::: danger Discontinued on consumer tiers: migrate to Antigravity
-**From 2026-06-18**, Google restricts Gemini CLI access to **Gemini Code Assist Standard/Enterprise** seats; **free, Google AI Pro, and Ultra** accounts lose access. Ask LLM's Gemini provider still launches `gemini`; the failure is a runtime auth/quota error from Google's backend, not a missing binary.
+::: warning Individual access ended June 18, 2026
+Google ended Gemini CLI access for individuals, including free, Google AI Pro, and Ultra accounts, on June 18, 2026. If you choose to use Google's successor CLI through Ask LLM, see [Antigravity setup, prerequisites, and Google's consumer-plan terms](/providers/antigravity). [Google's transition announcement](https://developers.googleblog.com/an-important-update-transitioning-gemini-cli-to-antigravity-cli/)
 
-**On a subscription tier?** Migrate to **[Antigravity (`agy`)](/providers/antigravity)**, Google's successor CLI, covered by the same AI Pro/Ultra subscription with no per-token billing. Ask LLM reaches [Antigravity](/providers/antigravity) through the same installation, or switch to [`ask-codex`](/providers/codex) / [`ask-ollama`](/providers/ollama). The **2026-06-18 tier change** section below covers what happens at runtime.
+Google ended new purchases of Gemini Code Assist Standard and Enterprise subscriptions on October 9, 2026. Existing subscriptions auto-renew through the rest of 2026. Automatic renewal ends in 2027. [Gemini Code Assist release notes](https://docs.cloud.google.com/gemini/docs/codeassist/release-notes#October_09_2026)
 :::
 
 ## 2026-06-18 tier change
 
-From **2026-06-18**, Google serves Gemini CLI requests only for **Gemini Code Assist Standard/Enterprise** accounts; free, Google AI Pro, and Ultra accounts lose access. The surviving tiers keep working with the same `gemini` binary and backend.
-
-What this means for Ask LLM's Gemini provider:
-
-- The provider **still launches** the unchanged `gemini` binary. The failure for non-enterprise accounts is a **runtime auth/quota error**, not a missing binary, so reinstalling will not help.
-- On or after the cutoff, an auth/quota-class failure now surfaces an actionable notice (cutoff date + options) instead of a raw error. The note is **advisory** ("likely caused by the tier change"); a genuine auth, billing, or quota error can also trigger it.
-- Google's successor is the **Antigravity CLI (`agy`)**, a separate, closed-source binary that the Gemini provider does **not** wrap. Use the **[Antigravity provider](/providers/antigravity)** through the same Ask LLM installation (covered by the same Google AI Pro/Ultra subscription, no per-token billing), run `agy` directly, or switch to [`ask-codex`](/providers/codex) / [`ask-ollama`](/providers/ollama).
+- Ask LLM still calls the `gemini` binary. Reinstalling it cannot restore account access.
+- After the cutoff, Ask LLM prepends an **advisory** tier notice to some authentication or quota errors. The original error follows the notice. The account tier is one possible cause.
+- To choose another provider, use [Antigravity through Ask LLM](/providers/antigravity), [Codex](/providers/codex), or [Ollama](/providers/ollama).
 - **Testing the guidance:** set `ASK_GEMINI_TIER_CUTOFF` to a past UTC instant (e.g. `2020-01-01T00:00:00Z`) to force the post-cutoff gate on; an auth/quota failure will then prepend the notice. The default cutoff is `2026-06-18T00:00:00Z`.
-
-[Google's announcement](https://developers.googleblog.com/an-important-update-transitioning-gemini-cli-to-antigravity-cli/).
-
-> **Best for:** whole-codebase reads using the 1M+ token context window, if you have an eligible Gemini Code Assist Standard/Enterprise seat.
-> **Not for:** most users from 2026-06-18 (see the notice above). For large-context reads without an enterprise seat, use [Antigravity](/providers/antigravity).
 
 ## Installation
 
@@ -39,11 +30,10 @@ Setup registers the unified Ask LLM server, which consults Gemini through the `a
 ## Prerequisites
 
 1. **Node.js** v24.0.0 or higher
-2. **[Gemini CLI](https://github.com/google-gemini/gemini-cli)** installed and authenticated:
+2. An existing, eligible **Gemini Code Assist Standard or Enterprise seat**. Install Gemini CLI, launch `gemini` interactively, and select **Sign in with Google** with the account assigned to that seat. [Gemini CLI sign-in instructions](https://geminicli.com/docs/get-started/authentication/#recommended-sign-in-with-google)
 
 ```bash
 npm install -g @google/gemini-cli
-gemini login
 ```
 
 ## Tools
@@ -62,15 +52,17 @@ gemini login
 
 <FallbackChain provider="gemini" />
 
-- **Default:** `gemini-4-argon` (Gemini 4 Argon; Gemini CLI passes the id to the API, though Google notes the CLI is not tuned for Gemini 4)
+- **Default:** `gemini-4-argon` (Gemini 4 Argon)
 - **Quota fallback:** `gemini-3.8-flash`, automatic on `RESOURCE_EXHAUSTED`
 - **Overrides:** `ASK_GEMINI_MODEL`, `ASK_GEMINI_FALLBACK_MODEL`, or the per-call `model` parameter
 
-### Cheap opt-in: Gemini 3.5 Flash-Lite {#flash-lite}
+Access to these pinned models through existing Code Assist seats is unverified.
 
-`gemini-3.5-flash-lite` is an optional lower-cost model with a 1M-token input context. Choose it for cost, not as a quality upgrade; evaluate its answers for your workload before using it for code review. Google's [model catalog](https://ai.google.dev/gemini-api/docs/models/gemini-3.5-flash-lite) lists it as stable, and its [deprecation schedule](https://ai.google.dev/gemini-api/docs/deprecations) lists no shutdown date or replacement (checked 2026-11-17).
+### Optional model override: Gemini 3.5 Flash-Lite {#flash-lite}
 
-Set either variable in your MCP server environment:
+`gemini-3.5-flash-lite` can be requested as a model override. Access through an existing Code Assist seat is unverified. Confirm model availability for your seat before configuring it.
+
+Set either variable in your MCP server environment.
 
 ```bash
 # Use Flash-Lite for ordinary Gemini calls without a per-call model override:
@@ -78,22 +70,19 @@ ASK_GEMINI_MODEL=gemini-3.5-flash-lite
 ```
 
 ```bash
-# Or keep the Pro default and use Flash-Lite only for quota fallback:
+# Or keep the default and use Flash-Lite only for quota fallback:
 ASK_GEMINI_FALLBACK_MODEL=gemini-3.5-flash-lite
 ```
 
 Restart your host after changing the server environment. With neither override, the default remains `gemini-4-argon` and the quota fallback remains `gemini-3.8-flash`.
 
-Gemini CLI subscription restrictions, quotas, and free-tier limits apply as for other models. Selecting Flash-Lite does not bypass the [enterprise-only access rules](#_2026-06-18-tier-change) above. API token prices are separate from your CLI plan; consult Google's [current pricing](https://ai.google.dev/gemini-api/docs/pricing#gemini-3.5-flash-lite).
-
 ## Key Features
 
-- **1M+ token context** for analyzing entire codebases
-- **Multi-turn sessions** via `sessionId`: native `--resume <id>` (zero replay cost)
+- **Multi-turn sessions** via `sessionId` with native `--resume <id>`
 - **Include directories** for monorepo context (`includeDirs` parameter on `ask-gemini-edit`)
 - **Live progressive output:** assistant message deltas stream to MCP progress notifications, no frozen waits on long calls
 - **Structured AskResponse** via outputSchema for programmatic clients
-- **Automatic quota fallback** from Pro to Flash on `RESOURCE_EXHAUSTED`
+- **Automatic quota fallback** on `RESOURCE_EXHAUSTED`
 
 ## npm
 
