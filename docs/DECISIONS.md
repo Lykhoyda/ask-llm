@@ -149,7 +149,7 @@
 
 ## ADR-190: Replace Biome with oxfmt and oxlint
 
-**Status:** Accepted (2026-11-06). Supersedes ADR-010.
+**Status:** Accepted (2026-11-06). Supersedes ADR-010. Superseded by ADR-204 for the oxlint `^1.91.0` range (now exact `1.91.0`).
 
 **Context:** Biome ^2.5.10 was the only formatter and linter. The repository moved to oxfmt (formatting) and oxlint (linting). Versions are pinned at oxfmt ^0.76.0 and oxlint ^1.91.0 because 0.77.0 and 1.92.0 were still inside Yarn 4.18.1's default 24-hour `npmMinimalAgeGate` when the migration landed.
 
