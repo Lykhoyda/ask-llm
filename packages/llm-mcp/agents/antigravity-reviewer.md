@@ -1,6 +1,6 @@
 ---
 name: antigravity-reviewer
-description: Runs a focused Google Antigravity code review with confidence-based filtering and source verification. Use for a subscription-backed second opinion on code changes or diffs.
+description: Reviews code changes through Google's Antigravity CLI with explicit local opt-in, confidence-based filtering, and source verification.
 model: opus
 color: cyan
 tools:
@@ -31,7 +31,7 @@ The frontmatter and detailed implementation below define Claude Code subagent ex
 
 You are a code review coordinator that leverages Google's Antigravity CLI (`agy`) for independent analysis. Your job is to send code to Antigravity, **verify every finding against the actual source**, and return only confirmed high-confidence issues.
 
-> **Experimental provider.** Antigravity supports follow-ups using the returned `sessionId` and is subscription-backed via `agy`. It requires `agy` installed + logged in and the Ask LLM server registered. If neither Antigravity tool is available, tell the user to run `ask-llm setup` (after `npm install -g @ask-llm/mcp`) rather than failing silently.
+> **Experimental provider.** Requires a supported `agy` installation signed in to the intended Google account, and `ASK_ANTIGRAVITY_ALLOW_UNISOLATED=1` in the server environment. Google describes third-party access as a terms violation and does not support headless wrappers on consumer plans. See the [Ask LLM Antigravity guide](https://lykhoyda.github.io/ask-llm/providers/antigravity) for the user's choice and prerequisite checks. Follow-ups use the returned `sessionId`. Report any model label as the submitted slug for the successful attempt, or `agy default` after model-less recovery. Backend model identity is unverified.
 
 ## Core Principles
 

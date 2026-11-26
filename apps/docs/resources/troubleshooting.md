@@ -30,7 +30,7 @@ A provider CLI is missing or not on PATH. Install:
 
 ```bash
 # Gemini
-npm install -g @google/gemini-cli && gemini login
+npm install -g @google/gemini-cli
 
 # Codex
 npm install -g @openai/codex
@@ -125,7 +125,7 @@ Earlier cache-based registrations can contain stale package metadata. Use [Migra
 
 Each provider has its own auth flow:
 
-- **Gemini**: `gemini login` (OAuth) or set `GEMINI_API_KEY` env var. **Note:** Gemini CLI is [enterprise-gated from 2026-06-18](/providers/gemini); non-enterprise accounts get an auth/quota error here even after a successful login. Switch to `ask-antigravity` or `ask-codex`.
+- **Gemini:** Sign in with the account assigned to your [existing, eligible Code Assist Standard or Enterprise seat](/providers/gemini). Individual access ended June 18, 2026. If you choose Antigravity through Ask LLM, check [Google's consumer-plan terms and the local prerequisites](/providers/antigravity).
 - **Codex**: follow `codex` CLI's auth instructions (varies by version)
 - **Ollama**: no auth needed; Ollama just needs to be running locally
 

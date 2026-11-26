@@ -56,7 +56,7 @@ Get a second opinion from Google Gemini on your current code changes.
 /gemini-review
 ```
 
-Uses Gemini's 1M+ token context window, making it ideal for reviewing changes that touch many files or require understanding a large codebase. Requires an enterprise Gemini seat ([gated from 2026-06-18](/providers/gemini)); on other plans use `/codex-review` or `/antigravity-review`.
+Requires an existing, eligible Gemini Code Assist Standard or Enterprise seat ([Gemini route](/providers/gemini)); on other plans use `/codex-review` or `/antigravity-review`.
 
 ### `/codex-review`
 
@@ -90,13 +90,13 @@ Requires Ollama running locally with a model pulled (e.g., `qwen3.8:27b`).
 
 ### `/antigravity-review`
 
-Get a **subscription-backed** second opinion from Google Antigravity (`agy`): uses your Google AI Pro/Ultra plan, no per-token API billing.
+Get a second opinion from Google's Antigravity CLI (`agy`) through the [Ask LLM Antigravity route](/providers/antigravity).
 
 ```text
 /antigravity-review
 ```
 
-Experimental; see [Antigravity sessions](/providers/antigravity#sessions) for follow-ups. Requires `agy` installed + logged in once and a provider transport from the [Claude Code host notes](/compatibility/claude-code#connection-details).
+Before using this experimental route, review Google's consumer-plan terms and confirm sign-in and credit settings. It requires `ASK_ANTIGRAVITY_ALLOW_UNISOLATED=1` and a provider transport from the [Claude Code host notes](/compatibility/claude-code#connection-details). See [Antigravity prerequisites](/providers/antigravity#prerequisites).
 
 ## Brainstorm Skills
 
