@@ -18,6 +18,11 @@ import {
   relativeDirSchema,
   type UsageStats,
 } from "@ask-llm/shared";
+import {
+  ANTIGRAVITY_REASONING_EFFORTS,
+  isAntigravityReasoningEffort,
+  isAntigravityTieredModel,
+} from "@ask-llm/antigravity-mcp/executor";
 import type { CodexAttempt } from "@ask-llm/codex-mcp/executor";
 import { McpServer } from "@modelcontextprotocol/server";
 import type { CallToolResult, ServerContext } from "@modelcontextprotocol/server";
@@ -66,6 +71,7 @@ interface ProviderSupportProbe {
 export type ExecutorFn = (options: {
   prompt: string;
   model?: string;
+  modelFromCall?: boolean;
   sessionId?: string;
   includeDirs?: string[];
   sandbox?: "read-only" | "workspace-write";
@@ -291,7 +297,7 @@ export function buildAskLlmSchema(availableProviders: string[], excludedProvider
         .enum(CODEX_REASONING_EFFORTS)
         .optional()
         .describe(
-          "Provider-native reasoning effort. Codex accepts low/medium/high/xhigh/max/ultra; Grok accepts low/medium/high/xhigh. Unsupported provider/effort combinations are rejected, never stripped.",
+          `Provider-native reasoning effort. Codex accepts low/medium/high/xhigh/max/ultra. Grok accepts low/medium/high/xhigh. Antigravity accepts ${ANTIGRAVITY_REASONING_EFFORTS.join("/")} with compatible base model slugs; omit this field for tiered model IDs. Unsupported combinations are rejected.`,
         ),
       preferred: z
         .boolean()
@@ -303,7 +309,7 @@ export function buildAskLlmSchema(availableProviders: string[], excludedProvider
         .boolean()
         .optional()
         .describe(
-          "Read-only Codex only. When true, use the exact model or normal default for one attempt, bypassing the preferred model, fallback and response cache.",
+          "For read-only Codex and Antigravity calls. When true, make one attempt with the exact model or normal default. Codex also bypasses its preferred model and response cache.",
         ),
       sandbox: z
         .enum(["read-only", "workspace-write"])
@@ -335,7 +341,7 @@ export function buildAskLlmSchema(availableProviders: string[], excludedProvider
             'includeDirs cannot be added to a resumed Codex session because `codex exec resume` has no --add-dir; establish directories on the first call with sessionId "" and omit includeDirs when resuming',
         });
       }
-      if (value.reasoningEffort && value.provider !== "codex" && value.provider !== "grok") {
+      if (value.reasoningEffort && !["codex", "grok", "antigravity"].includes(value.provider)) {
         ctx.addIssue({
           code: "custom",
           path: ["reasoningEffort"],
@@ -353,6 +359,25 @@ export function buildAskLlmSchema(availableProviders: string[], excludedProvider
           message: "Grok reasoningEffort must be low, medium, high, or xhigh",
         });
       }
+      if (value.provider === "antigravity") {
+        if (value.model !== undefined && !value.model.trim()) {
+          ctx.addIssue({ code: "custom", path: ["model"], message: "Antigravity model must not be blank" });
+        }
+        if (value.reasoningEffort && !isAntigravityReasoningEffort(value.reasoningEffort)) {
+          ctx.addIssue({
+            code: "custom",
+            path: ["reasoningEffort"],
+            message: `Antigravity reasoningEffort must be one of: ${ANTIGRAVITY_REASONING_EFFORTS.join(", ")}`,
+          });
+        } else if (value.reasoningEffort && value.model && isAntigravityTieredModel(value.model)) {
+          ctx.addIssue({
+            code: "custom",
+            path: ["reasoningEffort"],
+            message:
+              "The Antigravity model already includes an effort tier. Omit reasoningEffort or use a base model slug.",
+          });
+        }
+      }
       if (value.preferred !== undefined && value.provider !== "codex") {
         ctx.addIssue({
           code: "custom",
@@ -360,11 +385,14 @@ export function buildAskLlmSchema(availableProviders: string[], excludedProvider
           message: `preferred is not supported by provider=${value.provider}; Ask LLM will not silently strip it`,
         });
       }
-      if (value.noFallback !== undefined && (value.provider !== "codex" || value.sandbox === "workspace-write")) {
+      if (
+        value.noFallback !== undefined &&
+        (!["codex", "antigravity"].includes(value.provider) || value.sandbox === "workspace-write")
+      ) {
         ctx.addIssue({
           code: "custom",
           path: ["noFallback"],
-          message: "noFallback is only supported for read-only calls with provider=codex",
+          message: "noFallback is only supported for read-only calls with provider=codex or provider=antigravity",
         });
       }
       if (value.sandbox && value.provider !== "codex") {
@@ -391,12 +419,14 @@ export function askLlmArgsToExecutorOptions(args: {
 }): {
   prompt: string;
   model?: string;
+  modelFromCall?: boolean;
   sessionId?: string;
   includeDirs?: string[];
   reasoningEffort?: CodexReasoningEffort;
   preferred?: boolean;
   singleAttempt?: boolean;
   strictOutcome?: boolean;
+  readOnly?: boolean;
   sandbox?: "read-only" | "workspace-write";
   harness?: "xai-api" | "grok-cli";
 } {
@@ -408,6 +438,10 @@ export function askLlmArgsToExecutorOptions(args: {
     reasoningEffort: args.reasoningEffort,
     preferred: args.preferred,
     ...(args.provider === "codex" && args.noFallback === true && { singleAttempt: true, strictOutcome: true }),
+    ...(args.provider === "antigravity" && {
+      ...(args.model !== undefined && { modelFromCall: true }),
+      ...(args.noFallback === true && { singleAttempt: true, readOnly: true }),
+    }),
     sandbox: args.sandbox,
     harness: args.harness === "xai-api" || args.harness === "grok-cli" ? args.harness : undefined,
   };

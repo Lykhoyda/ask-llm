@@ -66,6 +66,8 @@ export const MODELS = {
   AGY_DEFAULT_LABEL: "agy default",
 } as const;
 
+export const ANTIGRAVITY_REASONING_EFFORTS = ["low", "medium", "high", "xhigh", "max"] as const;
+
 export const ANTIGRAVITY = {
   MINIMUM_AGY_VERSION,
   VERSION_CHECK_TIMEOUT_MS: 5_000,
@@ -77,7 +79,6 @@ export const ANTIGRAVITY = {
   MODEL_ENV_VAR: "ASK_ANTIGRAVITY_MODEL",
   EFFORT_ENV_VAR: "ASK_ANTIGRAVITY_EFFORT",
   DEFAULT_EFFORT: "high",
-  VALID_EFFORTS: ["low", "medium", "high"],
   // --disable-slash-commands is a hard "flags provided but not defined" error below 1.1.9.
   SLASH_COMMANDS_FLAG_MIN_VERSION: "1.1.9",
   // agy 1.1.28 exits 0 on --print-timeout with a stderr truncation note.

@@ -12,13 +12,14 @@ vi.mock("@ask-llm/gemini-mcp/executor", () => ({ executeGeminiCLI: vi.fn() }));
 vi.mock("@ask-llm/claude-mcp/executor", () => ({ executeClaudeCLI: vi.fn() }));
 vi.mock("@ask-llm/grok-mcp/executor", () => ({ executeGrok: vi.fn(), isGrokProviderAvailable: vi.fn() }));
 vi.mock("@ask-llm/ollama-mcp/executor", () => ({ executeOllamaCLI: vi.fn(), isProviderAvailable: vi.fn() }));
-vi.mock("@ask-llm/antigravity-mcp/executor", () => ({
+vi.mock("@ask-llm/antigravity-mcp/executor", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@ask-llm/antigravity-mcp/executor")>()),
   executeAntigravityCLI: vi.fn(),
   probeAgySupport: vi.fn(),
   assessAgyVersion: vi.fn(),
 }));
 
-import { probeAgySupport } from "@ask-llm/antigravity-mcp/executor";
+import { executeAntigravityCLI, probeAgySupport } from "@ask-llm/antigravity-mcp/executor";
 import { executeCodexCLI } from "@ask-llm/codex-mcp/executor";
 import { executeGeminiCLI } from "@ask-llm/gemini-mcp/executor";
 import { isGrokProviderAvailable } from "@ask-llm/grok-mcp/executor";
@@ -308,7 +309,7 @@ describe("MCP and Pi tool contract", () => {
   it.each([
     { provider: "gemini", noFallback: false },
     { provider: "codex", sandbox: "workspace-write", noFallback: true },
-  ])("rejects noFallback outside read-only Codex (%j)", async (args) => {
+  ])("rejects noFallback on unsupported calls (%j)", async (args) => {
     const { client, close } = await connectMcp(await detectProviders());
     try {
       expect(await client.callTool({ name: "ask-llm", arguments: { ...args, prompt: "review" } })).toMatchObject({
@@ -322,6 +323,85 @@ describe("MCP and Pi tool contract", () => {
     await expect(pi.execute("call", { ...args, prompt: "review" })).rejects.toThrow("noFallback");
     expect(executeCodexCLI).not.toHaveBeenCalled();
     expect(executeGeminiCLI).not.toHaveBeenCalled();
+  });
+
+  describe("Antigravity requests", () => {
+    async function piAskLlmTool(): Promise<PiTool> {
+      const tool = (await piTools()).find((tool) => tool.name === "ask-llm");
+      if (!tool) throw new Error("Pi did not register ask-llm");
+      return tool;
+    }
+
+    beforeEach(() => {
+      vi.mocked(probeAgySupport).mockResolvedValue({
+        status: "supported",
+        available: true,
+        detected: true,
+        version: "1.5.9",
+        requiredVersion: "1.5.9",
+        message: "Antigravity CLI (agy) 1.5.9 is supported.",
+      });
+    });
+
+    it.each([true, false])("forwards an explicit model and effort with noFallback=%s", async (noFallback) => {
+      const model = noFallback ? "gemini-4-neon" : "gemini-4-hydrogen";
+      const usage = { provider: "antigravity" as const, model, durationMs: 7, fellBack: !noFallback };
+      vi.mocked(executeAntigravityCLI).mockResolvedValue({ response: "answer", model, sessionId: "agy-1", usage });
+      const args = {
+        provider: "antigravity",
+        prompt: "review",
+        model: "gemini-4-neon",
+        reasoningEffort: "xhigh",
+        noFallback,
+      };
+      const { client, close } = await connectMcp(await detectProviders());
+      try {
+        const viaMcp = await client.callTool({ name: "ask-llm", arguments: args });
+        const viaPi = await (await piAskLlmTool()).execute("call", args);
+
+        expect(viaMcp.isError).toBe(false);
+        expect(viaMcp.structuredContent).toEqual({
+          provider: "antigravity",
+          response: "answer",
+          model,
+          sessionId: "agy-1",
+          usage,
+        });
+        expect(viaPi.details.structuredContent).toEqual(viaMcp.structuredContent);
+        expect(viaPi.content).toEqual(viaMcp.content);
+      } finally {
+        await close();
+      }
+      expect(executeAntigravityCLI).toHaveBeenCalledTimes(2);
+      for (const [options] of vi.mocked(executeAntigravityCLI).mock.calls) {
+        expect(options).toMatchObject({ model: "gemini-4-neon", modelFromCall: true, reasoningEffort: "xhigh" });
+        expect(options.singleAttempt).toBe(noFallback ? true : undefined);
+        expect(options.readOnly).toBe(noFallback ? true : undefined);
+      }
+    });
+
+    it.each([
+      [{ model: "   " }, "model"],
+      [{ reasoningEffort: "turbo" }, "reasoningEffort"],
+      [{ reasoningEffort: "ultra" }, "reasoningEffort"],
+      [{ model: "gemini-4-neon-high", reasoningEffort: "high" }, "already includes an effort tier"],
+      [{ model: "Gemini 4 Neon (High)", reasoningEffort: "high" }, "already includes an effort tier"],
+      [{ sandbox: "workspace-write", noFallback: true }, "noFallback"],
+    ])("rejects %j before dispatch in both hosts", async (options, message) => {
+      const args = { provider: "antigravity", prompt: "review", ...options };
+      const { client, close } = await connectMcp(await detectProviders());
+      try {
+        expect(await client.callTool({ name: "ask-llm", arguments: args })).toMatchObject({
+          isError: true,
+          content: [expect.objectContaining({ text: expect.stringContaining(message) })],
+        });
+      } finally {
+        await close();
+      }
+      const pi = await piAskLlmTool();
+      await expect(pi.execute("call", args)).rejects.toThrow(message);
+      expect(executeAntigravityCLI).not.toHaveBeenCalled();
+    });
   });
 
   it("rejects an undetected provider in both hosts", async () => {

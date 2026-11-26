@@ -56,6 +56,8 @@ Native tools (Pi has no MCP client, so the extension registers them with the MCP
 | `multi-llm` | the MCP `multi-llm` schema and report; omitted `providers` means every detected provider |
 | `ask-cursor-agent` | the MCP schema: model-neutral Cursor harness with separate provider + exact account model ID, safe relative `includeDirs`, and optional returned/resumed Cursor `sessionId`; the exact ID is echoed as `model`, Cursor's label stays separate as `reportedModel`, and read-only ask mode never falls back |
 
+For `provider: "antigravity"`, use `reasoningEffort` with a compatible base model and `noFallback: true` for a single attempt. See [Antigravity](/providers/antigravity#tools) for supported tiers and the required execution opt-in.
+
 Deprecated aliases, kept for existing skills and prompts:
 
 | Tool | Contract |
