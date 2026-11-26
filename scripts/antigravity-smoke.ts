@@ -245,6 +245,7 @@ async function callAntigravity(
     ) {
       throw new Error("Unexpected Antigravity request options");
     }
+    // The smoke always requests the sandbox, including when ASK_ANTIGRAVITY_SANDBOX=0.
     return executeAntigravityCLI({ ...options, reasoningEffort: options.reasoningEffort, readOnly: true }, runAgy);
   });
   const client = new Client({ name: "antigravity-included-smoke", version: "1.0.0" });

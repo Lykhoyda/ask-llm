@@ -59,6 +59,8 @@ The runner does **not** login/logout, approve trust, install/update tools, chang
 
 This local command makes one fresh Antigravity model attempt through the unified MCP tool. Run it separately from `yarn prepr:harness`, after `yarn build`, from the repository root. The command uses the `agy` on the current shell's `PATH` and starts it in an empty temporary working directory.
 
+Keep the checkout idle while the authorized call runs. The smoke compares the entire checkout before and after the call, so background changes from an editor's Git integration, build caches, or a parallel build can report a failure after the call has used quota.
+
 Immediately before running, verify in the official Antigravity CLI and account UI that this CLI profile and environment use the intended personal subscription. Verify that **Use AI Credits** is off in the CLI, **AI Credit Overages** is **Never** in the account wherever applicable and exposed, and included quota remains for the exact model and effort in all applicable windows. Verify that the invocation has no API-key, ADC, Cloud, custom endpoint, or pay-as-you-go override. Skip the run if any of those checks is uncertain or shows conflicting information. [Google sign-in](https://antigravity.google/docs/install/) · [CLI credits](https://antigravity.google/docs/cli/credits/) · [Plan controls](https://antigravity.google/docs/plans)
 
 Use the exact base slug and separate effort you verified. The example uses `gemini-4-neon` at `medium`.
@@ -70,7 +72,7 @@ ASK_ANTIGRAVITY_ALLOW_UNISOLATED=1 \
 node scripts/antigravity-smoke.ts --model gemini-4-neon --effort medium --confirm-included-only
 ```
 
-`--confirm-included-only` attests to the funding checks for that tuple and this single process invocation. Launch authorization requires the exact scenario ID. The wrapper uses `--sandbox`, a session-only deny overlay and disabled slash commands. The Antigravity execution opt-in still applies because these controls offer no read-only guarantee.
+`--confirm-included-only` attests to the funding checks for that tuple and this single process invocation. Launch authorization requires the exact scenario ID. The wrapper uses `--sandbox` even when `ASK_ANTIGRAVITY_SANDBOX=0`. It also applies a session-only deny overlay and disables slash commands. The Antigravity execution opt-in still applies because these controls offer no read-only guarantee.
 
 The command reports a redacted result with the selected tuple and agy version when available. `PASS` (exit 0) verifies the wrapper path, a successful agy JSON result with a reported turn and the exact `OK` answer, and no scratch or repository changes. Funding remains user-attested, and headless billing enforcement and served model identity remain unverified. `FAIL` (exit 1) ends the attempt without retry. `SKIP_NOT_AUTHORIZED` and `SKIP_UNAVAILABLE` (exit 2) stop before any model dispatch.
 

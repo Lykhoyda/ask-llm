@@ -105,7 +105,7 @@ if (argv[0] === "--version") {
     return { report, exitCode: result.exitCode, records };
   }
 
-  it("calls the pinned model once through MCP with just the read-only argv and cleans up", async () => {
+  it("calls the pinned model once through MCP with a sandbox despite ASK_ANTIGRAVITY_SANDBOX=0 and cleans up", async () => {
     const { report, exitCode, records } = await smoke();
     expect(exitCode).toBe(0);
     expect(report).toMatchObject({ status: "PASS", model: "gemini-4-neon", effort: "medium", agyVersion: "1.5.9" });
@@ -159,6 +159,7 @@ if (argv[0] === "--version") {
     ["--effort", "medium", "--confirm-included-only"],
     ["--model", "gemini-4-neon", "--confirm-included-only"],
     ["--model", "gemini-4-neon", "--effort", "MEDIUM", "--confirm-included-only"],
+    ["--model", "gemini-4-neon", "--effort", "max", "--confirm-included-only"],
     [...ARGS, "--model", "gemini-4-hydrogen"],
     [...ARGS, "--", PRIVATE_TEXT],
   ])("skips invalid or unattested tuples before starting agy", async (...args) => {

@@ -114,6 +114,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  vi.unstubAllEnvs();
   if (originalClaudeCode === undefined) delete process.env.CLAUDECODE;
   else process.env.CLAUDECODE = originalClaudeCode;
 });
@@ -376,15 +377,64 @@ describe("MCP and Pi tool contract", () => {
       for (const [options] of vi.mocked(executeAntigravityCLI).mock.calls) {
         expect(options).toMatchObject({ model: "gemini-4-neon", modelFromCall: true, reasoningEffort: "xhigh" });
         expect(options.singleAttempt).toBe(noFallback ? true : undefined);
-        expect(options.readOnly).toBe(noFallback ? true : undefined);
+        expect(options.readOnly).toBeUndefined();
+      }
+    });
+
+    it.each([
+      ["429 too many requests", "rate limit"],
+      ["invalid model selection: model gemini-4-neon is not recognized", 'rejected model "gemini-4-neon"'],
+    ])("makes one attempt with extra directories and sandbox disabled after %s", async (failure, message) => {
+      vi.stubEnv("ASK_ANTIGRAVITY_ALLOW_UNISOLATED", "1");
+      vi.stubEnv("ASK_ANTIGRAVITY_SANDBOX", "0");
+      vi.stubEnv("ASK_ANTIGRAVITY_MODEL", undefined);
+      vi.stubEnv("ASK_ANTIGRAVITY_EFFORT", undefined);
+      const actual = await vi.importActual<typeof import("@ask-llm/antigravity-mcp/executor")>(
+        "@ask-llm/antigravity-mcp/executor",
+      );
+      const runCommand = vi
+        .fn<typeof import("@ask-llm/shared").executeCommand>()
+        .mockResolvedValueOnce("agy 1.5.9")
+        .mockRejectedValueOnce(new Error(failure));
+      vi.mocked(executeAntigravityCLI).mockImplementation((options) =>
+        actual.executeAntigravityCLI(options, runCommand),
+      );
+
+      const { client, close } = await connectMcp(await detectProviders());
+      try {
+        expect(
+          await client.callTool({
+            name: "ask-llm",
+            arguments: {
+              provider: "antigravity",
+              prompt: "review",
+              includeDirs: ["packages/shared", "apps/docs"],
+              noFallback: true,
+            },
+          }),
+        ).toMatchObject({
+          isError: true,
+          content: [expect.objectContaining({ text: expect.stringContaining(message) })],
+        });
+        expect(runCommand).toHaveBeenCalledTimes(2);
+        expect(runCommand.mock.calls[0].slice(0, 2)).toEqual(["agy", ["--version"]]);
+        const [command, argv, , , , , logging] = runCommand.mock.calls[1];
+        expect(command).toBe("agy");
+        expect(argv.slice(2, 6)).toEqual(["--add-dir", "packages/shared", "--add-dir", "apps/docs"]);
+        expect(argv).not.toContain("--sandbox");
+        expect(logging).toBeUndefined();
+      } finally {
+        await close();
       }
     });
 
     it.each([
       [{ model: "   " }, "model"],
       [{ reasoningEffort: "turbo" }, "reasoningEffort"],
-      [{ reasoningEffort: "ultra" }, "reasoningEffort"],
+      [{ reasoningEffort: "max" }, "Antigravity reasoningEffort must be one of: low, medium, high, xhigh"],
+      [{ reasoningEffort: "ultra" }, "Antigravity reasoningEffort must be one of: low, medium, high, xhigh"],
       [{ model: "gemini-4-neon-high", reasoningEffort: "high" }, "already includes an effort tier"],
+      [{ model: "gemini-4-neon-max", reasoningEffort: "high" }, "already includes an effort tier"],
       [{ model: "Gemini 4 Neon (High)", reasoningEffort: "high" }, "already includes an effort tier"],
       [{ sandbox: "workspace-write", noFallback: true }, "noFallback"],
     ])("rejects %j before dispatch in both hosts", async (options, message) => {

@@ -269,7 +269,7 @@
           "type": "string"
         },
         "noFallback": {
-          "description": "For read-only Codex and Antigravity calls. When true, make one attempt with the exact model or normal default. Codex also bypasses its preferred model and response cache.",
+          "description": "When true, make one attempt with the exact model or normal default. For read-only Codex calls, this also bypasses the preferred model and response cache. Antigravity follows ASK_ANTIGRAVITY_SANDBOX.",
           "type": "boolean"
         },
         "preferred": {
@@ -295,7 +295,7 @@
           "type": "string"
         },
         "reasoningEffort": {
-          "description": "Provider-native reasoning effort. Codex accepts low/medium/high/xhigh/max/ultra. Grok accepts low/medium/high/xhigh. Antigravity accepts low/medium/high/xhigh/max with compatible base model slugs; omit this field for tiered model IDs. Unsupported combinations are rejected.",
+          "description": "Provider-native reasoning effort. Codex accepts low/medium/high/xhigh/max/ultra. Grok accepts low/medium/high/xhigh. Antigravity accepts low/medium/high/xhigh with compatible base model slugs; omit this field for tiered model IDs. Unsupported combinations are rejected.",
           "enum": [
             "low",
             "medium",

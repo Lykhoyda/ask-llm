@@ -1,5 +1,15 @@
 # Architectural Decisions
 
+## ADR-207: Validate Antigravity effort against the shipped catalog and separate fallback from sandboxing
+
+**Status:** Accepted (2026-11-26). Updates the effort set and sandbox behavior from ADR-205.
+
+**Context:** ADR-203 records `low`, `medium`, `high`, and `xhigh` for both `gemini-4-neon` and `gemini-4-hydrogen` in the agy 1.5.17 catalog. Google's model documentation confirms both models offer the Extra level, which maps to `xhigh` in the CLI. The catalog and documentation list no `max` tier for either model. [Google Antigravity model documentation](https://antigravity.google/docs/models)
+
+**Decision:** Share `low`, `medium`, `high`, and `xhigh` between per-call `reasoningEffort` and `ASK_ANTIGRAVITY_EFFORT`. Reject unsupported per-call values during validation and list the allowed tiers. Invalid environment values warn and use the default effort behavior. For Antigravity, `noFallback: true` makes one model attempt and skips model-less recovery, rate-limit fallback, and the automatic quota probe. The call follows `ASK_ANTIGRAVITY_SANDBOX` and uses ordinary call logging.
+
+**Consequences:** Calls that set `noFallback: true` and `ASK_ANTIGRAVITY_SANDBOX=0` can pass extra read roots through `--add-dir` without `--sandbox`. The local Antigravity smoke command requests the sandbox explicitly.
+
 ## ADR-206: Scope the optional Antigravity included-quota smoke to one MCP call
 
 **Status:** Accepted (2026-11-26).
@@ -12,13 +22,13 @@
 
 ## ADR-205: Add per-call Antigravity effort and fallback control
 
-**Status:** Accepted (2026-11-26). Updates the Antigravity effort and recovery rules from ADR-137 and ADR-203.
+**Status:** Accepted (2026-11-26). Updates the Antigravity effort and recovery rules from ADR-137 and ADR-203. ADR-207 supersedes the effort set and sandbox behavior.
 
 **Context:** Unified `ask-llm` on MCP and Pi already accepts a model override. Antigravity effort came from the environment, and a rejected pin equal to a shipped model could recover with agy's default. Machine requests also pass a resolved model to the executor, including when the caller omitted it.
 
 **Decision:** Accept `reasoningEffort` (`low`, `medium`, `high`, `xhigh`, `max`) on unified Antigravity calls. Resolve effort from the call, then `ASK_ANTIGRAVITY_EFFORT`, then `high` for shipped base models and model-less recovery. `ASK_ANTIGRAVITY_EFFORT` shares the same allowed set, superseding ADR-203's exclusion of `xhigh` for the environment variable; invalid text still warns and uses the default behavior. agy remains the validator of which tiers a given model accepts. Reject blank model pins, and reject a recognized tiered ID before spawn only when `reasoningEffort` comes from the call; an environment-only pair (tiered `ASK_ANTIGRAVITY_MODEL` plus `ASK_ANTIGRAVITY_EFFORT`) is passed to agy unchanged. Pass other model and tier combinations to agy for validation. Mark unified model pins explicitly so rejected per-call selections produce actionable errors and machine-resolved defaults can still recover.
 
-**Consequences:** The rate-limit fallback carries the configured effort and reports the successful model. `noFallback: true` forces the sandbox and limits execution to one model attempt, with no model recovery or automatic quota probe. The Antigravity execution opt-in still applies.
+**Consequences:** The rate-limit fallback carries the configured effort and reports the successful model. `noFallback: true` limits execution to one model attempt, with no model recovery or automatic quota probe. The initial sandbox override was superseded by ADR-207. The Antigravity execution opt-in still applies.
 
 ## ADR-204: Adopt anti-slop Oxlint rules incrementally
 

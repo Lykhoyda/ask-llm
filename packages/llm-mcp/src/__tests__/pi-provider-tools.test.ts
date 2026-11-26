@@ -130,20 +130,20 @@ describe("Pi provider tools", () => {
     const { byName } = await harness();
     const result = await byName("ask-llm").execute(
       "call",
-      { provider: "antigravity", prompt: "review", reasoningEffort: "max", noFallback: true },
+      { provider: "antigravity", prompt: "review", reasoningEffort: "xhigh", noFallback: true },
       controller.signal,
     );
 
     expect(calls.unifiedAntigravity).toHaveBeenCalledExactlyOnceWith(
       expect.objectContaining({
         model: undefined,
-        reasoningEffort: "max",
+        reasoningEffort: "xhigh",
         singleAttempt: true,
-        readOnly: true,
         signal: controller.signal,
       }),
     );
     expect(calls.unifiedAntigravity.mock.calls[0][0]).not.toHaveProperty("modelFromCall");
+    expect(calls.unifiedAntigravity.mock.calls[0][0]).not.toHaveProperty("readOnly");
     expect(calls.antigravity).not.toHaveBeenCalled();
     expect(result.details.structuredContent).toMatchObject({
       provider: "antigravity",

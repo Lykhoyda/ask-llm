@@ -39,7 +39,7 @@ Send a prompt to any installed provider, picked via the `provider` parameter.
 - `includeDirs`: validated relative paths for Codex, Claude and Antigravity; resumed Codex calls reject this field.
 - `reasoningEffort` applies to Codex, Grok and Antigravity. See [Antigravity](/providers/antigravity#tools) for its supported tiers.
 - `preferred`, `sandbox`: Codex-only. Reviews default to read-only; writable sandboxes require deliberate opt-in.
-- `noFallback: true` makes one attempt for read-only Codex and Antigravity calls. Codex also bypasses its response cache and preferred model. See [Codex](/providers/codex) and [Antigravity](/providers/antigravity#tools).
+- `noFallback: true` makes one attempt for Antigravity and for read-only Codex calls. Antigravity follows `ASK_ANTIGRAVITY_SANDBOX`. Codex also bypasses its response cache and preferred model. See [Codex](/providers/codex) and [Antigravity](/providers/antigravity#tools).
 
 Unsupported combinations fail validation rather than being stripped. Exact enum and range constraints come from the tool schema advertised by your installed version.
 

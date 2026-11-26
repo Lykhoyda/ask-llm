@@ -66,7 +66,7 @@ export const MODELS = {
   AGY_DEFAULT_LABEL: "agy default",
 } as const;
 
-export const ANTIGRAVITY_REASONING_EFFORTS = ["low", "medium", "high", "xhigh", "max"] as const;
+export const ANTIGRAVITY_REASONING_EFFORTS = ["low", "medium", "high", "xhigh"] as const;
 
 export const ANTIGRAVITY = {
   MINIMUM_AGY_VERSION,
