@@ -55,6 +55,25 @@ Authoritative discovery is read-only: executable `--version`; `agent --list-mode
 
 The runner does **not** login/logout, approve trust, install/update tools, change billing/limits, write global configuration, use Cursor `--force`/`--trust`, or use writable sandboxes. Prompts are private `0600` files in an OS temp directory; sessions are disabled where the host supports that; raw outputs remain in memory; credentials, prompts, sessions, and outputs are never written to the repository or printed as PR evidence. The temp tree is removed on normal completion, invocation failure, and invocation timeout.
 
+## Optional Antigravity included-quota smoke
+
+This local command makes one fresh Antigravity model attempt through the unified MCP tool. Run it separately from `yarn prepr:harness`, after `yarn build`, from the repository root. The command uses the `agy` on the current shell's `PATH` and starts it in an empty temporary working directory.
+
+Immediately before running, verify in the official Antigravity CLI and account UI that this CLI profile and environment use the intended personal subscription. Verify that **Use AI Credits** is off in the CLI, **AI Credit Overages** is **Never** in the account wherever applicable and exposed, and included quota remains for the exact model and effort in all applicable windows. Verify that the invocation has no API-key, ADC, Cloud, custom endpoint, or pay-as-you-go override. Skip the run if any of those checks is uncertain or shows conflicting information. [Google sign-in](https://antigravity.google/docs/install/) · [CLI credits](https://antigravity.google/docs/cli/credits/) · [Plan controls](https://antigravity.google/docs/plans)
+
+Use the exact base slug and separate effort you verified. The example uses `gemini-4-neon` at `medium`.
+
+```bash
+ASK_LLM_HARNESS_SMOKE_LIVE=1 \
+ASK_LLM_HARNESS_SMOKE_AUTHORIZED=mcp:antigravity-included \
+ASK_ANTIGRAVITY_ALLOW_UNISOLATED=1 \
+node scripts/antigravity-smoke.ts --model gemini-4-neon --effort medium --confirm-included-only
+```
+
+`--confirm-included-only` attests to the funding checks for that tuple and this single process invocation. Launch authorization requires the exact scenario ID. The wrapper uses `--sandbox`, a session-only deny overlay and disabled slash commands. The Antigravity execution opt-in still applies because these controls offer no read-only guarantee.
+
+The command reports a redacted result with the selected tuple and agy version when available. `PASS` (exit 0) verifies the wrapper path, a successful agy JSON result with a reported turn and the exact `OK` answer, and no scratch or repository changes. Funding remains user-attested, and headless billing enforcement and served model identity remain unverified. `FAIL` (exit 1) ends the attempt without retry. `SKIP_NOT_AUTHORIZED` and `SKIP_UNAVAILABLE` (exit 2) stop before any model dispatch.
+
 ## Mutation and fallback policy
 
 Each scenario runs from a disposable isolated workspace and hashes every existing file's path, mode, and content before/after, so overwriting an already-untracked fixture is detected. It also snapshots repository status, the binary tracked diff, and every non-ignored untracked file's contents. Any delta fails the suite; ignored host artifacts remain confined to and cleaned with the disposable workspace rather than being created in the repository. Every live command uses the strongest documented read-only surface: Claude read tools only, Cursor `--mode ask`, Pi read-only tools with an ephemeral session, Codex `--sandbox read-only`, and Grok Build's read-only one-turn/no-subagent/no-memory/no-web flags.

@@ -12,6 +12,8 @@ export interface CommandLoggingOptions {
 
 export interface CommandExecutionOptions {
   cwd?: string;
+  /** Use the supplied process environment without login-shell PATH discovery. */
+  env?: NodeJS.ProcessEnv;
   /** On POSIX, terminate the CLI and its process group on timeout or abort. */
   killProcessGroup?: boolean;
   /** Select diagnostics from the completed streams before the shared error sanitizer. */
@@ -165,7 +167,7 @@ export async function executeCommand(
 
     const killProcessGroup = options?.killProcessGroup === true && !IS_WINDOWS;
     const childProcess = spawn(command, safeArgs, {
-      env: getSpawnEnv(),
+      env: options?.env ?? getSpawnEnv(),
       shell: IS_WINDOWS,
       cwd: options?.cwd,
       detached: killProcessGroup,

@@ -583,19 +583,12 @@ export function registerDiagnoseTool(server: McpServer, diagnoseSpecs: ProviderS
   );
 }
 
-// Every tool the server registers, for the providers `detectProviders` found; the caller connects a transport.
-export async function createAskLlmServer(providerStatus: ProviderStatus): Promise<McpServer> {
-  const { name, version } = readPackageJson();
-  const { available } = providerStatus;
-  const excludedProviders = providerStatus.unavailable
-    .filter((provider) => provider.state === "unsupported" || provider.state === "unusable")
-    .map((provider) => provider.key);
-
-  const server = new McpServer({ name, version }, { instructions: SERVER_INSTRUCTIONS });
-  const sessionUsage = createSessionUsage();
-
-  const askLlmSchema = buildAskLlmSchema(available, excludedProviders);
-
+function registerAskLlmTool(
+  server: McpServer,
+  askLlmSchema: AskLlmSchema,
+  getExecutor: AskLlmCall["getExecutor"],
+  recordUsage?: (usage: UsageStats) => void,
+): void {
   server.registerTool(
     "ask-llm",
     {
@@ -608,13 +601,13 @@ export async function createAskLlmServer(providerStatus: ProviderStatus): Promis
       const progress = createProgressTracker("ask-llm", ctx, PROGRESS_MESSAGES("ask-llm"));
       try {
         const { text, structured, usage } = await runAskLlm(askLlmSchema, args, {
-          getExecutor: (provider) => loadedExecutors.get(provider),
+          getExecutor,
           onProgress: (output) => {
             progress.updateOutput(output);
           },
           signal: ctx.mcpReq.signal,
         });
-        if (usage) sessionUsage.record(usage);
+        if (usage) recordUsage?.(usage);
         await progress.stop(true);
         const structuredContent: Record<string, unknown> = { ...structured };
         return { content: [{ type: "text", text }], structuredContent, isError: false };
@@ -625,6 +618,34 @@ export async function createAskLlmServer(providerStatus: ProviderStatus): Promis
         return { content: [{ type: "text", text: `Error: ${msg}` }], isError: true };
       }
     },
+  );
+}
+
+// A single-provider server for callers that supply their own executor and transport.
+export function createScopedAskLlmServer(provider: ProviderName, executor: ExecutorFn): McpServer {
+  const { name, version } = readPackageJson();
+  const server = new McpServer({ name, version }, { instructions: SERVER_INSTRUCTIONS });
+  registerAskLlmTool(server, buildAskLlmSchema([provider]), (requested) =>
+    requested === provider ? executor : undefined,
+  );
+  return server;
+}
+
+// Every tool the server registers, for the providers `detectProviders` found; the caller connects a transport.
+export async function createAskLlmServer(providerStatus: ProviderStatus): Promise<McpServer> {
+  const { name, version } = readPackageJson();
+  const { available } = providerStatus;
+  const excludedProviders = providerStatus.unavailable
+    .filter((provider) => provider.state === "unsupported" || provider.state === "unusable")
+    .map((provider) => provider.key);
+
+  const server = new McpServer({ name, version }, { instructions: SERVER_INSTRUCTIONS });
+  const sessionUsage = createSessionUsage();
+  registerAskLlmTool(
+    server,
+    buildAskLlmSchema(available, excludedProviders),
+    (provider) => loadedExecutors.get(provider),
+    (usage) => sessionUsage.record(usage),
   );
 
   server.registerTool(

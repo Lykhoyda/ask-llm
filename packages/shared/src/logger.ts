@@ -9,8 +9,9 @@ const LOG_LEVEL_PRIORITY: Record<LogLevel, number> = {
   error: 3,
 };
 
-function getLogLevel(): LogLevel {
+function getLogLevel(): LogLevel | "silent" {
   const env = process.env[LOG_LEVEL_ENV_VAR]?.toLowerCase();
+  if (env === "silent") return env;
   if (env && env in LOG_LEVEL_PRIORITY) {
     return env as LogLevel;
   }
@@ -18,7 +19,8 @@ function getLogLevel(): LogLevel {
 }
 
 function shouldLog(level: LogLevel): boolean {
-  return LOG_LEVEL_PRIORITY[level] >= LOG_LEVEL_PRIORITY[getLogLevel()];
+  const minimum = getLogLevel();
+  return minimum !== "silent" && LOG_LEVEL_PRIORITY[level] >= LOG_LEVEL_PRIORITY[minimum];
 }
 
 export class Logger {

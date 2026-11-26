@@ -400,7 +400,7 @@ describe("executeAntigravityCLI argument wiring", () => {
     const signal = new AbortController().signal;
     mockExec.mockResolvedValue(jsonStdout("answer\n"));
     await executeAntigravityCLI({ prompt: "q", signal });
-    expect(mockAssertSupportedAgyVersion).toHaveBeenCalledWith(signal);
+    expect(mockAssertSupportedAgyVersion).toHaveBeenCalledWith(signal, executeCommand);
     expect(mockExec.mock.calls[0][7]).toBe(signal);
   });
 
