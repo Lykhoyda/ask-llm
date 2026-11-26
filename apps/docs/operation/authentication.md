@@ -20,4 +20,6 @@ For subscription-backed routes, no separate model API key is needed. Grok's `xai
 
 Provider credentials stay in the provider's login/configuration flow. The xAI API route reads the key from the process environment to authenticate requests; Ask LLM does not log or return it. Keep keys out of committed configuration.
 
-Run `ask-llm doctor` to see what is installed and what authentication can be established without inference. An unknown auth state is not a successful login. Restart the host after adding a provider or changing its environment. See [diagnostics](/operation/diagnostics) for the optional quota-consuming live check.
+Run `ask-llm doctor` to see what is installed and which providers have local authentication evidence. Gemini and Antigravity report authentication as unknown. Doctor looks only for Google route signal names in its environment and leaves credentials and mixed Google settings unread. Signs of API keys, Vertex AI, ADC, cached Cloud credentials, or pay-as-you-go settings can indicate possible alternate billing. A project variable alone leaves the Gemini seat and account funding unproven. Confirm the intended account and seat or subscription in the provider's own settings. Google's consumer-plan support excludes third-party headless Antigravity wrappers. See the [Antigravity terms guidance](/providers/antigravity).
+
+Restart the host after adding a provider or changing its environment. See [diagnostics](/operation/diagnostics) for the optional quota-consuming live check.

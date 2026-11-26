@@ -418,17 +418,27 @@ async function findBinary(spec: HostSpec): Promise<string | undefined> {
   return undefined;
 }
 
-async function detectHost(spec: HostSpec, env: NodeJS.ProcessEnv, skipVersion: boolean): Promise<DetectedHost> {
+interface HostDetectionOptions {
+  skipVersionFor?: HostId[];
+  skipRegistrationFor?: HostId[];
+}
+
+async function detectHost(
+  spec: HostSpec,
+  env: NodeJS.ProcessEnv,
+  { skipVersionFor, skipRegistrationFor }: HostDetectionOptions,
+): Promise<DetectedHost> {
   const binary = await findBinary(spec);
   const installed = binary !== undefined || (spec.apps ?? []).some((app) => existsSync(app));
   const { version, versionError } = binary
-    ? skipVersion
+    ? skipVersionFor?.includes(spec.id)
       ? { versionError: "version check skipped (requires --live)" }
       : await probeVersion(spec, binary, env)
     : {};
   const supported = installed && (!binary || !spec.versionProbe || version !== undefined);
-  const registration =
-    spec.registrationState.kind === "list" && binary && !supported
+  const registration = skipRegistrationFor?.includes(spec.id)
+    ? { registered: null, error: "registration check skipped (mixed settings)" }
+    : spec.registrationState.kind === "list" && binary && !supported
       ? { registered: null, error: `${versionError ?? "version could not be read"}; list command not run` }
       : await readRegistration(spec.registrationState, binary, env);
   return {
@@ -447,12 +457,8 @@ async function detectHost(spec: HostSpec, env: NodeJS.ProcessEnv, skipVersion: b
 
 export async function detectHosts(
   env: NodeJS.ProcessEnv = process.env,
-  options: { skipVersionFor?: HostId[] } = {},
+  options: HostDetectionOptions = {},
 ): Promise<DetectedHost[]> {
   const spawnEnv = { ...env, PATH: getSpawnEnv().PATH };
-  return Promise.all(
-    hostSpecs(env).map((spec) =>
-      detectHost(spec, { ...spawnEnv, ...spec.env }, options.skipVersionFor?.includes(spec.id) ?? false),
-    ),
-  );
+  return Promise.all(hostSpecs(env).map((spec) => detectHost(spec, { ...spawnEnv, ...spec.env }, options)));
 }

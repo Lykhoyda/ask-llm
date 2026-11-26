@@ -23,11 +23,13 @@ The report distinguishes these states:
 
 Ordinary diagnostics do not make paid inference calls. The host report includes restart instructions, manual guidance and the host's [compatibility matrix](/compatibility/hosts) rows. A leftover config directory is a clue, not proof that a host is installed.
 
+Google route checks run only for an installed Gemini or Antigravity CLI and use environment variable names only. Doctor warns about possible alternate billing when Gemini sees `GEMINI_API_KEY`, `GOOGLE_API_KEY`, `GOOGLE_GENAI_USE_VERTEXAI` or `GOOGLE_APPLICATION_CREDENTIALS`, or when Antigravity sees `AGY_ADC_AUTH` or `GEMINI_API_KEY`. With only `GOOGLE_CLOUD_PROJECT` or `GOOGLE_CLOUD_PROJECT_ID`, or with no signals, the route check is skipped and the seat and funding remain unverified. Cached Cloud credentials and pay-as-you-go settings may still affect billing. Doctor leaves Gemini CLI registration unchecked because its settings file also holds authentication preferences. See [Google authentication](/operation/authentication) for the consumer-plan terms boundary.
+
 ## Optional live check
 
-`ask-llm doctor --live` exercises ready, permitted providers with a small prompt in a temporary directory. It may consume quota or incur provider charges. Run it only when you choose to test that boundary. Skipped providers are not reported as successful. It does not run a review of your project.
+`ask-llm doctor --live` skips Gemini and Antigravity model exercises because their routes and funding are unverified. It exercises other ready, permitted providers with a small prompt in a temporary directory. That prompt may consume quota or incur provider charges.
 
-It also checks [Antigravity quota](/providers/antigravity#quota-diagnostics); that reference explains the version gate, sandboxing and why default doctor leaves agy's version unchecked.
+Live doctor also reports [Antigravity quota metadata](/providers/antigravity#quota-diagnostics) on supported versions. Default doctor starts zero agy processes.
 
 ## Formats
 

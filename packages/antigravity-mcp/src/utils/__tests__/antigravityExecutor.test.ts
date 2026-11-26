@@ -483,17 +483,16 @@ describe("executeAntigravityCLI model selection", () => {
 });
 
 describe("executeAntigravityCLI error handling", () => {
-  it("rejects an unsupported agy version before invoking a model", async () => {
-    mockAssertSupportedAgyVersion.mockRejectedValue(
-      new Error(
-        `Antigravity CLI (agy) 1.1.4 is unsupported. @ask-llm/antigravity-mcp requires agy >=${ANTIGRAVITY.MINIMUM_AGY_VERSION}.`,
-      ),
-    );
+  it.each([
+    ["1.5.8", /detected but is unsupported/],
+    ["version unknown", /unparseable and unusable/],
+  ])("rejects agy version output %s with only a version probe", async (output, reason) => {
+    const version = await vi.importActual<typeof import("../agyVersion.js")>("../agyVersion.js");
+    mockAssertSupportedAgyVersion.mockImplementationOnce(version.assertSupportedAgyVersion);
+    mockExec.mockResolvedValueOnce(output);
 
-    await expect(executeAntigravityCLI({ prompt: "q" })).rejects.toThrow(
-      `requires agy >=${ANTIGRAVITY.MINIMUM_AGY_VERSION}`,
-    );
-    expect(mockExec).not.toHaveBeenCalled();
+    await expect(executeAntigravityCLI({ prompt: "q" })).rejects.toThrow(reason);
+    expect(mockExec.mock.calls.map(([command, args]) => [command, args])).toEqual([["agy", ["--version"]]]);
   });
 
   it("rethrows non-rate-limit errors unchanged without attempting a fallback", async () => {

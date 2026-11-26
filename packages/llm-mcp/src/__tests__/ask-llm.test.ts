@@ -290,7 +290,11 @@ describe("host discovery commands", () => {
       ownServer: false,
       command: ["npx", "-y", "ask-llm-mcp"],
     });
-    expect(byId.gemini).toMatchObject({ installed: true, registered: false });
+    expect(byId.gemini).toMatchObject({
+      installed: true,
+      registered: null,
+      error: "registration check skipped (mixed settings)",
+    });
     expect(byId.codex).toMatchObject({ installed: false, leftoverConfig: true });
     expect(byId.claude.parity).toEqual(parityRowsFor("claude"));
     expect(byId.codex).not.toHaveProperty("parity");

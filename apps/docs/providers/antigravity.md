@@ -52,7 +52,7 @@ If agy cannot find the ID (for example, a conversation it no longer retains), ag
 
 ## Quota diagnostics
 
-`ask-llm doctor --live` also reports Antigravity's remaining quota and reset times via the sandboxed `/quota` built-in on a [supported agy version](#prerequisites). The detected agy version appears next to the quota result. Older or unparseable versions skip the quota check with a plain minimum-version line; failures and a five-second timeout are warnings and leave other diagnostics running. The quota probe needs no unisolated-execution opt-in and always uses `--sandbox` and the [settings overlay](#what-protects-opted-in-runs). The flag still permits minimal model calls to ready, permitted providers, including Antigravity when opted in, which may spend quota. Without `--live`, doctor starts no agy process, including provider and host version probes; it locates the executable and reads local configuration, leaving the version unchecked.
+`ask-llm doctor --live` displays remaining quota and reset times as reported by the sandboxed `/quota` built-in on a [supported agy version](#prerequisites). That metadata leaves the active account, funding route and **Use AI Credits** setting unverified, even when some quota remains. Older or unparseable versions skip the quota check and show the required version. Failures and a five-second timeout are warnings and leave other diagnostics running. The probe always uses `--sandbox` and the [settings overlay](#what-protects-opted-in-runs) and is available without the unisolated-execution opt-in. Live doctor skips the Antigravity model exercise even with that opt-in. Default doctor starts zero agy processes and leaves the version unchecked.
 
 ## Models
 

@@ -1,4 +1,6 @@
-import { access, writeFile } from "node:fs/promises";
+import { access, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import {
   buildLivePrompt,
@@ -255,6 +257,54 @@ describe("exact live skill prompts", () => {
 });
 
 describe("authorization and availability accounting", () => {
+  it.each(["dry-run", "live"] as const)("excludes Google routes from the generic %s matrix", async (mode) => {
+    invariant(directCodex, "direct Codex scenario missing");
+    const codex = directCodex;
+    const home = await mkdtemp(join(tmpdir(), "ask-llm-harness-google-exclusion-"));
+    const google = /(?:^|[^a-z])(?:agy|antigravity|gemini)(?:$|[^a-z])/i;
+    const argv: Array<[string, string[]]> = [];
+    const adapter = vi.fn(fakeAdapter);
+    try {
+      for (const tool of ["codex", "gemini", "agy"]) {
+        await writeFile(join(home, tool), "#!/bin/sh\nexit 97\n", { mode: 0o755 });
+      }
+      await writeFile(join(home, "models_cache.json"), JSON.stringify({ models: [{ slug: "gpt-6.2-sol" }] }));
+      const report = await runIsolatedSuite({
+        mode,
+        env: {
+          HOME: home,
+          CODEX_HOME: home,
+          PATH: home,
+          ASK_LLM_HARNESS_SMOKE_LIVE: "1",
+          ASK_LLM_HARNESS_SMOKE_AUTHORIZED: "all",
+          ASK_LLM_HARNESS_SMOKE_CODEX_MODEL: "gpt-6.2-sol",
+          ASK_LLM_HARNESS_SMOKE_CODEX_EFFORT: "high",
+          ASK_LLM_HARNESS_SMOKE_GEMINI_MODEL: "gemini-4-argon",
+          ASK_LLM_HARNESS_SMOKE_ANTIGRAVITY_MODEL: "gemini-4-neon",
+          ASK_ANTIGRAVITY_ALLOW_UNISOLATED: "1",
+        },
+        deterministicAdapter: adapter,
+        commandRunner: async (tool, args) => {
+          argv.push([tool, args]);
+          const stdout = tool === "codex" && args[0] === "exec" ? smokeMarker(codex, "gpt-6.2-sol") : "1.5.9";
+          return { exitCode: 0, stdout, stderr: "", timedOut: false };
+        },
+      });
+
+      expect(report.results).toContainEqual(expect.objectContaining({ id: codex.id, status: RESULTS.PASS }));
+      expect(report.results.some(({ id }) => google.test(id))).toBe(false);
+      if (mode === "live") expect(argv).toContainEqual(["codex", ["--version"]]);
+      else expect(adapter).toHaveBeenCalled();
+      expect(argv.some(([tool, args]) => google.test([tool, ...args].join(" ")))).toBe(false);
+      for (const [{ scenario }] of adapter.mock.calls) {
+        const { tool, provider, harness, modelKey, hostModelKey, secondaryModelKey } = scenario;
+        expect([tool, provider, harness, modelKey, hostModelKey, secondaryModelKey].join(" ")).not.toMatch(google);
+      }
+    } finally {
+      await rm(home, { recursive: true, force: true });
+    }
+  });
+
   it("reports installed but unauthorized live surfaces distinctly", async () => {
     invariant(directCodex, "direct Codex scenario missing");
     const report = await runIsolatedSuite({
