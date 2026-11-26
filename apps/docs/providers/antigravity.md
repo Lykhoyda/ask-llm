@@ -28,7 +28,7 @@ Setup registers the unified Ask LLM server. The tools listed below belong to the
 
 ## Tools
 
-On MCP and Pi, use unified `ask-llm` with `provider: "antigravity"`. Pass `model` to select an exact agy model and `reasoningEffort` (`low`, `medium`, `high`, `xhigh`, or `max`) to set the effort for the call. Run `agy models` to check which tiers your chosen model supports. Pass a tiered ID or legacy display name by itself, with neither `reasoningEffort` nor `ASK_ANTIGRAVITY_EFFORT` set.
+On MCP and Pi, use unified `ask-llm` with `provider: "antigravity"`. Pass `model` to select an exact agy model and `reasoningEffort` (`low`, `medium`, `high`, `xhigh`, or `max`) to set the effort for the call. Run `agy models` to check which tiers your chosen model supports. Pass a tiered ID or legacy display name without `reasoningEffort`; that pair is rejected before agy starts. A tiered ID with `ASK_ANTIGRAVITY_EFFORT` set is passed to agy, which validates the pair.
 
 Set `noFallback: true` to make one model attempt with the selected model and effort. This forces `--sandbox`, skips all retries and the automatic quota probe, and still requires the local execution opt-in above.
 

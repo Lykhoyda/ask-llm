@@ -375,9 +375,9 @@ export async function executeAntigravityCLI(options: AntigravityExecutorOptions)
   const explicitEffort = options.reasoningEffort ?? resolveExplicitEffort();
   const effortSettingName = options.reasoningEffort === undefined ? ANTIGRAVITY.EFFORT_ENV_VAR : "reasoningEffort";
   const effortSetting = explicitEffort && `${effortSettingName}="${explicitEffort}"`;
-  if (effortSetting && isAntigravityTieredModel(primaryModel)) {
+  if (options.reasoningEffort !== undefined && isAntigravityTieredModel(primaryModel)) {
     throw new Error(
-      `Antigravity model "${primaryModel}" already includes an effort tier. Omit ${effortSettingName} or use a base model slug.`,
+      `Antigravity model "${primaryModel}" already includes an effort tier. Omit reasoningEffort or use a base model slug.`,
     );
   }
   const hasCallSelection = options.modelFromCall || options.reasoningEffort !== undefined;

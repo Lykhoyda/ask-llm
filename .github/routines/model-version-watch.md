@@ -56,7 +56,7 @@ CI-enforced by `scripts/check-docs-drift.ts`). Read the current values from:
 | claude | `packages/claude-mcp/src/constants.ts` | `FACTORY_DEFAULT_MODEL`, `MODELS.FALLBACK` |
 | grok | `packages/grok-mcp/src/constants.ts` | `FACTORY_DEFAULT_MODEL`, `GROK_CLI_FACTORY_DEFAULT_MODEL`, `REASONING_EFFORTS`, `GROK_HARNESSES` |
 | ollama | `packages/ollama-mcp/src/constants.ts` | `FACTORY_DEFAULT_MODEL` |
-| antigravity | `packages/antigravity-mcp/src/constants.ts` | `MODELS.DEFAULT`, `MODELS.FALLBACK`, `ANTIGRAVITY.DEFAULT_EFFORT`, `ANTIGRAVITY.VALID_EFFORTS` |
+| antigravity | `packages/antigravity-mcp/src/constants.ts` | `MODELS.DEFAULT`, `MODELS.FALLBACK`, `ANTIGRAVITY.DEFAULT_EFFORT`, `ANTIGRAVITY_REASONING_EFFORTS` |
 
 `packages/llm-mcp/src/constants.ts` (`PROVIDERS.*.defaultModel`) is the
 canonical registry threading these defaults into executors; verify it agrees

@@ -760,11 +760,21 @@ describe("executeAntigravityCLI effort selection", () => {
     },
   );
 
-  it("rejects a recognized tiered model with environment effort before probing agy", async () => {
+  it("passes an environment-only tiered model and effort pair to agy unchanged", async () => {
     process.env[ANTIGRAVITY.MODEL_ENV_VAR] = "Gemini 3.1 Pro (High)";
     process.env[ANTIGRAVITY.EFFORT_ENV_VAR] = "medium";
-    await expect(executeAntigravityCLI({ prompt: "q" })).rejects.toThrow(
-      /already includes an effort tier.*ASK_ANTIGRAVITY_EFFORT/,
+    mockExec.mockResolvedValue("answer");
+    await executeAntigravityCLI({ prompt: "q" });
+    expect(mockExec).toHaveBeenCalledOnce();
+    const [, args] = mockExec.mock.calls[0];
+    expect(args[args.indexOf(CLI.FLAGS.MODEL) + 1]).toBe("Gemini 3.1 Pro (High)");
+    expect(args[args.indexOf(CLI.FLAGS.EFFORT) + 1]).toBe("medium");
+  });
+
+  it("rejects a recognized tiered model with per-call effort before probing agy", async () => {
+    process.env[ANTIGRAVITY.MODEL_ENV_VAR] = "gemini-4-neon-high";
+    await expect(executeAntigravityCLI({ prompt: "q", reasoningEffort: "medium" })).rejects.toThrow(
+      /already includes an effort tier.*reasoningEffort/,
     );
     expect(mockAssertSupportedAgyVersion).not.toHaveBeenCalled();
     expect(mockExec).not.toHaveBeenCalled();
