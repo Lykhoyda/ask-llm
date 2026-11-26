@@ -56,7 +56,7 @@ Get a second opinion from Google Gemini on your current code changes.
 /gemini-review
 ```
 
-Uses Gemini's 1M+ token context window, making it ideal for reviewing changes that touch many files or require understanding a large codebase. Requires an enterprise Gemini seat ([gated from 2026-06-18](/providers/gemini)); on other plans use `/codex-review` or `/antigravity-review`.
+Requires an existing, eligible Gemini Code Assist Standard or Enterprise seat ([Gemini route](/providers/gemini)); on other plans use `/codex-review` or `/antigravity-review`.
 
 ### `/codex-review`
 

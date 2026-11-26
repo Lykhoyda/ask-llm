@@ -24,7 +24,7 @@ Setup registers the unified Ask LLM server. The tools listed below belong to the
 
 1. **Node.js** v24.0.0 or higher
 2. **Antigravity CLI** (`agy`) version 1.5.9 or newer. Check with `agy --version` and confirm that the CLI is signed in to the intended personal Google account. [Google sign-in instructions](https://antigravity.google/docs/install/)
-3. **Account credit controls.** Check the settings for the account the CLI is actually using and confirm that **Use AI Credits** is off. If sign-in or overage protection is uncertain, skip the verification turn. [Google's CLI credit controls](https://antigravity.google/docs/cli/credits/)
+3. **Account credit controls.** Check the settings for the account the CLI is actually using and confirm that **Use AI Credits** is off. If sign-in or overage protection is uncertain, do not make the first Antigravity call until you have confirmed them. [Google's CLI credit controls](https://antigravity.google/docs/cli/credits/)
 
 ## Tools
 

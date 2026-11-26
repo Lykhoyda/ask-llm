@@ -34,7 +34,7 @@ Review current code changes with the `antigravity-reviewer` agent using Google's
 
 This skill is **experimental** and requires:
 
-- A supported `agy` version signed in to the intended Google account. Confirm the account's credit settings before a verification turn.
+- A supported `agy` version signed in to the intended Google account. Confirm the account's credit settings before the first Antigravity call.
 - The Ask LLM server registered (`npm install -g @ask-llm/mcp`, then `ask-llm setup`), with `ASK_ANTIGRAVITY_ALLOW_UNISOLATED=1` set for it.
 
 The skill requests one review. Google does not support third-party headless use on consumer plans and describes third-party access as a terms violation. Review Google's position before choosing this route. [Ask LLM Antigravity guide](https://lykhoyda.github.io/ask-llm/providers/antigravity)
