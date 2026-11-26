@@ -1,5 +1,25 @@
 # @ask-llm/mcp
 
+## 1.9.0
+
+### Minor Changes
+
+- [#472](https://github.com/Lykhoyda/ask-llm/pull/472) [`cbb961e`](https://github.com/Lykhoyda/ask-llm/commit/cbb961e52eec88fe70f3c89a5d8c8a79104fe21b) Thanks [@Lykhoyda](https://github.com/Lykhoyda)! - Set `reasoningEffort` per Antigravity call on the unified MCP and Pi `ask-llm` tool. Use `noFallback: true` for one model attempt. Rejected per-call selections now return guidance for choosing a compatible model and effort.
+
+- [#468](https://github.com/Lykhoyda/ask-llm/pull/468) [`6c7e800`](https://github.com/Lykhoyda/ask-llm/commit/6c7e8003abfac95f345f74052d4d9cfb86638dcf) Thanks [@Lykhoyda](https://github.com/Lykhoyda)! - Move the Antigravity default model to `gemini-4-neon` and its rate-limit fallback to `gemini-4-hydrogen`, both still sent with `--effort high`. Antigravity removes `gemini-4-argon` and `gemini-3.8-flash` on 2026-11-30. Without this change, every Antigravity call would fail once before retrying without a model, the rate-limit fallback would stop working, and the `/brainstorm` Antigravity participant would fail outright. `ASK_ANTIGRAVITY_MODEL` and `ASK_ANTIGRAVITY_EFFORT` still apply. The Gemini CLI provider's `gemini-4-argon` default and `gemini-3.8-flash` fallback are unchanged.
+
+- [#466](https://github.com/Lykhoyda/ask-llm/pull/466) [`b9768f6`](https://github.com/Lykhoyda/ask-llm/commit/b9768f61e5d0b09ea3cbd0f06a8db8074705df76) Thanks [@Lykhoyda](https://github.com/Lykhoyda)! - Add an optional `outputSchema` argument to `ask-codex` for validated JSON replies. Successful calls include parsed JSON alongside the raw reply, and parsing or validation failures return the raw reply with a diagnostic.
+
+### Patch Changes
+
+- [#474](https://github.com/Lykhoyda/ask-llm/pull/474) [`7fc6278`](https://github.com/Lykhoyda/ask-llm/commit/7fc62785206ba07acc618950379b9387eb9e9ab4) Thanks [@Lykhoyda](https://github.com/Lykhoyda)! - Limit Antigravity effort to `low`, `medium`, `high`, and `xhigh`. Honor `ASK_ANTIGRAVITY_SANDBOX=0` on Antigravity calls with `noFallback: true`, including calls that supply extra directories.
+
+- [#473](https://github.com/Lykhoyda/ask-llm/pull/473) [`992ca0d`](https://github.com/Lykhoyda/ask-llm/commit/992ca0d209927ded8907245e6bf07d33ed082b1e) Thanks [@Lykhoyda](https://github.com/Lykhoyda)! - Share the unified MCP handler with the local Antigravity smoke command, which checks a single explicitly authorized, pinned model attempt.
+
+- [#470](https://github.com/Lykhoyda/ask-llm/pull/470) [`acce478`](https://github.com/Lykhoyda/ask-llm/commit/acce478d24b89f4b59c32fd1bd5df800fa0cd152) Thanks [@Lykhoyda](https://github.com/Lykhoyda)! - Clarify Google's consumer-plan terms and account checks for the opt-in Antigravity route. Explain the Gemini CLI requirements for existing Code Assist seats and describe what Antigravity's model labels report.
+
+- [#471](https://github.com/Lykhoyda/ask-llm/pull/471) [`24e1d9b`](https://github.com/Lykhoyda/ask-llm/commit/24e1d9b882f4d5db235f1ac7173175b15b504ef1) Thanks [@Lykhoyda](https://github.com/Lykhoyda)! - Keep Google checks in doctor metadata-only. Gemini and Antigravity authentication stays unknown, and environment variable names can flag possible alternate billing. Live doctor skips both Google model exercises and reports sandboxed Antigravity quota metadata on supported versions.
+
 ## 1.8.1
 
 ### Patch Changes
