@@ -12,6 +12,7 @@ import {
 import { PROVIDERS } from "./constants.js";
 import { type DetectedHost, detectHosts } from "./hosts/detect.js";
 import { type ParityRow, parityRowsFor } from "./hosts/parity.js";
+import type { HostId } from "./hosts/registry.js";
 import type { ExecutorFn } from "./index.js";
 import { dispatchMultiLlm } from "./multiLlm.js";
 import { buildPlan, DURABLE_SERVER_GUIDANCE, isOwnRegistration, resolveServerPath } from "./plan.js";
@@ -30,6 +31,7 @@ import { googleRouteCheck } from "./utils/providerStates.js";
 
 const LIVE_PROMPT = "Reply with exactly: OK";
 const LIVE_TIMEOUT_MS = 120_000;
+const SKIP_REGISTRATION_FOR: HostId[] = ["gemini"];
 
 function withChecks(report: DiagnosticReport, added: DiagnosticCheck[]): DiagnosticReport {
   const checks = [...report.checks, ...added];
@@ -168,16 +170,19 @@ async function doctorHosts(ownCli: string, live: boolean): Promise<DoctorHost[]>
   );
   const hosts = await detectHosts(process.env, {
     skipVersionFor: live ? [] : ["agy"],
-    skipRegistrationFor: ["gemini"],
+    skipRegistrationFor: SKIP_REGISTRATION_FOR,
   });
   const plan = server ? buildPlan(hosts, server) : undefined;
   return hosts.map(({ spec, ...host }, index) => {
+    const skippedAbsent = !host.installed && SKIP_REGISTRATION_FOR.includes(host.id);
     const needsManual = host.registered === null || (host.installed && !host.supported);
     return {
       ...host,
       ownServer: host.registered && server ? isOwnRegistration({ ...host, spec }, server) : undefined,
       restart: spec.restart,
-      manual: plan?.[index].manual ?? (!server && needsManual ? DURABLE_SERVER_GUIDANCE : undefined),
+      manual: skippedAbsent
+        ? undefined
+        : (plan?.[index].manual ?? (!server && needsManual ? DURABLE_SERVER_GUIDANCE : undefined)),
       parity: host.installed ? parityRowsFor(spec.id) : undefined,
     };
   });

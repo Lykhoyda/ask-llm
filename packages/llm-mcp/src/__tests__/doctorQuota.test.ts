@@ -267,6 +267,40 @@ describe("doctor Antigravity quota", () => {
     expect(argv("gemini")).toEqual(["--version", "--version"]);
   });
 
+  it.each(["unresolved", "resolved"])(
+    "gives no Gemini registration command when Gemini CLI is absent (%s server path)",
+    async (serverPath) => {
+      rmSync(join(home, "bin", "gemini"), { force: true });
+      mkdirSync(join(home, ".gemini"), { recursive: true });
+      writeFileSync(
+        join(home, ".gemini", "settings.json"),
+        JSON.stringify({ mcpServers: { "ask-llm": { command: "fixture-hidden-command" } } }),
+      );
+      const ownCli = serverPath === "resolved" ? join(home, "ask-llm.js") : "/nonexistent/ask-llm.js";
+      writeFileSync(join(home, "ask-llm.js"), "");
+
+      await runDoctorCli(["--json"], ownCli);
+      const gemini = (JSON.parse(output) as { hosts: Record<string, unknown>[] }).hosts.find(
+        ({ id }) => id === "gemini",
+      );
+      expect(gemini).toMatchObject({
+        installed: false,
+        registered: null,
+        error: "registration check skipped (mixed settings)",
+      });
+      expect(gemini).not.toHaveProperty("manual");
+
+      output = "";
+      await runDoctorCli([], ownCli);
+      const lines = output.split("\n");
+      const at = lines.findIndex((line) => line.includes("Gemini CLI: not installed"));
+      expect(at).toBeGreaterThan(-1);
+      expect(lines[at + 1] ?? "").not.toContain("exact manual command");
+      expect(output).not.toContain("fixture-hidden-command");
+      expect(argv("gemini")).toEqual([]);
+    },
+  );
+
   it("skips both Google models with opt-in and still exercises a separate fake provider", async () => {
     vi.stubEnv("ASK_ANTIGRAVITY_ALLOW_UNISOLATED", "1");
     vi.stubEnv("GEMINI_API_KEY", "synthetic-key-value");
