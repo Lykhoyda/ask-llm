@@ -26,9 +26,20 @@ import {
 } from "./toonDoctor.js";
 import { loadProviderModule } from "./utils/providerModules.js";
 import { buildProviderSpecs } from "./utils/providerSpecs.js";
+import { googleRouteCheck } from "./utils/providerStates.js";
 
 const LIVE_PROMPT = "Reply with exactly: OK";
 const LIVE_TIMEOUT_MS = 120_000;
+
+function withChecks(report: DiagnosticReport, added: DiagnosticCheck[]): DiagnosticReport {
+  const checks = [...report.checks, ...added];
+  const status = checks.some((check) => check.status === "fail")
+    ? "error"
+    : checks.some((check) => check.status === "warn")
+      ? "warning"
+      : "ok";
+  return { ...report, checks, status };
+}
 
 async function antigravityQuotaCheck(report: DiagnosticReport): Promise<DiagnosticCheck | undefined> {
   const provider = report.providers.find((provider) => provider.command === "agy");
@@ -42,7 +53,12 @@ async function antigravityQuotaCheck(report: DiagnosticReport): Promise<Diagnost
     };
   }
   try {
-    return { name, status: "pass", message: `agy ${provider.cliVersion}: ${await probeAntigravityQuota()}` };
+    const quota = await probeAntigravityQuota();
+    return {
+      name,
+      status: "pass",
+      message: `agy ${provider.cliVersion} reported metadata: ${quota}. Account funding and overage settings are unverified.`,
+    };
   } catch (error) {
     const detail = error instanceof Error ? error.message : String(error);
     return { name, status: "warn", message: `agy ${provider.cliVersion}: quota check failed: ${detail.slice(0, 300)}` };
@@ -68,7 +84,8 @@ export async function exerciseProviders(
   for (const provider of report.providers) {
     const key = keyByName.get(provider.name);
     if (!key || !provider.states) continue;
-    if (!provider.available) skipped.set(key, "not available");
+    if (key === "gemini" || key === "antigravity") skipped.set(key, "Google route and funding unverified.");
+    else if (!provider.available) skipped.set(key, "not available");
     else if (provider.states.permitted === "no") skipped.set(key, "not permitted");
     else if (provider.states.authenticated === "no") skipped.set(key, "not authenticated");
     else ready.push(key);
@@ -134,13 +151,7 @@ export async function exerciseProviders(
     return { ...provider, states: { ...provider.states, exercised: result?.ok ? ("yes" as const) : ("no" as const) } };
   });
 
-  const allChecks = [...report.checks, ...checks];
-  const status = allChecks.some((check) => check.status === "fail")
-    ? "error"
-    : allChecks.some((check) => check.status === "warn")
-      ? "warning"
-      : "ok";
-  return { ...report, status, providers, checks: allChecks };
+  return withChecks({ ...report, providers }, checks);
 }
 
 type DoctorHost = Omit<DetectedHost, "spec"> & {
@@ -155,7 +166,10 @@ async function doctorHosts(ownCli: string, live: boolean): Promise<DoctorHost[]>
     ({ path }) => path,
     () => undefined,
   );
-  const hosts = await detectHosts(process.env, { skipVersionFor: live ? [] : ["agy"] });
+  const hosts = await detectHosts(process.env, {
+    skipVersionFor: live ? [] : ["agy"],
+    skipRegistrationFor: ["gemini"],
+  });
   const plan = server ? buildPlan(hosts, server) : undefined;
   return hosts.map(({ spec, ...host }, index) => {
     const needsManual = host.registered === null || (host.installed && !host.supported);
@@ -216,16 +230,12 @@ async function runDoctor(options: DoctorCliOptions, ownCli?: string): Promise<nu
     ownCli && options.format !== "toon" ? doctorHosts(ownCli, options.live) : Promise.resolve(undefined),
   ]);
 
-  let report = options.live ? await exerciseProviders(probed, specs) : probed;
+  const routeChecks = specs.flatMap(({ key, name }) => googleRouteCheck(key, name) ?? []);
+  let report = withChecks(probed, routeChecks);
   if (options.live) {
+    report = await exerciseProviders(report, specs);
     const quota = await antigravityQuotaCheck(probed);
-    if (quota) {
-      report = {
-        ...report,
-        checks: [...report.checks, quota],
-        status: quota.status === "warn" && report.status === "ok" ? "warning" : report.status,
-      };
-    }
+    if (quota) report = withChecks(report, [quota]);
   }
   process.stdout.write(hosts ? formatWithHosts(report, hosts, options) : formatDoctorOutput(report, options));
 

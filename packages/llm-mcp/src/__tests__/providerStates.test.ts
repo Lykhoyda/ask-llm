@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { localProviderStates } from "../utils/providerStates.js";
+import { googleRouteCheck, localProviderStates } from "../utils/providerStates.js";
 
 const installed = { cliPath: "/bin/tool", available: true, pathEnv: "/nonexistent" };
 const missing = { cliPath: undefined, available: false, pathEnv: "/nonexistent" };
@@ -55,21 +55,30 @@ describe("localProviderStates", () => {
     expect(run).not.toHaveBeenCalled();
   });
 
-  it("reads Gemini and Grok API keys as authenticated, otherwise unknown", async () => {
+  it.each(["GEMINI_API_KEY", "GOOGLE_API_KEY", "GOOGLE_GENAI_USE_VERTEXAI", "GOOGLE_APPLICATION_CREDENTIALS"])(
+    "keeps Gemini authentication unknown with %s present",
+    async (name) => {
+      const run = runner({ code: 0 });
+      vi.stubEnv(name, "fake-value");
+      expect(await localProviderStates("gemini", installed, run)).toEqual({
+        installed: "yes",
+        authenticated: "unknown",
+        permitted: "yes",
+      });
+      expect(run).not.toHaveBeenCalled();
+    },
+  );
+
+  it("uses API-key presence for Grok API authentication only", async () => {
     const run = runner({ code: 0 });
     vi.stubEnv("ASK_GROK_HARNESS", "");
-    vi.stubEnv("GEMINI_API_KEY", "");
-    vi.stubEnv("GOOGLE_API_KEY", "");
     vi.stubEnv("XAI_API_KEY", "");
-    expect(await localProviderStates("gemini", installed, run)).toMatchObject({ authenticated: "unknown" });
     expect(await localProviderStates("grok", { ...missing, available: true }, run)).toEqual({
       installed: "no",
       authenticated: "unknown",
       permitted: "yes",
     });
-    vi.stubEnv("GEMINI_API_KEY", "set");
     vi.stubEnv("XAI_API_KEY", "set");
-    expect(await localProviderStates("gemini", installed, run)).toMatchObject({ authenticated: "yes" });
     expect(await localProviderStates("grok", { ...missing, available: true }, run)).toEqual({
       installed: "not-required",
       authenticated: "yes",
@@ -89,6 +98,52 @@ describe("localProviderStates", () => {
       installed: "no",
       authenticated: "not-required",
       permitted: "yes",
+    });
+  });
+});
+
+describe("Google route checks", () => {
+  it.each([
+    ["gemini", "GEMINI_API_KEY"],
+    ["gemini", "GOOGLE_API_KEY"],
+    ["gemini", "GOOGLE_GENAI_USE_VERTEXAI"],
+    ["gemini", "GOOGLE_APPLICATION_CREDENTIALS"],
+    ["antigravity", "AGY_ADC_AUTH"],
+    ["antigravity", "GEMINI_API_KEY"],
+  ])("warns for %s with %s present without accessing any values", (key, name) => {
+    const env = new Proxy(
+      { [name]: "" },
+      {
+        get: () => {
+          throw new Error("doctor accessed an environment value");
+        },
+      },
+    );
+    expect(googleRouteCheck(key, key, env)).toMatchObject({
+      status: "warn",
+      message: expect.stringContaining(`${name} present. Possible alternate billing.`),
+    });
+  });
+
+  it.each(["gemini", "antigravity"])("leaves %s seat and funding unproven on project names alone", (key) => {
+    const check = googleRouteCheck(key, key, {
+      GOOGLE_CLOUD_PROJECT: "synthetic-project",
+      GOOGLE_CLOUD_PROJECT_ID: "synthetic-project-id",
+    });
+    expect(check).toMatchObject({
+      status: "skip",
+      message:
+        "Project variables only (GOOGLE_CLOUD_PROJECT, GOOGLE_CLOUD_PROJECT_ID). Google route and funding unverified. Seat unproven.",
+    });
+    expect(check?.fix).toContain("Cached Cloud or pay-as-you-go");
+  });
+
+  it("treats AGY_ADC_AUTH as an Antigravity-only signal and shows the consumer-plan boundary", () => {
+    const env = { AGY_ADC_AUTH: "fake-value" };
+    expect(googleRouteCheck("gemini", "Gemini", env)).toMatchObject({ status: "skip" });
+    expect(googleRouteCheck("antigravity", "Antigravity", env)).toMatchObject({
+      status: "warn",
+      fix: expect.stringContaining("consumer-plan support"),
     });
   });
 });

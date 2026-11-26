@@ -13,6 +13,7 @@ import {
   parseDoctorToon,
   requestedStructuredFormat,
 } from "../toonDoctor.js";
+import { googleRouteCheck } from "../utils/providerStates.js";
 
 function makeReport(overrides: Partial<DiagnosticReport> = {}): DiagnosticReport {
   return {
@@ -156,7 +157,9 @@ describe("doctor format negotiation", () => {
 
   it("documents --live as quota-spending only in the host-aware help", () => {
     expect(doctorHelp(true)).toContain("--live");
-    expect(doctorHelp(true)).toContain("spends provider quota");
+    expect(doctorHelp(true)).toContain("This can spend provider quota.");
+    expect(doctorHelp(true)).toContain("Gemini and Antigravity model exercises are skipped.");
+    expect(doctorHelp(true)).toContain("Reports sandboxed Antigravity quota metadata");
     expect(doctorHelp(false)).not.toContain("--live");
   });
 
@@ -186,6 +189,29 @@ describe("doctor format negotiation", () => {
 });
 
 describe("bounded doctor TOON schema", () => {
+  it("retains all present Gemini billing signal names in a bounded warning", () => {
+    const env = {
+      GEMINI_API_KEY: "synthetic-marker",
+      GOOGLE_API_KEY: "synthetic-marker",
+      GOOGLE_GENAI_USE_VERTEXAI: "synthetic-marker",
+      GOOGLE_APPLICATION_CREDENTIALS: "synthetic-marker",
+    };
+    const check = googleRouteCheck("gemini", "Gemini", env);
+    if (!check) throw new Error("missing Gemini route check");
+    const output = formatDoctorToon(makeReport({ checks: [check] }));
+    const document = parseDoctorToon(output);
+    expect(document.checks).toEqual([
+      expect.objectContaining({
+        name: "Route: Gemini",
+        status: "warn",
+        message: expect.stringContaining("Possible alternate billing."),
+      }),
+    ]);
+    for (const name of Object.keys(env)) expect(document.checks[0].message).toContain(name);
+    expect(document.truncations).toEqual([]);
+    expect(output).not.toContain("synthetic-marker");
+  });
+
   it("round-trips through the official strict parser", () => {
     const document = doctorToonDocument(makeReport());
     expect(parseDoctorToon(formatDoctorToon(makeReport()))).toEqual(document);

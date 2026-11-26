@@ -636,11 +636,13 @@ The report distinguishes these states:
 
 Ordinary diagnostics do not make paid inference calls. The host report includes restart instructions, manual guidance and the host's [compatibility matrix](https://lykhoyda.github.io/ask-llm/compatibility/hosts) rows. A leftover config directory is a clue, not proof that a host is installed.
 
+Google route checks use environment variable names only. Doctor warns about possible alternate billing when Gemini sees `GEMINI_API_KEY`, `GOOGLE_API_KEY`, `GOOGLE_GENAI_USE_VERTEXAI` or `GOOGLE_APPLICATION_CREDENTIALS`, or when Antigravity sees `AGY_ADC_AUTH` or `GEMINI_API_KEY`. With only `GOOGLE_CLOUD_PROJECT` or `GOOGLE_CLOUD_PROJECT_ID`, or with no signals, the route check is skipped and the seat and funding remain unverified. Cached Cloud credentials and pay-as-you-go settings may still affect billing. Doctor leaves Gemini CLI registration unchecked because its settings file also holds authentication preferences. See [Google authentication](https://lykhoyda.github.io/ask-llm/operation/authentication) for the consumer-plan terms boundary.
+
 ## Optional live check
 
-`ask-llm doctor --live` exercises ready, permitted providers with a small prompt in a temporary directory. It may consume quota or incur provider charges. Run it only when you choose to test that boundary. Skipped providers are not reported as successful. It does not run a review of your project.
+`ask-llm doctor --live` skips Gemini and Antigravity model exercises because their routes and funding are unverified. It exercises other ready, permitted providers with a small prompt in a temporary directory. That prompt may consume quota or incur provider charges.
 
-It also checks [Antigravity quota](https://lykhoyda.github.io/ask-llm/providers/antigravity#quota-diagnostics); that reference explains the version gate, sandboxing and why default doctor leaves agy's version unchecked.
+Live doctor also reports [Antigravity quota metadata](https://lykhoyda.github.io/ask-llm/providers/antigravity#quota-diagnostics) on supported versions. Default doctor starts zero agy processes.
 
 ## Formats
 
@@ -673,7 +675,9 @@ For subscription-backed routes, no separate model API key is needed. Grok's `xai
 
 Provider credentials stay in the provider's login/configuration flow. The xAI API route reads the key from the process environment to authenticate requests; Ask LLM does not log or return it. Keep keys out of committed configuration.
 
-Run `ask-llm doctor` to see what is installed and what authentication can be established without inference. An unknown auth state is not a successful login. Restart the host after adding a provider or changing its environment. See [diagnostics](https://lykhoyda.github.io/ask-llm/operation/diagnostics) for the optional quota-consuming live check.
+Run `ask-llm doctor` to see what is installed and which providers have local authentication evidence. Gemini and Antigravity report authentication as unknown. Doctor looks only for Google route signal names in its environment and leaves credentials and mixed Google settings unread. Signs of API keys, Vertex AI, ADC, cached Cloud credentials, or pay-as-you-go settings can indicate possible alternate billing. A project variable alone leaves the Gemini seat and account funding unproven. Confirm the intended account and seat or subscription in the provider's own settings. Google's consumer-plan support excludes third-party headless Antigravity wrappers. See the [Antigravity terms guidance](https://lykhoyda.github.io/ask-llm/providers/antigravity).
+
+Restart the host after adding a provider or changing its environment. See [diagnostics](https://lykhoyda.github.io/ask-llm/operation/diagnostics) for the optional quota-consuming live check.
 
 ### Data flow
 

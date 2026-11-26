@@ -166,6 +166,9 @@ export function doctorHelp(includeHosts = false): string {
     `  text          Human-readable provider${includeHosts ? " and host" : ""} diagnostics (default)`,
     `  json          Provider report${includeHosts ? " and hosts" : ""} (--json remains supported)`,
     "  toon          Versioned, bounded provider-only diagnostics (no hosts)",
+    "",
+    "Gemini and Antigravity authentication stays unknown. Google billing checks use",
+    "environment variable names only.",
     ...(includeHosts
       ? [
           "",
@@ -181,9 +184,10 @@ export function doctorHelp(includeHosts = false): string {
     "                text/json are always complete, so --full is accepted as a no-op",
     ...(includeHosts
       ? [
-          "  --live        Opt-in, never the default: spends provider quota by sending one",
-          "                minimal real prompt to each ready provider (text/JSON only)",
-          `                Also checks sandboxed Antigravity quota on agy ${DOCTOR_QUOTA_MIN_VERSION} or newer.`,
+          "  --live        Exercises ready, permitted providers (text/JSON only).",
+          "                This can spend provider quota.",
+          "                Gemini and Antigravity model exercises are skipped.",
+          `                Reports sandboxed Antigravity quota metadata on agy ${DOCTOR_QUOTA_MIN_VERSION} or newer.`,
           "                Without --live, doctor never starts agy (including --version).",
         ]
       : []),
