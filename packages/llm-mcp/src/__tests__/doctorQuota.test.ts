@@ -301,6 +301,26 @@ describe("doctor Antigravity quota", () => {
     },
   );
 
+  it("adds no Google route check or status change when neither Google CLI is installed", async () => {
+    rmSync(join(home, "bin", "gemini"), { force: true });
+    rmSync(join(home, "bin", "agy"), { force: true });
+    writeFileSync(join(home, "bin", "codex"), '#!/bin/sh\nprintf "codex-cli 0.148.0\\n"\n', { mode: 0o755 });
+    const run = async () => {
+      output = "";
+      await runDoctorCli(["--json"], "/nonexistent/ask-llm.js");
+      const { status, checks } = JSON.parse(output) as DiagnosticReport;
+      return { status, checks: checks.map(({ name, status }) => ({ name, status })) };
+    };
+    const without = await run();
+    vi.stubEnv("GOOGLE_API_KEY", "synthetic-key-value");
+    vi.stubEnv("AGY_ADC_AUTH", "1");
+    const withSignals = await run();
+    expect(withSignals.checks.filter(({ name }) => name.startsWith("Route:"))).toEqual([]);
+    expect(withSignals).toEqual(without);
+    expect(withSignals.checks).toContainEqual({ name: "Provider: Codex", status: "pass" });
+    expect(output).not.toContain("synthetic-key-value");
+  });
+
   it("skips both Google models with opt-in and still exercises a separate fake provider", async () => {
     vi.stubEnv("ASK_ANTIGRAVITY_ALLOW_UNISOLATED", "1");
     vi.stubEnv("GEMINI_API_KEY", "synthetic-key-value");

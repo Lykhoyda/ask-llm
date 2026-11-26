@@ -235,7 +235,12 @@ async function runDoctor(options: DoctorCliOptions, ownCli?: string): Promise<nu
     ownCli && options.format !== "toon" ? doctorHosts(ownCli, options.live) : Promise.resolve(undefined),
   ]);
 
-  const routeChecks = specs.flatMap(({ key, name }) => googleRouteCheck(key, name) ?? []);
+  const installed = new Set(
+    probed.providers.filter(({ states }) => states?.installed === "yes").map(({ name }) => name),
+  );
+  const routeChecks = specs.flatMap(({ key, name }) =>
+    installed.has(name) ? (googleRouteCheck(key, name) ?? []) : [],
+  );
   let report = withChecks(probed, routeChecks);
   if (options.live) {
     report = await exerciseProviders(report, specs);
