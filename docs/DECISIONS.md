@@ -13,7 +13,7 @@
 - Enable each of the thirteen rules with existing findings in a separate change alongside the fixes it requires.
 - `anti-slop/no-unknown-type-aliases` has an upstream false positive. Caller type parameters leak into a separately declared alias. Re-enable after an upstream fix.
 
-**Consequences:** Lint typechecks the vendored plugin against the pinned API, and the scripts tests guard the version pins, plugin registration, and enabled rules. Formatting and linting exclude the verbatim upstream copy.
+**Consequences:** Lint typechecks the vendored plugin against the pinned API, and the scripts tests guard the version pins and run the pinned Oxlint to prove each enabled anti-slop rule rejects a violation. Formatting and linting exclude the verbatim upstream copy.
 
 ## ADR-203: Move the Antigravity default to Gemini 4 Neon and the fallback to Gemini 4 Hydrogen
 
