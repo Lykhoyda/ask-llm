@@ -21,6 +21,7 @@ interface PackageManifest {
 
 interface OxlintConfig {
   jsPlugins?: { name: string; specifier: string }[];
+  rules?: Record<string, unknown>;
 }
 
 function readJson<T>(path: string): T {
@@ -37,10 +38,18 @@ describe("Oxlint plugin contract", () => {
     }
   });
 
-  it("registers the vendored plugin and includes its license and provenance files", () => {
+  it("registers the vendored plugin with the configured severities and provenance files", () => {
     const config = readJson<OxlintConfig>(".oxlintrc.json");
     const plugin = config.jsPlugins?.find(({ name }) => name === "anti-slop");
     expect(plugin?.specifier).toBe("./tools/oxlint/anti-slop/index.ts");
+    expect(config.rules).toMatchObject({
+      "anti-slop/no-reduce-accumulator-copy": "error",
+      "anti-slop/no-reflect-apply": "error",
+      "anti-slop/no-reflect-get": "error",
+      "anti-slop/no-unknown-type-aliases": "off",
+      "anti-slop/no-widen-then-assert": "error",
+      "oxc/no-accumulating-spread": "error",
+    });
 
     const vendor = new URL("tools/oxlint/anti-slop/", root);
     for (const path of ["index.ts", "LICENSE", "UPSTREAM.md", "vendor/eslint-stylistic/LICENSE"]) {

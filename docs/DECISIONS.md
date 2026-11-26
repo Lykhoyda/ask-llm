@@ -6,9 +6,14 @@
 
 **Context:** Five generic anti-slop rules had zero findings across the existing lint targets. The other thirteen had findings. The native `oxc/no-accumulating-spread` warning also had zero findings. At the pinned commit, upstream recommends [cloudflare/oxlint-config](https://github.com/cloudflare/oxlint-config). Ask LLM uses the measured anti-slop rule set.
 
-**Decision:** Vendor the anti-slop assets and their MIT notices under `tools/oxlint/anti-slop/`, with the upstream commit and assets tree recorded in `UPSTREAM.md`. Pin Oxlint in every lint workspace and its plugin API, `@oxlint/plugins`, to exactly `1.91.0`. Register the generic plugin, set the five rules with zero findings and the native companion to error, and set the thirteen rules with findings explicitly off. The Effect plugin stays disabled because Ask LLM has no Effect dependency.
+**Decision:** Vendor the anti-slop assets and their MIT notices under `tools/oxlint/anti-slop/`, with the upstream commit and assets tree recorded in `UPSTREAM.md`. Pin Oxlint in every lint workspace and its plugin API, `@oxlint/plugins`, to exactly `1.91.0`. Register the generic plugin and set four rules with zero findings and the native companion to error. Keep fourteen rules explicitly off. The Effect plugin stays disabled because Ask LLM has no Effect dependency.
 
-**Consequences:** Lint typechecks the vendored plugin against the pinned API, and the scripts tests guard the version pins and plugin registration. Formatting and linting exclude the verbatim upstream copy. Enable each deferred rule in a separate change alongside the fixes it requires.
+**Deferred rules:**
+
+- Enable each of the thirteen rules with existing findings in a separate change alongside the fixes it requires.
+- `anti-slop/no-unknown-type-aliases` has an upstream false positive. Caller type parameters leak into a separately declared alias. Re-enable after an upstream fix.
+
+**Consequences:** Lint typechecks the vendored plugin against the pinned API, and the scripts tests guard the version pins, plugin registration, and enabled rules. Formatting and linting exclude the verbatim upstream copy.
 
 ## ADR-203: Move the Antigravity default to Gemini 4 Neon and the fallback to Gemini 4 Hydrogen
 
