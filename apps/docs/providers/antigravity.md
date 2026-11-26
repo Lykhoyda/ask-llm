@@ -28,9 +28,9 @@ Setup registers the unified Ask LLM server. The tools listed below belong to the
 
 ## Tools
 
-On MCP and Pi, use unified `ask-llm` with `provider: "antigravity"`. Pass `model` to select an exact agy model and `reasoningEffort` (`low`, `medium`, `high`, `xhigh`, or `max`) to set the effort for the call. Run `agy models` to check which tiers your chosen model supports. Pass a tiered ID or legacy display name without `reasoningEffort`; that pair is rejected before agy starts. A tiered ID with `ASK_ANTIGRAVITY_EFFORT` set is passed to agy, which validates the pair.
+On MCP and Pi, use unified `ask-llm` with `provider: "antigravity"`. Pass `model` to select an exact agy model and `reasoningEffort` (`low`, `medium`, `high`, or `xhigh`) to set the effort for the call. Run `agy models` to check which tiers your chosen model supports. Omit `reasoningEffort` when passing a tiered ID or legacy display name with an effort tier. A tiered ID with `ASK_ANTIGRAVITY_EFFORT` set is passed to agy, which validates the pair.
 
-Set `noFallback: true` to make one model attempt with the selected model and effort. This forces `--sandbox`, skips all retries and the automatic quota probe, and still requires the local execution opt-in above.
+Set `noFallback: true` to make one model attempt with the selected model and effort, skipping retries and the automatic quota probe. The call follows `ASK_ANTIGRAVITY_SANDBOX` and requires the local execution opt-in above.
 
 | Tool | Purpose |
 |------|---------|
@@ -102,7 +102,7 @@ Claude Code's `/brainstorm` uses a separate raw `agy` call. Without the exact op
 | `ASK_ANTIGRAVITY_ALLOW_UNISOLATED` | unset | Only the exact value `1` permits unisolated review/tool, read-only machine, and `/brainstorm` raw agy execution |
 | `ASK_ANTIGRAVITY_SANDBOX` | on | Set `0` to drop `--sandbox` from review calls if it blocks `--add-dir` context reads; the `/quota` diagnostic probe always uses `--sandbox` |
 | `ASK_ANTIGRAVITY_MODEL` | `gemini-4-neon` | agy model passed via `--model`. Per-call `model` takes precedence. For a tiered ID such as `claude-sonnet-5-5-high` or a legacy display name with a tier, omit separate effort settings. See [Models](#models) for fallback and recovery behavior. |
-| `ASK_ANTIGRAVITY_EFFORT` | `high` for built-in base slugs and model-less recovery | agy reasoning effort passed via `--effort` (`low`, `medium`, `high`, `xhigh`, or `max`). Per-call `reasoningEffort` takes precedence. Invalid environment values warn and use the default behavior. Custom slugs receive no implicit effort. |
+| `ASK_ANTIGRAVITY_EFFORT` | `high` for built-in base slugs and model-less recovery | agy reasoning effort passed via `--effort` (`low`, `medium`, `high`, or `xhigh`). Per-call `reasoningEffort` takes precedence. Invalid environment values warn and use the default behavior. Custom slugs receive no implicit effort. |
 
 ## Limitations
 

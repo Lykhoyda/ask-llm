@@ -323,7 +323,8 @@ export function isAntigravityTieredModel(model: string): boolean {
   const normalized = model.trim().toLowerCase();
   // Recognize catalog IDs and legacy display names. Custom slugs are validated by agy.
   const catalogSlug = /^(?:gemini-\d|claude-(?:opus|sonnet|haiku)-\d)/.test(normalized);
-  return ANTIGRAVITY_REASONING_EFFORTS.some(
+  // Keep recognizing max suffixes when validating model pins.
+  return [...ANTIGRAVITY_REASONING_EFFORTS, "max"].some(
     (effort) => (catalogSlug && normalized.endsWith(`-${effort}`)) || normalized.endsWith(` (${effort})`),
   );
 }

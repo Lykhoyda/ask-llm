@@ -309,7 +309,7 @@ export function buildAskLlmSchema(availableProviders: string[], excludedProvider
         .boolean()
         .optional()
         .describe(
-          "For read-only Codex and Antigravity calls. When true, make one attempt with the exact model or normal default. Codex also bypasses its preferred model and response cache.",
+          "When true, make one attempt with the exact model or normal default. For read-only Codex calls, this also bypasses the preferred model and response cache. Antigravity follows ASK_ANTIGRAVITY_SANDBOX.",
         ),
       sandbox: z
         .enum(["read-only", "workspace-write"])
@@ -392,7 +392,7 @@ export function buildAskLlmSchema(availableProviders: string[], excludedProvider
         ctx.addIssue({
           code: "custom",
           path: ["noFallback"],
-          message: "noFallback is only supported for read-only calls with provider=codex or provider=antigravity",
+          message: "noFallback is supported with provider=antigravity or with provider=codex in read-only mode",
         });
       }
       if (value.sandbox && value.provider !== "codex") {
@@ -426,7 +426,6 @@ export function askLlmArgsToExecutorOptions(args: {
   preferred?: boolean;
   singleAttempt?: boolean;
   strictOutcome?: boolean;
-  readOnly?: boolean;
   sandbox?: "read-only" | "workspace-write";
   harness?: "xai-api" | "grok-cli";
 } {
@@ -440,7 +439,7 @@ export function askLlmArgsToExecutorOptions(args: {
     ...(args.provider === "codex" && args.noFallback === true && { singleAttempt: true, strictOutcome: true }),
     ...(args.provider === "antigravity" && {
       ...(args.model !== undefined && { modelFromCall: true }),
-      ...(args.noFallback === true && { singleAttempt: true, readOnly: true }),
+      ...(args.noFallback === true && { singleAttempt: true }),
     }),
     sandbox: args.sandbox,
     harness: args.harness === "xai-api" || args.harness === "grok-cli" ? args.harness : undefined,
