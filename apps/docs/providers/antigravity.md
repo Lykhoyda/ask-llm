@@ -28,6 +28,10 @@ Setup registers the unified Ask LLM server. The tools listed below belong to the
 
 ## Tools
 
+On MCP and Pi, use unified `ask-llm` with `provider: "antigravity"`. Pass `model` to select an exact agy model and `reasoningEffort` (`low`, `medium`, `high`, `xhigh`, or `max`) to set the effort for the call. Run `agy models` to check which tiers your chosen model supports. Pass a tiered ID or legacy display name by itself, with neither `reasoningEffort` nor `ASK_ANTIGRAVITY_EFFORT` set.
+
+Set `noFallback: true` to make one model attempt with the selected model and effort. This forces `--sandbox`, skips all retries and the automatic quota probe, and still requires the local execution opt-in above.
+
 | Tool | Purpose |
 |------|---------|
 | `ask-antigravity` | Send a prompt to `agy` for a second opinion / code review. Optional `sessionId` resumes a conversation; `includeDirs` maps to `agy --add-dir` for monorepo context |
@@ -61,7 +65,7 @@ If agy cannot find the ID (for example, a conversation it no longer retains), ag
 - **Ask LLM default** submits `gemini-4-neon` via `--model` and `high` via `--effort`.
 - **Rate-limit fallback** submits `gemini-4-hydrogen` once on a rate limit.
 - **Quota diagnostics:** when a rate limit exhausts the available model attempts, a successful sandboxed `/quota` probe adds remaining quota percentages and reset times to the error; a failed probe leaves the usual rate-limit error
-- **Model-unavailable recovery:** if agy rejects a model whose value equals one of the built-in base slugs (upstream drift), the executor retries once **without** a model and lets agy pick its default; any other rejected model fails with an actionable error pointing at `agy models`
+- **Model-unavailable recovery:** with no `model` or `reasoningEffort` set on the call, a rejected built-in base slug can recover once without `--model`, letting agy pick its default. A rejected per-call selection returns an error pointing at `agy models`. Rate-limit fallback still applies to pinned calls unless `noFallback` is true and carries the requested effort unchanged.
 - **Overrides:** see [Config](#config) for model IDs and effort compatibility.
 
 For both unified and standalone tool responses, the model label is the slug submitted for the successful attempt, including `gemini-4-hydrogen` after a successful rate-limit fallback. After a successful model-less recovery, the label is `agy default`. The backend model remains unverified in each case.
@@ -97,8 +101,8 @@ Claude Code's `/brainstorm` uses a separate raw `agy` call. Without the exact op
 | `ASK_ANTIGRAVITY_TIMEOUT_MS` | `300000` | Process timeout (5 minutes). At the default, `agy --print-timeout` expires 5s earlier. |
 | `ASK_ANTIGRAVITY_ALLOW_UNISOLATED` | unset | Only the exact value `1` permits unisolated review/tool, read-only machine, and `/brainstorm` raw agy execution |
 | `ASK_ANTIGRAVITY_SANDBOX` | on | Set `0` to drop `--sandbox` from review calls if it blocks `--add-dir` context reads; the `/quota` diagnostic probe always uses `--sandbox` |
-| `ASK_ANTIGRAVITY_MODEL` | `gemini-4-neon` | agy model passed via `--model`. Accepted names are whatever `agy models` lists on your install. For a tiered ID such as `claude-sonnet-5-5-high`, leave `ASK_ANTIGRAVITY_EFFORT` unset: effort-carrying names reject `--effort`. Legacy display strings are passed to agy unchanged for backward compatibility. See [Models](#models) for fallback and recovery behavior. |
-| `ASK_ANTIGRAVITY_EFFORT` | `high` | agy reasoning effort passed via `--effort` (`low` \| `medium` \| `high`). The default is paired with the built-in base slugs and with model-less recovery attempts; an explicit value is always passed — note agy limits tiers per model (run `agy models` to see each model's tiers). Invalid values warn and fall back to the default behavior |
+| `ASK_ANTIGRAVITY_MODEL` | `gemini-4-neon` | agy model passed via `--model`. Per-call `model` takes precedence. For a tiered ID such as `claude-sonnet-5-5-high` or a legacy display name with a tier, omit separate effort settings. See [Models](#models) for fallback and recovery behavior. |
+| `ASK_ANTIGRAVITY_EFFORT` | `high` for built-in base slugs and model-less recovery | agy reasoning effort passed via `--effort` (`low`, `medium`, `high`, `xhigh`, or `max`). Per-call `reasoningEffort` takes precedence. Invalid environment values warn and use the default behavior. Custom slugs receive no implicit effort. |
 
 ## Limitations
 

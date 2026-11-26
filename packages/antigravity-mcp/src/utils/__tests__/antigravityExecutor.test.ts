@@ -711,9 +711,9 @@ describe("resolveExplicitEffort", () => {
     expect(resolveExplicitEffort()).toBeUndefined();
   });
 
-  it("returns the validated, lowercased value", () => {
-    process.env[ANTIGRAVITY.EFFORT_ENV_VAR] = " MEDIUM ";
-    expect(resolveExplicitEffort()).toBe("medium");
+  it.each(["low", "medium", "high", "xhigh", "max"])("normalizes supported environment effort %s", (effort) => {
+    process.env[ANTIGRAVITY.EFFORT_ENV_VAR] = ` ${effort.toUpperCase()} `;
+    expect(resolveExplicitEffort()).toBe(effort);
   });
 
   it("warns and returns undefined for an invalid value", () => {
@@ -749,24 +749,56 @@ describe("executeAntigravityCLI effort selection", () => {
     expect(args[args.indexOf(CLI.FLAGS.EFFORT) + 1]).toBe(ANTIGRAVITY.DEFAULT_EFFORT);
   });
 
-  it("suppresses --effort for a pinned effort-carrying model (agy would reject the pair)", async () => {
-    process.env[ANTIGRAVITY.MODEL_ENV_VAR] = "Gemini 3.1 Pro (High)";
-    mockExec.mockResolvedValue("answer");
-    await executeAntigravityCLI({ prompt: "q" });
-    const [, args] = mockExec.mock.calls[0];
-    expect(args[args.indexOf(CLI.FLAGS.MODEL) + 1]).toBe("Gemini 3.1 Pro (High)");
-    expect(args).not.toContain(CLI.FLAGS.EFFORT);
-  });
+  it.each(["gemini-4-neon-high", "Gemini 3.1 Pro (High)", "custom-high"])(
+    "preserves the exact model %s without adding an implicit effort",
+    async (model) => {
+      mockExec.mockResolvedValue("answer");
+      await executeAntigravityCLI({ prompt: "q", model, modelFromCall: true });
+      const [, args] = mockExec.mock.calls[0];
+      expect(args[args.indexOf(CLI.FLAGS.MODEL) + 1]).toBe(model);
+      expect(args).not.toContain(CLI.FLAGS.EFFORT);
+    },
+  );
 
-  it("always emits an explicitly set ASK_ANTIGRAVITY_EFFORT, even with an effort-carrying pin", async () => {
-    // The user owns this (invalid) combination — explicit effort must override the
-    // suppression applied to effort-carrying names, not be silently dropped.
+  it("rejects a recognized tiered model with environment effort before probing agy", async () => {
     process.env[ANTIGRAVITY.MODEL_ENV_VAR] = "Gemini 3.1 Pro (High)";
     process.env[ANTIGRAVITY.EFFORT_ENV_VAR] = "medium";
+    await expect(executeAntigravityCLI({ prompt: "q" })).rejects.toThrow(
+      /already includes an effort tier.*ASK_ANTIGRAVITY_EFFORT/,
+    );
+    expect(mockAssertSupportedAgyVersion).not.toHaveBeenCalled();
+    expect(mockExec).not.toHaveBeenCalled();
+  });
+
+  it("gives per-call effort precedence for a custom model", async () => {
+    process.env[ANTIGRAVITY.EFFORT_ENV_VAR] = "low";
     mockExec.mockResolvedValue("answer");
-    await executeAntigravityCLI({ prompt: "q" });
+    await executeAntigravityCLI({ prompt: "q", model: "custom-high", modelFromCall: true, reasoningEffort: "max" });
     const [, args] = mockExec.mock.calls[0];
-    expect(args[args.indexOf(CLI.FLAGS.EFFORT) + 1]).toBe("medium");
+    expect(args[args.indexOf(CLI.FLAGS.MODEL) + 1]).toBe("custom-high");
+    expect(args[args.indexOf(CLI.FLAGS.EFFORT) + 1]).toBe("max");
+  });
+
+  it("carries requested effort through normal quota fallback and identifies the successful attempt", async () => {
+    process.env[ANTIGRAVITY.EFFORT_ENV_VAR] = "low";
+    mockExec.mockRejectedValueOnce(new Error("429 too many requests"));
+    mockExec.mockResolvedValueOnce(jsonStdout("fallback answer", USAGE_1_1_9));
+
+    const result = await executeAntigravityCLI({
+      prompt: "q",
+      model: "gemini-4-neon",
+      modelFromCall: true,
+      reasoningEffort: "xhigh",
+    });
+
+    expect(mockExec).toHaveBeenCalledTimes(2);
+    expect(
+      modelSpawns().map(([, args]) => [args[args.indexOf("--model") + 1], args[args.indexOf("--effort") + 1]]),
+    ).toEqual([
+      ["gemini-4-neon", "xhigh"],
+      ["gemini-4-hydrogen", "xhigh"],
+    ]);
+    expect(result).toMatchObject({ model: "gemini-4-hydrogen", usage: { model: "gemini-4-hydrogen", fellBack: true } });
   });
 });
 
@@ -836,11 +868,39 @@ describe("executeAntigravityCLI model-unavailable recovery (#243)", () => {
     expect(retryArgs[retryArgs.indexOf(CLI.FLAGS.EFFORT) + 1]).toBe("medium");
   });
 
-  it("retries model-less for an options.model pin equal to the shipped default (value gate, not provenance)", async () => {
+  it("retries model-less for a synthesized options.model equal to the shipped default", async () => {
     mockExec.mockRejectedValueOnce(unknownModelError(MODELS.DEFAULT)).mockResolvedValueOnce("rescued");
     const result = await executeAntigravityCLI({ prompt: "q", model: MODELS.DEFAULT });
     expect(result.response).toBe("rescued");
     expect(mockExec).toHaveBeenCalledTimes(2);
+  });
+
+  it.each(["gemini-4-neon", "gemini-4-hydrogen"])("fails without recovery for a per-call %s pin", async (model) => {
+    mockExec.mockRejectedValueOnce(unknownModelError(model));
+    await expect(executeAntigravityCLI({ prompt: "q", model, modelFromCall: true })).rejects.toThrow(
+      /agy models.*Pass a valid model/s,
+    );
+    expect(mockExec).toHaveBeenCalledOnce();
+  });
+
+  it("reports a rejected per-call effort on the implicit default without model-less recovery", async () => {
+    mockExec.mockRejectedValueOnce(new Error('Error: invalid model selection: gemini-4-neon has no "max" effort'));
+    await expect(executeAntigravityCLI({ prompt: "q", reasoningEffort: "max" })).rejects.toThrow(
+      /rejected model "gemini-4-neon".*agy models.*reasoningEffort="max"/s,
+    );
+    expect(mockExec).toHaveBeenCalledOnce();
+  });
+
+  it.each([
+    [new Error("429 too many requests"), ERROR_MESSAGES.RATE_LIMITED],
+    [unknownModelError("gemini-4-neon"), "Run `agy models` for valid slugs and tiers"],
+  ])("makes exactly one read-only model attempt on %s", async (failure, expected) => {
+    process.env[ANTIGRAVITY.SANDBOX_ENV_VAR] = "0";
+    mockExec.mockRejectedValueOnce(failure);
+    await expect(executeAntigravityCLI({ prompt: "q", singleAttempt: true, readOnly: true })).rejects.toThrow(expected);
+    expect(mockExec).toHaveBeenCalledOnce();
+    expect(mockExec.mock.calls[0][1]).toContain("--sandbox");
+    expect(mockExec.mock.calls[0][1]).not.toContain("/quota");
   });
 
   it("retries model-less for an ASK_ANTIGRAVITY_MODEL pin equal to the shipped default", async () => {
@@ -880,12 +940,12 @@ describe("executeAntigravityCLI model-unavailable recovery (#243)", () => {
     expect(mockExec).toHaveBeenCalledTimes(2);
   });
 
-  it("points a rejected pin's remediation at the explicit effort when one is set", async () => {
-    process.env[ANTIGRAVITY.MODEL_ENV_VAR] = "Gemini 3.1 Pro (High)";
+  it("points a rejected custom pin's remediation at the environment effort when one is set", async () => {
+    process.env[ANTIGRAVITY.MODEL_ENV_VAR] = "custom-model";
     process.env[ANTIGRAVITY.EFFORT_ENV_VAR] = "low";
     mockExec.mockRejectedValue(
       new Error(
-        'Error: invalid model selection (--model "Gemini 3.1 Pro (High)" --effort "low"): --effort is not supported for model "Gemini 3.1 Pro (High)"',
+        'Error: invalid model selection (--model "custom-model" --effort "low"): --effort is not supported for model "custom-model"',
       ),
     );
     await expect(executeAntigravityCLI({ prompt: "q" })).rejects.toThrow(
@@ -921,6 +981,16 @@ describe("executeAntigravityCLI model-unavailable recovery (#243)", () => {
     expect(result.model).toBe(MODELS.AGY_DEFAULT_LABEL);
     expect(mockExec).toHaveBeenCalledTimes(3);
     expect(mockExec.mock.calls[2][1]).not.toContain(CLI.FLAGS.MODEL);
+  });
+
+  it("reports a rejected per-call effort on the quota fallback without a third attempt", async () => {
+    mockExec
+      .mockRejectedValueOnce(new Error("429 too many requests"))
+      .mockRejectedValueOnce(new Error('invalid model selection: gemini-4-hydrogen has no "max" effort'));
+    await expect(executeAntigravityCLI({ prompt: "q", reasoningEffort: "max" })).rejects.toThrow(
+      /rejected model "gemini-4-hydrogen".*reasoningEffort="max"/s,
+    );
+    expect(mockExec).toHaveBeenCalledTimes(2);
   });
 
   it("does not conflate a model-unavailable rejection with the Flash rate-limit fallback", async () => {

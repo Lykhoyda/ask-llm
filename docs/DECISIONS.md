@@ -1,5 +1,15 @@
 # Architectural Decisions
 
+## ADR-205: Add per-call Antigravity effort and fallback control
+
+**Status:** Accepted (2026-11-26). Updates the Antigravity effort and recovery rules from ADR-137 and ADR-203.
+
+**Context:** Unified `ask-llm` on MCP and Pi already accepts a model override. Antigravity effort came from the environment, and a rejected pin equal to a shipped model could recover with agy's default. Machine requests also pass a resolved model to the executor, including when the caller omitted it.
+
+**Decision:** Accept `reasoningEffort` (`low`, `medium`, `high`, `xhigh`, `max`) on unified Antigravity calls. Resolve effort from the call, then `ASK_ANTIGRAVITY_EFFORT`, then `high` for shipped base models and model-less recovery. Reject blank model pins and recognized tiered IDs paired with a separate effort. Pass other model and tier combinations to agy for validation. Mark unified model pins explicitly so rejected per-call selections produce actionable errors and machine-resolved defaults can still recover.
+
+**Consequences:** The rate-limit fallback carries the configured effort and reports the successful model. `noFallback: true` forces the sandbox and limits execution to one model attempt, with no model recovery or automatic quota probe. The Antigravity execution opt-in still applies.
+
 ## ADR-204: Adopt anti-slop Oxlint rules incrementally
 
 **Status:** Accepted (2026-11-26).

@@ -31,6 +31,8 @@ describe("Antigravity tool and machine isolation", { timeout: 5_000 }, () => {
       args[0] === "--version" ? "1.5.9" : JSON.stringify({ response: JSON.stringify(payload), status: "SUCCESS" }),
     );
     vi.stubEnv("ASK_ANTIGRAVITY_ALLOW_UNISOLATED", undefined);
+    vi.stubEnv("ASK_ANTIGRAVITY_MODEL", undefined);
+    vi.stubEnv("ASK_ANTIGRAVITY_EFFORT", undefined);
     vi.spyOn(Logger, "warn").mockImplementation(() => {});
   });
 
@@ -57,6 +59,36 @@ describe("Antigravity tool and machine isolation", { timeout: 5_000 }, () => {
     expect(result.status).toBe("failed");
     expect(result.failure?.kind).toBe("unavailable");
     expect(mockExec).not.toHaveBeenCalled();
+  });
+
+  it("recovers a rejected machine default and surfaces the same rejection for an explicit unified pin", async () => {
+    vi.stubEnv("ASK_ANTIGRAVITY_ALLOW_UNISOLATED", "1");
+    mockExec.mockImplementation(async (_command, args) => {
+      if (args[0] === "--version") return "1.5.9";
+      if (args.includes("--model")) throw new Error('invalid model selection (--model "gemini-4-neon")');
+      return JSON.stringify({ response: JSON.stringify(payload), status: "SUCCESS" });
+    });
+
+    expect(await runMachine()).toMatchObject({
+      status: "success",
+      payload,
+      fallback: { occurred: true, requestedModel: "gemini-4-neon", actualModel: "agy default" },
+    });
+    const modelInvocations = () => mockExec.mock.calls.map(([, args]) => args).filter((args) => args[0] === "-p");
+    const [primary, recovery] = modelInvocations();
+    expect(modelInvocations()).toHaveLength(2);
+    expect(primary[primary.indexOf("--model") + 1]).toBe("gemini-4-neon");
+    expect(recovery).not.toContain("--model");
+
+    mockExec.mockClear();
+    await expect(
+      runAskLlm(
+        buildAskLlmSchema(["antigravity"]),
+        { provider: "antigravity", model: "gemini-4-neon", prompt: "Review fixture" },
+        { getExecutor: () => executeAntigravityCLI },
+      ),
+    ).rejects.toThrow(/rejected model "gemini-4-neon".*agy models/s);
+    expect(modelInvocations()).toHaveLength(1);
   });
 
   it.each(["tool", "machine"])("explicit opt-in warns and never bypasses permissions on the %s path", async (path) => {

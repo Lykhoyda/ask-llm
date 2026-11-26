@@ -26,7 +26,8 @@ vi.mock("@ask-llm/ollama-mcp/executor", () => ({
   isProviderAvailable: vi.fn().mockResolvedValue(false),
 }));
 
-vi.mock("@ask-llm/antigravity-mcp/executor", () => ({
+vi.mock("@ask-llm/antigravity-mcp/executor", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@ask-llm/antigravity-mcp/executor")>()),
   executeAntigravityCLI: vi.fn().mockResolvedValue({ response: "antigravity response" }),
   probeAgySupport: vi.fn(),
   assessAgyVersion: vi.fn(),

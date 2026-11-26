@@ -1,6 +1,7 @@
 import { EXECUTION, executeCommand, Logger, resolveTimeoutMs, type UsageStats } from "@ask-llm/shared";
 import {
   ANTIGRAVITY,
+  ANTIGRAVITY_REASONING_EFFORTS,
   CLI,
   ERROR_MESSAGES,
   MODELS,
@@ -11,13 +12,19 @@ import {
 import { assertSupportedAgyVersion, isVersionAtLeast } from "./agyVersion.js";
 
 export { assessAgyVersion, isVersionAtLeast, probeAgySupport } from "./agyVersion.js";
+export { ANTIGRAVITY_REASONING_EFFORTS } from "../constants.js";
 export const DOCTOR_QUOTA_MIN_VERSION = ANTIGRAVITY.QUOTA_COMMAND_MIN_VERSION;
+
+type AntigravityReasoningEffort = (typeof ANTIGRAVITY_REASONING_EFFORTS)[number];
 
 export interface AntigravityExecutorOptions {
   prompt: string;
   includeDirs?: string[];
   // agy model slug; legacy effort-carrying display strings remain compatible.
   model?: string;
+  // The unified tool marks the caller's exact pin. Machine also passes synthesized models.
+  modelFromCall?: boolean;
+  reasoningEffort?: AntigravityReasoningEffort;
   // Resume the top-level conversation_id returned by agy JSON stdout.
   sessionId?: string;
   readOnly?: boolean;
@@ -305,38 +312,50 @@ export function isTruncatedAnswerError(message: string): boolean {
   return message.startsWith(ERROR_MESSAGES.TRUNCATED);
 }
 
-// Invalid explicit effort falls back to default behavior instead of reaching agy.
-export function resolveExplicitEffort(): string | undefined {
+export function isAntigravityReasoningEffort(value: string): value is AntigravityReasoningEffort {
+  return ANTIGRAVITY_REASONING_EFFORTS.some((effort) => effort === value);
+}
+
+export function isAntigravityTieredModel(model: string): boolean {
+  const normalized = model.trim().toLowerCase();
+  // Recognize catalog IDs and legacy display names. Custom slugs are validated by agy.
+  const catalogSlug = /^(?:gemini-\d|claude-(?:opus|sonnet|haiku)-\d)/.test(normalized);
+  return ANTIGRAVITY_REASONING_EFFORTS.some(
+    (effort) => (catalogSlug && normalized.endsWith(`-${effort}`)) || normalized.endsWith(` (${effort})`),
+  );
+}
+
+// Invalid environment effort falls back to default behavior instead of reaching agy.
+export function resolveExplicitEffort(): AntigravityReasoningEffort | undefined {
   const raw = process.env[ANTIGRAVITY.EFFORT_ENV_VAR]?.trim().toLowerCase();
   if (!raw) return undefined;
-  if ((ANTIGRAVITY.VALID_EFFORTS as readonly string[]).includes(raw)) return raw;
+  if (isAntigravityReasoningEffort(raw)) return raw;
   Logger.warn(
-    `antigravity: ignoring invalid ${ANTIGRAVITY.EFFORT_ENV_VAR}="${raw}" (valid: ${ANTIGRAVITY.VALID_EFFORTS.join(", ")}).`,
+    `antigravity: ignoring invalid ${ANTIGRAVITY.EFFORT_ENV_VAR}="${raw}" (valid: ${ANTIGRAVITY_REASONING_EFFORTS.join(", ")}).`,
   );
   return undefined;
 }
 
-// llm-mcp always passes its resolved default, so only value equality is observable.
 function isOwnDefaultModel(model: string): boolean {
   return model === MODELS.DEFAULT || model === MODELS.FALLBACK;
 }
 
 type ModelSource = "options" | "env" | "default";
 
-function modelUnavailableMessage(model: string, detail: string, source: ModelSource, explicitEffort?: string): string {
+function modelUnavailableMessage(model: string, detail: string, source: ModelSource, effortSetting?: string): string {
   const firstLine = detail.split("\n")[0]?.trim() || detail.trim();
   // A configured effort can be the rejected half of the model selection.
-  const remediation = explicitEffort
-    ? `Your ${ANTIGRAVITY.EFFORT_ENV_VAR}="${explicitEffort}" may not be supported for this model — try unsetting it, or adjust the model.`
+  const remediation = effortSetting
+    ? `${effortSetting} may not be supported for this model. Omit or change the effort, or choose a compatible model.`
     : source === "options"
       ? "Pass a valid model (or omit it to use the default)."
       : source === "env"
         ? "Update or unset ASK_ANTIGRAVITY_MODEL accordingly."
-        : "This is ask-llm's built-in default — please report it via the ask-llm repo.";
+        : "Report a rejected built-in model in the ask-llm repository.";
   return (
     `Antigravity (agy) rejected model "${model}" (${firstLine}). ` +
-    `Run \`agy models\` for valid slugs — agy >=1.1.5 expects a base slug (e.g. "${MODELS.DEFAULT}") ` +
-    `with the effort tier set separately via ASK_ANTIGRAVITY_EFFORT (low|medium|high). ${remediation}`
+    `Run \`agy models\` for valid slugs and tiers. Use a base slug (e.g. "${MODELS.DEFAULT}") with a separate effort, ` +
+    `or a tiered model ID by itself. ${remediation}`
   );
 }
 
@@ -344,6 +363,25 @@ export async function executeAntigravityCLI(options: AntigravityExecutorOptions)
   if (process.env[ANTIGRAVITY.ALLOW_UNISOLATED_ENV_VAR] !== "1") {
     throw new Error(ERROR_MESSAGES.UNISOLATED_REFUSED);
   }
+
+  const optionModel = options.model?.trim();
+  if (options.modelFromCall && !optionModel) throw new Error("Antigravity model must not be blank.");
+  if (options.reasoningEffort !== undefined && !isAntigravityReasoningEffort(options.reasoningEffort)) {
+    throw new Error(`Antigravity reasoningEffort must be one of: ${ANTIGRAVITY_REASONING_EFFORTS.join(", ")}.`);
+  }
+  const envModel = process.env[ANTIGRAVITY.MODEL_ENV_VAR]?.trim();
+  const primaryModel = optionModel || envModel || MODELS.DEFAULT;
+  const modelSource: ModelSource = optionModel ? "options" : envModel ? "env" : "default";
+  const explicitEffort = options.reasoningEffort ?? resolveExplicitEffort();
+  const effortSettingName = options.reasoningEffort === undefined ? ANTIGRAVITY.EFFORT_ENV_VAR : "reasoningEffort";
+  const effortSetting = explicitEffort && `${effortSettingName}="${explicitEffort}"`;
+  if (effortSetting && isAntigravityTieredModel(primaryModel)) {
+    throw new Error(
+      `Antigravity model "${primaryModel}" already includes an effort tier. Omit ${effortSettingName} or use a base model slug.`,
+    );
+  }
+  const hasCallSelection = options.modelFromCall || options.reasoningEffort !== undefined;
+
   Logger.warn(
     "Antigravity (agy): ASK_ANTIGRAVITY_ALLOW_UNISOLATED=1 permits execution, but read-only isolation is not guaranteed; agy may modify files, run shell commands, and access the network.",
   );
@@ -364,13 +402,6 @@ export async function executeAntigravityCLI(options: AntigravityExecutorOptions)
     );
   }
 
-  const primaryModel = options.model?.trim() || process.env[ANTIGRAVITY.MODEL_ENV_VAR]?.trim() || MODELS.DEFAULT;
-  const modelSource: ModelSource = options.model?.trim()
-    ? "options"
-    : process.env[ANTIGRAVITY.MODEL_ENV_VAR]?.trim()
-      ? "env"
-      : "default";
-  const explicitEffort = resolveExplicitEffort();
   // Implicit effort is safe only for shipped base slugs; explicit effort always wins.
   const effortFor = (model: string | undefined): string | undefined => {
     if (explicitEffort) return explicitEffort;
@@ -492,7 +523,7 @@ export async function executeAntigravityCLI(options: AntigravityExecutorOptions)
       const retryMessage = retryError instanceof Error ? retryError.message : String(retryError);
       if (isTerminalOwnError(retryMessage)) throw retryError;
       if (isModelUnavailableError(retryMessage)) {
-        throw new Error(modelUnavailableMessage(rejectedModel, retryMessage, rejectedSource, explicitEffort));
+        throw new Error(modelUnavailableMessage(rejectedModel, retryMessage, rejectedSource, effortSetting));
       }
       if (isRateLimitError(retryMessage)) throw await rateLimitedError();
       throw retryError;
@@ -502,13 +533,11 @@ export async function executeAntigravityCLI(options: AntigravityExecutorOptions)
   try {
     return await runWithModel(primaryModel, false);
   } catch (error) {
-    if (options.singleAttempt) throw error;
     const message = error instanceof Error ? error.message : String(error);
     if (isTerminalOwnError(message)) throw error;
     if (isModelUnavailableError(message)) {
-      // Never silently discard a custom model pin.
-      if (!isOwnDefaultModel(primaryModel)) {
-        throw new Error(modelUnavailableMessage(primaryModel, message, modelSource, explicitEffort));
+      if (options.singleAttempt || hasCallSelection || !isOwnDefaultModel(primaryModel)) {
+        throw new Error(modelUnavailableMessage(primaryModel, message, modelSource, effortSetting));
       }
       return await retryModelless(primaryModel, modelSource);
     }
@@ -516,6 +545,7 @@ export async function executeAntigravityCLI(options: AntigravityExecutorOptions)
       // A different model cannot repair spawn, auth, NO_OUTPUT, or timeout failures.
       throw error;
     }
+    if (options.singleAttempt) throw new Error(ERROR_MESSAGES.RATE_LIMITED);
     // Retry subscription rate limits once on the fallback model unless it was already selected.
     if (primaryModel === MODELS.FALLBACK) {
       throw await rateLimitedError();
@@ -526,10 +556,11 @@ export async function executeAntigravityCLI(options: AntigravityExecutorOptions)
     } catch (fallbackError) {
       const fbMessage = fallbackError instanceof Error ? fallbackError.message : String(fallbackError);
       if (isTerminalOwnError(fbMessage)) throw fallbackError;
-      // Preserve non-quota fallback failures instead of masking them.
+      if (isModelUnavailableError(fbMessage)) {
+        if (!hasCallSelection) return await retryModelless(MODELS.FALLBACK, "default");
+        throw new Error(modelUnavailableMessage(MODELS.FALLBACK, fbMessage, "default", effortSetting));
+      }
       if (isRateLimitError(fbMessage)) throw await rateLimitedError();
-      // The executor-selected fallback gets the same bounded recovery.
-      if (isModelUnavailableError(fbMessage)) return await retryModelless(MODELS.FALLBACK, "default");
       throw fallbackError;
     }
   }
