@@ -1,5 +1,20 @@
 # Architectural Decisions
 
+## ADR-204: Adopt anti-slop Oxlint rules incrementally
+
+**Status:** Accepted (2026-11-26).
+
+**Context:** Five generic anti-slop rules had zero findings across the existing lint targets. The other thirteen had findings. The native `oxc/no-accumulating-spread` warning also had zero findings. At the pinned commit, upstream recommends [cloudflare/oxlint-config](https://github.com/cloudflare/oxlint-config). Ask LLM uses the measured anti-slop rule set.
+
+**Decision:** Vendor the anti-slop assets and their MIT notices under `tools/oxlint/anti-slop/`, with the upstream commit and assets tree recorded in `UPSTREAM.md`. Pin Oxlint in every lint workspace and its plugin API, `@oxlint/plugins`, to exactly `1.91.0`. Register the generic plugin and set four rules with zero findings and the native companion to error. Keep fourteen rules explicitly off. The Effect plugin stays disabled because Ask LLM has no Effect dependency.
+
+**Deferred rules:**
+
+- Enable each of the thirteen rules with existing findings in a separate change alongside the fixes it requires.
+- `anti-slop/no-unknown-type-aliases` has an upstream false positive. Caller type parameters leak into a separately declared alias. Re-enable after an upstream fix.
+
+**Consequences:** Lint typechecks the vendored plugin against the pinned API, and the scripts tests guard the version pins and run the pinned Oxlint to prove each enabled anti-slop rule rejects a violation. Formatting and linting exclude the verbatim upstream copy.
+
 ## ADR-203: Move the Antigravity default to Gemini 4 Neon and the fallback to Gemini 4 Hydrogen
 
 **Status:** Accepted (2026-11-25). Supersedes the Antigravity half of ADR-196 and the Antigravity `gemini-3.8-flash` fallback from ADR-178. The Gemini CLI provider's `gemini-4-argon` default and `gemini-3.8-flash` fallback are unchanged.
@@ -134,7 +149,7 @@
 
 ## ADR-190: Replace Biome with oxfmt and oxlint
 
-**Status:** Accepted (2026-11-06). Supersedes ADR-010.
+**Status:** Accepted (2026-11-06). Supersedes ADR-010. Superseded by ADR-204 for the oxlint `^1.91.0` range (now exact `1.91.0`).
 
 **Context:** Biome ^2.5.10 was the only formatter and linter. The repository moved to oxfmt (formatting) and oxlint (linting). Versions are pinned at oxfmt ^0.76.0 and oxlint ^1.91.0 because 0.77.0 and 1.92.0 were still inside Yarn 4.18.1's default 24-hour `npmMinimalAgeGate` when the migration landed.
 
