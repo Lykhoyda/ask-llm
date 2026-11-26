@@ -199,7 +199,7 @@ function parseStdoutJson(raw: string, detectLegacyTruncation: boolean): StdoutPa
 
 // Sandboxed /quota answered without a turn or quota use on agy 1.2.13 (https://github.com/Lykhoyda/ask-llm/pull/366).
 // Both doctor --live and rate-limit recovery gate on QUOTA_COMMAND_MIN_VERSION (ADR-194).
-export async function probeAntigravityQuota(signal?: AbortSignal): Promise<string> {
+export async function probeAntigravityQuota(signal?: AbortSignal, runCommand = executeCommand): Promise<string> {
   const args = [
     CLI.FLAGS.PRINT,
     ANTIGRAVITY.QUOTA_COMMAND,
@@ -209,7 +209,7 @@ export async function probeAntigravityQuota(signal?: AbortSignal): Promise<strin
     CLI.FLAGS.SETTINGS,
     SESSION_SETTINGS_OVERLAY,
   ];
-  const raw = await executeCommand(
+  const raw = await runCommand(
     CLI.COMMANDS.AGY,
     args,
     undefined,
@@ -232,9 +232,12 @@ export async function probeAntigravityQuota(signal?: AbortSignal): Promise<strin
   return lines.join("; ");
 }
 
-async function describeQuota(signal?: AbortSignal): Promise<string | undefined> {
+async function describeQuota(
+  signal: AbortSignal | undefined,
+  runCommand: typeof executeCommand,
+): Promise<string | undefined> {
   try {
-    return await probeAntigravityQuota(signal);
+    return await probeAntigravityQuota(signal, runCommand);
   } catch (error) {
     if (signal?.aborted) throw error;
     return undefined;
@@ -359,7 +362,10 @@ function modelUnavailableMessage(model: string, detail: string, source: ModelSou
   );
 }
 
-export async function executeAntigravityCLI(options: AntigravityExecutorOptions): Promise<AntigravityExecutorResult> {
+export async function executeAntigravityCLI(
+  options: AntigravityExecutorOptions,
+  runCommand = executeCommand,
+): Promise<AntigravityExecutorResult> {
   if (process.env[ANTIGRAVITY.ALLOW_UNISOLATED_ENV_VAR] !== "1") {
     throw new Error(ERROR_MESSAGES.UNISOLATED_REFUSED);
   }
@@ -385,7 +391,7 @@ export async function executeAntigravityCLI(options: AntigravityExecutorOptions)
   Logger.warn(
     "Antigravity (agy): ASK_ANTIGRAVITY_ALLOW_UNISOLATED=1 permits execution, but read-only isolation is not guaranteed; agy may modify files, run shell commands, and access the network.",
   );
-  const agyVersion = await assertSupportedAgyVersion(options.signal);
+  const agyVersion = await assertSupportedAgyVersion(options.signal, runCommand);
   const disableSlashCommands = isVersionAtLeast(agyVersion, ANTIGRAVITY.SLASH_COMMANDS_FLAG_MIN_VERSION);
   const sandbox = process.env[ANTIGRAVITY.SANDBOX_ENV_VAR] !== "0";
   const timeoutMs = resolveTimeoutMs(ANTIGRAVITY.TIMEOUT_ENV_VAR, ANTIGRAVITY.DEFAULT_TIMEOUT_MS);
@@ -411,7 +417,7 @@ export async function executeAntigravityCLI(options: AntigravityExecutorOptions)
 
   const rateLimitedError = async (): Promise<Error> => {
     const quota = isVersionAtLeast(agyVersion, ANTIGRAVITY.QUOTA_COMMAND_MIN_VERSION)
-      ? await describeQuota(options.signal)
+      ? await describeQuota(options.signal, runCommand)
       : undefined;
     return new Error(
       quota ? `${ERROR_MESSAGES.RATE_LIMITED} Current agy quota: ${quota}` : ERROR_MESSAGES.RATE_LIMITED,
@@ -432,7 +438,7 @@ export async function executeAntigravityCLI(options: AntigravityExecutorOptions)
     );
     const startedAt = Date.now();
     const stderrChunks: string[] = [];
-    const raw = await executeCommand(
+    const raw = await runCommand(
       CLI.COMMANDS.AGY,
       args,
       undefined,

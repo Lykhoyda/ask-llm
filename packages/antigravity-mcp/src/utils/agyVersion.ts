@@ -105,9 +105,9 @@ export function assessAgyVersion(output: string | undefined, probeError?: string
   };
 }
 
-export async function probeAgySupport(signal?: AbortSignal): Promise<AgySupportProbe> {
+export async function probeAgySupport(signal?: AbortSignal, runCommand = executeCommand): Promise<AgySupportProbe> {
   try {
-    const output = await executeCommand(
+    const output = await runCommand(
       CLI.COMMANDS.AGY,
       [CLI.FLAGS.VERSION],
       undefined,
@@ -134,8 +134,8 @@ export async function probeAgySupport(signal?: AbortSignal): Promise<AgySupportP
   }
 }
 
-export async function assertSupportedAgyVersion(signal?: AbortSignal): Promise<string> {
-  const probe = await probeAgySupport(signal);
+export async function assertSupportedAgyVersion(signal?: AbortSignal, runCommand = executeCommand): Promise<string> {
+  const probe = await probeAgySupport(signal, runCommand);
   if (probe.available && probe.version) return probe.version;
   throw new Error([probe.message, probe.remediation].filter(Boolean).join(" "));
 }

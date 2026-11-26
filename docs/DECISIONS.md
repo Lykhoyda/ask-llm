@@ -1,5 +1,15 @@
 # Architectural Decisions
 
+## ADR-206: Scope the optional Antigravity included-quota smoke to one MCP call
+
+**Status:** Accepted (2026-11-26).
+
+**Context:** A local Antigravity smoke needs the same request validation and execution path as the unified MCP server. The general harness gate excludes Google providers, and the operator must verify available included quota and effective billing settings before spending it.
+
+**Decision:** Share the registered `ask-llm` handler with a single-provider MCP server over linked transports. Give the smoke command a scoped Antigravity command runner that observes the version check and allows one fresh, pinned, sandboxed model spawn with the deny overlay and slash commands disabled. Require exact launch authorization and one-run operator confirmation. Verify the successful JSON envelope, reported turn and exact response before reporting a pass.
+
+**Consequences:** The command remains local and separate from the harness matrix. Offline fixtures exercise the real handler and executor with fake CLI processes. A pass verifies the wrapper and the reported outcome. Funding is user-attested and served model identity remains unverified.
+
 ## ADR-205: Add per-call Antigravity effort and fallback control
 
 **Status:** Accepted (2026-11-26). Updates the Antigravity effort and recovery rules from ADR-137 and ADR-203.
