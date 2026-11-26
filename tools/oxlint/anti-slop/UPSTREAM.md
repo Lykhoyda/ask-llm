@@ -8,4 +8,6 @@
 
 ## Rules disabled pending upstream fixes
 
+- `anti-slop/no-unknown-type-aliases` has an upstream false positive. Caller type parameters leak into a separately declared alias. Re-enable after an upstream fix.
+
 See ADR-204 in `docs/DECISIONS.md`; check it before re-vendoring.
