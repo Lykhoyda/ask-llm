@@ -31,7 +31,7 @@ description: Provider defaults, route selection, timeouts and execution gates.
 | ASK_OLLAMA_TIMEOUT_MS | 600000 (600s) | Ollama request timeout |
 | ASK_ANTIGRAVITY_TIMEOUT_MS | 300000 (300s) | Antigravity process timeout |
 | GMCPT_TIMEOUT_MS | (per-provider default) | Cross-provider timeout fallback (lower precedence than ASK_*_TIMEOUT_MS) |
-| GMCPT_LOG_LEVEL | warn | Log level: debug, info, warn, error |
+| GMCPT_LOG_LEVEL | warn | Log level: debug, info, warn, error, or silent (suppresses all logs) |
 | OLLAMA_HOST | `http://localhost:11434` | Ollama server address |
 
 ### Safety / behavior switches
