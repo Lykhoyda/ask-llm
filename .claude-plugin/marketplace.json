@@ -17,7 +17,7 @@
         "path": "packages/llm-mcp"
       },
       "description": "Second opinions for coding agents. Ask LLM tells you when a review didn't really happen. Ask Codex to review your changes or challenge your plan. You decide which suggestions to apply in Claude Code.",
-      "version": "1.8.1",
+      "version": "1.9.0",
       "author": {
         "name": "Anton Lykhoyda"
       },
