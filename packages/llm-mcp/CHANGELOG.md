@@ -1,5 +1,11 @@
 # @ask-llm/mcp
 
+## 1.10.0
+
+### Minor Changes
+
+- [#475](https://github.com/Lykhoyda/ask-llm/pull/475) [`9d2cae6`](https://github.com/Lykhoyda/ask-llm/commit/9d2cae6ef2db0d11ea2532ca17429dfb2b311f1f) Thanks [@Lykhoyda](https://github.com/Lykhoyda)! - Add `/carbon-review` (`ask-llm-carbon-review`) for a read-only review of the current diff or a named plan pinned to Antigravity `gemini-4-carbon-high` in a single attempt. Add `/brainstorm --frontier`, which consults Fable, GPT-6.2 Astra and Gemini 4 Carbon (High) concurrently after the host's independent view and reports any unavailable participant.
+
 ## 1.9.0
 
 ### Minor Changes
