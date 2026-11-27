@@ -67,6 +67,14 @@ This reviewer uses an isolated Opus coordinator to request `gpt-6.2-sol` explici
 
 This reviewer follows the same transport ladder as `sol-reviewer` with an explicit `gpt-6.2-astra` pin at high reasoning. Invoke it with `/astra-review` for code changes or a named plan. A quota fallback is reported as a Terra result.
 
+#### `carbon-reviewer`
+
+This reviewer uses an isolated Opus coordinator to request `gemini-4-carbon-high` from Antigravity through the unified `ask-llm` tool in a single attempt, then validates Carbon's findings against the source. Invoke it with `/carbon-review` for code changes or a named plan. A schema that cannot take the model pin is reported, and a rejected model or rate limit ends the review rather than falling back to another model.
+
+#### `fable-consultant`
+
+This read-only participant answers one `/brainstorm --frontier` prompt in an isolated context pinned to `fable`. The frontier panel runs in the main conversation, because the brainstorm coordinator is a subagent and cannot launch it.
+
 Provider-backed review agents use a 3-phase workflow with confidence-based filtering:
 
 **Phase 1: Context Gathering**

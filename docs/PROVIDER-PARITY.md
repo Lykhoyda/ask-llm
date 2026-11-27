@@ -43,7 +43,8 @@ Known deliberate NON-alignments to leave alone unless a user asks:
   (`CODEX_PAIR_MODEL`) at `high` reasoning effort, with that same Terra fallback.
   See [Brainstorm](../apps/docs/workflows/brainstorm.md) for the exact architect
   panel and its catalog verification requirements. `/sol-review` pins `gpt-6.2-sol` and
-  `/astra-review` pins `gpt-6.2-astra`, both at `high` (ADR-199).
+  `/astra-review` pins `gpt-6.2-astra`, both at `high` (ADR-199). `/carbon-review`
+  pins Antigravity `gemini-4-carbon-high` with `noFallback: true` (ADR-208).
   `ASK_CODEX_PREFERRED_MODEL` remains a compatibility escape hatch; the raw
   `ask-codex` tool only attempts it separately when `preferred: true` and its
   value differs from `ASK_CODEX_MODEL`. Both GPT-6.2 models were verified on

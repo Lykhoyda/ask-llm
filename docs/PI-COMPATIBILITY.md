@@ -9,7 +9,7 @@ Classifications: **host-neutral**, **thin host adapter**, **lifecycle integratio
 | Skill | Classification | Pi disposition |
 |---|---|---|
 | `ask-llm-antigravity-review` | Thin host adapter | Portable review contract runs inline through native `ask-antigravity`. |
-| `ask-llm-brainstorm` | Thin host adapter | Standard mode commits the current Pi host's independent view before deterministic `ask-multi`. Exact Grok + GPT-6 Sol mode instead calls `ask-cursor-agent` for only the two explicit provider/model pairs, treats the host view as non-voting evidence, excludes Gemini, and never upgrades a partial failure to consensus. |
+| `ask-llm-brainstorm` | Thin host adapter | `--frontier` lists Fable as unavailable and consults only Astra and Carbon through native `ask-llm`, so the panel is partial. Standard mode commits the current Pi host's independent view before deterministic `ask-multi`. Exact Grok + GPT-6 Sol mode instead calls `ask-cursor-agent` for only the two explicit provider/model pairs, treats the host view as non-voting evidence, excludes Gemini, and never upgrades a partial failure to consensus. |
 | `ask-llm-brainstorm-all` | Thin host adapter | Same as `brainstorm`, with all five external providers. |
 | `ask-llm-codex-image` | Thin host adapter | Native `ask-codex-write` with explicit `sandbox: "workspace-write"`, followed by filesystem verification. |
 | `ask-llm-codex-pair` | Lifecycle integration + thin adapter | Pi commands manage reviewer consent. Successful `tool_result` edit/write events schedule an advisory Codex or Claude review. |
@@ -27,10 +27,11 @@ Classifications: **host-neutral**, **thin host adapter**, **lifecycle integratio
 | `ask-llm-ollama-review` | Thin host adapter | Portable review contract runs inline through local native `ask-ollama`. |
 | `ask-llm-sol-review` | Thin host adapter | Native `ask-codex`, explicitly pinned to Sol/high/read-only, with fallback disclosure. |
 | `ask-llm-astra-review` | Thin host adapter | Native `ask-codex`, explicitly pinned to Astra/high/read-only, with fallback disclosure. |
+| `ask-llm-carbon-review` | Thin host adapter | Native `ask-llm` with `provider: "antigravity"`, explicitly pinned to `gemini-4-carbon-high` with `noFallback: true`, because native `ask-antigravity` has no model option. |
 
 ## Agents and hooks
 
-The ten files under `packages/llm-mcp/agents/` are Claude Code subagent execution surfaces. Their delimited **Portable contract** sections are reusable by Pi; their frontmatter and delimited Claude Code adapters are not. Pi does not spawn nested agent processes and does not claim context isolation.
+The twelve files under `packages/llm-mcp/agents/` are Claude Code subagent execution surfaces. Their delimited **Portable contract** sections are reusable by Pi; their frontmatter and delimited Claude Code adapters are not. Pi does not spawn nested agent processes and does not claim context isolation.
 
 Claude Code and Grok run their existing hooks. Pi shares the pairing policy and uses its own lifecycle:
 

@@ -1,5 +1,5 @@
 ---
-description: Slash commands for AI code review, brainstorming, and side-by-side comparison, including native /fable-review, model-pinned /sol-review and /astra-review, provider reviews, /multi-review, /brainstorm, and /compare.
+description: Slash commands for AI code review, brainstorming, and side-by-side comparison, including native /fable-review, model-pinned /sol-review, /astra-review and /carbon-review, provider reviews, /multi-review, /brainstorm, and /compare.
 ---
 
 # Skills
@@ -36,7 +36,17 @@ Run the same contract pinned to `gpt-6.2-astra` at high reasoning. It reviews th
 /astra-review
 ```
 
+### `/carbon-review`
+
+Run the same read-only contract through Antigravity, pinned to `gemini-4-carbon-high`. The ID carries the High effort tier, so the call sends no separate effort. It makes a single attempt (`noFallback: true`) and reviews the current diff or a plan you name.
+
+```text
+/carbon-review
+```
+
 `/fable-review` requires a Claude Code runtime/account that exposes Fable. `/sol-review` requires an installed, authenticated Codex CLI; the plugin still bundles the Codex MCP registration used by `/sol-review` and `/codex-review`. The skill reads Claude's active MCP inventory and prefers any exact `ask-codex` leaf, then a fully pinned unified `ask-llm` call (`provider: "codex"` plus model, reasoning effort, include directories, preferred, and sandbox), then the disclosed `codex exec` fallback. Missing registration, disconnected service, and an older unified schema that cannot honor those Codex options receive different remediation; the skill never omits fields to make a stale schema succeed. If Sol falls back to Terra on quota, the result says so explicitly. `/astra-review` uses the same transport ladder and disclosure rules.
+
+`/carbon-review` uses the unified `ask-llm` tool with `provider: "antigravity"`, because the `ask-antigravity` tool has no model option. A schema without `model` or `noFallback` stops with update guidance; there is no CLI fallback. A rejected model or a rate limit ends the review with that error instead of falling back to another model. It has the same prerequisites as `/antigravity-review`, including Google's consumer-plan terms and `ASK_ANTIGRAVITY_ALLOW_UNISOLATED=1`.
 
 ## Provider Review Skills
 
@@ -102,7 +112,7 @@ Before using this experimental route, review Google's consumer-plan terms and co
 
 ### `/brainstorm`
 
-Use `/brainstorm --external-only codex@codex-cli:gpt-6.2-astra <topic>` to consult one exact Codex model at high reasoning effort. The host relays the answer with the selected model and configured effort, without a coordinator view or consensus. This option implies `--no-fallback`, so a failure on the selected model ends the consultation. In a Claude Code panel, `/brainstorm --no-fallback codex <topic>` preserves the Claude view and limits Codex to one attempt. See the [Brainstorm workflow](/workflows/brainstorm) for supported routes.
+Use `/brainstorm --external-only codex@codex-cli:gpt-6.2-astra <topic>` to consult one exact Codex model at high reasoning effort. The host relays the answer with the selected model and configured effort, without a coordinator view or consensus. This option implies `--no-fallback`, so a failure on the selected model ends the consultation. In a Claude Code panel, `/brainstorm --no-fallback codex <topic>` preserves the Claude view and limits Codex to one attempt. `/brainstorm --frontier <topic>` consults Fable, GPT-6.2 Astra and Gemini 4 Carbon (High) concurrently after the host's independent view, each pinned with one attempt. See the [Brainstorm workflow](/workflows/brainstorm) for supported routes.
 
 Send a topic to an explicit multi-model panel, ground it with independent Claude Opus research, then synthesize the findings. Provider, harness, requested catalog ID, independently observed served model (direct xAI API / Grok CLI only; a disclosed same-product alias/snapshot stays eligible), and Cursor's optional reported display label remain separate. Cursor Agent and Codex CLI echo the requested ID, so those attributions are selected-only and unverifiable rather than an actual model. The coordinator agent runs:
 

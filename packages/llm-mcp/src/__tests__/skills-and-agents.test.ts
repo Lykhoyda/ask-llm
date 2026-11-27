@@ -6,6 +6,7 @@ const oldSkillNames = [
   "astra-review",
   "brainstorm",
   "brainstorm-all",
+  "carbon-review",
   "codex-image",
   "codex-pair",
   "codex-pair-ack",
@@ -38,8 +39,10 @@ const expectedAgents = [
   "antigravity-reviewer.md",
   "astra-reviewer.md",
   "brainstorm-coordinator.md",
+  "carbon-reviewer.md",
   "codex-reviewer.md",
   "codex-verifier.md",
+  "fable-consultant.md",
   "fable-reviewer.md",
   "gemini-reviewer.md",
   "grok-reviewer.md",
@@ -130,8 +133,9 @@ describe("agents/", () => {
     },
   );
 
-  it("review agents are restricted from edit/write tools", () => {
+  it("review and consultation agents are restricted from edit/write tools", () => {
     const reviewerAgents = [
+      "fable-consultant.md",
       "gemini-reviewer.md",
       "codex-reviewer.md",
       "grok-reviewer.md",
@@ -140,6 +144,7 @@ describe("agents/", () => {
       "fable-reviewer.md",
       "sol-reviewer.md",
       "astra-reviewer.md",
+      "carbon-reviewer.md",
     ];
     for (const file of reviewerAgents) {
       const { frontmatter } = parseMarkdownFrontmatter(readFile(`agents/${file}`));
@@ -155,11 +160,13 @@ describe("agents/", () => {
     }
   });
 
-  it("pins the native models and effort for Fable, Sol, and Astra reviewers", () => {
-    const fable = parseMarkdownFrontmatter(readFile("agents/fable-reviewer.md")).frontmatter;
-    expect(fable.model).toBe("fable");
-    expect(fable.effort).toBe("high");
-    for (const file of ["agents/sol-reviewer.md", "agents/astra-reviewer.md"]) {
+  it("pins the native models and effort for Fable, Sol, Astra, and Carbon agents", () => {
+    for (const file of ["agents/fable-reviewer.md", "agents/fable-consultant.md"]) {
+      const fable = parseMarkdownFrontmatter(readFile(file)).frontmatter;
+      expect(fable.model).toBe("fable");
+      expect(fable.effort).toBe("high");
+    }
+    for (const file of ["agents/sol-reviewer.md", "agents/astra-reviewer.md", "agents/carbon-reviewer.md"]) {
       const coordinator = parseMarkdownFrontmatter(readFile(file)).frontmatter;
       expect(coordinator.model).toBe("opus");
       expect(coordinator.effort).toBe("high");
@@ -174,7 +181,7 @@ describe("agents/", () => {
     expect(tools).toContain("mcp__ask-llm__ask-llm");
   });
 
-  it.each(["sol-reviewer.md", "astra-reviewer.md"])(
+  it.each(["sol-reviewer.md", "astra-reviewer.md", "carbon-reviewer.md"])(
     "%s inherits deferred MCP tools while denying write tools",
     (file) => {
       const frontmatter = parseMarkdownFrontmatter(readFile(`agents/${file}`)).frontmatter;

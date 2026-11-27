@@ -67,6 +67,7 @@ If agy cannot find the ID (for example, a conversation it no longer retains), ag
 - **Quota diagnostics:** when a rate limit exhausts the available model attempts, a successful sandboxed `/quota` probe adds remaining quota percentages and reset times to the error; a failed probe leaves the usual rate-limit error
 - **Model-unavailable recovery:** with no `model` or `reasoningEffort` set on the call, a rejected built-in base slug can recover once without `--model`, letting agy pick its default. A rejected per-call selection returns an error pointing at `agy models`. Rate-limit fallback still applies to pinned calls unless `noFallback` is true and carries the requested effort unchanged.
 - **Overrides:** see [Config](#config) for model IDs and effort compatibility.
+- **Pinned workflows:** `/carbon-review` and the Carbon participant of `/brainstorm --frontier` submit `gemini-4-carbon-high` with `noFallback: true` and no separate effort, so neither uses the default, the rate-limit fallback, or model-less recovery.
 
 For both unified and standalone tool responses, the model label is the slug submitted for the successful attempt, including `gemini-4-hydrogen` after a successful rate-limit fallback. After a successful model-less recovery, the label is `agy default`. The backend model remains unverified in each case.
 
