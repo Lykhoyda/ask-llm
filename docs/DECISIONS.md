@@ -1,5 +1,15 @@
 # Architectural Decisions
 
+## ADR-208: Add a Carbon-pinned review and a frontier brainstorm panel
+
+**Status:** Accepted (2026-11-27).
+
+**Context:** Ask LLM ships one review skill per pinned model, such as `/astra-review` for Codex `gpt-6.2-astra`. On agy 1.5.18, `agy models` lists `gemini-4-carbon-low`, `gemini-4-carbon-medium` and `gemini-4-carbon-high`, and no base `gemini-4-carbon` slug. No Carbon model call was made for this change. The split `ask-antigravity` tool has no `model` input, and ADR-205/207 reject a per-call `reasoningEffort` with a tiered ID. Without `noFallback`, a pinned Antigravity call still falls back to `gemini-4-hydrogen` on a rate limit. Brainstorm also needed one option that consults Fable, Astra and Carbon together, and only Claude Code can run the isolated Fable subagent that `/fable-review` uses.
+
+**Decision:** Add `ask-llm-carbon-review` (`/carbon-review`) and the `carbon-reviewer` agent. They call unified `ask-llm` with `provider: "antigravity"`, `model: "gemini-4-carbon-high"`, `noFallback: true` and no `reasoningEffort`, and they fail closed when the schema cannot take those fields. There is no CLI fallback. Add `/brainstorm --frontier`, which consults exactly Fable, Astra (`gpt-6.2-astra`, `high`, read-only, `noFallback`) and Carbon concurrently after a non-voting host memo, one attempt each. On Claude Code it runs in the main conversation with a new read-only `fable-consultant` agent, because the brainstorm coordinator is a subagent and cannot launch the Fable subagent. Pi and other hosts list Fable as unavailable. Frontier consensus needs at least two participants that answered, and fewer than three answers make the run partial.
+
+**Consequences:** The Antigravity default, fallback and every other skill's pins are unchanged. A Carbon review or participant ends with agy's error on a model rejection or rate limit. `ASK_ANTIGRAVITY_EFFORT` set in the server environment is still passed beside the tiered ID, and agy may reject that pair. The frontier panel is partial by construction outside Claude Code. Served model identity remains unverified for all three participants.
+
 ## ADR-207: Validate Antigravity effort against the shipped catalog and separate fallback from sandboxing
 
 **Status:** Accepted (2026-11-26). Updates the effort set and sandbox behavior from ADR-205.

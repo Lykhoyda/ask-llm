@@ -1,20 +1,21 @@
 ---
 name: ask-llm-brainstorm
-description: Consult a multi-model panel or one exact Codex model with --external-only. Usage /brainstorm [--external-only] [--no-fallback] [participants] <topic>. The default panel uses antigravity,codex.
+description: Consult a multi-model panel, the fixed Fable + Astra + Carbon frontier panel with --frontier, or one exact Codex model with --external-only. Usage /brainstorm [--external-only | --frontier] [--no-fallback] [participants] <topic>. The default panel uses antigravity,codex.
 ---
 
 <!-- PORTABLE-CONTRACT:START -->
 ## Portable contract
 
-For the standard workflow, the current host model records an independent analysis before seeing external answers, then sends the same bounded topic and Context Brief concurrently to the selected providers. For the exact Grok + GPT-6 Sol workflow, the host is a non-voting evidence verifier/synthesizer: the brainstorming panel has exactly those two requested participants. Cross-check source where possible and synthesize consensus, unique insights, contradictions, rejected false positives, failures, and confidence. Keep provider, harness, requested model ID, independently observed served model ID, and Cursor's reported display label separate. Only direct xAI API / Grok CLI routes can report a served ID, and only when the provider/CLI payload actually carries one; a disclosed same-product alias/snapshot resolution (for example `grok-4.7` served as a dated `grok-4.7-<snapshot>`, or `grok-4-latest` served as `grok-4-<snapshot>`) stays eligible, while a different model is a mismatch and ineligible. A direct route whose payload omits the model stays selected-only. Cursor Agent and Codex CLI echo the requested ID, so that attribution is selected-only and unverifiable—never call a requested or selected ID the actual model. Never select Cursor Auto, infer a requested ID from a display label, silently change a model, or pivot to another harness/provider.
+For the standard workflow, the current host model records an independent analysis before seeing external answers, then sends the same bounded topic and Context Brief concurrently to the selected providers. For the exact Grok + GPT-6 Sol workflow, the host is a non-voting evidence verifier/synthesizer: the brainstorming panel has exactly those two requested participants. For the frontier panel, the host is likewise a non-voting evidence verifier/synthesizer and the panel has exactly three pinned participants: Claude Fable, GPT-6.2 Astra, and Gemini 4 Carbon (High). Cross-check source where possible and synthesize consensus, unique insights, contradictions, rejected false positives, failures, and confidence. Keep provider, harness, requested model ID, independently observed served model ID, and Cursor's reported display label separate. Only direct xAI API / Grok CLI routes can report a served ID, and only when the provider/CLI payload actually carries one; a disclosed same-product alias/snapshot resolution (for example `grok-4.7` served as a dated `grok-4.7-<snapshot>`, or `grok-4-latest` served as `grok-4-<snapshot>`) stays eligible, while a different model is a mismatch and ineligible. A direct route whose payload omits the model stays selected-only. Cursor Agent and Codex CLI echo the requested ID, so that attribution is selected-only and unverifiable—never call a requested or selected ID the actual model. Never select Cursor Auto, infer a requested ID from a display label, silently change a model, or pivot to another harness/provider.
 <!-- PORTABLE-CONTRACT:END -->
 
 ## Parse arguments before dispatch
 
-Read the leading options separately from the participant list and topic. Recognize `--external-only` and `--no-fallback` in either order. Reject unknown leading options. Freeze the selected options and routes before preparing a consultation.
+Read the leading options separately from the participant list and topic. Recognize `--external-only`, `--frontier`, and `--no-fallback` in any order. Reject unknown leading options. Freeze the selected options and routes before preparing a consultation.
 
 - `--external-only` requires exactly one explicit `codex@codex-cli:<exact-model-id>` participant and a topic. It implies `--no-fallback`, which may also be written explicitly. Reject an empty or Auto ID, a display label, multiple participants, or any other route. An exact ID is a single token made of letters, digits, dots, underscores, slashes, colons, or hyphens, starting with a letter or digit. Pass the exact token unchanged.
-- Without `--external-only`, keep the standard bare list or the routed panel of exactly one Grok model and one GPT-6 family Sol model. `--no-fallback` controls the Codex second-model attempt. It applies to bare Codex in the Claude Code coordinator, and to a routed Codex participant if its transport can enforce one model attempt. The pinned Cursor Agent route already dispatches only once. Reject the flag for panels without Codex and for bare lists on Pi or other portable hosts where the batch tool cannot enforce it.
+- `--frontier` selects the fixed frontier panel and takes only a topic. It implies `--no-fallback`, which may also be written explicitly. Reject it together with `--external-only` or with any participant list, and reject an empty topic.
+- Without `--external-only` or `--frontier`, keep the standard bare list or the routed panel of exactly one Grok model and one GPT-6 family Sol model. `--no-fallback` controls the Codex second-model attempt. It applies to bare Codex in the Claude Code coordinator, and to a routed Codex participant if its transport can enforce one model attempt. The pinned Cursor Agent route already dispatches only once. Reject the flag for panels without Codex and for bare lists on Pi or other portable hosts where the batch tool cannot enforce it.
 - For invalid combinations, explain the syntax and stop before any provider dispatch. Never reinterpret a routed participant as a bare name.
 
 ```text
@@ -32,9 +33,28 @@ Send the exact model, `reasoningEffort: "high"`, `sandbox: "read-only"`, and `no
 
 Make at most one consultation. A stale registration may be skipped before dispatch, but an invoked tool's refusal, disconnect, timeout or provider failure ends the run. Require a nonempty answer with the same selected model and configured effort. Check the tool's structured result and fallback flag when exposed, or its leading attribution line if the host only exposes text. Reject a reported fallback or mismatched selection. On success, show one participant with its transport, selected model, configured reasoning effort and answer. On failure, name the selected route, requested model and configured effort, and preserve the error without panel synthesis.
 
+## Frontier panel workflow
+
+Use this branch for `--frontier`. The current host prepares one bounded prompt with the topic and a Context Brief, then writes its independent evidence memo before any dispatch. The memo is non-voting: it can verify or reject claims but never adds a panel vote. Then consult exactly these three participants concurrently with the same prompt, one attempt each:
+
+| Participant | Route and pins |
+|---|---|
+| Claude Fable | The isolated, read-only Claude Code subagent route that `/fable-review` uses, launched with model `fable` at high effort. Only Claude Code can run it. |
+| GPT-6.2 Astra | Codex `model: "gpt-6.2-astra"`, `reasoningEffort: "high"`, `sandbox: "read-only"`, `noFallback: true`, through the strict Codex ladder in [transport.md](../ask-llm-review/transport.md). |
+| Gemini 4 Carbon (High) | Antigravity through the `ask-llm` tool with `provider: "antigravity"`, `model: "gemini-4-carbon-high"`, and `noFallback: true`. Omit `reasoningEffort`: the ID already carries the High tier, and Ask LLM rejects a separate effort with a tiered ID. Antigravity's execution opt-in applies. |
+
+Never substitute a participant, route, or model, and never add a fourth participant. Check each route before dispatch. A participant the host cannot run, or whose tool is missing or lacks a pinned field, is listed as unavailable with its reason and is not dispatched; the others still run. A participant whose call fails is listed with its route, requested model, configured effort, and error. A reported fallback or a different selected model makes that answer ineligible and is disclosed. For every answer, report the route, the requested model, and the configured effort. Say that Fable was requested but its resolved model was not independently verified, and that the Astra and Carbon labels are selected-only.
+
+A point is frontier consensus only when at least two successful participants state it independently; name them, and say when all three agree. Label the run **partial** when fewer than three participants answered, and write no consensus section when fewer than two answered. If none answered, report the failures without a panel synthesis.
+
 ## Host adapters
 
 ### Pi adapter
+
+For `--frontier`, list Claude Fable as unavailable on Pi, because independent Fable review is a Claude Code capability and Pi starts no nested Fable session. After the independent memo, issue only these two native `ask-llm` calls, concurrently when the host supports it, after checking that the advertised schema supports every pinned field. Pass explicit `includeDirs` to the Codex call (empty when none). The run is partial by construction.
+
+- `ask-llm({ provider: "codex", model: "gpt-6.2-astra", reasoningEffort: "high", sandbox: "read-only", noFallback: true, preferred: false, includeDirs, prompt })`
+- `ask-llm({ provider: "antigravity", model: "gemini-4-carbon-high", noFallback: true, prompt })`
 
 After the external-only branch, the Pi host completes its independent evidence memo first. Standard provider lists use native `ask-multi`. When relaying the Codex answer, preserve the selected model and configured effort from its result. A routed participant uses the matching native tool instead: `provider@cursor-agent:model` calls `ask-cursor-agent` with separate `provider` and exact `model`; direct Grok calls `ask-grok` with the explicit `harness` and exact model. Use native `ask-llm` with the strict Codex pins above for a direct Sol participant with `--no-fallback`. A participant list mixing routed `provider@harness:exact-model-id` entries with bare provider names is refused before any tool call; nothing is dispatched or substituted. With the example Cursor IDs below, issue only these two consultations (concurrently when the host supports it):
 
@@ -47,10 +67,24 @@ Do not call `ask-multi` for that panel because it cannot express Cursor harness 
 
 Codex, Cursor Agent, Antigravity, Grok Build, Gemini CLI and OpenCode get this skill from their skills folder, not from a plugin. After the external-only branch, the host completes its independent evidence memo first. For standard provider lists, apply the availability filtering, dispatch, and reporting steps in `../ask-llm-review/transport.md` and relay the selected model and configured effort from the Codex result. A routed participant uses its matching tool instead: `provider@cursor-agent:model` calls the `ask-cursor-agent` tool with separate `provider` and exact `model`; `grok@grok-cli:model` and `grok@xai-api:model` call `ask-llm` with `provider: "grok"`, that `harness` and the exact model; `codex@codex-cli:model` uses the Codex call from `../ask-llm-review/transport.md` with that exact model and uses the strict ladder if `--no-fallback` is set. A list mixing routed and bare entries is refused before any call. In the exact Grok + Sol panel, consult only the two requested routes. The host memo is non-voting evidence, and a failed participant makes the run partial.
 
+For `--frontier`, list Claude Fable as unavailable, because only Claude Code can run its isolated subagent. Consult Astra through the strict Codex ladder in `../ask-llm-review/transport.md`, and Carbon through the `ask-llm` tool with the pins in the frontier table. When a participant's tools cannot honor every pin, list it as unavailable with the upgrade guidance from that file instead of stopping the whole run.
+
 <!-- HOST-ADAPTER:CLAUDE-CODE:START -->
 ### Claude Code adapter
 
-The detailed workflow below applies to standard and exact two-member panels in Claude Code after the external-only branch. Its Agent, MCP, hook, `CLAUDE_PLUGIN_ROOT`, and `AskUserQuestion` mechanics apply only on Claude Code.
+The detailed workflow below applies to standard and exact two-member panels in Claude Code after the external-only branch. The frontier panel follows its own section next and does not launch the coordinator. Its Agent, MCP, hook, `CLAUDE_PLUGIN_ROOT`, and `AskUserQuestion` mechanics apply only on Claude Code.
+
+## Frontier panel on Claude Code
+
+Run `--frontier` in this conversation. Do not launch `brainstorm-coordinator`: a subagent cannot launch the Fable subagent.
+
+1. Gather context and build the Context Brief as in Phase 2 below, with mode `frontier`, the three participants with their exact routes, and every other provider recorded as excluded.
+2. Use Bash to read `CLAUDE_CODE_SUBAGENT_MODEL`. If it is set to anything other than `inherit`, `fable`, or a `claude-fable-*` model ID, list Fable as unavailable, because that variable overrides the model the skill requests.
+3. Resolve the other two routes before dispatch. For Astra, use the strict Codex ladder: an exact `ask-codex` leaf, then the `ask-llm` leaf, each checked against its input schema. For Carbon, use the `ask-llm` leaf of the `ask-llm` server (`mcp__ask-llm__ask-llm`) whose schema offers `antigravity` as a `provider` and advertises `model` and `noFallback`; an `ask-antigravity` leaf cannot take the model pin. A route that is not exposed, or a schema missing a pinned field, makes that participant unavailable.
+4. Write the independent evidence memo yourself before any dispatch: read the referenced files, trace the relevant code, and mark each finding Verified or Inferred.
+5. Send every available consultation in one message so they run concurrently: launch the `fable-consultant` agent with the per-invocation model set to `fable`, and make the Astra and Carbon tool calls with the frontier pins. If Astra resolves only to the CLI rung, run `bash "${CLAUDE_PLUGIN_ROOT}/skills/ask-llm-brainstorm/codex-strict.sh" gpt-6.2-astra high` with the prompt on stdin as a foreground Bash call with `timeout: 600000` in that same message.
+6. If the Agent tool reports a fallback or model-availability error for Fable, treat that answer as ineligible. Check the Astra and Carbon results for a fallback flag or a model other than the one requested.
+7. Synthesize with the frontier rules above and the coordinator's cross-check discipline and output format: verify specific claims against source, keep rejected false positives visible, grade synthesis confidence, and list each participant as answered, failed, or unavailable.
 
 # Multi-LLM Brainstorm
 

@@ -23,6 +23,23 @@ The portable workflow is `ask-llm-brainstorm`; Claude Code retains `/brainstorm`
 
 Update the skill and tool together. Claude Code and other MCP hosts prefer a compatible `ask-codex` leaf, then a compatible unified `ask-llm` with Codex selected. When neither is exposed, hosts that permit local CLI use can disclose and make one direct Codex CLI call. Pi uses its native `ask-llm`. A tool must advertise `noFallback`; when only stale tools are exposed, upgrade and restart the host before running the command.
 
+## Consult the frontier panel
+
+```text
+/brainstorm --frontier "Review the trade-offs of this queue design"
+/skill:ask-llm-brainstorm --frontier "Review this queue design"
+```
+
+`--frontier` takes only a topic and implies `--no-fallback`. After the host writes its independent view, it consults exactly three pinned participants concurrently, one attempt each:
+
+| Participant | Route |
+|---|---|
+| Claude Fable | Isolated read-only Claude Code subagent pinned to `fable`, the route `/fable-review` uses |
+| GPT-6.2 Astra | Codex `gpt-6.2-astra` at `high` effort, read-only |
+| Gemini 4 Carbon (High) | Antigravity `gemini-4-carbon-high` through unified `ask-llm`; the ID carries the High tier |
+
+The host view is non-voting evidence. A participant the host cannot run, or whose tool cannot honor its pins, is listed as unavailable and the others still run; a reported fallback or different selected model is disclosed and excluded. A point is frontier consensus only when at least two participants that answered state it independently. Fewer than three answers make the run partial. Only Claude Code can run the Fable participant, so Pi and other hosts list it as unavailable. On Claude Code the panel runs in the main conversation rather than in the brainstorm coordinator, because a subagent cannot launch the Fable subagent. The Carbon participant follows the [Antigravity execution gate](/providers/antigravity).
+
 ## Run a panel
 
 Send a topic to an explicit multi-model panel, ground it with independent Claude Opus research, then synthesize the findings. Provider, harness, requested catalog ID, independently observed served model (direct xAI API / Grok CLI only; a disclosed same-product alias/snapshot stays eligible), and Cursor's optional reported display label remain separate. Cursor Agent and Codex CLI echo the requested ID, so those attributions are selected-only and unverifiable rather than an actual model. The coordinator agent runs:
